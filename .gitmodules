@@ -1,0 +1,3 @@
+[submodule "Nexus_Engine"]
+	path = Nexus_Engine
+	url = https://github.com/devakesu/Nexus_Engine.git

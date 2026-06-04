@@ -1,0 +1,95 @@
+# ==========================================
+# 1. Python Core & Byte-compiled Files
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================================
+# 2. Virtual Environments & Packages
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+# Pipenv / Poetry artifacts
+.pipenv/
+.poetry/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ==========================================
+# 3. IDEs and Code Editors
+# ==========================================
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# ==========================================
+# 4. Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.local
+.env.*
+*.env
+secrets.json
+*.pem
+*.key
+
+# ==========================================
+# 5. Testing, Linting, & Code Coverage
+# ==========================================
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.black
+
+# ==========================================
+# 6. Database & Local Storage Caches
+# ==========================================
+*.db
+*.sqlite3
+instance/
+.webassets-cache
+
+# ==========================================
+# 7. OS Generated / Temp Files
+# ==========================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+
+# ==========================================
+# 8. Project Specific Overrides
+# ==========================================
+# Explicitly protect your hidden submodule pointer 
+# (Git handles submodules natively, but this ensures loose logs aren't kept)
+*.log
+supabase/.temp/*
+temp/
+.infisical.json
