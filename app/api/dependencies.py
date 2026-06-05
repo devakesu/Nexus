@@ -1,10 +1,9 @@
 import hashlib
 import logging
 import time
-from typing import Optional
 
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
 
 from app.core.cache import redis_client
@@ -14,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+
 def get_bearer_token(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> str:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -26,28 +26,34 @@ def get_bearer_token(
 
 
 def verify_app_check_token(
-    x_firebase_appcheck: Optional[str] = Header(None)
+    x_firebase_appcheck: str | None = Header(None),
 ) -> None:
     if not settings.enforce_app_check:
-        return 
+        return
 
     if not x_firebase_appcheck:
         raise HTTPException(
-            status_code=401, 
-            detail="Access Denied: Missing device attestation credentials. Request must originate from an authorized device."
+            status_code=401,
+            detail=(
+                "Access Denied: Missing device attestation credentials. "
+                "Request must originate from an authorized device."
+            ),
         )
-        
+
     try:
         app_check.verify_token(x_firebase_appcheck)
-    except Exception:
+    except Exception as err:
         raise HTTPException(
-            status_code=403, 
-            detail="Access Denied: Cryptographic device attestation integrity check failed. Execution blocked."
-        )
+            status_code=403,
+            detail=(
+                "Access Denied: Cryptographic device attestation integrity "
+                "check failed. Execution blocked."
+            ),
+        ) from err
 
 
 async def verify_app_check_with_replay_protection(
-    x_firebase_appcheck: Optional[str] = Header(None),
+    x_firebase_appcheck: str | None = Header(None),
 ) -> None:
     """
     App Check verifier with one-time token consumption for sensitive routes.
@@ -66,11 +72,11 @@ async def verify_app_check_with_replay_protection(
     # Step 1: Cryptographic Firebase verification
     try:
         claims = app_check.verify_token(x_firebase_appcheck)
-    except Exception:
+    except Exception as err:
         raise HTTPException(
             status_code=403,
             detail="Access Denied: Device attestation integrity check failed.",
-        )
+        ) from err
 
     # Step 2: Replay protection gate — only on sensitive routes
     if not settings.enable_replay_protection:
@@ -93,18 +99,21 @@ async def verify_app_check_with_replay_protection(
     try:
         # Atomic NX+EX: sets key ONLY if it does not already exist, with TTL
         was_set = await redis_client.set(redis_key, "1", ex=ttl, nx=True)
-    except Exception:
+    except Exception as err:
         # Redis failure should NOT silently pass for sensitive routes
         logger.error("[REPLAY] Redis unavailable during App Check consume check.")
         raise HTTPException(
             status_code=503,
             detail="Security checkpoint temporarily unavailable. Please retry.",
-        )
+        ) from err
 
     if not was_set:
         # Key already existed — this token was already consumed
         logger.warning("[REPLAY] App Check token replay attempt detected and blocked.")
         raise HTTPException(
             status_code=403,
-            detail="Access Denied: App Check token already consumed. Obtain a fresh token.",
+            detail=(
+                "Access Denied: App Check token already consumed. "
+                "Obtain a fresh token."
+            ),
         )

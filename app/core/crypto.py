@@ -10,13 +10,14 @@ from app.core.config import settings
 
 class DecryptFailedError(Exception):
     """Raised when decryption of PII fails."""
+
     pass
 
 
 _cipher_suite = Fernet(settings.pii_encryption_key.encode())
 
 
-def encrypt_pii(plaintext: str) -> bytes:
+def encrypt_pii(plaintext: str | None) -> bytes:
     """
     Encrypt a plaintext string into Fernet ciphertext bytes for BYTEA storage.
     """
@@ -41,8 +42,8 @@ def decrypt_pii(ciphertext: Any) -> str:
         if ciphertext.startswith("\\x"):
             try:
                 ciphertext = bytes.fromhex(ciphertext[2:])
-            except ValueError:
-                raise DecryptFailedError("Invalid hex-encoded ciphertext")
+            except ValueError as err:
+                raise DecryptFailedError("Invalid hex-encoded ciphertext") from err
         else:
             ciphertext = ciphertext.encode("utf-8")
 
@@ -54,7 +55,7 @@ def decrypt_pii(ciphertext: Any) -> str:
         raise DecryptFailedError("Decryption failed") from e
 
 
-def compute_blind_index(value: str) -> str:
+def compute_blind_index(value: str | None) -> str:
     """
     Compute a deterministic HMAC-SHA256 blind index for equality lookups.
     """

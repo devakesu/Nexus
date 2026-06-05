@@ -89,10 +89,36 @@ ENV DENO_INSTALL="$HOME/.deno"
 ENV NODE_OPTIONS="--max-old-space-size=9216"
 ENV PATH="$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$DENO_INSTALL/bin:$HOME/.pub-cache/bin"
 
-# 4. Bake IDE Settings using Adaptive Relative Paths
-RUN mkdir -p $HOME/.antigravity-server/data/Machine $HOME/.vscode-server/data/Machine \
-    && SETTINGS='{"python.defaultInterpreterPath": "./.venv/bin/python", "python.analysis.diagnosticMode": "workspace", "dart.flutterSdkPath": "/home/vscode/flutter-sdk", "deno.enable": true, "deno.path": "/home/vscode/.deno/bin/deno"}' \
+# 4. Bake IDE Settings & Fix Background Workspace Diagnostic Errors Across All Paths
+RUN mkdir -p $HOME/.antigravity-server/data/Machine \
+             $HOME/.antigravity-ide-server/data/Machine \
+             $HOME/.vscode-server/data/Machine \
+    && SETTINGS='{ \
+        "python.defaultInterpreterPath": "/nexus/.venv/bin/python", \
+        "python.analysis.diagnosticMode": "workspace", \
+        "python.analysis.typeCheckingMode": "strict", \
+        "python.analysis.inlayHints.variableTypes": true, \
+        "python.analysis.inlayHints.functionReturnTypes": true, \
+        "python.analysis.diagnosticSeverityOverrides": { \
+            "reportMissingTypeStubs": "warning", \
+            "reportUnknownMemberType": "warning", \
+            "reportUnknownVariableType": "warning", \
+            "reportUnknownArgumentType": "warning", \
+            "reportUnknownReturnType": "warning", \
+            "reportUnusedImport": "error", \
+            "reportUnusedVariable": "error", \
+            "reportDuplicateImport": "error", \
+            "reportImplicitGenericAny": "warning" \
+        }, \
+        "ruff.enable": true, \
+        "ruff.organizeImports": true, \
+        "ruff.fixAll": true, \
+        "dart.flutterSdkPath": "/home/vscode/flutter-sdk", \
+        "deno.enable": true, \
+        "deno.path": "/home/vscode/.deno/bin/deno" \
+    }' \
     && echo "$SETTINGS" > $HOME/.antigravity-server/data/Machine/settings.json \
+    && echo "$SETTINGS" > $HOME/.antigravity-ide-server/data/Machine/settings.json \
     && echo "$SETTINGS" > $HOME/.vscode-server/data/Machine/settings.json
 
 # 5. Deno Setup
@@ -147,29 +173,54 @@ fi
 
 git config --global --add safe.directory /nexus
 
-# --- DIAGNOSTIC PYTHON ENVIRONMENT MANAGER ---
-echo "🔍 Scanning /nexus workspace configuration..."
-if [ -d "/nexus" ]; then
-    # Force purge any ghost links or files matching '.venv' that aren't real directories
-    if [ -e "/nexus/.venv" ] && [ ! -d "/nexus/.venv" ]; then
-        echo "⚠️ Detected a corrupted .venv node type. Cleaning file block..."
-        rm -rf /nexus/.venv
+# Python Environment
+if [ ! -d "/nexus/.venv" ] && [ -d "/nexus" ]; then
+    echo "🐍 Setting up Python Environment..."
+    python3 -m venv /nexus/.venv
+    /nexus/.venv/bin/pip install --upgrade pip
+    /nexus/.venv/bin/pip install firebase-admin supabase
+    if [ -f "/nexus/requirements.txt" ]; then
+        /nexus/.venv/bin/pip install -r /nexus/requirements.txt
     fi
+fi
 
-    if [ ! -d "/nexus/.venv" ]; then
-        echo "🐍 Compiling pristine Python Environment inside /nexus..."
-        python3 -m venv /nexus/.venv
-        /nexus/.venv/bin/pip install --upgrade pip
-        /nexus/.venv/bin/pip install firebase-admin supabase
-        if [ -f "/nexus/requirements.txt" ]; then
-            echo "📄 Installing requirements.txt libraries..."
-            /nexus/.venv/bin/pip install -r /nexus/requirements.txt
-        fi
-    else
-        echo "✅ Python Environment (.venv) verified and ready."
-    fi
-else
-    echo "❌ Error: Destination directory /nexus is unreachable by this script context!"
+# --- AUTOMATED RUFF QUALITY GATE GENERATOR ---
+if [ -d "/nexus" ] && [ ! -f "/nexus/ruff.toml" ] && [ ! -f "/nexus/pyproject.toml" ]; then
+    echo "📝 Deploying Valid Strict Quality Gate Configuration (ruff.toml)..."
+    cat << 'RUFF_EOF' > /nexus/ruff.toml
+# ruff.toml placed at /nexus/ruff.toml
+target-version = "py310"
+line-length = 88
+
+[lint]
+# Select rule sets mirroring strict TypeScript + SonarJS layouts
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes (runtime errors)
+    "I",   # isort (clean import structures)
+    "C90", # McCabe Complexity Gate (catches convoluted code blocks)
+    "N",   # PEP8 Naming Conventions (strict casing tracking)
+    "UP",  # Python Upgrade tracking (enforces modern language specs)
+    "YTT", # sys.version misallocations
+    "S",   # Bandersnatch Security Scans (catches SQL Injections, hardcoded keys)
+    "BLE", # Blind Exception Catching (forbids raw `except: pass`)
+    "B",   # Bugbear (design flaws and bad loop pointer allocations)
+    "A",   # Built-in Shadowing protections
+    "COM", # Trailing comma enforcements
+    "T20", # Forbids raw print statements escaping to production
+    "RET", # Return statement structural sanity checks
+    "SIM", # Code simplification pipeline (Sonar-style clean metrics)
+    "ARG", # Unused arguments checks
+    "ERA", # Eradicate (flags commented-out dead code blocks)
+    "RUF", # Specific internal Ruff structural enhancements
+]
+
+[lint.mccabe]
+# Strict complexity limit threshold. Functions with score > 8 will fail validation.
+max-complexity = 8
+RUFF_EOF
+    chown vscode:vscode /nexus/ruff.toml
 fi
 
 # NPM & Flutter Workspace Setup
@@ -192,6 +243,7 @@ mkdir -p ~/.cursor-server/extensions
 EXTENSIONS=(
   "ms-python.python" "ms-python.vscode-pylance" "ms-python.debugpy" 
   "ms-python.vscode-python-envs" "kevinrose.vsc-python-indent"
+  "charliermarsh.ruff"
   "Dart-Code.flutter" "Dart-Code.dart-code" "dsznajder.es7-react-js-snippets"
   "esbenp.prettier-vscode" "bradlc.vscode-tailwindcss" "formulahendry.auto-rename-tag"
   "christian-kohler.path-intellisense" "christian-kohler.npm-intellisense" "vitest.explorer"
@@ -228,7 +280,6 @@ else
 fi
 
 # C. THE EXTENSION REGISTRY SYMLINK MATRIX (Locks in compatibility)
-# This forces all possible Antigravity and Cursor setups to share VS Code's extensions cache
 echo "🔗 Hard-linking cross-platform extension targets..."
 for TARGET_DIR in "$HOME/.antigravity-server" "$HOME/.antigravity-ide-server" "$HOME/.cursor-server"; do
     if [ -d "$TARGET_DIR" ]; then
@@ -245,8 +296,7 @@ RUN chmod +x /home/vscode/init_workspace.sh && chown vscode:vscode /home/vscode/
 
 # 9. Auto-Trigger Script on First Terminal Open & Map Writable Git Config
 USER vscode
-RUN echo 'export GIT_CONFIG_GLOBAL="/home/vscode/.gitconfig_local"' >> ~/.bashrc \
-    && echo "if [ ! -f ~/.workspace_initialized ]; then ~/init_workspace.sh && touch ~/.workspace_initialized; fi" >> ~/.bashrc
+RUN echo 'export GIT_CONFIG_GLOBAL="/home/vscode/.gitconfig_local"' >> ~/.bashrc
 
 # 10. Ultimate Cross-User Keys-Sync Orchestrator
 USER root

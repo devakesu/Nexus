@@ -1,0 +1,3 @@
+from typing import Any
+
+def verify_token(token: str, app: Any = None) -> dict[str, Any]: ...

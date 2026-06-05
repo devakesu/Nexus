@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime, timezone
-from supabase import Client, create_client
+
 from app.core.config import settings
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,10 @@ supabase_client: Client = create_client(
 
 
 class ProfileDecodeError(Exception):
-    """Raised when an encrypted profile field cannot be decoded into its expected shape."""
+    """Raised when an encrypted profile field cannot be decoded.
+
+    It must decode into its expected shape.
+    """
 
 
 class DatabaseAccessError(Exception):

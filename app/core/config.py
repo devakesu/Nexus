@@ -1,4 +1,5 @@
-from typing import Any, Literal, Optional, TypeAlias
+from typing import Any, Literal, TypeAlias
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DiscoveryTab: TypeAlias = Literal["Dating", "Friends", "Professional"]
@@ -18,7 +19,7 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str | dict[str, Any]
 
     # --- Firebase / App Check ---
-    firebase_service_account_path: Optional[str] = None
+    firebase_service_account_path: str | None = None
     enforce_app_check: bool = True
     enable_replay_protection: bool = True
 
@@ -33,10 +34,10 @@ class Settings(BaseSettings):
     redis_url: str
     pii_encryption_key: str
     blind_index_key: str
-    
+
     # -- Auth --
     allowed_email_domain: str = "gmail.com"
-    
+
     # -- Legal --
     current_terms_version: str = "1"
 
@@ -53,9 +54,10 @@ try:
 except Exception as e:
     raise RuntimeError(
         "CRITICAL: Failed to validate application secrets block.\n"
-        "Ensure you are running the application wrapped inside the Infisical CLI tool.\n"
+        "Ensure you are running the application wrapped inside the "
+        "Infisical CLI tool.\n"
         "Command: infisical run --env=dev -- uvicorn app.main:app --reload\n"
-        f"Error Details: {e}"
+        f"Error Details: {e}",
     ) from e
 
 

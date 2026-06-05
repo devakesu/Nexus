@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import Literal, Union
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.core.config import DiscoveryTab
-from app.core.config import settings
+from app.core.config import DiscoveryTab, settings
+
 
 class AuthBootstrapRequest(BaseModel):
     pass
@@ -19,8 +20,8 @@ class AuthBootstrapResponse(BaseModel):
     accepted_terms_version: str | None = None
     terms_accepted_at: datetime | None = None
     newly_created: bool
-    
-    
+
+
 class ProfileModel(BaseModel):
     """
     Canonical in-memory profile shape used by the discovery pipeline.
@@ -106,8 +107,8 @@ class CompleteOnboardingRequest(BaseModel):
         if cleaned != settings.current_terms_version:
             raise ValueError("You must accept the current terms version.")
         return cleaned
-    
-    
+
+
 class CompleteOnboardingResponse(BaseModel):
     user_id: str
     profile_created: bool
@@ -115,8 +116,8 @@ class CompleteOnboardingResponse(BaseModel):
     accepted_terms_version: str
     terms_accepted_at: datetime
     profile: dict[str, object]
-    
-    
+
+
 class DiscoveryFilters(BaseModel):
     """
     Structured filter payload for discovery candidate pool narrowing.
@@ -190,7 +191,9 @@ class DiscoveryRequest(BaseModel):
 
     session_id: str | None = Field(
         default=None,
-        description="Server-issued discovery session identifier for orbit-session reuse.",
+        description=(
+            "Server-issued discovery session identifier for orbit-session reuse."
+        ),
     )
 
 
@@ -224,7 +227,9 @@ class DiscoveryActionRequest(BaseModel):
     # Tab is required for tab-scoped actions and forbidden for block/unblock.
     tab: DiscoveryTab | None = Field(
         default=None,
-        description="Required for tab-scoped actions; must be omitted for block/unblock.",
+        description=(
+            "Required for tab-scoped actions; must be omitted for block/unblock."
+        ),
     )
 
     @model_validator(mode="after")
@@ -258,8 +263,8 @@ class DiscoveryActionResponse(BaseModel):
     """
 
     success: bool = True
-    
-    
+
+
 class OrbitNodeOut(BaseModel):
     """
     Lightweight node payload for rendering a profile on the orbit canvas.
@@ -287,12 +292,18 @@ class OrbitDiscoverResponse(BaseModel):
     session_id: str
     expires_at: datetime
     total_nodes: int = 0
-    nodes: list[OrbitNodeOut] = Field(default_factory=list)
-    
+    nodes: list[OrbitNodeOut] = []
+
 
 class OrbitNodeDetailRequest(BaseModel):
-    session_id: str = Field(..., description="Server-issued discovery session identifier.")
-    candidate_id: str = Field(..., description="Profile id of the clicked orbit node.")
+    session_id: str = Field(
+        ...,
+        description="Server-issued discovery session identifier.",
+    )
+    candidate_id: str = Field(
+        ...,
+        description="Profile id of the clicked orbit node.",
+    )
 
 
 class OrbitNodeDetailBaseOut(BaseModel):
@@ -348,8 +359,34 @@ class OrbitNodeDetailProfessionalOut(OrbitNodeDetailBaseOut):
     languages: list[str] = Field(default_factory=list)
     causes_supported: list[str] = Field(default_factory=list)
 
-OrbitNodeDetailResponse = Union[
-    OrbitNodeDetailDatingOut,
-    OrbitNodeDetailFriendsOut,
-    OrbitNodeDetailProfessionalOut,
-]
+
+OrbitNodeDetailResponse = (
+    OrbitNodeDetailDatingOut
+    | OrbitNodeDetailFriendsOut
+    | OrbitNodeDetailProfessionalOut
+)
+
+
+class DiscoveryViewportRequest(BaseModel):
+    session_id: str = Field(..., min_length=1)
+    center_x: float
+    center_y: float
+    radius: float = Field(..., gt=0.0, le=2000.0)
+
+
+class DiscoveryViewportResponse(BaseModel):
+    session_id: str
+    expires_at: datetime
+    total_nodes: int
+    nodes: list[OrbitNodeOut]
+
+
+class AcceptTermsRequest(BaseModel):
+    accepted_terms_version: str
+
+
+class AcceptTermsResponse(BaseModel):
+    user_id: str
+    accepted_terms_version: str
+    terms_accepted_at: datetime
+    terms_recorded: bool

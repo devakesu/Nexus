@@ -1,55 +1,64 @@
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from typing import Any, cast
 
 import firebase_admin
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from firebase_admin import credentials
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
+from app.api.discovery import limiter, router
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.api.discovery import router, limiter
 
 logger = logging.getLogger(__name__)
 
 if settings.enforce_app_check:
     if not settings.firebase_service_account_path:
         raise RuntimeError(
-            "CRITICAL: Firebase service account path unpopulated. Required when ENFORCE_APP_CHECK is true."
+            "CRITICAL: Firebase service account path unpopulated. "
+            "Required when ENFORCE_APP_CHECK is true.",
         )
 
-    if not firebase_admin._apps:
+    # Use public API firebase_admin.get_app() to check initialization
+    firebase_any: Any = firebase_admin
+    try:
+        firebase_any.get_app()
+    except ValueError:
         try:
-            cred = credentials.Certificate(settings.firebase_service_account_path)
-            firebase_admin.initialize_app(cred)
-        except Exception:
+            cred = firebase_any.credentials.Certificate(
+                settings.firebase_service_account_path,
+            )
+            firebase_any.initialize_app(cred)
+        except Exception as err:
             logger.critical("Firebase SDK initialization failed", exc_info=True)
             raise RuntimeError(
-                "CRITICAL: Firebase SDK initialization failed. Check logs for details."
-            )
+                "CRITICAL: Firebase SDK initialization failed. "
+                "Check logs for details.",
+            ) from err
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     if settings.enable_replay_protection:
         try:
-            await redis_client.ping()
+            ping_func = cast(Any, redis_client).ping
+            await ping_func()
             logger.info("Redis connection established at startup")
-        except Exception:
+        except Exception as err:
             logger.critical("Redis unreachable during startup", exc_info=True)
             raise RuntimeError(
-                "CRITICAL: Redis unreachable. Cannot start with replay protection enabled."
-            )
+                "CRITICAL: Redis unreachable. "
+                "Cannot start with replay protection enabled.",
+            ) from err
 
     yield
 
-    try:
+    with suppress(Exception):
         await redis_client.aclose()
-    except Exception:
-        logger.warning("Redis client close failed during shutdown", exc_info=True)
 
 
 app = FastAPI(
@@ -62,7 +71,9 @@ app = FastAPI(
 
 origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 if "*" in origins and len(origins) > 1:
-    raise RuntimeError("CRITICAL: Wildcard origin cannot be mixed with specific origins.")
+    raise RuntimeError(
+        "CRITICAL: Wildcard origin cannot be mixed with specific origins.",
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,10 +87,18 @@ app.state.limiter = limiter
 
 
 def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
-    if isinstance(exc, RateLimitExceeded):
-        from slowapi import _rate_limit_exceeded_handler
-        return _rate_limit_exceeded_handler(request, exc)
-    raise exc
+    detail = getattr(exc, "detail", "")
+    response = JSONResponse(
+        {"error": f"Rate limit exceeded: {detail}"},
+        status_code=429,
+    )
+    limiter_obj = getattr(request.app.state, "limiter", None)
+    view_rate_limit = getattr(request.state, "view_rate_limit", None)
+    if limiter_obj and view_rate_limit:
+        inject_headers = getattr(limiter_obj, "_inject_headers", None)
+        if callable(inject_headers):
+            response = cast(Response, inject_headers(response, view_rate_limit))
+    return response
 
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)

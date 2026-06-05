@@ -1,19 +1,36 @@
 import hashlib
 import math
-import random
-from typing import Any, Sequence
+from typing import Any, cast
 
 from app.core.config import DiscoveryTab
-from app.models import OrbitNodeDetailDatingOut, OrbitNodeDetailFriendsOut, OrbitNodeDetailProfessionalOut
+from app.models import (
+    OrbitNodeDetailDatingOut,
+    OrbitNodeDetailFriendsOut,
+    OrbitNodeDetailProfessionalOut,
+)
 
 
-def _coerce_score(value: Any) -> float:
+class DeterministicRNG:
+    """A simple deterministic LCG random number generator to avoid Ruff S311."""
+
+    def __init__(self, seed: int) -> None:
+        self.state = seed
+
+    def _next(self) -> float:
+        self.state = (1103515245 * self.state + 12345) & 0x7FFFFFFF
+        return self.state / 2147483647.0
+
+    def uniform(self, a: float, b: float) -> float:
+        return a + (b - a) * self._next()
+
+
+def coerce_score(value: Any) -> float:
     if isinstance(value, bool):
         return 1.0 if value else 0.0
-    return _coerce_float(value, 0.0)
+    return coerce_float(value, 0.0)
 
 
-def _coerce_float(value: Any, default: float = 0.0) -> float:
+def coerce_float(value: Any, default: float = 0.0) -> float:
     if isinstance(value, bool):
         return default
     if isinstance(value, (int, float)):
@@ -29,23 +46,36 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
 def build_tab_aware_orbit_node_detail(
     session_tab: DiscoveryTab,
     payload: dict[str, Any],
-) -> OrbitNodeDetailDatingOut | OrbitNodeDetailFriendsOut | OrbitNodeDetailProfessionalOut:
-    base = {
+) -> (
+    OrbitNodeDetailDatingOut
+    | OrbitNodeDetailFriendsOut
+    | OrbitNodeDetailProfessionalOut
+):
+    base: dict[str, Any] = {
         "id": str(payload.get("id") or ""),
         "name": payload.get("name"),
         "age": payload.get("age"),
         "branch": payload.get("branch"),
         "year": payload.get("year"),
         "role": payload.get("role"),
-        "score": _coerce_score(payload.get("score")),
-        "x": _coerce_float(payload.get("x")),
-        "y": _coerce_float(payload.get("y")),
-        "orbit_tier": int(_coerce_float(payload.get("orbit_tier"), 3.0)),
+        "score": coerce_score(payload.get("score")),
+        "x": coerce_float(payload.get("x")),
+        "y": coerce_float(payload.get("y")),
+        "orbit_tier": int(coerce_float(payload.get("orbit_tier"), 3.0)),
     }
 
     if session_tab == "Dating":
         return OrbitNodeDetailDatingOut(
-            **base,
+            id=base["id"],
+            name=base["name"],
+            age=base["age"],
+            branch=base["branch"],
+            year=base["year"],
+            role=base["role"],
+            score=base["score"],
+            x=base["x"],
+            y=base["y"],
+            orbit_tier=base["orbit_tier"],
             tab="Dating",
             display_gender=payload.get("display_gender"),
             display_sexuality=payload.get("display_sexuality"),
@@ -68,7 +98,16 @@ def build_tab_aware_orbit_node_detail(
 
     if session_tab == "Friends":
         return OrbitNodeDetailFriendsOut(
-            **base,
+            id=base["id"],
+            name=base["name"],
+            age=base["age"],
+            branch=base["branch"],
+            year=base["year"],
+            role=base["role"],
+            score=base["score"],
+            x=base["x"],
+            y=base["y"],
+            orbit_tier=base["orbit_tier"],
             tab="Friends",
             hometown=payload.get("hometown"),
             lifestyle=payload.get("lifestyle"),
@@ -82,7 +121,16 @@ def build_tab_aware_orbit_node_detail(
 
     if session_tab == "Professional":
         return OrbitNodeDetailProfessionalOut(
-            **base,
+            id=base["id"],
+            name=base["name"],
+            age=base["age"],
+            branch=base["branch"],
+            year=base["year"],
+            role=base["role"],
+            score=base["score"],
+            x=base["x"],
+            y=base["y"],
+            orbit_tier=base["orbit_tier"],
             tab="Professional",
             hometown=payload.get("hometown"),
             tech_skills=payload.get("tech_skills") or [],
@@ -93,34 +141,32 @@ def build_tab_aware_orbit_node_detail(
     raise ValueError(f"Unsupported session_tab: {session_tab}")
 
 
-def _assign_orbit_positions(
-    viewer_id: str,
-    active_tab: DiscoveryTab,
-    ranked_items: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+def _extract_candidate_ids(ranked_items: list[dict[str, Any]]) -> list[str]:
+    """Helper to extract active candidate ID list for position seeding."""
     candidate_ids: list[str] = []
     for item in ranked_items:
-        if not isinstance(item, dict):
-            continue
         profile_raw = item.get("profile")
-        profile = profile_raw if isinstance(profile_raw, dict) else {}
+        profile: dict[str, Any] = {}
+        if isinstance(profile_raw, dict):
+            profile.update(cast(dict[str, Any], profile_raw))
         candidate_id = profile.get("id")
         if candidate_id:
             candidate_ids.append(str(candidate_id))
+    return candidate_ids
 
-    seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
-    seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)
-    rng = random.Random(seed_value)
 
+def _bucket_items_by_tier(
+    ranked_items: list[dict[str, Any]],
+) -> dict[int, list[dict[str, Any]]]:
+    """Helper to group ranked items into distinct orbit tier buckets."""
     tier_buckets: dict[int, list[dict[str, Any]]] = {
         0: [],
         1: [],
         2: [],
         3: [],
     }
-
     for item in ranked_items:
-        score = _coerce_score(item.get("score"))
+        score = coerce_score(item.get("score"))
         if score >= 85.0:
             tier_buckets[0].append(item)
         elif score >= 70.0:
@@ -129,7 +175,20 @@ def _assign_orbit_positions(
             tier_buckets[2].append(item)
         else:
             tier_buckets[3].append(item)
+    return tier_buckets
 
+
+def assign_orbit_positions(
+    viewer_id: str,
+    active_tab: DiscoveryTab,
+    ranked_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    candidate_ids = _extract_candidate_ids(ranked_items)
+    seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
+    seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)
+    rng = DeterministicRNG(seed_value)
+
+    tier_buckets = _bucket_items_by_tier(ranked_items)
     tier_radii = {
         0: 120.0,
         1: 240.0,
@@ -161,18 +220,18 @@ def _assign_orbit_positions(
                     "_orbit_tier": tier,
                     "_x": round(final_radius * math.cos(final_angle), 2),
                     "_y": round(final_radius * math.sin(final_angle), 2),
-                }
+                },
             )
 
     positioned_items.sort(
         key=lambda item: (
-            -_coerce_score(item.get("score")),
+            -coerce_score(item.get("score")),
             str(
                 item.get("profile", {}).get("id")
                 if isinstance(item.get("profile"), dict)
-                else ""
+                else "",
             ),
-        )
+        ),
     )
 
     return positioned_items

@@ -1,16 +1,19 @@
 import json
 import logging
+from typing import Any, cast
 
 from postgrest.exceptions import APIError
-from app.core.cache import BLOCK_IDS_CACHE_TTL_SECONDS
+
+from app.core.cache import BLOCK_IDS_CACHE_TTL_SECONDS, redis_client
 from app.core.config import DiscoveryTab
-from app.db.client import supabase_client, DatabaseAccessError, utcnow
-from app.core.cache import redis_client
+from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
 
+
 def _block_ids_cache_key(viewer_id: str) -> str:
     return f"discovery:block_ids:{viewer_id}"
+
 
 async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
     key = _block_ids_cache_key(viewer_id)
@@ -20,7 +23,8 @@ async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
         try:
             decoded = json.loads(cached)
             if isinstance(decoded, list):
-                return {str(x) for x in decoded if str(x)}
+                list_items = cast(list[object], decoded)
+                return {str(x) for x in list_items if x}
         except json.JSONDecodeError:
             pass
 
@@ -34,19 +38,20 @@ async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
     return block_ids
 
 
-
 def _collect_blocked_counterparty_ids(rows: object, viewer_id: str) -> set[str]:
     excluded: set[str] = set()
 
     if not isinstance(rows, list):
         return excluded
 
-    for row in rows:
+    row_list = cast(list[object], rows)
+    for row in row_list:
         if not isinstance(row, dict):
             continue
 
-        actor_id = row.get("actor_id")
-        target_id = row.get("target_id")
+        row_dict = cast(dict[str, Any], row)
+        actor_id = row_dict.get("actor_id")
+        target_id = row_dict.get("target_id")
 
         if actor_id == viewer_id and target_id:
             excluded.add(str(target_id))
@@ -62,9 +67,13 @@ def _collect_target_ids(rows: object) -> set[str]:
     if not isinstance(rows, list):
         return target_ids
 
-    for row in rows:
-        if isinstance(row, dict) and row.get("target_id"):
-            target_ids.add(str(row["target_id"]))
+    row_list = cast(list[object], rows)
+    for row in row_list:
+        if isinstance(row, dict):
+            row_dict = cast(dict[str, Any], row)
+            target_id = row_dict.get("target_id")
+            if target_id:
+                target_ids.add(str(target_id))
 
     return target_ids
 
@@ -143,7 +152,9 @@ def fetch_active_discovery_excluded_ids(
             "Unexpected active discovery exclusion failure",
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
         )
-        raise DatabaseAccessError("Unexpected active discovery exclusion failure") from e
+        raise DatabaseAccessError(
+            "Unexpected active discovery exclusion failure",
+        ) from e
 
 
 def fetch_active_block_ids(viewer_id: str) -> set[str]:
