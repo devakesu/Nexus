@@ -1,3 +1,5 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # ==========================================
 # 1. Python Core & Byte-compiled Files
 # ==========================================
@@ -93,3 +95,58 @@ $RECYCLE.BIN/
 supabase/.temp/*
 temp/
 .infisical.json
+
+# ==========================================
+# 9. Flutter & Mobile Monorepo Architecture
+# ==========================================
+# Flutter / Dart tooling artifacts
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/pubspec.lock
+mobile/*.iml
+mobile/${workspaceFolder}*/
+mobile/$*
+mobile/scratch/
+
+# Core Application Configuration & Secrets
+mobile/lib/config/app_secrets.dart
+mobile/google-services.json
+
+# Android native tooling overrides
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/.kotlin/
+mobile/android/app/Flutter/Generated.xcconfig
+mobile/android/app/src/main/res/values/strings.xml
+mobile/android/app/src/main/res/raw/app_config.json
+mobile/android/app/google-services.json
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/android/**/*.jks
+mobile/android/**/*.keystore
+mobile/android/**/*.p12
+
+# iOS native tooling overrides
+mobile/ios/.symlinks/
+mobile/ios/Flutter/App.framework
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+mobile/ios/Flutter/.last_build_id
+mobile/ios/Pods/
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+mobile/ios/Runner/GoogleService-Info.plist
+mobile/ios/DerivedData/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3

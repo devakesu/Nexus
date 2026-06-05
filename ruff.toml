@@ -6,6 +6,7 @@ exclude = [
     ".venv",
     "venv",
     "temp",
+    "mobile",
 ]
 
 [lint]

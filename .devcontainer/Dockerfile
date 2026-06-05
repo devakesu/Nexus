@@ -184,45 +184,6 @@ if [ ! -d "/nexus/.venv" ] && [ -d "/nexus" ]; then
     fi
 fi
 
-# --- AUTOMATED RUFF QUALITY GATE GENERATOR ---
-if [ -d "/nexus" ] && [ ! -f "/nexus/ruff.toml" ] && [ ! -f "/nexus/pyproject.toml" ]; then
-    echo "📝 Deploying Valid Strict Quality Gate Configuration (ruff.toml)..."
-    cat << 'RUFF_EOF' > /nexus/ruff.toml
-# ruff.toml placed at /nexus/ruff.toml
-target-version = "py310"
-line-length = 88
-
-[lint]
-# Select rule sets mirroring strict TypeScript + SonarJS layouts
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # Pyflakes (runtime errors)
-    "I",   # isort (clean import structures)
-    "C90", # McCabe Complexity Gate (catches convoluted code blocks)
-    "N",   # PEP8 Naming Conventions (strict casing tracking)
-    "UP",  # Python Upgrade tracking (enforces modern language specs)
-    "YTT", # sys.version misallocations
-    "S",   # Bandersnatch Security Scans (catches SQL Injections, hardcoded keys)
-    "BLE", # Blind Exception Catching (forbids raw `except: pass`)
-    "B",   # Bugbear (design flaws and bad loop pointer allocations)
-    "A",   # Built-in Shadowing protections
-    "COM", # Trailing comma enforcements
-    "T20", # Forbids raw print statements escaping to production
-    "RET", # Return statement structural sanity checks
-    "SIM", # Code simplification pipeline (Sonar-style clean metrics)
-    "ARG", # Unused arguments checks
-    "ERA", # Eradicate (flags commented-out dead code blocks)
-    "RUF", # Specific internal Ruff structural enhancements
-]
-
-[lint.mccabe]
-# Strict complexity limit threshold. Functions with score > 8 will fail validation.
-max-complexity = 8
-RUFF_EOF
-    chown vscode:vscode /nexus/ruff.toml
-fi
-
 # NPM & Flutter Workspace Setup
 if [ -f "/nexus/package.json" ]; then 
     echo "📦 Synchronizing NPM packages..."
