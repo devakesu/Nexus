@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: str
     supabase_jwt_secret: str | dict[str, Any]
+    """
+    Supabase JWT secret used for decoding access tokens.
+    Can be a symmetric secret key string (for HS256/HS384/HS512) or
+    a JWKS (JSON Web Key Set) dictionary containing public key specs (for ES256).
+    """
 
     # --- Firebase / App Check ---
     firebase_service_account_path: str | None = None

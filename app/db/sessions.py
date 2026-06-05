@@ -87,7 +87,7 @@ def create_discovery_session(
     filters: dict[str, Any],
     ranked_items: list[dict[str, Any]],
     expires_in_minutes: int = 15,
-) -> str:
+) -> tuple[str, datetime]:
     expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
 
     try:
@@ -141,7 +141,7 @@ def create_discovery_session(
         active_tab=active_tab,
     )
 
-    return session_id
+    return session_id, expires_at
 
 
 def get_discovery_session(
@@ -152,7 +152,7 @@ def get_discovery_session(
     try:
         res = (
             supabase_client.table("discovery_sessions")
-            .select("*")
+            .select("id, viewer_id, tab, expires_at")
             .eq("id", session_id)
             .eq("viewer_id", viewer_id)
             .eq("tab", active_tab)
@@ -183,7 +183,6 @@ def get_discovery_session(
     rows = cast(list[Any], res.data or [])
     row = rows[0] if rows else None
     return cast(dict[str, Any], row) if isinstance(row, dict) else None
-
 
 
 def get_discovery_session_by_id(
@@ -238,7 +237,7 @@ def get_discovery_session_for_viewer(
     try:
         res = (
             supabase_client.table("discovery_sessions")
-            .select("*")
+            .select("id, viewer_id, tab, expires_at")
             .eq("id", session_id)
             .eq("viewer_id", viewer_id)
             .limit(1)
@@ -271,6 +270,10 @@ async def _filter_and_sort_viewport_items(
     center_y: float,
     radius: float,
 ) -> list[dict[str, Any]]:
+    # Note: Double exclusion filtering is intentional here. Exclusions (hide,
+    # pass, like, superlike) are pre-filtered at session generation time.
+    # However, we re-fetch and re-check block IDs from Redis here to catch
+    # any new user blocks created since the session snapshot was frozen.
     hard_excluded = await get_cached_active_block_ids(viewer_id)
     radius_sq = radius**2
     result: list[dict[str, Any]] = []
@@ -325,8 +328,9 @@ def _fetch_total_session_items_count(session_id: str, viewer_id: str) -> int:
     try:
         count_res = (
             supabase_client.table("discovery_session_items")
-            .select("candidate_id", count="exact")  # type: ignore[arg-type]
+            .select("candidate_id, discovery_sessions!inner(viewer_id)", count="exact")  # type: ignore[arg-type]
             .eq("session_id", session_id)
+            .eq("discovery_sessions.viewer_id", viewer_id)
             .limit(1)
             .execute()
         )
@@ -373,10 +377,14 @@ async def fetch_spatial_viewport(
                     id,
                     name,
                     is_deactivated
+                ),
+                discovery_sessions!inner (
+                    viewer_id
                 )
                 """,
             )
             .eq("session_id", session_id)
+            .eq("discovery_sessions.viewer_id", viewer_id)
             .gte("x", x_min)
             .lte("x", x_max)
             .gte("y", y_min)

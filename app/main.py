@@ -10,9 +10,12 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
-from app.api.discovery import limiter, router
+from app.api.discovery import router as discovery_router
+from app.api.status import router as status_router
+from app.api.user import router as user_router
 from app.core.cache import redis_client
 from app.core.config import settings
+from app.core.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +39,7 @@ if settings.enforce_app_check:
         except Exception as err:
             logger.critical("Firebase SDK initialization failed", exc_info=True)
             raise RuntimeError(
-                "CRITICAL: Firebase SDK initialization failed. "
-                "Check logs for details.",
+                "CRITICAL: Firebase SDK initialization failed. Check logs for details.",
             ) from err
 
 
@@ -104,4 +106,6 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-app.include_router(router)
+app.include_router(discovery_router)
+app.include_router(user_router)
+app.include_router(status_router)

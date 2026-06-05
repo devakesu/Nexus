@@ -11,8 +11,6 @@ from app.db.client import supabase_client
 
 logger = logging.getLogger(__name__)
 
-CURRENT_TERMS_VERSION = "v1"
-
 
 def is_allowed_college_email(email: str) -> bool:
     normalized = email.strip().lower()
@@ -102,15 +100,18 @@ def upsert_public_user(user_id: str, email: str) -> tuple[dict[str, Any], bool]:
     existing = fetch_public_user(user_id)
     newly_created = existing is None
 
+    payload: dict[str, Any] = {
+        "id": user_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if newly_created:
+        payload["email"] = email.strip().lower()
+
     try:
         result = (
             supabase_client.table("users")
             .upsert(
-                {
-                    "id": user_id,
-                    "email": email.strip().lower(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
+                payload,
                 on_conflict="id",
             )
             .execute()
@@ -287,47 +288,12 @@ def _fetch_existing_terms(user_id: str) -> dict[str, Any]:
     return cast(dict[str, Any], existing_result.data)
 
 
-def _check_existing_terms(
-    user_id: str,
-    cleaned_version: str,
-) -> tuple[str, datetime] | None:
-    existing_row = _fetch_existing_terms(user_id)
-    existing_version_raw = existing_row.get("accepted_terms_version")
-    existing_ts_raw = existing_row.get("terms_accepted_at")
-
-    if existing_version_raw is None:
-        return None
-
-    existing_version = str(existing_version_raw).strip()
-    if not existing_version.isdigit():
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Stored terms version is invalid.",
-        )
-
-    if int(cleaned_version) < int(existing_version):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="accepted_terms_version cannot be downgraded.",
-        )
-
-    if int(cleaned_version) == int(existing_version):
-        existing_ts = _parse_terms_timestamp(existing_ts_raw)
-        return existing_version, existing_ts
-
-    return None
-
-
 def update_user_terms(
     user_id: str,
     accepted_terms_version: str,
 ) -> tuple[str, datetime]:
     cleaned_version = accepted_terms_version.strip()
     _validate_terms_versions(cleaned_version)
-
-    existing_state = _check_existing_terms(user_id, cleaned_version)
-    if existing_state is not None:
-        return existing_state
 
     accepted_at = datetime.now(timezone.utc)
 
@@ -342,6 +308,9 @@ def update_user_terms(
                 },
             )
             .eq("id", user_id)
+            .or_(
+                f"accepted_terms_version.is.null,accepted_terms_version.lt.{cleaned_version}",
+            )
             .execute()
         )
     except APIError as e:
@@ -355,24 +324,33 @@ def update_user_terms(
         ) from e
 
     data = result.data
-    if not data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User bootstrap row not found.",
+    if data:
+        row = data[0]
+        if not isinstance(row, dict):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected user row payload.",
+            )
+        row_dict = cast(dict[str, Any], row)
+        stored_version = str(row_dict.get("accepted_terms_version") or cleaned_version)
+        stored_ts = _parse_terms_timestamp(
+            row_dict.get("terms_accepted_at") or accepted_at.isoformat(),
         )
+        return stored_version, stored_ts
 
-    row = data[0]
-    if not isinstance(row, dict):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected user row payload.",
-        )
-
-    row_dict = cast(dict[str, Any], row)
-    stored_version = str(row_dict.get("accepted_terms_version") or cleaned_version)
-    stored_ts = _parse_terms_timestamp(
-        row_dict.get("terms_accepted_at") or accepted_at.isoformat(),
+    # Either the user doesn't exist, or they already accepted this (or higher) version,
+    # or it was a downgrade. Let's fetch to see the state.
+    existing = _fetch_existing_terms(user_id)
+    existing_version = existing.get("accepted_terms_version")
+    if existing_version is not None:
+        if int(cleaned_version) < int(existing_version):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="accepted_terms_version cannot be downgraded.",
+            )
+        existing_ts = _parse_terms_timestamp(existing.get("terms_accepted_at"))
+        return str(existing_version), existing_ts
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to record terms acceptance.",
     )
-
-    return stored_version, stored_ts
-

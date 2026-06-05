@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -61,21 +62,55 @@ def _collect_blocked_counterparty_ids(rows: object, viewer_id: str) -> set[str]:
     return excluded
 
 
-def _collect_target_ids(rows: object) -> set[str]:
-    target_ids: set[str] = set()
+def _check_pass_expiry(
+    expires_at_raw: Any,
+    target_id: str,
+    now: datetime,
+    excluded: set[str],
+) -> None:
+    if expires_at_raw and isinstance(expires_at_raw, str):
+        try:
+            expires_at = datetime.fromisoformat(
+                expires_at_raw.replace("Z", "+00:00"),
+            )
+            if expires_at > now:
+                excluded.add(target_id)
+        except ValueError:
+            pass
 
-    if not isinstance(rows, list):
-        return target_ids
 
-    row_list = cast(list[object], rows)
-    for row in row_list:
-        if isinstance(row, dict):
-            row_dict = cast(dict[str, Any], row)
-            target_id = row_dict.get("target_id")
-            if target_id:
-                target_ids.add(str(target_id))
+def _process_exclusion_row(
+    row: dict[str, Any],
+    viewer_id: str,
+    active_tab: DiscoveryTab,
+    now: datetime,
+    excluded: set[str],
+) -> None:
+    action = row.get("action")
+    actor_id = row.get("actor_id")
+    target_id = row.get("target_id")
+    tab = row.get("tab")
 
-    return target_ids
+    if not actor_id or not target_id:
+        return
+
+    actor_id_str = str(actor_id)
+    target_id_str = str(target_id)
+
+    if action == "block":
+        if actor_id_str == viewer_id:
+            excluded.add(target_id_str)
+        elif target_id_str == viewer_id:
+            excluded.add(actor_id_str)
+        return
+
+    if actor_id_str != viewer_id or tab != active_tab:
+        return
+
+    if action in ("hide", "like", "superlike"):
+        excluded.add(target_id_str)
+    elif action == "pass":
+        _check_pass_expiry(row.get("expires_at"), target_id_str, now, excluded)
 
 
 def fetch_active_discovery_excluded_ids(
@@ -92,53 +127,25 @@ def fetch_active_discovery_excluded_ids(
     - optionally like/superlike depending on product policy
     """
     excluded: set[str] = set()
-    now_iso = utcnow().isoformat()
+    now = utcnow()
 
     try:
-        block_res = (
+        res = (
             supabase_client.table("profile_discovery_actions")
-            .select("actor_id, target_id")
-            .eq("action", "block")
+            .select("actor_id, target_id, action, tab, expires_at")
             .is_("revoked_at", "null")
-            .or_(f"actor_id.eq.{viewer_id},target_id.eq.{viewer_id}")
+            .or_(
+                f"and(actor_id.eq.{viewer_id},action.in.(block,hide,like,superlike,pass)),"
+                f"and(target_id.eq.{viewer_id},action.eq.block)",
+            )
             .execute()
         )
-        excluded.update(_collect_blocked_counterparty_ids(block_res.data, viewer_id))
 
-        hide_res = (
-            supabase_client.table("profile_discovery_actions")
-            .select("target_id")
-            .eq("actor_id", viewer_id)
-            .eq("tab", active_tab)
-            .eq("action", "hide")
-            .is_("revoked_at", "null")
-            .execute()
-        )
-        excluded.update(_collect_target_ids(hide_res.data))
-
-        engagement_res = (
-            supabase_client.table("profile_discovery_actions")
-            .select("target_id")
-            .eq("actor_id", viewer_id)
-            .eq("tab", active_tab)
-            .in_("action", ["like", "superlike"])
-            .is_("revoked_at", "null")
-            .execute()
-        )
-        excluded.update(_collect_target_ids(engagement_res.data))
-
-        pass_res = (
-            supabase_client.table("profile_discovery_actions")
-            .select("target_id")
-            .eq("actor_id", viewer_id)
-            .eq("tab", active_tab)
-            .eq("action", "pass")
-            .is_("revoked_at", "null")
-            .gt("expires_at", now_iso)
-            .execute()
-        )
-        excluded.update(_collect_target_ids(pass_res.data))
-
+        rows = cast(list[Any], res.data or [])
+        for row_raw in rows:
+            if isinstance(row_raw, dict):
+                row_dict = cast(dict[str, Any], row_raw)
+                _process_exclusion_row(row_dict, viewer_id, active_tab, now, excluded)
         return excluded
 
     except APIError as e:
@@ -186,3 +193,61 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
             extra={"viewer_id": viewer_id},
         )
         raise DatabaseAccessError("Unexpected block id fetch failure") from e
+
+
+def record_discovery_action(
+    actor_id: str,
+    target_id: str,
+    action: str,
+    tab: DiscoveryTab | None = None,
+) -> None:
+    now = utcnow()
+    is_reversal = action.startswith("un")
+    base_action = action[2:] if is_reversal else action
+
+    try:
+        if is_reversal:
+            q = (
+                supabase_client.table("profile_discovery_actions")
+                .update({"revoked_at": now.isoformat()})
+                .eq("actor_id", actor_id)
+                .eq("target_id", target_id)
+                .eq("action", base_action)
+                .is_("revoked_at", "null")
+            )
+            if tab is not None:
+                q = q.eq("tab", tab)
+            q.execute()
+        else:
+            payload: dict[str, Any] = {
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "action": base_action,
+            }
+            if tab is not None:
+                payload["tab"] = tab
+
+            if base_action == "pass":
+                payload["expires_at"] = (now + timedelta(days=14)).isoformat()
+
+            supabase_client.table("profile_discovery_actions").insert(payload).execute()
+
+    except APIError as e:
+        logger.exception(
+            "Failed to record discovery action",
+            extra={
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "action": action,
+                "tab": tab,
+            },
+        )
+        raise DatabaseAccessError("Failed to record discovery action") from e
+
+
+async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
+    try:
+        await redis_client.delete(f"discovery:block_ids:{viewer_id}")
+        await redis_client.delete(f"discovery:block_ids:{target_id}")
+    except Exception:
+        logger.exception("Failed to invalidate block cache")

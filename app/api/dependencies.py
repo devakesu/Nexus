@@ -113,7 +113,6 @@ async def verify_app_check_with_replay_protection(
         raise HTTPException(
             status_code=403,
             detail=(
-                "Access Denied: App Check token already consumed. "
-                "Obtain a fresh token."
+                "Access Denied: App Check token already consumed. Obtain a fresh token."
             ),
         )

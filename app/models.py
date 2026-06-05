@@ -6,14 +6,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.core.config import DiscoveryTab, settings
 
 
-class AuthBootstrapRequest(BaseModel):
-    pass
-
-
 class AuthBootstrapResponse(BaseModel):
     user_id: str
     email: str
-    is_allowed_domain: bool
     is_active: bool
     is_suspended: bool
     moderation_status: str
@@ -148,6 +143,13 @@ class DiscoveryFilters(BaseModel):
         max_length=100,
         description="Target professional role designation.",
     )
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip().lower()
 
     # Inclusive age bounds.
     min_age: int = Field(
@@ -383,6 +385,14 @@ class DiscoveryViewportResponse(BaseModel):
 
 class AcceptTermsRequest(BaseModel):
     accepted_terms_version: str
+
+    @field_validator("accepted_terms_version")
+    @classmethod
+    def validate_terms_version(cls, value: str) -> str:
+        cleaned = value.strip()
+        if cleaned != settings.current_terms_version:
+            raise ValueError("You must accept the current terms version.")
+        return cleaned
 
 
 class AcceptTermsResponse(BaseModel):

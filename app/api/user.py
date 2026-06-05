@@ -2,12 +2,11 @@ import logging
 
 import jwt
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.api.dependencies import get_bearer_token, verify_app_check_token
 from app.core.config import settings
 from app.core.jwks import get_live_supabase_public_key
+from app.core.limiter import limiter
 from app.db.users import (
     fetch_public_user,
     get_supabase_user_from_jwt,
@@ -19,7 +18,6 @@ from app.db.users import (
 from app.models import (
     AcceptTermsRequest,
     AcceptTermsResponse,
-    AuthBootstrapRequest,
     AuthBootstrapResponse,
     CompleteOnboardingRequest,
     CompleteOnboardingResponse,
@@ -28,7 +26,6 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address, enabled=settings.enable_rate_limiting)
 
 
 def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
@@ -75,12 +72,10 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
 @limiter.limit(settings.rate_limit_auth)
 def auth_bootstrap(
     request: Request,
-    payload: AuthBootstrapRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     access_token: str = Depends(get_bearer_token),
 ):
     _ = request
-    _ = payload
 
     auth_user = get_supabase_user_from_jwt(access_token)
 
@@ -116,7 +111,6 @@ def auth_bootstrap(
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
         email=str(user_row["email"]),
-        is_allowed_domain=True,
         is_active=bool(user_row.get("is_active", True)),
         is_suspended=bool(user_row.get("is_suspended", False)),
         moderation_status=str(user_row.get("moderation_status") or "clear"),

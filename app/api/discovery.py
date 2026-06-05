@@ -1,16 +1,17 @@
+import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.api.dependencies import verify_app_check_token
 from app.api.user import get_authenticated_user_id
 from app.core.config import DiscoveryTab, settings
 from app.core.crypto import DecryptFailedError
+from app.core.limiter import limiter
 from app.db.client import DatabaseAccessError, ProfileDecodeError, utcnow
+from app.db.exclusions import invalidate_block_cache, record_discovery_action
 from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.profiles import fetch_stage_1_candidates
 from app.db.sessions import (
@@ -21,6 +22,8 @@ from app.db.sessions import (
     get_discovery_session_by_id,
 )
 from app.models import (
+    DiscoveryActionRequest,
+    DiscoveryActionResponse,
     DiscoveryRequest,
     DiscoveryViewportRequest,
     DiscoveryViewportResponse,
@@ -34,7 +37,6 @@ from Nexus_Engine import engine
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address, enabled=settings.enable_rate_limiting)
 
 
 def _get_or_validate_session(
@@ -113,7 +115,7 @@ def _create_new_discovery_session(
         ),
     )
 
-    session_id = create_discovery_session(
+    session_id, expires_at = create_discovery_session(
         viewer_id=user_id,
         active_tab=active_tab,
         filters=filters.model_dump(mode="json"),
@@ -121,7 +123,6 @@ def _create_new_discovery_session(
         expires_in_minutes=15,
     )
 
-    expires_at = utcnow() + timedelta(minutes=15)
     return session_id, expires_at
 
 
@@ -139,16 +140,18 @@ async def get_discovery_orbit(
 
     try:
         if payload.session_id:
-            session_id, expires_at = _get_or_validate_session(
-                session_id=payload.session_id,
-                user_id=user_id,
-                active_tab=active_tab,
+            session_id, expires_at = await asyncio.to_thread(
+                _get_or_validate_session,
+                payload.session_id,
+                user_id,
+                active_tab,
             )
         else:
-            session_id, expires_at = _create_new_discovery_session(
-                user_id=user_id,
-                active_tab=active_tab,
-                filters=filters,
+            session_id, expires_at = await asyncio.to_thread(
+                _create_new_discovery_session,
+                user_id,
+                active_tab,
+                filters,
             )
 
         nodes, total_nodes = await fetch_spatial_viewport(
@@ -288,9 +291,10 @@ async def get_discovery_viewport(
     _ = request
 
     try:
-        session_id, expires_at = _get_or_validate_session(
-            session_id=payload.session_id,
-            user_id=user_id,
+        session_id, expires_at = await asyncio.to_thread(
+            _get_or_validate_session,
+            payload.session_id,
+            user_id,
         )
 
         nodes, total_nodes = await fetch_spatial_viewport(
@@ -356,3 +360,24 @@ async def get_discovery_viewport(
             status_code=500,
             detail="Unexpected internal error.",
         ) from err
+
+
+@router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)
+@limiter.limit(settings.rate_limit_discover)
+async def handle_discovery_action(
+    request: Request,
+    payload: DiscoveryActionRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+):
+    _ = request
+    await asyncio.to_thread(
+        record_discovery_action,
+        actor_id=user_id,
+        target_id=payload.target_id,
+        action=payload.action,
+        tab=payload.tab,
+    )
+    if payload.action in ("block", "unblock"):
+        await invalidate_block_cache(user_id, payload.target_id)
+    return DiscoveryActionResponse(success=True)
