@@ -1,7 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 
 import firebase_admin
 import jwt
@@ -19,9 +18,20 @@ from app.cache import redis_client
 from app.check import verify_app_check_token
 from app.config import settings
 from app.crypto import DecryptFailedError
-from app.database import DatabaseAccessError, ProfileDecodeError, create_discovery_session, fetch_discovery_session_page, fetch_stage_1_candidates, get_discovery_session, utcnow
+from app.database import (
+    DatabaseAccessError,
+    ProfileDecodeError,
+    build_tab_aware_orbit_node_detail,
+    create_discovery_session,
+    fetch_discovery_node_detail,
+    fetch_spatial_viewport,
+    fetch_stage_1_candidates,
+    get_discovery_session,
+    get_discovery_session_for_viewer,
+    utcnow,
+)
 from app.jwks import get_live_supabase_public_key
-from app.models import DiscoverResponse, DiscoveryFilters, DiscoveryRequest, FeedItemOut
+from app.models import DiscoveryRequest, OrbitDiscoverResponse, OrbitNodeDetailRequest, OrbitNodeDetailResponse, OrbitNodeOut
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +106,7 @@ app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 
-def get_authenticated_user_id(authorization: Optional[str] = Header(None)) -> str:
+def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=401,
@@ -114,7 +124,7 @@ def get_authenticated_user_id(authorization: Optional[str] = Header(None)) -> st
             audience="authenticated",
         )
 
-        user_uuid: Optional[str] = payload.get("sub")
+        user_uuid: str | None = payload.get("sub")
         if not user_uuid:
             raise HTTPException(status_code=401, detail="Invalid token: sub claim missing.")
 
@@ -136,9 +146,9 @@ def health_check(request: Request):
     _ = request
     return {"status": "healthy"}
 
-@app.post("/api/v1/discover", response_model=DiscoverResponse)
+@app.post("/api/v1/discover", response_model=OrbitDiscoverResponse)
 @limiter.limit(settings.rate_limit_discover)
-def get_recommendations(
+async def get_discovery_orbit(
     request: Request,
     payload: DiscoveryRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
@@ -146,11 +156,12 @@ def get_recommendations(
 ):
     _ = request
     active_tab = payload.tab
-    filters = payload.filters or DiscoveryFilters()
-    limit = min(max(payload.limit or 20, 1), 20)
-    cursor = max(payload.cursor or 0, 0)
+    filters = payload.filters
 
     try:
+        session_id: str
+        expires_at: datetime
+
         if payload.session_id:
             session = get_discovery_session(
                 session_id=payload.session_id,
@@ -160,127 +171,87 @@ def get_recommendations(
             if not session:
                 raise HTTPException(status_code=404, detail="Discovery session not found.")
 
-            expires_at = session.get("expires_at")
-            if isinstance(expires_at, str):
-                expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-
-            if not isinstance(expires_at, datetime):
+            expires_at_raw = session.get("expires_at")
+            if isinstance(expires_at_raw, str):
+                expires_at = datetime.fromisoformat(expires_at_raw.replace("Z", "+00:00"))
+            elif isinstance(expires_at_raw, datetime):
+                expires_at = expires_at_raw
+            else:
                 raise HTTPException(status_code=500, detail="Discovery session expiry malformed.")
 
             if expires_at <= utcnow():
                 raise HTTPException(status_code=410, detail="Discovery session expired. Please refresh.")
 
-            page_rows, total_count = fetch_discovery_session_page(
-                session_id=payload.session_id,
+            session_id = payload.session_id
+        else:
+            viewer, candidate_pool = fetch_stage_1_candidates(
                 viewer_id=user_id,
-                start_position=cursor,
-                limit=limit,
+                active_tab=active_tab,
+                filters=filters,
+                candidate_limit=200,
             )
 
-            sanitized_feed = [
-                FeedItemOut(
-                    id=row["id"],
-                    name=row["name"],
-                    branch=row["branch"],
-                    year=row["year"],
-                    display_gender=row.get("display_gender"),
-                    display_sexuality=row.get("display_sexuality"),
-                    role=row.get("role"),
-                    score=row.get("score"),
+            if not viewer or not isinstance(viewer, dict):
+                raise HTTPException(status_code=404, detail="Target user profile unpopulated.")
+
+            ranked_orbit = engine.discover_orbit(
+                viewer,
+                active_tab,
+                candidate_pool,
+                orbit_limit=200,
+            )
+
+            ranked_orbit.sort(
+                key=lambda x: (
+                    -float(x.get("score") or 0.0),
+                    str(x.get("profile", {}).get("id") or ""),
                 )
-                for row in page_rows
-            ]
-
-            next_cursor = (
-                page_rows[-1]["position"] + 1
-                if page_rows
-                else cursor
-            )
-            has_more = next_cursor < total_count
-
-            return DiscoverResponse(
-                session_id=payload.session_id,
-                feed=sanitized_feed,
-                has_more=has_more,
-                next_cursor=next_cursor if has_more else None,
             )
 
-        viewer, candidate_pool = fetch_stage_1_candidates(
-            viewer_id=user_id,
-            active_tab=active_tab,
-            filters=filters,
-            candidate_limit=200,
-        )
-
-        if not viewer or not isinstance(viewer, dict):
-            raise HTTPException(status_code=404, detail="Target user profile unpopulated.")
-
-        ranked = engine.discover_feed(
-            viewer,
-            active_tab,
-            candidate_pool,
-            feed_limit=200,
-        )
-
-        ranked.sort(
-            key=lambda x: (
-                -float(x.get("score") or 0),
-                str(x.get("profile", {}).get("id") or "")
+            session_id = create_discovery_session(
+                viewer_id=user_id,
+                active_tab=active_tab,
+                filters=filters.model_dump(mode="json"),
+                ranked_items=ranked_orbit,
+                expires_in_minutes=15,
             )
-        )
 
-        session_id = create_discovery_session(
-            viewer_id=user_id,
-            active_tab=active_tab,
-            filters=filters.model_dump(mode="json"),
-            ranked_items=ranked,
-            expires_in_minutes=15,
-        )
+            expires_at = utcnow() + timedelta(minutes=15)
 
-        page_rows, total_count = fetch_discovery_session_page(
+        nodes, total_nodes = await fetch_spatial_viewport(
             session_id=session_id,
             viewer_id=user_id,
-            start_position=0,
-            limit=limit,
+            center_x=0.0,
+            center_y=0.0,
+            radius=300.0,
         )
 
-        sanitized_feed = [
-            FeedItemOut(
-                id=row["id"],
-                name=row["name"],
-                branch=row["branch"],
-                year=row["year"],
-                display_gender=row.get("display_gender"),
-                display_sexuality=row.get("display_sexuality"),
-                role=row.get("role"),
-                score=row.get("score"),
-            )
-            for row in page_rows
-        ]
-
-        next_cursor = (
-            page_rows[-1]["position"] + 1
-            if page_rows
-            else 0
-        )
-        has_more = next_cursor < total_count
-
-        return DiscoverResponse(
+        return OrbitDiscoverResponse(
             session_id=session_id,
-            feed=sanitized_feed,
-            has_more=has_more,
-            next_cursor=next_cursor if has_more else None,
+            expires_at=expires_at,
+            total_nodes=total_nodes,
+            nodes=[
+                OrbitNodeOut(
+                    id=node["id"],
+                    name=node.get("name"),
+                    score=float(node.get("score") or 0.0),
+                    x=float(node.get("x") or 0.0),
+                    y=float(node.get("y") or 0.0),
+                    orbit_tier=int(node.get("orbit_tier") or 0),
+                )
+                for node in nodes
+            ],
         )
 
     except (DecryptFailedError, ProfileDecodeError):
         logger.exception(
-            "Encrypted profile decode failure during discovery",
+            "Encrypted profile decode failure during orbit discovery bootstrap",
             extra={"user_id": user_id, "active_tab": active_tab},
         )
         raise HTTPException(status_code=500, detail="Profile data integrity error.")
     except DatabaseAccessError:
         logger.exception(
-            "Database access failure during discovery",
+            "Database access failure during orbit discovery bootstrap",
             extra={"user_id": user_id, "active_tab": active_tab},
         )
         raise HTTPException(status_code=503, detail="Discovery service temporarily unavailable.")
@@ -288,7 +259,68 @@ def get_recommendations(
         raise
     except Exception:
         logger.exception(
-            "Unexpected discovery failure",
+            "Unexpected orbit discovery bootstrap failure",
             extra={"user_id": user_id, "active_tab": active_tab},
+        )
+        raise HTTPException(status_code=500, detail="Unexpected internal error.")
+    
+    
+@app.post("/api/v1/discover/node-details", response_model=OrbitNodeDetailResponse)
+@limiter.limit(settings.rate_limit_discover)
+async def get_discovery_node_detail(
+    request: Request,
+    payload: OrbitNodeDetailRequest = Body(...),
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+):
+    _ = request
+
+    try:
+        detail_result = await fetch_discovery_node_detail(
+            session_id=payload.session_id,
+            viewer_id=user_id,
+            candidate_id=payload.candidate_id,
+        )
+
+        if not detail_result:
+            raise HTTPException(status_code=404, detail="Discovery node not found.")
+
+        session_tab, detail_payload = detail_result
+
+        return build_tab_aware_orbit_node_detail(
+            session_tab=session_tab,
+            payload=detail_payload,
+        )
+
+    except (DecryptFailedError, ProfileDecodeError):
+        logger.exception(
+            "Encrypted profile decode failure during orbit node detail fetch",
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "candidate_id": payload.candidate_id,
+            },
+        )
+        raise HTTPException(status_code=500, detail="Profile data integrity error.")
+    except DatabaseAccessError:
+        logger.exception(
+            "Database access failure during orbit node detail fetch",
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "candidate_id": payload.candidate_id,
+            },
+        )
+        raise HTTPException(status_code=503, detail="Discovery detail service temporarily unavailable.")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(
+            "Unexpected orbit node detail failure",
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "candidate_id": payload.candidate_id,
+            },
         )
         raise HTTPException(status_code=500, detail="Unexpected internal error.")

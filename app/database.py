@@ -1,14 +1,18 @@
+import hashlib
 import json
 import logging
+import math
+import random
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence, cast
 
 from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
+from app.cache import get_cached_active_block_ids
 from app.config import DiscoveryTab, settings
 from app.crypto import DecryptFailedError, compute_blind_index, decrypt_pii
-from app.models import DiscoveryFilters
+from app.models import DiscoveryFilters, OrbitNodeDetailDatingOut, OrbitNodeDetailFriendsOut, OrbitNodeDetailProfessionalOut
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +39,19 @@ def utcnow() -> datetime:
 def _coerce_score(value: Any) -> float:
     if isinstance(value, bool):
         return 1.0 if value else 0.0
+    return _coerce_float(value, 0.0)
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
         try:
             return float(value)
         except ValueError:
-            return 0.0
-    return 0.0
+            return default
+    return default
 
 def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
     if active_tab == "Dating":
@@ -64,7 +73,7 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
-def _expand_target_buckets(buckets: Sequence[str] | list[Any] | None) -> list[str]:
+def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
     if not buckets:
         return []
     # Normalize to list[str]
@@ -180,6 +189,106 @@ def _attach_empty_embeddings(record: dict[str, Any]) -> None:
     record["bio_embedding"] = None
     record["career_embedding"] = None
     record["identity_embedding"] = None
+    
+    
+def _collect_blocked_counterparty_ids(rows: object, viewer_id: str) -> set[str]:
+    excluded: set[str] = set()
+
+    if not isinstance(rows, list):
+        return excluded
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+
+        actor_id = row.get("actor_id")
+        target_id = row.get("target_id")
+
+        if actor_id == viewer_id and target_id:
+            excluded.add(str(target_id))
+        elif target_id == viewer_id and actor_id:
+            excluded.add(str(actor_id))
+
+    return excluded
+
+def build_tab_aware_orbit_node_detail(
+    session_tab: DiscoveryTab,
+    payload: dict[str, Any],
+) -> OrbitNodeDetailDatingOut | OrbitNodeDetailFriendsOut | OrbitNodeDetailProfessionalOut:
+    base = {
+        "id": str(payload.get("id") or ""),
+        "name": payload.get("name"),
+        "age": payload.get("age"),
+        "branch": payload.get("branch"),
+        "year": payload.get("year"),
+        "role": payload.get("role"),
+        "score": _coerce_score(payload.get("score")),
+        "x": _coerce_float(payload.get("x")),
+        "y": _coerce_float(payload.get("y")),
+        "orbit_tier": int(_coerce_float(payload.get("orbit_tier"), 3.0)),
+    }
+
+    if session_tab == "Dating":
+        return OrbitNodeDetailDatingOut(
+            **base,
+            tab="Dating",
+            display_gender=payload.get("display_gender"),
+            display_sexuality=payload.get("display_sexuality"),
+            drinking=payload.get("drinking"),
+            smoking=payload.get("smoking"),
+            hometown=payload.get("hometown"),
+            partner_values=payload.get("partner_values"),
+            children_plans=payload.get("children_plans"),
+            religious_beliefs=payload.get("religious_beliefs"),
+            lifestyle=payload.get("lifestyle"),
+            activities=payload.get("activities") or [],
+            looking_for=payload.get("looking_for") or [],
+            causes_supported=payload.get("causes_supported") or [],
+            top_artists=payload.get("top_artists") or [],
+            tech_skills=payload.get("tech_skills") or [],
+            languages=payload.get("languages") or [],
+            ai_vibe_tags=payload.get("ai_vibe_tags") or [],
+            pets=payload.get("pets") or [],
+        )
+
+    if session_tab == "Friends":
+        return OrbitNodeDetailFriendsOut(
+            **base,
+            tab="Friends",
+            hometown=payload.get("hometown"),
+            lifestyle=payload.get("lifestyle"),
+            activities=payload.get("activities") or [],
+            causes_supported=payload.get("causes_supported") or [],
+            top_artists=payload.get("top_artists") or [],
+            languages=payload.get("languages") or [],
+            ai_vibe_tags=payload.get("ai_vibe_tags") or [],
+            pets=payload.get("pets") or [],
+        )
+
+    if session_tab == "Professional":
+        return OrbitNodeDetailProfessionalOut(
+            **base,
+            tab="Professional",
+            hometown=payload.get("hometown"),
+            tech_skills=payload.get("tech_skills") or [],
+            languages=payload.get("languages") or [],
+            causes_supported=payload.get("causes_supported") or [],
+        )
+
+    raise ValueError(f"Unsupported session_tab: {session_tab}")
+
+
+def _collect_target_ids(rows: object) -> set[str]:
+    target_ids: set[str] = set()
+
+    if not isinstance(rows, list):
+        return target_ids
+
+    for row in rows:
+        if isinstance(row, dict) and row.get("target_id"):
+            target_ids.add(str(row["target_id"]))
+
+    return target_ids
 
 
 def fetch_active_discovery_excluded_ids(
@@ -199,7 +308,6 @@ def fetch_active_discovery_excluded_ids(
     now_iso = utcnow().isoformat()
 
     try:
-        # Global blocks in either direction
         block_res = (
             supabase_client.table("profile_discovery_actions")
             .select("actor_id, target_id")
@@ -208,19 +316,8 @@ def fetch_active_discovery_excluded_ids(
             .or_(f"actor_id.eq.{viewer_id},target_id.eq.{viewer_id}")
             .execute()
         )
+        excluded.update(_collect_blocked_counterparty_ids(block_res.data, viewer_id))
 
-        for row in block_res.data or []:
-            if not isinstance(row, dict):
-                continue
-            actor_id = row.get("actor_id")
-            target_id = row.get("target_id")
-
-            if actor_id == viewer_id and target_id:
-                excluded.add(str(target_id))
-            elif target_id == viewer_id and actor_id:
-                excluded.add(str(actor_id))
-
-        # Tab-scoped hides
         hide_res = (
             supabase_client.table("profile_discovery_actions")
             .select("target_id")
@@ -230,10 +327,7 @@ def fetch_active_discovery_excluded_ids(
             .is_("revoked_at", "null")
             .execute()
         )
-
-        for row in hide_res.data or []:
-            if isinstance(row, dict) and row.get("target_id"):
-                excluded.add(str(row["target_id"]))
+        excluded.update(_collect_target_ids(hide_res.data))
 
         engagement_res = (
             supabase_client.table("profile_discovery_actions")
@@ -244,12 +338,8 @@ def fetch_active_discovery_excluded_ids(
             .is_("revoked_at", "null")
             .execute()
         )
+        excluded.update(_collect_target_ids(engagement_res.data))
 
-        for row in engagement_res.data or []:
-            if isinstance(row, dict) and row.get("target_id"):
-                excluded.add(str(row["target_id"]))
-                
-        # Active passes only
         pass_res = (
             supabase_client.table("profile_discovery_actions")
             .select("target_id")
@@ -260,10 +350,7 @@ def fetch_active_discovery_excluded_ids(
             .gt("expires_at", now_iso)
             .execute()
         )
-
-        for row in pass_res.data or []:
-            if isinstance(row, dict) and row.get("target_id"):
-                excluded.add(str(row["target_id"]))
+        excluded.update(_collect_target_ids(pass_res.data))
 
         return excluded
 
@@ -279,15 +366,13 @@ def fetch_active_discovery_excluded_ids(
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
         )
         raise DatabaseAccessError("Unexpected active discovery exclusion failure") from e
-    
+
 
 def fetch_active_block_ids(viewer_id: str) -> set[str]:
     """
     Return ids of users with an active block in either direction.
     Used for lightweight re-check at snapshot page read time.
     """
-    excluded: set[str] = set()
-
     try:
         res = (
             supabase_client.table("profile_discovery_actions")
@@ -298,17 +383,7 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
             .execute()
         )
 
-        for row in res.data or []:
-            if not isinstance(row, dict):
-                continue
-            actor_id = row.get("actor_id")
-            target_id = row.get("target_id")
-            if actor_id == viewer_id and target_id:
-                excluded.add(str(target_id))
-            elif target_id == viewer_id and actor_id:
-                excluded.add(str(actor_id))
-
-        return excluded
+        return _collect_blocked_counterparty_ids(res.data, viewer_id)
 
     except APIError as e:
         logger.exception(
@@ -323,13 +398,44 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
         )
         raise DatabaseAccessError("Unexpected block id fetch failure") from e
     
-    
+
+def get_discovery_session_for_viewer(
+    session_id: str,
+    viewer_id: str,
+) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("discovery_sessions")
+            .select("*")
+            .eq("id", session_id)
+            .eq("viewer_id", viewer_id)
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch discovery session for viewer",
+            extra={"viewer_id": viewer_id, "session_id": session_id},
+        )
+        raise DatabaseAccessError("Failed to fetch discovery session for viewer") from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected discovery session-for-viewer lookup failure",
+            extra={"viewer_id": viewer_id, "session_id": session_id},
+        )
+        raise DatabaseAccessError("Unexpected discovery session-for-viewer lookup failure") from e
+
+    rows = res.data if isinstance(res.data, list) else []
+    row = rows[0] if rows else None
+    return row if isinstance(row, dict) else None
+
+
 def fetch_stage_1_candidates(
     viewer_id: str,
     active_tab: DiscoveryTab,
     filters: DiscoveryFilters,
     candidate_limit: int = 200,
-) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     
     """
     Execute the Stage 1 database filtering pass.
@@ -564,6 +670,89 @@ def fetch_stage_1_candidates(
 
     return viewer, list(candidate_map.values())
 
+def _assign_orbit_positions(
+    viewer_id: str,
+    active_tab: DiscoveryTab,
+    ranked_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    candidate_ids: list[str] = []
+    for item in ranked_items:
+        if not isinstance(item, dict):
+            continue
+        profile_raw = item.get("profile")
+        profile = profile_raw if isinstance(profile_raw, dict) else {}
+        candidate_id = profile.get("id")
+        if candidate_id:
+            candidate_ids.append(str(candidate_id))
+
+    seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
+    seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)
+    rng = random.Random(seed_value)
+
+    tier_buckets: dict[int, list[dict[str, Any]]] = {
+        0: [],
+        1: [],
+        2: [],
+        3: [],
+    }
+
+    for item in ranked_items:
+        score = _coerce_score(item.get("score"))
+        if score >= 85.0:
+            tier_buckets[0].append(item)
+        elif score >= 70.0:
+            tier_buckets[1].append(item)
+        elif score >= 50.0:
+            tier_buckets[2].append(item)
+        else:
+            tier_buckets[3].append(item)
+
+    tier_radii = {
+        0: 120.0,
+        1: 240.0,
+        2: 380.0,
+        3: 560.0,
+    }
+
+    positioned_items: list[dict[str, Any]] = []
+
+    for tier, items in tier_buckets.items():
+        if not items:
+            continue
+
+        radius = tier_radii[tier]
+        count = len(items)
+        base_angle_offset = rng.uniform(0.0, 2.0 * math.pi)
+
+        for index, item in enumerate(items):
+            angle = base_angle_offset + ((2.0 * math.pi * index) / count)
+            radial_jitter = rng.uniform(-18.0, 18.0)
+            angular_jitter = rng.uniform(-0.08, 0.08)
+
+            final_radius = max(40.0, radius + radial_jitter)
+            final_angle = angle + angular_jitter
+
+            positioned_items.append(
+                {
+                    **item,
+                    "_orbit_tier": tier,
+                    "_x": round(final_radius * math.cos(final_angle), 2),
+                    "_y": round(final_radius * math.sin(final_angle), 2),
+                }
+            )
+
+    positioned_items.sort(
+        key=lambda item: (
+            -_coerce_score(item.get("score")),
+            str(
+                item.get("profile", {}).get("id")
+                if isinstance(item.get("profile"), dict)
+                else ""
+            ),
+        )
+    )
+
+    return positioned_items
 
 def create_discovery_session(
     viewer_id: str,
@@ -583,7 +772,6 @@ def create_discovery_session(
                     "tab": active_tab,
                     "filters": filters or {},
                     "expires_at": expires_at.isoformat(),
-                    "last_cursor_position": 0,
                 }
             )
             .select("id")
@@ -610,8 +798,14 @@ def create_discovery_session(
 
     session_id = str(session_row["id"])
 
+    positioned_items = _assign_orbit_positions(
+        viewer_id=viewer_id,
+        active_tab=active_tab,
+        ranked_items=ranked_items,
+    )
+
     items_payload: list[dict[str, Any]] = []
-    for position, item in enumerate(ranked_items):
+    for position, item in enumerate(positioned_items):
         if not isinstance(item, dict):
             continue
 
@@ -627,6 +821,9 @@ def create_discovery_session(
                 "position": position,
                 "candidate_id": str(candidate_id),
                 "score": _coerce_score(item.get("score")),
+                "x": _coerce_float(item.get("_x")),
+                "y": _coerce_float(item.get("_y")),
+                "orbit_tier": int(_coerce_float(item.get("_orbit_tier"), 3.0)),
             }
         )
 
@@ -669,7 +866,7 @@ def get_discovery_session(
     session_id: str,
     viewer_id: str,
     active_tab: DiscoveryTab,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     try:
         res = (
             supabase_client.table("discovery_sessions")
@@ -697,194 +894,137 @@ def get_discovery_session(
     row = rows[0] if rows else None
     return row if isinstance(row, dict) else None
     
-    
-def fetch_discovery_session_page(
+async def fetch_spatial_viewport(
     session_id: str,
     viewer_id: str,
-    start_position: int,
-    limit: int,
+    center_x: float,
+    center_y: float,
+    radius: float,
 ) -> tuple[list[dict[str, Any]], int]:
+    """
+    Fetch session items within a circular viewport using bounding box
+    pre-filter then distance check.
+    """
+    x_min, x_max = center_x - radius, center_x + radius
+    y_min, y_max = center_y - radius, center_y + radius
+
+    try:
+        res = (
+            supabase_client.table("discovery_session_items")
+            .select(
+                """
+                candidate_id,
+                score,
+                x,
+                y,
+                orbit_tier,
+                profiles:candidate_id (
+                    id,
+                    name,
+                    is_deactivated
+                )
+                """
+            )
+            .eq("session_id", session_id)
+            .gte("x", x_min).lte("x", x_max)
+            .gte("y", y_min).lte("y", y_max)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch spatial viewport",
+            extra={
+                "session_id": session_id,
+                "viewer_id": viewer_id,
+                "center_x": center_x,
+                "center_y": center_y,
+                "radius": radius,
+            },
+        )
+        raise DatabaseAccessError("Failed to fetch spatial viewport") from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected spatial viewport fetch failure",
+            extra={
+                "session_id": session_id,
+                "viewer_id": viewer_id,
+                "center_x": center_x,
+                "center_y": center_y,
+                "radius": radius,
+            },
+        )
+        raise DatabaseAccessError("Unexpected spatial viewport fetch failure") from e
+
+    rows = res.data if isinstance(res.data, list) else []
+    result: list[dict[str, Any]] = []
+
+    hard_excluded = await get_cached_active_block_ids(viewer_id)
+    radius_sq = radius ** 2
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        
+        profile_raw = row.get("profiles")
+        profile = profile_raw if isinstance(profile_raw, dict) else None
+        if profile is None:
+            continue
+
+        cid = str(profile.get("id") or row.get("candidate_id") or "")
+        if not cid or cid in hard_excluded:
+            continue
+        
+        if profile.get("is_deactivated") is True:
+            continue
+
+        x = _coerce_float(row.get("x"))
+        y = _coerce_float(row.get("y"))
+        dx = x - center_x
+        dy = y - center_y
+
+        if dx * dx + dy * dy <= radius_sq:
+            result.append(
+                {
+                    "id": cid,
+                    "name": profile.get("name"),
+                    "score": _coerce_score(row.get("score")),
+                    "orbit_tier": int(_coerce_float(row.get("orbit_tier"), 3.0)),
+                    "x": x,
+                    "y": y,
+                }
+            )
+            
+    result.sort(
+        key=lambda row: (
+            row.get("orbit_tier", 99),
+            -_coerce_score(row.get("score")),
+            str(row.get("id") or ""),
+        )
+    )
+    
     try:
         count_res = (
             supabase_client.table("discovery_session_items")
-            .select("position")
+            .select("candidate_id", count="exact")  # type: ignore[arg-type]
             .eq("session_id", session_id)
-            .order("position", desc=False)
+            .limit(1)
             .execute()
         )
-        count_rows = count_res.data if isinstance(count_res.data, list) else []
-        total_count = len(count_rows)
+        total_count = int(count_res.count or 0)
     except APIError as e:
         logger.exception(
-            "Failed to count discovery session items",
-            extra={"session_id": session_id},
+            "Failed to count spatial session items",
+            extra={"session_id": session_id, "viewer_id": viewer_id},
         )
-        raise DatabaseAccessError("Failed to count discovery session items") from e
+        raise DatabaseAccessError("Failed to count spatial session items") from e
     except Exception as e:
         logger.exception(
-            "Unexpected discovery session count failure",
-            extra={"session_id": session_id},
+            "Unexpected spatial session count failure",
+            extra={"session_id": session_id, "viewer_id": viewer_id},
         )
-        raise DatabaseAccessError("Unexpected discovery session count failure") from e
+        raise DatabaseAccessError("Unexpected spatial session count failure") from e
 
-    page_rows: list[dict[str, Any]] = []
-    hard_excluded_ids = fetch_active_block_ids(viewer_id)
-
-    next_position = start_position
-    chunk_size = max(limit * 2, 20)
-
-    while len(page_rows) < limit and next_position < total_count:
-        try:
-            res = (
-                supabase_client.table("discovery_session_items")
-                .select(
-                    """
-                    position,
-                    score,
-                    profiles:candidate_id (
-                        id,
-                        name,
-                        branch,
-                        year,
-                        display_gender,
-                        display_sexuality,
-                        role,
-                        is_deactivated
-                    )
-                    """
-                )
-                .eq("session_id", session_id)
-                .gte("position", next_position)
-                .order("position", desc=False)
-                .limit(chunk_size)
-                .execute()
-            )
-        except APIError as e:
-            logger.exception(
-                "Failed to fetch discovery session page chunk",
-                extra={
-                    "session_id": session_id,
-                    "start_position": start_position,
-                    "next_position": next_position,
-                    "limit": limit,
-                    "chunk_size": chunk_size,
-                },
-            )
-            raise DatabaseAccessError("Failed to fetch discovery session page") from e
-        except Exception as e:
-            logger.exception(
-                "Unexpected discovery session page chunk fetch failure",
-                extra={
-                    "session_id": session_id,
-                    "start_position": start_position,
-                    "next_position": next_position,
-                    "limit": limit,
-                    "chunk_size": chunk_size,
-                },
-            )
-            raise DatabaseAccessError("Unexpected discovery session page fetch failure") from e
-
-        rows = res.data if isinstance(res.data, list) else []
-        if not rows:
-            break
-
-        max_position_seen: Optional[int] = None
-
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-
-            row_position = row.get("position")
-            if isinstance(row_position, int):
-                max_position_seen = row_position if max_position_seen is None else max(max_position_seen, row_position)
-
-            profile_raw = row.get("profiles")
-            profile = profile_raw if isinstance(profile_raw, dict) else None
-            if profile is None:
-                continue
-
-            try:
-                hydrated_profile = _decrypt_profile_record(profile)
-                candidate_id = hydrated_profile.get("id")
-
-                if hydrated_profile.get("is_deactivated") is True:
-                    continue
-                if not candidate_id:
-                    continue
-                if str(candidate_id) in hard_excluded_ids:
-                    continue
-            except (DecryptFailedError, ProfileDecodeError):
-                logger.exception(
-                    "Failed to decrypt profile within discovery session page",
-                    extra={"session_id": session_id, "candidate_id": profile.get("id")},
-                )
-                raise
-
-            page_rows.append(
-                {
-                    "position": row.get("position"),
-                    "score": _coerce_score(row.get("score")),
-                    "id": hydrated_profile.get("id"),
-                    "name": hydrated_profile.get("name"),
-                    "branch": hydrated_profile.get("branch"),
-                    "year": hydrated_profile.get("year"),
-                    "display_gender": hydrated_profile.get("display_gender"),
-                    "display_sexuality": hydrated_profile.get("display_sexuality"),
-                    "role": hydrated_profile.get("role"),
-                }
-            )
-
-            if len(page_rows) >= limit:
-                break
-
-        if len(page_rows) >= limit:
-            break
-
-        if max_position_seen is None:
-            break
-
-        next_position = max_position_seen + 1
-
-    return page_rows, total_count
-
-
-def touch_discovery_session_cursor(
-    session_id: str,
-    viewer_id: str,
-    next_position: int,
-) -> None:
-    """
-    Persist the latest emitted cursor position for observability or resumability.
-    """
-    try:
-        (
-            supabase_client.table("discovery_sessions")
-            .update({"last_cursor_position": next_position})
-            .eq("id", session_id)
-            .eq("viewer_id", viewer_id)
-            .execute()
-        )
-    except APIError as e:
-        logger.exception(
-            "Failed to update discovery session cursor",
-            extra={
-                "session_id": session_id,
-                "viewer_id": viewer_id,
-                "next_position": next_position,
-            },
-        )
-        raise DatabaseAccessError("Failed to update discovery session cursor") from e
-    except Exception as e:
-        logger.exception(
-            "Unexpected discovery session cursor update failure",
-            extra={
-                "session_id": session_id,
-                "viewer_id": viewer_id,
-                "next_position": next_position,
-            },
-        )
-        raise DatabaseAccessError("Unexpected discovery session cursor update failure") from e
-
+    return result, total_count
 
 def delete_expired_discovery_sessions() -> int:
     """
@@ -905,3 +1045,169 @@ def delete_expired_discovery_sessions() -> int:
     except Exception as e:
         logger.exception("Unexpected expired discovery session cleanup failure")
         raise DatabaseAccessError("Unexpected expired discovery session cleanup failure") from e
+    
+    
+async def fetch_discovery_node_detail(
+    session_id: str,
+    viewer_id: str,
+    candidate_id: str,
+) -> tuple[DiscoveryTab, dict[str, Any]] | None:
+    """
+    Return (session_tab, hydrated_profile_payload) for a clicked discovery node.
+    Returns None when the session/item/profile is not available to the viewer.
+    """
+    try:
+        res = (
+            supabase_client.table("discovery_session_items")
+            .select(
+                """
+                candidate_id,
+                score,
+                x,
+                y,
+                orbit_tier,
+                profiles:candidate_id (
+                    id,
+                    name,
+                    age,
+                    branch,
+                    year,
+                    role,
+                    display_gender,
+                    display_sexuality,
+                    drinking,
+                    smoking,
+                    hometown,
+                    partner_values,
+                    children_plans,
+                    religious_beliefs,
+                    lifestyle,
+                    activities,
+                    looking_for,
+                    causes_supported,
+                    top_artists,
+                    tech_skills,
+                    languages,
+                    ai_vibe_tags,
+                    pets,
+                    is_deactivated
+                ),
+                discovery_sessions!inner (
+                    id,
+                    viewer_id,
+                    tab,
+                    expires_at
+                )
+                """
+            )
+            .eq("session_id", session_id)
+            .eq("candidate_id", candidate_id)
+            .eq("discovery_sessions.viewer_id", viewer_id)
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch discovery node detail",
+            extra={
+                "session_id": session_id,
+                "viewer_id": viewer_id,
+                "candidate_id": candidate_id,
+            },
+        )
+        raise DatabaseAccessError("Failed to fetch discovery node detail") from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected discovery node detail failure",
+            extra={
+                "session_id": session_id,
+                "viewer_id": viewer_id,
+                "candidate_id": candidate_id,
+            },
+        )
+        raise DatabaseAccessError("Unexpected discovery node detail failure") from e
+
+    rows = res.data if isinstance(res.data, list) else []
+    row = rows[0] if rows else None
+    if not isinstance(row, dict):
+        return None
+
+    session_raw = row.get("discovery_sessions")
+    session = session_raw if isinstance(session_raw, dict) else None
+    if session is None:
+        return None
+
+    session_tab_raw = session.get("tab")
+    if session_tab_raw not in {"Dating", "Friends", "Professional"}:
+        return None
+
+    session_tab = cast(DiscoveryTab, session_tab_raw)
+
+    expires_at_raw = session.get("expires_at")
+    if isinstance(expires_at_raw, str):
+        expires_at = datetime.fromisoformat(expires_at_raw.replace("Z", "+00:00"))
+    elif isinstance(expires_at_raw, datetime):
+        expires_at = expires_at_raw
+    else:
+        return None
+
+    if expires_at <= utcnow():
+        return None
+
+    profile_raw = row.get("profiles")
+    profile = profile_raw if isinstance(profile_raw, dict) else None
+    if profile is None:
+        return None
+
+    if profile.get("is_deactivated") is True:
+        return None
+
+    hard_excluded = await get_cached_active_block_ids(viewer_id)
+    cid = str(profile.get("id") or row.get("candidate_id") or "")
+    if not cid or cid in hard_excluded:
+        return None
+
+    try:
+        hydrated_profile = _decrypt_profile_record(profile)
+    except (DecryptFailedError, ProfileDecodeError):
+        logger.exception(
+            "Failed to decrypt orbit node detail profile",
+            extra={
+                "session_id": session_id,
+                "viewer_id": viewer_id,
+                "candidate_id": candidate_id,
+            },
+        )
+        raise
+
+    payload = {
+        "id": str(hydrated_profile.get("id") or cid),
+        "name": hydrated_profile.get("name"),
+        "age": hydrated_profile.get("age"),
+        "branch": hydrated_profile.get("branch"),
+        "year": hydrated_profile.get("year"),
+        "role": hydrated_profile.get("role"),
+        "display_gender": hydrated_profile.get("display_gender"),
+        "display_sexuality": hydrated_profile.get("display_sexuality"),
+        "drinking": hydrated_profile.get("drinking"),
+        "smoking": hydrated_profile.get("smoking"),
+        "hometown": hydrated_profile.get("hometown"),
+        "partner_values": hydrated_profile.get("partner_values"),
+        "children_plans": hydrated_profile.get("children_plans"),
+        "religious_beliefs": hydrated_profile.get("religious_beliefs"),
+        "lifestyle": hydrated_profile.get("lifestyle"),
+        "activities": hydrated_profile.get("activities") or [],
+        "looking_for": hydrated_profile.get("looking_for") or [],
+        "causes_supported": hydrated_profile.get("causes_supported") or [],
+        "top_artists": hydrated_profile.get("top_artists") or [],
+        "tech_skills": hydrated_profile.get("tech_skills") or [],
+        "languages": hydrated_profile.get("languages") or [],
+        "ai_vibe_tags": hydrated_profile.get("ai_vibe_tags") or [],
+        "pets": hydrated_profile.get("pets") or [],
+        "score": _coerce_score(row.get("score")),
+        "x": _coerce_float(row.get("x")),
+        "y": _coerce_float(row.get("y")),
+        "orbit_tier": int(_coerce_float(row.get("orbit_tier"), 3.0)),
+    }
+
+    return session_tab, payload
