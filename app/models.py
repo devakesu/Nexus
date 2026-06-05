@@ -1,10 +1,26 @@
 from datetime import datetime
 from typing import Literal, Union
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.config import DiscoveryTab
+from app.core.config import DiscoveryTab
+from app.core.config import settings
+
+class AuthBootstrapRequest(BaseModel):
+    pass
 
 
+class AuthBootstrapResponse(BaseModel):
+    user_id: str
+    email: str
+    is_allowed_domain: bool
+    is_active: bool
+    is_suspended: bool
+    moderation_status: str
+    accepted_terms_version: str | None = None
+    terms_accepted_at: datetime | None = None
+    newly_created: bool
+    
+    
 class ProfileModel(BaseModel):
     """
     Canonical in-memory profile shape used by the discovery pipeline.
@@ -60,6 +76,47 @@ class ProfileModel(BaseModel):
     bio_embedding: list[float] | None = None
 
 
+class CompleteOnboardingRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    branch: str
+    year: int = Field(..., ge=1, le=5)
+    age: int = Field(..., ge=18, le=27)
+    accepted_terms_version: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("Name must be at least 2 characters.")
+        return cleaned
+
+    @field_validator("branch")
+    @classmethod
+    def validate_branch(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Branch is required.")
+        return cleaned
+
+    @field_validator("accepted_terms_version")
+    @classmethod
+    def validate_terms_version(cls, value: str) -> str:
+        cleaned = value.strip()
+        if cleaned != settings.current_terms_version:
+            raise ValueError("You must accept the current terms version.")
+        return cleaned
+    
+    
+class CompleteOnboardingResponse(BaseModel):
+    user_id: str
+    profile_created: bool
+    terms_recorded: bool
+    accepted_terms_version: str
+    terms_accepted_at: datetime
+    profile: dict[str, object]
+    
+    
 class DiscoveryFilters(BaseModel):
     """
     Structured filter payload for discovery candidate pool narrowing.
@@ -194,6 +251,15 @@ class DiscoveryActionRequest(BaseModel):
 
         return self
 
+
+class DiscoveryActionResponse(BaseModel):
+    """
+    Minimal success response for discovery action mutations.
+    """
+
+    success: bool = True
+    
+    
 class OrbitNodeOut(BaseModel):
     """
     Lightweight node payload for rendering a profile on the orbit canvas.
@@ -287,10 +353,3 @@ OrbitNodeDetailResponse = Union[
     OrbitNodeDetailFriendsOut,
     OrbitNodeDetailProfessionalOut,
 ]
-
-class DiscoveryActionResponse(BaseModel):
-    """
-    Minimal success response for discovery action mutations.
-    """
-
-    success: bool = True

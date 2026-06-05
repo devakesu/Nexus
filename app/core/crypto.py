@@ -1,11 +1,11 @@
-# app/crypto.py
+# app/core/crypto.py
 import hashlib
 import hmac
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.config import settings
+from app.core.config import settings
 
 
 class DecryptFailedError(Exception):

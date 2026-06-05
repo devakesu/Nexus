@@ -182,10 +182,11 @@ if [ -d "/nexus/mobile" ]; then
     cd /nexus/mobile && flutter pub get
 fi
 
-# --- BULLETPROOF IDE EXTENSION INSTALLER ---
-echo "📦 Creating Extension Directories..."
+# --- UNIVERSAL IDE & ANTIGRAVITY EXTENSION INSTALLER ---
+echo "📦 Insulating Extension Folders..."
 mkdir -p ~/.vscode-server/extensions
 mkdir -p ~/.antigravity-server/extensions
+mkdir -p ~/.antigravity-ide-server/extensions
 mkdir -p ~/.cursor-server/extensions
 
 EXTENSIONS=(
@@ -200,31 +201,42 @@ EXTENSIONS=(
   "denoland.vscode-deno"
 )
 
-echo "🔍 Hunting for IDE server executables..."
+echo "🔍 Scanning for active server binaries..."
 CLI_PATHS=()
 
+# A. Standard wrapper profile checks
 command -v code >/dev/null 2>&1 && CLI_PATHS+=("code")
 command -v antigravity >/dev/null 2>&1 && CLI_PATHS+=("antigravity")
 
+# B. UNRESTRICTED DEEP SEARCH FOR NESTED HASH RUNNERS
 while IFS= read -r binary_path; do
     if [ -n "$binary_path" ]; then
         CLI_PATHS+=("$binary_path")
     fi
-done < <(find ~/.vscode-server/bin ~/.antigravity-server/bin ~/.cursor-server/bin \
-    -type f \( -name "code-server" -o -name "antigravity-server" -o -name "cursor-server" \) \
-    -executable 2>/dev/null || true)
+done < <(find ~ -type f -executable \( -name "code-server" -o -name "antigravity-server" -o -name "cursor-server" \) -not -path "*/.venv/*" -not -path "*/node_modules/*" 2>/dev/null || true)
 
 if [ ${#CLI_PATHS[@]} -eq 0 ]; then
-    echo "⚠️ IDE binary not found. If the IDE is still booting, run '~/init_workspace.sh' again in a minute."
+    echo "⚠️ Command wrappers not caught via search loop. Falling back to symlink cluster..."
 else
     UNIQUE_CLIS=($(echo "${CLI_PATHS[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
     for CLI in "${UNIQUE_CLIS[@]}"; do
-        echo "🔧 Force installing extensions via: $CLI"
+        echo "🔧 Executing forced toolchain delivery via: $CLI"
         for ext in "${EXTENSIONS[@]}"; do
             "$CLI" --install-extension "$ext" --force || true
         done
     done
 fi
+
+# C. THE EXTENSION REGISTRY SYMLINK MATRIX (Locks in compatibility)
+# This forces all possible Antigravity and Cursor setups to share VS Code's extensions cache
+echo "🔗 Hard-linking cross-platform extension targets..."
+for TARGET_DIR in "$HOME/.antigravity-server" "$HOME/.antigravity-ide-server" "$HOME/.cursor-server"; do
+    if [ -d "$TARGET_DIR" ]; then
+        rm -rf "$TARGET_DIR/extensions"
+        ln -s "$HOME/.vscode-server/extensions" "$TARGET_DIR/extensions" 2>/dev/null || true
+        echo "✅ Linked $TARGET_DIR/extensions -> .vscode-server/extensions"
+    fi
+done
 
 echo "🎯 Initialization Complete!"
 EOF

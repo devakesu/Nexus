@@ -6,7 +6,7 @@ import jwt
 from jwt import PyJWKSet, PyJWK
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 
-from app.config import settings
+from app.core.config import settings
 
 # Global thread-safe memory cache primitives for zero-latency signature parsing
 _cached_jwks: Optional[PyJWKSet] = None
