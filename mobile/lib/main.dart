@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -9,11 +11,33 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/screens/auth_gate.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  SentryWidgetsFlutterBinding.ensureInitialized();
+
+  // Setup uncaught Flutter error handler
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    ErrorHandler.handleError(
+      details.exception,
+      stackTrace: details.stack,
+      customMessage: details.exceptionAsString(),
+    );
+  };
+
+  // Setup uncaught platform / asynchronous error handler
+  PlatformDispatcher.instance.onError = (error, stack) {
+    ErrorHandler.handleError(
+      error,
+      stackTrace: stack,
+      level: ErrorLevel.critical,
+    );
+    return true;
+  };
 
   // Set global HTTP overrides to handle custom certificate validation in debug mode
   HttpOverrides.global = MyHttpOverrides();
@@ -34,8 +58,12 @@ Future<void> main() async {
     ).then((_) {
       // Initialize Firebase App Check on app open to prevent delays
       return FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode ? const AppleDebugProvider() : const AppleAppAttestWithDeviceCheckFallbackProvider(),
+        providerAndroid: kDebugMode
+            ? const AndroidDebugProvider()
+            : const AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode
+            ? const AppleDebugProvider()
+            : const AppleAppAttestWithDeviceCheckFallbackProvider(),
       );
     }),
     Supabase.initialize(
@@ -44,7 +72,61 @@ Future<void> main() async {
     ),
   ]);
 
-  runApp(const MyApp());
+  await SentryFlutter.init(
+    (options) {
+      options
+        ..dsn =
+            'https://b5cd0432aa4dcfbedcffe860e0b90f58@o4510669780287488.ingest.de.sentry.io/4511525319475280'
+        // Adds request headers and IP for users, for more info visit:
+        // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
+        ..sendDefaultPii = false
+        ..enableLogs = true
+        // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+        // We recommend adjusting this value in production.
+        ..tracesSampleRate = 0.1
+        // The sampling rate for profiling is relative to tracesSampleRate
+        // Setting to 1.0 will profile 100% of sampled transactions:
+        // ignore: experimental_member_use
+        ..profilesSampleRate = 0.1;
+      // Configure Session Replay
+      options.replay.sessionSampleRate = kDebugMode ? 0.0 : 0.1;
+      options.replay.onErrorSampleRate = kDebugMode ? 0.0 : 1.0;
+
+      // Sanitize sensitive info in all events sent to Sentry
+      options.beforeSend = (event, hint) {
+        if (event.exceptions != null) {
+          for (final exception in event.exceptions!) {
+            if (exception.value != null) {
+              exception.value = ErrorHandler.sanitize(exception.value!);
+            }
+          }
+        }
+        final msg = event.message;
+        if (msg != null) {
+          msg.formatted = ErrorHandler.sanitize(msg.formatted);
+        }
+        if (event.contexts.isNotEmpty) {
+          event.contexts.forEach((key, value) {
+            if (value is Map<String, dynamic>) {
+              final sanitized = <String, dynamic>{};
+              value.forEach((k, v) {
+                if (v is String) {
+                  sanitized[k] = ErrorHandler.sanitize(v);
+                } else {
+                  sanitized[k] = v;
+                }
+              });
+              event.contexts[key] = sanitized;
+            } else if (value is String) {
+              event.contexts[key] = ErrorHandler.sanitize(value);
+            }
+          });
+        }
+        return event;
+      };
+    },
+    appRunner: () => runApp(SentryWidget(child: const MyApp())),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -57,6 +139,7 @@ class MyApp extends StatelessWidget {
     const appName = isMec ? 'Nexus MEC' : 'Nexus';
 
     return MaterialApp(
+      navigatorKey: ErrorHandler.navigatorKey,
       title: appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

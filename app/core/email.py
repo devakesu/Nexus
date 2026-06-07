@@ -1,0 +1,619 @@
+import base64
+import logging
+import secrets
+from collections.abc import Callable, Coroutine
+from html.parser import HTMLParser
+from typing import Any, Literal, cast
+
+import httpx
+import sentry_sdk
+from pydantic import BaseModel
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class SendEmailProps(BaseModel):
+    to: str
+    subject: str
+    html: str
+    text: str | None = None
+    reply_to: str | None = None
+    from_name: str | None = None
+    to_name: str | None = None
+    sender_email: str | None = None
+
+
+class ProviderResult(BaseModel):
+    success: bool
+    provider: Literal["Brevo", "SendPulse"]
+    id: str | None = None
+    error: str | None = None
+
+
+class HTMLStripper(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reset()
+        self.strict = False
+        self.convert_charrefs = True
+        self.text: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        self.text.append(data)
+
+    def get_data(self) -> str:
+        return "".join(self.text)
+
+
+def strip_tags(html: str) -> str:
+    s = HTMLStripper()
+    s.feed(html)
+    return s.get_data()
+
+
+def redact_email(email: str) -> str:
+    if not email or "@" not in email:
+        return email
+    parts = email.split("@", 1)
+    name = parts[0]
+    domain = parts[1]
+    if len(name) <= 2:
+        return f"{name[0]}***@{domain}"
+    return f"{name[0]}***{name[-1]}@{domain}"
+
+
+def redact(type_: str, val: str) -> str:
+    if type_ == "email":
+        return redact_email(val)
+    return val
+
+
+has_brevo = bool(settings.brevo_api_key)
+has_sendpulse = bool(settings.sendpulse_client_id and settings.sendpulse_client_secret)
+
+
+def get_sender_email() -> str:
+    return f"admin@{settings.app_domain}"
+
+
+def get_sender_name(from_name: str | None = None) -> str:
+    if from_name and from_name.strip():
+        return from_name.strip()
+    return settings.app_name
+
+
+async def get_sendpulse_token() -> str:
+    if not has_sendpulse:
+        raise ValueError("SendPulse credentials not configured")
+
+    auth_url = "https://api.sendpulse.com/oauth/access_token"
+    payload = {
+        "grant_type": "client_credentials",
+        "client_id": settings.sendpulse_client_id,
+        "client_secret": settings.sendpulse_client_secret,
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(auth_url, json=payload, timeout=10.0)
+            if res.status_code != 200:
+                raise httpx.HTTPStatusError(
+                    f"SendPulse auth HTTP {res.status_code}",
+                    request=res.request,
+                    response=res,
+                )
+            data = res.json()
+            return data["access_token"]
+        except Exception as error:
+            wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
+            raise wrapped from error
+
+
+async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
+    if not has_sendpulse:
+        raise ValueError("SendPulse not configured")
+
+    token = await get_sendpulse_token()
+    email_url = "https://api.sendpulse.com/smtp/emails"
+
+    stripped_text = props.text or strip_tags(props.html)
+    sender_email = props.sender_email or get_sender_email()
+    sender_name = get_sender_name(props.from_name)
+
+    html_base64 = base64.b64encode(props.html.encode("utf-8")).decode("utf-8")
+
+    payload = {
+        "email": {
+            "html": html_base64,
+            "text": stripped_text,
+            "subject": props.subject,
+            "from": {
+                "email": sender_email,
+                "name": sender_name,
+            },
+            "to": [
+                {
+                    "email": props.to,
+                    "name": props.to_name or "User",
+                },
+            ],
+        },
+    }
+
+    if props.reply_to:
+        payload["email"]["reply_to"] = {"email": props.reply_to}
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            email_url,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15.0,
+        )
+        if res.status_code != 200:
+            try:
+                err_data = res.json()
+                err_msg = err_data.get(
+                    "message",
+                    f"SendPulse error: {res.status_code}",
+                )
+            except Exception:  # noqa: BLE001
+                err_msg = f"SendPulse error: {res.status_code}"
+            raise RuntimeError(err_msg)
+
+        try:
+            data = res.json()
+            message_id = str(data.get("id", ""))
+        except Exception:  # noqa: BLE001
+            message_id = ""
+
+        return ProviderResult(success=True, provider="SendPulse", id=message_id)
+
+
+async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
+    if not has_brevo:
+        raise ValueError("Brevo not configured")
+
+    url = "https://api.brevo.com/v3/smtp/email"
+    sender_email = props.sender_email or get_sender_email()
+    sender_name = get_sender_name(props.from_name)
+    stripped_text = props.text or strip_tags(props.html)
+
+    payload: dict[str, Any] = {
+        "sender": {
+            "email": sender_email,
+            "name": sender_name,
+        },
+        "to": [{"email": props.to}],
+        "subject": props.subject,
+        "htmlContent": props.html,
+        "textContent": stripped_text,
+    }
+
+    if props.to_name:
+        payload["to"][0]["name"] = props.to_name
+
+    if props.reply_to:
+        payload["replyTo"] = {"email": props.reply_to}
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            url,
+            json=payload,
+            headers={
+                "api-key": settings.brevo_api_key or "",
+                "content-type": "application/json",
+                "accept": "application/json",
+            },
+            timeout=15.0,
+        )
+        if res.status_code not in (200, 201, 202):
+            try:
+                err_data = res.json()
+                err_msg = err_data.get(
+                    "message",
+                    f"Brevo error: {res.status_code}",
+                )
+            except Exception:  # noqa: BLE001
+                err_msg = f"Brevo error: {res.status_code}"
+            raise RuntimeError(err_msg)
+
+        try:
+            data = res.json()
+            message_id = str(data.get("messageId", ""))
+        except Exception:  # noqa: BLE001
+            message_id = ""
+
+        return ProviderResult(success=True, provider="Brevo", id=message_id)
+
+
+def should_use_sendpulse() -> bool:
+    if has_brevo and has_sendpulse:
+        return secrets.randbelow(100) < 50
+    return has_sendpulse
+
+
+ProviderFn = Callable[[SendEmailProps], Coroutine[Any, Any, ProviderResult]]
+
+
+class ProvidersConfig(BaseModel):
+    primary: Any  # ProviderFn
+    secondary: Any | None = None  # ProviderFn | None
+    p_name: Literal["SendPulse", "Brevo"]
+    s_name: Literal["Brevo", "SendPulse"]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+def get_providers(use_sp: bool) -> ProvidersConfig:
+    if use_sp:
+        return ProvidersConfig(
+            primary=send_via_sendpulse,
+            secondary=send_via_brevo if has_brevo else None,
+            p_name="SendPulse",
+            s_name="Brevo",
+        )
+    return ProvidersConfig(
+        primary=send_via_brevo,
+        secondary=send_via_sendpulse if has_sendpulse else None,
+        p_name="Brevo",
+        s_name="SendPulse",
+    )
+
+
+async def execute_failover(
+    secondary: ProviderFn,
+    props: SendEmailProps,
+    s_name: Literal["Brevo", "SendPulse"],
+    err: Exception,
+) -> ProviderResult:
+    err_msg = str(err)
+    try:
+        return await secondary(props)
+    except Exception as err2:  # noqa: BLE001
+        err2_msg = str(err2)
+        msg = f"All providers failed. P: {err_msg} | S: {err2_msg}"
+        logger.error(msg)
+        sentry_sdk.capture_exception(
+            err2,
+            tags={"type": "email_critical"},
+            extras={
+                "to": redact("email", props.to),
+                "primary_error": err_msg,
+                "secondary_error": err2_msg,
+            },
+        )
+        return ProviderResult(success=False, provider=s_name, error=msg)
+
+
+async def send_email(props: SendEmailProps) -> ProviderResult:
+    if not has_brevo and not has_sendpulse:
+        err = RuntimeError("No provider configured")
+        sentry_sdk.capture_exception(err, tags={"location": "send_email"})
+        raise err
+
+    use_sp = should_use_sendpulse()
+    config = get_providers(use_sp)
+
+    try:
+        return await config.primary(props)
+    except Exception as err:  # noqa: BLE001
+        err_msg = str(err)
+        logger.warning(
+            f"{config.p_name} failed: {err_msg}",
+            exc_info=True,
+        )
+        sentry_sdk.capture_message(
+            f"Failover: {config.p_name} failed",
+            level="warning",
+            tags={"provider": config.p_name, "location": "send_email"},
+        )
+
+        if config.secondary:
+            return await execute_failover(
+                config.secondary,
+                props,
+                config.s_name,
+                err,
+            )
+        return ProviderResult(success=False, provider=config.p_name, error=err_msg)
+
+
+def render_email_template(
+    rows_html: str,
+    subject: str,
+    preheader_category: str = "SYSTEM",
+    preheader_action: str = "VERIFIED",
+) -> str:
+    """
+    Renders a unified premium HTML wrapper using standard Nexus branding guidelines.
+
+    This enables reusing styling, fonts, layouts, and footer information
+    across all transactional emails.
+    """
+    app_domain = settings.app_domain
+    return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{subject}</title>
+  <style type="text/css">
+    body {{
+      margin: 0;
+      padding: 0;
+      min-width: 100%;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #0B0C10;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }}
+    img {{
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+    }}
+    table {{
+      border-collapse: collapse !important;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }}
+    td {{
+      font-family: -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }}
+
+    /* Reveal real dark mode properties for compliant clients */
+    @media (prefers-color-scheme: dark) {{
+      .body-wrapper {{ background-color: #0B0C10 !important; }}
+      .main-card {{ background-color: #0D0E12 !important; }}
+    }}
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0B0C10; color: #FFFFFF;">
+
+  <table width="100%" border="0" cellspacing="0" cellpadding="0"
+         class="body-wrapper" style="background-color: #0B0C10; table-layout: fixed;">
+    <tr>
+      <td align="center" style="padding: 40px 16px 60px 16px;">
+
+        <table width="100%" border="0" cellspacing="0" cellpadding="0"
+               class="main-card" style="max-width: 580px; background-color: #0D0E12;
+               border: 1px solid #22252A; text-align: left;">
+
+          <tr>
+            <td style="padding: 16px 24px; border-bottom: 1px solid #22252A;
+                       font-family: ui-monospace, SFMono-Regular,
+                       Menlo, Monaco, Consolas, 'Liberation Mono',
+                       'Courier New', monospace; font-size: 11px;
+                       color: #6B7280; letter-spacing: 0.05em;">
+              [ {preheader_category}: // {preheader_action} ]
+            </td>
+          </tr>
+
+          {rows_html}
+
+          <tr>
+            <td style="padding: 24px 32px; background-color: #0A0B0E;
+                       border-top: 1px solid #1A1C20;
+                       font-family: ui-monospace, SFMono-Regular,
+                       Menlo, Monaco, Consolas, monospace;
+                       font-size: 10px; color: white; line-height: 1.5;
+                       text-align: center;">
+              You are receiving this mandatory service-related communication
+              because a Nexus account was created or authenticated using this
+              email address. If you did not initiate this action, please contact
+              support at <a href="mailto:support@{app_domain}" style="color: pink;">
+              support@{app_domain}</a>
+              <br>
+              <a href="https://{app_domain}/legal" target="_blank"
+                 style="color: white">Privacy, Terms & Legal</a>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+"""
+
+
+def render_cta_button_row(cta_text: str, cta_url: str) -> str:
+    """
+    Renders a standard CTA button row.
+    """
+    return f"""
+          <tr>
+            <td align="center" style="padding: 0 32px 48px 32px;">
+              <table border="0" cellspacing="0" cellpadding="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <a href="{cta_url}" target="_blank"
+                       style="display: block; width: 100%; max-width: 280px;
+                       background-color: #00ADB5; border: 1px solid #00ADB5;
+                       color: #FFFFFF; font-family: -apple-system,
+                       BlinkMacSystemFont, sans-serif; font-size: 13px;
+                       font-weight: 600; letter-spacing: 0.08em;
+                       text-transform: uppercase; text-decoration: none;
+                       padding: 15px 0; text-align: center;
+                       transition: background-color 0.2s, border-color 0.2s;">
+                      {cta_text}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+
+def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> str:
+    """
+    Tries to extract the name of the user from auth_user metadata, or falls back to
+    formatting the prefix of their email address.
+    """
+    if auth_user:
+        metadata = auth_user.get("user_metadata")
+        if isinstance(metadata, dict):
+            metadata_dict: dict[str, Any] = cast(dict[str, Any], metadata)
+            for key in ("name", "full_name", "given_name", "display_name"):
+                name_val = metadata_dict.get(key)
+                if isinstance(name_val, str) and name_val.strip():
+                    return name_val.strip()
+
+    if email and "@" in email:
+        prefix = email.split("@")[0]
+        parts = [
+            p.capitalize()
+            for p in prefix.replace(".", " ")
+            .replace("_", " ")
+            .replace("-", " ")
+            .split()
+        ]
+        if parts:
+            return " ".join(parts)
+    return "User"
+
+
+async def send_bootstrap_welcome_email(
+    email: str,
+    auth_user: dict[str, Any] | None = None,
+) -> ProviderResult:
+    """
+    Sends the welcome email to a user who completed the initial auth bootstrap.
+    """
+    user_name = extract_user_name(email, auth_user)
+
+    row_1 = f"""
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 26px; font-weight: 300;
+                         letter-spacing: 0.15em; color: #FFFFFF;
+                         text-transform: uppercase;">
+                N E X U S
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                        color: #9CA3AF; font-weight: 400;">
+                Welcome, {user_name}! Your entry into the network has been
+                authenticated. However, your mathematical coordinate orientation
+                inside our vector universe is currently unmapped.
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = """
+          <tr>
+            <td style="padding: 0 32px 32px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(255,255,255,0.01);
+                     border-left: 2px solid #00ADB5;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 12px; line-height: 1.5; color: #4ECCA3;">
+                    <span style="color: #6B7280;">STATUS:</span>
+                    PROFILE_SETUP_PENDING<br />
+                    <span style="color: #6B7280;">MATRIX:</span>
+                    384_DIMENSIONAL_SEMANTIC_SPACE<br />
+                    <span style="color: #6B7280;">TARGET:</span>
+                    TIER_ORBIT_CONSTELLATION_GENERATION
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = """
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #9CA3AF;">
+              <p style="margin: 0 0 24px 0;">
+                To bypass the superficial, loop-driven nature of common social
+                apps, Nexus projects your specific text profiles, explicit
+                trends, and deep project goals directly onto a live coordinate
+                canvas. To populate your custom interactive galaxy:
+              </p>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="font-family: ui-monospace, SFMono-Regular, Menlo,
+                     Monaco, Consolas, monospace; font-size: 12px;">
+                <tr>
+                  <td width="28" valign="top"
+                      style="color: #00ADB5; padding-bottom: 12px;">[1]</td>
+                  <td style="color: #E5E7EB; padding-bottom: 12px;">
+                    <strong>Complete Profile Anchor:</strong> Input your personal
+                    values, thoughts, and professional trajectories.
+                  </td>
+                </tr>
+                <tr>
+                  <td width="28" valign="top" style="color: #00ADB5;">[2]</td>
+                  <td style="color: #E5E7EB;">
+                    <strong>Unlock Spatial Discovery:</strong> Instantly
+                    visualize real-time compatible connections structured across
+                    concentric, proximity-based circles.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    button_row = render_cta_button_row(
+        cta_text="Initialize Alignment",
+        cta_url="devakesu-nexus://home",
+    )
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3 + button_row,
+        subject="Nexus Initialized",
+        preheader_category="AUTH_GATE",
+        preheader_action="SYSTEM_VERIFIED",
+    )
+
+    text_content = (
+        f"Welcome, {user_name}! Your entry into the network has been authenticated. "
+        "However, your mathematical coordinate orientation inside our vector universe "
+        "is currently unmapped. Complete Profile Anchor to populate your custom "
+        "interactive galaxy and unlock spatial discovery."
+    )
+
+    props = SendEmailProps(
+        to=email,
+        subject="Nexus Initialized",
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.app_domain}",
+        from_name="Nexus Support",
+    )
+
+    try:
+        logger.info(f"Sending auth bootstrap welcome email to {email}")
+        result = await send_email(props)
+        if result.success:
+            logger.info(
+                f"Successfully sent welcome email to {email} via {result.provider}",
+            )
+        else:
+            logger.error(f"Failed to send welcome email to {email}: {result.error}")
+        return result
+    except Exception as err:
+        logger.exception(f"Unexpected exception while sending welcome email to {email}")
+        return ProviderResult(
+            success=False,
+            provider="Brevo",
+            error=str(err),
+        )

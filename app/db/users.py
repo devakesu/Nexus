@@ -1,5 +1,7 @@
 import logging
-from datetime import datetime, timezone
+import random
+import string
+from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from fastapi import HTTPException, status
@@ -7,14 +9,42 @@ from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
 from app.core.config import settings
+from app.core.crypto import encrypt_pii
 from app.db.client import supabase_client
 
 logger = logging.getLogger(__name__)
 
 
-def is_allowed_college_email(email: str) -> bool:
-    normalized = email.strip().lower()
-    return normalized.endswith(f"@{settings.allowed_email_domain}")
+def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
+    """
+    Validate that the email is permitted for the given app variant.
+
+    Domain rules are stored in settings.allowed_email_domains as a
+    {variant: domain} dict (e.g. {"nexus_mec": "mec.edu.in"}).
+
+    - If the variant is present in the dict → email must end with @<domain>.
+    - If the variant is 'nexus' (main) → allowed except for any domains
+      reserved for flavor variants.
+    - If any other variant is absent from the dict → open fallback.
+    """
+    normalized_email = email.strip().lower()
+
+    if app_variant == "nexus":
+        # Block users from registering/logging into the main Nexus app
+        # using restricted flavor domains
+        for domain in settings.allowed_email_domains.values():
+            normalized_domain = domain.strip().lower().lstrip("@")
+            if normalized_email.endswith(f"@{normalized_domain}"):
+                return False
+        return True
+
+    domain = settings.allowed_email_domains.get(app_variant)
+    if not domain:
+        # No restriction configured for this variant.
+        return True
+
+    normalized_domain = domain.strip().lower().lstrip("@")
+    return normalized_email.endswith(f"@{normalized_domain}")
 
 
 def _dump_user_object(user: User | dict[str, Any] | object) -> dict[str, Any]:
@@ -96,7 +126,11 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
     return cast(dict[str, Any], row)
 
 
-def upsert_public_user(user_id: str, email: str) -> tuple[dict[str, Any], bool]:
+def upsert_public_user(
+    user_id: str,
+    email: str | None = None,
+    mobile: str | None = None,
+) -> tuple[dict[str, Any], bool]:
     existing = fetch_public_user(user_id)
     newly_created = existing is None
 
@@ -104,8 +138,10 @@ def upsert_public_user(user_id: str, email: str) -> tuple[dict[str, Any], bool]:
         "id": user_id,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    if newly_created:
+    if email is not None:
         payload["email"] = email.strip().lower()
+    if mobile is not None:
+        payload["mobile"] = mobile.strip()
 
     try:
         result = (
@@ -119,7 +155,7 @@ def upsert_public_user(user_id: str, email: str) -> tuple[dict[str, Any], bool]:
     except APIError as e:
         logger.exception(
             "Failed to upsert public user",
-            extra={"user_id": user_id, "email": email},
+            extra={"user_id": user_id, "email": email, "mobile": mobile},
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -146,7 +182,9 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
     try:
         result = (
             supabase_client.table("profiles")
-            .select("id, name, branch, year, age, created_at, updated_at")
+            .select(
+                "id, name, branch, year, age, app_variant, created_at, updated_at",
+            )
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -220,6 +258,328 @@ def upsert_profile(
     return cast(dict[str, Any], row), profile_created
 
 
+def upsert_profile_variant(
+    user_id: str,
+    name: str,
+    branch: str | None,
+    year: int | None,
+    age: int,
+    app_variant: str,
+    lifestyle: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """
+    Upsert a profile row that includes variant-specific columns.
+
+    This extends the base upsert_profile() with the new variant columns
+    added in the variant_sync migration.
+    """
+    existing = fetch_profile(user_id)
+    profile_created = existing is None
+
+    # Encrypt the lifestyle string for BYTEA storage
+    encrypted_lifestyle = None
+    if lifestyle is not None:
+        enc_bytes = encrypt_pii(lifestyle)
+        if enc_bytes:
+            encrypted_lifestyle = f"\\x{enc_bytes.hex()}"
+
+    try:
+        result = (
+            supabase_client.table("profiles")
+            .upsert(
+                {
+                    "id": user_id,
+                    "name": name.strip(),
+                    "branch": branch.strip() if branch is not None else None,
+                    "year": year,
+                    "age": age,
+                    "app_variant": app_variant,
+                    "lifestyle": encrypted_lifestyle,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                on_conflict="id",
+            )
+            .execute()
+        )
+    except APIError as e:
+        logger.exception("Failed to upsert profile variant", extra={"user_id": user_id})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to save profile.",
+        ) from e
+
+    row = None
+    if result.data:
+        maybe_row = result.data[0]
+        if isinstance(maybe_row, dict):
+            row = maybe_row
+
+    if not isinstance(row, dict):
+        row = fetch_profile(user_id)
+
+    if not isinstance(row, dict):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Profile save returned no row.",
+        )
+
+    return cast(dict[str, Any], row), profile_created
+
+
+# ---------------------------------------------------------------------------
+# Cross-flavor import / export handshake
+# ---------------------------------------------------------------------------
+
+_SYNC_CODE_CHARS = string.ascii_uppercase + string.digits
+_SYNC_CODE_LENGTH = 6
+_SYNC_CODE_TTL_MINUTES = 15
+
+
+def generate_export_code(user_id: str) -> tuple[str, datetime]:
+    """
+    Generate and store a one-time 6-char alphanumeric export code for the
+    given profile (must be a flavor-variant user).
+
+    The code is valid for 15 minutes. Any previous code is silently overwritten.
+    Returns (code, expires_at).
+    """
+    code = "".join(random.choices(_SYNC_CODE_CHARS, k=_SYNC_CODE_LENGTH))  # noqa: S311
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=_SYNC_CODE_TTL_MINUTES)
+
+    try:
+        supabase_client.table("profiles").update(
+            {
+                "import_sync_code": code,
+                "import_sync_expires_at": expires_at.isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        ).eq("id", user_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to generate export code",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to generate export code.",
+        ) from e
+
+    return code, expires_at
+
+
+# Fields copied during import (all backend-encrypted BYTEA fields).
+_IMPORTABLE_FIELDS = [
+    "display_gender",
+    "display_sexuality",
+    "hometown",
+    "partner_values",
+    "children_plans",
+    "religious_beliefs",
+    "lifestyle",
+    "drinking",
+    "smoking",
+    "role",
+    "looking_for",
+    "activities",
+    "causes_supported",
+    "top_artists",
+    "tech_skills",
+    "languages",
+    "ai_vibe_tags",
+    "pets",
+    "interests",
+    "sub_interests",
+    "value_dimensions",
+    "search_buckets",
+    "dating_target_buckets",
+    "friends_target_buckets",
+    "professional_target_buckets",
+    "branch_blind_index",
+    "smoking_blind_index",
+    "drinking_blind_index",
+    "role_blind_index",
+]
+
+
+def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C901
+    """
+    Execute the cross-flavor import handshake.
+
+    Direction: flavor account (source) → main nexus account (target).
+
+    Steps:
+      1. Look up source profile by import_sync_code (service role bypasses RLS).
+      2. Validate the code is not expired.
+      3. Validate the target has not already imported data.
+      4. Validate the source is a non-main flavor (prevents main→main imports).
+      5. Copy encrypted PII fields from source to target.
+      6. Set has_imported_data = True on target.
+      7. Nullify import_sync_code on source to prevent re-use.
+
+    Returns the list of field names actually copied.
+    Raises HTTPException on any validation or database error.
+    """
+    now = datetime.now(timezone.utc)
+
+    # --- 1. Fetch source profile by sync code ---
+    try:
+        source_res = (
+            supabase_client.table("profiles")
+            .select(
+                ", ".join(
+                    [
+                        "id",
+                        "app_variant",
+                        "import_sync_expires_at",
+                        *_IMPORTABLE_FIELDS,
+                    ],
+                ),
+            )
+            .eq("import_sync_code", sync_code)
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception("Failed to look up import sync code")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Import service temporarily unavailable.",
+        ) from e
+
+    if not source_res.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or already-used export code.",
+        )
+
+    source = cast(dict[str, Any], source_res.data[0])
+
+    # --- 2. Validate expiry ---
+    expires_raw = source.get("import_sync_expires_at")
+    if not expires_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Export code has no expiry. Please generate a new code.",
+        )
+    if isinstance(expires_raw, str):
+        expires_at = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
+    else:
+        expires_at = cast(datetime, expires_raw)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if now > expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Export code has expired. "
+                "Please generate a new one from the flavor app."
+            ),
+        )
+
+    # --- 3. Prevent re-import on target ---
+    try:
+        target_res = (
+            supabase_client.table("profiles")
+            .select("id, has_imported_data, app_variant")
+            .eq("id", target_user_id)
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch target profile",
+            extra={"target_user_id": target_user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Import service temporarily unavailable.",
+        ) from e
+
+    if not target_res.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target profile not found. Complete onboarding first.",
+        )
+
+    target = cast(dict[str, Any], target_res.data[0])
+
+    if target.get("has_imported_data"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This account has already imported data. Import can only happen once."
+            ),
+        )
+
+    # --- 4. Ensure target is the main variant, source is a flavor ---
+    if target.get("app_variant") != "nexus":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import is only allowed into the main Nexus account.",
+        )
+
+    source_variant = source.get("app_variant", "nexus")
+    if source_variant == "nexus":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Export codes must originate from a flavor variant account.",
+        )
+
+    # --- 5. Copy encrypted fields ---
+    copy_payload: dict[str, Any] = {}
+    copied_fields: list[str] = []
+    for field in _IMPORTABLE_FIELDS:
+        value = source.get(field)
+        if value is not None:
+            copy_payload[field] = value
+            copied_fields.append(field)
+
+    copy_payload["has_imported_data"] = True
+    copy_payload["updated_at"] = now.isoformat()
+
+    try:
+        supabase_client.table("profiles").update(copy_payload).eq(
+            "id", target_user_id,
+        ).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to apply import payload",
+            extra={"target_user_id": target_user_id, "source_id": source.get("id")},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to apply imported data.",
+        ) from e
+
+    # --- 7. Nullify the source code to prevent re-use ---
+    try:
+        supabase_client.table("profiles").update(
+            {
+                "import_sync_code": None,
+                "import_sync_expires_at": None,
+                "updated_at": now.isoformat(),
+            },
+        ).eq("id", source.get("id")).execute()
+    except APIError as e:
+        # Non-fatal: log but don't fail the import — target already updated.
+        logger.error(
+            "Failed to nullify source import_sync_code after import (non-fatal)",
+            extra={"source_id": source.get("id"), "error": str(e)},
+        )
+
+    logger.info(
+        "Cross-flavor import completed",
+        extra={
+            "target_user_id": target_user_id,
+            "source_id": source.get("id"),
+            "source_variant": source_variant,
+            "copied_field_count": len(copied_fields),
+        },
+    )
+    return copied_fields
+
+
 def _parse_terms_timestamp(ts_raw: Any) -> datetime:
     if isinstance(ts_raw, str):
         return datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
@@ -233,19 +593,23 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
 
 def _validate_terms_versions(version: str) -> None:
     current_version = settings.current_terms_version.strip()
-    if not version or not version.isdigit():
+    try:
+      val_float = float(version)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="accepted_terms_version must be a numeric string.",
-        )
+        ) from None
 
-    if not current_version or not current_version.isdigit():
+    try:
+        curr_float = float(current_version)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server terms configuration is invalid.",
-        )
+        ) from None
 
-    if version != current_version:
+    if val_float != curr_float:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(

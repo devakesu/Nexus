@@ -1,7 +1,16 @@
 import logging
 
 import jwt
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    status,
+)
 
 from app.api.dependencies import (
     get_bearer_token,
@@ -9,23 +18,25 @@ from app.api.dependencies import (
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
+from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.jwks import get_live_supabase_public_key
 from app.core.limiter import limiter
 from app.db.client import supabase_client
 from app.db.users import (
     fetch_public_user,
     get_supabase_user_from_jwt,
-    is_allowed_college_email,
+    is_allowed_email,
     update_user_terms,
-    upsert_profile,
+    upsert_profile_variant,
     upsert_public_user,
 )
 from app.models import (
     AcceptTermsRequest,
     AcceptTermsResponse,
     AuthBootstrapResponse,
-    CompleteOnboardingRequest,
     CompleteOnboardingResponse,
+    MECOnboardingRequest,
+    OnboardingPayload,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,8 +88,10 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
 @limiter.limit(settings.rate_limit_auth)
 def auth_bootstrap(
     request: Request,
+    background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
     access_token: str = Depends(get_bearer_token),
+    x_app_variant: str | None = Header(None, alias="X-App-Variant"),
 ):
     _ = request
 
@@ -86,24 +99,42 @@ def auth_bootstrap(
 
     user_id = str(auth_user.get("id") or "").strip()
     email = str(auth_user.get("email") or "").strip().lower()
+    phone = str(auth_user.get("phone") or "").strip()
 
-    if not user_id or not email:
+    if not user_id or (not email and not phone):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user payload is incomplete.",
         )
 
-    if not is_allowed_college_email(email):
+    # Determine which variant this client is running under.
+    # Defaults to 'nexus' (main) when the header is absent or unrecognised.
+    app_variant = (x_app_variant or "nexus").strip().lower()
+    if app_variant not in ("nexus", "nexus_mec"):
+        app_variant = "nexus"
+
+    if email and not is_allowed_email(email, app_variant=app_variant):
         try:
             supabase_client.auth.admin.delete_user(user_id)
         except Exception as err:  # noqa: BLE001
             logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
+        required_domain = settings.allowed_email_domains.get(
+            app_variant,
+            "your approved domain",
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only accounts from {settings.allowed_email_domain} are allowed.",
+            detail=(
+                f"Only @{required_domain} accounts are allowed for this app variant. "
+                "Please sign in with your campus Google Workspace account."
+            ),
         )
 
-    user_row, newly_created = upsert_public_user(user_id=user_id, email=email)
+    user_row, newly_created = upsert_public_user(
+        user_id=user_id,
+        email=email if email else None,
+        mobile=phone if phone else None,
+    )
 
     if not bool(user_row.get("is_active", True)):
         raise HTTPException(
@@ -117,9 +148,16 @@ def auth_bootstrap(
             detail="Account is suspended.",
         )
 
+    if newly_created and email:
+        background_tasks.add_task(
+            send_bootstrap_welcome_email,
+            email=email,
+            auth_user=auth_user,
+        )
+
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
-        email=str(user_row["email"]),
+        email=str(user_row["email"]) if user_row.get("email") else None,
         is_active=bool(user_row.get("is_active", True)),
         is_suspended=bool(user_row.get("is_suspended", False)),
         moderation_status=str(user_row.get("moderation_status") or "clear"),
@@ -136,10 +174,20 @@ def auth_bootstrap(
 @limiter.limit(settings.rate_limit_auth)
 def complete_onboarding(
     request: Request,
-    payload: CompleteOnboardingRequest = Body(...),  # noqa: B008
+    payload: OnboardingPayload = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     access_token: str = Depends(get_bearer_token),
 ):
+    """
+    Complete the onboarding flow.
+
+    Accepts a discriminated union payload keyed on `app_variant`:
+      - 'nexus'     → NexusOnboardingRequest  (dating_intent, hobbies)
+      - 'nexus_mec' → MECOnboardingRequest    (major, grad_year, campus_clubs)
+
+    Common fields (branch, year, age, name) are stored directly on the profile.
+    Variant-specific fields are stored in the variant_metadata JSONB column.
+    """
     _ = request
 
     auth_user = get_supabase_user_from_jwt(access_token)
@@ -172,12 +220,29 @@ def complete_onboarding(
             detail="Account is suspended.",
         )
 
-    profile_row, profile_created = upsert_profile(
+    # Resolve name and variant-specific fields per flavor.
+    if isinstance(payload, MECOnboardingRequest):
+        # MEC: name is derived server-side from Google OAuth metadata.
+        # Branch and year are provided in the payload.
+        user_name = extract_user_name(email, auth_user)
+        user_branch: str | None = payload.branch
+        user_year: int | None = payload.year
+        user_lifestyle: str | None = None
+    else:
+        # NexusOnboardingRequest: name and lifestyle are provided in the payload.
+        user_name = payload.name
+        user_branch = None
+        user_year = None
+        user_lifestyle = payload.lifestyle
+
+    profile_row, profile_created = upsert_profile_variant(
         user_id=user_id,
-        name=payload.name,
-        branch=payload.branch,
-        year=payload.year,
+        name=user_name,
+        branch=user_branch,
+        year=user_year,
         age=payload.age,
+        app_variant=payload.app_variant,
+        lifestyle=user_lifestyle,
     )
 
     stored_terms_version, stored_terms_accepted_at = update_user_terms(

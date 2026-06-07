@@ -41,10 +41,22 @@ class Settings(BaseSettings):
     blind_index_key: str
 
     # -- Auth --
-    allowed_email_domain: str = "gmail.com"
+    # Per-variant email domain allowlist (JSON object in the env var).
+    # Each key is a variant name, value is the required email domain.
+    # Example env: ALLOWED_EMAIL_DOMAINS={"nexus_mec":"mec.edu.in"}
+    # Variants absent from this dict have no domain restriction.
+    # The main 'nexus' variant should NOT be listed here.
+    allowed_email_domains: dict[str, str] = {}
 
     # -- Legal --
     current_terms_version: str = "1"
+
+    # -- Email Providers --
+    brevo_api_key: str | None = None
+    sendpulse_client_id: str | None = None
+    sendpulse_client_secret: str | None = None
+    app_domain: str
+    app_name: str = "Nexus Orbit"
 
     model_config = SettingsConfigDict(
         env_file=None,

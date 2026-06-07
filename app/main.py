@@ -12,6 +12,7 @@ from starlette.responses import Response
 
 from app.api.discovery import router as discovery_router
 from app.api.status import router as status_router
+from app.api.sync import router as sync_router
 from app.api.user import router as user_router
 from app.core.cache import redis_client
 from app.core.config import settings
@@ -82,7 +83,12 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["POST", "GET", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Firebase-AppCheck",
+        "X-App-Variant",
+    ],
 )
 
 app.state.limiter = limiter
@@ -108,4 +114,5 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(discovery_router)
 app.include_router(user_router)
+app.include_router(sync_router)
 app.include_router(status_router)

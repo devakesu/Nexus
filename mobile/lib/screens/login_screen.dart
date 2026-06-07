@@ -4,11 +4,13 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -30,6 +32,8 @@ class SpaceNode {
   final double? targetRadius; // target orbit shell radius
 }
 
+enum LoginView { options, email, phone, otp }
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.appName, super.key});
 
@@ -42,6 +46,16 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   bool _isLoading = false;
+  LoginView _currentView = LoginView.options;
+
+  // Controllers/Values for Email and Phone login
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
+
+  bool _isPhoneOtp = true;
+  int _resendCountdown = 60;
+  Timer? _countdownTimer;
 
   // Physics & Particle Field State
   late AnimationController _physicsController;
@@ -153,33 +167,13 @@ class _LoginScreenState extends State<LoginScreen>
 
     // Safely listen to accelerometer sensor events with strict channel error check
     unawaited(_initAccelerometer());
+
   }
 
   Future<void> _initAccelerometer() async {
-    const channel = MethodChannel('dev.fluttercommunity.plus/sensors/method');
-    try {
-      // Test if the channel is registered.
-      // If the plugin is not registered/present in native, this will throw MissingPluginException.
-      await channel.invokeMethod('setAccelerationSamplingPeriod', 200000);
-
-      if (!mounted) return;
-
-      _accelerometerSubscription = accelerometerEventStream().listen(
-        (event) {
-          if (mounted) {
-            setState(() {
-              _accelerometerOffset = Offset(-event.x * 0.1, event.y * 0.1);
-            });
-          }
-        },
-        onError: (_) {
-          _accelerometerOffset = Offset.zero;
-        },
-        cancelOnError: true,
-      );
-    } on Object catch (_) {
-      _accelerometerOffset = Offset.zero;
-    }
+    // Disabled physical accelerometer subscription to prevent emulator/device gravity bias.
+    // The physics simulation falls back to a uniform, beautiful simulated ambient orbit loop.
+    _accelerometerOffset = Offset.zero;
   }
 
   void _updatePhysics() {
@@ -188,14 +182,11 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() {
       _simulatedTime += 0.015;
 
-      // Fallback to ambient gyroscopic drift rotation when native sensor plugin is missing
-      var activeTilt = _accelerometerOffset;
-      if (activeTilt == Offset.zero) {
-        activeTilt = Offset(
-          math.sin(_simulatedTime) * 0.03,
-          math.cos(_simulatedTime) * 0.03,
-        );
-      }
+      // Use simulated ambient gyroscopic drift rotation for perfect uniform orbit
+      final activeTilt = Offset(
+        math.sin(_simulatedTime) * 0.03,
+        math.cos(_simulatedTime) * 0.03,
+      );
 
       for (final node in _nodes) {
         // Apply velocity
@@ -291,6 +282,10 @@ class _LoginScreenState extends State<LoginScreen>
     _matrixTimer?.cancel();
     unawaited(_accelerometerSubscription?.cancel());
     _physicsController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -327,18 +322,205 @@ class _LoginScreenState extends State<LoginScreen>
         idToken: idToken,
         accessToken: accessToken,
       );
-    } on Object catch (e) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'Authentication failed: $e',
+      );
+    } finally {
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendEmailOtp() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter your email address.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter a valid email address.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        email: email,
+      );
+      if (mounted) {
+        setState(() {
+          _isPhoneOtp = false;
+          _currentView = LoginView.otp;
+          _resendCountdown = 60;
+          _startCountdown();
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFD32F2F),
+          const SnackBar(
+            backgroundColor: Color(0xFF00ADB5),
             content: Text(
-              'Authentication failed: $e',
-              style: const TextStyle(color: Colors.white),
+              'OTP sent successfully!',
+              style: TextStyle(color: Colors.white),
             ),
           ),
         );
       }
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'Failed to send OTP: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendOtp() async {
+    final phone = _phoneController.text.trim();
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter your phone number.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        phone: phone,
+      );
+      if (mounted) {
+        setState(() {
+          _isPhoneOtp = true;
+          _currentView = LoginView.otp;
+          _resendCountdown = 60;
+          _startCountdown();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF00ADB5),
+            content: Text(
+              'OTP sent successfully!',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'Failed to send OTP: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_resendCountdown > 0) {
+            _resendCountdown--;
+          } else {
+            _countdownTimer?.cancel();
+          }
+        });
+      }
+    });
+  }
+
+  Future<void> _verifyOtp() async {
+    final target = _isPhoneOtp ? _phoneController.text.trim() : _emailController.text.trim();
+    final code = _otpController.text.trim();
+
+    if (target.isEmpty || code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter the OTP verification code.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (_isPhoneOtp) {
+        await Supabase.instance.client.auth.verifyOTP(
+          phone: target,
+          token: code,
+          type: OtpType.sms,
+        );
+      } else {
+        await Supabase.instance.client.auth.verifyOTP(
+          email: target,
+          token: code,
+          type: OtpType.email,
+        );
+      }
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'OTP verification failed: $e',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -521,71 +703,13 @@ class _LoginScreenState extends State<LoginScreen>
                           children: [
                             if (_isLoading)
                               const Center(
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF00ADB5),
-                                  ),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                                  child: NexusOrbitLoader(size: 60.0),
                                 ),
                               )
                             else
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _signInWithGoogle,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Container(
-                                    height: 56,
-                                    width: double
-                                        .infinity, // Forces button to stretch horizontally
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      color: Colors.white,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.transparent,
-                                          ),
-                                          padding: const EdgeInsets.all(6),
-                                          child: Image.asset(
-                                            'assets/google_logo.png',
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        const Text(
-                                          'Sign in with Google',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF0B0C10),
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ).animate().fade(delay: 400.ms, duration: 600.ms),
-                            const SizedBox(height: 20),
-                            // Monospace footnote
-                            Text(
-                              'Please use your official campus account to login.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(
-                                  0xFF00ADB5,
-                                ).withValues(alpha: 0.7),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                              _buildAuthContent(isMec),
                           ],
                         ),
                       ),
@@ -599,6 +723,393 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+
+  Widget _buildAuthContent(bool isMec) {
+    if (isMec) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildGoogleButton(),
+          const SizedBox(height: 20),
+          _buildFootnote('Please use your official campus account to login.'),
+        ],
+      );
+    }
+
+    switch (_currentView) {
+      case LoginView.options:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildGoogleButton(),
+            const SizedBox(height: 12),
+            _buildGreyButton(
+              onTap: () {
+                setState(() {
+                  _currentView = LoginView.email;
+                });
+              },
+              icon: Icons.mail_outline_rounded,
+              label: 'Sign in with Email',
+            ),
+            const SizedBox(height: 12),
+            _buildGreyButton(
+              onTap: () {
+                setState(() {
+                  _currentView = LoginView.phone;
+                });
+              },
+              icon: Icons.phone_iphone_rounded,
+              label: 'Sign in with Phone',
+            ),
+            const SizedBox(height: 20),
+            _buildFootnote('Find your orbit. Connect seamlessly.'),
+          ],
+        );
+      case LoginView.email:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Welcome!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _emailController,
+              hintText: 'Email address',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            _buildActionButton(
+              onTap: _sendEmailOtp,
+              label: 'Get OTP',
+            ),
+            const SizedBox(height: 12),
+            _buildBackButton(),
+          ],
+        );
+      case LoginView.phone:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Sign in with Phone',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter your phone number starting with +',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _phoneController,
+              hintText: '+911234567890',
+              icon: Icons.phone_iphone_rounded,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            _buildActionButton(
+              onTap: _sendOtp,
+              label: 'Get OTP',
+            ),
+            const SizedBox(height: 12),
+            _buildBackButton(),
+          ],
+        );
+      case LoginView.otp:
+        final targetText = _isPhoneOtp ? _phoneController.text : _emailController.text;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Verify OTP',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter the 6-digit code sent to $targetText',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _otpController,
+              hintText: '6-digit code',
+              icon: Icons.lock_clock_outlined,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            _buildActionButton(
+              onTap: _verifyOtp,
+              label: 'Verify & Login',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _resendCountdown > 0
+                      ? 'Resend code in ${_resendCountdown}s'
+                      : 'Did not receive code?',
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF6B7280),
+                    fontSize: 13,
+                  ),
+                ),
+                if (_resendCountdown == 0) ...[
+                  TextButton(
+                    onPressed: _isPhoneOtp ? _sendOtp : _sendEmailOtp,
+                    child: Text(
+                      'Resend',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF00ADB5),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            _buildBackButton(),
+          ],
+        );
+    }
+  }
+
+  Widget _buildGoogleButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _signInWithGoogle,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 56,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                padding: const EdgeInsets.all(6),
+                child: Image.asset(
+                  'assets/google_logo.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Sign in with Google',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0B0C10),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).animate().fade(delay: 400.ms, duration: 600.ms);
+  }
+
+  Widget _buildGreyButton({
+    required VoidCallback onTap,
+    required IconData icon,
+    required String label,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF1F2937).withValues(alpha: 0.6),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white70, size: 20),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: const Color(0xFF07080A).withValues(alpha: 0.8),
+        hintText: hintText,
+        hintStyle: GoogleFonts.inter(
+          color: const Color(0xFF6B7280),
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(icon, color: const Color(0xFF6B7280), size: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.05),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: Color(0xFF00ADB5),
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required VoidCallback onTap,
+    required String label,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF00ADB5),
+                Color(0xFF007A7F),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00ADB5).withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return TextButton(
+      onPressed: () {
+        setState(() {
+          _currentView = LoginView.options;
+        });
+      },
+      child: Text(
+        'Back to Login Options',
+        style: GoogleFonts.inter(
+          color: const Color(0xFF6B7280),
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFootnote(String text) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: GoogleFonts.jetBrainsMono(
+        fontSize: 9,
+        fontWeight: FontWeight.bold,
+        color: const Color(0xFF00ADB5).withValues(alpha: 0.7),
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+
 
   Widget _buildMatrixRow(String label, String status, bool isActive) {
     final color = isActive
@@ -658,15 +1169,11 @@ class GravityFieldPainter extends CustomPainter {
     const whiteColor = Color(0xFFFFFFFF);
     const greyColor = Color(0xFF6B7280);
 
-    // Apply gyroscopic tilt translation (either physical sensors or simulated loop)
     canvas.save();
-    var activeTilt = tiltOffset;
-    if (activeTilt == Offset.zero) {
-      activeTilt = Offset(
-        math.sin(simulatedTime) * 0.03,
-        math.cos(simulatedTime) * 0.03,
-      );
-    }
+    final activeTilt = Offset(
+      math.sin(simulatedTime) * 0.03,
+      math.cos(simulatedTime) * 0.03,
+    );
     canvas.translate(activeTilt.dx * 12, activeTilt.dy * 12);
 
     // 1. Draw concentric grid rings (0.50, 0.75, 1.00)

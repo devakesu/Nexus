@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -8,7 +8,7 @@ from app.core.config import DiscoveryTab, settings
 
 class AuthBootstrapResponse(BaseModel):
     user_id: str
-    email: str
+    email: str | None = None
     is_active: bool
     is_suspended: bool
     moderation_status: str
@@ -72,36 +72,98 @@ class ProfileModel(BaseModel):
     bio_embedding: list[float] | None = None
 
 
-class CompleteOnboardingRequest(BaseModel):
-    name: str = Field(..., min_length=2, max_length=100)
-    branch: str
-    year: int = Field(..., ge=1, le=5)
+# ---------------------------------------------------------------------------
+# Onboarding — Polymorphic models
+# ---------------------------------------------------------------------------
+
+class BaseOnboardingRequest(BaseModel):
+    """
+    Minimal common fields shared by all onboarding variants.
+
+    Only `age` and `accepted_terms_version` are universal.
+    All other fields (name, branch, year) are variant-specific.
+    """
+
     age: int = Field(..., ge=18, le=27)
     accepted_terms_version: str
+
+    @field_validator("accepted_terms_version")
+    @classmethod
+    def validate_terms_version(cls, value: str) -> str:
+        cleaned = value.strip()
+        try:
+            val_float = float(cleaned)
+            curr_float = float(settings.current_terms_version)
+            if val_float != curr_float:
+                raise ValueError("You must accept the current terms version.")
+        except ValueError as err:
+            raise ValueError("You must accept the current terms version.") from err
+        return cleaned
+
+
+class NexusOnboardingRequest(BaseOnboardingRequest):
+    """
+    Onboarding payload for the main Nexus (personal) flavor.
+
+    - Name is collected from the user.
+    - Age is collected.
+    - Lifestyle is collected.
+    """
+
+    app_variant: Literal["nexus"] = "nexus"
+    name: str = Field(..., min_length=4, max_length=100)
+    lifestyle: str = Field(..., min_length=1)
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
+        import re
         cleaned = value.strip()
-        if len(cleaned) < 2:
-            raise ValueError("Name must be at least 2 characters.")
+        if len(cleaned) < 4:
+            raise ValueError("Name must be at least 4 characters.")
+        if not re.match(r"^[a-zA-Z\s\.]+$", cleaned):
+            raise ValueError(
+                "Name can only contain letters, spaces, and dots.",
+            )
+        if ".." in cleaned:
+            raise ValueError("Name cannot contain consecutive dots.")
+        if len(re.findall(r"[a-zA-Z]", cleaned)) < 2:
+            raise ValueError("Name must contain actual letters.")
         return cleaned
+
+
+class MECOnboardingRequest(BaseOnboardingRequest):
+    """
+    Onboarding payload for the Nexus-MEC (college) flavor.
+
+    - Name is NOT in the payload; derived server-side.
+    - Branch and year are REQUIRED.
+    - Age is collected.
+    """
+
+    app_variant: Literal["nexus_mec"] = "nexus_mec"
+    branch: str = Field(..., min_length=1, max_length=100)
+    year: int = Field(..., ge=1, le=4)
 
     @field_validator("branch")
     @classmethod
     def validate_branch(cls, value: str) -> str:
         cleaned = value.strip()
         if not cleaned:
-            raise ValueError("Branch is required.")
+            raise ValueError("Branch is required for MEC profiles.")
         return cleaned
 
-    @field_validator("accepted_terms_version")
-    @classmethod
-    def validate_terms_version(cls, value: str) -> str:
-        cleaned = value.strip()
-        if cleaned != settings.current_terms_version:
-            raise ValueError("You must accept the current terms version.")
-        return cleaned
+
+# Discriminated union resolved by the `app_variant` field.
+# FastAPI will automatically pick the correct model based on the payload.
+OnboardingPayload = Annotated[
+    NexusOnboardingRequest | MECOnboardingRequest,
+    Field(discriminator="app_variant"),
+]
+
+
+# Kept for backwards-compatibility; new code should use OnboardingPayload.
+CompleteOnboardingRequest = BaseOnboardingRequest
 
 
 class CompleteOnboardingResponse(BaseModel):
@@ -111,6 +173,41 @@ class CompleteOnboardingResponse(BaseModel):
     accepted_terms_version: str
     terms_accepted_at: datetime
     profile: dict[str, object]
+
+
+# ---------------------------------------------------------------------------
+# Cross-flavor import / export handshake
+# ---------------------------------------------------------------------------
+
+class ExportCodeResponse(BaseModel):
+    """
+    Returned to a flavor-variant user after generating a one-time export code.
+    The code is valid for 15 minutes and can be entered on the main Nexus app.
+    """
+
+    code: str = Field(..., min_length=6, max_length=6)
+    expires_at: datetime
+
+
+class ImportRequest(BaseModel):
+    """Payload sent by the main Nexus user to consume a flavor export code."""
+
+    sync_code: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("sync_code")
+    @classmethod
+    def validate_code_format(cls, value: str) -> str:
+        cleaned = value.strip().upper()
+        if not cleaned.isalnum():
+            raise ValueError("sync_code must be alphanumeric.")
+        return cleaned
+
+
+class ImportResponse(BaseModel):
+    """Result of a successful cross-flavor import handshake."""
+
+    success: bool = True
+    imported_fields: list[str] = Field(default_factory=list)
 
 
 class DiscoveryFilters(BaseModel):
@@ -390,8 +487,13 @@ class AcceptTermsRequest(BaseModel):
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
         cleaned = value.strip()
-        if cleaned != settings.current_terms_version:
-            raise ValueError("You must accept the current terms version.")
+        try:
+            val_float = float(cleaned)
+            curr_float = float(settings.current_terms_version)
+            if val_float != curr_float:
+                raise ValueError("You must accept the current terms version.")
+        except ValueError as err:
+            raise ValueError("You must accept the current terms version.") from err
         return cleaned
 
 

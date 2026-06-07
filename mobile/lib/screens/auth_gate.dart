@@ -7,6 +7,8 @@ import 'package:nexus/screens/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
+import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatefulWidget {
@@ -24,7 +26,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _isBootstrapping = false;
   String? _lastBootstrappedSessionId;
   bool _hasProfile = false;
-  String _termsVersion = '1.0';
+  String _termsVersion = '1';
 
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
@@ -32,7 +34,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    
+
     // Start initial authentication check in parallel with splash animation
     unawaited(_performInitialAuthCheck());
 
@@ -102,7 +104,8 @@ class _AuthGateState extends State<AuthGate> {
       final dio = Dio();
 
       // Retrieve limited use App Check token for sensitive bootstrap endpoint
-      final appCheckToken = await FirebaseAppCheck.instance.getLimitedUseToken();
+      final appCheckToken = await FirebaseAppCheck.instance
+          .getLimitedUseToken();
 
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/bootstrap',
@@ -135,10 +138,11 @@ class _AuthGateState extends State<AuthGate> {
         });
       } else {
         // Server rejected registration (e.g. 403 Forbidden - non-college email)
-        final errorMsg = response.data?['detail'] ?? 'Server authentication failed.';
+        final errorMsg =
+            response.data?['detail'] ?? 'Server authentication failed.';
         throw Exception(errorMsg);
       }
-    } on Object catch (e) {
+    } on Object catch (e, stackTrace) {
       // Sign out from Supabase as bootstrap failed
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
@@ -147,15 +151,11 @@ class _AuthGateState extends State<AuthGate> {
           _lastBootstrappedSessionId = null;
           _hasProfile = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFD32F2F),
-            duration: const Duration(seconds: 5),
-            content: Text(
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage:
               'Access denied: ${e.toString().replaceAll('Exception:', '').trim()}',
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
         );
       }
     }
@@ -182,30 +182,33 @@ class _AuthGateState extends State<AuthGate> {
       currentWidget = const Scaffold(
         key: ValueKey('bootstrapping'),
         backgroundColor: Color(0xFF0B0C10),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00ADB5)),
+        body: Stack(
+          children: [
+            IdentityScanLoader(),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(height: 160),
+                  Text(
+                    'Verifying your Identity...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 24),
-              Text(
-                'Securing Connection...',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     } else {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session != null && _lastBootstrappedSessionId == session.accessToken) {
+      if (session != null &&
+          _lastBootstrappedSessionId == session.accessToken) {
         if (!_hasProfile) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
