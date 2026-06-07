@@ -95,6 +95,7 @@ $RECYCLE.BIN/
 supabase/.temp/*
 temp/
 .infisical.json
+.certificates/
 
 # ==========================================
 # 9. Flutter & Mobile Monorepo Architecture

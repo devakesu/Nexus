@@ -3,10 +3,15 @@ import logging
 import jwt
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 
-from app.api.dependencies import get_bearer_token, verify_app_check_token
+from app.api.dependencies import (
+    get_bearer_token,
+    verify_app_check_token,
+    verify_app_check_with_replay_protection,
+)
 from app.core.config import settings
 from app.core.jwks import get_live_supabase_public_key
 from app.core.limiter import limiter
+from app.db.client import supabase_client
 from app.db.users import (
     fetch_public_user,
     get_supabase_user_from_jwt,
@@ -72,7 +77,7 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
 @limiter.limit(settings.rate_limit_auth)
 def auth_bootstrap(
     request: Request,
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     access_token: str = Depends(get_bearer_token),
 ):
     _ = request
@@ -89,9 +94,13 @@ def auth_bootstrap(
         )
 
     if not is_allowed_college_email(email):
+        try:
+            supabase_client.auth.admin.delete_user(user_id)
+        except Exception as err:  # noqa: BLE001
+            logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only college email accounts are allowed.",
+            detail=f"Only accounts from {settings.allowed_email_domain} are allowed.",
         )
 
     user_row, newly_created = upsert_public_user(user_id=user_id, email=email)
@@ -194,7 +203,7 @@ def complete_onboarding(
 def accept_terms(
     request: Request,
     payload: AcceptTermsRequest = Body(...),  # noqa: B008
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     access_token: str = Depends(get_bearer_token),
 ):
     _ = request

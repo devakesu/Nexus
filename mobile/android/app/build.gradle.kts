@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -33,18 +35,18 @@ android {
         versionName = flutter.versionName
     }
     
-    flavorDimensions "brand"
+    flavorDimensions += "brand"
 
     productFlavors {
-        nexus {
-            dimension "brand"
-            applicationId "com.devakesu.apps.nexus"
-            resValue "string", "app_name", "Nexus"
+        create("nexus") {
+            dimension = "brand"
+            applicationId = "com.devakesu.apps.nexus"
+            resValue("string", "app_name", "Nexus")
         }
-        mec {
-            dimension "brand"
-            applicationId "com.devakesu.apps.nexus.mec"
-            resValue "string", "app_name", "Nexus MEC"
+        create("mec") {
+            dimension = "brand"
+            applicationId = "com.devakesu.apps.nexus.mec"
+            resValue("string", "app_name", "Nexus MEC")
         }
     }
 

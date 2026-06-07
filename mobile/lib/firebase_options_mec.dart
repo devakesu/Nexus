@@ -50,19 +50,18 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDjHrtg0W4_1KQySJowoxDGfckfCeKtLDM',
-    appId: '1:364879670557:android:d831c38fbcf9c28d5d45f4',
-    messagingSenderId: '364879670557',
-    projectId: 'nexus-mec',
-    storageBucket: 'nexus-mec.firebasestorage.app',
+    apiKey: 'AIzaSyC9hEzsgoLqI-yFmXfxPWGVauNmawQYGUc',
+    appId: '1:360032447327:android:e79127626f977c5cefe4ea',
+    messagingSenderId: '360032447327',
+    projectId: 'nexus-constellation',
+    storageBucket: 'nexus-constellation.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDKwjGQgGlHup_W4duNMNus2h2kqV_LWu8',
-    appId: '1:364879670557:ios:e3d0b95fee8fcc5e5d45f4',
-    messagingSenderId: '364879670557',
-    projectId: 'nexus-mec',
-    storageBucket: 'nexus-mec.firebasestorage.app',
+    apiKey: 'AIzaSyDeHa2U2_o3CdQqZIWrsF0E-GcX6it9VmI',
+    appId: '1:360032447327:ios:7f35016c3e38a6b8efe4ea',
+    messagingSenderId: '360032447327',
+    projectId: 'nexus-constellation',
+    storageBucket: 'nexus-constellation.firebasestorage.app',
     iosBundleId: 'com.devakesu.apps.nexus.mec',
   );
 }
