@@ -61,14 +61,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF090D0F),
+        scaffoldBackgroundColor: const Color(0xFF0B0C10),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0D9488), // Sleek Tech Teal
+          seedColor: const Color(0xFF00ADB5),
           brightness: Brightness.dark,
-          primary: const Color(0xFF0D9488),
-          surface: const Color(0xFF111619),
+          primary: const Color(0xFF00ADB5),
+          surface: const Color(0xFF0D0E12),
         ),
-        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
+        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
         useMaterial3: true,
       ),
       home: const AuthGate(appName: appName),

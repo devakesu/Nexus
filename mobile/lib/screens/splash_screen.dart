@@ -1,90 +1,254 @@
+// CustomPainter math calculations benefit from explicit double literals and nested canvas calls.
+// ignore_for_file: prefer_int_literals, cascade_invocations
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:nexus/config/app_config.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({required this.appName, super.key});
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({
+    required this.appName,
+    required this.onAnimationComplete,
+    super.key,
+  });
 
   final String appName;
+  final VoidCallback onAnimationComplete;
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    );
+
+    _controller.addListener(() {
+      if (_controller.isCompleted) {
+        widget.onAnimationComplete();
+      }
+    });
+
+    unawaited(_controller.forward());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final config = AppConfig.current;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF090D0F),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Container with subtle tech shadow containing flavor-specific logo
-            Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(36),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x220D9488), // Clean tech teal glow
-                    blurRadius: 40,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(36),
-                child: Image.asset(
-                  config.logoAssetPath,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            )
-                .animate()
-                .fade(duration: 800.ms, curve: Curves.easeOut)
-                .scale(
-                  begin: const Offset(0.7, 0.7),
-                  end: const Offset(1, 1),
-                  duration: 900.ms,
-                  curve: Curves.elasticOut,
-                )
-                .then(delay: 100.ms)
-                .shimmer(
-                  duration: 1000.ms,
-                  color: const Color(0x33FFFFFF),
-                ),
-            const SizedBox(height: 35),
-            // App Title Text
-            Text(
-              appName.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 6,
-                color: Colors.white,
-              ),
-            )
-                .animate()
-                .fade(delay: 400.ms, duration: 600.ms)
-                .slideY(
-                  begin: 0.2,
-                  end: 0,
-                  duration: 600.ms,
-                  curve: Curves.easeOut,
-                ),
-            const SizedBox(height: 10),
-            // Subtitle
-            const Text(
-              'THE FUTURE OF CONNECTIVITY',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 4,
-                color: Color(0x80FFFFFF),
-              ),
-            ).animate().fade(delay: 600.ms, duration: 600.ms),
-          ],
-        ),
+      backgroundColor: const Color(0xFF0B0C10), // Cosmic Obsidian base
+      body: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            painter: CoordinatePainter(progress: _controller.value),
+            child: const SizedBox.expand(),
+          );
+        },
       ),
     );
+  }
+}
+
+class CoordinatePainter extends CustomPainter {
+  CoordinatePainter({required this.progress});
+
+  final double progress; // 0.0 to 1.0
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = math.sqrt(center.dx * center.dx + center.dy * center.dy);
+
+    // Define colors according to Aesthetic Philosophy
+    const accentColor = Color(0xFF00ADB5); // Pulsar Teal / Oracle Aqua
+    const whiteColor = Color(0xFFFFFFFF);
+    const greyColor = Color(0xFF6B7280); // Muted Slate Grey
+
+    // Phase Calculations
+    // Frame 0: PURE BLACK (0.0 to 0.1)
+    // Frame 10 (Anchor): Drop pinpoint (0.1 to 0.3)
+    // Frame 30 (Radius Sweep): Sweep circular vector (0.3 to 0.7)
+    // Frame 50 (Handoff): Zoom out / resolve grid (0.7 to 1.0)
+
+    var scale = 1.0;
+    var gridOpacity = 0.0;
+
+    if (progress > 0.7) {
+      final zoomProgress = ((progress - 0.7) / 0.3).clamp(0.0, 1.0);
+      // Zoom out smoothly backwards
+      scale = 1 - (0.2 * Curves.easeInOutCubic.transform(zoomProgress));
+      gridOpacity = Curves.easeOut.transform(zoomProgress);
+    }
+
+    canvas.save();
+    // Translate to center and apply viewport scale
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+
+    // Draw Grid Lines (Resolves/fades in during Frame 50 Zoom out)
+    if (gridOpacity > 0) {
+      final gridPaint = Paint()
+        ..color = accentColor.withValues(alpha: 0.06 * gridOpacity)
+        ..strokeWidth = 0.5;
+
+      const gridSpacing = 45;
+      final halfW = size.width * 1.5; // wider area to cover zoom out
+      final halfH = size.height * 1.5;
+
+      for (var x = -halfW; x <= halfW; x += gridSpacing) {
+        canvas.drawLine(Offset(x, -halfH), Offset(x, halfH), gridPaint);
+      }
+      for (var y = -halfH; y <= halfH; y += gridSpacing) {
+        canvas.drawLine(Offset(-halfW, y), Offset(halfW, y), gridPaint);
+      }
+    }
+
+    // Frame 10 (The Anchor): Glowing point coordinates vector drops directly in the mathematical center
+    if (progress >= 0.1) {
+      final anchorProgress = math.min((progress - 0.1) / 0.2, 1.0).clamp(0.0, 1.0);
+      final pointRadius = 2.5 * anchorProgress;
+
+      // Inner sharp point
+      final pointPaint = Paint()
+        ..color = whiteColor.withValues(alpha: anchorProgress)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset.zero, pointRadius, pointPaint);
+
+      // Glowing pulse outer ring
+      final glowPaint = Paint()
+        ..color = accentColor.withValues(alpha: 0.35 * anchorProgress)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(Offset.zero, pointRadius + 4, glowPaint);
+
+      // Coordinate text animation: origin_x: 0.00, origin_y: 0.00
+      if (anchorProgress > 0) {
+        var xText = '0.00';
+        var yText = '0.00';
+        if (progress < 0.45) {
+          // Dynamic coordinates to look like calculation/locking in
+          final rand = math.Random((progress * 200).toInt());
+          xText = (rand.nextDouble() * 20 - 10).toStringAsFixed(2);
+          yText = (rand.nextDouble() * 20 - 10).toStringAsFixed(2);
+        }
+
+        final textSpan = TextSpan(
+          text: 'origin_x: $xText, origin_y: $yText',
+          style: GoogleFonts.jetBrainsMono(
+            color: whiteColor.withValues(alpha: anchorProgress * 0.75),
+            fontSize: 9,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w400,
+          ),
+        );
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, const Offset(8, -16));
+      }
+    }
+
+    // Frame 30 (The Radius Sweep): Thin, single-pixel vector ring path shoots out
+    if (progress >= 0.3) {
+      final sweepProgress = math.min((progress - 0.3) / 0.4, 1.0).clamp(0.0, 1.0);
+      final currentSweepRadius = sweepProgress * (maxRadius * 0.75);
+
+      // Draw Orbit Tiers (threshold boundaries)
+      final tierPaint = Paint()
+        ..color = greyColor.withValues(alpha: 0.12 * sweepProgress)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+
+      final orbitTiers = [60, 120, 180];
+      for (final tier in orbitTiers) {
+        if (currentSweepRadius >= tier) {
+          // Draw Orbit Tier circle
+          canvas.drawCircle(Offset.zero, tier.toDouble(), tierPaint);
+
+          // Draw orbital labels on first two tiers
+          if (tier == 120) {
+            final tierProgress = math.min((currentSweepRadius - tier) / 40, 1.0).clamp(0.0, 1.0);
+            final textSpan = TextSpan(
+              text: '◉ ORBIT_TIER_02: BOUND_OK',
+              style: GoogleFonts.jetBrainsMono(
+                color: accentColor.withValues(alpha: 0.4 * tierProgress),
+                fontSize: 6.5,
+                letterSpacing: 1.2,
+              ),
+            );
+            final textPainter = TextPainter(
+              text: textSpan,
+              textDirection: TextDirection.ltr,
+            )..layout();
+            textPainter.paint(canvas, Offset(-50, -tier.toDouble() - 10));
+          }
+        }
+      }
+
+      // Sweep vector ring path
+      final sweepPaint = Paint()
+        ..color = accentColor.withValues(alpha: (1 - sweepProgress) * 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawCircle(Offset.zero, currentSweepRadius, sweepPaint);
+
+      // Fade-in text when sweep completes a decent path
+      if (progress >= 0.5) {
+        final textFadeProgress = math.min((progress - 0.5) / 0.25, 1.0).clamp(0.0, 1.0);
+        final textSpan = TextSpan(
+          text: '[NEXUS_ENGINE_INITIALIZED]',
+          style: GoogleFonts.jetBrainsMono(
+            color: accentColor.withValues(alpha: textFadeProgress),
+            fontSize: 9.5,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2.0,
+          ),
+        );
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        textPainter.paint(canvas, Offset(-textPainter.width / 2, 40));
+      }
+    }
+
+    // Bottom Coordinate Log: [x: -42.84, y: 112.50] -> Vector Identity Validated
+    if (progress >= 0.6) {
+      final logFade = math.min((progress - 0.6) / 0.2, 1.0).clamp(0.0, 1.0);
+      final textSpan = TextSpan(
+        text: '[x: -42.84, y: 112.50] -> Vector Identity Validated',
+        style: GoogleFonts.jetBrainsMono(
+          color: whiteColor.withValues(alpha: logFade * 0.45),
+          fontSize: 8,
+          letterSpacing: 0.5,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(canvas, Offset(-textPainter.width / 2, 65));
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant CoordinatePainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

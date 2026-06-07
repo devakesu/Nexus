@@ -26,18 +26,15 @@ class _AuthGateState extends State<AuthGate> {
   bool _hasProfile = false;
   String _termsVersion = '1.0';
 
+  bool _animationCompleted = false;
+  bool _authCheckCompleted = false;
+
   @override
   void initState() {
     super.initState();
-    // Allow splash screen to show for 2.3 seconds
-    Timer(const Duration(milliseconds: 2300), () {
-      if (mounted) {
-        setState(() {
-          _showSplash = false;
-        });
-        unawaited(_checkBootstrap());
-      }
-    });
+    
+    // Start initial authentication check in parallel with splash animation
+    unawaited(_performInitialAuthCheck());
 
     // Listen to Supabase auth state changes
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
@@ -50,6 +47,25 @@ class _AuthGateState extends State<AuthGate> {
         }
       }
     });
+  }
+
+  Future<void> _performInitialAuthCheck() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      await _checkBootstrap();
+    }
+    if (mounted) {
+      setState(() {
+        _authCheckCompleted = true;
+        _maybeTransition();
+      });
+    }
+  }
+
+  void _maybeTransition() {
+    if (_animationCompleted && _authCheckCompleted) {
+      _showSplash = false;
+    }
   }
 
   @override
@@ -147,21 +163,31 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    Widget currentWidget;
+
     if (_showSplash) {
-      return SplashScreen(appName: widget.appName);
-    }
-
-    final session = Supabase.instance.client.auth.currentSession;
-
-    if (_isBootstrapping) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF090D0F),
+      currentWidget = SplashScreen(
+        key: const ValueKey('splash'),
+        appName: widget.appName,
+        onAnimationComplete: () {
+          if (mounted) {
+            setState(() {
+              _animationCompleted = true;
+              _maybeTransition();
+            });
+          }
+        },
+      );
+    } else if (_isBootstrapping) {
+      currentWidget = const Scaffold(
+        key: ValueKey('bootstrapping'),
+        backgroundColor: Color(0xFF0B0C10),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00ADB5)),
               ),
               SizedBox(height: 24),
               Text(
@@ -177,22 +203,38 @@ class _AuthGateState extends State<AuthGate> {
           ),
         ),
       );
-    }
-
-    if (session != null && _lastBootstrappedSessionId == session.accessToken) {
-      if (!_hasProfile) {
-        return OnboardingScreen(
-          termsVersion: _termsVersion,
-          onComplete: () {
-            setState(() {
-              _hasProfile = true;
-            });
-          },
+    } else {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && _lastBootstrappedSessionId == session.accessToken) {
+        if (!_hasProfile) {
+          currentWidget = OnboardingScreen(
+            key: const ValueKey('onboarding'),
+            termsVersion: _termsVersion,
+            onComplete: () {
+              setState(() {
+                _hasProfile = true;
+              });
+            },
+          );
+        } else {
+          currentWidget = MyHomePage(
+            key: const ValueKey('home'),
+            title: widget.appName,
+          );
+        }
+      } else {
+        currentWidget = LoginScreen(
+          key: const ValueKey('login'),
+          appName: widget.appName,
         );
       }
-      return MyHomePage(title: widget.appName);
     }
 
-    return LoginScreen(appName: widget.appName);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 650),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      child: currentWidget,
+    );
   }
 }
