@@ -1,6 +1,6 @@
 /// Identifies which compiled flavor of the app is running.
 ///
-/// The value is resolved from the [FLUTTER_APP_FLAVOR] compile-time
+/// The value is resolved from the 'FLUTTER_APP_FLAVOR' compile-time
 /// constant injected via --dart-define at build time.
 enum AppVariant {
   /// Main Nexus app — all email domains allowed, imports data from flavors.
@@ -49,7 +49,6 @@ class AppConfig {
     logoAssetPath: 'assets/nexus.png',
     backendUrl: 'https://192.168.0.103:8000',
     appVariant: AppVariant.nexus,
-    allowedEmailDomain: null, // all domains allowed
   );
 
   static const AppConfig mec = AppConfig(

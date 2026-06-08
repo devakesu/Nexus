@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
@@ -249,14 +250,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _openImportDialog() {
-    showDialog<void>(
+    unawaited(showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => ImportCodeDialog(
         termsVersion: widget.termsVersion,
         onImportSuccess: widget.onComplete,
       ),
-    );
+    ));
   }
 
   bool get _canSubmit {
@@ -290,7 +291,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Left column: checkbox only
           Theme(
@@ -313,11 +313,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                Navigator.of(context).push(
+                unawaited(Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => const LegalTermsPage(),
                   ),
-                );
+                ));
               },
               child: RichText(
                 text: const TextSpan(
@@ -358,9 +358,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ── Build helpers ─────────────────────────────────────────────────────────
 
-  static const _teal = Color(0xFF0D9488);
-  static const _cardBg = Color(0xFF111619);
-  static const _pageBg = Color(0xFF090D0F);
+  static const _teal = Color(0xFFFF7597);
+  static const _cardBg = Color(0xFF161B26);
+  static const _pageBg = Color(0xFF0B0D13);
   static const _labelStyle = TextStyle(
     fontSize: 10,
     fontWeight: FontWeight.w700,

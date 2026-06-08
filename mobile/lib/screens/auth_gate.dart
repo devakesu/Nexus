@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/home_screen.dart';
+import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
@@ -112,7 +112,7 @@ class _AuthGateState extends State<AuthGate> {
           await Supabase.instance.client.auth.signOut();
           return;
         }
-      } catch (e, stackTrace) {
+      } on Object catch (e, stackTrace) {
         debugPrint('[AuthGate] Failed to refresh session: $e');
         await Supabase.instance.client.auth.signOut();
         if (mounted) {
@@ -229,7 +229,7 @@ class _AuthGateState extends State<AuthGate> {
     } else if (_isBootstrapping) {
       currentWidget = const Scaffold(
         key: ValueKey('bootstrapping'),
-        backgroundColor: Color(0xFF0B0C10),
+        backgroundColor: Color(0xFF0B0D13),
         body: Stack(
           children: [
             IdentityScanLoader(),

@@ -126,6 +126,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "drinking",
         "smoking",
         "role",
+        "profile_pic",
     ]
     for field in scalar_fields:
         _parse_encrypted_scalar(row, field)
@@ -139,6 +140,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "languages",
         "ai_vibe_tags",
         "pets",
+        "normal_pics",
     ]
     for field in array_fields:
         _parse_encrypted_list(row, field)

@@ -31,7 +31,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
   String? _errorMessage;
   bool _success = false;
 
-  static const _teal = Color(0xFF0D9488);
+  static const _teal = Color(0xFFFF7597);
 
   @override
   void dispose() {
@@ -93,7 +93,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF111619),
+      backgroundColor: const Color(0xFF161B26),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -108,7 +108,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0x1A0D9488),
+                    color: const Color(0x1AFF7597),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.download_rounded, color: _teal, size: 20),
@@ -148,9 +148,9 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0x0D0D9488),
+                color: const Color(0x0DFF7597),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x1A0D9488)),
+                border: Border.all(color: const Color(0x1AFF7597)),
               ),
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,11 +205,11 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                   letterSpacing: 6,
                 ),
                 filled: true,
-                fillColor: const Color(0xFF090D0F),
+                fillColor: const Color(0xFF0B0D13),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                  borderSide: const BorderSide(color: Color(0x1FFF7597)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -236,7 +236,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                   : _success
                       ? Container(
                           decoration: BoxDecoration(
-                            color: const Color(0x260D9488),
+                            color: const Color(0x26FF7597),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Row(
@@ -264,11 +264,11 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                                  colors: [Color(0xFFFF7597), Color(0xFFE04B76)],
                                 ),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Color(0x260D9488),
+                                    color: Color(0x26FF7597),
                                     blurRadius: 12,
                                     spreadRadius: 1,
                                   ),

@@ -62,7 +62,7 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0D9488),
+                color: Color(0xFFFF7597),
               ),
             ),
           ],
@@ -94,12 +94,12 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xFF0D9488)
+                        ? const Color(0xFFFF7597)
                         : const Color(0x1AFFFFFF),
                   ),
                   color: selected
-                      ? const Color(0x260D9488)
-                      : const Color(0xFF090D0F),
+                      ? const Color(0x26FF7597)
+                      : const Color(0xFF0B0D13),
                 ),
                 child: Text(
                   tag,

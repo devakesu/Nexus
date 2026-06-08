@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0C10), // Cosmic Obsidian base
+      backgroundColor: const Color(0xFF0B0D13), // Cosmic Obsidian base
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
@@ -73,7 +73,7 @@ class CoordinatePainter extends CustomPainter {
     final maxRadius = math.sqrt(center.dx * center.dx + center.dy * center.dy);
 
     // Define colors according to Aesthetic Philosophy
-    const accentColor = Color(0xFF00ADB5); // Pulsar Teal / Oracle Aqua
+    const accentColor = Color(0xFFFF7597); // Pulsar Pink
     const whiteColor = Color(0xFFFFFFFF);
     const greyColor = Color(0xFF6B7280); // Muted Slate Grey
 

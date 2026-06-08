@@ -6,9 +6,9 @@ class LegalTermsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF090D0F),
+      backgroundColor: const Color(0xFF0B0D13),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF111619),
+        backgroundColor: const Color(0xFF161B26),
         title: const Text(
           'Terms & Privacy Policy',
           style: TextStyle(
@@ -34,7 +34,7 @@ class LegalTermsPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0D9488),
+                color: Color(0xFFFF7597),
                 letterSpacing: 0.5,
               ),
             ),
@@ -56,7 +56,7 @@ class LegalTermsPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0D9488),
+                color: Color(0xFFFF7597),
                 letterSpacing: 0.5,
               ),
             ),

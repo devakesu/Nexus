@@ -1,5 +1,7 @@
+import json
 import logging
 from datetime import datetime
+from typing import Any, cast
 
 import jwt
 from fastapi import (
@@ -12,6 +14,7 @@ from fastapi import (
     Request,
     status,
 )
+from pydantic import BaseModel
 
 from app.api.dependencies import (
     get_bearer_token,
@@ -19,10 +22,12 @@ from app.api.dependencies import (
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
+from app.core.crypto import compute_blind_index, encrypt_pii
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.jwks import get_live_supabase_public_key
 from app.core.limiter import limiter
 from app.db.client import supabase_client
+from app.db.profiles import decrypt_profile_record
 from app.db.users import (
     fetch_public_user,
     get_supabase_user_from_jwt,
@@ -38,6 +43,7 @@ from app.models import (
     CompleteOnboardingResponse,
     MECOnboardingRequest,
     OnboardingPayload,
+    ProfileImagesAndTagsUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,7 +93,7 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
 
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
 @limiter.limit(settings.rate_limit_auth)
-def auth_bootstrap(
+def auth_bootstrap(  # noqa: C901
     request: Request,
     background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
@@ -387,3 +393,237 @@ def accept_terms(
         terms_accepted_at=stored_terms_accepted_at,
         terms_recorded=True,
     )
+
+
+@router.post("/api/v1/profile/media", status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
+def update_profile_media_and_tags(
+    request: Request,
+    payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
+    user_id: str = Depends(get_authenticated_user_id),
+):
+    """
+    Synchronized Edge-AI Payload Ingestion Gateway.
+    Symmetrically encrypts pre-calculated edge AI token lists and storage
+    pointers directly into database binary BYTEA columns via the trusted
+    service tunnel.
+    """
+    _ = request
+
+    # 1. Double-Serialize and Encrypt into binary formats for BYTEA columns
+    encrypted_avatar: bytes = encrypt_pii(payload.profile_pic)
+    encrypted_gallery_json: bytes = encrypt_pii(
+        json.dumps(payload.normal_pics),
+    )
+    encrypted_tags_json: bytes = encrypt_pii(json.dumps(payload.ai_vibe_tags))
+
+    # 2. Package database parameters mapping structures safely
+    db_mutation_payload = {
+        "profile_pic": encrypted_avatar,
+        "normal_pics": encrypted_gallery_json,
+        "ai_vibe_tags": encrypted_tags_json,
+        "updated_at": "now()",
+    }
+
+    try:
+        # 3. Direct execution over the high-privilege service-role bypass tunnel
+        response = (
+            supabase_client.table("profiles")
+            .update(db_mutation_payload)
+            .eq("id", user_id)
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    "Target account context mismatch. "
+                    "Profile row modification rejected."
+                ),
+            )
+
+        return {
+            "status": "success",
+            "detail": (
+                "On-device AI features and assets committed to "
+                "cryptographic vault spaces."
+            ),
+        }
+
+    except Exception as network_write_exception:
+        # Protects cloud configuration traces from leaking inside exceptions
+        logger.exception(
+            "Supabase database transaction aborted for user %s",
+            user_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server metadata pipeline error: Data synchronization failed.",
+        ) from network_write_exception
+
+
+class ProfileDetailsUpdate(BaseModel):
+    name: str | None = None
+    age: int | None = None
+    branch: str | None = None
+    year: int | None = None
+    display_gender: str | None = None
+    display_sexuality: str | None = None
+    search_buckets: list[str] | None = None
+    hometown: str | None = None
+    partner_values: str | None = None
+    children_plans: str | None = None
+    religious_beliefs: str | None = None
+    lifestyle: str | None = None
+    drinking: str | None = None
+    smoking: str | None = None
+    role: str | None = None
+    target_buckets: list[str] | None = None
+    looking_for: list[str] | None = None
+    activities: list[str] | None = None
+    causes_supported: list[str] | None = None
+    top_artists: list[str] | None = None
+    tech_skills: list[str] | None = None
+    languages: list[str] | None = None
+    pets: list[str] | None = None
+
+
+
+@router.get("/api/v1/profile/details")
+def get_profile_details(
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, Any]:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("*")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = getattr(res, "data", None)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        # Decrypt PII fields
+        if not isinstance(data, dict):
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid profile data structure",
+            )
+
+        profile = decrypt_profile_record(cast(dict[str, Any], data))
+
+        return {
+            "name": profile.get("name"),
+            "age": profile.get("age"),
+            "year": profile.get("year"),
+            "branch": profile.get("branch"),
+            "display_gender": profile.get("display_gender"),
+            "display_sexuality": profile.get("display_sexuality"),
+            "search_buckets": profile.get("search_buckets") or [],
+            "hometown": profile.get("hometown"),
+            "partner_values": profile.get("partner_values"),
+            "children_plans": profile.get("children_plans"),
+            "religious_beliefs": profile.get("religious_beliefs"),
+            "lifestyle": profile.get("lifestyle"),
+            "drinking": profile.get("drinking"),
+            "smoking": profile.get("smoking"),
+            "role": profile.get("role"),
+            "target_buckets": profile.get("target_buckets") or [],
+            "looking_for": profile.get("looking_for") or [],
+            "activities": profile.get("activities") or [],
+            "causes_supported": profile.get("causes_supported") or [],
+            "top_artists": profile.get("top_artists") or [],
+            "tech_skills": profile.get("tech_skills") or [],
+            "languages": profile.get("languages") or [],
+            "pets": profile.get("pets") or [],
+        }
+    except Exception as e:
+        logger.exception("Failed to get profile details")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/api/v1/profile/details")
+def update_profile_details(  # noqa: C901
+    payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, Any]:
+    update_data: dict[str, Any] = {}
+    if payload.name is not None:
+        update_data["name"] = payload.name.strip()
+    if payload.age is not None:
+        update_data["age"] = payload.age
+    if payload.branch is not None:
+        update_data["branch"] = payload.branch.strip()
+        update_data["branch_blind_index"] = compute_blind_index(payload.branch)
+    if payload.year is not None:
+        update_data["year"] = payload.year
+    if payload.search_buckets is not None:
+        update_data["search_buckets"] = payload.search_buckets
+    if payload.target_buckets is not None:
+        update_data["target_buckets"] = payload.target_buckets
+
+    # Encrypted scalar fields
+    scalar_fields = [
+        "display_gender",
+        "display_sexuality",
+        "hometown",
+        "partner_values",
+        "children_plans",
+        "religious_beliefs",
+        "lifestyle",
+        "drinking",
+        "smoking",
+        "role",
+    ]
+    for field in scalar_fields:
+        val = getattr(payload, field, None)
+        if val is not None:
+            enc = encrypt_pii(val)
+            update_data[field] = f"\\x{enc.hex()}" if enc else None
+
+    # Blind indexes computation for exact match filters
+    if payload.drinking is not None:
+        update_data["drinking_blind_index"] = compute_blind_index(payload.drinking)
+    if payload.smoking is not None:
+        update_data["smoking_blind_index"] = compute_blind_index(payload.smoking)
+    if payload.role is not None:
+        update_data["role_blind_index"] = compute_blind_index(payload.role)
+
+    # Encrypted array fields (JSON array payload serialized before encryption)
+    array_fields = [
+        "looking_for",
+        "activities",
+        "causes_supported",
+        "top_artists",
+        "tech_skills",
+        "languages",
+        "pets",
+    ]
+    for field in array_fields:
+        val = getattr(payload, field, None)
+        if val is not None:
+            enc = encrypt_pii(json.dumps(val))
+            update_data[field] = f"\\x{enc.hex()}" if enc else None
+
+    if not update_data:
+        return {"status": "success", "detail": "No fields to update."}
+
+    update_data["updated_at"] = "now()"
+
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .update(update_data)
+            .eq("id", user_id)
+            .execute()
+        )
+        res_data = getattr(res, "data", None)
+        if not res_data:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return {"status": "success", "detail": "Profile details synchronized."}
+    except Exception as e:
+        logger.exception("Failed to update profile details")
+        raise HTTPException(status_code=500, detail=str(e)) from e

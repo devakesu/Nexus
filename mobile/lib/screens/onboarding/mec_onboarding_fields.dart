@@ -80,16 +80,16 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
-                        ? const Color(0xFF0D9488)
+                        ? const Color(0xFFFF7597)
                         : const Color(0x1AFFFFFF),
                   ),
                   color: isSelected
-                      ? const Color(0x260D9488)
-                      : const Color(0xFF090D0F),
+                      ? const Color(0x26FF7597)
+                      : const Color(0xFF0B0D13),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF0D9488).withValues(alpha: 0.15),
+                            color: const Color(0xFFFF7597).withValues(alpha: 0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -141,12 +141,12 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedYear == _years[i]
-                            ? const Color(0xFF0D9488)
+                            ? const Color(0xFFFF7597)
                             : const Color(0x1AFFFFFF),
                       ),
                       color: _selectedYear == _years[i]
-                          ? const Color(0x260D9488)
-                          : const Color(0xFF090D0F),
+                          ? const Color(0x26FF7597)
+                          : const Color(0xFF0B0D13),
                     ),
                     child: Text(
                       'Year ${_years[i]}',

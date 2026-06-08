@@ -62,6 +62,8 @@ def build_tab_aware_orbit_node_detail(
         "x": coerce_float(payload.get("x")),
         "y": coerce_float(payload.get("y")),
         "orbit_tier": int(coerce_float(payload.get("orbit_tier"), 3.0)),
+        "profile_pic": payload.get("profile_pic"),
+        "normal_pics": payload.get("normal_pics") or [],
     }
 
     if session_tab == "Dating":
@@ -76,6 +78,8 @@ def build_tab_aware_orbit_node_detail(
             x=base["x"],
             y=base["y"],
             orbit_tier=base["orbit_tier"],
+            profile_pic=base["profile_pic"],
+            normal_pics=base["normal_pics"],
             tab="Dating",
             display_gender=payload.get("display_gender"),
             display_sexuality=payload.get("display_sexuality"),
@@ -108,6 +112,8 @@ def build_tab_aware_orbit_node_detail(
             x=base["x"],
             y=base["y"],
             orbit_tier=base["orbit_tier"],
+            profile_pic=base["profile_pic"],
+            normal_pics=base["normal_pics"],
             tab="Friends",
             hometown=payload.get("hometown"),
             lifestyle=payload.get("lifestyle"),
@@ -131,6 +137,8 @@ def build_tab_aware_orbit_node_detail(
             x=base["x"],
             y=base["y"],
             orbit_tier=base["orbit_tier"],
+            profile_pic=base["profile_pic"],
+            normal_pics=base["normal_pics"],
             tab="Professional",
             hometown=payload.get("hometown"),
             tech_skills=payload.get("tech_skills") or [],

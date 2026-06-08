@@ -85,19 +85,19 @@ class _OrbitPainter extends CustomPainter {
     final angle1 = progress * 2 * math.pi;
     final r1 = maxRadius * 0.5;
     final p1 = center + Offset(math.cos(angle1) * r1, math.sin(angle1) * r1);
-    _drawGlowingParticle(canvas, p1, const Color(0xFFFF5A5F), 5);
+    _drawGlowingParticle(canvas, p1, const Color(0xFFFF7597), 5);
 
-    // Orbiting particle 2: Friends (Teal) - Middle orbit, counter-clockwise
+    // Orbiting particle 2: Friends (Sunset Gold) - Middle orbit, counter-clockwise
     final angle2 = -progress * 2 * math.pi + (math.pi / 3);
     final r2 = maxRadius * 0.75;
     final p2 = center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8); // Elliptical
-    _drawGlowingParticle(canvas, p2, const Color(0xFF00ADB5), 6.5);
+    _drawGlowingParticle(canvas, p2, const Color(0xFFFFB03A), 6.5);
 
-    // Orbiting particle 3: Pro (White) - Outer orbit, faster
+    // Orbiting particle 3: Pro (Neon Teal) - Outer orbit, faster
     final angle3 = progress * 3 * math.pi + (math.pi * 2 / 3);
     final r3 = maxRadius * 0.95;
     final p3 = center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3); // Elliptical
-    _drawGlowingParticle(canvas, p3, Colors.white, 4);
+    _drawGlowingParticle(canvas, p3, const Color(0xFF00F5D4), 4);
   }
 
   void _drawGlowingParticle(Canvas canvas, Offset position, Color color, double radius) {
@@ -172,14 +172,14 @@ class _IdentityScanLoaderState extends State<IdentityScanLoader> with SingleTick
             height: 120,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF00ADB5).withValues(alpha: 0.05),
+              color: const Color(0xFFFF7597).withValues(alpha: 0.05),
               border: Border.all(
-                color: const Color(0xFF00ADB5).withValues(alpha: 0.2),
+                color: const Color(0xFFFF7597).withValues(alpha: 0.2),
               ),
             ),
             child: const Icon(
               Icons.fingerprint_rounded,
-              color: Color(0xFF00ADB5),
+              color: Color(0xFFFF7597),
               size: 56,
             )
                 .animate(onPlay: (controller) => controller.repeat(reverse: true))
@@ -206,7 +206,7 @@ class _ScanBgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintGrid = Paint()
-      ..color = const Color(0xFF00ADB5).withValues(alpha: 0.03)
+      ..color = const Color(0xFFFF7597).withValues(alpha: 0.03)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
 
@@ -226,17 +226,17 @@ class _ScanBgPainter extends CustomPainter {
     // 2. Draw circular biometric scan target lines around the center
     final center = Offset(size.width / 2, size.height / 2);
     final paintCircles = Paint()
-      ..color = const Color(0xFF00ADB5).withValues(alpha: 0.06)
+      ..color = const Color(0xFFFF7597).withValues(alpha: 0.06)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
     canvas
       ..drawCircle(center, 100, paintCircles)
-      ..drawCircle(center, 160, paintCircles..color = const Color(0xFF00ADB5).withValues(alpha: 0.04));
+      ..drawCircle(center, 160, paintCircles..color = const Color(0xFFFF7597).withValues(alpha: 0.04));
 
     // Draw tech angle ticks around circles
     final tickPaint = Paint()
-      ..color = const Color(0xFF00ADB5).withValues(alpha: 0.2)
+      ..color = const Color(0xFFFF7597).withValues(alpha: 0.2)
       ..strokeWidth = 2.0;
     
     for (var angleDeg = 0; angleDeg < 360; angleDeg += 45) {
@@ -253,20 +253,20 @@ class _ScanBgPainter extends CustomPainter {
     final rect = Rect.fromLTRB(0, laserY - 15, size.width, laserY + 1);
     final laserGlow = Paint()
       ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          const Color(0xFF00ADB5).withValues(alpha: 0),
-          const Color(0xFF00ADB5).withValues(alpha: 0.15),
-          const Color(0xFF00ADB5).withValues(alpha: 0.4),
-        ],
-      ).createShader(rect);
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFFF7597).withValues(alpha: 0),
+            const Color(0xFFFF7597).withValues(alpha: 0.15),
+            const Color(0xFFFF7597).withValues(alpha: 0.4),
+          ],
+        ).createShader(rect);
 
     canvas.drawRect(rect, laserGlow);
 
     // Solid laser core line
     final laserCore = Paint()
-      ..color = const Color(0xFF00ADB5)
+      ..color = const Color(0xFFFF7597)
       ..strokeWidth = 1.5
       ..imageFilter = null;
     

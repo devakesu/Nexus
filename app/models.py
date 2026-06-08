@@ -49,7 +49,7 @@ class ProfileModel(BaseModel):
     partner_values: str | None = None
     children_plans: str | None = None
     religious_beliefs: str | None = None
-    lifestyle: str | None = None
+    profile_pic: str | None = None
 
     # Optional decrypted list attributes.
     activities: list[str] = Field(default_factory=list)
@@ -60,6 +60,7 @@ class ProfileModel(BaseModel):
     languages: list[str] = Field(default_factory=list)
     ai_vibe_tags: list[str] = Field(default_factory=list)
     pets: list[str] = Field(default_factory=list)
+    normal_pics: list[str] = Field(default_factory=list)
 
     # Optional decrypted structured payloads.
     interests: dict[str, int] = Field(default_factory=dict)
@@ -432,6 +433,8 @@ class OrbitNodeDetailBaseOut(BaseModel):
     x: float = 0.0
     y: float = 0.0
     orbit_tier: int = 0
+    profile_pic: str | None = None
+    normal_pics: list[str] = Field(default_factory=list)
 
 
 class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
@@ -516,3 +519,124 @@ class AcceptTermsResponse(BaseModel):
     accepted_terms_version: str
     terms_accepted_at: datetime
     terms_recorded: bool
+
+
+class ProfileImagesUpdate(BaseModel):
+    """
+    Enforces structural client contract boundaries for media updates.
+    Expects clean plaintext file paths within the secure bucket before
+    backend processing.
+    """
+    profile_pic: str = Field(
+        ...,
+        description="Mandatory relative path to user avatar storage.",
+    )
+    normal_pics: list[str] = Field(
+        ...,
+        description="Array of normal gallery images.",
+    )
+
+    @field_validator("profile_pic")
+    @classmethod
+    def validate_avatar_presence(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError(
+                "Validation Error: Profile picture path is a mandatory "
+                "onboarding field.",
+            )
+        return value.strip()
+
+    @field_validator("normal_pics")
+    @classmethod
+    def validate_normal_pics_constraints(cls, value: list[str]) -> list[str]:
+        cleaned_list = [v.strip() for v in value if v and v.strip()]
+        total_count = len(cleaned_list)
+
+        # Enforce your strict multi-photo design constraints
+        if total_count < 1:
+            raise ValueError(
+                "Validation Error: At least one normal picture must be "
+                "uploaded alongside your avatar.",
+            )
+        if total_count > 4:
+            raise ValueError(
+                "Validation Error: Up to 4 secondary gallery images are "
+                "allowed inside this asset track.",
+            )
+
+        return cleaned_list
+
+
+class ProfileImagesAndTagsUpdate(BaseModel):
+    """
+    Client contract model for on-device edge AI calculations.
+    Ingests storage asset paths and computed text arrays directly.
+    """
+    profile_pic: str = Field(
+        ...,
+        description="Mandatory relative storage path to the user avatar image.",
+    )
+    normal_pics: list[str] = Field(
+        ...,
+        description="Array of up to 4 secondary gallery storage paths.",
+    )
+    ai_vibe_tags: list[str] = Field(
+        ...,
+        description="List of aesthetic tags extracted locally by on-device AI.",
+    )
+
+    @field_validator("profile_pic")
+    @classmethod
+    def validate_avatar_presence(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError(
+                "Validation Error: Profile picture storage location is mandatory.",
+            )
+        return value.strip()
+
+    @field_validator("normal_pics")
+    @classmethod
+    def validate_normal_pics_constraints(cls, value: list[str]) -> list[str]:
+        cleaned_list = [v.strip() for v in value if v and v.strip()]
+        total_count = len(cleaned_list)
+
+        if total_count < 1:
+            raise ValueError(
+                "Validation Error: At least one normal gallery image path "
+                "is required.",
+            )
+        if total_count > 4:
+            raise ValueError(
+                "Validation Error: A maximum of 4 gallery images can be "
+                "registered.",
+            )
+        return cleaned_list
+
+    @field_validator("ai_vibe_tags")
+    @classmethod
+    def validate_vibe_tags_integrity(cls, value: list[str]) -> list[str]:
+        # Defensive cleanup: strip whitespaces, convert to lowercase, remove duplicates
+        cleaned_tags = list(set([
+            t.strip().lower() for t in value if t and t.strip()
+        ]))
+
+        if len(cleaned_tags) < 1:
+            raise ValueError(
+                "Validation Error: On-device inference output must yield at "
+                "least one valid vibe tag.",
+            )
+        if len(cleaned_tags) > 15:
+            raise ValueError(
+                "Validation Error: System safety bound exceeded. Maximum 15 "
+                "vibe tags allowed.",
+            )
+
+        # Prevent injection attempts inside strings
+        for tag in cleaned_tags:
+            if not tag.isalnum() and "-" not in tag and "_" not in tag:
+                raise ValueError(
+                    f"Validation Error: Malformed characters detected in tag "
+                    f"expression: '{tag}'",
+                )
+
+        return cleaned_tags

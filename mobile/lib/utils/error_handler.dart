@@ -250,7 +250,7 @@ class ErrorHandler {
     
     // Choose colors/icons based on level
     final isWarning = level == ErrorLevel.warning;
-    final accentColor = isWarning ? const Color(0xFFFFB300) : const Color(0xFF00ADB5);
+    final accentColor = isWarning ? const Color(0xFFFFB300) : const Color(0xFFFF7597);
     final icon = isWarning ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
     final title = isWarning ? 'Warning' : 'Information';
 
@@ -266,7 +266,7 @@ class ErrorHandler {
               color: Colors.transparent,
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D0E12).withValues(alpha: 0.9),
+                  color: const Color(0xFF161B26).withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: accentColor.withValues(alpha: 0.3),
@@ -373,7 +373,7 @@ class ErrorHandler {
           insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0D0E12),
+              color: const Color(0xFF161B26),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: dialogAccentColor.withValues(alpha: 0.4),
@@ -475,9 +475,9 @@ class ErrorHandler {
                                   color: Colors.white,
                                 ),
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00ADB5),
-                                shadowColor: const Color(0xFF00ADB5).withValues(alpha: 0.3),
+                               style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFF7597),
+                                shadowColor: const Color(0xFFFF7597).withValues(alpha: 0.3),
                                 elevation: 4,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),

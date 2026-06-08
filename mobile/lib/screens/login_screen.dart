@@ -410,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF00ADB5),
+            backgroundColor: Color(0xFFFF7597),
             content: Text(
               'OTP sent successfully!',
               style: TextStyle(color: Colors.white),
@@ -493,7 +493,7 @@ class _LoginScreenState extends State<LoginScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF00ADB5),
+            backgroundColor: Color(0xFFFF7597),
             content: Text(
               'OTP sent successfully!',
               style: TextStyle(color: Colors.white),
@@ -621,7 +621,7 @@ class _LoginScreenState extends State<LoginScreen>
     final isMec = widget.appName.toLowerCase().contains('mec');
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0C10), // Cosmic Obsidian
+      backgroundColor: const Color(0xFF0B0D13), // Cosmic Obsidian
       body: SafeArea(
         top: false,
         bottom: false,
@@ -656,7 +656,7 @@ class _LoginScreenState extends State<LoginScreen>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0B0C10).withValues(alpha: 0.6),
+                    color: const Color(0xFF0B0D13).withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: const Color(0xFF6B7280).withValues(alpha: 0.1),
@@ -725,7 +725,7 @@ class _LoginScreenState extends State<LoginScreen>
                               fontWeight: FontWeight.w400,
                               letterSpacing: 4,
                               color: const Color(
-                                0xFF00ADB5,
+                                0xFFFF7597,
                               ), // Pulsar Teal / Oracle Aqua accent
                             ),
                           ),
@@ -759,7 +759,7 @@ class _LoginScreenState extends State<LoginScreen>
                       filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D0E12).withValues(alpha: 0.7),
+                          color: const Color(0xFF161B26).withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(24),
                         ),
                         padding: const EdgeInsets.all(24),
@@ -964,7 +964,7 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Text(
                       'Resend',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF00ADB5),
+                        color: const Color(0xFFFF7597),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1013,7 +1013,7 @@ class _LoginScreenState extends State<LoginScreen>
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0B0C10),
+                  color: Color(0xFF0B0D13),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1100,7 +1100,7 @@ class _LoginScreenState extends State<LoginScreen>
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(
-            color: Color(0xFF00ADB5),
+            color: Color(0xFFFF7597),
             width: 1.5,
           ),
         ),
@@ -1126,8 +1126,8 @@ class _LoginScreenState extends State<LoginScreen>
                 ? null
                 : const LinearGradient(
                     colors: [
-                      Color(0xFF00ADB5),
-                      Color(0xFF007A7F),
+                      Color(0xFFFF7597),
+                      Color(0xFFE04B76),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -1137,7 +1137,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ? null
                 : [
                     BoxShadow(
-                      color: const Color(0xFF00ADB5).withValues(alpha: 0.3),
+                      color: const Color(0xFFFF7597).withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -1183,7 +1183,7 @@ class _LoginScreenState extends State<LoginScreen>
       style: GoogleFonts.jetBrainsMono(
         fontSize: 9,
         fontWeight: FontWeight.bold,
-        color: const Color(0xFF00ADB5).withValues(alpha: 0.7),
+        color: const Color(0xFFFF7597).withValues(alpha: 0.7),
         letterSpacing: 0.5,
       ),
     );
@@ -1191,7 +1191,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildMatrixRow(String label, String status, bool isActive) {
     final color = isActive
-        ? const Color(0xFF00ADB5)
+        ? const Color(0xFFFF7597)
         : const Color(0xFF6B7280).withValues(alpha: 0.5);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -1243,7 +1243,7 @@ class GravityFieldPainter extends CustomPainter {
         0.45; // scale factor mapping relative coordinates to pixels
 
     // Define colors
-    const accentColor = Color(0xFF00ADB5);
+    const accentColor = Color(0xFFFF7597);
     const whiteColor = Color(0xFFFFFFFF);
     const greyColor = Color(0xFF6B7280);
 
@@ -1430,7 +1430,7 @@ class GravityFieldPainter extends CustomPainter {
         iconColor = const Color(0xFFFF5A5F); // Crimson Red for Hearts/Dating
       } else if (nodeType == 1) {
         nodeIcon = Icons.auto_awesome;
-        iconColor = const Color(0xFF00ADB5); // Teal for Sparkles/Friends
+        iconColor = const Color(0xFFFFB03A); // Teal for Sparkles/Friends
       } else {
         nodeIcon = Icons.work;
         iconColor = const Color(0xFFFFFFFF); // White for briefcase/Pro

@@ -14,6 +14,8 @@ Dio createDio() {
     () {
       // Debug-only: bypass strict cert validation for local HTTPS dev servers.
       (dio.httpClientAdapter as dynamic).onHttpClientCreate =
+          // Explicit type annotation is required because the cast to dynamic disables type inference.
+          // ignore: avoid_types_on_closure_parameters
           (HttpClient client) {
         client.badCertificateCallback =
             NetworkUtils.validateCertificateHostname;
