@@ -26,6 +26,7 @@ from app.core.limiter import limiter
 from app.db.users import (
     execute_import,
     fetch_profile,
+    fetch_public_user,
     generate_export_code,
     get_supabase_user_from_jwt,
 )
@@ -72,7 +73,8 @@ def create_export_code(
             detail="Profile not found. Complete onboarding first.",
         )
 
-    app_variant = str(profile.get("app_variant") or "nexus")
+    user_row = fetch_public_user(user_id)
+    app_variant = str(user_row.get("app_variant") or "nexus") if user_row else "nexus"
     if app_variant == "nexus":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

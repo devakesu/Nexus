@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import jwt
 from fastapi import (
@@ -134,18 +135,41 @@ def auth_bootstrap(
         user_id=user_id,
         email=email if email else None,
         mobile=phone if phone else None,
+        app_variant=app_variant,
     )
 
     if not bool(user_row.get("is_active", True)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive.",
+            detail=(
+                "Account is inactive. Please contact support at "
+                f"support@{settings.app_domain} for assistance."
+            ),
         )
 
     if bool(user_row.get("is_suspended", False)):
+        suspended_until = user_row.get("suspended_until")
+        reason_code = user_row.get("moderation_reason_code")
+        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
+        if suspended_until:
+            try:
+                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+            except ValueError:
+                formatted_time = str(suspended_until)
+            detail = (
+                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
+                f"Please contact support at support@{settings.app_domain} for "
+                "assistance."
+            )
+        else:
+            detail = (
+                f"Your Account is suspended indefinitely{reason_suffix}. Please "
+                f"contact support at support@{settings.app_domain} for assistance."
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is suspended.",
+            detail=detail,
         )
 
     if newly_created and email:
@@ -211,13 +235,35 @@ def complete_onboarding(
     if not bool(user_row.get("is_active", True)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive.",
+            detail=(
+                "Account is inactive. Please contact support at "
+                f"support@{settings.app_domain} for assistance."
+            ),
         )
 
     if bool(user_row.get("is_suspended", False)):
+        suspended_until = user_row.get("suspended_until")
+        reason_code = user_row.get("moderation_reason_code")
+        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
+        if suspended_until:
+            try:
+                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+            except ValueError:
+                formatted_time = str(suspended_until)
+            detail = (
+                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
+                f"Please contact support at support@{settings.app_domain} for "
+                "assistance."
+            )
+        else:
+            detail = (
+                f"Your Account is suspended indefinitely{reason_suffix}. Please "
+                f"contact support at support@{settings.app_domain} for assistance."
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is suspended.",
+            detail=detail,
         )
 
     # Resolve name and variant-specific fields per flavor.
@@ -234,6 +280,11 @@ def complete_onboarding(
         user_branch = None
         user_year = None
         user_lifestyle = payload.lifestyle
+
+    upsert_public_user(
+        user_id=user_id,
+        mobile=payload.phone,
+    )
 
     profile_row, profile_created = upsert_profile_variant(
         user_id=user_id,
@@ -294,13 +345,35 @@ def accept_terms(
     if not bool(user_row.get("is_active", True)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive.",
+            detail=(
+                "Account is inactive. Please contact support at "
+                f"support@{settings.app_domain} for assistance."
+            ),
         )
 
     if bool(user_row.get("is_suspended", False)):
+        suspended_until = user_row.get("suspended_until")
+        reason_code = user_row.get("moderation_reason_code")
+        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
+        if suspended_until:
+            try:
+                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
+                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+            except ValueError:
+                formatted_time = str(suspended_until)
+            detail = (
+                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
+                f"Please contact support at support@{settings.app_domain} for "
+                "assistance."
+            )
+        else:
+            detail = (
+                f"Your Account is suspended indefinitely{reason_suffix}. Please "
+                f"contact support at support@{settings.app_domain} for assistance."
+            )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is suspended.",
+            detail=detail,
         )
 
     stored_terms_version, stored_terms_accepted_at = update_user_terms(

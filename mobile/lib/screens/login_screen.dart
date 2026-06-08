@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -54,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen>
   final TextEditingController _otpController = TextEditingController();
 
   bool _isPhoneOtp = true;
-  int _resendCountdown = 60;
+  int _resendCountdown = 0;
   Timer? _countdownTimer;
 
   // Physics & Particle Field State
@@ -167,7 +168,16 @@ class _LoginScreenState extends State<LoginScreen>
 
     // Safely listen to accelerometer sensor events with strict channel error check
     unawaited(_initAccelerometer());
+    _otpController.addListener(_updateOtpState);
+  }
 
+  void _updateOtpState() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _isOtpValid {
+    final code = _otpController.text.trim();
+    return code.length == 8 && RegExp(r'^\d{8}$').hasMatch(code);
   }
 
   Future<void> _initAccelerometer() async {
@@ -284,6 +294,7 @@ class _LoginScreenState extends State<LoginScreen>
     _physicsController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _otpController.removeListener(_updateOtpState);
     _otpController.dispose();
     _countdownTimer?.cancel();
     super.dispose();
@@ -338,6 +349,19 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _sendEmailOtp() async {
+    if (_resendCountdown > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFD32F2F),
+          content: Text(
+            'Please wait $_resendCountdown seconds before requesting another code.',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
@@ -410,6 +434,19 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _sendOtp() async {
+    if (_resendCountdown > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFD32F2F),
+          content: Text(
+            'Please wait $_resendCountdown seconds before requesting another code.',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
     final phone = _phoneController.text.trim();
 
     if (phone.isEmpty) {
@@ -418,6 +455,20 @@ class _LoginScreenState extends State<LoginScreen>
           backgroundColor: Color(0xFFD32F2F),
           content: Text(
             'Please enter your phone number.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final phoneRegex = RegExp(r'^\+[1-9]\d{7,14}$');
+    if (!phoneRegex.hasMatch(phone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter a valid phone number starting with + (e.g. +1234567890).',
             style: TextStyle(color: Colors.white),
           ),
         ),
@@ -481,7 +532,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _verifyOtp() async {
-    final target = _isPhoneOtp ? _phoneController.text.trim() : _emailController.text.trim();
+    final target = _isPhoneOtp
+        ? _phoneController.text.trim()
+        : _emailController.text.trim();
     final code = _otpController.text.trim();
 
     if (target.isEmpty || code.isEmpty) {
@@ -490,6 +543,19 @@ class _LoginScreenState extends State<LoginScreen>
           backgroundColor: Color(0xFFD32F2F),
           content: Text(
             'Please enter the OTP verification code.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (code.length != 8 || !RegExp(r'^\d{8}$').hasMatch(code)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFD32F2F),
+          content: Text(
+            'Please enter a valid 8-digit OTP code (digits only).',
             style: TextStyle(color: Colors.white),
           ),
         ),
@@ -838,7 +904,9 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         );
       case LoginView.otp:
-        final targetText = _isPhoneOtp ? _phoneController.text : _emailController.text;
+        final targetText = _isPhoneOtp
+            ? _phoneController.text
+            : _emailController.text;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -854,7 +922,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter the 6-digit code sent to $targetText',
+              'Enter the 8-digit code sent to $targetText',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 12,
@@ -864,13 +932,17 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 16),
             _buildTextField(
               controller: _otpController,
-              hintText: '6-digit code',
+              hintText: '8-digit code',
               icon: Icons.lock_clock_outlined,
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(8),
+              ],
             ),
             const SizedBox(height: 16),
             _buildActionButton(
-              onTap: _verifyOtp,
+              onTap: _isOtpValid ? _verifyOtp : null,
               label: 'Verify & Login',
             ),
             const SizedBox(height: 12),
@@ -998,11 +1070,13 @@ class _LoginScreenState extends State<LoginScreen>
     required IconData icon,
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
       decoration: InputDecoration(
         filled: true,
@@ -1035,9 +1109,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildActionButton({
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     required String label,
   }) {
+    final isDisabled = onTap == null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1047,29 +1122,34 @@ class _LoginScreenState extends State<LoginScreen>
           height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF00ADB5),
-                Color(0xFF007A7F),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00ADB5).withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            gradient: isDisabled
+                ? null
+                : const LinearGradient(
+                    colors: [
+                      Color(0xFF00ADB5),
+                      Color(0xFF007A7F),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            color: isDisabled ? Colors.white.withValues(alpha: 0.08) : null,
+            boxShadow: isDisabled
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFF00ADB5).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           alignment: Alignment.center,
           child: Text(
             label,
-            style: const TextStyle(
+            style: GoogleFonts.inter(
+              color: isDisabled ? Colors.white.withValues(alpha: 0.3) : Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
               letterSpacing: 0.5,
             ),
           ),
@@ -1108,8 +1188,6 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
-
 
   Widget _buildMatrixRow(String label, String status, bool isActive) {
     final color = isActive

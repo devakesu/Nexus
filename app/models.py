@@ -86,6 +86,7 @@ class BaseOnboardingRequest(BaseModel):
 
     age: int = Field(..., ge=18, le=27)
     accepted_terms_version: str
+    phone: str = Field(..., min_length=8, max_length=20)
 
     @field_validator("accepted_terms_version")
     @classmethod
@@ -99,6 +100,19 @@ class BaseOnboardingRequest(BaseModel):
         except ValueError as err:
             raise ValueError("You must accept the current terms version.") from err
         return cleaned
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        import re
+        cleaned = value.strip()
+        if not re.match(r"^\+?[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with optional '+' followed by 8-15 digits.",
+            )
+        return cleaned
+
 
 
 class NexusOnboardingRequest(BaseOnboardingRequest):

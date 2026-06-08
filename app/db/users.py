@@ -74,7 +74,7 @@ def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
         logger.exception("Supabase token verification failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired access token.",
+            detail="Invalid or expired access token. Please try logging in again.",
         ) from e
 
     user: User | dict[str, Any] | object | None = None
@@ -100,8 +100,9 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
         result = (
             supabase_client.table("users")
             .select(
-                "id, email, is_active, is_suspended, moderation_status, "
-                "accepted_terms_version, terms_accepted_at",
+                "id, email, app_variant, is_active, is_suspended, suspended_until, "
+                "moderation_status, moderation_reason_code, accepted_terms_version, "
+                "terms_accepted_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -111,7 +112,7 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
         logger.exception("Failed to fetch public user", extra={"user_id": user_id})
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="User service temporarily unavailable.",
+            detail="User service temporarily unavailable. Please try again later.",
         ) from e
 
     data = result.data
@@ -130,6 +131,7 @@ def upsert_public_user(
     user_id: str,
     email: str | None = None,
     mobile: str | None = None,
+    app_variant: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     existing = fetch_public_user(user_id)
     newly_created = existing is None
@@ -142,6 +144,8 @@ def upsert_public_user(
         payload["email"] = email.strip().lower()
     if mobile is not None:
         payload["mobile"] = mobile.strip()
+    if app_variant is not None:
+        payload["app_variant"] = app_variant
 
     try:
         result = (
@@ -183,7 +187,7 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
         result = (
             supabase_client.table("profiles")
             .select(
-                "id, name, branch, year, age, app_variant, created_at, updated_at",
+                "id, name, branch, year, age, created_at, updated_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -273,6 +277,7 @@ def upsert_profile_variant(
     This extends the base upsert_profile() with the new variant columns
     added in the variant_sync migration.
     """
+    _ = app_variant
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
@@ -293,7 +298,6 @@ def upsert_profile_variant(
                     "branch": branch.strip() if branch is not None else None,
                     "year": year,
                     "age": age,
-                    "app_variant": app_variant,
                     "lifestyle": encrypted_lifestyle,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
@@ -429,7 +433,6 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
                 ", ".join(
                     [
                         "id",
-                        "app_variant",
                         "import_sync_expires_at",
                         *_IMPORTABLE_FIELDS,
                     ],
@@ -481,7 +484,7 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
     try:
         target_res = (
             supabase_client.table("profiles")
-            .select("id, has_imported_data, app_variant")
+            .select("id, has_imported_data")
             .eq("id", target_user_id)
             .limit(1)
             .execute()
@@ -513,13 +516,18 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
         )
 
     # --- 4. Ensure target is the main variant, source is a flavor ---
-    if target.get("app_variant") != "nexus":
+    source_user = fetch_public_user(source["id"])
+    source_variant = source_user.get("app_variant", "nexus") if source_user else "nexus"
+
+    target_user = fetch_public_user(target_user_id)
+    target_variant = target_user.get("app_variant", "nexus") if target_user else "nexus"
+
+    if target_variant != "nexus":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Import is only allowed into the main Nexus account.",
         )
 
-    source_variant = source.get("app_variant", "nexus")
     if source_variant == "nexus":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -540,7 +548,8 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
 
     try:
         supabase_client.table("profiles").update(copy_payload).eq(
-            "id", target_user_id,
+            "id",
+            target_user_id,
         ).execute()
     except APIError as e:
         logger.exception(
@@ -594,7 +603,7 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
 def _validate_terms_versions(version: str) -> None:
     current_version = settings.current_terms_version.strip()
     try:
-      val_float = float(version)
+        val_float = float(version)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

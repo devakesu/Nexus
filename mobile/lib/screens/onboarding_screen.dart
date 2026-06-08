@@ -7,6 +7,8 @@ import 'package:nexus/screens/legal_terms_page.dart';
 import 'package:nexus/screens/onboarding/import_code_dialog.dart';
 import 'package:nexus/screens/onboarding/mec_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/nexus_onboarding_fields.dart';
+import 'package:nexus/screens/onboarding/otp_verification_dialog.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,6 +29,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   int _selectedAge = 18;
   bool _isLoading = false;
 
@@ -44,10 +47,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     _nameController.addListener(_updateCanSubmit);
+    _phoneController.addListener(_updateCanSubmit);
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user?.phone != null && user!.phone!.isNotEmpty) {
+      _phoneController.text = user.phone!;
+    }
+
+    final googleName = _getGoogleName();
+    if (googleName != 'User') {
+      _nameController.text = googleName;
+    }
   }
 
   void _updateCanSubmit() {
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -89,7 +105,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_updateCanSubmit);
+    _phoneController.removeListener(_updateCanSubmit);
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -102,34 +120,87 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
+    final user = Supabase.instance.client.auth.currentUser;
+    final hasVerifiedPhone =
+        user?.phone != null &&
+        user!.phone!.isNotEmpty &&
+        user.phoneConfirmedAt != null;
+    final phone = hasVerifiedPhone ? user.phone! : _phoneController.text.trim();
+    final isPhoneVerified =
+        hasVerifiedPhone ||
+        (user?.phone == phone && user?.phoneConfirmedAt != null);
+
+    if (!isPhoneVerified) {
+      setState(() => _isLoading = true);
+      try {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(phone: phone),
+        );
+        if (mounted) setState(() => _isLoading = false);
+
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => OtpVerificationDialog(
+            phone: phone,
+            onVerificationSuccess: _executeCompleteOnboarding,
+          ),
+        );
+      } on Object catch (e, stackTrace) {
+        if (mounted) {
+          ErrorHandler.handleError(
+            e,
+            stackTrace: stackTrace,
+            customMessage:
+                'Failed to update phone number: ${ErrorHandler.getFriendlyMessage(e)}',
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } else {
+      await _executeCompleteOnboarding();
+    }
+  }
+
+  Future<void> _executeCompleteOnboarding() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session == null)
+      if (session == null) {
         throw Exception('Session expired. Please sign in again.');
+      }
 
       final appCheckToken = await FirebaseAppCheck.instance.getToken();
       final dio = createDio();
 
       final Map<String, dynamic> payload;
+      final user = Supabase.instance.client.auth.currentUser;
+      final phone = _phoneController.text.trim().isNotEmpty
+          ? _phoneController.text.trim()
+          : (user?.phone ?? '');
 
       if (_config.isFlavorVariant) {
-        // MEC payload: branch + year + age
+        // MEC payload: branch + year + age + phone
         payload = {
           'app_variant': _config.variantString,
           'branch': _mecBranch,
           'year': _mecYear,
           'age': _selectedAge,
+          'phone': phone,
           'accepted_terms_version': widget.termsVersion,
         };
       } else {
-        // Nexus main payload: name + age + lifestyle
+        // Nexus main payload: name + age + lifestyle + phone
         payload = {
           'app_variant': _config.variantString,
           'name': _nameController.text.trim(),
           'age': _selectedAge,
           'lifestyle': _lifestyle,
+          'phone': phone,
           'accepted_terms_version': widget.termsVersion,
         };
       }
@@ -154,8 +225,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             response.data?['detail'] ?? 'Failed to complete onboarding.';
         throw Exception(errorMsg);
       }
-    } on Object catch (e) {
-      if (mounted) _showError(e.toString().replaceAll('Exception:', '').trim());
+    } on Object catch (e, stackTrace) {
+      if (mounted) {
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: ErrorHandler.getFriendlyMessage(e),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -184,10 +261,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   bool get _canSubmit {
     final isMec = _config.isFlavorVariant;
+    final user = Supabase.instance.client.auth.currentUser;
+    final hasVerifiedPhone =
+        user?.phone != null &&
+        user!.phone!.isNotEmpty &&
+        user.phoneConfirmedAt != null;
+    final hasPhone =
+        hasVerifiedPhone || _phoneController.text.trim().isNotEmpty;
     if (isMec) {
-      return _acceptedTerms;
+      return _acceptedTerms && hasPhone;
     } else {
-      return _nameController.text.trim().isNotEmpty && _acceptedTerms;
+      return _nameController.text.trim().isNotEmpty &&
+          _acceptedTerms &&
+          hasPhone;
     }
   }
 
@@ -341,6 +427,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Nexus (main) card ─────────────────────────────────────────────────────
 
   Widget _buildNexusCard() {
+    final user = Supabase.instance.client.auth.currentUser;
+    final hasVerifiedPhone =
+        user?.phone != null &&
+        user!.phone!.isNotEmpty &&
+        user.phoneConfirmedAt != null;
     return _buildCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,6 +487,84 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             },
           ),
           const SizedBox(height: 20),
+          if (hasVerifiedPhone) ...[
+            const Text('VERIFIED PHONE', style: _labelStyle),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x1F0D9488)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: _teal, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      user.phone!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+          ] else ...[
+            const Text('PHONE NUMBER', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: '+911234567890',
+                hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+                filled: true,
+                fillColor: _pageBg,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _teal),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Phone number is required.';
+                }
+                final trimmed = value.trim();
+                final phoneRegex = RegExp(r'^\+?[1-9]\d{7,14}$');
+                if (!phoneRegex.hasMatch(trimmed)) {
+                  return 'Enter a valid phone number (e.g. +1234567890 or 1234567890).';
+                }
+                return null;
+              },
+            ),
+          ],
+          const SizedBox(height: 20),
           _buildAgeSlider(),
           const SizedBox(height: 24),
           const Divider(color: Color(0x1AFFFFFF)),
@@ -416,6 +585,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildMECCard() {
     final googleName = _getGoogleName();
+    final user = Supabase.instance.client.auth.currentUser;
+    final hasVerifiedPhone =
+        user?.phone != null &&
+        user!.phone!.isNotEmpty &&
+        user.phoneConfirmedAt != null;
     return _buildCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,9 +625,86 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Derived from your Google account — cannot be changed.',
+            'Derived from your Google account - cannot be changed.',
             style: TextStyle(fontSize: 11, color: Color(0x66FFFFFF)),
           ),
+          const SizedBox(height: 20),
+          if (hasVerifiedPhone) ...[
+            const Text('VERIFIED PHONE', style: _labelStyle),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x1F0D9488)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: _teal, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      user.phone!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            const Text('PHONE NUMBER', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: '+911234567890',
+                hintStyle: const TextStyle(color: Color(0x66FFFFFF)),
+                filled: true,
+                fillColor: _pageBg,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _teal),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Phone number is required.';
+                }
+                final trimmed = value.trim();
+                final phoneRegex = RegExp(r'^\+?[1-9]\d{7,14}$');
+                if (!phoneRegex.hasMatch(trimmed)) {
+                  return 'Enter a valid phone number (e.g. +1234567890 or 1234567890).';
+                }
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: 20),
           _buildAgeSlider(),
           const SizedBox(height: 24),

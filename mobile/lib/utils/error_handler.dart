@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum ErrorLevel {
   info,
@@ -22,11 +24,17 @@ class ErrorHandler {
   static String sanitize(String message) {
     var sanitized = message;
 
-    // 1. Sanitize emails
+    // 1. Sanitize emails, but allow support@ addresses to remain visible
     final emailRegex = RegExp(
       r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
     );
-    sanitized = sanitized.replaceAllMapped(emailRegex, (match) => '[EMAIL_REDACTED]');
+    sanitized = sanitized.replaceAllMapped(emailRegex, (match) {
+      final matchedEmail = match.group(0)!;
+      if (matchedEmail.toLowerCase().startsWith('support@')) {
+        return matchedEmail;
+      }
+      return '[EMAIL_REDACTED]';
+    });
 
     // 2. Sanitize authorization/bearer tokens and keys
     final tokenRegex = RegExp(
@@ -49,6 +57,96 @@ class ErrorHandler {
     });
   }
 
+  /// Public API to get a sanitized, user-friendly message for any error.
+  static String getFriendlyMessage(dynamic error, [String? customMessage]) {
+    final rawMessage = customMessage ?? error?.toString() ?? 'An unexpected error occurred.';
+    return _getFriendlyMessage(error, sanitize(rawMessage));
+  }
+
+  /// Translates common exceptions or error strings into friendly user-facing messages.
+  static String _getFriendlyMessage(dynamic error, String message) {
+    if (error is DioException) {
+      if (error.response != null) {
+        final data = error.response!.data;
+        if (data is Map && data.containsKey('detail')) {
+          return data['detail'].toString();
+        }
+        final statusCode = error.response!.statusCode;
+        if (statusCode == 401) {
+          return 'Session expired. Please sign in again.';
+        }
+        if (statusCode == 403) {
+          return 'Access denied. You do not have permission to access this resource.';
+        }
+        if (statusCode == 429) {
+          return 'Too many requests. Please wait a moment before trying again.';
+        }
+        if (statusCode != null && statusCode >= 500) {
+          return 'Server error ($statusCode). Please try again later.';
+        }
+      }
+      return 'Connection error. Please check your internet connection and try again.';
+    }
+
+    if (error is AuthException) {
+      final code = error.code;
+      final msg = error.message.toLowerCase();
+
+      if (code == 'otp_expired' ||
+          (msg.contains('otp') && msg.contains('expired')) ||
+          msg.contains('token has expired or is invalid')) {
+        return 'The verification code you entered is invalid or has expired. Please check and try again.';
+      }
+      if (code == 'invalid_grant' ||
+          msg.contains('invalid grant') ||
+          msg.contains('invalid credentials')) {
+        return 'Invalid login credentials. Please try again.';
+      }
+      if (code == 'over_email_send_rate_limit' ||
+          code == 'over_sms_send_rate_limit' ||
+          msg.contains('rate limit') ||
+          msg.contains('too many requests')) {
+        return 'Too many requests. Please wait a moment before trying again.';
+      }
+      if (code == 'user_not_found') {
+        return 'No account was found with those details.';
+      }
+      return error.message;
+    }
+
+    final lower = message.toLowerCase();
+    if (lower.contains('otp_expired') ||
+        lower.contains('token has expired or is invalid') ||
+        (lower.contains('invalid') && lower.contains('otp')) ||
+        (lower.contains('expired') && lower.contains('otp'))) {
+      return 'The verification code you entered is invalid or has expired. Please check and try again.';
+    }
+
+    if (lower.contains('invalid_grant') || lower.contains('invalid credentials')) {
+      return 'Invalid credentials. Please check and try again.';
+    }
+
+    if (lower.contains('rate limit') || lower.contains('too many requests')) {
+      return 'Too many requests. Please wait a moment before trying again.';
+    }
+
+    if (lower.contains('network') ||
+        lower.contains('connection failed') ||
+        lower.contains('socketexception') ||
+        lower.contains('dioexception')) {
+      return 'Network connection issue. Please check your internet connection and try again.';
+    }
+
+    var cleaned = message;
+    if (cleaned.startsWith('Access denied: ')) {
+      cleaned = cleaned.substring('Access denied: '.length);
+    }
+    if (cleaned.startsWith('Exception: ')) {
+      cleaned = cleaned.substring('Exception: '.length);
+    }
+    return cleaned;
+  }
+
   /// Centralized handler for all errors and exceptions.
   /// Logs to Sentry and displays UI messages to the user based on the level.
   static void handleError(
@@ -61,7 +159,7 @@ class ErrorHandler {
     // 1. Sanitize input parameters
     final rawMessage = customMessage ?? error?.toString() ?? 'An unexpected error occurred.';
     final sanitizedMessage = sanitize(rawMessage);
-    
+
     // Log to console in debug mode
     debugPrint('[ErrorHandler] [$level] $sanitizedMessage');
     if (stackTrace != null) {
@@ -73,7 +171,8 @@ class ErrorHandler {
 
     // 3. Display UI if requested
     if (showUi) {
-      _showErrorUi(sanitizedMessage, level);
+      final friendlyMessage = _getFriendlyMessage(error, sanitizedMessage);
+      _showErrorUi(friendlyMessage, level);
     }
   }
 

@@ -24,7 +24,7 @@ class _AuthGateState extends State<AuthGate> {
   StreamSubscription<AuthState>? _authSubscription;
   bool _showSplash = true;
   bool _isBootstrapping = false;
-  String? _lastBootstrappedSessionId;
+  String? _lastBootstrappedUserId;
   bool _hasProfile = false;
   String _termsVersion = '1';
 
@@ -39,16 +39,32 @@ class _AuthGateState extends State<AuthGate> {
     unawaited(_performInitialAuthCheck());
 
     // Listen to Supabase auth state changes
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
-      data,
-    ) {
-      if (mounted) {
-        setState(() {});
-        if (!_showSplash) {
-          unawaited(_checkBootstrap());
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (data) {
+        if (mounted) {
+          setState(() {});
+          if (!_showSplash) {
+            unawaited(_checkBootstrap());
+          }
         }
-      }
-    });
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        final errorStr = error.toString();
+        if ((error is AuthException && error.code == 'refresh_token_not_found') ||
+            errorStr.contains('refresh_token_not_found') ||
+            errorStr.contains('Invalid Refresh Token')) {
+          debugPrint('[AuthGate] Refresh token invalid or not found. Force signing out.');
+          unawaited(Supabase.instance.client.auth.signOut());
+        } else {
+          ErrorHandler.handleError(
+            error,
+            stackTrace: stackTrace,
+            level: ErrorLevel.warning,
+            customMessage: 'Authentication stream error: $error',
+          );
+        }
+      },
+    );
   }
 
   Future<void> _performInitialAuthCheck() async {
@@ -79,15 +95,45 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkBootstrap() async {
-    final session = Supabase.instance.client.auth.currentSession;
+    var session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
-      _lastBootstrappedSessionId = null;
+      _lastBootstrappedUserId = null;
       _hasProfile = false;
       return;
     }
 
-    // If we already bootstrapped this session, do not repeat it
-    if (_lastBootstrappedSessionId == session.accessToken) {
+    if (session.isExpired) {
+      try {
+        debugPrint('[AuthGate] Session expired. Refreshing token...');
+        final refreshResponse = await Supabase.instance.client.auth.refreshSession();
+        session = refreshResponse.session;
+        if (session == null) {
+          debugPrint('[AuthGate] Session refresh returned null session. Signing out.');
+          await Supabase.instance.client.auth.signOut();
+          return;
+        }
+      } catch (e, stackTrace) {
+        debugPrint('[AuthGate] Failed to refresh session: $e');
+        await Supabase.instance.client.auth.signOut();
+        if (mounted) {
+          setState(() {
+            _isBootstrapping = false;
+            _lastBootstrappedUserId = null;
+            _hasProfile = false;
+          });
+          ErrorHandler.handleError(
+            e,
+            stackTrace: stackTrace,
+            customMessage: 'Session refresh failed: ${ErrorHandler.getFriendlyMessage(e)}',
+          );
+        }
+        return;
+      }
+    }
+    final activeSession = session;
+
+    // If we already bootstrapped this user, do not repeat it
+    if (_lastBootstrappedUserId == activeSession.user.id) {
       return;
     }
 
@@ -111,7 +157,7 @@ class _AuthGateState extends State<AuthGate> {
         '${config.backendUrl}/api/v1/auth/bootstrap',
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
+            'Authorization': 'Bearer ${activeSession.accessToken}',
             'X-Firebase-AppCheck': appCheckToken,
           },
           validateStatus: (status) => status != null && status < 500,
@@ -131,11 +177,13 @@ class _AuthGateState extends State<AuthGate> {
             .select()
             .maybeSingle();
 
-        setState(() {
-          _hasProfile = profileResponse != null;
-          _lastBootstrappedSessionId = session.accessToken;
-          _isBootstrapping = false;
-        });
+        if (mounted) {
+          setState(() {
+            _hasProfile = profileResponse != null;
+            _lastBootstrappedUserId = activeSession.user.id;
+            _isBootstrapping = false;
+          });
+        }
       } else {
         // Server rejected registration (e.g. 403 Forbidden - non-college email)
         final errorMsg =
@@ -148,14 +196,14 @@ class _AuthGateState extends State<AuthGate> {
       if (mounted) {
         setState(() {
           _isBootstrapping = false;
-          _lastBootstrappedSessionId = null;
+          _lastBootstrappedUserId = null;
           _hasProfile = false;
         });
         ErrorHandler.handleError(
           e,
           stackTrace: stackTrace,
           customMessage:
-              'Access denied: ${e.toString().replaceAll('Exception:', '').trim()}',
+              'Access denied: ${ErrorHandler.getFriendlyMessage(e)}',
         );
       }
     }
@@ -208,7 +256,7 @@ class _AuthGateState extends State<AuthGate> {
     } else {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null &&
-          _lastBootstrappedSessionId == session.accessToken) {
+          _lastBootstrappedUserId == session.user.id) {
         if (!_hasProfile) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),

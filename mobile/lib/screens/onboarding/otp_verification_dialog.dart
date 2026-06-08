@@ -1,48 +1,123 @@
-import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/error_handler.dart';
-import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Dialog that lets a main Nexus user enter a 6-char export code generated
-/// by their Nexus-MEC (flavor) account and import profile data from it.
-///
-/// Only shown in the main nexus variant onboarding screen.
-class ImportCodeDialog extends StatefulWidget {
-  const ImportCodeDialog({
-    required this.termsVersion,
-    required this.onImportSuccess,
+/// Dialog to verify the phone number using OTP.
+/// Only proceeds if the OTP is verified successfully.
+class OtpVerificationDialog extends StatefulWidget {
+  const OtpVerificationDialog({
+    required this.phone,
+    required this.onVerificationSuccess,
     super.key,
   });
 
-  final String termsVersion;
-  final VoidCallback onImportSuccess;
+  final String phone;
+  final FutureOr<void> Function() onVerificationSuccess;
 
   @override
-  State<ImportCodeDialog> createState() => _ImportCodeDialogState();
+  State<OtpVerificationDialog> createState() => _OtpVerificationDialogState();
 }
 
-class _ImportCodeDialogState extends State<ImportCodeDialog> {
-  final _codeController = TextEditingController();
+class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
+  final _otpController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   bool _success = false;
 
+  Timer? _countdownTimer;
+  int _resendCountdown = 60;
+
   static const _teal = Color(0xFF0D9488);
 
   @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+    _otpController.addListener(_updateOtpState);
+  }
+
+  void _updateOtpState() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _isOtpValid {
+    final code = _otpController.text.trim();
+    return code.length == 8 && RegExp(r'^\d{8}$').hasMatch(code);
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _resendCountdown = 60;
+    });
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_resendCountdown > 0) {
+            _resendCountdown--;
+          } else {
+            _countdownTimer?.cancel();
+          }
+        });
+      }
+    });
+  }
+
+  @override
   void dispose() {
-    _codeController.dispose();
+    _otpController..removeListener(_updateOtpState)..dispose();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _submitCode() async {
-    final code = _codeController.text.trim().toUpperCase();
-    if (code.length != 6 || !RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
-      setState(() => _errorMessage = 'Please enter a valid 6-character code.');
+  Future<void> _resendOtp() async {
+    if (_resendCountdown > 0 || _isLoading || _success) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(phone: widget.phone),
+      );
+      if (mounted) {
+        _startCountdown();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF00ADB5),
+            content: Text(
+              'OTP resent successfully!',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      }
+    } on Object catch (e, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorHandler.getFriendlyMessage(e);
+        });
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: 'Failed to resend OTP.',
+          showUi: false,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitOtp() async {
+    final code = _otpController.text.trim();
+    if (code.length != 8 || !RegExp(r'^\d{8}$').hasMatch(code)) {
+      setState(() => _errorMessage = 'Please enter a valid 8-digit OTP code.');
       return;
     }
 
@@ -52,39 +127,35 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
     });
 
     try {
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) throw Exception('Session expired. Please sign in again.');
-
-      final appCheckToken = await FirebaseAppCheck.instance.getToken();
-      final config = AppConfig.current;
-      final dio = createDio();
-
-      final response = await dio.post<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/profiles/import',
-        data: {'sync_code': code},
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
-            'X-Firebase-AppCheck': appCheckToken ?? '',
-            'X-App-Variant': config.variantString,
-          },
-          validateStatus: (status) => status != null && status < 600,
-        ),
+      await Supabase.instance.client.auth.verifyOTP(
+        phone: widget.phone,
+        token: code,
+        type: OtpType.phoneChange,
       );
 
-      if (response.statusCode == 200) {
+      if (mounted) {
         setState(() => _success = true);
-        await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+        final successResult = widget.onVerificationSuccess();
+        await Future.wait<dynamic>([
+          Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200)),
+          if (successResult is Future) successResult,
+        ]);
         if (mounted) {
           Navigator.of(context).pop();
-          widget.onImportSuccess();
         }
-      } else {
-        final detail = response.data?['detail'] ?? 'Import failed. Check the code and try again.';
-        setState(() => _errorMessage = detail.toString());
       }
-    } on Object catch (e) {
-      setState(() => _errorMessage = ErrorHandler.getFriendlyMessage(e));
+    } on Object catch (e, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorHandler.getFriendlyMessage(e);
+        });
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: 'OTP verification failed.',
+          showUi: false,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -111,15 +182,15 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                     color: const Color(0x1A0D9488),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.download_rounded, color: _teal, size: 20),
+                  child: const Icon(Icons.phone_android_rounded, color: _teal, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Import Profile Data',
+                      const Text(
+                        'Verify Phone Number',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -127,8 +198,8 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                         ),
                       ),
                       Text(
-                        'From your Nexus MEC account',
-                        style: TextStyle(
+                        'Sent to ${widget.phone}',
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Color(0x66FFFFFF),
                         ),
@@ -159,9 +230,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Generate a 6-character code in your Nexus MEC app '
-                      '(Home → Export Code). The code is valid for 15 minutes '
-                      'and can only be used once.',
+                      'Please enter the verification code sent to your phone number via SMS to complete onboarding setup.',
                       style: TextStyle(
                         fontSize: 12,
                         color: Color(0x99FFFFFF),
@@ -176,7 +245,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
 
             // Code input
             const Text(
-              'EXPORT CODE',
+              'ENTER OTP CODE',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -186,10 +255,13 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: _codeController,
+              controller: _otpController,
               enabled: !_isLoading && !_success,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 6,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(8),
+              ],
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -198,7 +270,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
               ),
               decoration: InputDecoration(
                 counterText: '',
-                hintText: '• • • • • •',
+                hintText: '• • • • • • • •',
                 hintStyle: const TextStyle(
                   color: Color(0x33FFFFFF),
                   fontSize: 22,
@@ -221,6 +293,28 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
               ),
               onChanged: (_) => setState(() => _errorMessage = null),
             ).animate().fade(delay: 120.ms),
+            const SizedBox(height: 12),
+
+            // Resend Option
+            Center(
+              child: _resendCountdown > 0
+                  ? Text(
+                      'Resend code in $_resendCountdown s',
+                      style: const TextStyle(color: Color(0x66FFFFFF), fontSize: 13),
+                    )
+                  : GestureDetector(
+                      onTap: _resendOtp,
+                      child: const Text(
+                        'Resend OTP',
+                        style: TextStyle(
+                          color: _teal,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+            ).animate().fade(delay: 140.ms),
             const SizedBox(height: 20),
 
             // Action button
@@ -245,7 +339,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                               Icon(Icons.check_circle_rounded, color: _teal, size: 20),
                               SizedBox(width: 8),
                               Text(
-                                'Import Successful!',
+                                'Verification Successful!',
                                 style: TextStyle(
                                   color: _teal,
                                   fontWeight: FontWeight.w700,
@@ -258,29 +352,34 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                       : Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: _submitCode,
+                            onTap: _isOtpValid ? _submitOtp : null,
                             borderRadius: BorderRadius.circular(14),
                             child: Ink(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x260D9488),
-                                    blurRadius: 12,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                                gradient: !_isOtpValid
+                                    ? null
+                                    : const LinearGradient(
+                                        colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                                      ),
+                                color: !_isOtpValid ? Colors.white.withValues(alpha: 0.08) : null,
+                                boxShadow: !_isOtpValid
+                                    ? null
+                                    : const [
+                                        BoxShadow(
+                                          color: Color(0x260D9488),
+                                          blurRadius: 12,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Text(
-                                  'Import Now',
+                                  'Verify',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: !_isOtpValid ? Colors.white.withValues(alpha: 0.3) : Colors.white,
                                   ),
                                 ),
                               ),

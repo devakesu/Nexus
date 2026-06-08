@@ -408,7 +408,7 @@ def render_email_template(
                        font-size: 10px; color: white; line-height: 1.5;
                        text-align: center;">
               You are receiving this mandatory service-related communication
-              because a Nexus account was created or authenticated using this
+              because a Nexus account was created using this
               email address. If you did not initiate this action, please contact
               support at <a href="mailto:support@{app_domain}" style="color: pink;">
               support@{app_domain}</a>
