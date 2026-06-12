@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -381,6 +380,187 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
     });
   }
 
+  String _getEmojiForInterest(String interest) {
+    switch (interest) {
+      // Tech & Science
+      case 'Python': return '🐍';
+      case 'Flutter & Dart': return '💙';
+      case 'Rust': return '🦀';
+      case 'Web Development': return '🌐';
+      case 'AI & Machine Learning': return '🤖';
+      case 'Cybersecurity': return '🔒';
+      case 'Game Development': return '🎮';
+      case 'Cloud & DevOps': return '☁️';
+      case 'Open Source Contribution': return '🐙';
+      case 'Mobile Apps': return '📱';
+      case 'Astrophysics & Space': return '🚀';
+      case 'Quantum Physics': return '⚛️';
+      case 'Neuroscience': return '🧠';
+      case 'Psychology': return '💭';
+      case 'Marine Biology': return '🐬';
+      case 'Archaeology & History': return '🏛️';
+      case 'Genetics & Biotech': return '🧬';
+      case 'Climate Science': return '🌍';
+      case 'PC Building': return '🖥️';
+      case 'Virtual Reality (VR)': return '🕶️';
+      case 'Drones & Quadcopters': return '🛸';
+      case 'IoT & Smart Home': return '🏠';
+      case 'Mechanical Keyboards': return '⌨️';
+      case '3D Printing': return '🖨️';
+      case 'Robotics': return '🤖';
+      case 'Cryptography': return '🔐';
+      case 'Data Analysis': return '📊';
+      case 'Game Theory': return '🎲';
+      case 'Mathematical Puzzles': return '🧩';
+      case 'Algorithms': return '🧮';
+
+      // Entertainment & Media
+      case 'Horror Shows': return '👻';
+      case 'Sci-Fi & Fantasy': return '🦄';
+      case 'Documentaries': return '📽️';
+      case 'True Crime': return '🕵️';
+      case 'Sitcoms & Comedy': return '🎭';
+      case 'K-Dramas': return '🇰🇷';
+      case 'Anime & Manga': return '🌸';
+      case 'Reality TV': return '📺';
+      case 'Historical Drama': return '👑';
+      case 'Talk Shows': return '🎙️';
+      case 'Indie & Art House': return '🎨';
+      case 'Hollywood Blockbusters': return '🍿';
+      case 'Classic Films': return '🎞️';
+      case 'Psychological Thrillers': return '🕵️‍♀️';
+      case 'Animation & Pixar': return '🧸';
+      case 'Foreign Language Films': return '🗣️';
+      case 'Action & Adventure': return '🤠';
+      case 'RPGs (Role-Playing)': return '🧙';
+      case 'FPS (First-Person)': return '🔫';
+      case 'RTS (Strategy)': return '♟️';
+      case 'MMORPGs': return '🌐';
+      case 'Cozy & Casual Games': return '☕';
+      case 'Competitive Esports': return '🏆';
+      case 'Retro & Arcade': return '👾';
+      case 'Tabletop & D&D': return '🎲';
+      case 'Modern Board Games': return '♟️';
+      case 'Rock & Metal': return '🎸';
+      case 'Pop & R&B': return '🎤';
+      case 'Hip Hop & Rap': return '🎧';
+      case 'Indie & Folk': return '🪕';
+      case 'Classical & Jazz': return '🎷';
+      case 'EDM & Synthwave': return '🎹';
+      case 'Lo-Fi & Chillbeats': return '💤';
+      case 'Podcasts & Audiobooks': return '🎙️';
+      case 'Vinyl Records': return '📻';
+
+      // Sports & Outdoors
+      case 'Weightlifting': return '🏋️';
+      case 'Powerlifting': return '💪';
+      case 'CrossFit': return '🤸';
+      case 'Calisthenics': return '🤸‍♀️';
+      case 'Yoga & Pilates': return '🧘';
+      case 'HIIT & Cardio': return '🏃';
+      case 'Spinning & Cycling': return '🚴';
+      case 'Gymnastics': return '🤸‍♂️';
+      case 'Football (Soccer)': return '⚽';
+      case 'Basketball': return '🏀';
+      case 'Volleyball': return '🏐';
+      case 'Baseball': return '⚾';
+      case 'Cricket': return '🏏';
+      case 'American Football': return '🏈';
+      case 'Rugby': return '🏉';
+      case 'Ice Hockey': return '🏒';
+      case 'Tennis': return '🎾';
+      case 'Badminton': return '🏸';
+      case 'Table Tennis': return '🏓';
+      case 'Golf': return '⛳';
+      case 'Archery': return '🏹';
+      case 'Fencing': return '🤺';
+      case 'Billiards & Pool': return '🎱';
+      case 'Swimming & Diving': return '🏊';
+      case 'Surfing & Bodyboarding': return '🏄';
+      case 'Kayaking & Paddle': return '🛶';
+      case 'Scuba Diving': return '🤿';
+      case 'Skiing': return '🎿';
+      case 'Snowboarding': return '🏂';
+      case 'Ice Skating': return '⛸️';
+      case 'Hiking & Trekking': return '🥾';
+      case 'Rock Climbing': return '🧗';
+      case 'Camping & Bushcraft': return '🔥';
+      case 'Backpacking': return '🎒';
+      case 'Mountaineering': return '🏔️';
+      case 'Trail Running': return '🏃‍♂️';
+      case 'Geocaching': return '📍';
+
+      // Creative & Arts
+      case 'Watercolor Painting': return '🎨';
+      case 'Oil & Acrylics': return '🖌️';
+      case 'Sketching & Charcoal': return '✏️';
+      case 'Digital Illustration': return '🖥️';
+      case 'Calligraphy': return '✒️';
+      case 'Pottery & Ceramics': return '🏺';
+      case 'Origami & Papercraft': return '📄';
+      case 'UI/UX Design': return '🎨';
+      case 'Graphic Design': return '📐';
+      case 'Fashion & Apparel': return '👕';
+      case 'Interior Design': return '🛋️';
+      case '3D Modeling': return '💻';
+      case 'Architecture': return '🏛️';
+      case 'Landscape & Nature': return '🌅';
+      case 'Portrait & Studio': return '📸';
+      case 'Street & Documentary': return '📷';
+      case 'Film & Analog': return '🎞️';
+      case 'Drone Videography': return '🛸';
+      case 'Video Editing': return '🎬';
+      case 'Dancing': return '💃';
+      case 'Acting & Theater': return '🎭';
+      case 'Musical Instruments': return '🎹';
+      case 'Singing & Vocals': return '🎤';
+      case 'Stand-up & Improv': return '🎙️';
+      case 'Creative Writing': return '✍️';
+      case 'Poetry & Prose': return '📜';
+      case 'Blogging & Journalism': return '📰';
+      case 'Journaling': return '📓';
+
+      // Food & Drink
+      case 'Baking & Pastry': return '🥐';
+      case 'Sourdough Bread': return '🍞';
+      case 'BBQ & Grilling': return '🍖';
+      case 'Vegan & Vegetarian': return '🥗';
+      case 'Fine Dining': return '🍽️';
+      case 'Fermentation': return '🍶';
+      case 'Meal Prep & Nutrition': return '🥦';
+      case 'Specialty Coffee': return '☕';
+      case 'Matcha & Green Tea': return '🍵';
+      case 'Loose Leaf Tea': return '🍃';
+      case 'Wine Tasting': return '🍷';
+      case 'Craft Beer Brewing': return '🍺';
+      case 'Mixology & Cocktails': return '🍹';
+
+      // Interests - Lifestyle & Hobbies
+      case 'Houseplants': return '🌿';
+      case 'Bonsai Trees': return '🪴';
+      case 'Vegetable Gardening': return '🥕';
+      case 'Aquascaping': return '🐠';
+      case 'Foraging & Herbalism': return '🍄';
+      case 'Meditation': return '🧘';
+      case 'Philosophy': return '📚';
+      case 'Astrology & Tarot': return '🔮';
+      case 'Self-Improvement': return '📈';
+      case 'Volunteering': return '🤝';
+      case 'Vintage & Thrifting': return '🧥';
+      case 'Sneaker Culture': return '👟';
+      case 'Streetwear': return '🧢';
+      case 'Watch Collecting': return '⌚';
+      case 'Book Collecting': return '📚';
+      case 'Dogs & Dog Training': return '🦮';
+      case 'Cats & Felines': return '🐈';
+      case 'Reptiles': return '🦎';
+      case 'Aquariums & Fish': return '🐠';
+      case 'Bird Watching': return '🦤';
+
+      default: return '';
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -601,15 +781,26 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        match['sub']!,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
-                          fontSize: 15,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
-                          fontFamily: 'Outfit',
-                        ),
+                      Row(
+                        children: [
+                          if (_getEmojiForInterest(match['sub']!).isNotEmpty) ...[
+                            Text(
+                              _getEmojiForInterest(match['sub']!),
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            match['sub']!,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9),
+                              fontSize: 15,
+                              fontWeight:
+                                  isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontFamily: 'Outfit',
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -778,14 +969,26 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                             final isSelected =
                                 _isInterestSelected(parent.name, subInterest);
                             return FilterChip(
-                              label: Text(
-                                subInterest,
-                                style: TextStyle(
-                                  color:
-                                      isSelected ? Colors.white : Colors.white70,
-                                  fontSize: 12,
-                                  fontFamily: 'Outfit',
-                                ),
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_getEmojiForInterest(subInterest).isNotEmpty) ...[
+                                    Text(
+                                      _getEmojiForInterest(subInterest),
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    subInterest,
+                                    style: TextStyle(
+                                      color:
+                                          isSelected ? Colors.white : Colors.white70,
+                                      fontSize: 12,
+                                      fontFamily: 'Outfit',
+                                    ),
+                                  ),
+                                ],
                               ),
                               selected: isSelected,
                               selectedColor: deepPurple.withValues(alpha: 0.3),

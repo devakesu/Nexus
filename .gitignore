@@ -96,6 +96,7 @@ supabase/.temp/*
 temp/
 .infisical.json
 .certificates/
+app/api/dev_temp.py
 
 # ==========================================
 # 9. Flutter & Mobile Monorepo Architecture

@@ -27,7 +27,7 @@ from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.jwks import get_live_supabase_public_key
 from app.core.limiter import limiter
 from app.db.client import supabase_client
-from app.db.profiles import decrypt_profile_record
+from app.db.profiles import decrypt_profile_record, update_profile_images_and_metadata
 from app.db.users import (
     fetch_public_user,
     get_supabase_user_from_jwt,
@@ -45,6 +45,7 @@ from app.models import (
     OnboardingPayload,
     ProfileImagesAndTagsUpdate,
 )
+from app.services.embeddings import generate_nexus_intent_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -466,6 +467,30 @@ def update_profile_media_and_tags(
         ) from network_write_exception
 
 
+
+class ClientAIPatchRequest(BaseModel):
+    ordered_images: list[str]
+    computed_vibe_tags: list[str]
+
+
+@router.patch("/api/v1/profile/sync-client-ai")
+async def sync_client_ai_profile(
+    payload: ClientAIPatchRequest,
+    user_id: str = Depends(get_authenticated_user_id),
+):
+    """
+    Pure data persistence sync endpoint. Receives pre-computed assets
+    and updates database profiles instantly.
+    """
+    await update_profile_images_and_metadata(
+        user_id=user_id,
+        images=payload.ordered_images,
+        vibe_tags=payload.computed_vibe_tags,
+    )
+    return {
+        "status": "synchronized",
+        "message": "Client computed alignment metrics persistent.",
+    }
 class ProfileDetailsUpdate(BaseModel):
     name: str | None = None
     age: int | None = None
@@ -475,6 +500,7 @@ class ProfileDetailsUpdate(BaseModel):
     display_gender: str | None = None
     display_sexuality: str | None = None
     pronouns: str | None = None
+    bio: str | None = None
     search_buckets: list[str] | None = None
     hometown: str | None = None
     current_place: str | None = None
@@ -532,6 +558,7 @@ def get_profile_details(
             "display_gender": profile.get("display_gender"),
             "display_sexuality": profile.get("display_sexuality"),
             "pronouns": profile.get("pronouns"),
+            "bio": profile.get("bio") or "",
             "search_buckets": profile.get("search_buckets") or [],
             "hometown": profile.get("hometown"),
             "current_place": profile.get("current_place"),
@@ -552,14 +579,105 @@ def get_profile_details(
             "pets": profile.get("pets") or [],
             "interests": profile.get("interests") or {},
             "sub_interests": profile.get("sub_interests") or {},
+            "ordered_images": (
+                [profile.get("profile_pic")] + (profile.get("normal_pics") or [])
+                if profile.get("profile_pic")
+                else (profile.get("normal_pics") or [])
+            ),
+            "ai_vibe_tags": profile.get("ai_vibe_tags") or [],
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def _recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
+    """
+    Background task: fetch the full decrypted profile, compile three
+    intent-isolated embeddings, then upsert to vector_profiles.
+    Runs after the profile write commits so all fields are current.
+    """
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("*")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        raw = getattr(res, "data", None)
+        if not raw or not isinstance(raw, dict):
+            logger.warning(
+                "Vector recompile skipped: profile not found",
+                extra={"user_id": user_id},
+            )
+            return
+
+        profile = decrypt_profile_record(cast(dict[str, Any], raw))
+
+        # Use the caller-supplied plaintext bio so the freshly written value
+        # is encoded even before the next full profile fetch would see it.
+        effective_bio = plaintext_bio or profile.get("bio") or ""
+
+        vectors = generate_nexus_intent_embeddings(profile, effective_bio)
+
+        # Resolve (or create) the pseudonym firewall token for this user.
+        # upsert with on_conflict="user_id" is a no-op for existing rows while
+        # auto-generating a pseudonym_id for first-time users via the DB DEFAULT.
+        map_res = (
+            supabase_client.table("profile_pseudonym_map")
+            .upsert({"user_id": user_id}, on_conflict="user_id", ignore_duplicates=True)
+            .select("pseudonym_id")
+            .execute()
+        )
+        map_rows = getattr(map_res, "data", None)
+        if not map_rows:
+            # upsert with ignore_duplicates returns no rows on conflict; fall back
+            # to a plain select to retrieve the pre-existing pseudonym_id.
+            map_res = (
+                supabase_client.table("profile_pseudonym_map")
+                .select("pseudonym_id")
+                .eq("user_id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            map_rows_fallback = getattr(map_res, "data", None)
+            if not map_rows_fallback or not isinstance(map_rows_fallback, dict):
+                logger.error(
+                    "Vector recompile aborted: could not resolve pseudonym mapping",
+                    extra={"user_id": user_id},
+                )
+                return
+            pseudonym_id: str = str(
+                cast(dict[str, Any], map_rows_fallback)["pseudonym_id"]
+            )
+        else:
+            pseudonym_id = str(cast(list[Any], map_rows)[0]["pseudonym_id"])
+
+        supabase_client.table("vector_profiles").upsert(
+            {
+                "pseudonym_id": pseudonym_id,
+                "bio_embedding": vectors["bio_embedding"],
+                "career_embedding": vectors["career_embedding"],
+                "identity_embedding": vectors["identity_embedding"],
+            },
+        ).execute()
+
+        logger.info(
+            "Intent embeddings recompiled and committed",
+            extra={"user_id": user_id},
+        )
+    except Exception:
+        # Non-fatal: vector staleness is preferable to blocking the save response.
+        logger.exception(
+            "Vector recompile failed for user %s — skipping silently",
+            user_id,
+        )
+
+
 @router.post("/api/v1/profile/details")
 def update_profile_details(  # noqa: C901
+    background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, Any]:
@@ -569,14 +687,16 @@ def update_profile_details(  # noqa: C901
     if payload.age is not None:
         update_data["age"] = payload.age
     if payload.campus_branch is not None:
-        update_data["campus_branch"] = payload.campus_branch.strip()
+        enc = encrypt_pii(payload.campus_branch.strip())
+        update_data["campus_branch"] = f"\\x{enc.hex()}" if enc else None
         update_data["campus_branch_blind_index"] = compute_blind_index(
             payload.campus_branch,
         )
     if "campus_year" in payload.model_fields_set:
         update_data["campus_year"] = payload.campus_year
     if payload.campus_name is not None:
-        update_data["campus_name"] = payload.campus_name.strip()
+        enc = encrypt_pii(payload.campus_name.strip())
+        update_data["campus_name"] = f"\\x{enc.hex()}" if enc else None
     if payload.search_buckets is not None:
         update_data["search_buckets"] = payload.search_buckets
     if payload.target_buckets is not None:
@@ -587,6 +707,7 @@ def update_profile_details(  # noqa: C901
         "display_gender",
         "display_sexuality",
         "pronouns",
+        "bio",
         "hometown",
         "current_place",
         "partner_values",
@@ -653,6 +774,12 @@ def update_profile_details(  # noqa: C901
         res_data = getattr(res, "data", None)
         if not res_data:
             raise HTTPException(status_code=404, detail="Profile not found")
+
+        # Recompile the three intent-isolated embeddings in the background so
+        # the save response is not blocked by local model inference time.
+        plaintext_bio = (payload.bio or "").strip()
+        background_tasks.add_task(_recompile_and_push_vectors, user_id, plaintext_bio)
+
         return {"status": "success", "detail": "Profile details synchronized."}
     except Exception as e:
         logger.exception("Failed to update profile details")

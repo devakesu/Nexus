@@ -9,10 +9,17 @@ from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
 from app.core.config import settings
-from app.core.crypto import encrypt_pii
+from app.core.crypto import compute_blind_index, encrypt_pii
 from app.db.client import supabase_client
 
 logger = logging.getLogger(__name__)
+
+
+def _encrypt_text(value: str) -> str | None:
+    """Encrypt a plaintext string into a hex-formatted BYTEA literal."""
+    enc = encrypt_pii(value)
+    return f"\\x{enc.hex()}" if enc else None
+
 
 
 def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
@@ -223,6 +230,13 @@ def upsert_profile(
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
+    # Encrypt campus_branch for BYTEA storage
+    encrypted_branch = _encrypt_text(campus_branch.strip())
+    branch_blind = compute_blind_index(campus_branch)
+
+    # Encrypt campus_name for BYTEA storage
+    encrypted_campus_name = _encrypt_text(campus_name.strip()) if campus_name else None
+
     try:
         result = (
             supabase_client.table("profiles")
@@ -230,9 +244,10 @@ def upsert_profile(
                 {
                     "id": user_id,
                     "name": name.strip(),
-                    "campus_branch": campus_branch.strip(),
+                    "campus_branch": encrypted_branch,
+                    "campus_branch_blind_index": branch_blind,
                     "campus_year": campus_year,
-                    "campus_name": campus_name.strip() if campus_name else None,
+                    "campus_name": encrypted_campus_name,
                     "age": age,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
@@ -285,12 +300,15 @@ def upsert_profile_variant(
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
-    # Encrypt the lifestyle string for BYTEA storage
-    encrypted_lifestyle = None
-    if lifestyle is not None:
-        enc_bytes = encrypt_pii(lifestyle)
-        if enc_bytes:
-            encrypted_lifestyle = f"\\x{enc_bytes.hex()}"
+    # Encrypt lifestyle for BYTEA storage
+    encrypted_lifestyle = _encrypt_text(lifestyle) if lifestyle is not None else None
+
+    # Encrypt campus_branch for BYTEA storage, compute blind index
+    encrypted_branch = _encrypt_text(campus_branch.strip()) if campus_branch else None
+    branch_blind = compute_blind_index(campus_branch) if campus_branch else None
+
+    # Encrypt campus_name for BYTEA storage
+    encrypted_campus_name = _encrypt_text(campus_name.strip()) if campus_name else None
 
     try:
         result = (
@@ -299,17 +317,10 @@ def upsert_profile_variant(
                 {
                     "id": user_id,
                     "name": name.strip(),
-                    "campus_branch": (
-                        campus_branch.strip()
-                        if campus_branch is not None
-                        else None
-                    ),
+                    "campus_branch": encrypted_branch,
+                    "campus_branch_blind_index": branch_blind,
                     "campus_year": campus_year,
-                    "campus_name": (
-                        campus_name.strip()
-                        if campus_name is not None
-                        else None
-                    ),
+                    "campus_name": encrypted_campus_name,
                     "age": age,
                     "lifestyle": encrypted_lifestyle,
                     "updated_at": datetime.now(timezone.utc).isoformat(),

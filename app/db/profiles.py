@@ -6,7 +6,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.core.crypto import compute_blind_index, decrypt_pii
+from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_pii
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import fetch_active_discovery_excluded_ids
 from app.models import DiscoveryFilters
@@ -119,6 +119,9 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "display_gender",
         "display_sexuality",
         "pronouns",
+        "bio",
+        "campus_branch",
+        "campus_name",
         "hometown",
         "current_place",
         "partner_values",
@@ -494,3 +497,48 @@ def fetch_stage_1_candidates(
     )
 
     return viewer, list(candidate_map.values())
+
+
+async def update_profile_images_and_metadata(
+    user_id: str,
+    images: list[str],
+    vibe_tags: list[str],
+) -> None:
+    """
+    Encrypts and saves ordered images (profile pic & normal gallery)
+    and locally computed vibe tags directly into Supabase BYTEA fields.
+    """
+    profile_pic = images[0] if len(images) > 0 else ""
+    normal_pics = images[1:] if len(images) > 1 else []
+
+    enc_avatar = encrypt_pii(profile_pic)
+    encrypted_avatar = f"\\x{enc_avatar.hex()}" if enc_avatar else None
+
+    enc_gallery = encrypt_pii(json.dumps(normal_pics))
+    encrypted_gallery_json = f"\\x{enc_gallery.hex()}" if enc_gallery else None
+
+    enc_tags = encrypt_pii(json.dumps(vibe_tags))
+    encrypted_tags_json = f"\\x{enc_tags.hex()}" if enc_tags else None
+
+    db_mutation_payload = {
+        "profile_pic": encrypted_avatar,
+        "normal_pics": encrypted_gallery_json,
+        "ai_vibe_tags": encrypted_tags_json,
+        "updated_at": "now()",
+    }
+
+    try:
+        response = (
+            supabase_client.table("profiles")
+            .update(db_mutation_payload)
+            .eq("id", user_id)
+            .execute()
+        )
+        if not response.data:
+            raise ValueError("Profile update returned no data")
+    except Exception as e:
+        logger.exception(
+            "Failed to update profile images and metadata for user %s",
+            user_id,
+        )
+        raise e
