@@ -187,7 +187,8 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
         result = (
             supabase_client.table("profiles")
             .select(
-                "id, name, branch, year, age, created_at, updated_at",
+                "id, name, campus_branch, campus_year, campus_name, "
+                "age, created_at, updated_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -214,9 +215,10 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
 def upsert_profile(
     user_id: str,
     name: str,
-    branch: str,
-    year: int,
+    campus_branch: str,
     age: int,
+    campus_year: int | None = None,
+    campus_name: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     existing = fetch_profile(user_id)
     profile_created = existing is None
@@ -228,8 +230,9 @@ def upsert_profile(
                 {
                     "id": user_id,
                     "name": name.strip(),
-                    "branch": branch.strip(),
-                    "year": year,
+                    "campus_branch": campus_branch.strip(),
+                    "campus_year": campus_year,
+                    "campus_name": campus_name.strip() if campus_name else None,
                     "age": age,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 },
@@ -265,10 +268,11 @@ def upsert_profile(
 def upsert_profile_variant(
     user_id: str,
     name: str,
-    branch: str | None,
-    year: int | None,
+    campus_branch: str | None,
+    campus_year: int | None,
     age: int,
     app_variant: str,
+    campus_name: str | None = None,
     lifestyle: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """
@@ -295,8 +299,17 @@ def upsert_profile_variant(
                 {
                     "id": user_id,
                     "name": name.strip(),
-                    "branch": branch.strip() if branch is not None else None,
-                    "year": year,
+                    "campus_branch": (
+                        campus_branch.strip()
+                        if campus_branch is not None
+                        else None
+                    ),
+                    "campus_year": campus_year,
+                    "campus_name": (
+                        campus_name.strip()
+                        if campus_name is not None
+                        else None
+                    ),
                     "age": age,
                     "lifestyle": encrypted_lifestyle,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -375,7 +388,9 @@ def generate_export_code(user_id: str) -> tuple[str, datetime]:
 _IMPORTABLE_FIELDS = [
     "display_gender",
     "display_sexuality",
+    "pronouns",
     "hometown",
+    "current_place",
     "partner_values",
     "children_plans",
     "religious_beliefs",
@@ -398,7 +413,7 @@ _IMPORTABLE_FIELDS = [
     "dating_target_buckets",
     "friends_target_buckets",
     "professional_target_buckets",
-    "branch_blind_index",
+    "campus_branch_blind_index",
     "smoking_blind_index",
     "drinking_blind_index",
     "role_blind_index",

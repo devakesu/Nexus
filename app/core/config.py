@@ -138,6 +138,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "activities": 2,
         "top_artists": 1,
         "hometown": 1,
+        "current_place": 1,
         "pets": 1,
         "age": 3,
         "tech_skills": 0,
@@ -151,6 +152,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "bio_embedding": 3,
         "identity_embedding": 3,
         "hometown": 3,
+        "current_place": 3,
         "pets": 3,
         "drinking": 2,
         "smoking": 2,
@@ -177,6 +179,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "languages": 1,
         "ai_vibe_tags": 1,
         "hometown": 0,
+        "current_place": 0,
         "pets": 0,
         "children_plans": 0,
         "drinking": 0,
@@ -190,5 +193,6 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
 # Similarity thresholds used by fuzzy-matching helpers.
 FUZZY_THRESHOLDS: dict[str, float] = {
     "hometown": 0.70,
+    "current_place": 0.70,
     "default": 0.85,
 }

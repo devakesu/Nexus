@@ -277,14 +277,16 @@ def complete_onboarding(
         # MEC: name is derived server-side from Google OAuth metadata.
         # Branch and year are provided in the payload.
         user_name = extract_user_name(email, auth_user)
-        user_branch: str | None = payload.branch
-        user_year: int | None = payload.year
+        user_branch: str | None = payload.campus_branch
+        user_year: int | None = payload.campus_year
+        user_campus_name: str | None = payload.campus_name
         user_lifestyle: str | None = None
     else:
         # NexusOnboardingRequest: name and lifestyle are provided in the payload.
         user_name = payload.name
         user_branch = None
         user_year = None
+        user_campus_name = None
         user_lifestyle = payload.lifestyle
 
     upsert_public_user(
@@ -295,10 +297,11 @@ def complete_onboarding(
     profile_row, profile_created = upsert_profile_variant(
         user_id=user_id,
         name=user_name,
-        branch=user_branch,
-        year=user_year,
+        campus_branch=user_branch,
+        campus_year=user_year,
         age=payload.age,
         app_variant=payload.app_variant,
+        campus_name=user_campus_name,
         lifestyle=user_lifestyle,
     )
 
@@ -466,12 +469,15 @@ def update_profile_media_and_tags(
 class ProfileDetailsUpdate(BaseModel):
     name: str | None = None
     age: int | None = None
-    branch: str | None = None
-    year: int | None = None
+    campus_branch: str | None = None
+    campus_year: int | None = None
+    campus_name: str | None = None
     display_gender: str | None = None
     display_sexuality: str | None = None
+    pronouns: str | None = None
     search_buckets: list[str] | None = None
     hometown: str | None = None
+    current_place: str | None = None
     partner_values: str | None = None
     children_plans: str | None = None
     religious_beliefs: str | None = None
@@ -518,12 +524,15 @@ def get_profile_details(
         return {
             "name": profile.get("name"),
             "age": profile.get("age"),
-            "year": profile.get("year"),
-            "branch": profile.get("branch"),
+            "campus_year": profile.get("campus_year"),
+            "campus_branch": profile.get("campus_branch"),
+            "campus_name": profile.get("campus_name"),
             "display_gender": profile.get("display_gender"),
             "display_sexuality": profile.get("display_sexuality"),
+            "pronouns": profile.get("pronouns"),
             "search_buckets": profile.get("search_buckets") or [],
             "hometown": profile.get("hometown"),
+            "current_place": profile.get("current_place"),
             "partner_values": profile.get("partner_values"),
             "children_plans": profile.get("children_plans"),
             "religious_beliefs": profile.get("religious_beliefs"),
@@ -555,11 +564,15 @@ def update_profile_details(  # noqa: C901
         update_data["name"] = payload.name.strip()
     if payload.age is not None:
         update_data["age"] = payload.age
-    if payload.branch is not None:
-        update_data["branch"] = payload.branch.strip()
-        update_data["branch_blind_index"] = compute_blind_index(payload.branch)
-    if payload.year is not None:
-        update_data["year"] = payload.year
+    if payload.campus_branch is not None:
+        update_data["campus_branch"] = payload.campus_branch.strip()
+        update_data["campus_branch_blind_index"] = compute_blind_index(
+            payload.campus_branch,
+        )
+    if "campus_year" in payload.model_fields_set:
+        update_data["campus_year"] = payload.campus_year
+    if payload.campus_name is not None:
+        update_data["campus_name"] = payload.campus_name.strip()
     if payload.search_buckets is not None:
         update_data["search_buckets"] = payload.search_buckets
     if payload.target_buckets is not None:
@@ -569,7 +582,9 @@ def update_profile_details(  # noqa: C901
     scalar_fields = [
         "display_gender",
         "display_sexuality",
+        "pronouns",
         "hometown",
+        "current_place",
         "partner_values",
         "children_plans",
         "religious_beliefs",

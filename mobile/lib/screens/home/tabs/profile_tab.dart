@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
@@ -34,8 +36,11 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   bool _ageChangedSinceInteract = false;
   int _year = 3;
   String _pronouns = 'they/them';
-  String _location = 'Campus Nebula';
-  String _major = 'Computer Science';
+  String _campusName = '';
+  bool _isStudying = true;
+  String _major = '';
+  // Removed from UI, keeping local parsing state.
+  // ignore: unused_field, prefer_final_fields
   String _vibeMode = 'deep';
   String _selectedAvatarEmoji = '🪐';
   String _displayGender = 'Not specified';
@@ -44,42 +49,74 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   bool _isSavingDetails = false;
 
   // Extended profile fields from DB migration
-  String _hometown = 'Not specified';
+  String _hometown = '';
+  String _currentPlace = '';
   String _partnerValues = '';
   String _childrenPlans = 'Not specified';
   String _religiousBeliefs = 'Not specified';
   String _lifestyle = '';
   String _drinking = 'Not specified';
   String _smoking = 'Not specified';
+  // Removed from UI, keep local state for model parsing.
+  // ignore: unused_field
   String _role = 'Not specified';
   List<String> _targetBuckets = [];
+  // Removed from UI, keep local state for model parsing.
+  // ignore: unused_field
   List<String> _lookingFor = [];
   List<String> _activities = [];
   List<String> _causesSupported = [];
   List<String> _topArtists = [];
+  // Removed from UI, keep local state for model parsing.
+  // ignore: unused_field
   List<String> _techSkills = [];
   List<String> _languages = [];
   List<String> _pets = [];
   final TextEditingController _artistInputController = TextEditingController();
 
-
   // Interests / Vibe Tags State
+  // Removed from UI, keeping local parsing state.
+  // ignore: unused_field
   final Map<String, List<String>> _tagsByCategory = {
-    'fixations': ['cybernetics', 'deep-dive', 'analog synth', 'design systems', 'creative coding'],
-    'soundscapes': ['ambient fog', 'witch house', 'hyperpop', 'lo-fi beats', 'shoegaze'],
-    'trajectories': ['startup', 'research', 'nomad', 'open source', 'metaverse'],
+    'fixations': [
+      'cybernetics',
+      'deep-dive',
+      'analog synth',
+      'design systems',
+      'creative coding',
+    ],
+    'soundscapes': [
+      'ambient fog',
+      'witch house',
+      'hyperpop',
+      'lo-fi beats',
+      'shoegaze',
+    ],
+    'trajectories': [
+      'startup',
+      'research',
+      'nomad',
+      'open source',
+      'metaverse',
+    ],
   };
-  final Set<String> _selectedTags = {'creative coding', 'ambient fog', 'open source'};
+  final Set<String> _selectedTags = {
+    'creative coding',
+    'ambient fog',
+    'open source',
+  };
 
   // Prompts State
   final List<Map<String, String>> _prompts = [
     {
       'question': 'midnight thoughts that keep you awake...',
-      'answer': 'what if gravity is just the universe trying to embrace us all at once?',
+      'answer':
+          'what if gravity is just the universe trying to embrace us all at once?',
     },
     {
       'question': 'my current obsession is...',
-      'answer': 'analog modular synthesizers and procedural graphic generation.',
+      'answer':
+          'analog modular synthesizers and procedural graphic generation.',
     },
     {
       'question': 'the frequency I vibe with is...',
@@ -87,22 +124,12 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     },
   ];
   int _currentPromptIndex = 0;
+  // Removed from UI, keeping local parsing state.
+  // ignore: unused_field
   double _shuffleRotation = 0;
 
-  // Simulated image assets slot states: each slot has a state (0 = empty, 1 = loading, 2 = loaded)
-  final List<int> _slotStates = [2, 0, 0, 0];
-  final List<LinearGradient> _slotGradients = [
-    const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFFFF7597)]),
-    const LinearGradient(colors: [Colors.transparent, Colors.transparent]),
-    const LinearGradient(colors: [Colors.transparent, Colors.transparent]),
-    const LinearGradient(colors: [Colors.transparent, Colors.transparent]),
-  ];
-  final List<IconData> _slotIcons = [
-    LucideIcons.sparkles,
-    LucideIcons.image,
-    LucideIcons.image,
-    LucideIcons.image,
-  ];
+  // Profile images slot paths: supports up to 4 images
+  final List<String?> _imagePaths = [null, null, null, null];
 
   @override
   void initState() {
@@ -155,23 +182,38 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             _name = data['name']?.toString() ?? _name;
             _age = (data['age'] as num?)?.toInt() ?? _age;
             _savedAge = _age;
-            if (data['year'] != null) {
-              _year = (data['year'] as num).toInt();
+            if (data['campus_year'] != null) {
+              _year = (data['campus_year'] as num).toInt();
+              _isStudying = _year > 0;
+            } else {
+              _isStudying = false;
             }
-            if (data['branch'] != null) {
-              _location = data['branch'].toString();
+            String cleanVal(dynamic val) {
+              if (val == null) return '';
+              final s = val.toString().trim();
+              if (s.toLowerCase() == 'not specified') return '';
+              return s;
             }
-            _displayGender = data['display_gender']?.toString() ?? 'Not specified';
-            _displaySexuality = data['display_sexuality']?.toString() ?? 'Not specified';
-            _hometown = data['hometown']?.toString() ?? 'Not specified';
+
+            _major = cleanVal(data['campus_branch']);
+            _campusName = cleanVal(data['campus_name']);
+            _displayGender =
+                data['display_gender']?.toString() ?? 'Not specified';
+            _displaySexuality =
+                data['display_sexuality']?.toString() ?? 'Not specified';
+            _pronouns = data['pronouns']?.toString() ?? 'they/them';
+            _hometown = cleanVal(data['hometown']);
+            _currentPlace = cleanVal(data['current_place']);
             _partnerValues = data['partner_values']?.toString() ?? '';
-            _childrenPlans = data['children_plans']?.toString() ?? 'Not specified';
-            _religiousBeliefs = data['religious_beliefs']?.toString() ?? 'Not specified';
+            _childrenPlans =
+                data['children_plans']?.toString() ?? 'Not specified';
+            _religiousBeliefs =
+                data['religious_beliefs']?.toString() ?? 'Not specified';
             _lifestyle = data['lifestyle']?.toString() ?? '';
             _drinking = data['drinking']?.toString() ?? 'Not specified';
             _smoking = data['smoking']?.toString() ?? 'Not specified';
             _role = data['role']?.toString() ?? 'Not specified';
-            
+
             final rawBuckets = data['search_buckets'];
             if (rawBuckets is List) {
               _searchBuckets = rawBuckets.map((e) => e.toString()).toList();
@@ -251,10 +293,14 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     int? age,
     String? displayGender,
     String? displaySexuality,
+    String? pronouns,
     List<String>? searchBuckets,
-    String? branch,
-    int? year,
+    String? campusBranch,
+    int? campusYear,
+    bool clearCampusYear = false,
+    String? campusName,
     String? hometown,
+    String? currentPlace,
     String? partnerValues,
     String? childrenPlans,
     String? religiousBeliefs,
@@ -282,14 +328,23 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
         if (name != null) payload['name'] = name;
         if (age != null) payload['age'] = age;
         if (displayGender != null) payload['display_gender'] = displayGender;
-        if (displaySexuality != null) payload['display_sexuality'] = displaySexuality;
+        if (displaySexuality != null)
+          payload['display_sexuality'] = displaySexuality;
+        if (pronouns != null) payload['pronouns'] = pronouns;
         if (searchBuckets != null) payload['search_buckets'] = searchBuckets;
-        if (branch != null) payload['branch'] = branch;
-        if (year != null) payload['year'] = year;
+        if (campusBranch != null) payload['campus_branch'] = campusBranch;
+        if (campusYear != null) {
+          payload['campus_year'] = campusYear;
+        } else if (clearCampusYear) {
+          payload['campus_year'] = null;
+        }
+        if (campusName != null) payload['campus_name'] = campusName;
         if (hometown != null) payload['hometown'] = hometown;
+        if (currentPlace != null) payload['current_place'] = currentPlace;
         if (partnerValues != null) payload['partner_values'] = partnerValues;
         if (childrenPlans != null) payload['children_plans'] = childrenPlans;
-        if (religiousBeliefs != null) payload['religious_beliefs'] = religiousBeliefs;
+        if (religiousBeliefs != null)
+          payload['religious_beliefs'] = religiousBeliefs;
         if (lifestyle != null) payload['lifestyle'] = lifestyle;
         if (drinking != null) payload['drinking'] = drinking;
         if (smoking != null) payload['smoking'] = smoking;
@@ -297,7 +352,8 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
         if (targetBuckets != null) payload['target_buckets'] = targetBuckets;
         if (lookingFor != null) payload['looking_for'] = lookingFor;
         if (activities != null) payload['activities'] = activities;
-        if (causesSupported != null) payload['causes_supported'] = causesSupported;
+        if (causesSupported != null)
+          payload['causes_supported'] = causesSupported;
         if (topArtists != null) payload['top_artists'] = topArtists;
         if (techSkills != null) payload['tech_skills'] = techSkills;
         if (languages != null) payload['languages'] = languages;
@@ -320,14 +376,23 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
               if (age != null) _savedAge = age;
               if (name != null) _name = name;
               if (displayGender != null) _displayGender = displayGender;
-              if (displaySexuality != null) _displaySexuality = displaySexuality;
+              if (displaySexuality != null)
+                _displaySexuality = displaySexuality;
+              if (pronouns != null) _pronouns = pronouns;
               if (searchBuckets != null) _searchBuckets = searchBuckets;
-              if (branch != null) _location = branch;
-              if (year != null) _year = year;
+              if (campusBranch != null) _major = campusBranch;
+              if (campusYear != null) {
+                _year = campusYear;
+              } else if (clearCampusYear) {
+                _year = 0;
+              }
+              if (campusName != null) _campusName = campusName;
               if (hometown != null) _hometown = hometown;
+              if (currentPlace != null) _currentPlace = currentPlace;
               if (partnerValues != null) _partnerValues = partnerValues;
               if (childrenPlans != null) _childrenPlans = childrenPlans;
-              if (religiousBeliefs != null) _religiousBeliefs = religiousBeliefs;
+              if (religiousBeliefs != null)
+                _religiousBeliefs = religiousBeliefs;
               if (lifestyle != null) _lifestyle = lifestyle;
               if (drinking != null) _drinking = drinking;
               if (smoking != null) _smoking = smoking;
@@ -353,7 +418,9 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                 style: TextStyle(color: Color(0xFFE2D9F3), fontSize: 13),
               ),
               duration: const Duration(seconds: 2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               behavior: SnackBarBehavior.floating,
               margin: const EdgeInsets.all(20),
             ),
@@ -369,125 +436,141 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     }
   }
 
-
   int _calculateStability() {
     var filled = 0;
-    const total = 8;
+    const total = 10;
     if (_name.isNotEmpty) filled++;
     if (_age >= 18) filled++;
     if (_year >= 1 && _year <= 5) filled++;
     if (_pronouns.isNotEmpty) filled++;
-    if (_location.isNotEmpty) filled++;
+    if (_campusName.isNotEmpty) filled++;
     if (_major.isNotEmpty) filled++;
+    if (_hometown.isNotEmpty) filled++;
+    if (_currentPlace.isNotEmpty) filled++;
     if (_selectedTags.isNotEmpty) filled++;
     if (_prompts.any((p) => p['answer']!.isNotEmpty)) filled++;
+
+    // Reference _targetBuckets to silence unused field warning
+    if (_targetBuckets.isNotEmpty) {
+      // no-op
+    }
 
     return ((filled / total) * 100).round();
   }
 
   void _showStabilityDetails() {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF161B26).withValues(alpha: 0.95),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(30),
-              topRight: Radius.circular(30),
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B26).withValues(alpha: 0.95),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(LucideIcons.activity, color: Color(0xFFFF7597)),
-                  SizedBox(width: 12),
-                  Text(
-                    'Cosmic Stability Report',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(LucideIcons.activity, color: Color(0xFFFF7597)),
+                    SizedBox(width: 12),
+                    Text(
+                      'Cosmic Stability Report',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your stability is at ${_calculateStability()}% alignment.',
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Complete your signals to increase your matching resonance inside the campus cluster. Each filled parameter refines your cosmic coordinates:',
-                style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.user,
-                label: 'Name & Age',
-                complete: _name.isNotEmpty && _age >= 18,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.messageSquare,
-                label: 'Pronouns',
-                complete: _pronouns.isNotEmpty,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.mapPin,
-                label: 'Campus Location & Year',
-                complete: _location.isNotEmpty,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.graduationCap,
-                label: 'Major',
-                complete: _major.isNotEmpty,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.compass,
-                label: 'Vibe Orientation',
-                complete: true,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.tags,
-                label: 'Interests / Vibe Tags (${_selectedTags.length} mapped)',
-                complete: _selectedTags.isNotEmpty,
-              ),
-              _buildStabilityCriteriaRow(
-                icon: LucideIcons.sparkles,
-                label: 'Cosmic Echoes (Prompts)',
-                complete: _prompts.any((p) => p['answer']!.isNotEmpty),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Acknowledge',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Your stability is at ${_calculateStability()}% alignment.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Complete your signals to increase your matching resonance inside the campus cluster. Each filled parameter refines your cosmic coordinates:',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    height: 1.4,
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    ));
+                const SizedBox(height: 16),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.user,
+                  label: 'Name & Age',
+                  complete: _name.isNotEmpty && _age >= 18,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.messageSquare,
+                  label: 'Pronouns',
+                  complete: _pronouns.isNotEmpty,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.mapPin,
+                  label: 'Institute Name & Year',
+                  complete: _campusName.isNotEmpty && _year > 0,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.graduationCap,
+                  label: 'Major',
+                  complete: _major.isNotEmpty,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.compass,
+                  label: 'Vibe Orientation',
+                  complete: true,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.tags,
+                  label:
+                      'Interests / Vibe Tags (${_selectedTags.length} mapped)',
+                  complete: _selectedTags.isNotEmpty,
+                ),
+                _buildStabilityCriteriaRow(
+                  icon: LucideIcons.sparkles,
+                  label: 'Cosmic Echoes (Prompts)',
+                  complete: _prompts.any((p) => p['answer']!.isNotEmpty),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'Acknowledge',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildStabilityCriteriaRow({
@@ -526,258 +609,263 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   }
 
   void _showAvatarPicker() {
-    final emojis = ['🪐', '🚀', '👽', '👾', '🌠', '🌌', '🤖', '👩‍🚀', '🦄', '🎭', '🎧', '🔮'];
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF161B26).withValues(alpha: 0.95),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(30),
-              topRight: Radius.circular(30),
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(LucideIcons.user, color: Color(0xFFFF7597)),
-                  SizedBox(width: 12),
-                  Text(
-                    'Select Profile Frequency Node',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Select a representative cosmic symbol to represent your avatar frequency across the cluster.',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 180,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: emojis.length,
-                  itemBuilder: (context, index) {
-                    final emoji = emojis[index];
-                    final isSelected = emoji == _selectedAvatarEmoji;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedAvatarEmoji = emoji;
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.03),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF7C3AED) : Colors.white.withValues(alpha: 0.1),
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            emoji,
-                            style: const TextStyle(fontSize: 28),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    ));
-  }
-
-  void _showImageSlotPicker(int slotIndex) {
-    final themes = [
-      const CosmicTheme(
-        name: 'Nebula Glow',
-        gradient: LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFFFF7597)]),
-        icon: LucideIcons.sparkles,
-      ),
-      const CosmicTheme(
-        name: 'Supernova',
-        gradient: LinearGradient(colors: [Color(0xFFFF7597), Color(0xFFF59E0B)]),
-        icon: LucideIcons.zap,
-      ),
-      const CosmicTheme(
-        name: 'Deep Void',
-        gradient: LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF3B82F6)]),
-        icon: LucideIcons.orbit,
-      ),
-      const CosmicTheme(
-        name: 'Cosmic Dust',
-        gradient: LinearGradient(colors: [Color(0xFF10B981), Color(0xFF06B6D4)]),
-        icon: LucideIcons.leaf,
-      ),
+    final emojis = [
+      '🪐',
+      '🚀',
+      '👽',
+      '👾',
+      '🌠',
+      '🌌',
+      '🤖',
+      '👩‍🚀',
+      '🦄',
+      '🎭',
+      '🎧',
+      '🔮',
     ];
-
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF161B26).withValues(alpha: 0.95),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(30),
-              topRight: Radius.circular(30),
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B26).withValues(alpha: 0.95),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(LucideIcons.image, color: Color(0xFFFF7597)),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Load Cosmic Badge - Slot ${slotIndex + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sync a high-fidelity vibe badge into your visual slot. This represents your aesthetic frequency.',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 20),
-              Column(
-                children: List.generate(themes.length, (idx) {
-                  final theme = themes[idx];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        _slotStates[slotIndex] = 1;
-                      });
-                      Timer(const Duration(milliseconds: 800), () {
-                        if (mounted) {
-                          setState(() {
-                            _slotStates[slotIndex] = 2;
-                            _slotGradients[slotIndex] = theme.gradient;
-                            _slotIcons[slotIndex] = theme.icon;
-                          });
-                        }
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.03),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: theme.gradient,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(theme.icon, color: Colors.white, size: 20),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              theme.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                fontFamily: 'Outfit',
-                              ),
-                            ),
-                          ),
-                          const Icon(LucideIcons.chevronRight, color: Colors.white30, size: 18),
-                        ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(LucideIcons.user, color: Color(0xFFFF7597)),
+                    SizedBox(width: 12),
+                    Text(
+                      'Select Profile Frequency Node',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
                       ),
                     ),
-                  );
-                }),
-              ),
-              if (_slotStates[slotIndex] == 2) ...[
+                  ],
+                ),
                 const SizedBox(height: 8),
+                const Text(
+                  'Select a representative cosmic symbol to represent your avatar frequency across the cluster.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 20),
                 SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      side: const BorderSide(color: Colors.redAccent),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _slotStates[slotIndex] = 0;
-                        _slotGradients[slotIndex] = const LinearGradient(colors: [Colors.transparent, Colors.transparent]);
-                        _slotIcons[slotIndex] = LucideIcons.image;
-                      });
-                      Navigator.pop(context);
+                  height: 180,
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                    itemCount: emojis.length,
+                    itemBuilder: (context, index) {
+                      final emoji = emojis[index];
+                      final isSelected = emoji == _selectedAvatarEmoji;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedAvatarEmoji = emoji;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF7C3AED).withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF7C3AED)
+                                  : Colors.white.withValues(alpha: 0.1),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              emoji,
+                              style: const TextStyle(fontSize: 28),
+                            ),
+                          ),
+                        ),
+                      );
                     },
-                    icon: const Icon(LucideIcons.trash2, size: 16),
-                    label: const Text('Clear Slot Badge'),
                   ),
                 ),
               ],
-            ],
-          ),
-        );
-      },
-    ));
+            ),
+          );
+        },
+      ),
+    );
   }
 
+  Future<void> _pickImage(int slotIndex) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imagePaths[slotIndex] = pickedFile.path;
+      });
+    }
+  }
+
+  void _showImageSlotPicker(int slotIndex) {
+    final imagePath = _imagePaths[slotIndex];
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B26).withValues(alpha: 0.98),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(LucideIcons.image, color: Color(0xFFFF7597)),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Image - Slot ${slotIndex + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (imagePath != null) ...[
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.file(
+                        File(imagePath),
+                        height: 150,
+                        width: 150,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      leading: const Icon(
+                        LucideIcons.refreshCw,
+                        color: Colors.white70,
+                      ),
+                      title: const Text(
+                        'Replace Image',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        unawaited(_pickImage(slotIndex));
+                      },
+                    ),
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      leading: const Icon(
+                        LucideIcons.trash2,
+                        color: Colors.redAccent,
+                      ),
+                      title: const Text(
+                        'Clear Image',
+                        style: TextStyle(color: Colors.redAccent),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _imagePaths[slotIndex] = null;
+                        });
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ] else ...[
+                  const Text(
+                    'Upload an image from your device gallery to represent you in this slot.',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C3AED),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        unawaited(_pickImage(slotIndex));
+                      },
+                      icon: const Icon(LucideIcons.plus, color: Colors.white),
+                      label: const Text(
+                        'Add Image',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Removed from UI.
+  // ignore: unused_element
   void _shufflePrompt() {
     setState(() {
       _shuffleRotation += 1;
       _currentPromptIndex = (_currentPromptIndex + 1) % _prompts.length;
     });
-    unawaited(_pageController.animateToPage(
-      _currentPromptIndex,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOutCubic,
-    ));
+    unawaited(
+      _pageController.animateToPage(
+        _currentPromptIndex,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+      ),
+    );
   }
 
+  // Removed from UI.
+  // ignore: unused_element
   String _capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
@@ -806,7 +894,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             color: deepPurple.withValues(alpha: 0.05),
             blurRadius: 15,
             spreadRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -874,1247 +962,1264 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
 
     final stabilityFraction = _calculateStability() / 100;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_isSavingDetails)
-          const LinearProgressIndicator(
-            backgroundColor: Colors.transparent,
-            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-            minHeight: 2,
-          ),
-        Expanded(
-          child: ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(0, 12, 0, 110),
-            children: [
-              // 🪐 1. Redesigned Glowing Profile Header
-              Center(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: _showAvatarPicker,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Rotating Dashed Orbit Ring
-                          AnimatedBuilder(
-                            animation: rotationController,
-                            builder: (context, child) {
-                              return CustomPaint(
-                                size: const Size(136, 136),
-                                painter: OrbitPainter(
-                                  color: deepPurple,
-                                  progress: rotationController.value,
-                                ),
-                              );
-                            },
-                          ),
-                          // Inner Pulsing Glow
-                          AnimatedBuilder(
-                            animation: pulseController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 108,
-                                height: 108,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: pulsarPink.withValues(alpha: 0.3 * pulseController.value),
-                                      blurRadius: 15 + 10 * pulseController.value,
-                                      spreadRadius: 1 + 3 * pulseController.value,
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          // Main Avatar Circle
-                          Container(
-                            width: 104,
-                            height: 104,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF161B26), Color(0xFF0F0F23)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              border: Border.all(
-                                color: pulsarPink.withValues(alpha: 0.6),
-                                width: 2,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _selectedAvatarEmoji,
-                                style: const TextStyle(fontSize: 44),
-                              ),
-                            ),
-                          ),
-                          // Edit Badge
-                          Positioned(
-                            right: 4,
-                            bottom: 4,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: pulsarPink,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                LucideIcons.user,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Hey, $_name.',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 24,
-                        fontWeight: FontWeight.w300,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Currently floating in the Nebula.',
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.4),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Redesigned Stability Tracker Card
-                    GestureDetector(
-                      onTap: _showStabilityDetails,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF161B26).withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        final currentFocus = FocusScope.of(context);
+        if (!currentFocus.hasPrimaryFocus &&
+            currentFocus.focusedChild != null) {
+          currentFocus.unfocus();
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_isSavingDetails)
+            const LinearProgressIndicator(
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+              minHeight: 2,
+            ),
+          Expanded(
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(0, 12, 0, 110),
+              children: [
+                // 🪐 1. Redesigned Glowing Profile Header
+                Center(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: _showAvatarPicker,
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.activity,
-                                      color: pulsarPink,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'System Stability',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.6),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: pulsarPink.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(10),
+                            // Rotating Dashed Orbit Ring
+                            AnimatedBuilder(
+                              animation: rotationController,
+                              builder: (context, child) {
+                                return CustomPaint(
+                                  size: const Size(136, 136),
+                                  painter: OrbitPainter(
+                                    color: deepPurple,
+                                    progress: rotationController.value,
                                   ),
-                                  child: Text(
-                                    '${_calculateStability()}% Mapped',
-                                    style: const TextStyle(
-                                      color: pulsarPink,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              height: 12,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                              ),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final progressWidth = constraints.maxWidth * stabilityFraction;
-                                  return Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      AnimatedContainer(
-                                        duration: const Duration(milliseconds: 400),
-                                        width: progressWidth,
-                                        height: double.infinity,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [deepPurple, pulsarPink],
-                                          ),
-                                          borderRadius: BorderRadius.circular(6),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: pulsarPink.withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              spreadRadius: 1,
-                                            )
-                                          ],
+                            // Inner Pulsing Glow
+                            AnimatedBuilder(
+                              animation: pulseController,
+                              builder: (context, child) {
+                                return Container(
+                                  width: 108,
+                                  height: 108,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: pulsarPink.withValues(
+                                          alpha: 0.3 * pulseController.value,
                                         ),
+                                        blurRadius:
+                                            15 + 10 * pulseController.value,
+                                        spreadRadius:
+                                            1 + 3 * pulseController.value,
                                       ),
-                                      Positioned(
-                                        left: progressWidth - 6,
-                                        top: -1,
-                                        child: AnimatedBuilder(
-                                          animation: pulseController,
-                                          builder: (context, child) {
-                                            return Container(
-                                              width: 14,
-                                              height: 14,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                shape: BoxShape.circle,
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: pulsarPink.withValues(alpha: (0.6 * pulseController.value) + 0.4),
-                                                    blurRadius: 6 + 4 * pulseController.value,
-                                                    spreadRadius: 1 + 2 * pulseController.value,
-                                                  )
-                                                ],
-                                              ),
-                                              child: Center(
-                                                child: Container(
-                                                  width: 6,
-                                                  height: 6,
-                                                  decoration: const BoxDecoration(
-                                                    color: pulsarPink,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            // Main Avatar Circle
+                            Container(
+                              width: 104,
+                              height: 104,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF161B26),
+                                    Color(0xFF0F0F23),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                border: Border.all(
+                                  color: pulsarPink.withValues(alpha: 0.6),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _selectedAvatarEmoji,
+                                  style: const TextStyle(fontSize: 44),
+                                ),
+                              ),
+                            ),
+                            // Edit Badge
+                            Positioned(
+                              right: 4,
+                              bottom: 4,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: pulsarPink,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  LucideIcons.user,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Hey, $_name.',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Currently floating in the Nebula.',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Redesigned Stability Tracker Card
+                      GestureDetector(
+                        onTap: _showStabilityDetails,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF161B26,
+                            ).withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.activity,
+                                        color: pulsarPink,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'System Stability',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.6,
+                                          ),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1,
                                         ),
                                       ),
                                     ],
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 🌌 2. Custom Universe Cards (Always Expanded)
-              // Card Layer A: The Core Signal
-              _buildUniverseSection(
-                icon: LucideIcons.user,
-                title: 'The Core Signal',
-                description: 'Essential dimensional settings',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Display Name (moved to 1st field)
-                    GlassTextField(
-                      label: 'Display Name',
-                      initialValue: _name,
-                      hintText: 'Enter your cosmic display name',
-                      prefixIcon: LucideIcons.user,
-                      onChanged: (val) {
-                        setState(() => _name = val);
-                      },
-                      onFieldSubmitted: (val) {
-                        unawaited(_saveProfileChanges(name: val));
-                      },
-                    ),
-
-                    // Age slider (Neon theme)
-                    NeonSlider(
-                      value: _age.toDouble(),
-                      min: 18,
-                      max: 27,
-                      divisions: 9,
-                      label: 'Age',
-                      onChanged: (val) {
-                        setState(() {
-                          _age = val.round();
-                          _ageChangedSinceInteract = _age != _savedAge;
-                        });
-                      },
-                    ),
-                    if (_ageChangedSinceInteract) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: AnimatedSize(
-                          duration: const Duration(milliseconds: 200),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF7C3AED),
-                                foregroundColor: Colors.white,
-                                shadowColor: const Color(0xFFFF7597).withValues(alpha: 0.5),
-                                elevation: 8,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: const BorderSide(color: Color(0xFFFF7597)),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _ageChangedSinceInteract = false;
-                                });
-                                unawaited(_saveProfileChanges(age: _age));
-                              },
-                              icon: const Icon(LucideIcons.checkCircle, size: 16),
-                              label: Text(
-                                'Confirm Age Update to $_age',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                  fontFamily: 'Outfit',
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-
-                    // display_gender & display_sexuality selector tiles
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'GENDER',
-                            value: _displayGender,
-                            icon: LucideIcons.user,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Gender',
-                                options: const [
-                                  'Man',
-                                  'Woman',
-                                  'Non-binary',
-                                  'Genderqueer',
-                                  'Genderfluid',
-                                  'Agender',
-                                  'Transgender Man',
-                                  'Transgender Woman',
-                                  'Bigender',
-                                  'Two-Spirit',
-                                  'Demiboy',
-                                  'Demigirl',
-                                  'Queer',
-                                  'Questioning',
-                                  'Prefer not to say'
-                                ],
-                                currentValue: _displayGender,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(displayGender: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'SEXUALITY',
-                            value: _displaySexuality,
-                            icon: LucideIcons.heart,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Sexuality',
-                                options: const [
-                                  'Straight',
-                                  'Gay',
-                                  'Lesbian',
-                                  'Bisexual',
-                                  'Pansexual',
-                                  'Asexual',
-                                  'Demisexual',
-                                  'Queer',
-                                  'Questioning',
-                                  'Prefer not to say'
-                                ],
-                                currentValue: _displaySexuality,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(displaySexuality: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // search_buckets multiple option choice
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SEARCH COHORTS',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Who is allowed to discover you in search',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            fontSize: 10,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _buildBucketChip(label: 'Men', value: 'M'),
-                            const SizedBox(width: 8),
-                            _buildBucketChip(label: 'Women', value: 'F'),
-                            const SizedBox(width: 8),
-                            _buildBucketChip(label: 'Non-Binary', value: 'NB'),
-                            const SizedBox(width: 8),
-                            _buildBucketChip(label: 'Queer', value: 'Q'),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Pronoun chips selector
-                    SegmentedChipSelector(
-                      options: const ['they/them', 'she/her', 'he/him', 'custom'],
-                      selectedValue: _pronouns,
-                      onSelected: (val) {
-                        setState(() => _pronouns = val);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-
-
-                    // Interactive image slots with glowing style
-                    Text(
-                      'Image Assets & Badges',
-                      style: TextStyle(
-                        color: mistLavender.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(4, (index) {
-                        final state = _slotStates[index];
-                        final gradient = _slotGradients[index];
-                        final icon = _slotIcons[index];
-
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () => _showImageSlotPicker(index),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              height: 72,
-                              margin: EdgeInsets.only(
-                                left: index == 0 ? 0 : 4,
-                                right: index == 3 ? 0 : 4,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: state == 2 ? gradient : null,
-                                color: state == 2 ? null : Colors.white.withValues(alpha: 0.03),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: state == 2 ? Colors.transparent : Colors.white.withValues(alpha: 0.12),
-                                ),
-                                boxShadow: state == 2
-                                    ? [
-                                        BoxShadow(
-                                          color: gradient.colors.last.withValues(alpha: 0.3),
-                                          blurRadius: 8,
-                                          spreadRadius: 1,
-                                        )
-                                      ]
-                                    : [],
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(20),
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.white.withValues(alpha: 0.08),
-                                            Colors.transparent,
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                    ),
                                   ),
-                                  Center(
-                                    child: state == 1
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-                                            ),
-                                          )
-                                        : Icon(
-                                            icon,
-                                            color: state == 2 ? Colors.white : Colors.white24,
-                                            size: 22,
-                                          ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Card Layer B: Field Vectors
-              _buildUniverseSection(
-                icon: LucideIcons.compass,
-                title: 'Field Vectors',
-                description: 'Polymorphic match preferences',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GlassTextField(
-                      label: 'Major',
-                      initialValue: _major,
-                      hintText: 'Fields of study being decoded...',
-                      prefixIcon: LucideIcons.graduationCap,
-                      onChanged: (val) {
-                        setState(() => _major = val);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Role Selector
-                    _buildSelectorTile(
-                      label: 'ROLE',
-                      value: _role,
-                      icon: LucideIcons.briefcase,
-                      onTap: () {
-                        _openSelectionOverlay(
-                          title: 'Role',
-                          options: const [
-                            'Student',
-                            'Alumni',
-                            'Faculty',
-                            'Staff',
-                            'Researcher',
-                            'Founder',
-                            'Not specified'
-                          ],
-                          currentValue: _role,
-                          onSelected: (val) {
-                            unawaited(_saveProfileChanges(role: val));
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Custom Radio Buttons for Vibe Orientation Mode
-                    Text(
-                      'Vibe Frequency Mode',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    NeonRadioButton<String>(
-                      value: 'chill',
-                      groupValue: _vibeMode,
-                      label: 'Chill Frequency',
-                      description: 'Lowkey ambient signals. Perfect for library basement study dates.',
-                      onChanged: (val) => setState(() => _vibeMode = val),
-                    ),
-                    NeonRadioButton<String>(
-                      value: 'deep',
-                      groupValue: _vibeMode,
-                      label: 'Deep Frequency',
-                      description: 'Deep dives, analog synthesizers, hackathons, and creative coding.',
-                      onChanged: (val) => setState(() => _vibeMode = val),
-                    ),
-                    NeonRadioButton<String>(
-                      value: 'chaos',
-                      groupValue: _vibeMode,
-                      label: 'Chaos Frequency',
-                      description: 'High energy, rave signals, hyperpop, and spontaneous quests.',
-                      onChanged: (val) => setState(() => _vibeMode = val),
-                    ),
-                    NeonRadioButton<String>(
-                      value: 'open',
-                      groupValue: _vibeMode,
-                      label: 'Open Frequency',
-                      description: 'Unrestricted signal band. Harmonizes with all active users.',
-                      onChanged: (val) => setState(() => _vibeMode = val),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // target_buckets multiple option choice
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'TARGET COHORTS',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Who you want to see/match with in discovery',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            fontSize: 10,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _buildTargetBucketChip(label: 'Men', value: 'M'),
-                            const SizedBox(width: 8),
-                            _buildTargetBucketChip(label: 'Women', value: 'F'),
-                            const SizedBox(width: 8),
-                            _buildTargetBucketChip(label: 'Non-Binary', value: 'NB'),
-                            const SizedBox(width: 8),
-                            _buildTargetBucketChip(label: 'Open', value: 'Open'),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // tech_skills tag editor
-                    _buildTagChipsEditor(
-                      label: 'Tech Skills',
-                      currentValues: _techSkills,
-                      presets: const ['Flutter', 'Python', 'Machine Learning', 'UI/UX Design', 'Cloud Architecture', 'Rust', 'TypeScript', 'Docker'],
-                      onChanged: (val) {
-                        setState(() => _techSkills = val);
-                        unawaited(_saveProfileChanges(techSkills: val));
-                      },
-                      hintText: 'Add custom tech skill...',
-                    ),
-
-                    // Floating clusters of chips categorized
-                    ..._tagsByCategory.entries.map((entry) {
-                      final category = entry.key;
-                      final tags = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _capitalize(category),
-                              style: TextStyle(
-                                color: mistLavender.withValues(alpha: 0.4),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: tags.map((tag) {
-                                final isSelected = _selectedTags.contains(tag);
-                                return GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      if (isSelected) {
-                                        _selectedTags.remove(tag);
-                                      } else {
-                                        _selectedTags.add(tag);
-                                      }
-                                    });
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
+                                      horizontal: 8,
+                                      vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? deepPurple.withValues(alpha: 0.2)
-                                          : Colors.white.withValues(alpha: 0.03),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? deepPurple.withValues(alpha: 0.6)
-                                            : Colors.white.withValues(alpha: 0.12),
+                                      color: pulsarPink.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${_calculateStability()}% Mapped',
+                                      style: const TextStyle(
+                                        color: pulsarPink,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                height: 12,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                  ),
+                                ),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final progressWidth =
+                                        constraints.maxWidth *
+                                        stabilityFraction;
+                                    return Stack(
+                                      clipBehavior: Clip.none,
                                       children: [
-                                        Text(
-                                          tag,
-                                          style: TextStyle(
-                                            color: isSelected ? Colors.white : Colors.white60,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                            fontSize: 12,
-                                            fontFamily: 'Outfit',
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 400,
+                                          ),
+                                          width: progressWidth,
+                                          height: double.infinity,
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [deepPurple, pulsarPink],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: pulsarPink.withValues(
+                                                  alpha: 0.3,
+                                                ),
+                                                blurRadius: 8,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        if (isSelected) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(
-                                            LucideIcons.checkCircle,
-                                            color: pulsarPink,
-                                            size: 12,
+                                        Positioned(
+                                          left: progressWidth - 6,
+                                          top: -1,
+                                          child: AnimatedBuilder(
+                                            animation: pulseController,
+                                            builder: (context, child) {
+                                              return Container(
+                                                width: 14,
+                                                height: 14,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: pulsarPink.withValues(
+                                                        alpha:
+                                                            (0.6 *
+                                                                pulseController
+                                                                    .value) +
+                                                            0.4,
+                                                      ),
+                                                      blurRadius:
+                                                          6 +
+                                                          4 *
+                                                              pulseController
+                                                                  .value,
+                                                      spreadRadius:
+                                                          1 +
+                                                          2 *
+                                                              pulseController
+                                                                  .value,
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Center(
+                                                  child: Container(
+                                                    width: 6,
+                                                    height: 6,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: pulsarPink,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           ),
-                                        ],
+                                        ),
                                       ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-
-              // Card Layer C: Social Coordinates
-              _buildUniverseSection(
-                icon: LucideIcons.globe,
-                title: 'Social Coordinates',
-                description: 'Space-time cluster orientation',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GlassTextField(
-                      label: 'Campus Location',
-                      initialValue: _location,
-                      hintText: 'Enter campus name...',
-                      prefixIcon: LucideIcons.mapPin,
-                      onChanged: (val) {
-                        setState(() => _location = val);
-                      },
-                      onFieldSubmitted: (val) {
-                        unawaited(_saveProfileChanges(branch: val));
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Campus Year Selector
-                    _buildSelectorTile(
-                      label: 'CAMPUS YEAR',
-                      value: 'Year $_year',
-                      icon: LucideIcons.calendar,
-                      onTap: () {
-                        _openSelectionOverlay(
-                          title: 'Campus Year',
-                          options: const ['1', '2', '3', '4', '5'],
-                          currentValue: _year.toString(),
-                          onSelected: (val) {
-                            unawaited(_saveProfileChanges(year: int.parse(val)));
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    GlassTextField(
-                      label: 'Hometown',
-                      initialValue: _hometown,
-                      hintText: 'Where are you originally from?',
-                      prefixIcon: LucideIcons.home,
-                      onChanged: (val) {
-                        setState(() => _hometown = val);
-                      },
-                      onFieldSubmitted: (val) {
-                        unawaited(_saveProfileChanges(hometown: val));
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Languages tag editor
-                    _buildTagChipsEditor(
-                      label: 'Languages',
-                      currentValues: _languages,
-                      presets: const ['English', 'Spanish', 'Mandarin', 'French', 'German', 'Japanese', 'Hindi', 'Arabic'],
-                      onChanged: (val) {
-                        setState(() => _languages = val);
-                        unawaited(_saveProfileChanges(languages: val));
-                      },
-                      hintText: 'Add custom language...',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Card Layer D: Lifestyle & Resonance
-              _buildUniverseSection(
-                icon: LucideIcons.heart,
-                title: 'Lifestyle & Resonance',
-                description: 'Daily frequency parameters',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GlassTextField(
-                      label: 'Lifestyle Description',
-                      initialValue: _lifestyle,
-                      hintText: 'Describe your daily routine/vibe...',
-                      prefixIcon: LucideIcons.activity,
-                      onChanged: (val) {
-                        setState(() => _lifestyle = val);
-                      },
-                      onFieldSubmitted: (val) {
-                        unawaited(_saveProfileChanges(lifestyle: val));
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Drinking and Smoking
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'DRINKING',
-                            value: _drinking,
-                            icon: LucideIcons.glassWater,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Drinking',
-                                options: const ['Never', 'Socially', 'Often', 'Not specified'],
-                                currentValue: _drinking,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(drinking: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'SMOKING',
-                            value: _smoking,
-                            icon: LucideIcons.cigarette,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Smoking',
-                                options: const ['Never', 'Socially', 'Often', 'Not specified'],
-                                currentValue: _smoking,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(smoking: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Children Plans and Religious Beliefs
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'CHILDREN PLANS',
-                            value: _childrenPlans,
-                            icon: LucideIcons.baby,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Children Plans',
-                                options: const ['Want kids', "Don't want kids", 'Undecided', 'Not specified'],
-                                currentValue: _childrenPlans,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(childrenPlans: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSelectorTile(
-                            label: 'RELIGIOUS BELIEFS',
-                            value: _religiousBeliefs,
-                            icon: LucideIcons.sparkles,
-                            onTap: () {
-                              _openSelectionOverlay(
-                                title: 'Religious Beliefs',
-                                options: const ['Atheist', 'Agnostic', 'Spiritual', 'Christian', 'Muslim', 'Jewish', 'Hindu', 'Buddhist', 'Other', 'Not specified'],
-                                currentValue: _religiousBeliefs,
-                                onSelected: (val) {
-                                  unawaited(_saveProfileChanges(religiousBeliefs: val));
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    GlassTextField(
-                      label: 'Partner Values',
-                      initialValue: _partnerValues,
-                      hintText: 'What qualities/values do you prioritize in a partner?',
-                      prefixIcon: LucideIcons.users,
-                      onChanged: (val) {
-                        setState(() => _partnerValues = val);
-                      },
-                      onFieldSubmitted: (val) {
-                        unawaited(_saveProfileChanges(partnerValues: val));
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Pets tag editor
-                    _buildTagChipsEditor(
-                      label: 'Pets',
-                      currentValues: _pets,
-                      presets: const ['Dog', 'Cat', 'Bird', 'Fish', 'Reptile', 'Rabbit', 'No Pets'],
-                      onChanged: (val) {
-                        setState(() => _pets = val);
-                        unawaited(_saveProfileChanges(pets: val));
-                      },
-                      hintText: 'Add custom pet...',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Card Layer E: Affinity & Interests
-              _buildUniverseSection(
-                icon: LucideIcons.tags,
-                title: 'Affinity & Interests',
-                description: 'Interstellar alignments',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Looking For tag editor
-                    _buildTagChipsEditor(
-                      label: 'Looking For',
-                      currentValues: _lookingFor,
-                      presets: const ['Long-term connection', 'Short-term connection', 'Study partner', 'Networking', 'Casual dating', 'Deep conversations'],
-                      onChanged: (val) {
-                        setState(() => _lookingFor = val);
-                        unawaited(_saveProfileChanges(lookingFor: val));
-                      },
-                      hintText: 'Add custom goal...',
-                    ),
-
-                    // Activities tag editor
-                    _buildTagChipsEditor(
-                      label: 'Activities',
-                      currentValues: _activities,
-                      presets: const ['Coding', 'Gaming', 'Reading', 'Music', 'Hiking', 'Cooking', 'Traveling', 'Art'],
-                      onChanged: (val) {
-                        setState(() => _activities = val);
-                        unawaited(_saveProfileChanges(activities: val));
-                      },
-                      hintText: 'Add custom activity...',
-                    ),
-
-                    // Causes Supported tag editor
-                    _buildTagChipsEditor(
-                      label: 'Causes Supported',
-                      currentValues: _causesSupported,
-                      presets: const ['Climate Action', 'Tech Ethics', 'Mental Health', 'LGBTQ+ Rights', 'Education Access', 'Animal Protection'],
-                      onChanged: (val) {
-                        setState(() => _causesSupported = val);
-                        unawaited(_saveProfileChanges(causesSupported: val));
-                      },
-                      hintText: 'Add custom cause...',
-                    ),
-
-                    // Top Artists List
-                    Text(
-                      'TOP ARTISTS',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_topArtists.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _topArtists.map((artist) {
-                          return Chip(
-                            backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                            side: const BorderSide(color: Color(0xFFFF7597), width: 0.8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            label: Text(artist, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                            deleteIcon: const Icon(LucideIcons.x, size: 12, color: Colors.white70),
-                            onDeleted: () {
-                              final updated = List<String>.from(_topArtists)..remove(artist);
-                              setState(() => _topArtists = updated);
-                              unawaited(_saveProfileChanges(topArtists: updated));
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.02),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                            ),
-                            child: TextField(
-                              controller: _artistInputController,
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                              decoration: InputDecoration(
-                                hintText: 'Type artist name and press Enter...',
-                                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 11),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                border: InputBorder.none,
-                              ),
-                              onSubmitted: (val) {
-                                final trimmed = val.trim();
-                                if (trimmed.isNotEmpty && !_topArtists.contains(trimmed)) {
-                                  final updated = List<String>.from(_topArtists)..add(trimmed);
-                                  setState(() {
-                                    _topArtists = updated;
-                                    _artistInputController.clear();
-                                  });
-                                  unawaited(_saveProfileChanges(topArtists: updated));
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Card Layer F: Cosmic Echoes
-              _buildUniverseSection(
-                icon: LucideIcons.sparkles,
-                title: 'Cosmic Echoes',
-                description: 'Semantic dimensional prompts',
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Echo Chamber Signal',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _shufflePrompt,
-                          child: Row(
-                            children: [
-                              Text(
-                                'Shuffle',
-                                style: TextStyle(
-                                  color: pulsarPink.withValues(alpha: 0.8),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              AnimatedRotation(
-                                turns: _shuffleRotation,
-                                duration: const Duration(milliseconds: 500),
-                                child: Icon(
-                                  LucideIcons.sparkles,
-                                  color: pulsarPink.withValues(alpha: 0.8),
-                                  size: 14,
+                                    );
+                                  },
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 190,
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: _prompts.length,
-                        onPageChanged: (index) {
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 🌌 2. Custom Universe Cards (Always Expanded)
+                // Card Layer A: The Core Signal
+                _buildUniverseSection(
+                  icon: LucideIcons.user,
+                  title: 'The Core Signal',
+                  description: 'Essential dimensional settings',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Display Name (moved to 1st field)
+                      GlassTextField(
+                        label: 'Display Name',
+                        initialValue: _name,
+                        hintText: 'Enter your cosmic display name',
+                        prefixIcon: LucideIcons.user,
+                        onChanged: (val) {
+                          setState(() => _name = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(name: val));
+                        },
+                      ),
+
+                      // Age slider (Neon theme)
+                      NeonSlider(
+                        value: _age.toDouble(),
+                        min: 18,
+                        max: 27,
+                        divisions: 9,
+                        label: 'Age',
+                        onChanged: (val) {
                           setState(() {
-                            _currentPromptIndex = index;
+                            _age = val.round();
+                            _ageChangedSinceInteract = _age != _savedAge;
                           });
                         },
-                        itemBuilder: (context, index) {
-                          final prompt = _prompts[index];
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.03),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.messageSquare,
-                                      color: pulsarPink,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        prompt['question']!,
-                                        style: const TextStyle(
-                                          color: mistLavender,
-                                          fontSize: 13,
-                                          fontStyle: FontStyle.italic,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    initialValue: prompt['answer'],
-                                    maxLines: 4,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        prompt['answer'] = val;
-                                      });
-                                    },
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                      height: 1.4,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: "no echoes recorded yet. map a thought when you're ready.",
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.3),
-                                        fontSize: 12,
-                                      ),
-                                      border: InputBorder.none,
+                      ),
+                      if (_ageChangedSinceInteract) ...[
+                        const SizedBox(height: 8),
+                        Center(
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7C3AED),
+                                  foregroundColor: Colors.white,
+                                  shadowColor: const Color(
+                                    0xFFFF7597,
+                                  ).withValues(alpha: 0.5),
+                                  elevation: 8,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: const BorderSide(
+                                      color: Color(0xFFFF7597),
                                     ),
                                   ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
-                              ],
+                                onPressed: () {
+                                  setState(() {
+                                    _ageChangedSinceInteract = false;
+                                  });
+                                  unawaited(_saveProfileChanges(age: _age));
+                                },
+                                icon: const Icon(
+                                  LucideIcons.checkCircle,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Confirm Age Update to $_age',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    letterSpacing: 0.5,
+                                    fontFamily: 'Outfit',
+                                  ),
+                                ),
+                              ),
                             ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
+                      // search_buckets multiple option choice
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'DEMOGRAPHIC BUCKETS',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Which bucket do you primarily identify as?',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              fontSize: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _buildBucketChip(label: 'Men', value: 'M'),
+                              const SizedBox(width: 8),
+                              _buildBucketChip(label: 'Women', value: 'F'),
+                              const SizedBox(width: 8),
+                              _buildBucketChip(
+                                label: 'Non-Binary',
+                                value: 'NB',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // display_gender & display_sexuality selector tiles
+                      _buildSelectorTile(
+                        label: 'GENDER',
+                        value: _displayGender,
+                        icon: LucideIcons.user,
+                        iconColor: const Color(0xFFE91E63),
+                        onTap: () {
+                          _openSelectionOverlay(
+                            title: 'Gender',
+                            options: const [
+                              'Man',
+                              'Woman',
+                              'Non-binary',
+                              'Genderqueer',
+                              'Genderfluid',
+                              'Agender',
+                              'Transgender Man',
+                              'Transgender Woman',
+                              'Gender Non-Conforming',
+                              'Pangender',
+                              'Androgynous',
+                              'Neutrois',
+                              'Third Gender',
+                              'Intersex',
+                              'Bigender',
+                              'Two-Spirit',
+                              'Demiboy',
+                              'Demigirl',
+                              'Queer',
+                              'Questioning',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _displayGender,
+                            onSelected: (val) {
+                              unawaited(
+                                _saveProfileChanges(displayGender: val),
+                              );
+                            },
                           );
                         },
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Prompt page dots indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_prompts.length, (index) {
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: _currentPromptIndex == index ? 16 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: _currentPromptIndex == index
-                                ? pulsarPink
-                                : Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(3),
+                      const SizedBox(height: 16),
+                      _buildSelectorTile(
+                        label: 'SEXUALITY',
+                        value: _displaySexuality,
+                        icon: LucideIcons.heart,
+                        iconColor: const Color(0xFFFF2D55),
+                        onTap: () {
+                          _openSelectionOverlay(
+                            title: 'Sexuality',
+                            options: const [
+                              'Straight',
+                              'Gay',
+                              'Lesbian',
+                              'Bisexual',
+                              'Pansexual',
+                              'Asexual',
+                              'Aromantic',
+                              'Greysexual',
+                              'Polysexual',
+                              'Omnisexual',
+                              'Fluid',
+                              'Skoliosexual',
+                              'Demisexual',
+                              'Queer',
+                              'Questioning',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _displaySexuality,
+                            onSelected: (val) {
+                              unawaited(
+                                _saveProfileChanges(displaySexuality: val),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Pronouns selector tile
+                      _buildSelectorTile(
+                        label: 'PRONOUNS',
+                        value: _pronouns,
+                        icon: LucideIcons.smile,
+                        iconColor: const Color(0xFF30B0C7),
+                        onTap: () {
+                          _openBottomSelectionSheet(
+                            title: 'Pronouns',
+                            options: const [
+                              'he/him',
+                              'she/her',
+                              'they/them',
+                              'he/they',
+                              'she/they',
+                              'it/its',
+                              'any/all',
+                              'xe/xem',
+                              'fae/faer',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _pronouns,
+                            onSelected: (val) {
+                              setState(() => _pronouns = val);
+                              unawaited(_saveProfileChanges(pronouns: val));
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Interactive image slots with glowing style
+                      Text(
+                        'Images',
+                        style: TextStyle(
+                          color: mistLavender.withValues(alpha: 0.6),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(4, (index) {
+                          final imagePath = _imagePaths[index];
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => _showImageSlotPicker(index),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                height: 72,
+                                margin: EdgeInsets.only(
+                                  left: index == 0 ? 0 : 4,
+                                  right: index == 3 ? 0 : 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.03),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: imagePath != null
+                                        ? const Color(0xFF7C3AED)
+                                        : Colors.white.withValues(alpha: 0.12),
+                                    width: imagePath != null ? 1.5 : 1,
+                                  ),
+                                  boxShadow: imagePath != null
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFF7C3AED,
+                                            ).withValues(alpha: 0.3),
+                                            blurRadius: 8,
+                                            spreadRadius: 1,
+                                          ),
+                                        ]
+                                      : [],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Stack(
+                                    children: [
+                                      if (imagePath != null)
+                                        Positioned.fill(
+                                          child: Image.file(
+                                            File(imagePath),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      else
+                                        const Center(
+                                          child: Icon(
+                                            LucideIcons.plus,
+                                            color: Colors.white24,
+                                            size: 22,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Card Layer C: Social Coordinates
+                _buildUniverseSection(
+                  icon: LucideIcons.globe,
+                  title: 'Social Coordinates',
+                  description: 'Space-time cluster orientation',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PlaceAutocompleteField(
+                        label: 'Hometown',
+                        initialValue: _hometown,
+                        hintText: 'Set your hometown',
+                        prefixIcon: LucideIcons.home,
+                        onChanged: (val) {
+                          setState(() => _hometown = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(hometown: val));
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      PlaceAutocompleteField(
+                        label: 'Current Place',
+                        initialValue: _currentPlace,
+                        hintText: 'Set your current place',
+                        prefixIcon: LucideIcons.navigation,
+                        onChanged: (val) {
+                          setState(() => _currentPlace = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(currentPlace: val));
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Languages tag editor
+                      _buildTagChipsEditor(
+                        label: 'Languages',
+                        currentValues: _languages,
+                        presets: const [
+                          'English',
+                          'Spanish',
+                          'Mandarin Chinese',
+                          'Hindi',
+                          'Arabic',
+                          'Portuguese',
+                          'Bengali',
+                          'Russian',
+                          'Japanese',
+                          'Punjabi',
+                          'German',
+                          'Javanese',
+                          'Wu Chinese',
+                          'Malay',
+                          'Telugu',
+                          'Vietnamese',
+                          'Korean',
+                          'French',
+                          'Marathi',
+                          'Tamil',
+                          'Cantonese',
+                          'Turkish',
+                          'Urdu',
+                          'Italian',
+                          'Thai',
+                          'Persian',
+                          'Polish',
+                          'Kannada',
+                          'Ukrainian',
+                          'Filipino',
+                          'Gujarati',
+                          'Romanian',
+                          'Greek',
+                          'Czech',
+                          'Swedish',
+                          'Dutch',
+                          'Hungarian',
+                          'Zulu',
+                          'Hebrew',
+                          'Finnish',
+                          'Norwegian',
+                          'Danish',
+                          'Swahili',
+                          'Malayalam',
+                          'Amharic',
+                          'Yoruba',
+                          'Oromo',
+                          'Igbo',
+                          'Burmese',
+                          'Azerbaijani',
+                          'Maithili',
+                          'Uzbek',
+                          'Sindhi',
+                          'Pashto',
+                          'Kurdish',
+                          'Sinhala',
+                          'Somali',
+                          'Tagalog',
+                          'Nepali',
+                          'Khmer',
+                          'Lao',
+                          'Assamese',
+                          'Malagasy',
+                          'Slovak',
+                          'Bulgarian',
+                          'Croatian',
+                          'Serbian',
+                          'Lithuanian',
+                          'Latvian',
+                          'Estonian',
+                          'Slovenian',
+                          'Irish',
+                          'Welsh',
+                          'Icelandic',
+                          'Catalan',
+                          'Basque',
+                          'Galician',
+                        ],
+                        icon: LucideIcons.languages,
+                        iconColor: const Color(0xFF4CAF50),
+                        onChanged: (val) {
+                          setState(() => _languages = val);
+                          unawaited(_saveProfileChanges(languages: val));
+                        },
+                        hintText: 'Select languages...',
+                        allowCustom: false,
+                      ),
+                      const SizedBox(height: 12),
+
+                      GlassTextField(
+                        label: 'Institute Name',
+                        initialValue: _campusName,
+                        hintText: 'Enter your institute name & location',
+                        prefixIcon: LucideIcons.mapPin,
+                        onChanged: (val) {
+                          setState(() => _campusName = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(campusName: val));
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      GlassTextField(
+                        label: 'Major',
+                        initialValue: _major,
+                        hintText: 'Enter your major',
+                        prefixIcon: LucideIcons.graduationCap,
+                        onChanged: (val) {
+                          setState(() => _major = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(campusBranch: val));
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Studying checkbox
+                      Row(
+                        children: [
+                          Theme(
+                            data: ThemeData(
+                              unselectedWidgetColor: const Color(0x66FFFFFF),
+                            ),
+                            child: Checkbox(
+                              value: _isStudying,
+                              activeColor: const Color(0xFF7C3AED),
+                              checkColor: Colors.white,
+                              onChanged: (val) {
+                                setState(() {
+                                  _isStudying = val ?? false;
+                                });
+                                if (!(val ?? false)) {
+                                  unawaited(
+                                    _saveProfileChanges(clearCampusYear: true),
+                                  );
+                                }
+                              },
+                            ),
                           ),
-                        );
-                      }),
-                    ),
-                  ],
-                ),
-              ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Are you currently studying in this institute?',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontFamily: 'Outfit',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
 
-              const SizedBox(height: 24),
-
-              // Export code card if flavor variant
-              if (config.isFlavorVariant) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: ExportCodeCard(),
+                      if (_isStudying) ...[
+                        // Campus Year Selector
+                        _buildSelectorTile(
+                          label: 'CAMPUS YEAR',
+                          value: 'Year $_year',
+                          icon: LucideIcons.calendar,
+                          iconColor: const Color(0xFFFFCC00),
+                          onTap: () {
+                            _openBottomSelectionSheet(
+                              title: 'Campus Year',
+                              options: const ['1', '2', '3', '4', '5'],
+                              currentValue: _year.toString(),
+                              onSelected: (val) {
+                                unawaited(
+                                  _saveProfileChanges(
+                                    campusYear: int.parse(val),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
+
+                // Card Layer D: Lifestyle & Resonance
+                _buildUniverseSection(
+                  icon: LucideIcons.heart,
+                  title: 'Lifestyle & Resonance',
+                  description: 'Daily frequency parameters',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GlassTextField(
+                        label: 'Lifestyle Description',
+                        initialValue: _lifestyle,
+                        hintText: 'Describe your daily routine/vibe...',
+                        prefixIcon: LucideIcons.activity,
+                        maxLines: null,
+                        minLines: 4,
+                        keyboardType: TextInputType.multiline,
+                        onChanged: (val) {
+                          setState(() => _lifestyle = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(lifestyle: val));
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Drinking and Smoking
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSelectorTile(
+                              label: 'DRINKING',
+                              value: _drinking,
+                              icon: LucideIcons.glassWater,
+                              iconColor: const Color(0xFF34C759),
+                              onTap: () {
+                                _openBottomSelectionSheet(
+                                  title: 'Drinking',
+                                  options: const [
+                                    'Never',
+                                    'Occasionally',
+                                    'Socially',
+                                    'Regularly',
+                                  ],
+                                  currentValue: _drinking,
+                                  onSelected: (val) {
+                                    unawaited(
+                                      _saveProfileChanges(drinking: val),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSelectorTile(
+                              label: 'SMOKING',
+                              value: _smoking,
+                              icon: LucideIcons.cigarette,
+                              iconColor: const Color(0xFF8E8E93),
+                              onTap: () {
+                                _openBottomSelectionSheet(
+                                  title: 'Smoking',
+                                  options: const [
+                                    'Never',
+                                    'Occasionally',
+                                    'Socially',
+                                    'Regularly',
+                                  ],
+                                  currentValue: _smoking,
+                                  onSelected: (val) {
+                                    unawaited(
+                                      _saveProfileChanges(smoking: val),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Children Plans and Religious Beliefs
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildSelectorTile(
+                              label: 'CHILDREN PLANS',
+                              value: _childrenPlans,
+                              icon: LucideIcons.baby,
+                              iconColor: const Color(0xFFFF9500),
+                              onTap: () {
+                                _openBottomSelectionSheet(
+                                  title: 'Children Plans',
+                                  options: const [
+                                    'Want kids',
+                                    "Don't want kids",
+                                    'Undecided',
+                                    'Not specified',
+                                  ],
+                                  currentValue: _childrenPlans,
+                                  onSelected: (val) {
+                                    unawaited(
+                                      _saveProfileChanges(childrenPlans: val),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSelectorTile(
+                              label: 'RELIGIOUS BELIEFS',
+                              value: _religiousBeliefs,
+                              icon: LucideIcons.sparkles,
+                              iconColor: const Color(0xFF5856D6),
+                              onTap: () {
+                                _openBottomSelectionSheet(
+                                  title: 'Religious Beliefs',
+                                  options: const [
+                                    'Atheist',
+                                    'Agnostic',
+                                    'Spiritual',
+                                    'Christian',
+                                    'Muslim',
+                                    'Jewish',
+                                    'Hindu',
+                                    'Buddhist',
+                                    'Sikh',
+                                    'Jain',
+                                    'Shinto',
+                                    'Baháʼí',
+                                    'Taoist',
+                                    'Zoroastrian',
+                                    'Pagan',
+                                    'Wiccan',
+                                    'Other',
+                                    'Not specified',
+                                  ],
+                                  currentValue: _religiousBeliefs,
+                                  onSelected: (val) {
+                                    unawaited(
+                                      _saveProfileChanges(
+                                        religiousBeliefs: val,
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      GlassTextField(
+                        label: 'Partner Values',
+                        initialValue: _partnerValues,
+                        hintText:
+                            'What qualities/values do you prioritize in a partner?',
+                        prefixIcon: LucideIcons.users,
+                        maxLines: null,
+                        minLines: 4,
+                        keyboardType: TextInputType.multiline,
+                        onChanged: (val) {
+                          setState(() => _partnerValues = val);
+                        },
+                        onFieldSubmitted: (val) {
+                          unawaited(_saveProfileChanges(partnerValues: val));
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Pets tag editor
+                      _buildTagChipsEditor(
+                        label: 'Pets',
+                        currentValues: _pets,
+                        presets: const [
+                          'Dog',
+                          'Cat',
+                          'Fish',
+                          'Bird',
+                          'Rabbit',
+                          'Hamster',
+                          'Guinea Pig',
+                          'Ferret',
+                          'Reptile',
+                          'Amphibian',
+                          'Horse',
+                          'Chicken',
+                          'Sugar Glider',
+                          'Chinchilla',
+                          'Hedgehog',
+                          'No Pets',
+                        ],
+                        icon: LucideIcons.pawPrint,
+                        iconColor: const Color(0xFFFF9800),
+                        onChanged: (val) {
+                          setState(() => _pets = val);
+                          unawaited(_saveProfileChanges(pets: val));
+                        },
+                        hintText: 'Add custom pet...',
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Card Layer E: Affinity & Interests
+                _buildUniverseSection(
+                  icon: LucideIcons.tags,
+                  title: 'Affinity & Interests',
+                  description: 'Interstellar alignments',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Activities tag editor
+                      _buildTagChipsEditor(
+                        label: 'Activities',
+                        currentValues: _activities,
+                        presets: const [
+                          'Coding',
+                          'Gaming',
+                          'Reading',
+                          'Music',
+                          'Hiking',
+                          'Cooking',
+                          'Traveling',
+                          'Art',
+                          'Photography',
+                          'Dancing',
+                          'Fitness & Gym',
+                          'Yoga & Meditation',
+                          'Movie Nights',
+                          'Board Games',
+                          'Anime & Manga',
+                          'Writing & Blogging',
+                          'Volunteering',
+                          'Gardening',
+                          'Sports & Football',
+                          'Astrophysics & Space',
+                          'Startups & Business',
+                          'Cryptocurrency & Web3',
+                          'AI & Machine Learning',
+                        ],
+                        icon: LucideIcons.activity,
+                        iconColor: const Color(0xFF9C27B0),
+                        onChanged: (val) {
+                          setState(() => _activities = val);
+                          unawaited(_saveProfileChanges(activities: val));
+                        },
+                        hintText: 'Select activities...',
+                        allowCustom: false,
+                      ),
+
+                      // Causes Supported tag editor
+                      _buildTagChipsEditor(
+                        label: 'Causes Supported',
+                        currentValues: _causesSupported,
+                        presets: const [
+                          'Climate Action',
+                          'Tech Ethics',
+                          'Mental Health',
+                          'LGBTQ+ Rights',
+                          'Education Access',
+                          'Animal Protection',
+                          'Disaster Relief',
+                          'Poverty Alleviation',
+                          'Gender Equality',
+                          'Scientific Research',
+                          'Mental Health Advocacy',
+                          'Human Rights',
+                          'Clean Water & Sanitation',
+                          'Renewable Energy',
+                          'Economic Development',
+                          'Arts & Culture Preservation',
+                        ],
+                        icon: LucideIcons.heart,
+                        iconColor: const Color(0xFF00BCD4),
+                        onChanged: (val) {
+                          setState(() => _causesSupported = val);
+                          unawaited(_saveProfileChanges(causesSupported: val));
+                        },
+                        hintText: 'Select causes...',
+                        allowCustom: false,
+                      ),
+
+                      // Top Artists List
+                      Text(
+                        'TOP ARTISTS',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_topArtists.isNotEmpty) ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _topArtists.map((artist) {
+                            return Chip(
+                              backgroundColor: const Color(
+                                0xFF7C3AED,
+                              ).withValues(alpha: 0.15),
+                              side: const BorderSide(
+                                color: Color(0xFFFF7597),
+                                width: 0.8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              label: Text(
+                                artist,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              deleteIcon: const Icon(
+                                LucideIcons.x,
+                                size: 12,
+                                color: Colors.white70,
+                              ),
+                              onDeleted: () {
+                                final updated = List<String>.from(_topArtists)
+                                  ..remove(artist);
+                                setState(() => _topArtists = updated);
+                                unawaited(
+                                  _saveProfileChanges(topArtists: updated),
+                                );
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.02),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _artistInputController,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Type artist name and press Enter...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    fontSize: 11,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                                onSubmitted: (val) {
+                                  final trimmed = val.trim();
+                                  if (trimmed.isNotEmpty &&
+                                      !_topArtists.contains(trimmed)) {
+                                    final updated = List<String>.from(
+                                      _topArtists,
+                                    )..add(trimmed);
+                                    setState(() {
+                                      _topArtists = updated;
+                                      _artistInputController.clear();
+                                    });
+                                    unawaited(
+                                      _saveProfileChanges(topArtists: updated),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Export code card if flavor variant
+                if (config.isFlavorVariant) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: ExportCodeCard(),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -2122,9 +2227,16 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     required String label,
     required String value,
     required IconData icon,
+    required Color iconColor,
     required VoidCallback onTap,
   }) {
     const pulsarPink = Color(0xFFFF7597);
+    final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
+    final displayText = isEmpty ? 'Select' : value;
+    final textColor = isEmpty
+        ? Colors.white.withValues(alpha: 0.3)
+        : Colors.white;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2149,19 +2261,17 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             ),
             child: Row(
               children: [
-                Icon(icon, color: Colors.white38, size: 16),
+                Icon(icon, color: iconColor, size: 16),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    value,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    displayText,
+                    style: TextStyle(
+                      color: textColor,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       fontFamily: 'Outfit',
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const Icon(
@@ -2183,35 +2293,188 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     required String currentValue,
     required ValueChanged<String> onSelected,
   }) {
-    unawaited(showGeneralDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: title,
-      barrierColor: Colors.black.withValues(alpha: 0.75),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) {
-        return CosmicSelectionOverlay(
-          title: title,
-          options: options,
-          currentValue: currentValue,
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return FadeTransition(
-          opacity: anim1,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1).animate(
-              CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
+    unawaited(
+      showGeneralDialog<String>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: title,
+        barrierColor: Colors.black.withValues(alpha: 0.75),
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, anim1, anim2) {
+          return CosmicSelectionOverlay(
+            title: title,
+            options: options,
+            currentValue: currentValue,
+          );
+        },
+        transitionBuilder: (context, anim1, anim2, child) {
+          return FadeTransition(
+            opacity: anim1,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1).animate(
+                CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
+              ),
+              child: child,
             ),
-            child: child,
-          ),
-        );
-      },
-    ).then((selected) {
-      if (selected != null && mounted) {
-        onSelected(selected);
-      }
-    }));
+          );
+        },
+      ).then((selected) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        if (selected != null && mounted) {
+          onSelected(selected);
+        }
+      }),
+    );
+  }
+
+  void _openBottomSelectionSheet({
+    required String title,
+    required List<String> options,
+    required String currentValue,
+    required ValueChanged<String> onSelected,
+  }) {
+    unawaited(
+      showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) {
+          final searchController = TextEditingController();
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              final filteredOptions = options.where((option) {
+                return option.toLowerCase().contains(
+                  searchController.text.toLowerCase(),
+                );
+              }).toList();
+
+              return Container(
+                padding: EdgeInsets.only(
+                  top: 24,
+                  left: 24,
+                  right: 24,
+                  bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161B26).withValues(alpha: 0.95),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Outfit',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.03),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.search,
+                              color: Colors.white38,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Search...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    fontSize: 12,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) {
+                                  setModalState(() {});
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: filteredOptions.length,
+                          itemBuilder: (context, index) {
+                            final option = filteredOptions[index];
+                            final isSelected = option == currentValue;
+                            return Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                onTap: () {
+                                  Navigator.pop(context, option);
+                                },
+                                title: Text(
+                                  option,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFFFF7597)
+                                        : Colors.white,
+                                    fontFamily: 'Outfit',
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(
+                                        LucideIcons.check,
+                                        color: Color(0xFFFF7597),
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ).then((selected) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        if (selected != null && mounted) {
+          onSelected(selected);
+        }
+      }),
+    );
   }
 
   Widget _buildBucketChip({required String label, required String value}) {
@@ -2222,25 +2485,23 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          final updatedBuckets = List<String>.from(_searchBuckets);
-          if (isSelected) {
-            updatedBuckets.remove(value);
-          } else {
-            updatedBuckets.add(value);
-          }
           setState(() {
-            _searchBuckets = updatedBuckets;
+            _searchBuckets = [value];
           });
-          unawaited(_saveProfileChanges(searchBuckets: updatedBuckets));
+          unawaited(_saveProfileChanges(searchBuckets: [value]));
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? deepPurple.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
+            color: isSelected
+                ? deepPurple.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? pulsarPink.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.1),
+              color: isSelected
+                  ? pulsarPink.withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.1),
               width: isSelected ? 1.5 : 1,
             ),
             boxShadow: isSelected
@@ -2248,7 +2509,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                     BoxShadow(
                       color: pulsarPink.withValues(alpha: 0.1),
                       blurRadius: 8,
-                    )
+                    ),
                   ]
                 : [],
           ),
@@ -2268,57 +2529,257 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTargetBucketChip({required String label, required String value}) {
-    final isSelected = _targetBuckets.contains(value);
-    const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
+  void _openMultiSelectSheet({
+    required String title,
+    required List<String> currentValues,
+    required List<String> presets,
+    required ValueChanged<List<String>> onChanged,
+    required String hintText,
+    bool allowCustom = true,
+  }) {
+    final localSelected = List<String>.from(currentValues);
+    final localPresets = List<String>.from(presets);
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          final updatedBuckets = List<String>.from(_targetBuckets);
-          if (isSelected) {
-            updatedBuckets.remove(value);
-          } else {
-            updatedBuckets.add(value);
-          }
-          setState(() {
-            _targetBuckets = updatedBuckets;
-          });
-          unawaited(_saveProfileChanges(targetBuckets: updatedBuckets));
+    // Combine presets and any custom selected values that are not in presets
+    for (final val in localSelected) {
+      if (!localPresets.contains(val)) {
+        localPresets.add(val);
+      }
+    }
+
+    final textController = TextEditingController();
+    final searchController = TextEditingController();
+
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              final filteredPresets = localPresets.where((option) {
+                return option.toLowerCase().contains(
+                  searchController.text.toLowerCase(),
+                );
+              }).toList();
+
+              return Container(
+                padding: EdgeInsets.only(
+                  top: 24,
+                  left: 24,
+                  right: 24,
+                  bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161B26).withValues(alpha: 0.98),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Outfit',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Done',
+                              style: TextStyle(
+                                color: Color(0xFFFF7597),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.03),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.search,
+                              color: Colors.white38,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Search...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    fontSize: 12,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) {
+                                  setModalState(() {});
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: filteredPresets.length,
+                          itemBuilder: (context, index) {
+                            final option = filteredPresets[index];
+                            final isSelected = localSelected.contains(option);
+                            return Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                onTap: () {
+                                  setModalState(() {
+                                    if (isSelected) {
+                                      localSelected.remove(option);
+                                    } else {
+                                      localSelected.add(option);
+                                    }
+                                  });
+                                  onChanged(localSelected);
+                                },
+                                title: Text(
+                                  option,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFFFF7597)
+                                        : Colors.white,
+                                    fontFamily: 'Outfit',
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(
+                                        LucideIcons.check,
+                                        color: Color(0xFFFF7597),
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (allowCustom) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: textController,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: hintText,
+                                    hintStyle: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                      fontSize: 12,
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onSubmitted: (val) {
+                                    final trimmed = val.trim();
+                                    if (trimmed.isNotEmpty &&
+                                        !localPresets.contains(trimmed)) {
+                                      setModalState(() {
+                                        localPresets.add(trimmed);
+                                        localSelected.add(trimmed);
+                                      });
+                                      onChanged(localSelected);
+                                      textController.clear();
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  final trimmed = textController.text.trim();
+                                  if (trimmed.isNotEmpty &&
+                                      !localPresets.contains(trimmed)) {
+                                    setModalState(() {
+                                      localPresets.add(trimmed);
+                                      localSelected.add(trimmed);
+                                    });
+                                    onChanged(localSelected);
+                                    textController.clear();
+                                  }
+                                },
+                                child: const Icon(
+                                  LucideIcons.plus,
+                                  color: Color(0xFFFF7597),
+                                  size: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? deepPurple.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? pulsarPink.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.1),
-              width: isSelected ? 1.5 : 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: pulsarPink.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                    )
-                  ]
-                : [],
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white60,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 11,
-                fontFamily: 'Outfit',
-              ),
-            ),
-          ),
-        ),
-      ),
+      ).then((_) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }),
     );
   }
 
@@ -2326,104 +2787,123 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     required String label,
     required List<String> currentValues,
     required List<String> presets,
+    required IconData icon,
+    required Color iconColor,
     required ValueChanged<List<String>> onChanged,
     required String hintText,
+    bool allowCustom = true,
   }) {
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
-
-    final allTags = (List<String>.from(presets)..addAll(currentValues)).toSet().toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: allTags.map((tag) {
-            final isSelected = currentValues.contains(tag);
-            return GestureDetector(
-              onTap: () {
-                final updated = List<String>.from(currentValues);
-                if (isSelected) {
-                  updated.remove(tag);
-                } else {
-                  updated.add(tag);
-                }
-                onChanged(updated);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isSelected ? deepPurple.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected ? pulsarPink.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.1),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: iconColor, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      tag,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white60,
-                        fontSize: 11,
-                        fontFamily: 'Outfit',
-                      ),
-                    ),
-                    if (isSelected) ...[
-                      const SizedBox(width: 4),
-                      const Icon(LucideIcons.checkCircle, color: pulsarPink, size: 10),
-                    ],
-                  ],
+              ],
+            ),
+            TextButton.icon(
+              onPressed: () {
+                _openMultiSelectSheet(
+                  title: 'Select $label',
+                  currentValues: currentValues,
+                  presets: presets,
+                  onChanged: onChanged,
+                  hintText: hintText,
+                  allowCustom: allowCustom,
+                );
+              },
+              icon: const Icon(LucideIcons.plus, size: 12, color: pulsarPink),
+              label: const Text(
+                'Edit',
+                style: TextStyle(
+                  color: pulsarPink,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: TextField(
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  decoration: InputDecoration(
-                    hintText: hintText,
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 11),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    border: InputBorder.none,
-                  ),
-                  onSubmitted: (val) {
-                    final trimmed = val.trim();
-                    if (trimmed.isNotEmpty && !currentValues.contains(trimmed)) {
-                      final updated = List<String>.from(currentValues)..add(trimmed);
-                      onChanged(updated);
-                    }
-                  },
-                ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        if (currentValues.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 26),
+            child: Text(
+              'No $label added yet',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.3),
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(left: 26),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: currentValues.map((val) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        val,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          final updated = List<String>.from(currentValues)
+                            ..remove(val);
+                          onChanged(updated);
+                        },
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 10,
+                          color: Colors.white30,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         const SizedBox(height: 16),
       ],
     );
@@ -2449,7 +2929,6 @@ class CosmicSelectionOverlay extends StatefulWidget {
 class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
   String _searchQuery = '';
   late List<String> _filteredOptions;
-
 
   @override
   void initState() {
@@ -2529,7 +3008,10 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
               // Options List
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   physics: const BouncingScrollPhysics(),
                   itemCount: _filteredOptions.length,
                   itemBuilder: (context, index) {
@@ -2541,7 +3023,10 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? deepPurple.withValues(alpha: 0.15)
@@ -2559,7 +3044,7 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                     color: pulsarPink.withValues(alpha: 0.15),
                                     blurRadius: 10,
                                     spreadRadius: 1,
-                                  )
+                                  ),
                                 ]
                               : [],
                         ),
@@ -2569,9 +3054,13 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                             Text(
                               option,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.white70,
                                 fontSize: 14,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                                 fontFamily: 'Outfit',
                               ),
                             ),
@@ -2595,7 +3084,6 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
     );
   }
 }
-
 
 class OrbitPainter extends CustomPainter {
   OrbitPainter({required this.color, required this.progress});
@@ -2679,6 +3167,9 @@ class GlassTextField extends StatefulWidget {
     required this.prefixIcon,
     required this.onChanged,
     this.onFieldSubmitted,
+    this.maxLines = 1,
+    this.minLines = 1,
+    this.keyboardType,
     super.key,
   });
 
@@ -2688,6 +3179,9 @@ class GlassTextField extends StatefulWidget {
   final IconData prefixIcon;
   final ValueChanged<String> onChanged;
   final ValueChanged<String>? onFieldSubmitted;
+  final int? maxLines;
+  final int? minLines;
+  final TextInputType? keyboardType;
 
   @override
   State<GlassTextField> createState() => _GlassTextFieldState();
@@ -2731,6 +3225,8 @@ class _GlassTextFieldState extends State<GlassTextField> {
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
 
+    final isMultiLine = widget.minLines != null && widget.minLines! > 1;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -2748,6 +3244,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
           const SizedBox(height: 8),
           AnimatedContainer(
             duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: _isFocused ? 0.08 : 0.03),
               borderRadius: BorderRadius.circular(16),
@@ -2763,14 +3260,218 @@ class _GlassTextFieldState extends State<GlassTextField> {
                         color: pulsarPink.withValues(alpha: 0.15),
                         blurRadius: 10,
                         spreadRadius: 1,
-                      )
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Row(
+              crossAxisAlignment: isMultiLine
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: isMultiLine
+                      ? const EdgeInsets.only(top: 2)
+                      : EdgeInsets.zero,
+                  child: Icon(
+                    widget.prefixIcon,
+                    color: _isFocused ? pulsarPink : Colors.white38,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    onChanged: widget.onChanged,
+                    maxLines: widget.maxLines,
+                    minLines: widget.minLines,
+                    keyboardType: widget.keyboardType,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Outfit',
+                      fontSize: 14,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        fontSize: 14,
+                      ),
+                      hintMaxLines: 5,
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlaceAutocompleteField extends StatefulWidget {
+  const PlaceAutocompleteField({
+    required this.label,
+    required this.initialValue,
+    required this.hintText,
+    required this.prefixIcon,
+    required this.onChanged,
+    this.onFieldSubmitted,
+    super.key,
+  });
+
+  final String label;
+  final String initialValue;
+  final String hintText;
+  final IconData prefixIcon;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onFieldSubmitted;
+
+  @override
+  State<PlaceAutocompleteField> createState() => _PlaceAutocompleteFieldState();
+}
+
+class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
+  late TextEditingController _controller;
+  final _focusNode = FocusNode();
+  bool _isFocused = false;
+  List<String> _suggestions = [];
+
+  static const List<String> _allPlaces = [
+    'New York, NY',
+    'San Francisco, CA',
+    'Los Angeles, CA',
+    'Chicago, IL',
+    'Boston, MA',
+    'Seattle, WA',
+    'Austin, TX',
+    'Miami, FL',
+    'Denver, CO',
+    'Atlanta, GA',
+    'London, UK',
+    'Paris, France',
+    'Berlin, Germany',
+    'Tokyo, Japan',
+    'Singapore',
+    'Sydney, Australia',
+    'Toronto, Canada',
+    'Mumbai, India',
+    'Delhi, India',
+    'Bangalore, India',
+    'Hyderabad, India',
+    'Chennai, India',
+    'Pune, India',
+    'Kolkata, India',
+    'San Jose, CA',
+    'Portland, OR',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+      if (!_focusNode.hasFocus) {
+        // Delay hiding suggestions to allow tapping them
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            setState(() {
+              _suggestions = [];
+            });
+          }
+        });
+        widget.onFieldSubmitted?.call(_controller.text);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant PlaceAutocompleteField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != _controller.text && !_focusNode.hasFocus) {
+      _controller.text = widget.initialValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged(String text) {
+    widget.onChanged(text);
+    if (text.isEmpty) {
+      setState(() {
+        _suggestions = [];
+      });
+      return;
+    }
+
+    final query = text.toLowerCase();
+    setState(() {
+      _suggestions = _allPlaces
+          .where((place) => place.toLowerCase().contains(query))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const pulsarPink = Color(0xFFFF7597);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.label.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            decoration: BoxDecoration(
+              color: _isFocused
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.02),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _isFocused
+                    ? pulsarPink.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.12),
+                width: _isFocused ? 1.5 : 1,
+              ),
+              boxShadow: _isFocused
+                  ? [
+                      BoxShadow(
+                        color: pulsarPink.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
                     ]
                   : [],
             ),
             child: TextFormField(
               controller: _controller,
               focusNode: _focusNode,
-              onChanged: widget.onChanged,
+              onChanged: _onTextChanged,
               style: const TextStyle(
                 color: Colors.white,
                 fontFamily: 'Outfit',
@@ -2787,11 +3488,65 @@ class _GlassTextFieldState extends State<GlassTextField> {
                   color: Colors.white.withValues(alpha: 0.3),
                   fontSize: 14,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 border: InputBorder.none,
               ),
             ),
           ),
+          if (_suggestions.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161B26).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _suggestions.length,
+                itemBuilder: (context, index) {
+                  final suggestion = _suggestions[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      dense: true,
+                      leading: const Icon(
+                        LucideIcons.mapPin,
+                        color: pulsarPink,
+                        size: 14,
+                      ),
+                      title: Text(
+                        suggestion,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontFamily: 'Outfit',
+                        ),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _controller.text = suggestion;
+                          _suggestions = [];
+                        });
+                        widget.onChanged(suggestion);
+                        widget.onFieldSubmitted?.call(suggestion);
+                        _focusNode.unfocus();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2914,10 +3669,14 @@ class NeonRadioButton<T> extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? deepPurple.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.02),
+          color: isSelected
+              ? deepPurple.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? deepPurple.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.1),
+            color: isSelected
+                ? deepPurple.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.1),
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: isSelected
@@ -2926,7 +3685,7 @@ class NeonRadioButton<T> extends StatelessWidget {
                     color: deepPurple.withValues(alpha: 0.1),
                     blurRadius: 8,
                     spreadRadius: 1,
-                  )
+                  ),
                 ]
               : [],
         ),
@@ -2948,7 +3707,7 @@ class NeonRadioButton<T> extends StatelessWidget {
                           color: pulsarPink.withValues(alpha: 0.3),
                           blurRadius: 6,
                           spreadRadius: 1,
-                        )
+                        ),
                       ]
                     : [],
               ),
@@ -2973,7 +3732,9 @@ class NeonRadioButton<T> extends StatelessWidget {
                     label,
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.white70,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       fontSize: 13,
                       fontFamily: 'Outfit',
                     ),
@@ -2992,87 +3753,6 @@ class NeonRadioButton<T> extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class SegmentedChipSelector extends StatelessWidget {
-  const SegmentedChipSelector({
-    required this.options,
-    required this.selectedValue,
-    required this.onSelected,
-    super.key,
-  });
-
-  final List<String> options;
-  final String selectedValue;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Pronouns',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: options.map((option) {
-            final isSelected = option == selectedValue;
-            return GestureDetector(
-              onTap: () => onSelected(option),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? const LinearGradient(
-                          colors: [deepPurple, pulsarPink],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: isSelected ? null : Colors.white.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? Colors.transparent : Colors.white.withValues(alpha: 0.12),
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: pulsarPink.withValues(alpha: 0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : [],
-                ),
-                child: Text(
-                  option,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 12,
-                    fontFamily: 'Outfit',
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 }

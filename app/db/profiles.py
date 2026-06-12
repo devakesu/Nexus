@@ -118,7 +118,9 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     scalar_fields = [
         "display_gender",
         "display_sexuality",
+        "pronouns",
         "hometown",
+        "current_place",
         "partner_values",
         "children_plans",
         "religious_beliefs",
@@ -209,8 +211,8 @@ def _build_candidate_query(
     query = query.eq(completion_flag_column, True)
     query = query.eq("is_deactivated", False)
 
-    if filters.years:
-        query = query.in_("year", filters.years)
+    if filters.campus_years:
+        query = query.in_("campus_year", filters.campus_years)
     if filters.drinking:
         query = query.in_(
             "drinking_blind_index",
@@ -221,10 +223,10 @@ def _build_candidate_query(
             "smoking_blind_index",
             [compute_blind_index(s) for s in filters.smoking],
         )
-    if filters.branches:
+    if filters.campus_branches:
         query = query.in_(
-            "branch_blind_index",
-            [compute_blind_index(b) for b in filters.branches],
+            "campus_branch_blind_index",
+            [compute_blind_index(b) for b in filters.campus_branches],
         )
     if filters.role:
         query = query.eq("role_blind_index", compute_blind_index(filters.role))

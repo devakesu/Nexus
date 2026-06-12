@@ -185,11 +185,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           : (user?.phone ?? '');
 
       if (_config.isFlavorVariant) {
-        // MEC payload: branch + year + age + phone
+        // MEC payload: campus_branch + campus_year + campus_name + age + phone
         payload = {
           'app_variant': _config.variantString,
-          'branch': _mecBranch,
-          'year': _mecYear,
+          'campus_branch': _mecBranch,
+          'campus_year': _mecYear,
+          'campus_name': 'Model Engineering College',
           'age': _selectedAge,
           'phone': phone,
           'accepted_terms_version': widget.termsVersion,

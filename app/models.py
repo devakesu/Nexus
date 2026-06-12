@@ -29,9 +29,10 @@ class ProfileModel(BaseModel):
     # Core identity fields.
     id: str
     name: str
-    branch: str
-    year: int
+    campus_branch: str
+    campus_year: int | None = None
     age: int
+    campus_name: str | None = None
 
     # Search and targeting bucket configuration.
     search_buckets: list[str] = Field(default_factory=list)
@@ -42,10 +43,12 @@ class ProfileModel(BaseModel):
     # Optional decrypted scalar attributes.
     display_gender: str | None = None
     display_sexuality: str | None = None
+    pronouns: str | None = None
     drinking: str | None = None
     smoking: str | None = None
     role: str | None = None
     hometown: str | None = None
+    current_place: str | None = None
     partner_values: str | None = None
     children_plans: str | None = None
     religious_beliefs: str | None = None
@@ -157,10 +160,11 @@ class MECOnboardingRequest(BaseOnboardingRequest):
     """
 
     app_variant: Literal["nexus_mec"] = "nexus_mec"
-    branch: str = Field(..., min_length=1, max_length=100)
-    year: int = Field(..., ge=1, le=4)
+    campus_branch: str = Field(..., min_length=1, max_length=100)
+    campus_year: int = Field(..., ge=1, le=4)
+    campus_name: str | None = Field(default=None, max_length=150)
 
-    @field_validator("branch")
+    @field_validator("campus_branch")
     @classmethod
     def validate_branch(cls, value: str) -> str:
         cleaned = value.strip()
@@ -234,7 +238,7 @@ class DiscoveryFilters(BaseModel):
     """
 
     # Optional categorical filters.
-    years: list[int] | None = Field(
+    campus_years: list[int] | None = Field(
         default=None,
         description="Array of target campus academic years.",
     )
@@ -246,7 +250,7 @@ class DiscoveryFilters(BaseModel):
         default=None,
         description="Target smoking lifestyle profiles.",
     )
-    branches: list[str] | None = Field(
+    campus_branches: list[str] | None = Field(
         default=None,
         description="Target engineering branch categories.",
     )
@@ -425,8 +429,9 @@ class OrbitNodeDetailBaseOut(BaseModel):
     id: str
     name: str | None = None
     age: int | None = None
-    branch: str | None = None
-    year: int | None = None
+    campus_branch: str | None = None
+    campus_year: int | None = None
+    campus_name: str | None = None
     role: str | None = None
 
     score: float = 0.0
@@ -440,9 +445,11 @@ class OrbitNodeDetailBaseOut(BaseModel):
 class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
     display_gender: str | None = None
     display_sexuality: str | None = None
+    pronouns: str | None = None
     drinking: str | None = None
     smoking: str | None = None
     hometown: str | None = None
+    current_place: str | None = None
     partner_values: str | None = None
     children_plans: str | None = None
     religious_beliefs: str | None = None
@@ -460,6 +467,8 @@ class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
 
 class OrbitNodeDetailFriendsOut(OrbitNodeDetailBaseOut):
     hometown: str | None = None
+    current_place: str | None = None
+    pronouns: str | None = None
     lifestyle: str | None = None
     activities: list[str] = Field(default_factory=list)
     causes_supported: list[str] = Field(default_factory=list)
@@ -471,6 +480,8 @@ class OrbitNodeDetailFriendsOut(OrbitNodeDetailBaseOut):
 
 class OrbitNodeDetailProfessionalOut(OrbitNodeDetailBaseOut):
     hometown: str | None = None
+    current_place: str | None = None
+    pronouns: str | None = None
     tech_skills: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     causes_supported: list[str] = Field(default_factory=list)
