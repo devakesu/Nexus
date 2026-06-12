@@ -27,3 +27,10 @@ class DatabaseAccessError(Exception):
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def parse_utc_datetime(raw: "str | datetime") -> datetime:
+    """Parse an ISO 8601 string (with optional Z suffix) into a UTC-aware datetime."""
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo is not None else raw.replace(tzinfo=timezone.utc)
+    return datetime.fromisoformat(raw.replace("Z", "+00:00"))

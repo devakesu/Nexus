@@ -9,17 +9,10 @@ from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
 from app.core.config import settings
-from app.core.crypto import compute_blind_index, encrypt_pii
-from app.db.client import supabase_client
+from app.core.crypto import compute_blind_index, encrypt_to_hex
+from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
-
-
-def _encrypt_text(value: str) -> str | None:
-    """Encrypt a plaintext string into a hex-formatted BYTEA literal."""
-    enc = encrypt_pii(value)
-    return f"\\x{enc.hex()}" if enc else None
-
 
 
 def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
@@ -219,67 +212,6 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
     return cast(dict[str, Any], row)
 
 
-def upsert_profile(
-    user_id: str,
-    name: str,
-    campus_branch: str,
-    age: int,
-    campus_year: int | None = None,
-    campus_name: str | None = None,
-) -> tuple[dict[str, Any], bool]:
-    existing = fetch_profile(user_id)
-    profile_created = existing is None
-
-    # Encrypt campus_branch for BYTEA storage
-    encrypted_branch = _encrypt_text(campus_branch.strip())
-    branch_blind = compute_blind_index(campus_branch)
-
-    # Encrypt campus_name for BYTEA storage
-    encrypted_campus_name = _encrypt_text(campus_name.strip()) if campus_name else None
-
-    try:
-        result = (
-            supabase_client.table("profiles")
-            .upsert(
-                {
-                    "id": user_id,
-                    "name": name.strip(),
-                    "campus_branch": encrypted_branch,
-                    "campus_branch_blind_index": branch_blind,
-                    "campus_year": campus_year,
-                    "campus_name": encrypted_campus_name,
-                    "age": age,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
-                on_conflict="id",
-            )
-            .execute()
-        )
-    except APIError as e:
-        logger.exception("Failed to upsert profile", extra={"user_id": user_id})
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to save profile.",
-        ) from e
-
-    row = None
-    if result.data:
-        maybe_row = result.data[0]
-        if isinstance(maybe_row, dict):
-            row = maybe_row
-
-    if not isinstance(row, dict):
-        row = fetch_profile(user_id)
-
-    if not isinstance(row, dict):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Profile save returned no row.",
-        )
-
-    return cast(dict[str, Any], row), profile_created
-
-
 def upsert_profile_variant(
     user_id: str,
     name: str,
@@ -290,25 +222,15 @@ def upsert_profile_variant(
     campus_name: str | None = None,
     lifestyle: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    """
-    Upsert a profile row that includes variant-specific columns.
-
-    This extends the base upsert_profile() with the new variant columns
-    added in the variant_sync migration.
-    """
+    """Upsert a profile row with variant-specific columns."""
     _ = app_variant
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
-    # Encrypt lifestyle for BYTEA storage
-    encrypted_lifestyle = _encrypt_text(lifestyle) if lifestyle is not None else None
-
-    # Encrypt campus_branch for BYTEA storage, compute blind index
-    encrypted_branch = _encrypt_text(campus_branch.strip()) if campus_branch else None
+    encrypted_lifestyle = encrypt_to_hex(lifestyle) if lifestyle is not None else None
+    encrypted_branch = encrypt_to_hex(campus_branch.strip()) if campus_branch else None
     branch_blind = compute_blind_index(campus_branch) if campus_branch else None
-
-    # Encrypt campus_name for BYTEA storage
-    encrypted_campus_name = _encrypt_text(campus_name.strip()) if campus_name else None
+    encrypted_campus_name = encrypt_to_hex(campus_name.strip()) if campus_name else None
 
     try:
         result = (
@@ -420,7 +342,9 @@ _IMPORTABLE_FIELDS = [
     "interests",
     "sub_interests",
     "value_dimensions",
-    "search_buckets",
+    "dating_search_buckets",
+    "friends_search_buckets",
+    "professional_search_buckets",
     "dating_target_buckets",
     "friends_target_buckets",
     "professional_target_buckets",
@@ -490,12 +414,7 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Export code has no expiry. Please generate a new code.",
         )
-    if isinstance(expires_raw, str):
-        expires_at = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
-    else:
-        expires_at = cast(datetime, expires_raw)
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    expires_at = parse_utc_datetime(expires_raw)
 
     if now > expires_at:
         raise HTTPException(

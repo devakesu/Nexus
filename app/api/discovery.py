@@ -1,26 +1,16 @@
 import asyncio
 import logging
-from datetime import datetime
-from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.api.dependencies import verify_app_check_token
-from app.api.user import get_authenticated_user_id
-from app.core.config import DiscoveryTab, settings
+from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.core.config import settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
-from app.db.client import DatabaseAccessError, ProfileDecodeError, utcnow
+from app.db.client import DatabaseAccessError, ProfileDecodeError
 from app.db.exclusions import invalidate_block_cache, record_discovery_action
 from app.db.orbit import build_tab_aware_orbit_node_detail
-from app.db.profiles import fetch_stage_1_candidates
-from app.db.sessions import (
-    create_discovery_session,
-    fetch_discovery_node_detail,
-    fetch_spatial_viewport,
-    get_discovery_session,
-    get_discovery_session_by_id,
-)
+from app.db.sessions import fetch_discovery_node_detail, fetch_spatial_viewport
 from app.models import (
     DiscoveryActionRequest,
     DiscoveryActionResponse,
@@ -32,98 +22,11 @@ from app.models import (
     OrbitNodeDetailResponse,
     OrbitNodeOut,
 )
-from Nexus_Engine import engine
+from app.services.discovery import create_new_discovery_session, get_or_validate_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _get_or_validate_session(
-    session_id: str,
-    user_id: str,
-    active_tab: DiscoveryTab | None = None,
-) -> tuple[str, datetime]:
-    if active_tab is not None:
-        session = get_discovery_session(
-            session_id=session_id,
-            viewer_id=user_id,
-            active_tab=active_tab,
-        )
-    else:
-        session = get_discovery_session_by_id(
-            session_id=session_id,
-            viewer_id=user_id,
-        )
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail="Discovery session not found.",
-        )
-
-    expires_at_raw = session.get("expires_at")
-    if isinstance(expires_at_raw, str):
-        expires_at = datetime.fromisoformat(
-            expires_at_raw.replace("Z", "+00:00"),
-        )
-    elif isinstance(expires_at_raw, datetime):
-        expires_at = expires_at_raw
-    else:
-        raise HTTPException(
-            status_code=500,
-            detail="Discovery session expiry malformed.",
-        )
-
-    if expires_at <= utcnow():
-        raise HTTPException(
-            status_code=410,
-            detail="Discovery session expired. Please refresh.",
-        )
-
-    return session_id, expires_at
-
-
-def _create_new_discovery_session(
-    user_id: str,
-    active_tab: DiscoveryTab,
-    filters: Any,
-) -> tuple[str, datetime]:
-    viewer, candidate_pool = fetch_stage_1_candidates(
-        viewer_id=user_id,
-        active_tab=active_tab,
-        filters=filters,
-        candidate_limit=200,
-    )
-
-    if viewer is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Target user profile unpopulated.",
-        )
-
-    ranked_orbit: list[dict[str, Any]] = engine.discover_orbit(
-        viewer,
-        active_tab,
-        candidate_pool,
-        orbit_limit=200,
-    )
-
-    ranked_orbit.sort(
-        key=lambda x: (
-            -float(x.get("score") or 0.0),
-            str(x.get("profile", {}).get("id") or ""),
-        ),
-    )
-
-    session_id, expires_at = create_discovery_session(
-        viewer_id=user_id,
-        active_tab=active_tab,
-        filters=filters.model_dump(mode="json"),
-        ranked_items=ranked_orbit,
-        expires_in_minutes=15,
-    )
-
-    return session_id, expires_at
 
 
 @router.post("/api/v1/discover", response_model=OrbitDiscoverResponse)
@@ -141,14 +44,14 @@ async def get_discovery_orbit(
     try:
         if payload.session_id:
             session_id, expires_at = await asyncio.to_thread(
-                _get_or_validate_session,
+                get_or_validate_session,
                 payload.session_id,
                 user_id,
                 active_tab,
             )
         else:
             session_id, expires_at = await asyncio.to_thread(
-                _create_new_discovery_session,
+                create_new_discovery_session,
                 user_id,
                 active_tab,
                 filters,
@@ -292,7 +195,7 @@ async def get_discovery_viewport(
 
     try:
         session_id, expires_at = await asyncio.to_thread(
-            _get_or_validate_session,
+            get_or_validate_session,
             payload.session_id,
             user_id,
         )
@@ -325,10 +228,7 @@ async def get_discovery_viewport(
     except (DecryptFailedError, ProfileDecodeError) as err:
         logger.exception(
             "Encrypted profile decode failure during orbit viewport fetch",
-            extra={
-                "user_id": user_id,
-                "session_id": payload.session_id,
-            },
+            extra={"user_id": user_id, "session_id": payload.session_id},
         )
         raise HTTPException(
             status_code=500,
@@ -337,10 +237,7 @@ async def get_discovery_viewport(
     except DatabaseAccessError as err:
         logger.exception(
             "Database access failure during orbit viewport fetch",
-            extra={
-                "user_id": user_id,
-                "session_id": payload.session_id,
-            },
+            extra={"user_id": user_id, "session_id": payload.session_id},
         )
         raise HTTPException(
             status_code=503,
@@ -351,10 +248,7 @@ async def get_discovery_viewport(
     except Exception as err:
         logger.exception(
             "Unexpected orbit viewport failure",
-            extra={
-                "user_id": user_id,
-                "session_id": payload.session_id,
-            },
+            extra={"user_id": user_id, "session_id": payload.session_id},
         )
         raise HTTPException(
             status_code=500,

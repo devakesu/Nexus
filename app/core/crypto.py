@@ -68,3 +68,9 @@ def compute_blind_index(value: str | None) -> str:
         normalized.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def encrypt_to_hex(value: str | None) -> str | None:
+    """Encrypt a plaintext string and return a hex-prefixed BYTEA literal for storage."""
+    enc = encrypt_pii(value)
+    return f"\\x{enc.hex()}" if enc else None

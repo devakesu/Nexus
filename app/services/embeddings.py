@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 _model: SentenceTransformer | None = None
 
 
-def _get_model() -> SentenceTransformer:
+def get_embedding_model() -> SentenceTransformer:
+    """Return the shared sentence-transformer singleton, loading it on first call."""
     global _model
     if _model is None:
         logger.info("Loading sentence-transformer model (all-MiniLM-L6-v2)")
@@ -118,7 +119,7 @@ def generate_nexus_intent_embeddings(
     # ──────────────────────────────────────────────────────────────────
     # 3. LOCAL INFERENCE — zero network latency
     # ──────────────────────────────────────────────────────────────────
-    model = _get_model()
+    model = get_embedding_model()
     return {
         "bio_embedding": model.encode(bio_text_context).tolist(),  # type: ignore[misc]
         "career_embedding": model.encode(career_text_context).tolist(),  # type: ignore[misc]

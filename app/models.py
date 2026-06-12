@@ -35,7 +35,9 @@ class ProfileModel(BaseModel):
     campus_name: str | None = None
 
     # Search and targeting bucket configuration.
-    search_buckets: list[str] = Field(default_factory=list)
+    dating_search_buckets: list[str] = Field(default_factory=list)
+    friends_search_buckets: list[str] = Field(default_factory=list)
+    professional_search_buckets: list[str] = Field(default_factory=list)
     dating_target_buckets: list[str] = Field(default_factory=list)
     friends_target_buckets: list[str] = Field(default_factory=list)
     professional_target_buckets: list[str] = Field(default_factory=list)
@@ -80,6 +82,16 @@ class ProfileModel(BaseModel):
 # Onboarding — Polymorphic models
 # ---------------------------------------------------------------------------
 
+def _validate_terms_version(value: str) -> str:
+    cleaned = value.strip()
+    try:
+        if float(cleaned) != float(settings.current_terms_version):
+            raise ValueError("You must accept the current terms version.")
+    except ValueError as err:
+        raise ValueError("You must accept the current terms version.") from err
+    return cleaned
+
+
 class BaseOnboardingRequest(BaseModel):
     """
     Minimal common fields shared by all onboarding variants.
@@ -95,15 +107,7 @@ class BaseOnboardingRequest(BaseModel):
     @field_validator("accepted_terms_version")
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
-        cleaned = value.strip()
-        try:
-            val_float = float(cleaned)
-            curr_float = float(settings.current_terms_version)
-            if val_float != curr_float:
-                raise ValueError("You must accept the current terms version.")
-        except ValueError as err:
-            raise ValueError("You must accept the current terms version.") from err
-        return cleaned
+        return _validate_terms_version(value)
 
     @field_validator("phone")
     @classmethod
@@ -514,15 +518,7 @@ class AcceptTermsRequest(BaseModel):
     @field_validator("accepted_terms_version")
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
-        cleaned = value.strip()
-        try:
-            val_float = float(cleaned)
-            curr_float = float(settings.current_terms_version)
-            if val_float != curr_float:
-                raise ValueError("You must accept the current terms version.")
-        except ValueError as err:
-            raise ValueError("You must accept the current terms version.") from err
-        return cleaned
+        return _validate_terms_version(value)
 
 
 class AcceptTermsResponse(BaseModel):
@@ -531,51 +527,6 @@ class AcceptTermsResponse(BaseModel):
     terms_accepted_at: datetime
     terms_recorded: bool
 
-
-class ProfileImagesUpdate(BaseModel):
-    """
-    Enforces structural client contract boundaries for media updates.
-    Expects clean plaintext file paths within the secure bucket before
-    backend processing.
-    """
-    profile_pic: str = Field(
-        ...,
-        description="Mandatory relative path to user avatar storage.",
-    )
-    normal_pics: list[str] = Field(
-        ...,
-        description="Array of normal gallery images.",
-    )
-
-    @field_validator("profile_pic")
-    @classmethod
-    def validate_avatar_presence(cls, value: str) -> str:
-        if not value or not value.strip():
-            raise ValueError(
-                "Validation Error: Profile picture path is a mandatory "
-                "onboarding field.",
-            )
-        return value.strip()
-
-    @field_validator("normal_pics")
-    @classmethod
-    def validate_normal_pics_constraints(cls, value: list[str]) -> list[str]:
-        cleaned_list = [v.strip() for v in value if v and v.strip()]
-        total_count = len(cleaned_list)
-
-        # Enforce your strict multi-photo design constraints
-        if total_count < 1:
-            raise ValueError(
-                "Validation Error: At least one normal picture must be "
-                "uploaded alongside your avatar.",
-            )
-        if total_count > 4:
-            raise ValueError(
-                "Validation Error: Up to 4 secondary gallery images are "
-                "allowed inside this asset track.",
-            )
-
-        return cleaned_list
 
 
 class ProfileImagesAndTagsUpdate(BaseModel):
@@ -651,3 +602,39 @@ class ProfileImagesAndTagsUpdate(BaseModel):
                 )
 
         return cleaned_tags
+
+
+class ProfileDetailsUpdate(BaseModel):
+    name: str | None = None
+    age: int | None = None
+    campus_branch: str | None = None
+    campus_year: int | None = None
+    campus_name: str | None = None
+    display_gender: str | None = None
+    display_sexuality: str | None = None
+    pronouns: str | None = None
+    bio: str | None = None
+    dating_search_buckets: list[str] | None = None
+    friends_search_buckets: list[str] | None = None
+    professional_search_buckets: list[str] | None = None
+    hometown: str | None = None
+    current_place: str | None = None
+    partner_values: str | None = None
+    children_plans: str | None = None
+    religious_beliefs: str | None = None
+    lifestyle: str | None = None
+    drinking: str | None = None
+    smoking: str | None = None
+    role: str | None = None
+    dating_target_buckets: list[str] | None = None
+    friends_target_buckets: list[str] | None = None
+    professional_target_buckets: list[str] | None = None
+    looking_for: list[str] | None = None
+    activities: list[str] | None = None
+    causes_supported: list[str] | None = None
+    top_artists: list[str] | None = None
+    tech_skills: list[str] | None = None
+    languages: list[str] | None = None
+    pets: list[str] | None = None
+    interests: dict[str, int] | None = None
+    sub_interests: dict[str, list[str]] | None = None

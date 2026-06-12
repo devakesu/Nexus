@@ -8,6 +8,7 @@ from app.core.config import DiscoveryTab
 from app.db.client import (
     DatabaseAccessError,
     ProfileDecodeError,
+    parse_utc_datetime,
     supabase_client,
     utcnow,
 )
@@ -230,39 +231,6 @@ def get_discovery_session_by_id(
     return cast(dict[str, Any], row)
 
 
-def get_discovery_session_for_viewer(
-    session_id: str,
-    viewer_id: str,
-) -> dict[str, Any] | None:
-    try:
-        res = (
-            supabase_client.table("discovery_sessions")
-            .select("id, viewer_id, tab, expires_at")
-            .eq("id", session_id)
-            .eq("viewer_id", viewer_id)
-            .limit(1)
-            .execute()
-        )
-    except APIError as e:
-        logger.exception(
-            "Failed to fetch discovery session for viewer",
-            extra={"viewer_id": viewer_id, "session_id": session_id},
-        )
-        raise DatabaseAccessError("Failed to fetch discovery session for viewer") from e
-    except Exception as e:
-        logger.exception(
-            "Unexpected discovery session-for-viewer lookup failure",
-            extra={"viewer_id": viewer_id, "session_id": session_id},
-        )
-        raise DatabaseAccessError(
-            "Unexpected discovery session-for-viewer lookup failure",
-        ) from e
-
-    rows = cast(list[Any], res.data or [])
-    row = rows[0] if rows else None
-    return cast(dict[str, Any], row) if isinstance(row, dict) else None
-
-
 async def _filter_and_sort_viewport_items(
     rows: list[Any],
     viewer_id: str,
@@ -454,14 +422,9 @@ def delete_expired_discovery_sessions() -> int:
 
 def _verify_session_not_expired(session: dict[str, Any]) -> bool:
     expires_at_raw = session.get("expires_at")
-    if isinstance(expires_at_raw, str):
-        expires_at = datetime.fromisoformat(expires_at_raw.replace("Z", "+00:00"))
-    elif isinstance(expires_at_raw, datetime):
-        expires_at = expires_at_raw
-    else:
+    if not isinstance(expires_at_raw, (str, datetime)):
         return False
-
-    return expires_at > utcnow()
+    return parse_utc_datetime(expires_at_raw) > utcnow()
 
 
 def _build_node_detail_payload(

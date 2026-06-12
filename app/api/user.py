@@ -1,9 +1,7 @@
 import json
 import logging
-from datetime import datetime
 from typing import Any, cast
 
-import jwt
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -14,17 +12,17 @@ from fastapi import (
     Request,
     status,
 )
-from pydantic import BaseModel
 
 from app.api.dependencies import (
+    assert_account_active,
+    get_authenticated_user_id,
     get_bearer_token,
     verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
-from app.core.crypto import compute_blind_index, encrypt_pii
+from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
-from app.core.jwks import get_live_supabase_public_key
 from app.core.limiter import limiter
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, update_profile_images_and_metadata
@@ -43,58 +41,29 @@ from app.models import (
     CompleteOnboardingResponse,
     MECOnboardingRequest,
     OnboardingPayload,
+    ProfileDetailsUpdate,
     ProfileImagesAndTagsUpdate,
 )
-from app.services.embeddings import generate_nexus_intent_embeddings
+from app.services.profile import recompile_and_push_vectors
+from app.services.value_dimensions import recompile_value_dimensions
+
+_VALUE_DIMENSION_TRIGGER_FIELDS = frozenset({
+    "interests",
+    "sub_interests",
+    "causes_supported",
+    "tech_skills",
+    "activities",
+    "lifestyle",
+})
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or malformed Authorization header credentials.",
-        )
-
-    token = authorization.split(" ", 1)[1]
-
-    try:
-        public_key = get_live_supabase_public_key(token)
-        payload = jwt.decode(
-            token,
-            public_key,
-            algorithms=["ES256"],
-            audience="authenticated",
-        )
-
-        user_uuid: str | None = payload.get("sub")
-        if not user_uuid:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token: sub claim missing.",
-            )
-
-        return user_uuid
-
-    except jwt.ExpiredSignatureError as err:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication session expired.",
-        ) from err
-    except jwt.InvalidTokenError as err:
-        logger.warning("JWT validation failed")
-        raise HTTPException(
-            status_code=401,
-            detail="Cryptographic signature verification failed.",
-        ) from err
-
-
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
 @limiter.limit(settings.rate_limit_auth)
-def auth_bootstrap(  # noqa: C901
+def auth_bootstrap(
     request: Request,
     background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
@@ -145,39 +114,7 @@ def auth_bootstrap(  # noqa: C901
         app_variant=app_variant,
     )
 
-    if not bool(user_row.get("is_active", True)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Account is inactive. Please contact support at "
-                f"support@{settings.app_domain} for assistance."
-            ),
-        )
-
-    if bool(user_row.get("is_suspended", False)):
-        suspended_until = user_row.get("suspended_until")
-        reason_code = user_row.get("moderation_reason_code")
-        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
-        if suspended_until:
-            try:
-                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
-                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except ValueError:
-                formatted_time = str(suspended_until)
-            detail = (
-                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
-                f"Please contact support at support@{settings.app_domain} for "
-                "assistance."
-            )
-        else:
-            detail = (
-                f"Your Account is suspended indefinitely{reason_suffix}. Please "
-                f"contact support at support@{settings.app_domain} for assistance."
-            )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail,
-        )
+    assert_account_active(user_row)
 
     if newly_created and email:
         background_tasks.add_task(
@@ -239,44 +176,11 @@ def complete_onboarding(
             detail="User bootstrap row not found. Complete bootstrap first.",
         )
 
-    if not bool(user_row.get("is_active", True)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Account is inactive. Please contact support at "
-                f"support@{settings.app_domain} for assistance."
-            ),
-        )
-
-    if bool(user_row.get("is_suspended", False)):
-        suspended_until = user_row.get("suspended_until")
-        reason_code = user_row.get("moderation_reason_code")
-        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
-        if suspended_until:
-            try:
-                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
-                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except ValueError:
-                formatted_time = str(suspended_until)
-            detail = (
-                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
-                f"Please contact support at support@{settings.app_domain} for "
-                "assistance."
-            )
-        else:
-            detail = (
-                f"Your Account is suspended indefinitely{reason_suffix}. Please "
-                f"contact support at support@{settings.app_domain} for assistance."
-            )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail,
-        )
+    assert_account_active(user_row)
 
     # Resolve name and variant-specific fields per flavor.
     if isinstance(payload, MECOnboardingRequest):
         # MEC: name is derived server-side from Google OAuth metadata.
-        # Branch and year are provided in the payload.
         user_name = extract_user_name(email, auth_user)
         user_branch: str | None = payload.campus_branch
         user_year: int | None = payload.campus_year
@@ -352,39 +256,7 @@ def accept_terms(
             detail="User bootstrap row not found. Complete bootstrap first.",
         )
 
-    if not bool(user_row.get("is_active", True)):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Account is inactive. Please contact support at "
-                f"support@{settings.app_domain} for assistance."
-            ),
-        )
-
-    if bool(user_row.get("is_suspended", False)):
-        suspended_until = user_row.get("suspended_until")
-        reason_code = user_row.get("moderation_reason_code")
-        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
-        if suspended_until:
-            try:
-                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
-                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except ValueError:
-                formatted_time = str(suspended_until)
-            detail = (
-                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
-                f"Please contact support at support@{settings.app_domain} for "
-                "assistance."
-            )
-        else:
-            detail = (
-                f"Your Account is suspended indefinitely{reason_suffix}. Please "
-                f"contact support at support@{settings.app_domain} for assistance."
-            )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail,
-        )
+    assert_account_active(user_row)
 
     stored_terms_version, stored_terms_accepted_at = update_user_terms(
         user_id=user_id,
@@ -401,127 +273,33 @@ def accept_terms(
 
 @router.post("/api/v1/profile/media", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
-def update_profile_media_and_tags(
+async def update_profile_media_and_tags(
     request: Request,
     payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
 ):
-    """
-    Synchronized Edge-AI Payload Ingestion Gateway.
-    Symmetrically encrypts pre-calculated edge AI token lists and storage
-    pointers directly into database binary BYTEA columns via the trusted
-    service tunnel.
-    """
     _ = request
-
-    # 1. Double-Serialize and Encrypt into binary formats for BYTEA columns
-    encrypted_avatar: bytes = encrypt_pii(payload.profile_pic)
-    encrypted_gallery_json: bytes = encrypt_pii(
-        json.dumps(payload.normal_pics),
-    )
-    encrypted_tags_json: bytes = encrypt_pii(json.dumps(payload.ai_vibe_tags))
-
-    # 2. Package database parameters mapping structures safely
-    db_mutation_payload = {
-        "profile_pic": encrypted_avatar,
-        "normal_pics": encrypted_gallery_json,
-        "ai_vibe_tags": encrypted_tags_json,
-        "updated_at": "now()",
-    }
-
     try:
-        # 3. Direct execution over the high-privilege service-role bypass tunnel
-        response = (
-            supabase_client.table("profiles")
-            .update(db_mutation_payload)
-            .eq("id", user_id)
-            .execute()
+        await update_profile_images_and_metadata(
+            user_id=user_id,
+            images=[payload.profile_pic, *payload.normal_pics],
+            vibe_tags=payload.ai_vibe_tags,
         )
-
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=(
-                    "Target account context mismatch. "
-                    "Profile row modification rejected."
-                ),
-            )
-
-        return {
-            "status": "success",
-            "detail": (
-                "On-device AI features and assets committed to "
-                "cryptographic vault spaces."
+        return {"status": "success", "detail": "Profile media synchronized."}
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "Target account context mismatch. "
+                "Profile row modification rejected."
             ),
-        }
-
-    except Exception as network_write_exception:
-        # Protects cloud configuration traces from leaking inside exceptions
-        logger.exception(
-            "Supabase database transaction aborted for user %s",
-            user_id,
-        )
+        ) from err
+    except Exception as e:
+        logger.exception("Profile media update failed for user %s", user_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server metadata pipeline error: Data synchronization failed.",
-        ) from network_write_exception
-
-
-
-class ClientAIPatchRequest(BaseModel):
-    ordered_images: list[str]
-    computed_vibe_tags: list[str]
-
-
-@router.patch("/api/v1/profile/sync-client-ai")
-async def sync_client_ai_profile(
-    payload: ClientAIPatchRequest,
-    user_id: str = Depends(get_authenticated_user_id),
-):
-    """
-    Pure data persistence sync endpoint. Receives pre-computed assets
-    and updates database profiles instantly.
-    """
-    await update_profile_images_and_metadata(
-        user_id=user_id,
-        images=payload.ordered_images,
-        vibe_tags=payload.computed_vibe_tags,
-    )
-    return {
-        "status": "synchronized",
-        "message": "Client computed alignment metrics persistent.",
-    }
-class ProfileDetailsUpdate(BaseModel):
-    name: str | None = None
-    age: int | None = None
-    campus_branch: str | None = None
-    campus_year: int | None = None
-    campus_name: str | None = None
-    display_gender: str | None = None
-    display_sexuality: str | None = None
-    pronouns: str | None = None
-    bio: str | None = None
-    search_buckets: list[str] | None = None
-    hometown: str | None = None
-    current_place: str | None = None
-    partner_values: str | None = None
-    children_plans: str | None = None
-    religious_beliefs: str | None = None
-    lifestyle: str | None = None
-    drinking: str | None = None
-    smoking: str | None = None
-    role: str | None = None
-    target_buckets: list[str] | None = None
-    looking_for: list[str] | None = None
-    activities: list[str] | None = None
-    causes_supported: list[str] | None = None
-    top_artists: list[str] | None = None
-    tech_skills: list[str] | None = None
-    languages: list[str] | None = None
-    pets: list[str] | None = None
-    interests: dict[str, int] | None = None
-    sub_interests: dict[str, list[str]] | None = None
-
+        ) from e
 
 
 @router.get("/api/v1/profile/details")
@@ -540,7 +318,6 @@ def get_profile_details(
         if data is None:
             raise HTTPException(status_code=404, detail="Profile not found")
 
-        # Decrypt PII fields
         if not isinstance(data, dict):
             raise HTTPException(
                 status_code=500,
@@ -559,7 +336,11 @@ def get_profile_details(
             "display_sexuality": profile.get("display_sexuality"),
             "pronouns": profile.get("pronouns"),
             "bio": profile.get("bio") or "",
-            "search_buckets": profile.get("search_buckets") or [],
+            "dating_search_buckets": profile.get("dating_search_buckets") or [],
+            "friends_search_buckets": profile.get("friends_search_buckets") or [],
+            "professional_search_buckets": (
+                profile.get("professional_search_buckets") or []
+            ),
             "hometown": profile.get("hometown"),
             "current_place": profile.get("current_place"),
             "partner_values": profile.get("partner_values"),
@@ -569,7 +350,11 @@ def get_profile_details(
             "drinking": profile.get("drinking"),
             "smoking": profile.get("smoking"),
             "role": profile.get("role"),
-            "target_buckets": profile.get("target_buckets") or [],
+            "dating_target_buckets": profile.get("dating_target_buckets") or [],
+            "friends_target_buckets": profile.get("friends_target_buckets") or [],
+            "professional_target_buckets": (
+                profile.get("professional_target_buckets") or []
+            ),
             "looking_for": profile.get("looking_for") or [],
             "activities": profile.get("activities") or [],
             "causes_supported": profile.get("causes_supported") or [],
@@ -591,140 +376,50 @@ def get_profile_details(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-def _recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
-    """
-    Background task: fetch the full decrypted profile, compile three
-    intent-isolated embeddings, then upsert to vector_profiles.
-    Runs after the profile write commits so all fields are current.
-    """
-    try:
-        res = (
-            supabase_client.table("profiles")
-            .select("*")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        raw = getattr(res, "data", None)
-        if not raw or not isinstance(raw, dict):
-            logger.warning(
-                "Vector recompile skipped: profile not found",
-                extra={"user_id": user_id},
-            )
-            return
-
-        profile = decrypt_profile_record(cast(dict[str, Any], raw))
-
-        # Use the caller-supplied plaintext bio so the freshly written value
-        # is encoded even before the next full profile fetch would see it.
-        effective_bio = plaintext_bio or profile.get("bio") or ""
-
-        vectors = generate_nexus_intent_embeddings(profile, effective_bio)
-
-        # Resolve (or create) the pseudonym firewall token for this user.
-        # upsert with on_conflict="user_id" is a no-op for existing rows while
-        # auto-generating a pseudonym_id for first-time users via the DB DEFAULT.
-        map_res = (
-            supabase_client.table("profile_pseudonym_map")
-            .upsert({"user_id": user_id}, on_conflict="user_id", ignore_duplicates=True)
-            .select("pseudonym_id")
-            .execute()
-        )
-        map_rows = getattr(map_res, "data", None)
-        if not map_rows:
-            # upsert with ignore_duplicates returns no rows on conflict; fall back
-            # to a plain select to retrieve the pre-existing pseudonym_id.
-            map_res = (
-                supabase_client.table("profile_pseudonym_map")
-                .select("pseudonym_id")
-                .eq("user_id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            map_rows_fallback = getattr(map_res, "data", None)
-            if not map_rows_fallback or not isinstance(map_rows_fallback, dict):
-                logger.error(
-                    "Vector recompile aborted: could not resolve pseudonym mapping",
-                    extra={"user_id": user_id},
-                )
-                return
-            pseudonym_id: str = str(
-                cast(dict[str, Any], map_rows_fallback)["pseudonym_id"]
-            )
-        else:
-            pseudonym_id = str(cast(list[Any], map_rows)[0]["pseudonym_id"])
-
-        supabase_client.table("vector_profiles").upsert(
-            {
-                "pseudonym_id": pseudonym_id,
-                "bio_embedding": vectors["bio_embedding"],
-                "career_embedding": vectors["career_embedding"],
-                "identity_embedding": vectors["identity_embedding"],
-            },
-        ).execute()
-
-        logger.info(
-            "Intent embeddings recompiled and committed",
-            extra={"user_id": user_id},
-        )
-    except Exception:
-        # Non-fatal: vector staleness is preferable to blocking the save response.
-        logger.exception(
-            "Vector recompile failed for user %s — skipping silently",
-            user_id,
-        )
-
-
-@router.post("/api/v1/profile/details")
+@router.patch("/api/v1/profile/details")
 def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, Any]:
     update_data: dict[str, Any] = {}
+
     if payload.name is not None:
         update_data["name"] = payload.name.strip()
     if payload.age is not None:
         update_data["age"] = payload.age
     if payload.campus_branch is not None:
-        enc = encrypt_pii(payload.campus_branch.strip())
-        update_data["campus_branch"] = f"\\x{enc.hex()}" if enc else None
+        update_data["campus_branch"] = encrypt_to_hex(payload.campus_branch.strip())
         update_data["campus_branch_blind_index"] = compute_blind_index(
             payload.campus_branch,
         )
     if "campus_year" in payload.model_fields_set:
         update_data["campus_year"] = payload.campus_year
     if payload.campus_name is not None:
-        enc = encrypt_pii(payload.campus_name.strip())
-        update_data["campus_name"] = f"\\x{enc.hex()}" if enc else None
-    if payload.search_buckets is not None:
-        update_data["search_buckets"] = payload.search_buckets
-    if payload.target_buckets is not None:
-        update_data["target_buckets"] = payload.target_buckets
+        update_data["campus_name"] = encrypt_to_hex(payload.campus_name.strip())
+    if payload.dating_search_buckets is not None:
+        update_data["dating_search_buckets"] = payload.dating_search_buckets
+    if payload.friends_search_buckets is not None:
+        update_data["friends_search_buckets"] = payload.friends_search_buckets
+    if payload.professional_search_buckets is not None:
+        update_data["professional_search_buckets"] = payload.professional_search_buckets
+    if payload.dating_target_buckets is not None:
+        update_data["dating_target_buckets"] = payload.dating_target_buckets
+    if payload.friends_target_buckets is not None:
+        update_data["friends_target_buckets"] = payload.friends_target_buckets
+    if payload.professional_target_buckets is not None:
+        update_data["professional_target_buckets"] = payload.professional_target_buckets
 
-    # Encrypted scalar fields
     scalar_fields = [
-        "display_gender",
-        "display_sexuality",
-        "pronouns",
-        "bio",
-        "hometown",
-        "current_place",
-        "partner_values",
-        "children_plans",
-        "religious_beliefs",
-        "lifestyle",
-        "drinking",
-        "smoking",
-        "role",
+        "display_gender", "display_sexuality", "pronouns", "bio",
+        "hometown", "current_place", "partner_values", "children_plans",
+        "religious_beliefs", "lifestyle", "drinking", "smoking", "role",
     ]
     for field in scalar_fields:
         val = getattr(payload, field, None)
         if val is not None:
-            enc = encrypt_pii(val)
-            update_data[field] = f"\\x{enc.hex()}" if enc else None
+            update_data[field] = encrypt_to_hex(val)
 
-    # Blind indexes computation for exact match filters
     if payload.drinking is not None:
         update_data["drinking_blind_index"] = compute_blind_index(payload.drinking)
     if payload.smoking is not None:
@@ -732,32 +427,19 @@ def update_profile_details(  # noqa: C901
     if payload.role is not None:
         update_data["role_blind_index"] = compute_blind_index(payload.role)
 
-    # Encrypted array fields (JSON array payload serialized before encryption)
     array_fields = [
-        "looking_for",
-        "activities",
-        "causes_supported",
-        "top_artists",
-        "tech_skills",
-        "languages",
-        "pets",
+        "looking_for", "activities", "causes_supported",
+        "top_artists", "tech_skills", "languages", "pets",
     ]
     for field in array_fields:
         val = getattr(payload, field, None)
         if val is not None:
-            enc = encrypt_pii(json.dumps(val))
-            update_data[field] = f"\\x{enc.hex()}" if enc else None
+            update_data[field] = encrypt_to_hex(json.dumps(val))
 
-    # Encrypted dict fields (JSON object payload serialized before encryption)
-    dict_fields = [
-        "interests",
-        "sub_interests",
-    ]
-    for field in dict_fields:
+    for field in ("interests", "sub_interests"):
         val = getattr(payload, field, None)
         if val is not None:
-            enc = encrypt_pii(json.dumps(val))
-            update_data[field] = f"\\x{enc.hex()}" if enc else None
+            update_data[field] = encrypt_to_hex(json.dumps(val))
 
     if not update_data:
         return {"status": "success", "detail": "No fields to update."}
@@ -771,14 +453,14 @@ def update_profile_details(  # noqa: C901
             .eq("id", user_id)
             .execute()
         )
-        res_data = getattr(res, "data", None)
-        if not res_data:
+        if not getattr(res, "data", None):
             raise HTTPException(status_code=404, detail="Profile not found")
 
-        # Recompile the three intent-isolated embeddings in the background so
-        # the save response is not blocked by local model inference time.
         plaintext_bio = (payload.bio or "").strip()
-        background_tasks.add_task(_recompile_and_push_vectors, user_id, plaintext_bio)
+        background_tasks.add_task(recompile_and_push_vectors, user_id, plaintext_bio)
+
+        if payload.model_fields_set & _VALUE_DIMENSION_TRIGGER_FIELDS:
+            background_tasks.add_task(recompile_value_dimensions, user_id)
 
         return {"status": "success", "detail": "Profile details synchronized."}
     except Exception as e:

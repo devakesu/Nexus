@@ -358,53 +358,85 @@ class TagChipsEditor extends StatelessWidget {
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: currentValues.map((val) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+              children: () {
+                var displayValues = currentValues;
+                if (label.toLowerCase() == 'interests') {
+                  final Map<String, List<String>> grouped = {};
+                  for (final val in currentValues) {
+                    final parts = val.split(': ');
+                    if (parts.length == 2) {
+                      grouped.putIfAbsent(parts[0], () => []).add(parts[1]);
+                    } else {
+                      grouped.putIfAbsent(val, () => []);
+                    }
+                  }
+                  final List<String> merged = [];
+                  grouped.forEach((parent, subs) {
+                    if (subs.isEmpty) {
+                      merged.add(parent);
+                    } else {
+                      merged.add('$parent: ${subs.join(", ")}');
+                    }
+                  });
+                  displayValues = merged;
+                }
+
+                String resolveEmoji(String tag) {
+                  var emoji = getEmojiForTag(tag);
+                  if (emoji.isEmpty && tag.contains(': ')) {
+                    final parent = tag.split(': ')[0];
+                    emoji = getEmojiForTag(parent);
+                    if (emoji.isEmpty) {
+                      final parts = tag.split(': ');
+                      if (parts.length == 2) {
+                        final subs = parts[1].split(', ');
+                        if (subs.isNotEmpty) {
+                          emoji = getEmojiForTag(subs[0]);
+                        }
+                      }
+                    }
+                  }
+                  return emoji;
+                }
+
+                return displayValues.map((val) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (getEmojiForTag(val).isNotEmpty) ...[
-                        Text(
-                          getEmojiForTag(val),
-                          style: const TextStyle(fontSize: 13),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (resolveEmoji(val).isNotEmpty) ...[
+                          Text(
+                            resolveEmoji(val),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Flexible(
+                          child: Text(
+                            val,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                            softWrap: true,
+                          ),
                         ),
-                        const SizedBox(width: 6),
                       ],
-                      Text(
-                        val,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () {
-                          final updated = List<String>.from(currentValues)
-                            ..remove(val);
-                          onChanged(updated);
-                        },
-                        child: const Icon(
-                          LucideIcons.x,
-                          size: 10,
-                          color: Colors.white30,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                    ),
+                  );
+                }).toList();
+              }(),
             ),
           ),
         const SizedBox(height: 16),

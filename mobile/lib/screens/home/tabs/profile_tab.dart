@@ -383,7 +383,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
         // Perform the details secure endpoint update
         if (payload.isNotEmpty) {
-          final response = await dio.post<Map<String, dynamic>>(
+          final response = await dio.patch<Map<String, dynamic>>(
             '${config.backendUrl}/api/v1/profile/details',
             data: payload,
             options: Options(

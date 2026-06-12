@@ -6,7 +6,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_pii
+from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import fetch_active_discovery_excluded_ids
 from app.models import DiscoveryFilters
@@ -31,6 +31,16 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
         return "friends_target_buckets"
     if active_tab == "Professional":
         return "professional_target_buckets"
+    raise ValueError(f"Unsupported active_tab: {active_tab}")
+
+
+def _get_search_bucket_column(active_tab: DiscoveryTab) -> str:
+    if active_tab == "Dating":
+        return "dating_search_buckets"
+    if active_tab == "Friends":
+        return "friends_search_buckets"
+    if active_tab == "Professional":
+        return "professional_search_buckets"
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
@@ -250,8 +260,9 @@ def _get_expanded_viewer_buckets(
 ) -> tuple[list[str], list[str]]:
     """Helper to extract and expand target and search preference buckets from viewer."""
     target_bucket_column = _get_target_bucket_column(active_tab)
+    search_bucket_column = _get_search_bucket_column(active_tab)
     viewer_targets_raw = viewer.get(target_bucket_column)
-    viewer_search_raw = viewer.get("search_buckets")
+    viewer_search_raw = viewer.get(search_bucket_column)
 
     if not isinstance(viewer_targets_raw, list):
         logger.warning(
@@ -325,9 +336,10 @@ def _execute_and_filter_candidates(
     if not viewer_targets:
         return []
 
+    search_bucket_column = _get_search_bucket_column(active_tab)
     try:
         res = (
-            query.overlaps("search_buckets", viewer_targets)
+            query.overlaps(search_bucket_column, viewer_targets)
             .limit(candidate_limit)
             .execute()
         )
@@ -508,22 +520,13 @@ async def update_profile_images_and_metadata(
     Encrypts and saves ordered images (profile pic & normal gallery)
     and locally computed vibe tags directly into Supabase BYTEA fields.
     """
-    profile_pic = images[0] if len(images) > 0 else ""
+    profile_pic = images[0] if images else ""
     normal_pics = images[1:] if len(images) > 1 else []
 
-    enc_avatar = encrypt_pii(profile_pic)
-    encrypted_avatar = f"\\x{enc_avatar.hex()}" if enc_avatar else None
-
-    enc_gallery = encrypt_pii(json.dumps(normal_pics))
-    encrypted_gallery_json = f"\\x{enc_gallery.hex()}" if enc_gallery else None
-
-    enc_tags = encrypt_pii(json.dumps(vibe_tags))
-    encrypted_tags_json = f"\\x{enc_tags.hex()}" if enc_tags else None
-
     db_mutation_payload = {
-        "profile_pic": encrypted_avatar,
-        "normal_pics": encrypted_gallery_json,
-        "ai_vibe_tags": encrypted_tags_json,
+        "profile_pic": encrypt_to_hex(profile_pic),
+        "normal_pics": encrypt_to_hex(json.dumps(normal_pics)),
+        "ai_vibe_tags": encrypt_to_hex(json.dumps(vibe_tags)),
         "updated_at": "now()",
     }
 
