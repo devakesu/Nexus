@@ -119,7 +119,7 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
               runSpacing: 8,
               children: widget.topArtists.map((artist) {
                 return Chip(
-                  backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                  backgroundColor: const Color(0xFF00E5FF).withValues(alpha: 0.15),
                   side: const BorderSide(
                     color: Color(0xFFFF7597),
                     width: 0.8,

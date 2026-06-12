@@ -134,51 +134,68 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             decoration: BoxDecoration(
-              color: _isFocused
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.02),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _isFocused
-                    ? pulsarPink.withValues(alpha: 0.8)
-                    : Colors.white.withValues(alpha: 0.12),
-                width: _isFocused ? 1.5 : 1,
-              ),
+              gradient: _isFocused
+                  ? const LinearGradient(
+                      colors: [Color(0xFF00E5FF), pulsarPink],
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0.12),
+                      ],
+                    ),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: pulsarPink.withValues(alpha: 0.15),
-                        blurRadius: 10,
+                        color: pulsarPink.withValues(alpha: 0.2),
+                        blurRadius: 12,
                         spreadRadius: 1,
                       ),
                     ]
                   : [],
             ),
-            child: TextFormField(
-              controller: _controller,
-              focusNode: _focusNode,
-              onChanged: _onTextChanged,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'Outfit',
-                fontSize: 14,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.all(1.2),
+              decoration: BoxDecoration(
+                color: _isFocused
+                    ? const Color(0xFF0D1017)
+                    : const Color(0xFF141822),
+                borderRadius: BorderRadius.circular(15),
               ),
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  widget.prefixIcon,
-                  color: _isFocused ? pulsarPink : Colors.white38,
-                  size: 18,
-                ),
-                hintText: widget.hintText,
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
+              child: TextFormField(
+                controller: _controller,
+                focusNode: _focusNode,
+                onChanged: _onTextChanged,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Outfit',
                   fontSize: 14,
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                decoration: InputDecoration(
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(
+                      widget.prefixIcon,
+                      color: _isFocused ? pulsarPink : Colors.white38,
+                      size: 18,
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  hintText: widget.hintText,
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 13,
+                  ),
+                  border: InputBorder.none,
                 ),
-                border: InputBorder.none,
               ),
             ),
           ),

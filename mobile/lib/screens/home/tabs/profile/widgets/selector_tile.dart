@@ -24,7 +24,7 @@ class SelectorTile extends StatelessWidget {
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
     final emoji = getEmojiForTag(value);
     final displayText = isEmpty
-        ? 'Select'
+        ? 'Select...'
         : (emoji.isNotEmpty ? '$emoji  $value' : value);
     final textColor = isEmpty
         ? Colors.white.withValues(alpha: 0.3)
@@ -46,33 +46,54 @@ class SelectorTile extends StatelessWidget {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              color: Colors.white.withValues(alpha: 0.02),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor, size: 16),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    displayText,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'Outfit',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Row(
+                children: [
+                  // Left color accent bar matching the category style
+                  Container(
+                    width: 4,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: iconColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconColor.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          spreadRadius: 0.5,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const Icon(
-                  LucideIcons.chevronRight,
-                  color: pulsarPink,
-                  size: 14,
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Icon(icon, color: iconColor, size: 16),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    color: pulsarPink,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
             ),
           ),
         ),

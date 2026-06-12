@@ -68,10 +68,14 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     }
   }
 
-  Widget _buildBucketChip({required String label, required String value}) {
+  Widget _buildBucketChip({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
     final isSelected = widget.searchBuckets.contains(value);
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
+    const deepPurple = Color(0xFF00E5FF);
 
     return Expanded(
       child: GestureDetector(
@@ -79,39 +83,52 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           widget.onBucketChanged([value]);
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            color: isSelected
-                ? deepPurple.withValues(alpha: 0.15)
-                : Colors.white.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [deepPurple, pulsarPink],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: isSelected ? null : Colors.white.withValues(alpha: 0.02),
             border: Border.all(
               color: isSelected
-                  ? pulsarPink.withValues(alpha: 0.8)
-                  : Colors.white.withValues(alpha: 0.1),
-              width: isSelected ? 1.5 : 1,
+                  ? Colors.white.withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.08),
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
                       color: pulsarPink.withValues(alpha: 0.25),
-                      blurRadius: 8,
+                      blurRadius: 10,
                       spreadRadius: 1,
-                    )
+                    ),
                   ]
                 : [],
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontFamily: 'Outfit',
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 13,
+                color: isSelected ? Colors.white : Colors.white38,
               ),
-            ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontFamily: 'Outfit',
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -164,9 +181,11 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED),
+                      backgroundColor: const Color(0xFF00E5FF),
                       foregroundColor: Colors.white,
-                      shadowColor: const Color(0xFFFF7597).withValues(alpha: 0.5),
+                      shadowColor: const Color(
+                        0xFFFF7597,
+                      ).withValues(alpha: 0.5),
                       elevation: 8,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -221,11 +240,23 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildBucketChip(label: 'Men', value: 'M'),
+                  _buildBucketChip(
+                    label: 'Men',
+                    value: 'M',
+                    icon: LucideIcons.user,
+                  ),
                   const SizedBox(width: 8),
-                  _buildBucketChip(label: 'Women', value: 'F'),
+                  _buildBucketChip(
+                    label: 'Women',
+                    value: 'F',
+                    icon: LucideIcons.user,
+                  ),
                   const SizedBox(width: 8),
-                  _buildBucketChip(label: 'Non-Binary', value: 'NB'),
+                  _buildBucketChip(
+                    label: 'Non-Binary',
+                    value: 'NB',
+                    icon: LucideIcons.sparkles,
+                  ),
                 ],
               ),
             ],
@@ -286,58 +317,76 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                       right: index == 3 ? 0 : 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: imagePath != null
-                            ? const Color(0xFF7C3AED)
-                            : Colors.white.withValues(alpha: 0.12),
-                        width: imagePath != null ? 1.5 : 1,
-                      ),
+                      gradient: imagePath != null
+                          ? const LinearGradient(
+                              colors: [Color(0xFF00E5FF), pulsarPink],
+                            )
+                          : null,
                       boxShadow: imagePath != null
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                                color: const Color(
+                                  0xFF00E5FF,
+                                ).withValues(alpha: 0.25),
                                 blurRadius: 8,
                                 spreadRadius: 1,
                               ),
                             ]
                           : [],
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Stack(
-                        children: [
-                          if (imagePath != null) ...[
-                            Positioned.fill(
-                              child: StorageImage(imagePath: imagePath),
-                            ),
-                            if ((widget.isProcessingAI || widget.isSaving) &&
-                                widget.pendingUploads.containsKey(slotIndex))
-                              const Positioned.fill(
-                                child: ColoredBox(
-                                  color: Colors.black54,
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                    child: Padding(
+                      padding: EdgeInsets.all(imagePath != null ? 1.5 : 0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18.5),
+                        child: ColoredBox(
+                          color: const Color(0xFF141822),
+                          child: Stack(
+                            children: [
+                              if (imagePath != null) ...[
+                                Positioned.fill(
+                                  child: StorageImage(imagePath: imagePath),
+                                ),
+                                if ((widget.isProcessingAI ||
+                                        widget.isSaving) &&
+                                    widget.pendingUploads.containsKey(
+                                      slotIndex,
+                                    ))
+                                  const Positioned.fill(
+                                    child: ColoredBox(
+                                      color: Colors.black54,
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  pulsarPink,
+                                                ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
+                              ] else
+                                CustomPaint(
+                                  painter: _DashedBorderPainter(
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                    radius: 18.5,
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      LucideIcons.plus,
+                                      color: Colors.white30,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                          ] else
-                            const Center(
-                              child: Icon(
-                                LucideIcons.plus,
-                                color: Colors.white24,
-                                size: 22,
-                              ),
-                            ),
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -349,4 +398,58 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
       ),
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({
+    required this.color,
+    required this.radius,
+  });
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0.6, 0.6, size.width - 1.2, size.height - 1.2),
+          Radius.circular(radius),
+        ),
+      );
+
+    final dashedPath = Path();
+    const dashLength = 4;
+    const gapLength = 3;
+
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      var draw = true;
+      while (distance < metric.length) {
+        final length = draw ? dashLength : gapLength;
+        if (draw) {
+          dashedPath.addPath(
+            metric.extractPath(
+              distance,
+              (distance + length).clamp(0.0, metric.length),
+            ),
+            Offset.zero,
+          );
+        }
+        distance += length;
+        draw = !draw;
+      }
+    }
+
+    canvas.drawPath(dashedPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

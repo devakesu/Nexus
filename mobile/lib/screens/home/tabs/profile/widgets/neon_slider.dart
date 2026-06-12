@@ -23,7 +23,6 @@ class NeonSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,16 +61,16 @@ class NeonSlider extends StatelessWidget {
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: deepPurple,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
             trackHeight: 4,
             thumbColor: pulsarPink,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+            thumbShape: const _NeonSliderThumbShape(thumbRadius: 9),
+            trackShape: const _NeonGradientSliderTrackShape(),
             overlayColor: pulsarPink.withValues(alpha: 0.2),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            activeTickMarkColor: pulsarPink.withValues(alpha: 0.8),
-            inactiveTickMarkColor: Colors.white.withValues(alpha: 0.3),
-            tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2.5),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+            activeTickMarkColor: Colors.white.withValues(alpha: 0.8),
+            inactiveTickMarkColor: Colors.white.withValues(alpha: 0.2),
+            tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2),
           ),
           child: Slider(
             min: min,
@@ -84,5 +83,111 @@ class NeonSlider extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _NeonGradientSliderTrackShape extends RectangularSliderTrackShape {
+  const _NeonGradientSliderTrackShape();
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    if (sliderTheme.trackHeight == null || sliderTheme.trackHeight! <= 0) {
+      return;
+    }
+
+    final trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    const activeColorStart = Color(0xFF00E5FF); // deepPurple
+    const activeColorEnd = Color(0xFFFF7597); // pulsarPink
+
+    final activePaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [activeColorStart, activeColorEnd],
+      ).createShader(trackRect)
+      ..style = PaintingStyle.fill;
+
+    final inactivePaint = Paint()
+      ..color = sliderTheme.inactiveTrackColor ?? Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+
+    final activeRect = Rect.fromLTRB(trackRect.left, trackRect.top, thumbCenter.dx, trackRect.bottom);
+    final inactiveRect = Rect.fromLTRB(thumbCenter.dx, trackRect.top, trackRect.right, trackRect.bottom);
+
+    final activeRRect = RRect.fromRectAndCorners(
+      activeRect,
+      topLeft: const Radius.circular(2),
+      bottomLeft: const Radius.circular(2),
+    );
+    final inactiveRRect = RRect.fromRectAndCorners(
+      inactiveRect,
+      topRight: const Radius.circular(2),
+      bottomRight: const Radius.circular(2),
+    );
+
+    context.canvas.drawRRect(activeRRect, activePaint);
+    context.canvas.drawRRect(inactiveRRect, inactivePaint);
+  }
+}
+
+class _NeonSliderThumbShape extends SliderComponentShape {
+  const _NeonSliderThumbShape({required this.thumbRadius});
+
+  final double thumbRadius;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) {
+    return Size.fromRadius(thumbRadius);
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    const pulsarPink = Color(0xFFFF7597);
+    final canvas = context.canvas;
+
+    final glowRadius = thumbRadius + 5 * activationAnimation.value;
+    final glowPaint = Paint()
+      ..color = pulsarPink.withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(center, glowRadius, glowPaint);
+
+    final outerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, thumbRadius, outerPaint);
+
+    final innerPaint = Paint()
+      ..color = pulsarPink
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, thumbRadius - 3.5, innerPaint);
   }
 }

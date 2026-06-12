@@ -28,7 +28,7 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
+    const deepPurple = Color(0xFF00E5FF);
 
     return Center(
       child: Column(

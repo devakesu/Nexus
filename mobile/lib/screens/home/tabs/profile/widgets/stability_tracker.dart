@@ -105,7 +105,7 @@ class StabilityTracker extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Complete your signals to increase your matching resonance inside the campus cluster. Each filled parameter refines your cosmic coordinates:',
+                  'Complete your signals to increase your matching resonance. Each filled parameter refines your cosmic coordinates:',
                   style: TextStyle(
                     color: Colors.white54,
                     fontSize: 13,
@@ -124,7 +124,9 @@ class StabilityTracker extends StatelessWidget {
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Profile Picture',
-                          complete: imagePaths[0] != null && imagePaths[0]!.isNotEmpty,
+                          complete:
+                              imagePaths[0] != null &&
+                              imagePaths[0]!.isNotEmpty,
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.user,
@@ -149,37 +151,51 @@ class StabilityTracker extends StatelessWidget {
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.userCheck,
                           label: 'Gender',
-                          complete: displayGender.isNotEmpty && displayGender != 'Prefer not to say',
+                          complete:
+                              displayGender.isNotEmpty &&
+                              displayGender != 'Prefer not to say',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.heart,
                           label: 'Sexuality',
-                          complete: displaySexuality.isNotEmpty && displaySexuality != 'Prefer not to say',
+                          complete:
+                              displaySexuality.isNotEmpty &&
+                              displaySexuality != 'Prefer not to say',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.smile,
                           label: 'Pronouns',
-                          complete: pronouns.isNotEmpty && pronouns != 'Prefer not to say',
+                          complete:
+                              pronouns.isNotEmpty &&
+                              pronouns != 'Prefer not to say',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Gallery Slot 1',
-                          complete: imagePaths[1] != null && imagePaths[1]!.isNotEmpty,
+                          complete:
+                              imagePaths[1] != null &&
+                              imagePaths[1]!.isNotEmpty,
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Gallery Slot 2',
-                          complete: imagePaths[2] != null && imagePaths[2]!.isNotEmpty,
+                          complete:
+                              imagePaths[2] != null &&
+                              imagePaths[2]!.isNotEmpty,
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Gallery Slot 3',
-                          complete: imagePaths[3] != null && imagePaths[3]!.isNotEmpty,
+                          complete:
+                              imagePaths[3] != null &&
+                              imagePaths[3]!.isNotEmpty,
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Gallery Slot 4',
-                          complete: imagePaths[4] != null && imagePaths[4]!.isNotEmpty,
+                          complete:
+                              imagePaths[4] != null &&
+                              imagePaths[4]!.isNotEmpty,
                         ),
                         const SizedBox(height: 12),
 
@@ -227,22 +243,29 @@ class StabilityTracker extends StatelessWidget {
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.glassWater,
                           label: 'Drinking',
-                          complete: drinking.isNotEmpty && drinking != 'Not specified',
+                          complete:
+                              drinking.isNotEmpty &&
+                              drinking != 'Not specified',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.cigarette,
                           label: 'Smoking',
-                          complete: smoking.isNotEmpty && smoking != 'Not specified',
+                          complete:
+                              smoking.isNotEmpty && smoking != 'Not specified',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.baby,
                           label: 'Children Plans',
-                          complete: childrenPlans.isNotEmpty && childrenPlans != 'Not specified',
+                          complete:
+                              childrenPlans.isNotEmpty &&
+                              childrenPlans != 'Not specified',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.sparkles,
                           label: 'Religious Beliefs',
-                          complete: religiousBeliefs.isNotEmpty && religiousBeliefs != 'Not specified',
+                          complete:
+                              religiousBeliefs.isNotEmpty &&
+                              religiousBeliefs != 'Not specified',
                         ),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.users,
@@ -283,7 +306,7 @@ class StabilityTracker extends StatelessWidget {
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED),
+                      backgroundColor: const Color(0xFF00E5FF),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -360,7 +383,6 @@ class StabilityTracker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
     final stabilityFraction = stabilityPercentage / 100;
 
     return GestureDetector(
@@ -421,80 +443,155 @@ class StabilityTracker extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Container(
-              height: 12,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
-                ),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final progressWidth = constraints.maxWidth * stabilityFraction;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 400),
-                        width: progressWidth,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [deepPurple, pulsarPink],
+            AnimatedBuilder(
+              animation: pulseController,
+              builder: (context, child) {
+                const totalSegments = 24;
+                const activeColorStart = Color(0xFF00E5FF); // deepPurple
+                const activeColorEnd = Color(0xFFFF7597); // pulsarPink
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(totalSegments, (index) {
+                    final segmentThreshold = index / totalSegments;
+                    final isActive = stabilityFraction > segmentThreshold;
+                    final segmentRatio = index / (totalSegments - 1);
+
+                    // Interpolate base color
+                    final baseColor =
+                        Color.lerp(
+                          activeColorStart,
+                          activeColorEnd,
+                          segmentRatio,
+                        ) ??
+                        activeColorEnd;
+
+                    // Calculate distance from scanner sweep
+                    final sweepValue = pulseController.value;
+                    final distanceFromSweep = (segmentRatio - sweepValue).abs();
+                    final sweepHighlight = (1.0 - (distanceFromSweep / 0.2))
+                        .clamp(0.0, 1.0);
+
+                    Color displayColor;
+                    List<BoxShadow>? boxShadows;
+
+                    if (isActive) {
+                      // Blend base color with bright white/pink for sweep highlight
+                      displayColor = Color.lerp(
+                        baseColor,
+                        Colors.white,
+                        sweepHighlight * 0.45,
+                      )!;
+                      boxShadows = [
+                        BoxShadow(
+                          color: baseColor.withValues(
+                            alpha: 0.3 + (sweepHighlight * 0.3),
                           ),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: pulsarPink.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ],
+                          blurRadius: 4 + (sweepHighlight * 6),
+                          spreadRadius: 0.5 + (sweepHighlight * 1),
                         ),
-                      ),
-                      Positioned(
-                        left: progressWidth - 6,
-                        top: -1,
-                        child: AnimatedBuilder(
-                          animation: pulseController,
-                          builder: (context, child) {
-                            return Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: pulsarPink.withValues(
-                                      alpha: (0.6 * pulseController.value) + 0.4,
-                                    ),
-                                    blurRadius: 6 + 4 * pulseController.value,
-                                    spreadRadius: 1 + 2 * pulseController.value,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: pulsarPink,
-                                    shape: BoxShape.circle,
-                                  ),
+                      ];
+                    } else {
+                      // Inactive segment gets a tiny hint of sweep light
+                      displayColor = Colors.white.withValues(
+                        alpha: 0.04 + (sweepHighlight * 0.08),
+                      );
+                      boxShadows = sweepHighlight > 0.5
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withValues(
+                                  alpha: 0.05 * sweepHighlight,
                                 ),
+                                blurRadius: 2,
+                                spreadRadius: 0.1,
                               ),
-                            );
-                          },
+                            ]
+                          : null;
+                    }
+
+                    return Expanded(
+                      child: Transform(
+                        transform: Matrix4.skewX(-0.18),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          height: 10,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(1.5),
+                            color: displayColor,
+                            border: Border.all(
+                              color: isActive
+                                  ? displayColor.withValues(alpha: 0.4)
+                                  : Colors.white.withValues(alpha: 0.02),
+                              width: 0.5,
+                            ),
+                            boxShadow: boxShadows,
+                          ),
                         ),
                       ),
-                    ],
-                  );
-                },
-              ),
+                    );
+                  }),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final percentage = stabilityPercentage;
+                String statusText;
+                Color statusColor;
+                IconData statusIcon;
+
+                if (percentage < 35) {
+                  statusText = 'SIGNAL CRITICAL';
+                  statusColor = const Color(0xFFEF4444);
+                  statusIcon = LucideIcons.alertTriangle;
+                } else if (percentage < 75) {
+                  statusText = 'SYNCHRONIZING';
+                  statusColor = const Color(0xFFF59E0B);
+                  statusIcon = LucideIcons.refreshCw;
+                } else {
+                  statusText = 'ALIGNMENT STABLE';
+                  statusColor = const Color(0xFF10B981);
+                  statusIcon = LucideIcons.checkCircle;
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          statusIcon,
+                          size: 10,
+                          color: statusColor.withValues(alpha: 0.8),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor.withValues(alpha: 0.8),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            fontFamily: 'Outfit',
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'STABILITY INDEX: $percentage/100',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),

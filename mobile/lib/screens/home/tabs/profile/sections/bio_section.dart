@@ -26,7 +26,7 @@ class _BioSectionState extends State<BioSection> {
   bool _isDirty = false;
 
   static const _pulsarPink = Color(0xFFFF7597);
-  static const _deepPurple = Color(0xFF7C3AED);
+  static const _deepPurple = Color(0xFF00E5FF);
   static const _mistLavender = Color(0xFFE2D9F3);
 
   @override
@@ -73,102 +73,119 @@ class _BioSectionState extends State<BioSection> {
     final counterColor = isAtLimit
         ? Colors.redAccent
         : isNearLimit
-            ? _pulsarPink
-            : Colors.white38;
+        ? _pulsarPink
+        : Colors.white38;
 
     return UniverseSection(
       icon: LucideIcons.fileText,
       title: 'Cosmic Signature',
-      description: 'Your signal to the universe — who you are in your own words',
+      description:
+          'Your signal to the universe — who you are in your own words',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Textarea container
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _focusNode.hasFocus
-                    ? _pulsarPink.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.1),
-                width: _focusNode.hasFocus ? 1.5 : 1,
-              ),
+              gradient: _focusNode.hasFocus
+                  ? const LinearGradient(
+                      colors: [_deepPurple, _pulsarPink],
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0.12),
+                      ],
+                    ),
               boxShadow: _focusNode.hasFocus
                   ? [
                       BoxShadow(
-                        color: _deepPurple.withValues(alpha: 0.2),
+                        color: _pulsarPink.withValues(alpha: 0.2),
                         blurRadius: 12,
                         spreadRadius: 1,
                       ),
                     ]
                   : [],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.penLine,
-                        size: 13,
-                        color: _pulsarPink,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'BIO',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          fontFamily: 'Outfit',
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.all(1.2),
+              decoration: BoxDecoration(
+                color: _focusNode.hasFocus
+                    ? const Color(0xFF0D1017)
+                    : const Color(0xFF141822),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.penLine,
+                          size: 13,
+                          color: _pulsarPink,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          'BIO',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                            fontFamily: 'Outfit',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  maxLines: 5,
-                  minLines: 3,
-                  maxLength: BioSection.maxLength,
-                  buildCounter: (_,
-                          {required currentLength,
+                  TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    maxLines: 5,
+                    minLines: 3,
+                    maxLength: BioSection.maxLength,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
                           required isFocused,
-                          maxLength}) =>
-                      null, // We render our own counter below
-                  style: const TextStyle(
-                    color: _mistLavender,
-                    fontSize: 14,
-                    height: 1.55,
-                    fontFamily: 'Outfit',
-                  ),
-                  decoration: InputDecoration(
-                    hintText:
-                        'Tell your story — your vibe, your passions, what makes you, you...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      fontSize: 13,
-                      height: 1.5,
+                          maxLength,
+                        }) => null,
+                    style: const TextStyle(
+                      color: _mistLavender,
+                      fontSize: 14,
+                      height: 1.55,
                       fontFamily: 'Outfit',
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Tell your story — your vibe, your passions, what makes you, you...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        fontSize: 13,
+                        height: 1.5,
+                        fontFamily: 'Outfit',
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                    ),
+                    onChanged: (val) {
+                      widget.onBioChanged(val);
+                      setState(() => _isDirty = true);
+                    },
+                    onEditingComplete: () {
+                      widget.onBioSubmitted(_controller.text.trim());
+                      setState(() => _isDirty = false);
+                    },
                   ),
-                  onChanged: (val) {
-                    widget.onBioChanged(val);
-                    setState(() => _isDirty = true);
-                  },
-                  onEditingComplete: () {
-                    widget.onBioSubmitted(_controller.text.trim());
-                    setState(() => _isDirty = false);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -177,21 +194,12 @@ class _BioSectionState extends State<BioSection> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Auto-saves when you leave this field',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  fontSize: 11,
-                  fontFamily: 'Outfit',
-                ),
-              ),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
                 style: TextStyle(
                   color: counterColor,
                   fontSize: 11,
-                  fontWeight:
-                      isNearLimit ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: isNearLimit ? FontWeight.bold : FontWeight.normal,
                   fontFamily: 'Outfit',
                 ),
                 child: Text('$remaining left'),

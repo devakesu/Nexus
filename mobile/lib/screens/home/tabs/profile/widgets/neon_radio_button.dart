@@ -20,7 +20,7 @@ class NeonRadioButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelected = value == groupValue;
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF7C3AED);
+    const deepPurple = Color(0xFF00E5FF);
 
     return GestureDetector(
       onTap: () => onChanged(value),

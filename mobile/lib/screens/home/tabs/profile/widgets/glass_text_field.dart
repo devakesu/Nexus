@@ -85,69 +85,82 @@ class _GlassTextFieldState extends State<GlassTextField> {
           const SizedBox(height: 8),
           AnimatedContainer(
             duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: _isFocused ? 0.08 : 0.03),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _isFocused
-                    ? pulsarPink.withValues(alpha: 0.8)
-                    : Colors.white.withValues(alpha: 0.12),
-                width: _isFocused ? 1.5 : 1,
-              ),
+              gradient: _isFocused
+                  ? const LinearGradient(
+                      colors: [Color(0xFF00E5FF), pulsarPink],
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.12),
+                        Colors.white.withValues(alpha: 0.12),
+                      ],
+                    ),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: pulsarPink.withValues(alpha: 0.15),
-                        blurRadius: 10,
+                        color: pulsarPink.withValues(alpha: 0.2),
+                        blurRadius: 12,
                         spreadRadius: 1,
                       ),
                     ]
                   : [],
             ),
-            child: Row(
-              crossAxisAlignment: isMultiLine
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: isMultiLine
-                      ? const EdgeInsets.only(top: 2)
-                      : EdgeInsets.zero,
-                  child: Icon(
-                    widget.prefixIcon,
-                    color: _isFocused ? pulsarPink : Colors.white38,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    onChanged: widget.onChanged,
-                    maxLines: widget.maxLines,
-                    minLines: widget.minLines,
-                    keyboardType: widget.keyboardType,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Outfit',
-                      fontSize: 14,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.all(1.2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: _isFocused
+                    ? const Color(0xFF0D1017)
+                    : const Color(0xFF141822),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                crossAxisAlignment: isMultiLine
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: isMultiLine
+                        ? const EdgeInsets.only(top: 2)
+                        : EdgeInsets.zero,
+                    child: Icon(
+                      widget.prefixIcon,
+                      color: _isFocused ? pulsarPink : Colors.white38,
+                      size: 18,
                     ),
-                    decoration: InputDecoration(
-                      hintText: widget.hintText,
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      onChanged: widget.onChanged,
+                      maxLines: widget.maxLines,
+                      minLines: widget.minLines,
+                      keyboardType: widget.keyboardType,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Outfit',
                         fontSize: 14,
                       ),
-                      hintMaxLines: 5,
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
+                      decoration: InputDecoration(
+                        hintText: widget.hintText,
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 14,
+                        ),
+                        hintMaxLines: 5,
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

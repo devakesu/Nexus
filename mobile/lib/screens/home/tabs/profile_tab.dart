@@ -649,7 +649,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                     height: 48,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7C3AED),
+                        backgroundColor: const Color(0xFF00E5FF),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -725,140 +725,230 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
+        barrierColor: Colors.black.withValues(alpha: 0.8),
         builder: (context) {
           final searchController = TextEditingController();
           return StatefulBuilder(
             builder: (context, setModalState) {
-              final filteredOptions = options.where((option) {
-                return option.toLowerCase().contains(
-                  searchController.text.toLowerCase(),
-                );
-              }).toList();
+              final showSearch = options.length > 10;
+              final filteredOptions = showSearch
+                  ? options.where((option) {
+                      return option.toLowerCase().contains(
+                            searchController.text.toLowerCase(),
+                          );
+                    }).toList()
+                  : options;
 
               return Container(
                 padding: EdgeInsets.only(
-                  top: 24,
-                  left: 24,
-                  right: 24,
-                  bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+                  top: 12,
+                  left: 20,
+                  right: 20,
+                  bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF161B26).withValues(alpha: 0.95),
+                  color: const Color(0xFF131722).withValues(alpha: 0.98),
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
                 child: SafeArea(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Outfit',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.03),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08),
+                      Center(
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 18),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              LucideIcons.search,
-                              color: Colors.white38,
-                              size: 16,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Outfit',
+                              letterSpacing: 0.5,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: searchController,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Search...',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    fontSize: 12,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                onChanged: (val) {
-                                  setModalState(() {});
-                                },
-                              ),
+                          ),
+                          Text(
+                            '${filteredOptions.length} options',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              fontSize: 11,
+                              fontFamily: 'Outfit',
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          physics: const ClampingScrollPhysics(),
-                          itemCount: filteredOptions.length,
-                          itemBuilder: (context, index) {
-                            final option = filteredOptions[index];
-                            final isSelected = option == currentValue;
-                            return Material(
-                              color: Colors.transparent,
-                              child: ListTile(
+                      if (showSearch) ...[
+                        Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.02),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.search,
+                                color: Colors.white38,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: searchController,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontFamily: 'Outfit',
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search signals...',
+                                    hintStyle: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.25),
+                                      fontSize: 13,
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (val) {
+                                    setModalState(() {});
+                                  },
+                                ),
+                              ),
+                              if (searchController.text.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    searchController.clear();
+                                    setModalState(() {});
+                                  },
+                                  child: const Icon(
+                                    LucideIcons.xCircle,
+                                    color: Colors.white38,
+                                    size: 16,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.45,
+                        ),
+                        child: ShaderMask(
+                          shaderCallback: (bounds) {
+                            return const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.white, Colors.transparent],
+                              stops: [0.90, 1.0],
+                            ).createShader(bounds);
+                          },
+                          blendMode: BlendMode.dstIn,
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: filteredOptions.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final option = filteredOptions[index];
+                              final isSelected = option == currentValue;
+                              final emoji = getEmojiForTag(option);
+
+                              return GestureDetector(
                                 onTap: () {
                                   Navigator.pop(context, option);
                                 },
-                                title: Row(
-                                  children: [
-                                    if (getEmojiForTag(option).isNotEmpty) ...[
-                                      Text(
-                                        getEmojiForTag(option),
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Expanded(
-                                      child: Text(
-                                        option,
-                                        style: TextStyle(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFFFF7597).withValues(alpha: 0.08)
+                                        : Colors.white.withValues(alpha: 0.01),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFFFF7597).withValues(alpha: 0.45)
+                                          : Colors.white.withValues(alpha: 0.05),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      if (isSelected) ...[
+                                        Container(
+                                          width: 3,
+                                          height: 14,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFF7597),
+                                            borderRadius: BorderRadius.circular(1.5),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                      ],
+                                      if (emoji.isNotEmpty) ...[
+                                        Text(
+                                          emoji,
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                        const SizedBox(width: 12),
+                                      ] else ...[
+                                        Icon(
+                                          LucideIcons.sparkles,
+                                          size: 14,
                                           color: isSelected
                                               ? const Color(0xFFFF7597)
-                                              : Colors.white,
-                                          fontFamily: 'Outfit',
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
+                                              : Colors.white24,
+                                        ),
+                                        const SizedBox(width: 12),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          option,
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : Colors.white70,
+                                            fontFamily: 'Outfit',
+                                            fontSize: 14,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                      if (isSelected)
+                                        const Icon(
+                                          LucideIcons.checkCircle,
+                                          color: Color(0xFFFF7597),
+                                          size: 16,
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                                trailing: isSelected
-                                    ? const Icon(
-                                        LucideIcons.check,
-                                        color: Color(0xFFFF7597),
-                                      )
-                                    : null,
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
