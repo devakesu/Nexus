@@ -493,6 +493,8 @@ class ProfileDetailsUpdate(BaseModel):
     tech_skills: list[str] | None = None
     languages: list[str] | None = None
     pets: list[str] | None = None
+    interests: dict[str, int] | None = None
+    sub_interests: dict[str, list[str]] | None = None
 
 
 
@@ -548,6 +550,8 @@ def get_profile_details(
             "tech_skills": profile.get("tech_skills") or [],
             "languages": profile.get("languages") or [],
             "pets": profile.get("pets") or [],
+            "interests": profile.get("interests") or {},
+            "sub_interests": profile.get("sub_interests") or {},
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
@@ -618,6 +622,17 @@ def update_profile_details(  # noqa: C901
         "pets",
     ]
     for field in array_fields:
+        val = getattr(payload, field, None)
+        if val is not None:
+            enc = encrypt_pii(json.dumps(val))
+            update_data[field] = f"\\x{enc.hex()}" if enc else None
+
+    # Encrypted dict fields (JSON object payload serialized before encryption)
+    dict_fields = [
+        "interests",
+        "sub_interests",
+    ]
+    for field in dict_fields:
         val = getattr(payload, field, None)
         if val is not None:
             enc = encrypt_pii(json.dumps(val))

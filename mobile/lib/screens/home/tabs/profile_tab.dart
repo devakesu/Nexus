@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
+import 'package:nexus/screens/home/widgets/interests_overlay.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -64,6 +65,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   // Removed from UI, keep local state for model parsing.
   // ignore: unused_field
   List<String> _lookingFor = [];
+  // ignore: unused_field
   List<String> _activities = [];
   List<String> _causesSupported = [];
   List<String> _topArtists = [];
@@ -72,6 +74,19 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   List<String> _techSkills = [];
   List<String> _languages = [];
   List<String> _pets = [];
+  // ignore: unused_field
+  Map<String, int> _interests = {};
+  Map<String, List<String>> _subInterests = {};
+  List<String> get _flatSubInterests {
+    final list = <String>[];
+    _subInterests.forEach((parent, subs) {
+      for (final sub in subs) {
+        list.add('$parent: $sub');
+      }
+    });
+    return list;
+  }
+
   final TextEditingController _artistInputController = TextEditingController();
 
   // Interests / Vibe Tags State
@@ -276,6 +291,32 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             } else {
               _pets = [];
             }
+
+            final rawInterests = data['interests'];
+            if (rawInterests is Map) {
+              _interests = Map<String, int>.from(
+                rawInterests.map(
+                  (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+                ),
+              );
+            } else {
+              _interests = {};
+            }
+
+            final rawSubInterests = data['sub_interests'];
+            if (rawSubInterests is Map) {
+              _subInterests = Map<String, List<String>>.from(
+                rawSubInterests.map((k, v) {
+                  final list = v as List? ?? [];
+                  return MapEntry(
+                    k.toString(),
+                    list.map((e) => e.toString()).toList(),
+                  );
+                }),
+              );
+            } else {
+              _subInterests = {};
+            }
           });
         }
       }
@@ -316,6 +357,8 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     List<String>? techSkills,
     List<String>? languages,
     List<String>? pets,
+    Map<String, int>? interests,
+    Map<String, List<String>>? subInterests,
   }) async {
     setState(() => _isSavingDetails = true);
     try {
@@ -358,6 +401,8 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
         if (techSkills != null) payload['tech_skills'] = techSkills;
         if (languages != null) payload['languages'] = languages;
         if (pets != null) payload['pets'] = pets;
+        if (interests != null) payload['interests'] = interests;
+        if (subInterests != null) payload['sub_interests'] = subInterests;
 
         // Perform the details secure endpoint update
         if (payload.isNotEmpty) {
@@ -405,6 +450,8 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
               if (techSkills != null) _techSkills = techSkills;
               if (languages != null) _languages = languages;
               if (pets != null) _pets = pets;
+              if (interests != null) _interests = interests;
+              if (subInterests != null) _subInterests = subInterests;
             });
           }
         }
@@ -2026,44 +2073,84 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Activities tag editor
+                      // Interests & Affinities tag editor
                       _buildTagChipsEditor(
-                        label: 'Activities',
-                        currentValues: _activities,
-                        presets: const [
-                          'Coding',
-                          'Gaming',
-                          'Reading',
-                          'Music',
-                          'Hiking',
-                          'Cooking',
-                          'Traveling',
-                          'Art',
-                          'Photography',
-                          'Dancing',
-                          'Fitness & Gym',
-                          'Yoga & Meditation',
-                          'Movie Nights',
-                          'Board Games',
-                          'Anime & Manga',
-                          'Writing & Blogging',
-                          'Volunteering',
-                          'Gardening',
-                          'Sports & Football',
-                          'Astrophysics & Space',
-                          'Startups & Business',
-                          'Cryptocurrency & Web3',
-                          'AI & Machine Learning',
-                        ],
-                        icon: LucideIcons.activity,
-                        iconColor: const Color(0xFF9C27B0),
+                        label: 'Interests',
+                        currentValues: _flatSubInterests,
+                        presets: const [],
+                        icon: LucideIcons.sparkles,
+                        iconColor: const Color(0xFFFF7597),
                         onChanged: (val) {
-                          setState(() => _activities = val);
-                          unawaited(_saveProfileChanges(activities: val));
+                          final Map<String, List<String>> newSubInterests = {};
+                          for (final item in val) {
+                            final parts = item.split(': ');
+                            if (parts.length == 2) {
+                              newSubInterests
+                                  .putIfAbsent(parts[0], () => [])
+                                  .add(parts[1]);
+                            }
+                          }
+                          final Map<String, int> newInterests = {};
+                          newSubInterests.forEach((parent, subs) {
+                            int weight = 1;
+                            if (subs.length == 2) weight = 2;
+                            if (subs.length >= 3) weight = 3;
+                            newInterests[parent] = weight;
+                          });
+                          setState(() {
+                            _subInterests = newSubInterests;
+                            _interests = newInterests;
+                          });
+                          unawaited(
+                            _saveProfileChanges(
+                              interests: newInterests,
+                              subInterests: newSubInterests,
+                            ),
+                          );
                         },
-                        hintText: 'Select activities...',
+                        hintText: 'Select alignments...',
                         allowCustom: false,
+                        onTapEdit: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (context) => InterestsOverlay(
+                                initialSelected: _flatSubInterests,
+                                onSave: (val) {
+                                  final Map<String, List<String>>
+                                  newSubInterests = {};
+                                  for (final item in val) {
+                                    final parts = item.split(': ');
+                                    if (parts.length == 2) {
+                                      newSubInterests
+                                          .putIfAbsent(parts[0], () => [])
+                                          .add(parts[1]);
+                                    }
+                                  }
+                                  final Map<String, int> newInterests = {};
+                                  newSubInterests.forEach((parent, subs) {
+                                    int weight = 1;
+                                    if (subs.length == 2) weight = 2;
+                                    if (subs.length >= 3) weight = 3;
+                                    newInterests[parent] = weight;
+                                  });
+                                  setState(() {
+                                    _subInterests = newSubInterests;
+                                    _interests = newInterests;
+                                  });
+                                  unawaited(
+                                    _saveProfileChanges(
+                                      interests: newInterests,
+                                      subInterests: newSubInterests,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        },
                       ),
+                      const SizedBox(height: 16),
 
                       // Causes Supported tag editor
                       _buildTagChipsEditor(
@@ -2792,6 +2879,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     required ValueChanged<List<String>> onChanged,
     required String hintText,
     bool allowCustom = true,
+    VoidCallback? onTapEdit,
   }) {
     const pulsarPink = Color(0xFFFF7597);
     return Column(
@@ -2817,14 +2905,18 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             ),
             TextButton.icon(
               onPressed: () {
-                _openMultiSelectSheet(
-                  title: 'Select $label',
-                  currentValues: currentValues,
-                  presets: presets,
-                  onChanged: onChanged,
-                  hintText: hintText,
-                  allowCustom: allowCustom,
-                );
+                if (onTapEdit != null) {
+                  onTapEdit();
+                } else {
+                  _openMultiSelectSheet(
+                    title: 'Select $label',
+                    currentValues: currentValues,
+                    presets: presets,
+                    onChanged: onChanged,
+                    hintText: hintText,
+                    allowCustom: allowCustom,
+                  );
+                }
               },
               icon: const Icon(LucideIcons.plus, size: 12, color: pulsarPink),
               label: const Text(
