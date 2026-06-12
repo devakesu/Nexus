@@ -88,7 +88,7 @@ class StabilityTracker extends StatelessWidget {
                     Icon(LucideIcons.activity, color: Color(0xFFFF7597)),
                     SizedBox(width: 12),
                     Text(
-                      'Cosmic Stability Report',
+                      'Profile Completion Report',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -100,12 +100,12 @@ class StabilityTracker extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Your stability is at $stabilityPercentage% alignment.',
+                  'Your profile is $stabilityPercentage% complete.',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Complete your signals to increase your matching resonance. Each filled parameter refines your cosmic coordinates:',
+                  'Complete your profile details to improve matchmaking. Each filled parameter increases your search relevance:',
                   style: TextStyle(
                     color: Colors.white54,
                     fontSize: 13,
@@ -119,8 +119,8 @@ class StabilityTracker extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 1. The Core Signal
-                        _buildStabilityCategoryHeader('The Core Signal'),
+                        // 1. Core Details
+                        _buildStabilityCategoryHeader('Core Details'),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.image,
                           label: 'Profile Picture',
@@ -199,8 +199,8 @@ class StabilityTracker extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
 
-                        // 2. Social Coordinates
-                        _buildStabilityCategoryHeader('Social Coordinates'),
+                        // 2. Social & Campus Info
+                        _buildStabilityCategoryHeader('Social & Campus Info'),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.home,
                           label: 'Hometown',
@@ -233,8 +233,8 @@ class StabilityTracker extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
 
-                        // 3. Lifestyle & Resonance
-                        _buildStabilityCategoryHeader('Lifestyle & Resonance'),
+                        // 3. Lifestyle & Preferences
+                        _buildStabilityCategoryHeader('Lifestyle & Preferences'),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.activity,
                           label: 'Lifestyle Description',
@@ -279,8 +279,8 @@ class StabilityTracker extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
 
-                        // 4. Affinity & Interests
-                        _buildStabilityCategoryHeader('Affinity & Interests'),
+                        // 4. Interests & Hobbies
+                        _buildStabilityCategoryHeader('Interests & Hobbies'),
                         _buildStabilityCriteriaRow(
                           icon: LucideIcons.sparkles,
                           label: 'Interests',
@@ -412,7 +412,7 @@ class StabilityTracker extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'System Stability',
+                      'Profile Completion',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 10,
@@ -543,7 +543,7 @@ class StabilityTracker extends StatelessWidget {
                 IconData statusIcon;
 
                 if (percentage < 35) {
-                  statusText = 'SIGNAL CRITICAL';
+                  statusText = 'PROFILE INCOMPLETE';
                   statusColor = const Color(0xFFEF4444);
                   statusIcon = LucideIcons.alertTriangle;
                 } else if (percentage < 75) {
@@ -551,7 +551,7 @@ class StabilityTracker extends StatelessWidget {
                   statusColor = const Color(0xFFF59E0B);
                   statusIcon = LucideIcons.refreshCw;
                 } else {
-                  statusText = 'ALIGNMENT STABLE';
+                  statusText = 'PROFILE COMPLETE';
                   statusColor = const Color(0xFF10B981);
                   statusIcon = LucideIcons.checkCircle;
                 }

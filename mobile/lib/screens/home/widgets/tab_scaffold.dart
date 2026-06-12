@@ -83,9 +83,8 @@ class TabScaffold extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
                     Text(
-                      'Activate your local gravitational pool to scan for matches and synchronize with nearby nodes.',
+                      'Activate your network scanner to search for other matches nearby.',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.white.withAlpha(178),
@@ -100,8 +99,7 @@ class TabScaffold extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: themeColor,
                           foregroundColor: Colors.white,
-                          elevation: 8,
-                          shadowColor: themeColor.withAlpha(127),
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),

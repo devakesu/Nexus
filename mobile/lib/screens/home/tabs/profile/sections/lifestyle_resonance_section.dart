@@ -57,8 +57,8 @@ class LifestyleResonanceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return UniverseSection(
       icon: LucideIcons.heart,
-      title: 'Lifestyle & Resonance',
-      description: 'Daily frequency parameters',
+      title: 'Lifestyle & Preferences',
+      description: 'Your daily habits, values and background',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

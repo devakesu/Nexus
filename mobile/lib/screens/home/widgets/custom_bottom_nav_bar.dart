@@ -16,64 +16,47 @@ class CustomBottomNavBar extends StatelessWidget {
   Color _getSelectedColor(int index) {
     switch (index) {
       case 0:
-        return const Color(0xFFFF7597); // Pulsar Pink (Dating)
+        return const Color(0xFFFF4F81); // Dating
       case 1:
-        return const Color(0xFFFFB03A); // Cosmic Sunset Gold (Friends)
+        return const Color(0xFFFF9F1C); // Friends
       case 2:
-        return const Color(0xFFB39DDB); // Deep Lavender / Universe
+        return const Color(0xFF0891B2); // Profile
       case 3:
-        return const Color(0xFF00F5D4); // Neon Teal (Resonance)
+        return const Color(0xFF00F5D4); // Professional
       case 4:
-        return const Color(0xFF80C9FF); // Starlight Blue (Orbit)
+        return const Color(0xFF4EA8DE); // Settings
       default:
-        return const Color(0xFFFF7597);
+        return const Color(0xFF0891B2);
     }
   }
 
   Color _getUnselectedColor() {
-    return const Color(0x99E2D9F3); // Soft translucent lavender/grey
+    return const Color(0x9994A3B8); // Flat muted grey
   }
 
   @override
   Widget build(BuildContext context) {
-    // Determine soft ambient glow color based on selected tab
-    final activeGlowColor = _getSelectedColor(currentIndex);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       height: 72,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF).withAlpha(10), // Whispering transparency
+        color: const Color(0xFF161B26),
         borderRadius: BorderRadius.circular(36),
         border: Border.all(
-          color: const Color(0xFFFFFFFF).withAlpha(30), // Subtle light leak edge
+          color: Colors.white.withAlpha(20),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: activeGlowColor.withAlpha(38), // Soft pulsar active tab glow
-            blurRadius: 24,
-            spreadRadius: -2,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16), // Glass blur
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.favorite_rounded, 'nebula'),
-                _buildNavItem(1, Icons.all_inclusive_rounded, 'galaxy'),
-                _buildCenterNavItem(),
-                _buildNavItem(3, Icons.work_rounded, 'horizon'),
-                _buildNavItem(4, Icons.blur_circular_rounded, 'zenith'),
-              ],
-            ),
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(0, Icons.favorite_rounded, 'dating'),
+            _buildNavItem(1, Icons.all_inclusive_rounded, 'friends'),
+            _buildCenterNavItem(),
+            _buildNavItem(3, Icons.work_rounded, 'work'),
+            _buildNavItem(4, Icons.blur_circular_rounded, 'settings'),
+          ],
         ),
       ),
     );
@@ -180,7 +163,7 @@ class CustomBottomNavBar extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            'universe',
+            'profile',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 1.2,

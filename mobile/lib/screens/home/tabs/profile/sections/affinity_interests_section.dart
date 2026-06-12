@@ -42,8 +42,8 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
   Widget build(BuildContext context) {
     return UniverseSection(
       icon: LucideIcons.tags,
-      title: 'Affinity & Interests',
-      description: 'Interstellar alignments',
+      title: 'Interests & Hobbies',
+      description: 'Your hobbies, music, and causes',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -55,7 +55,7 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
             icon: LucideIcons.sparkles,
             iconColor: const Color(0xFFFF7597),
             onChanged: widget.onInterestsSaved,
-            hintText: 'Select alignments...',
+            hintText: 'Select interests...',
             allowCustom: false,
             onTapEdit: () {
               unawaited(
@@ -119,9 +119,9 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
               runSpacing: 8,
               children: widget.topArtists.map((artist) {
                 return Chip(
-                  backgroundColor: const Color(0xFF00E5FF).withValues(alpha: 0.15),
-                  side: const BorderSide(
-                    color: Color(0xFFFF7597),
+                  backgroundColor: Colors.white.withValues(alpha: 0.04),
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.12),
                     width: 0.8,
                   ),
                   shape: RoundedRectangleBorder(

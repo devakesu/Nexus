@@ -67,8 +67,8 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
   Widget build(BuildContext context) {
     return UniverseSection(
       icon: LucideIcons.globe,
-      title: 'Social Coordinates',
-      description: 'Space-time cluster orientation',
+      title: 'Social & Campus Info',
+      description: 'Your campus and hometown background',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -347,17 +347,13 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Custom Neon Switch (On state)
+                    // Flat Switch (On state)
                     Container(
                       width: 44,
                       height: 24,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFFF7597).withValues(alpha: 0.15),
-                        border: Border.all(
-                          color: const Color(0xFFFF7597).withValues(alpha: 0.45),
-                          width: 1,
-                        ),
+                        color: const Color(0xFF0891B2),
                       ),
                       child: Stack(
                         children: [
@@ -366,24 +362,13 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                             child: Container(
                               width: 18,
                               height: 18,
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              decoration: BoxDecoration(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 3,
+                                vertical: 3,
+                              ),
+                              decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFFF7597),
-                                    Color(0xFF00E5FF),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFFF7597).withValues(alpha: 0.5),
-                                    blurRadius: 6,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -417,8 +402,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                     final yearOption = index + 1;
                     final isSelected = widget.year == yearOption;
                     final label = '${yearOption == 1 ? "1st" : yearOption == 2 ? "2nd" : yearOption == 3 ? "3rd" : "${yearOption}th"} Year';
-                    const pulsarPink = Color(0xFFFF7597);
-                    const deepPurple = Color(0xFF00E5FF);
+                    const primaryColor = Color(0xFF0891B2);
 
                     return GestureDetector(
                       onTap: () {
@@ -429,28 +413,12 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          gradient: isSelected
-                              ? const LinearGradient(
-                                  colors: [deepPurple, pulsarPink],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : null,
-                          color: isSelected ? null : const Color(0xFF141822),
+                          color: isSelected ? primaryColor : const Color(0xFF141822),
                           border: Border.all(
                             color: isSelected
                                 ? Colors.white.withValues(alpha: 0.35)
                                 : Colors.white.withValues(alpha: 0.08),
                           ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: pulsarPink.withValues(alpha: 0.25),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                  )
-                                ]
-                              : [],
                         ),
                         child: Text(
                           label,

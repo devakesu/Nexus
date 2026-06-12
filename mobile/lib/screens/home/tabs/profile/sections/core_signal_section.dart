@@ -74,8 +74,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     required IconData icon,
   }) {
     final isSelected = widget.searchBuckets.contains(value);
-    const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF00E5FF);
+    const primaryColor = Color(0xFF0891B2);
 
     return Expanded(
       child: GestureDetector(
@@ -87,28 +86,12 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: isSelected
-                ? const LinearGradient(
-                    colors: [deepPurple, pulsarPink],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.02),
+            color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.02),
             border: Border.all(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.35)
                   : Colors.white.withValues(alpha: 0.08),
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: pulsarPink.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : [],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -142,8 +125,8 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
 
     return UniverseSection(
       icon: LucideIcons.user,
-      title: 'The Core Signal',
-      description: 'Essential dimensional settings',
+      title: 'Core Details',
+      description: 'Essential profile details',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -181,15 +164,11 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00E5FF),
+                      backgroundColor: const Color(0xFF0891B2),
                       foregroundColor: Colors.white,
-                      shadowColor: const Color(
-                        0xFFFF7597,
-                      ).withValues(alpha: 0.5),
-                      elevation: 8,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Color(0xFFFF7597)),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -318,22 +297,12 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      gradient: imagePath != null
-                          ? const LinearGradient(
-                              colors: [Color(0xFF00E5FF), pulsarPink],
+                      border: imagePath != null
+                          ? Border.all(
+                              color: const Color(0xFF0891B2),
+                              width: 1.5,
                             )
                           : null,
-                      boxShadow: imagePath != null
-                          ? [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF00E5FF,
-                                ).withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : [],
                     ),
                     child: Padding(
                       padding: EdgeInsets.all(imagePath != null ? 1.5 : 0),

@@ -22,7 +22,7 @@ class NeonSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const primaryColor = Color(0xFF0891B2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,14 +42,14 @@ class NeonSlider extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               decoration: BoxDecoration(
-                color: pulsarPink.withValues(alpha: 0.15),
+                color: primaryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: pulsarPink.withValues(alpha: 0.3)),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
               ),
               child: Text(
                 '${value.round()}',
                 style: const TextStyle(
-                  color: pulsarPink,
+                  color: primaryColor,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'Outfit',
@@ -63,10 +63,10 @@ class NeonSlider extends StatelessWidget {
           data: SliderTheme.of(context).copyWith(
             inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
             trackHeight: 4,
-            thumbColor: pulsarPink,
+            thumbColor: primaryColor,
             thumbShape: const _NeonSliderThumbShape(thumbRadius: 9),
             trackShape: const _NeonGradientSliderTrackShape(),
-            overlayColor: pulsarPink.withValues(alpha: 0.2),
+            overlayColor: primaryColor.withValues(alpha: 0.2),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
             activeTickMarkColor: Colors.white.withValues(alpha: 0.8),
             inactiveTickMarkColor: Colors.white.withValues(alpha: 0.2),
@@ -114,13 +114,10 @@ class _NeonGradientSliderTrackShape extends RectangularSliderTrackShape {
       isDiscrete: isDiscrete,
     );
 
-    const activeColorStart = Color(0xFF00E5FF); // deepPurple
-    const activeColorEnd = Color(0xFFFF7597); // pulsarPink
+    const primaryColor = Color(0xFF0891B2);
 
     final activePaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [activeColorStart, activeColorEnd],
-      ).createShader(trackRect)
+      ..color = primaryColor
       ..style = PaintingStyle.fill;
 
     final inactivePaint = Paint()
@@ -171,14 +168,8 @@ class _NeonSliderThumbShape extends SliderComponentShape {
     required double textScaleFactor,
     required Size sizeWithOverflow,
   }) {
-    const pulsarPink = Color(0xFFFF7597);
+    const primaryColor = Color(0xFF0891B2);
     final canvas = context.canvas;
-
-    final glowRadius = thumbRadius + 5 * activationAnimation.value;
-    final glowPaint = Paint()
-      ..color = pulsarPink.withValues(alpha: 0.35)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawCircle(center, glowRadius, glowPaint);
 
     final outerPaint = Paint()
       ..color = Colors.white
@@ -186,7 +177,7 @@ class _NeonSliderThumbShape extends SliderComponentShape {
     canvas.drawCircle(center, thumbRadius, outerPaint);
 
     final innerPaint = Paint()
-      ..color = pulsarPink
+      ..color = primaryColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, thumbRadius - 3.5, innerPaint);
   }

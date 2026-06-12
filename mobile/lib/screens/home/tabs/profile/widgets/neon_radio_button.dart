@@ -19,8 +19,7 @@ class NeonRadioButton<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = value == groupValue;
-    const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF00E5FF);
+    const primaryColor = Color(0xFF0891B2);
 
     return GestureDetector(
       onTap: () => onChanged(value),
@@ -30,24 +29,15 @@ class NeonRadioButton<T> extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
-              ? deepPurple.withValues(alpha: 0.12)
+              ? primaryColor.withValues(alpha: 0.1)
               : Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? deepPurple.withValues(alpha: 0.6)
+                ? primaryColor
                 : Colors.white.withValues(alpha: 0.1),
             width: isSelected ? 1.5 : 1,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: deepPurple.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : [],
         ),
         child: Row(
           children: [
@@ -58,18 +48,9 @@ class NeonRadioButton<T> extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? pulsarPink : Colors.white30,
+                  color: isSelected ? primaryColor : Colors.white30,
                   width: isSelected ? 2 : 1.5,
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: pulsarPink.withValues(alpha: 0.3),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : [],
               ),
               child: Center(
                 child: AnimatedContainer(
@@ -77,7 +58,7 @@ class NeonRadioButton<T> extends StatelessWidget {
                   width: isSelected ? 10 : 0,
                   height: isSelected ? 10 : 0,
                   decoration: const BoxDecoration(
-                    color: pulsarPink,
+                    color: primaryColor,
                     shape: BoxShape.circle,
                   ),
                 ),

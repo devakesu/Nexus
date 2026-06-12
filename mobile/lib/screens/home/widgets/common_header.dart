@@ -53,30 +53,13 @@ class CommonHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Stylish App Name Header
-          ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [
-                Colors.white,
-                tabThemeColor.withAlpha(220),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ).createShader(bounds),
-            child: Text(
-              appName.toUpperCase(),
-              style: GoogleFonts.orbitron(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: tabThemeColor.withAlpha(127),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
+          Text(
+            appName.toUpperCase(),
+            style: GoogleFonts.orbitron(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+              color: Colors.white,
             ),
           ),
           // Dynamic Action Button based on Tab
@@ -94,7 +77,7 @@ class CommonHeader extends StatelessWidget {
                 color: const Color(0xFF161B26),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: tabThemeColor.withAlpha(76),
+                  color: Colors.white.withAlpha(20),
                   width: 1.5,
                 ),
               ),
