@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../widgets/universe_section.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 
 class BioSection extends StatefulWidget {
   const BioSection({

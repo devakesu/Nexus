@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 
 class TagChipsEditor extends StatelessWidget {
   const TagChipsEditor({
@@ -361,7 +361,7 @@ class TagChipsEditor extends StatelessWidget {
               children: () {
                 var displayValues = currentValues;
                 if (label.toLowerCase() == 'interests') {
-                  final Map<String, List<String>> grouped = {};
+                  final grouped = <String, List<String>>{};
                   for (final val in currentValues) {
                     final parts = val.split(': ');
                     if (parts.length == 2) {
@@ -370,7 +370,7 @@ class TagChipsEditor extends StatelessWidget {
                       grouped.putIfAbsent(val, () => []);
                     }
                   }
-                  final List<String> merged = [];
+                  final merged = <String>[];
                   grouped.forEach((parent, subs) {
                     if (subs.isEmpty) {
                       merged.add(parent);

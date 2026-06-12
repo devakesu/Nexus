@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'orbit_painter.dart';
-import 'storage_image.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/orbit_painter.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -106,10 +106,10 @@ class ProfileHeader extends StatelessWidget {
                                   ),
                                 ),
                                 if ((isProcessingAI || isSaving) && hasPendingUpload)
-                                  Positioned.fill(
-                                    child: Container(
+                                  const Positioned.fill(
+                                    child: ColoredBox(
                                       color: Colors.black54,
-                                      child: const Center(
+                                      child: Center(
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),

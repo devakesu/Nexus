@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SubInterest {
-  final String name;
   const SubInterest(this.name);
+  final String name;
 }
 
 class ParentInterest {
+  const ParentInterest({required this.name, required this.subInterests});
   final String name;
   final List<String> subInterests;
-  const ParentInterest({required this.name, required this.subInterests});
 }
 
 class InterestCategory {
-  final String name;
-  final IconData icon;
-  final List<ParentInterest> parents;
   const InterestCategory({
     required this.name,
     required this.icon,
     required this.parents,
   });
+  final String name;
+  final IconData icon;
+  final List<ParentInterest> parents;
 }
 
 // Complete static hierarchy of hundreds of interests and sub-interests
@@ -347,14 +347,14 @@ const List<InterestCategory> interestsCategories = [
 ];
 
 class InterestsOverlay extends StatefulWidget {
-  final List<String> initialSelected;
-  final ValueChanged<List<String>> onSave;
 
   const InterestsOverlay({
     required this.initialSelected,
     required this.onSave,
     super.key,
   });
+  final List<String> initialSelected;
+  final ValueChanged<List<String>> onSave;
 
   @override
   State<InterestsOverlay> createState() => _InterestsOverlayState();
@@ -619,7 +619,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
         border: Border(
           bottom: BorderSide(
             color: Colors.white.withValues(alpha: 0.08),
-            width: 1,
           ),
         ),
       ),
@@ -688,9 +687,7 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                 ),
                 if (_searchQuery.isNotEmpty)
                   GestureDetector(
-                    onTap: () {
-                      _searchController.clear();
-                    },
+                    onTap: _searchController.clear,
                     child: const Icon(
                       LucideIcons.x,
                       color: Colors.white70,
@@ -707,7 +704,7 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
 
   Widget _buildSearchResults(Color pulsarPink, Color deepPurple) {
     // Find all sub-interests matching the search query
-    final List<Map<String, String>> matches = [];
+    final matches = <Map<String, String>>[];
     for (final cat in interestsCategories) {
       for (final parent in cat.parents) {
         for (final sub in parent.subInterests) {
@@ -871,7 +868,7 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                 final isExpanded = _expandedParents[parent.name] ?? false;
 
                 // Count how many are selected in this parent interest group
-                final int selectedCount = parent.subInterests
+                final selectedCount = parent.subInterests
                     .where((sub) => _isInterestSelected(parent.name, sub))
                     .length;
 
@@ -1028,7 +1025,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
         border: Border(
           top: BorderSide(
             color: Colors.white.withValues(alpha: 0.08),
-            width: 1,
           ),
         ),
       ),

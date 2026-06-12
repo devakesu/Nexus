@@ -1,8 +1,9 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'glass_text_field.dart';
-import '../utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 
 class CosmicSelectionOverlay extends StatefulWidget {
   const CosmicSelectionOverlay({

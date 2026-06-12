@@ -1,8 +1,9 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StorageImage extends StatelessWidget {
   const StorageImage({

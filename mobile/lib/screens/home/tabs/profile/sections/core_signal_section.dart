@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../widgets/universe_section.dart';
-import '../widgets/glass_text_field.dart';
-import '../widgets/neon_slider.dart';
-import '../widgets/selector_tile.dart';
-import '../widgets/storage_image.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/neon_slider.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 
 class CoreSignalSection extends StatefulWidget {
   const CoreSignalSection({
@@ -314,10 +314,10 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                             ),
                             if ((widget.isProcessingAI || widget.isSaving) &&
                                 widget.pendingUploads.containsKey(slotIndex))
-                              Positioned.fill(
-                                child: Container(
+                              const Positioned.fill(
+                                child: ColoredBox(
                                   color: Colors.black54,
-                                  child: const Center(
+                                  child: Center(
                                     child: SizedBox(
                                       width: 20,
                                       height: 20,

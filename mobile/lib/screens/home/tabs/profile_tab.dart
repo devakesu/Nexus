@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,21 +8,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/features/profile/providers/client_ai_image_provider.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/affinity_interests_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/bio_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/core_signal_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
+// Modular Imports
+import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// Modular Imports
-import 'profile/utils/emoji_helper.dart';
-import 'profile/widgets/cosmic_selection_overlay.dart';
-import 'profile/widgets/profile_header.dart';
-import 'profile/widgets/stability_tracker.dart';
-import 'profile/widgets/storage_image.dart';
-import 'profile/sections/bio_section.dart';
-import 'profile/sections/core_signal_section.dart';
-import 'profile/sections/social_coordinates_section.dart';
-import 'profile/sections/lifestyle_resonance_section.dart';
-import 'profile/sections/affinity_interests_section.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({required this.onOpenOrbit, super.key});
@@ -42,16 +42,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   bool _isLoading = true;
 
   // Core profile state loaded from DB/Onboarding
-  String _name = 'Alex';
-  int _age = 21;
-  int _savedAge = 21;
-  int _year = 3;
-  String _pronouns = 'they/them';
+  String _name = '';
+  int _age = 0;
+  int _savedAge = 0;
+  int _year = 0;
+  String _pronouns = '';
   String _campusName = '';
   bool _isStudying = true;
   String _major = '';
-  // ignore: unused_field
-  String _vibeMode = 'deep';
   String _displayGender = 'Not specified';
   String _displaySexuality = 'Not specified';
   List<String> _searchBuckets = [];
@@ -67,24 +65,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   String _lifestyle = '';
   String _drinking = 'Not specified';
   String _smoking = 'Not specified';
-  // ignore: unused_field
-  String _role = 'Not specified';
-  // ignore: unused_field
-  List<String> _targetBuckets = [];
-  // ignore: unused_field
-  List<String> _lookingFor = [];
-  // ignore: unused_field
-  List<String> _activities = [];
   List<String> _causesSupported = [];
   List<String> _topArtists = [];
-  // ignore: unused_field
-  List<String> _techSkills = [];
   List<String> _languages = [];
-  // ignore: unused_field
-  List<String> _vibeTags = [];
   List<String> _pets = [];
-  // ignore: unused_field
-  Map<String, int> _interests = {};
   Map<String, List<String>> _subInterests = {};
   List<String> get _flatSubInterests {
     final list = <String>[];
@@ -181,34 +165,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             _lifestyle = data['lifestyle']?.toString() ?? '';
             _drinking = data['drinking']?.toString() ?? 'Not specified';
             _smoking = data['smoking']?.toString() ?? 'Not specified';
-            _role = data['role']?.toString() ?? 'Not specified';
 
             final rawBuckets = data['search_buckets'];
             if (rawBuckets is List) {
               _searchBuckets = rawBuckets.map((e) => e.toString()).toList();
             } else {
               _searchBuckets = [];
-            }
-
-            final rawTarget = data['target_buckets'];
-            if (rawTarget is List) {
-              _targetBuckets = rawTarget.map((e) => e.toString()).toList();
-            } else {
-              _targetBuckets = [];
-            }
-
-            final rawLooking = data['looking_for'];
-            if (rawLooking is List) {
-              _lookingFor = rawLooking.map((e) => e.toString()).toList();
-            } else {
-              _lookingFor = [];
-            }
-
-            final rawActivities = data['activities'];
-            if (rawActivities is List) {
-              _activities = rawActivities.map((e) => e.toString()).toList();
-            } else {
-              _activities = [];
             }
 
             final rawCauses = data['causes_supported'];
@@ -225,13 +187,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               _topArtists = [];
             }
 
-            final rawTech = data['tech_skills'];
-            if (rawTech is List) {
-              _techSkills = rawTech.map((e) => e.toString()).toList();
-            } else {
-              _techSkills = [];
-            }
-
             final rawLanguages = data['languages'];
             if (rawLanguages is List) {
               _languages = rawLanguages.map((e) => e.toString()).toList();
@@ -244,17 +199,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               _pets = rawPets.map((e) => e.toString()).toList();
             } else {
               _pets = [];
-            }
-
-            final rawInterests = data['interests'];
-            if (rawInterests is Map) {
-              _interests = Map<String, int>.from(
-                rawInterests.map(
-                  (k, v) => MapEntry(k.toString(), (v as num).toInt()),
-                ),
-              );
-            } else {
-              _interests = {};
             }
 
             final rawSubInterests = data['sub_interests'];
@@ -274,7 +218,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
             final rawImages = data['ordered_images'];
             if (rawImages is List) {
-              final List<String> loadedImages = List<String>.generate(5, (i) {
+              final loadedImages = List<String>.generate(5, (i) {
                 if (i < rawImages.length && rawImages[i] != null && rawImages[i].toString().isNotEmpty) {
                   _imagePaths[i] = rawImages[i].toString();
                   return rawImages[i].toString();
@@ -284,13 +228,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                 }
               });
               ref.read(clientAIImageManagerProvider.notifier).setRemotePaths(loadedImages);
-            }
-
-            final rawVibe = data['ai_vibe_tags'];
-            if (rawVibe is List) {
-              _vibeTags = rawVibe.map((e) => e.toString()).toList();
-            } else {
-              _vibeTags = [];
             }
           });
         }
@@ -347,8 +284,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         if (name != null) payload['name'] = name;
         if (age != null) payload['age'] = age;
         if (displayGender != null) payload['display_gender'] = displayGender;
-        if (displaySexuality != null)
+        if (displaySexuality != null) {
           payload['display_sexuality'] = displaySexuality;
+        }
         if (pronouns != null) payload['pronouns'] = pronouns;
         if (bio != null) payload['bio'] = bio;
         if (searchBuckets != null) payload['search_buckets'] = searchBuckets;
@@ -363,8 +301,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         if (currentPlace != null) payload['current_place'] = currentPlace;
         if (partnerValues != null) payload['partner_values'] = partnerValues;
         if (childrenPlans != null) payload['children_plans'] = childrenPlans;
-        if (religiousBeliefs != null)
+        if (religiousBeliefs != null) {
           payload['religious_beliefs'] = religiousBeliefs;
+        }
         if (lifestyle != null) payload['lifestyle'] = lifestyle;
         if (drinking != null) payload['drinking'] = drinking;
         if (smoking != null) payload['smoking'] = smoking;
@@ -372,8 +311,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         if (targetBuckets != null) payload['target_buckets'] = targetBuckets;
         if (lookingFor != null) payload['looking_for'] = lookingFor;
         if (activities != null) payload['activities'] = activities;
-        if (causesSupported != null)
+        if (causesSupported != null) {
           payload['causes_supported'] = causesSupported;
+        }
         if (topArtists != null) payload['top_artists'] = topArtists;
         if (techSkills != null) payload['tech_skills'] = techSkills;
         if (languages != null) payload['languages'] = languages;
@@ -398,8 +338,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               if (age != null) _savedAge = age;
               if (name != null) _name = name;
               if (displayGender != null) _displayGender = displayGender;
-              if (displaySexuality != null)
+              if (displaySexuality != null) {
                 _displaySexuality = displaySexuality;
+              }
               if (pronouns != null) _pronouns = pronouns;
               if (bio != null) _bio = bio;
               if (searchBuckets != null) _searchBuckets = searchBuckets;
@@ -414,21 +355,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               if (currentPlace != null) _currentPlace = currentPlace;
               if (partnerValues != null) _partnerValues = partnerValues;
               if (childrenPlans != null) _childrenPlans = childrenPlans;
-              if (religiousBeliefs != null)
+              if (religiousBeliefs != null) {
                 _religiousBeliefs = religiousBeliefs;
+              }
               if (lifestyle != null) _lifestyle = lifestyle;
               if (drinking != null) _drinking = drinking;
               if (smoking != null) _smoking = smoking;
-              if (role != null) _role = role;
-              if (targetBuckets != null) _targetBuckets = targetBuckets;
-              if (lookingFor != null) _lookingFor = lookingFor;
-              if (activities != null) _activities = activities;
               if (causesSupported != null) _causesSupported = causesSupported;
               if (topArtists != null) _topArtists = topArtists;
-              if (techSkills != null) _techSkills = techSkills;
               if (languages != null) _languages = languages;
               if (pets != null) _pets = pets;
-              if (interests != null) _interests = interests;
               if (subInterests != null) _subInterests = subInterests;
             });
           }
@@ -531,22 +467,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
           // 3. Sync local state with provider's updated state
           final providerState = ref.read(clientAIImageManagerProvider);
-          final Set<String> uniqueTags = {};
-          for (final tags in providerState.slotSpecificVibeTags.values) {
-            uniqueTags.addAll(tags);
-          }
           setState(() {
-            for (int i = 0; i < _imagePaths.length; i++) {
+            for (var i = 0; i < _imagePaths.length; i++) {
               if (i < providerState.remotePaths.length && providerState.remotePaths[i].isNotEmpty) {
                 _imagePaths[i] = providerState.remotePaths[i];
               } else {
                 _imagePaths[i] = null;
               }
             }
-            _vibeTags = uniqueTags.toList();
           });
         }
-      } catch (e) {
+      } on Object catch (e) {
         if (!mounted) return;
         setState(() {
           _imagePaths[slotIndex] = oldPaths[slotIndex];
@@ -584,22 +515,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
         // 3. Sync local state with provider
         final providerState = ref.read(clientAIImageManagerProvider);
-        final Set<String> uniqueTags = {};
-        for (final tags in providerState.slotSpecificVibeTags.values) {
-          uniqueTags.addAll(tags);
-        }
         setState(() {
-          for (int i = 0; i < _imagePaths.length; i++) {
+          for (var i = 0; i < _imagePaths.length; i++) {
             if (i < providerState.remotePaths.length && providerState.remotePaths[i].isNotEmpty) {
               _imagePaths[i] = providerState.remotePaths[i];
             } else {
               _imagePaths[i] = null;
             }
           }
-          _vibeTags = uniqueTags.toList();
         });
       }
-    } catch (e) {
+    } on Object catch (e) {
       if (!mounted) return;
       setState(() {
         _imagePaths[slotIndex] = oldPaths[slotIndex];
@@ -1208,23 +1134,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   causesSupported: _causesSupported,
                   topArtists: _topArtists,
                   onInterestsSaved: (val) {
-                    final Map<String, List<String>> newSubInterests = {};
+                    final newSubInterests = <String, List<String>>{};
                     for (final item in val) {
                       final parts = item.split(': ');
                       if (parts.length == 2) {
                         newSubInterests.putIfAbsent(parts[0], () => []).add(parts[1]);
                       }
                     }
-                    final Map<String, int> newInterests = {};
+                    final newInterests = <String, int>{};
                     newSubInterests.forEach((parent, subs) {
-                      int weight = 1;
+                      var weight = 1;
                       if (subs.length == 2) weight = 2;
                       if (subs.length >= 3) weight = 3;
                       newInterests[parent] = weight;
                     });
                     setState(() {
                       _subInterests = newSubInterests;
-                      _interests = newInterests;
                     });
                     unawaited(
                       _saveProfileChanges(

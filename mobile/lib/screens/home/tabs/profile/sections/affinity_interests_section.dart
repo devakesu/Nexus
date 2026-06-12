@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
-import '../widgets/universe_section.dart';
-import '../widgets/tag_chips_editor.dart';
 
 class AffinityInterestsSection extends StatefulWidget {
   const AffinityInterestsSection({
@@ -56,12 +58,14 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
             hintText: 'Select alignments...',
             allowCustom: false,
             onTapEdit: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (context) => InterestsOverlay(
-                    initialSelected: widget.flatSubInterests,
-                    onSave: widget.onInterestsSaved,
+              unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => InterestsOverlay(
+                      initialSelected: widget.flatSubInterests,
+                      onSave: widget.onInterestsSaved,
+                    ),
                   ),
                 ),
               );

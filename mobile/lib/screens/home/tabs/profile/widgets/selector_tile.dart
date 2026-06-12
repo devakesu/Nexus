@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 
 class SelectorTile extends StatelessWidget {
   const SelectorTile({
