@@ -11,7 +11,7 @@ class CoreSignalSection extends StatefulWidget {
     required this.name,
     required this.age,
     required this.savedAge,
-    required this.searchBuckets,
+    required this.searchBucket,
     required this.displayGender,
     required this.displaySexuality,
     required this.pronouns,
@@ -41,7 +41,7 @@ class CoreSignalSection extends StatefulWidget {
   final String name;
   final int age;
   final int savedAge;
-  final List<String> searchBuckets;
+  final String searchBucket;
   final String displayGender;
   final String displaySexuality;
   final String pronouns;
@@ -60,7 +60,7 @@ class CoreSignalSection extends StatefulWidget {
   final ValueChanged<String> onNameSubmitted;
   final ValueChanged<int> onAgeChanged;
   final ValueChanged<int> onAgeConfirmed;
-  final ValueChanged<List<String>> onBucketChanged;
+  final ValueChanged<String> onBucketChanged;
   final VoidCallback onSelectGender;
   final VoidCallback onSelectSexuality;
   final VoidCallback onSelectPronouns;
@@ -87,12 +87,13 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     required String value,
     required IconData icon,
   }) {
-    final isSelected = widget.searchBuckets.contains(value);
+    final isSelected = widget.searchBucket == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          widget.onBucketChanged([value]);
+          widget.onBucketChanged(value);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
@@ -100,18 +101,28 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             color: isSelected
-                ? const Color(0xFF0891B2).withValues(alpha: 0.25)
-                : Colors.white.withValues(alpha: 0.02),
+                ? const Color(
+                    0xFF0891B2,
+                  ).withValues(alpha: isDark ? 0.25 : 0.15)
+                : (isDark
+                      ? Colors.white.withValues(alpha: 0.02)
+                      : Colors.black.withValues(alpha: 0.04)),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF00E5FF).withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.08),
+                  ? const Color(
+                      0xFF00E5FF,
+                    ).withValues(alpha: isDark ? 0.5 : 0.7)
+                  : (isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.08)),
               width: isSelected ? 1.5 : 1.0,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+                      color: const Color(
+                        0xFF00E5FF,
+                      ).withValues(alpha: isDark ? 0.25 : 0.12),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -124,13 +135,19 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Icon(
                 icon,
                 size: 13,
-                color: isSelected ? const Color(0xFF00E5FF) : Colors.white38,
+                color: isSelected
+                    ? (isDark
+                          ? const Color(0xFF00E5FF)
+                          : const Color(0xFF0891B2))
+                    : (isDark ? Colors.white38 : Colors.black38),
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected
+                      ? (isDark ? Colors.white : const Color(0xFF0891B2))
+                      : (isDark ? Colors.white70 : Colors.black87),
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontFamily: 'Outfit',
@@ -148,12 +165,16 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     const pulsarPink = Color(0xFFFF7597);
     const mistLavender = Color(0xFFE2D9F3);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return UniverseSection(
       icon: LucideIcons.user,
       title: 'Core Details',
       description: 'Essential profile details',
-      cardColor: const Color(0xFF0D1424),
-      borderColor: const Color(0xFF2D8CFF).withValues(alpha: 0.35),
+      cardColor: isDark ? const Color(0xFF0D1424) : const Color(0xFFF0F9FF),
+      borderColor: const Color(
+        0xFF2D8CFF,
+      ).withValues(alpha: isDark ? 0.35 : 0.4),
       accentColor: const Color(0xFF2D8CFF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,7 +256,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   Text(
                     'DEMOGRAPHIC BUCKETS',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.black.withValues(alpha: 0.5),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -258,7 +281,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Text(
                 'Which bucket do you primarily identify as?',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.black.withValues(alpha: 0.45),
                   fontSize: 10,
                 ),
               ),
@@ -321,7 +346,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           Text(
             'Images',
             style: TextStyle(
-              color: mistLavender.withValues(alpha: 0.6),
+              color: isDark
+                  ? mistLavender.withValues(alpha: 0.6)
+                  : Colors.black.withValues(alpha: 0.5),
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -355,7 +382,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                       boxShadow: imagePath != null
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
+                                color: const Color(
+                                  0xFF00E5FF,
+                                ).withValues(alpha: 0.18),
                                 blurRadius: 10,
                                 spreadRadius: 0.5,
                               ),
@@ -367,7 +396,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(18.5),
                         child: ColoredBox(
-                          color: const Color(0xFF141822),
+                          color: isDark
+                              ? const Color(0xFF141822)
+                              : const Color(0xFFE2E8F0),
                           child: Stack(
                             children: [
                               if (imagePath != null) ...[
@@ -400,13 +431,17 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                               ] else
                                 CustomPaint(
                                   painter: _DashedBorderPainter(
-                                    color: Colors.white.withValues(alpha: 0.18),
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.18)
+                                        : Colors.black.withValues(alpha: 0.15),
                                     radius: 18.5,
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Icon(
                                       LucideIcons.plus,
-                                      color: Colors.white30,
+                                      color: isDark
+                                          ? Colors.white30
+                                          : Colors.black.withValues(alpha: 0.3),
                                       size: 20,
                                     ),
                                   ),

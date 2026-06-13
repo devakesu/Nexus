@@ -8,6 +8,10 @@ class TabScaffold extends StatelessWidget {
     required this.chatLabel,
     required this.onOpenOrbitPressed,
     required this.children,
+    this.orbitDescription,
+    this.isOrbitActive = false,
+    this.onDeactivateOrbitPressed,
+    this.onSettingsPressed,
     super.key,
   });
 
@@ -16,6 +20,10 @@ class TabScaffold extends StatelessWidget {
   final String chatLabel;
   final VoidCallback onOpenOrbitPressed;
   final List<Widget> children;
+  final String? orbitDescription;
+  final bool isOrbitActive;
+  final VoidCallback? onDeactivateOrbitPressed;
+  final VoidCallback? onSettingsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -61,33 +69,64 @@ class TabScaffold extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$title Orbit',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$title Orbit',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Status: Disconnected',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withAlpha(127),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: isOrbitActive
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF64748B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    isOrbitActive ? 'Active' : 'Inactive',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isOrbitActive
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF64748B),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        if (onSettingsPressed != null)
+                          IconButton(
+                            icon: Icon(
+                              LucideIcons.settings,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                            onPressed: onSettingsPressed,
+                          ),
                       ],
                     ),
+                    const SizedBox(height: 12),
                     Text(
-                      'Activate your network scanner to search for other matches nearby.',
-                      style: TextStyle(
+                      orbitDescription ?? 'Activate your network scanner to search for other matches nearby.',
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: Colors.white.withAlpha(178),
+                        color: Color(0xFF334155),
                         height: 1.4,
                       ),
                     ),
@@ -97,24 +136,38 @@ class TabScaffold extends StatelessWidget {
                       height: 48,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: themeColor,
+                          backgroundColor: isOrbitActive ? const Color(0xFFEF4444) : themeColor,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        onPressed: onOpenOrbitPressed,
-                        icon: const Icon(LucideIcons.play, size: 16),
-                        label: const Text(
-                          'Open Orbit',
-                          style: TextStyle(
+                        onPressed: isOrbitActive
+                            ? (onDeactivateOrbitPressed ?? onOpenOrbitPressed)
+                            : onOpenOrbitPressed,
+                        icon: Icon(isOrbitActive ? LucideIcons.stopCircle : LucideIcons.play, size: 16),
+                        label: Text(
+                          isOrbitActive ? 'Deactivate Orbit' : 'Activate Orbit',
+                          style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
                           ),
                         ),
                       ),
                     ),
+                    if (isOrbitActive) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'If you need a break and to stop being discoverable to others, you can deactivate your orbit.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

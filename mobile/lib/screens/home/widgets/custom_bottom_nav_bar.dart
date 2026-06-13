@@ -30,42 +30,51 @@ class CustomBottomNavBar extends StatelessWidget {
     }
   }
 
-  Color _getUnselectedColor() {
-    return const Color(0x9994A3B8); // Flat muted grey
+  Color _getUnselectedColor(bool isDark) {
+    return isDark ? const Color(0x9994A3B8) : const Color(0xFF64748B);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       height: 72,
       decoration: BoxDecoration(
-        color: const Color(0xFF161B26),
+        color: isDark ? const Color(0xFF161B26) : Colors.white,
         borderRadius: BorderRadius.circular(36),
         border: Border.all(
-          color: Colors.white.withAlpha(20),
+          color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(15),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withAlpha(50) : Colors.black.withAlpha(15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(0, Icons.favorite_rounded, 'dating'),
-            _buildNavItem(1, Icons.all_inclusive_rounded, 'friends'),
-            _buildCenterNavItem(),
-            _buildNavItem(3, Icons.work_rounded, 'work'),
-            _buildNavItem(4, Icons.blur_circular_rounded, 'settings'),
+            _buildNavItem(context, 0, Icons.favorite_rounded, 'dating', isDark),
+            _buildNavItem(context, 1, Icons.all_inclusive_rounded, 'friends', isDark),
+            _buildCenterNavItem(context, isDark),
+            _buildNavItem(context, 3, Icons.work_rounded, 'work', isDark),
+            _buildNavItem(context, 4, Icons.blur_circular_rounded, 'settings', isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(BuildContext context, int index, IconData icon, String label, bool isDark) {
     final isSelected = currentIndex == index;
     final selectedColor = _getSelectedColor(index);
-    final unselectedColor = _getUnselectedColor();
+    final unselectedColor = _getUnselectedColor(isDark);
 
     return GestureDetector(
       onTap: () {
@@ -117,10 +126,10 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildCenterNavItem() {
+  Widget _buildCenterNavItem(BuildContext context, bool isDark) {
     final isSelected = currentIndex == 2;
     final selectedColor = _getSelectedColor(2); // Pulsar Pink
-    final unselectedColor = _getUnselectedColor();
+    final unselectedColor = _getUnselectedColor(isDark);
 
     return GestureDetector(
       onTap: () {

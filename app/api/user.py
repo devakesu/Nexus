@@ -336,11 +336,7 @@ def get_profile_details(
             "display_sexuality": profile.get("display_sexuality"),
             "pronouns": profile.get("pronouns"),
             "bio": profile.get("bio") or "",
-            "dating_search_buckets": profile.get("dating_search_buckets") or [],
-            "friends_search_buckets": profile.get("friends_search_buckets") or [],
-            "professional_search_buckets": (
-                profile.get("professional_search_buckets") or []
-            ),
+            "search_bucket": profile.get("search_bucket") or "NB",
             "hometown": profile.get("hometown"),
             "current_place": profile.get("current_place"),
             "partner_values": profile.get("partner_values"),
@@ -351,6 +347,7 @@ def get_profile_details(
             "smoking": profile.get("smoking"),
             "role": profile.get("role"),
             "dating_target_buckets": profile.get("dating_target_buckets") or [],
+            "dating_for": profile.get("dating_for") or [],
             "friends_target_buckets": profile.get("friends_target_buckets") or [],
             "professional_target_buckets": (
                 profile.get("professional_target_buckets") or []
@@ -370,6 +367,7 @@ def get_profile_details(
                 else (profile.get("normal_pics") or [])
             ),
             "ai_vibe_tags": profile.get("ai_vibe_tags") or [],
+            "is_dating_complete": bool(profile.get("is_dating_complete", False)),
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
@@ -397,14 +395,12 @@ def update_profile_details(  # noqa: C901
         update_data["campus_year"] = payload.campus_year
     if payload.campus_name is not None:
         update_data["campus_name"] = encrypt_to_hex(payload.campus_name.strip())
-    if payload.dating_search_buckets is not None:
-        update_data["dating_search_buckets"] = payload.dating_search_buckets
-    if payload.friends_search_buckets is not None:
-        update_data["friends_search_buckets"] = payload.friends_search_buckets
-    if payload.professional_search_buckets is not None:
-        update_data["professional_search_buckets"] = payload.professional_search_buckets
+    if payload.search_bucket is not None:
+        update_data["search_bucket"] = payload.search_bucket
     if payload.dating_target_buckets is not None:
         update_data["dating_target_buckets"] = payload.dating_target_buckets
+    if payload.dating_for is not None:
+        update_data["dating_for"] = payload.dating_for
     if payload.friends_target_buckets is not None:
         update_data["friends_target_buckets"] = payload.friends_target_buckets
     if payload.professional_target_buckets is not None:
@@ -440,6 +436,101 @@ def update_profile_details(  # noqa: C901
         val = getattr(payload, field, None)
         if val is not None:
             update_data[field] = encrypt_to_hex(json.dumps(val))
+
+    if payload.is_dating_complete is not None:
+        if payload.is_dating_complete:
+            # Fetch current profile to validate all required fields
+            profile_res = (
+                supabase_client.table("profiles")
+                .select("*")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            profile_data = getattr(profile_res, "data", None)
+            if not profile_data or not isinstance(profile_data, dict):
+                raise HTTPException(status_code=404, detail="Profile not found")
+            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+
+            # Resolve actual state (payload takes precedence over current DB state)
+            val_name = (
+                payload.name if payload.name is not None
+                else profile.get("name")
+            )
+            val_age = (
+                payload.age if payload.age is not None
+                else profile.get("age")
+            )
+            val_drinking = (
+                payload.drinking if payload.drinking is not None
+                else profile.get("drinking")
+            )
+            val_smoking = (
+                payload.smoking if payload.smoking is not None
+                else profile.get("smoking")
+            )
+            val_interests = (
+                payload.interests if payload.interests is not None
+                else profile.get("interests")
+            )
+            val_profile_pic = profile.get("profile_pic")
+            val_normal_pics = profile.get("normal_pics")
+            val_dating_target_buckets = (
+                payload.dating_target_buckets
+                if payload.dating_target_buckets is not None
+                else profile.get("dating_target_buckets")
+            )
+            val_dating_for = (
+                payload.dating_for
+                if payload.dating_for is not None
+                else profile.get("dating_for")
+            )
+
+
+            missing: list[str] = []
+            if not isinstance(val_name, str) or not val_name.strip():
+                missing.append("name")
+            if val_age is None:
+                missing.append("age")
+            if not isinstance(val_drinking, str) or not val_drinking.strip():
+                missing.append("drinking")
+            if not isinstance(val_smoking, str) or not val_smoking.strip():
+                missing.append("smoking")
+            if (
+                not isinstance(val_interests, dict)
+                or len(cast(dict[Any, Any], val_interests)) < 3
+            ):
+                missing.append("interests")
+            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
+                missing.append("profile_pic")
+            if (
+                not isinstance(val_normal_pics, list)
+                or len(cast(list[Any], val_normal_pics)) < 2
+            ):
+                missing.append("normal_pics")
+            if (
+                not isinstance(val_dating_target_buckets, list)
+                or len(cast(list[Any], val_dating_target_buckets)) < 1
+            ):
+                missing.append("dating_target_buckets")
+            if (
+                not isinstance(val_dating_for, list)
+                or len(cast(list[Any], val_dating_for)) < 1
+            ):
+                missing.append("dating_for")
+
+
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Dating profile incomplete",
+                        "missing_fields": missing,
+                    },
+                )
+            update_data["is_dating_complete"] = True
+        else:
+            update_data["is_dating_complete"] = False
 
     if not update_data:
         return {"status": "success", "detail": "No fields to update."}

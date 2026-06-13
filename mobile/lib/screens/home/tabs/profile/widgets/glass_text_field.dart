@@ -73,6 +73,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMultiLine = widget.minLines != null && widget.minLines! > 1;
 
     return Padding(
@@ -83,7 +84,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
           Text(
             widget.label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -100,8 +101,8 @@ class _GlassTextFieldState extends State<GlassTextField> {
                     )
                   : LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.12),
+                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
               boxShadow: _isFocused
@@ -119,8 +120,8 @@ class _GlassTextFieldState extends State<GlassTextField> {
               margin: const EdgeInsets.all(1.2),
               decoration: BoxDecoration(
                 color: _isFocused
-                    ? const Color(0xFF0D1017)
-                    : const Color(0xFF141822),
+                    ? (isDark ? const Color(0xFF0D1017) : Colors.white)
+                    : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Stack(
@@ -138,7 +139,9 @@ class _GlassTextFieldState extends State<GlassTextField> {
                               : EdgeInsets.zero,
                           child: Icon(
                             widget.prefixIcon,
-                            color: _isFocused ? pulsarPink : Colors.white38,
+                            color: _isFocused
+                                ? pulsarPink
+                                : (isDark ? Colors.white38 : Colors.black38),
                             size: 18,
                           ),
                         ),
@@ -151,15 +154,14 @@ class _GlassTextFieldState extends State<GlassTextField> {
                             maxLines: widget.maxLines,
                             minLines: widget.minLines,
                             keyboardType: widget.keyboardType,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Outfit',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                               fontSize: 14,
                             ),
                             decoration: InputDecoration(
                               hintText: widget.hintText,
                               hintStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.3),
+                                color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
                                 fontSize: 14,
                               ),
                               hintMaxLines: 5,

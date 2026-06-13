@@ -64,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0D13),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Main tab content
@@ -80,7 +80,14 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: IndexedStack(
                     index: _currentTab,
                     children: [
-                      DatingTab(onOpenOrbit: _triggerOpenOrbit),
+                      DatingTab(
+                        onOpenOrbit: _triggerOpenOrbit,
+                        onNavigateToTab: (index) {
+                          setState(() {
+                            _currentTab = index;
+                          });
+                        },
+                      ),
                       FriendsTab(onOpenOrbit: _triggerOpenOrbit),
                       ProfileTab(onOpenOrbit: _triggerOpenOrbit),
                       ProfessionalTab(onOpenOrbit: _triggerOpenOrbit),

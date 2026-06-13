@@ -76,19 +76,21 @@ class _BioSectionState extends State<BioSection> {
     final remaining = BioSection.maxLength - _controller.text.length;
     final isNearLimit = remaining <= 50;
     final isAtLimit = remaining <= 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final counterColor = isAtLimit
         ? Colors.redAccent
         : isNearLimit
         ? _pulsarPink
-        : Colors.white38;
+        : (isDark ? Colors.white38 : Colors.black45);
 
     return UniverseSection(
       icon: LucideIcons.fileText,
       title: 'Cosmic Signature',
       description:
           'Your signal to the universe — who you are in your own words',
-      cardColor: const Color(0xFF1B0F20),
-      borderColor: const Color(0xFFFF4D7E).withValues(alpha: 0.35),
+      cardColor: isDark ? const Color(0xFF1B0F20) : const Color(0xFFFFF0F5),
+      borderColor: const Color(0xFFFF4D7E).withValues(alpha: isDark ? 0.35 : 0.4),
       accentColor: _pulsarPink,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,8 +106,8 @@ class _BioSectionState extends State<BioSection> {
                     )
                   : LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.12),
+                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
               boxShadow: _focusNode.hasFocus
@@ -123,8 +125,8 @@ class _BioSectionState extends State<BioSection> {
               margin: const EdgeInsets.all(1.2),
               decoration: BoxDecoration(
                 color: _focusNode.hasFocus
-                    ? const Color(0xFF0D1017)
-                    : const Color(0xFF141822),
+                    ? (isDark ? const Color(0xFF0D1017) : Colors.white)
+                    : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Stack(
@@ -145,7 +147,7 @@ class _BioSectionState extends State<BioSection> {
                             Text(
                               'BIO',
                               style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.45),
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.2,
@@ -168,7 +170,7 @@ class _BioSectionState extends State<BioSection> {
                               maxLength,
                              }) => null,
                         style: GoogleFonts.plusJakartaSans(
-                          color: _mistLavender,
+                          color: isDark ? _mistLavender : const Color(0xFF0F172A),
                           fontSize: 14,
                           height: 1.55,
                         ),
@@ -176,7 +178,7 @@ class _BioSectionState extends State<BioSection> {
                           hintText:
                               'Tell your story — your vibe, your passions, what makes you, you...',
                           hintStyle: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.3),
                             fontSize: 13,
                             height: 1.5,
                           ),

@@ -44,9 +44,10 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
     const deepPurple = Color(0xFF00E5FF);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.65),
       body: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: SafeArea(
@@ -63,25 +64,25 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                       children: [
                         Text(
                           widget.title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Outfit',
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Select your dimensional coordinates',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: isDark ? Colors.white70 : Colors.black54,
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(LucideIcons.x, color: Colors.white70),
+                      icon: Icon(LucideIcons.x, color: isDark ? Colors.white70 : Colors.black54),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -124,19 +125,19 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? deepPurple.withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.03),
+                              ? deepPurple.withValues(alpha: isDark ? 0.15 : 0.1)
+                              : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03)),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
                                 ? pulsarPink.withValues(alpha: 0.8)
-                                : Colors.white.withValues(alpha: 0.08),
+                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
                             width: isSelected ? 1.5 : 1,
                           ),
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: pulsarPink.withValues(alpha: 0.15),
+                                    color: pulsarPink.withValues(alpha: isDark ? 0.15 : 0.08),
                                     blurRadius: 10,
                                     spreadRadius: 1,
                                   ),
@@ -158,8 +159,8 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                   option,
                                   style: TextStyle(
                                     color: isSelected
-                                        ? Colors.white
-                                        : Colors.white70,
+                                        ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                                        : (isDark ? Colors.white70 : Colors.black87),
                                     fontSize: 14,
                                     fontWeight: isSelected
                                         ? FontWeight.bold

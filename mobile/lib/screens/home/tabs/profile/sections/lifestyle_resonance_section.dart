@@ -69,12 +69,14 @@ class LifestyleResonanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return UniverseSection(
       icon: LucideIcons.heart,
       title: 'Lifestyle & Preferences',
       description: 'Your daily habits, values and background',
-      cardColor: const Color(0xFF22150D),
-      borderColor: const Color(0xFFFF9500).withValues(alpha: 0.35),
+      cardColor: isDark ? const Color(0xFF22150D) : const Color(0xFFFFF7ED),
+      borderColor: const Color(0xFFFF9500).withValues(alpha: isDark ? 0.35 : 0.4),
       accentColor: const Color(0xFFFF9500),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

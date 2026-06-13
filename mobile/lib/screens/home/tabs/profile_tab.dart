@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +52,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   String _major = '';
   String _displayGender = 'Not specified';
   String _displaySexuality = 'Not specified';
-  List<String> _searchBuckets = [];
+  String _searchBucket = 'NB';
   final Set<String> _savingFields = {};
   String _bio = '';
 
@@ -80,7 +81,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   String _savedMajor = '';
   String _savedDisplayGender = 'Not specified';
   String _savedDisplaySexuality = 'Not specified';
-  List<String> _savedSearchBuckets = [];
+  String _savedSearchBucket = 'NB';
   String _savedBio = '';
   String _savedHometown = '';
   String _savedCurrentPlace = '';
@@ -473,13 +474,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             _smoking = data['smoking']?.toString() ?? 'Not specified';
             _savedSmoking = _smoking;
 
-            final rawBuckets = data['search_buckets'];
-            if (rawBuckets is List) {
-              _searchBuckets = rawBuckets.map((e) => e.toString()).toList();
-            } else {
-              _searchBuckets = [];
-            }
-            _savedSearchBuckets = List<String>.from(_searchBuckets);
+            final rawBucket = data['search_bucket'];
+            _searchBucket = rawBucket?.toString() ?? 'NB';
+            _savedSearchBucket = _searchBucket;
 
             final rawCauses = data['causes_supported'];
             if (rawCauses is List) {
@@ -564,7 +561,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     String? displaySexuality,
     String? pronouns,
     String? bio,
-    List<String>? searchBuckets,
+    String? searchBucket,
     String? campusBranch,
     int? campusYear,
     bool clearCampusYear = false,
@@ -596,7 +593,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     if (displaySexuality != null) fields.add('displaySexuality');
     if (pronouns != null) fields.add('pronouns');
     if (bio != null) fields.add('bio');
-    if (searchBuckets != null) fields.add('searchBuckets');
+    if (searchBucket != null) fields.add('searchBucket');
     if (campusBranch != null) fields.add('campusBranch');
     if (campusYear != null || clearCampusYear) fields.add('campusYear');
     if (campusName != null) fields.add('campusName');
@@ -633,7 +630,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         }
         if (pronouns != null) payload['pronouns'] = pronouns;
         if (bio != null) payload['bio'] = bio;
-        if (searchBuckets != null) payload['search_buckets'] = searchBuckets;
+        if (searchBucket != null) payload['search_bucket'] = searchBucket;
         if (campusBranch != null) payload['campus_branch'] = campusBranch;
         if (campusYear != null) {
           payload['campus_year'] = campusYear;
@@ -703,9 +700,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                 _bio = bio;
                 _savedBio = bio;
               }
-              if (searchBuckets != null) {
-                _searchBuckets = searchBuckets;
-                _savedSearchBuckets = List<String>.from(searchBuckets);
+              if (searchBucket != null) {
+                _searchBucket = searchBucket;
+                _savedSearchBucket = searchBucket;
               }
               if (campusBranch != null) {
                 _major = campusBranch;
@@ -809,7 +806,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           if (displaySexuality != null) _displaySexuality = _savedDisplaySexuality;
           if (pronouns != null) _pronouns = _savedPronouns;
           if (bio != null) _bio = _savedBio;
-          if (searchBuckets != null) _searchBuckets = List<String>.from(_savedSearchBuckets);
+          if (searchBucket != null) _searchBucket = _savedSearchBucket;
           if (campusBranch != null) _major = _savedMajor;
           if (campusYear != null || clearCampusYear) {
             _year = _savedYear;
@@ -867,7 +864,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     if (_name.isNotEmpty) filled++;
     if (_age >= 18) filled++;
     if (_bio.isNotEmpty) filled++;
-    if (_searchBuckets.isNotEmpty) filled++;
+    if (_searchBucket.isNotEmpty) filled++;
     if (_displayGender.isNotEmpty && _displayGender != 'Prefer not to say') filled++;
     if (_displaySexuality.isNotEmpty && _displaySexuality != 'Prefer not to say') filled++;
     if (_pronouns.isNotEmpty && _pronouns != 'Prefer not to say') filled++;
@@ -1005,6 +1002,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
   void _showImageSlotPicker(int slotIndex) {
     final imagePath = _imagePaths[slotIndex];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -1013,12 +1011,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           return Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF161B26).withValues(alpha: 0.98),
+              color: isDark ? const Color(0xFF161B26).withValues(alpha: 0.98) : Colors.white,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(30),
                 topRight: Radius.circular(30),
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1033,8 +1031,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                     const SizedBox(width: 12),
                     Text(
                       slotIndex == 0 ? 'Profile Avatar' : 'Gallery - Slot $slotIndex',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'Outfit',
@@ -1047,8 +1045,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   slotIndex == 0
                       ? 'Select your cosmic profile avatar...'
                       : 'Choose your gallery showcase photo...',
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: isDark ? Colors.white54 : Colors.black54,
                     fontSize: 13,
                   ),
                 ),
@@ -1068,13 +1066,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   Material(
                     color: Colors.transparent,
                     child: ListTile(
-                      leading: const Icon(
+                      leading: Icon(
                         LucideIcons.refreshCw,
-                        color: Colors.white70,
+                        color: isDark ? Colors.white70 : Colors.black87,
                       ),
-                      title: const Text(
+                      title: Text(
                         'Replace Image',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: isDark ? Colors.white : const Color(0xFF0F172A)),
                       ),
                       onTap: () {
                         Navigator.pop(context);
@@ -1100,9 +1098,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                     ),
                   ),
                 ] else ...[
-                  const Text(
+                  Text(
                     'Upload an image from your device gallery to represent you in this slot.',
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -1181,12 +1179,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     required String currentValue,
     required ValueChanged<String> onSelected,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     unawaited(
       showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        barrierColor: Colors.black.withValues(alpha: 0.8),
+        barrierColor: Colors.black.withValues(alpha: isDark ? 0.8 : 0.4),
         builder: (context) {
           final searchController = TextEditingController();
           return StatefulBuilder(
@@ -1208,13 +1207,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131722).withValues(alpha: 0.98),
+                  color: isDark ? const Color(0xFF131722).withValues(alpha: 0.98) : Colors.white,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: SafeArea(
@@ -1228,7 +1227,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 18),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -1238,8 +1237,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Outfit',
@@ -1249,7 +1248,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           Text(
                             '${filteredOptions.length} options',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.35),
+                              color: isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.45),
                               fontSize: 11,
                               fontFamily: 'Outfit',
                             ),
@@ -1262,32 +1261,32 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           height: 44,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.02),
+                            color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 LucideIcons.search,
-                                color: Colors.white38,
+                                color: isDark ? Colors.white38 : Colors.black45,
                                 size: 16,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: TextField(
                                   controller: searchController,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     fontSize: 13,
                                     fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Search signals...',
                                     hintStyle: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.25),
+                                      color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.35),
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -1305,9 +1304,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                     searchController.clear();
                                     setModalState(() {});
                                   },
-                                  child: const Icon(
+                                  child: Icon(
                                     LucideIcons.xCircle,
-                                    color: Colors.white38,
+                                    color: isDark ? Colors.white38 : Colors.black45,
                                     size: 16,
                                   ),
                                 ),
@@ -1350,12 +1349,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? const Color(0xFFFF7597).withValues(alpha: 0.08)
-                                        : Colors.white.withValues(alpha: 0.01),
+                                        : (isDark ? Colors.white.withValues(alpha: 0.01) : Colors.black.withValues(alpha: 0.02)),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
                                           ? const Color(0xFFFF7597).withValues(alpha: 0.45)
-                                          : Colors.white.withValues(alpha: 0.05),
+                                          : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.06)),
                                     ),
                                   ),
                                   child: Row(
@@ -1383,7 +1382,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                           size: 14,
                                           color: isSelected
                                               ? const Color(0xFFFF7597)
-                                              : Colors.white24,
+                                              : (isDark ? Colors.white24 : Colors.black26),
                                         ),
                                         const SizedBox(width: 12),
                                       ],
@@ -1391,7 +1390,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                         child: Text(
                                           option,
                                           style: TextStyle(
-                                            color: isSelected ? Colors.white : Colors.white70,
+                                            color: isSelected
+                                                ? (isDark ? Colors.white : const Color(0xFFFF7597))
+                                                : (isDark ? Colors.white70 : Colors.black87),
                                             fontFamily: 'Outfit',
                                             fontSize: 14,
                                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -1458,12 +1459,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         children: [
           // Base background color
           Positioned.fill(
-            child: Container(color: const Color(0xFF0B0D13)),
+            child: Container(color: Theme.of(context).scaffoldBackgroundColor),
           ),
           // Futuristic Grid Pattern Overlay
-          const Positioned.fill(
+          Positioned.fill(
             child: CustomPaint(
-              painter: FuturisticBackgroundPainter(),
+              painter: FuturisticBackgroundPainter(
+                isDark: Theme.of(context).brightness == Brightness.dark,
+              ),
             ),
           ),
           // Layered Ambient Glows
@@ -1544,7 +1547,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         name: _name,
                         age: _age,
                         bio: _bio,
-                        searchBuckets: _searchBuckets,
+                        searchBucket: _searchBucket,
                         displayGender: _displayGender,
                         displaySexuality: _displaySexuality,
                         pronouns: _pronouns,
@@ -1580,7 +1583,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         name: _name,
                         age: _age,
                         savedAge: _savedAge,
-                        searchBuckets: _searchBuckets,
+                        searchBucket: _searchBucket,
                         displayGender: _displayGender,
                         displaySexuality: _displaySexuality,
                         pronouns: _pronouns,
@@ -1593,15 +1596,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         isSavingSexuality: _savingFields.contains('displaySexuality'),
                         isSavingPronouns: _savingFields.contains('pronouns'),
                         isSavingAge: _savingFields.contains('age'),
-                        isSavingBuckets: _savingFields.contains('searchBuckets'),
+                        isSavingBuckets: _savingFields.contains('searchBucket'),
                         nameFocusNode: _nameFocusNode,
                         onNameChanged: (val) => setState(() => _name = val),
                         onNameSubmitted: (val) => unawaited(_saveProfileChanges(name: val)),
                         onAgeChanged: (val) => setState(() => _age = val),
                         onAgeConfirmed: (val) => unawaited(_saveProfileChanges(age: val)),
                         onBucketChanged: (val) {
-                          setState(() => _searchBuckets = val);
-                          unawaited(_saveProfileChanges(searchBuckets: val));
+                          setState(() => _searchBucket = val);
+                          unawaited(_saveProfileChanges(searchBucket: val));
                         },
                         onSelectGender: () {
                           _openSelectionOverlay(
@@ -1851,51 +1854,146 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 }
 
 class FuturisticBackgroundPainter extends CustomPainter {
-  const FuturisticBackgroundPainter();
+  const FuturisticBackgroundPainter({required this.isDark});
+
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.01)
-      ..strokeWidth = 0.5;
+    // Colors based on theme brightness (higher contrast for light mode)
+    final gridAlpha = isDark ? 0.04 : 0.08;
+    final primaryOrbitColor = isDark ? const Color(0xFF00E5FF) : const Color(0xFF0891B2);
+    final secondaryOrbitColor = isDark ? const Color(0xFFFF7597) : const Color(0xFFE91E63);
+    final tertiaryOrbitColor = isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5);
 
-    // Draw vertical grid lines
-    const gridSize = 32.0;
-    for (var x = 0.0; x < size.width; x += gridSize) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    final lineAlpha = isDark ? 0.08 : 0.16;
+    final glowAlpha = isDark ? 0.06 : 0.12;
+    final starAlpha = isDark ? 0.25 : 0.40;
+
+    // 1. Grid/Matrix Coordinate Dots
+    final dotPaint = Paint()
+      ..color = isDark ? Colors.white.withValues(alpha: gridAlpha) : Colors.black.withValues(alpha: gridAlpha * 0.8)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 45.0;
+    for (var x = spacing / 2; x < size.width; x += spacing) {
+      for (var y = spacing / 2; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, dotPaint);
+      }
     }
 
-    // Draw horizontal grid lines
-    for (var y = 0.0; y < size.height; y += gridSize) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    final center = Offset(size.width * 0.5, size.height * 0.12);
+
+    // 2. Radial Telemetry Rays (Faint rays from center coordinate)
+    final rayPaint = Paint()
+      ..color = isDark ? Colors.white.withValues(alpha: isDark ? 0.015 : 0.035) : Colors.black.withValues(alpha: 0.02)
+      ..strokeWidth = 0.8;
+    const rayCount = 12;
+    const double angleStep = (2 * 3.1415926535) / rayCount;
+    for (var i = 0; i < rayCount; i++) {
+      final double angle = i * angleStep;
+      canvas.drawLine(
+        center,
+        Offset(
+          center.dx + size.height * 0.8 * double.parse(center.dx.sign.toString()) * 0.5 + 300 * math.cos(angle),
+          center.dy + size.height * 0.8 + 300 * math.sin(angle),
+        ),
+        rayPaint,
+      );
     }
 
-    // Draw a few subtle decorative crosses at grid intersections
-    final crossPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.03)
+    // 3. Multi-colored Cosmic Orbits (Concentric dashed circles)
+    final colors = [primaryOrbitColor, secondaryOrbitColor, tertiaryOrbitColor, primaryOrbitColor];
+    final radii = [110.0, 230.0, 350.0, 480.0];
+
+    for (var r = 0; r < radii.length; r++) {
+      final radius = radii[r];
+      final orbitPaint = Paint()
+        ..color = colors[r].withValues(alpha: lineAlpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+
+      // Draw dashed circle
+      const dashCount = 80;
+      final sweepAngle = (2 * 3.1415926535) / dashCount;
+      for (var i = 0; i < dashCount; i++) {
+        if (i % 2 == 0) {
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: radius),
+            i * sweepAngle,
+            sweepAngle,
+            false,
+            orbitPaint,
+          );
+        }
+      }
+    }
+
+    // 4. Constellations & Star Coordinate Nodes
+    final pathPaint = Paint()
+      ..color = secondaryOrbitColor.withValues(alpha: lineAlpha * 1.2)
+      ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
-    final crosshairs = [
-      Offset(size.width * 0.15, size.height * 0.25),
-      Offset(size.width * 0.85, size.height * 0.45),
-      Offset(size.width * 0.3, size.height * 0.75),
+    final starPaint = Paint()
+      ..color = primaryOrbitColor.withValues(alpha: starAlpha)
+      ..style = PaintingStyle.fill;
+
+    final starGlowPaint = Paint()
+      ..color = primaryOrbitColor.withValues(alpha: glowAlpha)
+      ..style = PaintingStyle.fill;
+
+    final nodes = [
+      Offset(size.width * 0.12, size.height * 0.25),
+      Offset(size.width * 0.26, size.height * 0.40),
+      Offset(size.width * 0.08, size.height * 0.58),
+      Offset(size.width * 0.88, size.height * 0.28),
+      Offset(size.width * 0.74, size.height * 0.45),
+      Offset(size.width * 0.90, size.height * 0.62),
+      Offset(size.width * 0.20, size.height * 0.78),
+      Offset(size.width * 0.38, size.height * 0.88),
     ];
 
-    for (final center in crosshairs) {
+    // Connect constellations
+    canvas
+      ..drawLine(nodes[0], nodes[1], pathPaint)
+      ..drawLine(nodes[1], nodes[2], pathPaint)
+      ..drawLine(nodes[3], nodes[4], pathPaint)
+      ..drawLine(nodes[4], nodes[5], pathPaint)
+      ..drawLine(nodes[6], nodes[7], pathPaint);
+
+    // Draw nodes
+    for (final node in nodes) {
       canvas
-        ..drawLine(
-          Offset(center.dx - 8, center.dy),
-          Offset(center.dx + 8, center.dy),
-          crossPaint,
-        )
-        ..drawLine(
-          Offset(center.dx, center.dy - 8),
-          Offset(center.dx, center.dy + 8),
-          crossPaint,
-        );
+        ..drawCircle(node, 8.0, starGlowPaint) // Outer glow ring
+        ..drawCircle(node, 3.5, starPaint);     // Core coordinate star
     }
+
+    // 5. Technical Corner Brackets (Corner design elements)
+    final bracketPaint = Paint()
+      ..color = tertiaryOrbitColor.withValues(alpha: lineAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    const bracketSize = 14.0;
+    const margin = 12.0;
+
+    // Top Left Bracket
+    canvas
+      ..drawLine(const Offset(margin, margin), const Offset(margin + bracketSize, margin), bracketPaint)
+      ..drawLine(const Offset(margin, margin), const Offset(margin, margin + bracketSize), bracketPaint);
+
+    // Top Right Bracket
+    canvas
+      ..drawLine(Offset(size.width - margin, margin), Offset(size.width - margin - bracketSize, margin), bracketPaint)
+      ..drawLine(Offset(size.width - margin, margin), Offset(size.width - margin, margin + bracketSize), bracketPaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    if (oldDelegate is FuturisticBackgroundPainter) {
+      return oldDelegate.isDark != isDark;
+    }
+    return true;
+  }
 }

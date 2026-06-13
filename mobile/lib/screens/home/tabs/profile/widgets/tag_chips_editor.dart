@@ -52,6 +52,8 @@ class TagChipsEditor extends StatelessWidget {
         isScrollControlled: true,
         barrierColor: Colors.black.withValues(alpha: 0.8),
         builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
           return StatefulBuilder(
             builder: (context, setModalState) {
               final showSearch = localPresets.length > 10;
@@ -71,13 +73,13 @@ class TagChipsEditor extends StatelessWidget {
                   bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131722).withValues(alpha: 0.98),
+                  color: isDark ? const Color(0xFF131722).withValues(alpha: 0.98) : Colors.white,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: SafeArea(
@@ -91,7 +93,7 @@ class TagChipsEditor extends StatelessWidget {
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 18),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -101,11 +103,10 @@ class TagChipsEditor extends StatelessWidget {
                         children: [
                           Text(
                             'Select $label',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'Outfit',
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -132,32 +133,31 @@ class TagChipsEditor extends StatelessWidget {
                           height: 44,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.02),
+                            color: isDark ? Colors.white.withValues(alpha: 0.02) : const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 LucideIcons.search,
-                                color: Colors.white38,
+                                color: isDark ? Colors.white38 : Colors.black38,
                                 size: 16,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: TextField(
                                   controller: searchController,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     fontSize: 13,
-                                    fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Search presets...',
                                     hintStyle: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.25),
+                                      color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.25),
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -175,9 +175,9 @@ class TagChipsEditor extends StatelessWidget {
                                     searchController.clear();
                                     setModalState(() {});
                                   },
-                                  child: const Icon(
+                                  child: Icon(
                                     LucideIcons.xCircle,
-                                    color: Colors.white38,
+                                    color: isDark ? Colors.white38 : Colors.black38,
                                     size: 16,
                                   ),
                                 ),
@@ -227,12 +227,12 @@ class TagChipsEditor extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? const Color(0xFFFF7597).withValues(alpha: 0.08)
-                                        : Colors.white.withValues(alpha: 0.01),
+                                        : (isDark ? Colors.white.withValues(alpha: 0.01) : const Color(0xFFF9FAFB)),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
                                           ? const Color(0xFFFF7597).withValues(alpha: 0.45)
-                                          : Colors.white.withValues(alpha: 0.05),
+                                          : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
                                     ),
                                   ),
                                   child: Row(
@@ -260,7 +260,7 @@ class TagChipsEditor extends StatelessWidget {
                                           size: 14,
                                           color: isSelected
                                               ? const Color(0xFFFF7597)
-                                              : Colors.white24,
+                                              : (isDark ? Colors.white24 : Colors.black38),
                                         ),
                                         const SizedBox(width: 12),
                                       ],
@@ -268,8 +268,9 @@ class TagChipsEditor extends StatelessWidget {
                                         child: Text(
                                           option,
                                           style: TextStyle(
-                                            color: isSelected ? Colors.white : Colors.white70,
-                                            fontFamily: 'Outfit',
+                                            color: isSelected
+                                                ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                                                : (isDark ? Colors.white70 : const Color(0xFF475569)),
                                             fontSize: 14,
                                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                           ),
@@ -295,10 +296,10 @@ class TagChipsEditor extends StatelessWidget {
                           height: 46,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.02),
+                            color: isDark ? Colors.white.withValues(alpha: 0.02) : const Color(0xFFF3F4F6),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
@@ -306,15 +307,14 @@ class TagChipsEditor extends StatelessWidget {
                               Expanded(
                                 child: TextField(
                                   controller: textController,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     fontSize: 13,
-                                    fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: hintText,
                                     hintStyle: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.25),
+                                      color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.25),
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -375,6 +375,8 @@ class TagChipsEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -388,7 +390,7 @@ class TagChipsEditor extends StatelessWidget {
                 Text(
                   label.toUpperCase(),
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.6),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -440,7 +442,7 @@ class TagChipsEditor extends StatelessWidget {
             child: Text(
               'No $label added yet',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.4),
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
               ),
@@ -457,12 +459,12 @@ class TagChipsEditor extends StatelessWidget {
                 if (label.toLowerCase() == 'interests') {
                   final grouped = <String, List<String>>{};
                   for (final val in currentValues) {
-                    final parts = val.split(': ');
-                    if (parts.length == 2) {
-                      grouped.putIfAbsent(parts[0], () => []).add(parts[1]);
-                    } else {
-                      grouped.putIfAbsent(val, () => []);
-                    }
+                     final parts = val.split(': ');
+                     if (parts.length == 2) {
+                       grouped.putIfAbsent(parts[0], () => []).add(parts[1]);
+                     } else {
+                       grouped.putIfAbsent(val, () => []);
+                     }
                   }
                   final merged = <String>[];
                   grouped.forEach((parent, subs) {
@@ -493,17 +495,17 @@ class TagChipsEditor extends StatelessWidget {
                   return emoji;
                 }
 
-                 return displayValues.map((val) {
+                return displayValues.map((val) {
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: iconColor.withValues(alpha: 0.06),
+                      color: iconColor.withValues(alpha: isDark ? 0.06 : 0.08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: iconColor.withValues(alpha: 0.25),
+                        color: iconColor.withValues(alpha: isDark ? 0.25 : 0.35),
                       ),
                     ),
                     child: Row(
@@ -519,11 +521,10 @@ class TagChipsEditor extends StatelessWidget {
                         Flexible(
                           child: Text(
                             val,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              fontFamily: 'Outfit',
                             ),
                             softWrap: true,
                           ),

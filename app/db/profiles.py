@@ -34,14 +34,8 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
-def _get_search_bucket_column(active_tab: DiscoveryTab) -> str:
-    if active_tab == "Dating":
-        return "dating_search_buckets"
-    if active_tab == "Friends":
-        return "friends_search_buckets"
-    if active_tab == "Professional":
-        return "professional_search_buckets"
-    raise ValueError(f"Unsupported active_tab: {active_tab}")
+def _get_search_bucket_column(_active_tab: DiscoveryTab) -> str:
+    return "search_bucket"
 
 
 def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
@@ -271,16 +265,15 @@ def _get_expanded_viewer_buckets(
         )
         return [], []
 
-    if not isinstance(viewer_search_raw, list) or not viewer_search_raw:
+    if not viewer_search_raw:
         logger.warning(
             "Viewer profile missing valid search bucket configuration",
             extra={"viewer_id": viewer["id"], "active_tab": active_tab},
         )
         return [], []
 
-    viewer_search_list = cast(list[Any], viewer_search_raw)
     viewer_targets_list = cast(list[Any], viewer_targets_raw)
-    viewer_search_expanded = _expand_target_buckets(viewer_search_list)
+    viewer_search_expanded = [str(viewer_search_raw)]
     viewer_targets = _expand_target_buckets(viewer_targets_list)
 
     if not viewer_targets:
@@ -339,7 +332,7 @@ def _execute_and_filter_candidates(
     search_bucket_column = _get_search_bucket_column(active_tab)
     try:
         res = (
-            query.overlaps(search_bucket_column, viewer_targets)
+            query.in_(search_bucket_column, viewer_targets)
             .limit(candidate_limit)
             .execute()
         )

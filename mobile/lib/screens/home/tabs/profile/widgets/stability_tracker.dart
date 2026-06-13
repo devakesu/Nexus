@@ -9,7 +9,7 @@ class StabilityTracker extends StatelessWidget {
     required this.name,
     required this.age,
     required this.bio,
-    required this.searchBuckets,
+    required this.searchBucket,
     required this.displayGender,
     required this.displaySexuality,
     required this.pronouns,
@@ -40,7 +40,7 @@ class StabilityTracker extends StatelessWidget {
   final String name;
   final int age;
   final String bio;
-  final List<String> searchBuckets;
+  final String searchBucket;
   final String displayGender;
   final String displaySexuality;
   final String pronouns;
@@ -144,7 +144,7 @@ class StabilityTracker extends StatelessWidget {
                           _CriteriaItem(
                             icon: LucideIcons.users,
                             label: 'Demographic Buckets',
-                            complete: searchBuckets.isNotEmpty,
+                            complete: searchBucket.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.userCheck,
@@ -516,6 +516,7 @@ class StabilityTracker extends StatelessWidget {
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
     final stabilityFraction = stabilityPercentage / 100;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: () => _showStabilityDetails(context),
@@ -523,15 +524,15 @@ class StabilityTracker extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF111420),
+          color: isDark ? const Color(0xFF111420) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFFF7597).withValues(alpha: 0.2),
+            color: const Color(0xFFFF7597).withValues(alpha: isDark ? 0.2 : 0.35),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
               blurRadius: 16,
               spreadRadius: 1,
               offset: const Offset(0, 8),
@@ -555,7 +556,7 @@ class StabilityTracker extends StatelessWidget {
                     Text(
                       'Profile Completion',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.6),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
@@ -634,9 +635,13 @@ class StabilityTracker extends StatelessWidget {
                       ];
                     } else {
                       // Inactive segment gets a tiny hint of sweep light
-                      displayColor = Colors.white.withValues(
-                        alpha: 0.04 + (sweepHighlight * 0.08),
-                      );
+                      displayColor = isDark
+                          ? Colors.white.withValues(
+                              alpha: 0.04 + (sweepHighlight * 0.08),
+                            )
+                          : Colors.black.withValues(
+                              alpha: 0.06 + (sweepHighlight * 0.08),
+                            );
                       boxShadows = sweepHighlight > 0.5
                           ? [
                               BoxShadow(
@@ -723,7 +728,7 @@ class StabilityTracker extends StatelessWidget {
                     Text(
                       'STABILITY INDEX: $percentage/100',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35),
+                        color: isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.45),
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,

@@ -35,9 +35,7 @@ class ProfileModel(BaseModel):
     campus_name: str | None = None
 
     # Search and targeting bucket configuration.
-    dating_search_buckets: list[str] = Field(default_factory=list)
-    friends_search_buckets: list[str] = Field(default_factory=list)
-    professional_search_buckets: list[str] = Field(default_factory=list)
+    search_bucket: str = "NB"
     dating_target_buckets: list[str] = Field(default_factory=list)
     friends_target_buckets: list[str] = Field(default_factory=list)
     professional_target_buckets: list[str] = Field(default_factory=list)
@@ -614,9 +612,7 @@ class ProfileDetailsUpdate(BaseModel):
     display_sexuality: str | None = None
     pronouns: str | None = None
     bio: str | None = None
-    dating_search_buckets: list[str] | None = None
-    friends_search_buckets: list[str] | None = None
-    professional_search_buckets: list[str] | None = None
+    search_bucket: str | None = None
     hometown: str | None = None
     current_place: str | None = None
     partner_values: str | None = None
@@ -627,6 +623,7 @@ class ProfileDetailsUpdate(BaseModel):
     smoking: str | None = None
     role: str | None = None
     dating_target_buckets: list[str] | None = None
+    dating_for: list[str] | None = None
     friends_target_buckets: list[str] | None = None
     professional_target_buckets: list[str] | None = None
     looking_for: list[str] | None = None
@@ -638,3 +635,4 @@ class ProfileDetailsUpdate(BaseModel):
     pets: list[str] | None = None
     interests: dict[str, int] | None = None
     sub_interests: dict[str, list[str]] | None = None
+    is_dating_complete: bool | None = None
