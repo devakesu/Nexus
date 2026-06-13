@@ -9,6 +9,7 @@ class NeonSlider extends StatelessWidget {
     required this.label,
     required this.onChanged,
     this.onChangeEnd,
+    this.isSaving = false,
     super.key,
   });
 
@@ -19,10 +20,12 @@ class NeonSlider extends StatelessWidget {
   final String label;
   final ValueChanged<double> onChanged;
   final ValueChanged<double>? onChangeEnd;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFF0891B2);
+    const pulsarPink = Color(0xFFFF7597);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,14 +33,29 @@ class NeonSlider extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
+            Row(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                if (isSaving) ...[
+                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                    ),
+                  ),
+                ],
+              ],
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),

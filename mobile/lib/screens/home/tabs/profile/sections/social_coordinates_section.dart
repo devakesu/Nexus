@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/place_autocomplete_field.dart';
@@ -25,6 +26,16 @@ class SocialCoordinatesSection extends StatefulWidget {
     required this.onMajorSubmitted,
     required this.onIsStudyingChanged,
     required this.onYearChanged,
+    this.isSavingHometown = false,
+    this.isSavingCurrentPlace = false,
+    this.isSavingCampusName = false,
+    this.isSavingMajor = false,
+    this.isSavingLanguages = false,
+    this.isSavingCampusYear = false,
+    this.hometownFocusNode,
+    this.currentPlaceFocusNode,
+    this.campusNameFocusNode,
+    this.majorFocusNode,
     super.key,
   });
 
@@ -35,6 +46,16 @@ class SocialCoordinatesSection extends StatefulWidget {
   final String major;
   final bool isStudying;
   final int year;
+  final bool isSavingHometown;
+  final bool isSavingCurrentPlace;
+  final bool isSavingCampusName;
+  final bool isSavingMajor;
+  final bool isSavingLanguages;
+  final bool isSavingCampusYear;
+  final FocusNode? hometownFocusNode;
+  final FocusNode? currentPlaceFocusNode;
+  final FocusNode? campusNameFocusNode;
+  final FocusNode? majorFocusNode;
 
   final ValueChanged<String> onHometownChanged;
   final ValueChanged<String> onHometownSubmitted;
@@ -49,7 +70,8 @@ class SocialCoordinatesSection extends StatefulWidget {
   final ValueChanged<int> onYearChanged;
 
   @override
-  State<SocialCoordinatesSection> createState() => _SocialCoordinatesSectionState();
+  State<SocialCoordinatesSection> createState() =>
+      _SocialCoordinatesSectionState();
 }
 
 class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
@@ -69,6 +91,9 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
       icon: LucideIcons.globe,
       title: 'Social & Campus Info',
       description: 'Your campus and hometown background',
+      cardColor: const Color(0xFF0B1D16),
+      borderColor: const Color(0xFF10B981).withValues(alpha: 0.35),
+      accentColor: const Color(0xFF10B981),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -79,6 +104,8 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             prefixIcon: LucideIcons.home,
             onChanged: widget.onHometownChanged,
             onFieldSubmitted: widget.onHometownSubmitted,
+            isSaving: widget.isSavingHometown,
+            focusNode: widget.hometownFocusNode,
           ),
           const SizedBox(height: 12),
 
@@ -89,6 +116,8 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             prefixIcon: LucideIcons.navigation,
             onChanged: widget.onCurrentPlaceChanged,
             onFieldSubmitted: widget.onCurrentPlaceSubmitted,
+            isSaving: widget.isSavingCurrentPlace,
+            focusNode: widget.currentPlaceFocusNode,
           ),
           const SizedBox(height: 16),
 
@@ -174,32 +203,38 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
               'Catalan',
               'Basque',
               'Galician',
+              'Textile',
             ],
             icon: LucideIcons.languages,
             iconColor: const Color(0xFF4CAF50),
             onChanged: widget.onLanguagesChanged,
             hintText: 'Select languages...',
             allowCustom: false,
+            isSaving: widget.isSavingLanguages,
           ),
           const SizedBox(height: 12),
 
           GlassTextField(
-            label: 'Institute Name',
+            label: 'INSTITUTE NAME',
             initialValue: widget.campusName,
-            hintText: 'Enter your institute name & location',
+            hintText: 'Add your college name',
             prefixIcon: LucideIcons.mapPin,
             onChanged: widget.onCampusNameChanged,
             onFieldSubmitted: widget.onCampusNameSubmitted,
+            isSaving: widget.isSavingCampusName,
+            focusNode: widget.campusNameFocusNode,
           ),
           const SizedBox(height: 12),
 
           GlassTextField(
-            label: 'Major',
+            label: 'MAJOR',
             initialValue: widget.major,
-            hintText: 'Enter your major',
+            hintText: 'e.g. Computer Science',
             prefixIcon: LucideIcons.graduationCap,
             onChanged: widget.onMajorChanged,
             onFieldSubmitted: widget.onMajorSubmitted,
+            isSaving: widget.isSavingMajor,
+            focusNode: widget.majorFocusNode,
           ),
           const SizedBox(height: 12),
 
@@ -213,7 +248,10 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
               },
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.02),
                   borderRadius: BorderRadius.circular(16),
@@ -229,19 +267,20 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       size: 18,
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Add Campus Year / Student Info',
-                        style: TextStyle(
+                        'Currently Studying here?',
+                        style: GoogleFonts.plusJakartaSans(
                           color: Colors.white70,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          fontFamily: 'Outfit',
                         ),
                       ),
                     ),
                     Icon(
-                      _isExpanded ? LucideIcons.minusCircle : LucideIcons.plusCircle,
+                      _isExpanded
+                          ? LucideIcons.minusCircle
+                          : LucideIcons.plusCircle,
                       color: const Color(0xFFFF7597),
                       size: 18,
                     ),
@@ -269,7 +308,14 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                     runSpacing: 8,
                     children: List.generate(5, (index) {
                       final yearOption = index + 1;
-                      final label = '${yearOption == 1 ? "1st" : yearOption == 2 ? "2nd" : yearOption == 3 ? "3rd" : "${yearOption}th"} Year';
+                      final label =
+                          '${yearOption == 1
+                              ? "1st"
+                              : yearOption == 2
+                              ? "2nd"
+                              : yearOption == 3
+                              ? "3rd"
+                              : "${yearOption}th"} Year';
 
                       return GestureDetector(
                         onTap: () {
@@ -278,7 +324,10 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
                             color: const Color(0xFF141822),
@@ -288,11 +337,10 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           ),
                           child: Text(
                             label,
-                            style: const TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               color: Colors.white60,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              fontFamily: 'Outfit',
                             ),
                           ),
                         ),
@@ -310,7 +358,10 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
               },
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.02),
                   borderRadius: BorderRadius.circular(16),
@@ -321,26 +372,24 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Current Student Status',
-                            style: TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              fontFamily: 'Outfit',
                             ),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'Turn off to disable student status',
-                            style: TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               color: Colors.white38,
                               fontSize: 12,
-                              fontFamily: 'Outfit',
                             ),
                           ),
                         ],
@@ -385,14 +434,31 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'CAMPUS YEAR',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'CAMPUS YEAR',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    if (widget.isSavingCampusYear) ...[
+                      const SizedBox(width: 8),
+                      const SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFFFF7597),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -401,7 +467,14 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                   children: List.generate(5, (index) {
                     final yearOption = index + 1;
                     final isSelected = widget.year == yearOption;
-                    final label = '${yearOption == 1 ? "1st" : yearOption == 2 ? "2nd" : yearOption == 3 ? "3rd" : "${yearOption}th"} Year';
+                    final label =
+                        '${yearOption == 1
+                            ? "1st"
+                            : yearOption == 2
+                            ? "2nd"
+                            : yearOption == 3
+                            ? "3rd"
+                            : "${yearOption}th"} Year';
                     const primaryColor = Color(0xFF0891B2);
 
                     return GestureDetector(
@@ -410,10 +483,15 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          color: isSelected ? primaryColor : const Color(0xFF141822),
+                          color: isSelected
+                              ? primaryColor
+                              : const Color(0xFF141822),
                           border: Border.all(
                             color: isSelected
                                 ? Colors.white.withValues(alpha: 0.35)
@@ -422,11 +500,12 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                         ),
                         child: Text(
                           label,
-                          style: TextStyle(
+                          style: GoogleFonts.plusJakartaSans(
                             color: isSelected ? Colors.white : Colors.white60,
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontFamily: 'Outfit',
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                           ),
                         ),
                       ),

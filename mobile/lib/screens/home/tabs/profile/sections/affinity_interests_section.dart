@@ -14,12 +14,18 @@ class AffinityInterestsSection extends StatefulWidget {
     required this.onInterestsSaved,
     required this.onCausesSupportedChanged,
     required this.onTopArtistsChanged,
+    this.isSavingInterests = false,
+    this.isSavingCauses = false,
+    this.isSavingTopArtists = false,
     super.key,
   });
 
   final List<String> flatSubInterests;
   final List<String> causesSupported;
   final List<String> topArtists;
+  final bool isSavingInterests;
+  final bool isSavingCauses;
+  final bool isSavingTopArtists;
 
   final ValueChanged<List<String>> onInterestsSaved;
   final ValueChanged<List<String>> onCausesSupportedChanged;
@@ -40,10 +46,14 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
 
   @override
   Widget build(BuildContext context) {
+    const pulsarPink = Color(0xFFFF7597);
     return UniverseSection(
       icon: LucideIcons.tags,
       title: 'Interests & Hobbies',
       description: 'Your hobbies, music, and causes',
+      cardColor: const Color(0xFF0B1B20),
+      borderColor: const Color(0xFF00E5FF).withValues(alpha: 0.35),
+      accentColor: const Color(0xFF00E5FF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -57,6 +67,7 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
             onChanged: widget.onInterestsSaved,
             hintText: 'Select interests...',
             allowCustom: false,
+            isSaving: widget.isSavingInterests,
             onTapEdit: () {
               unawaited(
                 Navigator.push(
@@ -100,17 +111,33 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
             onChanged: widget.onCausesSupportedChanged,
             hintText: 'Select causes...',
             allowCustom: false,
+            isSaving: widget.isSavingCauses,
           ),
 
           // Top Artists List
-          Text(
-            'TOP ARTISTS',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              Text(
+                'TOP ARTISTS',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (widget.isSavingTopArtists) ...[
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           if (widget.topArtists.isNotEmpty) ...[

@@ -9,6 +9,8 @@ class PlaceAutocompleteField extends StatefulWidget {
     required this.prefixIcon,
     required this.onChanged,
     this.onFieldSubmitted,
+    this.isSaving = false,
+    this.focusNode,
     super.key,
   });
 
@@ -18,6 +20,8 @@ class PlaceAutocompleteField extends StatefulWidget {
   final IconData prefixIcon;
   final ValueChanged<String> onChanged;
   final ValueChanged<String>? onFieldSubmitted;
+  final bool isSaving;
+  final FocusNode? focusNode;
 
   @override
   State<PlaceAutocompleteField> createState() => _PlaceAutocompleteFieldState();
@@ -25,7 +29,7 @@ class PlaceAutocompleteField extends StatefulWidget {
 
 class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   late TextEditingController _controller;
-  final _focusNode = FocusNode();
+  late FocusNode _focusNode;
   bool _isFocused = false;
   List<String> _suggestions = [];
 
@@ -62,6 +66,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(() {
       setState(() {
         _isFocused = _focusNode.hasFocus;
@@ -91,7 +96,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -164,38 +171,61 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                     : const Color(0xFF141822),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: TextFormField(
-                controller: _controller,
-                focusNode: _focusNode,
-                onChanged: _onTextChanged,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Outfit',
-                  fontSize: 14,
-                ),
-                decoration: InputDecoration(
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(
-                      widget.prefixIcon,
-                      color: _isFocused ? pulsarPink : Colors.white38,
-                      size: 18,
+              child: Stack(
+                children: [
+                  TextFormField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    onChanged: _onTextChanged,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Outfit',
+                      fontSize: 14,
+                    ),
+                    decoration: InputDecoration(
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Icon(
+                          widget.prefixIcon,
+                          color: _isFocused ? pulsarPink : Colors.white38,
+                          size: 18,
+                        ),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      hintText: widget.hintText,
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        fontSize: 14,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 13,
+                      ),
+                      border: InputBorder.none,
                     ),
                   ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  hintText: widget.hintText,
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    fontSize: 14,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 13,
-                  ),
-                  border: InputBorder.none,
-                ),
+                  if (widget.isSaving)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(15),
+                          bottomRight: Radius.circular(15),
+                        ),
+                        child: SizedBox(
+                          height: 2,
+                          child: LinearProgressIndicator(
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

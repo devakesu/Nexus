@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 
@@ -7,12 +8,16 @@ class BioSection extends StatefulWidget {
     required this.bio,
     required this.onBioChanged,
     required this.onBioSubmitted,
+    this.isSaving = false,
+    this.focusNode,
     super.key,
   });
 
   final String bio;
   final ValueChanged<String> onBioChanged;
   final ValueChanged<String> onBioSubmitted;
+  final bool isSaving;
+  final FocusNode? focusNode;
 
   static const int maxLength = 400;
 
@@ -33,7 +38,7 @@ class _BioSectionState extends State<BioSection> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.bio);
-    _focusNode = FocusNode();
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
   }
 
@@ -52,9 +57,10 @@ class _BioSectionState extends State<BioSection> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode
-      ..removeListener(_onFocusChange)
-      ..dispose();
+    _focusNode.removeListener(_onFocusChange);
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -81,6 +87,9 @@ class _BioSectionState extends State<BioSection> {
       title: 'Cosmic Signature',
       description:
           'Your signal to the universe — who you are in your own words',
+      cardColor: const Color(0xFF1B0F20),
+      borderColor: const Color(0xFFFF4D7E).withValues(alpha: 0.35),
+      accentColor: _pulsarPink,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -118,72 +127,92 @@ class _BioSectionState extends State<BioSection> {
                     : const Color(0xFF141822),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.penLine,
-                          size: 13,
-                          color: _pulsarPink,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.penLine,
+                              size: 13,
+                              color: _pulsarPink,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'BIO',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'BIO',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            fontFamily: 'Outfit',
+                      ),
+                      TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        maxLines: 5,
+                        minLines: 3,
+                        maxLength: BioSection.maxLength,
+                        buildCounter:
+                            (
+                              _, {
+                              required currentLength,
+                              required isFocused,
+                              maxLength,
+                             }) => null,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: _mistLavender,
+                          fontSize: 14,
+                          height: 1.55,
+                        ),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Tell your story — your vibe, your passions, what makes you, you...',
+                          hintStyle: GoogleFonts.plusJakartaSans(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                        ),
+                        onChanged: (val) {
+                          widget.onBioChanged(val);
+                          setState(() => _isDirty = true);
+                        },
+                        onEditingComplete: () {
+                          widget.onBioSubmitted(_controller.text.trim());
+                          setState(() => _isDirty = false);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (widget.isSaving)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(15),
+                          bottomRight: Radius.circular(15),
+                        ),
+                        child: SizedBox(
+                          height: 2,
+                          child: LinearProgressIndicator(
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(_pulsarPink),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    maxLines: 5,
-                    minLines: 3,
-                    maxLength: BioSection.maxLength,
-                    buildCounter:
-                        (
-                          _, {
-                          required currentLength,
-                          required isFocused,
-                          maxLength,
-                        }) => null,
-                    style: const TextStyle(
-                      color: _mistLavender,
-                      fontSize: 14,
-                      height: 1.55,
-                      fontFamily: 'Outfit',
-                    ),
-                    decoration: InputDecoration(
-                      hintText:
-                          'Tell your story — your vibe, your passions, what makes you, you...',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        fontSize: 13,
-                        height: 1.5,
-                        fontFamily: 'Outfit',
                       ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
                     ),
-                    onChanged: (val) {
-                      widget.onBioChanged(val);
-                      setState(() => _isDirty = true);
-                    },
-                    onEditingComplete: () {
-                      widget.onBioSubmitted(_controller.text.trim());
-                      setState(() => _isDirty = false);
-                    },
-                  ),
                 ],
               ),
             ),
@@ -196,11 +225,10 @@ class _BioSectionState extends State<BioSection> {
             children: [
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   color: counterColor,
                   fontSize: 11,
                   fontWeight: isNearLimit ? FontWeight.bold : FontWeight.normal,
-                  fontFamily: 'Outfit',
                 ),
                 child: Text('$remaining left'),
               ),

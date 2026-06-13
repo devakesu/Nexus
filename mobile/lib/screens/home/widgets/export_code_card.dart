@@ -132,9 +132,17 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B26),
+        color: const Color(0xFF111420),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x1FFF7597)),
+        border: Border.all(color: const Color(0xFFFF7597).withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

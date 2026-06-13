@@ -69,12 +69,25 @@ class ClientAIImageManager extends _$ClientAIImageManager {
     state = state.copyWith(remotePaths: fixedPaths);
   }
 
+  ClientAIProfileState? _backupState;
+
+  void backupState() {
+    _backupState = state;
+  }
+
+  void restoreBackup() {
+    if (_backupState != null) {
+      state = _backupState!;
+    }
+  }
+
   // Action: User modifies or uploads a new picture to a slot
   Future<void> stageImageSlot(
     int slotIndex,
     File localFile, {
     String userBranch = '',
   }) async {
+    backupState();
     state = state.copyWith(isProcessingAI: true);
 
     // 1. Run your Local Client-Side AI Inference Core directly on-device
@@ -107,6 +120,7 @@ class ClientAIImageManager extends _$ClientAIImageManager {
   }
 
   void clearImageSlot(int slotIndex) {
+    backupState();
     final updatedRemote = List<String>.from(state.remotePaths);
     final updatedDeletions = List<String>.from(state.pendingDeletions);
     if (slotIndex < updatedRemote.length) {
@@ -155,49 +169,48 @@ class ClientAIImageManager extends _$ClientAIImageManager {
     state = state.copyWith(isSaving: true);
     final finalOrderedPaths = List<String>.from(state.remotePaths);
     final storage = Supabase.instance.client.storage.from('user_media');
+    final uploadedPaths = <String>[];
 
-    // 0. Purge any overwritten or deleted remote files from Supabase Storage bucket
-    if (state.pendingDeletions.isNotEmpty) {
-      try {
-        await storage.remove(state.pendingDeletions);
-      } on Object catch (e) {
-        // Non-fatal: log storage removal error but proceed with transaction
-        debugPrint('[ClientAIImageManager] Failed to remove old media files: $e');
-      }
-    }
-
-    // 1. Process local binary file uploads sequentially to storage
-    for (final entry in state.pendingUploads.entries) {
-      final idx = entry.key;
-      final file = entry.value;
-      final storagePath =
-          '$userId/photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await storage.upload(storagePath, file);
-
-      if (!ref.mounted) return;
-
-      // Assign directly to the index without shifting
-      if (idx < finalOrderedPaths.length) {
-        finalOrderedPaths[idx] = storagePath;
-      }
-    }
-
-    // 2. Flatten all slot-specific vibe tags into a unified unique set
-    final unifiedUniqueTags = <String>{};
-    state.slotSpecificVibeTags.values.forEach(unifiedUniqueTags.addAll);
-
-    // 3. Dispatch unified payload containing storage URLs and tags to FastAPI
     try {
+      // 1. Process local binary file uploads sequentially to storage
+      for (final entry in state.pendingUploads.entries) {
+        final idx = entry.key;
+        final file = entry.value;
+        final storagePath =
+            '$userId/photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+        await storage.upload(storagePath, file);
+        uploadedPaths.add(storagePath);
+
+        if (!ref.mounted) {
+          // Clean up uploaded images if we get unmounted
+          if (uploadedPaths.isNotEmpty) {
+            await storage.remove(uploadedPaths);
+          }
+          return;
+        }
+
+        // Assign directly to the index without shifting
+        if (idx < finalOrderedPaths.length) {
+          finalOrderedPaths[idx] = storagePath;
+        }
+      }
+
+      // 2. Flatten all slot-specific vibe tags into a unified unique set
+      final unifiedUniqueTags = <String>{};
+      state.slotSpecificVibeTags.values.forEach(unifiedUniqueTags.addAll);
+
+      // 3. Dispatch unified payload containing storage URLs and tags to FastAPI
       final config = AppConfig.current;
       final session = Supabase.instance.client.auth.currentSession;
       final token = session?.accessToken;
 
-      await dioClient.patch<dynamic>(
-        '${config.backendUrl}/api/v1/profile/sync-client-ai',
+      await dioClient.post<dynamic>(
+        '${config.backendUrl}/api/v1/profile/media',
         data: {
-          'ordered_images': finalOrderedPaths,
-          'computed_vibe_tags': unifiedUniqueTags.toList(),
+          'profile_pic': finalOrderedPaths[0],
+          'normal_pics': finalOrderedPaths.sublist(1).where((p) => p.isNotEmpty).toList(),
+          'ai_vibe_tags': unifiedUniqueTags.isNotEmpty ? unifiedUniqueTags.toList() : ['ambient-vibe'],
         },
         options: Options(
           headers: token != null ? {'Authorization': 'Bearer $token'} : null,
@@ -205,6 +218,16 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       );
 
       if (!ref.mounted) return;
+
+      // 4. Purge old remote files from Supabase Storage bucket ONLY after sync is successful
+      if (state.pendingDeletions.isNotEmpty) {
+        try {
+          await storage.remove(state.pendingDeletions);
+        } on Object catch (e) {
+          // Non-fatal: log storage removal error but proceed with transaction
+          debugPrint('[ClientAIImageManager] Failed to remove old media files: $e');
+        }
+      }
 
       state = ClientAIProfileState(
         remotePaths: finalOrderedPaths,
@@ -214,8 +237,17 @@ class ClientAIImageManager extends _$ClientAIImageManager {
         pendingDeletions: [],
       );
     } catch (e) {
-      if (!ref.mounted) return;
-      state = state.copyWith(isSaving: false);
+      // Clean up any newly uploaded images from the storage bucket since the transaction failed
+      if (uploadedPaths.isNotEmpty) {
+        try {
+          await storage.remove(uploadedPaths);
+        } on Object catch (err) {
+          debugPrint('[ClientAIImageManager] Failed to roll back uploaded media files on failure: $err');
+        }
+      }
+      if (ref.mounted) {
+        restoreBackup();
+      }
       rethrow;
     }
   }

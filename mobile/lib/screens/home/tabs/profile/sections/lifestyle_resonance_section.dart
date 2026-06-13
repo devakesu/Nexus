@@ -24,6 +24,13 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.onSmokingSaved,
     required this.onChildrenPlansSaved,
     required this.onReligiousBeliefsSaved,
+    this.isSavingLifestyle = false,
+    this.isSavingPartnerValues = false,
+    this.isSavingDrinking = false,
+    this.isSavingSmoking = false,
+    this.isSavingChildrenPlans = false,
+    this.isSavingReligiousBeliefs = false,
+    this.isSavingPets = false,
     super.key,
   });
 
@@ -34,6 +41,13 @@ class LifestyleResonanceSection extends StatelessWidget {
   final String religiousBeliefs;
   final String partnerValues;
   final List<String> pets;
+  final bool isSavingLifestyle;
+  final bool isSavingPartnerValues;
+  final bool isSavingDrinking;
+  final bool isSavingSmoking;
+  final bool isSavingChildrenPlans;
+  final bool isSavingReligiousBeliefs;
+  final bool isSavingPets;
 
   final ValueChanged<String> onLifestyleChanged;
   final ValueChanged<String> onLifestyleSubmitted;
@@ -59,6 +73,9 @@ class LifestyleResonanceSection extends StatelessWidget {
       icon: LucideIcons.heart,
       title: 'Lifestyle & Preferences',
       description: 'Your daily habits, values and background',
+      cardColor: const Color(0xFF22150D),
+      borderColor: const Color(0xFFFF9500).withValues(alpha: 0.35),
+      accentColor: const Color(0xFFFF9500),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -72,6 +89,7 @@ class LifestyleResonanceSection extends StatelessWidget {
             keyboardType: TextInputType.multiline,
             onChanged: onLifestyleChanged,
             onFieldSubmitted: onLifestyleSubmitted,
+            isSaving: isSavingLifestyle,
           ),
           const SizedBox(height: 16),
 
@@ -97,6 +115,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onDrinkingSaved,
                     );
                   },
+                  isSaving: isSavingDrinking,
                 ),
               ),
               const SizedBox(width: 12),
@@ -119,6 +138,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onSmokingSaved,
                     );
                   },
+                  isSaving: isSavingSmoking,
                 ),
               ),
             ],
@@ -147,6 +167,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onChildrenPlansSaved,
                     );
                   },
+                  isSaving: isSavingChildrenPlans,
                 ),
               ),
               const SizedBox(width: 12),
@@ -183,6 +204,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onReligiousBeliefsSaved,
                     );
                   },
+                  isSaving: isSavingReligiousBeliefs,
                 ),
               ),
             ],
@@ -199,6 +221,7 @@ class LifestyleResonanceSection extends StatelessWidget {
             keyboardType: TextInputType.multiline,
             onChanged: onPartnerValuesChanged,
             onFieldSubmitted: onPartnerValuesSubmitted,
+            isSaving: isSavingPartnerValues,
           ),
           const SizedBox(height: 16),
 
@@ -228,6 +251,7 @@ class LifestyleResonanceSection extends StatelessWidget {
             iconColor: const Color(0xFFFF9800),
             onChanged: onPetsChanged,
             hintText: 'Add custom pet...',
+            isSaving: isSavingPets,
           ),
         ],
       ),

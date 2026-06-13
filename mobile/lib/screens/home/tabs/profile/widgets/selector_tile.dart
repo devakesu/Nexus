@@ -9,6 +9,7 @@ class SelectorTile extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.isSaving = false,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class SelectorTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -55,43 +57,61 @@ class SelectorTile extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: Row(
+              child: Stack(
                 children: [
-                  // Left color accent bar matching the category style
-                  Container(
-                    width: 4,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: iconColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: iconColor.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 0.5,
+                  Row(
+                    children: [
+                      // Left color accent bar matching the category style
+                      Container(
+                        width: 4,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: iconColor,
+                          boxShadow: [
+                            BoxShadow(
+                              color: iconColor.withValues(alpha: 0.5),
+                              blurRadius: 4,
+                              spreadRadius: 0.5,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(icon, color: iconColor, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          displayText,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Outfit',
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        LucideIcons.chevronRight,
+                        color: Colors.white.withValues(alpha: 0.35),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Icon(icon, color: iconColor, size: 16),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      displayText,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'Outfit',
+                  if (isSaving)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: SizedBox(
+                        height: 2,
+                        child: LinearProgressIndicator(
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                        ),
                       ),
                     ),
-                  ),
-                  const Icon(
-                    LucideIcons.chevronRight,
-                    color: pulsarPink,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 16),
                 ],
               ),
             ),

@@ -31,6 +31,7 @@ class StabilityTracker extends StatelessWidget {
     required this.causesSupported,
     required this.topArtists,
     required this.pulseController,
+    required this.onCriteriaTap,
     super.key,
   });
 
@@ -61,6 +62,7 @@ class StabilityTracker extends StatelessWidget {
   final List<String> causesSupported;
   final List<String> topArtists;
   final AnimationController pulseController;
+  final void Function(String label) onCriteriaTap;
 
   void _showStabilityDetails(BuildContext context) {
     unawaited(
@@ -113,210 +115,295 @@ class StabilityTracker extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Expanded(
+                                Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. Core Details
-                        _buildStabilityCategoryHeader('Core Details'),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.image,
-                          label: 'Profile Picture',
-                          complete:
-                              imagePaths[0] != null &&
-                              imagePaths[0]!.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.user,
-                          label: 'Display Name',
-                          complete: name.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.calendar,
-                          label: 'Age',
-                          complete: age >= 18,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.fileText,
-                          label: 'Cosmic Signature (Bio)',
-                          complete: bio.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.users,
-                          label: 'Demographic Buckets',
-                          complete: searchBuckets.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.userCheck,
-                          label: 'Gender',
-                          complete:
-                              displayGender.isNotEmpty &&
-                              displayGender != 'Prefer not to say',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.heart,
-                          label: 'Sexuality',
-                          complete:
-                              displaySexuality.isNotEmpty &&
-                              displaySexuality != 'Prefer not to say',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.smile,
-                          label: 'Pronouns',
-                          complete:
-                              pronouns.isNotEmpty &&
-                              pronouns != 'Prefer not to say',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.image,
-                          label: 'Gallery Slot 1',
-                          complete:
-                              imagePaths[1] != null &&
-                              imagePaths[1]!.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.image,
-                          label: 'Gallery Slot 2',
-                          complete:
-                              imagePaths[2] != null &&
-                              imagePaths[2]!.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.image,
-                          label: 'Gallery Slot 3',
-                          complete:
-                              imagePaths[3] != null &&
-                              imagePaths[3]!.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.image,
-                          label: 'Gallery Slot 4',
-                          complete:
-                              imagePaths[4] != null &&
-                              imagePaths[4]!.isNotEmpty,
-                        ),
-                        const SizedBox(height: 12),
+                    child: Builder(
+                      builder: (context) {
+                        final coreDetails = [
+                          _CriteriaItem(
+                            icon: LucideIcons.image,
+                            label: 'Profile Picture',
+                            complete: imagePaths[0] != null && imagePaths[0]!.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.user,
+                            label: 'Display Name',
+                            complete: name.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.calendar,
+                            label: 'Age',
+                            complete: age >= 18,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.fileText,
+                            label: 'Cosmic Signature (Bio)',
+                            complete: bio.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.users,
+                            label: 'Demographic Buckets',
+                            complete: searchBuckets.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.userCheck,
+                            label: 'Gender',
+                            complete: displayGender.isNotEmpty && displayGender != 'Prefer not to say',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.heart,
+                            label: 'Sexuality',
+                            complete: displaySexuality.isNotEmpty && displaySexuality != 'Prefer not to say',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.smile,
+                            label: 'Pronouns',
+                            complete: pronouns.isNotEmpty && pronouns != 'Prefer not to say',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.image,
+                            label: 'Gallery Slot 1',
+                            complete: imagePaths[1] != null && imagePaths[1]!.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.image,
+                            label: 'Gallery Slot 2',
+                            complete: imagePaths[2] != null && imagePaths[2]!.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.image,
+                            label: 'Gallery Slot 3',
+                            complete: imagePaths[3] != null && imagePaths[3]!.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.image,
+                            label: 'Gallery Slot 4',
+                            complete: imagePaths[4] != null && imagePaths[4]!.isNotEmpty,
+                          ),
+                        ];
 
-                        // 2. Social & Campus Info
-                        _buildStabilityCategoryHeader('Social & Campus Info'),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.home,
-                          label: 'Hometown',
-                          complete: hometown.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.navigation,
-                          label: 'Current Place',
-                          complete: currentPlace.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.languages,
-                          label: 'Languages',
-                          complete: languages.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.mapPin,
-                          label: 'Institute Name',
-                          complete: campusName.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.graduationCap,
-                          label: 'Major',
-                          complete: major.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.calendarCheck,
-                          label: 'Campus Year',
-                          complete: !isStudying || (year >= 1 && year <= 5),
-                        ),
-                        const SizedBox(height: 12),
+                        final socialCampus = [
+                          _CriteriaItem(
+                            icon: LucideIcons.home,
+                            label: 'Hometown',
+                            complete: hometown.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.navigation,
+                            label: 'Current Place',
+                            complete: currentPlace.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.languages,
+                            label: 'Languages',
+                            complete: languages.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.mapPin,
+                            label: 'Institute Name',
+                            complete: campusName.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.graduationCap,
+                            label: 'Major',
+                            complete: major.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.calendarCheck,
+                            label: 'Campus Year',
+                            complete: !isStudying || (year >= 1 && year <= 5),
+                          ),
+                        ];
 
-                        // 3. Lifestyle & Preferences
-                        _buildStabilityCategoryHeader('Lifestyle & Preferences'),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.activity,
-                          label: 'Lifestyle Description',
-                          complete: lifestyle.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.glassWater,
-                          label: 'Drinking',
-                          complete:
-                              drinking.isNotEmpty &&
-                              drinking != 'Not specified',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.cigarette,
-                          label: 'Smoking',
-                          complete:
-                              smoking.isNotEmpty && smoking != 'Not specified',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.baby,
-                          label: 'Children Plans',
-                          complete:
-                              childrenPlans.isNotEmpty &&
-                              childrenPlans != 'Not specified',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.sparkles,
-                          label: 'Religious Beliefs',
-                          complete:
-                              religiousBeliefs.isNotEmpty &&
-                              religiousBeliefs != 'Not specified',
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.users,
-                          label: 'Partner Values',
-                          complete: partnerValues.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.pawPrint,
-                          label: 'Pets',
-                          complete: pets.isNotEmpty,
-                        ),
-                        const SizedBox(height: 12),
+                        final lifestylePref = [
+                          _CriteriaItem(
+                            icon: LucideIcons.activity,
+                            label: 'Lifestyle Description',
+                            complete: lifestyle.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.glassWater,
+                            label: 'Drinking',
+                            complete: drinking.isNotEmpty && drinking != 'Not specified',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.cigarette,
+                            label: 'Smoking',
+                            complete: smoking.isNotEmpty && smoking != 'Not specified',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.baby,
+                            label: 'Children Plans',
+                            complete: childrenPlans.isNotEmpty && childrenPlans != 'Not specified',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.sparkles,
+                            label: 'Religious Beliefs',
+                            complete: religiousBeliefs.isNotEmpty && religiousBeliefs != 'Not specified',
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.users,
+                            label: 'Partner Values',
+                            complete: partnerValues.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.pawPrint,
+                            label: 'Pets',
+                            complete: pets.isNotEmpty,
+                          ),
+                        ];
 
-                        // 4. Interests & Hobbies
-                        _buildStabilityCategoryHeader('Interests & Hobbies'),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.sparkles,
-                          label: 'Interests',
-                          complete: subInterests.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.heart,
-                          label: 'Causes Supported',
-                          complete: causesSupported.isNotEmpty,
-                        ),
-                        _buildStabilityCriteriaRow(
-                          icon: LucideIcons.music,
-                          label: 'Top Artists',
-                          complete: topArtists.isNotEmpty,
-                        ),
-                      ],
+                        final interestsHobbies = [
+                          _CriteriaItem(
+                            icon: LucideIcons.sparkles,
+                            label: 'Interests',
+                            complete: subInterests.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.heart,
+                            label: 'Causes Supported',
+                            complete: causesSupported.isNotEmpty,
+                          ),
+                          _CriteriaItem(
+                            icon: LucideIcons.music,
+                            label: 'Top Artists',
+                            complete: topArtists.isNotEmpty,
+                          ),
+                        ];
+
+                        final incompleteCore = coreDetails.where((item) => !item.complete).toList();
+                        final incompleteSocial = socialCampus.where((item) => !item.complete).toList();
+                        final incompleteLifestyle = lifestylePref.where((item) => !item.complete).toList();
+                        final incompleteInterests = interestsHobbies.where((item) => !item.complete).toList();
+
+                        if (incompleteCore.isEmpty &&
+                            incompleteSocial.isEmpty &&
+                            incompleteLifestyle.isEmpty &&
+                            incompleteInterests.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    LucideIcons.checkCircle,
+                                    color: Color(0xFF10B981),
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'All details synchronized!',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Outfit',
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Your profile stability is at maximum capacity.',
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (incompleteCore.isNotEmpty) ...[
+                              _buildStabilityCategoryHeader('Core Details'),
+                              ...incompleteCore.map((item) => _buildStabilityCriteriaRow(
+                                    icon: item.icon,
+                                    label: item.label,
+                                    complete: item.complete,
+                                    context: context,
+                                  )),
+                              const SizedBox(height: 12),
+                            ],
+                            if (incompleteSocial.isNotEmpty) ...[
+                              _buildStabilityCategoryHeader('Social & Campus Info'),
+                              ...incompleteSocial.map((item) => _buildStabilityCriteriaRow(
+                                    icon: item.icon,
+                                    label: item.label,
+                                    complete: item.complete,
+                                    context: context,
+                                  )),
+                              const SizedBox(height: 12),
+                            ],
+                            if (incompleteLifestyle.isNotEmpty) ...[
+                              _buildStabilityCategoryHeader('Lifestyle & Preferences'),
+                              ...incompleteLifestyle.map((item) => _buildStabilityCriteriaRow(
+                                    icon: item.icon,
+                                    label: item.label,
+                                    complete: item.complete,
+                                    context: context,
+                                  )),
+                              const SizedBox(height: 12),
+                            ],
+                            if (incompleteInterests.isNotEmpty) ...[
+                              _buildStabilityCategoryHeader('Interests & Hobbies'),
+                              ...incompleteInterests.map((item) => _buildStabilityCriteriaRow(
+                                    icon: item.icon,
+                                    label: item.label,
+                                    complete: item.complete,
+                                    context: context,
+                                  )),
+                              const SizedBox(height: 12),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00E5FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                Center(
+                  child: SizedBox(
+                    width: 220,
+                    height: 46,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(23),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF00E5FF),
+                            Color(0xFFFF7597),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF7597).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Acknowledge',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(23),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Acknowledge',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Outfit',
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -349,33 +436,78 @@ class StabilityTracker extends StatelessWidget {
     required IconData icon,
     required String label,
     required bool complete,
+    required BuildContext context,
   }) {
+    const actionColor = Color(0xFFFF7597); // pulsarPink accent for call to action
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: complete ? const Color(0xFFFF7597) : Colors.white38,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: complete ? Colors.white70 : Colors.white38,
-                fontSize: 13,
-                decoration: complete ? null : TextDecoration.lineThrough,
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.pop(context);
+          onCriteriaTap(label);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.04),
             ),
           ),
-          Icon(
-            complete ? LucideIcons.checkCircle : LucideIcons.helpCircle,
-            size: 16,
-            color: complete ? const Color(0xFF10B981) : Colors.white24,
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: Colors.white54,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Outfit',
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: actionColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: actionColor.withValues(alpha: 0.25),
+                    width: 0.8,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.plus,
+                      size: 10,
+                      color: actionColor,
+                    ),
+                    SizedBox(width: 3),
+                    Text(
+                      'Add',
+                      style: TextStyle(
+                        color: actionColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -391,11 +523,20 @@ class StabilityTracker extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF161B26).withValues(alpha: 0.6),
+          color: const Color(0xFF111420),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: const Color(0xFFFF7597).withValues(alpha: 0.2),
+            width: 1.2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 16,
+              spreadRadius: 1,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,3 +740,17 @@ class StabilityTracker extends StatelessWidget {
     );
   }
 }
+
+class _CriteriaItem {
+  const _CriteriaItem({
+    required this.icon,
+    required this.label,
+    required this.complete,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool complete;
+}
+
+

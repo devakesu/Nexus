@@ -28,6 +28,13 @@ class CoreSignalSection extends StatefulWidget {
     required this.onSelectSexuality,
     required this.onSelectPronouns,
     required this.onImageSlotTap,
+    this.isSavingName = false,
+    this.isSavingGender = false,
+    this.isSavingSexuality = false,
+    this.isSavingPronouns = false,
+    this.isSavingAge = false,
+    this.isSavingBuckets = false,
+    this.nameFocusNode,
     super.key,
   });
 
@@ -42,6 +49,12 @@ class CoreSignalSection extends StatefulWidget {
   final bool isProcessingAI;
   final bool isSaving;
   final Map<int, dynamic> pendingUploads;
+  final bool isSavingName;
+  final bool isSavingGender;
+  final bool isSavingSexuality;
+  final bool isSavingPronouns;
+  final bool isSavingAge;
+  final bool isSavingBuckets;
 
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onNameSubmitted;
@@ -52,6 +65,7 @@ class CoreSignalSection extends StatefulWidget {
   final VoidCallback onSelectSexuality;
   final VoidCallback onSelectPronouns;
   final ValueChanged<int> onImageSlotTap;
+  final FocusNode? nameFocusNode;
 
   @override
   State<CoreSignalSection> createState() => _CoreSignalSectionState();
@@ -74,7 +88,6 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     required IconData icon,
   }) {
     final isSelected = widget.searchBuckets.contains(value);
-    const primaryColor = Color(0xFF0891B2);
 
     return Expanded(
       child: GestureDetector(
@@ -86,12 +99,24 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.02),
+            color: isSelected
+                ? const Color(0xFF0891B2).withValues(alpha: 0.25)
+                : Colors.white.withValues(alpha: 0.02),
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.35)
+                  ? const Color(0xFF00E5FF).withValues(alpha: 0.5)
                   : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.5 : 1.0,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -99,7 +124,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Icon(
                 icon,
                 size: 13,
-                color: isSelected ? Colors.white : Colors.white38,
+                color: isSelected ? const Color(0xFF00E5FF) : Colors.white38,
               ),
               const SizedBox(width: 6),
               Text(
@@ -127,6 +152,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
       icon: LucideIcons.user,
       title: 'Core Details',
       description: 'Essential profile details',
+      cardColor: const Color(0xFF0D1424),
+      borderColor: const Color(0xFF2D8CFF).withValues(alpha: 0.35),
+      accentColor: const Color(0xFF2D8CFF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -138,6 +166,8 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             prefixIcon: LucideIcons.user,
             onChanged: widget.onNameChanged,
             onFieldSubmitted: widget.onNameSubmitted,
+            isSaving: widget.isSavingName,
+            focusNode: widget.nameFocusNode,
           ),
 
           // Age slider
@@ -147,6 +177,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             max: 27,
             divisions: 9,
             label: 'Age',
+            isSaving: widget.isSavingAge,
             onChanged: (val) {
               final newAge = val.round();
               widget.onAgeChanged(newAge);
@@ -199,14 +230,29 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'DEMOGRAPHIC BUCKETS',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'DEMOGRAPHIC BUCKETS',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (widget.isSavingBuckets) ...[
+                    const SizedBox(width: 8),
+                    const SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 4),
               Text(
@@ -249,6 +295,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.user,
             iconColor: const Color(0xFFE91E63),
             onTap: widget.onSelectGender,
+            isSaving: widget.isSavingGender,
           ),
           const SizedBox(height: 16),
           SelectorTile(
@@ -257,6 +304,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.heart,
             iconColor: const Color(0xFFFF2D55),
             onTap: widget.onSelectSexuality,
+            isSaving: widget.isSavingSexuality,
           ),
           const SizedBox(height: 16),
           SelectorTile(
@@ -265,6 +313,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.smile,
             iconColor: const Color(0xFF30B0C7),
             onTap: widget.onSelectPronouns,
+            isSaving: widget.isSavingPronouns,
           ),
           const SizedBox(height: 16),
 
@@ -299,9 +348,18 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                       borderRadius: BorderRadius.circular(20),
                       border: imagePath != null
                           ? Border.all(
-                              color: const Color(0xFF0891B2),
+                              color: const Color(0xFF00E5FF),
                               width: 1.5,
                             )
+                          : null,
+                      boxShadow: imagePath != null
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
+                                blurRadius: 10,
+                                spreadRadius: 0.5,
+                              ),
+                            ]
                           : null,
                     ),
                     child: Padding(

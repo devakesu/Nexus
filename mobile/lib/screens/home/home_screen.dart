@@ -68,14 +68,15 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Stack(
         children: [
           // Main tab content
-          SafeArea(
-            child: Column(
-              children: [
-                CommonHeader(
-                  appName: widget.title,
-                  currentTab: _currentTab,
-                ),
-                Expanded(
+          Column(
+            children: [
+              CommonHeader(
+                appName: widget.title,
+                currentTab: _currentTab,
+              ),
+              Expanded(
+                child: SafeArea(
+                  top: false,
                   child: IndexedStack(
                     index: _currentTab,
                     children: [
@@ -87,8 +88,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           // Custom Floating Bottom Navigation Bar

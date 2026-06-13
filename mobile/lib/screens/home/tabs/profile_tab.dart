@@ -44,7 +44,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   // Core profile state loaded from DB/Onboarding
   String _name = '';
   int _age = 0;
-  int _savedAge = 0;
   int _year = 0;
   String _pronouns = '';
   String _campusName = '';
@@ -53,7 +52,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   String _displayGender = 'Not specified';
   String _displaySexuality = 'Not specified';
   List<String> _searchBuckets = [];
-  bool _isSavingDetails = false;
+  final Set<String> _savingFields = {};
   String _bio = '';
 
   // Extended profile fields from DB migration
@@ -70,18 +69,283 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
   List<String> _languages = [];
   List<String> _pets = [];
   Map<String, List<String>> _subInterests = {};
-  List<String> get _flatSubInterests {
-    final list = <String>[];
-    _subInterests.forEach((parent, subs) {
-      for (final sub in subs) {
-        list.add('$parent: $sub');
-      }
-    });
-    return list;
-  }
+
+  // Saved profile fields (for reverting on failure)
+  String _savedName = '';
+  int _savedAge = 0;
+  int _savedYear = 0;
+  String _savedPronouns = '';
+  String _savedCampusName = '';
+  bool _savedIsStudying = true;
+  String _savedMajor = '';
+  String _savedDisplayGender = 'Not specified';
+  String _savedDisplaySexuality = 'Not specified';
+  List<String> _savedSearchBuckets = [];
+  String _savedBio = '';
+  String _savedHometown = '';
+  String _savedCurrentPlace = '';
+  String _savedPartnerValues = '';
+  String _savedChildrenPlans = 'Not specified';
+  String _savedReligiousBeliefs = 'Not specified';
+  String _savedLifestyle = '';
+  String _savedDrinking = 'Not specified';
+  String _savedSmoking = 'Not specified';
+  List<String> _savedCausesSupported = [];
+  List<String> _savedTopArtists = [];
+  List<String> _savedLanguages = [];
+  List<String> _savedPets = [];
+  Map<String, List<String>> _savedSubInterests = {};
 
   // Profile images slot paths: supports up to 5 images (1 primary profile pic + 4 gallery pics)
   final List<String?> _imagePaths = [null, null, null, null, null];
+
+  final GlobalKey _coreSignalKey = GlobalKey();
+  final GlobalKey _bioKey = GlobalKey();
+  final GlobalKey _socialCoordinatesKey = GlobalKey();
+  final GlobalKey _lifestyleResonanceKey = GlobalKey();
+  final GlobalKey _affinityInterestsKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
+
+  // Focus nodes for interactive completion triggers
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _bioFocusNode = FocusNode();
+  final FocusNode _hometownFocusNode = FocusNode();
+  final FocusNode _currentPlaceFocusNode = FocusNode();
+  final FocusNode _campusNameFocusNode = FocusNode();
+  final FocusNode _majorFocusNode = FocusNode();
+
+  // Animation controller for staggered entry transition
+  AnimationController? _entryController;
+
+  void _scrollToSection(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        ),
+      );
+    }
+  }
+
+  Widget _buildStaggeredEntrance({
+    required Widget child,
+    required int index,
+  }) {
+    if (_entryController == null) return child;
+    final start = (index * 0.08).clamp(0.0, 1.0);
+    final end = (start + 0.55).clamp(0.0, 1.0);
+
+    final fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _entryController!,
+        curve: Interval(start, end, curve: Curves.easeOut),
+      ),
+    );
+
+    final slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _entryController!,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: child,
+      ),
+    );
+  }
+
+  void _handleCriteriaTap(String label) {
+    // 1. Core Details
+    if (label == 'Profile Picture') {
+      _showImageSlotPicker(0);
+    } else if (label == 'Gallery Slot 1') {
+      _showImageSlotPicker(1);
+    } else if (label == 'Gallery Slot 2') {
+      _showImageSlotPicker(2);
+    } else if (label == 'Gallery Slot 3') {
+      _showImageSlotPicker(3);
+    } else if (label == 'Gallery Slot 4') {
+      _showImageSlotPicker(4);
+    } else if (label == 'Display Name') {
+      _scrollToSection(_coreSignalKey);
+      _nameFocusNode.requestFocus();
+    } else if (label == 'Gender') {
+      _openSelectionOverlay(
+        title: 'Gender',
+        options: const [
+          'Man',
+          'Woman',
+          'Non-binary',
+          'Genderqueer',
+          'Genderfluid',
+          'Agender',
+          'Transgender Man',
+          'Transgender Woman',
+          'Gender Non-Conforming',
+          'Pangender',
+          'Androgynous',
+          'Neutrois',
+          'Third Gender',
+          'Intersex',
+          'Bigender',
+          'Two-Spirit',
+          'Demiboy',
+          'Demigirl',
+          'Queer',
+          'Questioning',
+          'Prefer not to say',
+        ],
+        currentValue: _displayGender,
+        onSelected: (val) => unawaited(_saveProfileChanges(displayGender: val)),
+      );
+    } else if (label == 'Sexuality') {
+      _openSelectionOverlay(
+        title: 'Sexuality',
+        options: const [
+          'Straight',
+          'Gay',
+          'Lesbian',
+          'Bisexual',
+          'Pansexual',
+          'Asexual',
+          'Aromantic',
+          'Greysexual',
+          'Polysexual',
+          'Omnisexual',
+          'Fluid',
+          'Skoliosexual',
+          'Demisexual',
+          'Queer',
+          'Questioning',
+          'Prefer not to say',
+        ],
+        currentValue: _displaySexuality,
+        onSelected: (val) => unawaited(_saveProfileChanges(displaySexuality: val)),
+      );
+    } else if (label == 'Pronouns') {
+      _openBottomSelectionSheet(
+        title: 'Pronouns',
+        options: const [
+          'he/him',
+          'she/her',
+          'they/them',
+          'he/they',
+          'she/they',
+          'it/its',
+          'any/all',
+          'xe/xem',
+          'fae/faer',
+          'Prefer not to say',
+        ],
+        currentValue: _pronouns,
+        onSelected: (val) {
+          setState(() => _pronouns = val);
+          unawaited(_saveProfileChanges(pronouns: val));
+        },
+      );
+    } else if (['Age', 'Demographic Buckets'].contains(label)) {
+      _scrollToSection(_coreSignalKey);
+    } else if (label == 'Cosmic Signature (Bio)') {
+      _scrollToSection(_bioKey);
+      _bioFocusNode.requestFocus();
+    }
+    // 2. Social & Campus Info
+    else if (label == 'Hometown') {
+      _scrollToSection(_socialCoordinatesKey);
+      _hometownFocusNode.requestFocus();
+    } else if (label == 'Current Place') {
+      _scrollToSection(_socialCoordinatesKey);
+      _currentPlaceFocusNode.requestFocus();
+    } else if (label == 'Institute Name') {
+      _scrollToSection(_socialCoordinatesKey);
+      _campusNameFocusNode.requestFocus();
+    } else if (label == 'Major') {
+      _scrollToSection(_socialCoordinatesKey);
+      _majorFocusNode.requestFocus();
+    } else if (['Languages', 'Campus Year'].contains(label)) {
+      _scrollToSection(_socialCoordinatesKey);
+    }
+    // 3. Lifestyle & Preferences
+    else if (label == 'Drinking') {
+      _openBottomSelectionSheet(
+        title: 'Drinking',
+        options: const [
+          'Never',
+          'Occasionally',
+          'Socially',
+          'Regularly',
+        ],
+        currentValue: _drinking,
+        onSelected: (val) => unawaited(_saveProfileChanges(drinking: val)),
+      );
+    } else if (label == 'Smoking') {
+      _openBottomSelectionSheet(
+        title: 'Smoking',
+        options: const [
+          'Never',
+          'Occasionally',
+          'Socially',
+          'Regularly',
+        ],
+        currentValue: _smoking,
+        onSelected: (val) => unawaited(_saveProfileChanges(smoking: val)),
+      );
+    } else if (label == 'Children Plans') {
+      _openBottomSelectionSheet(
+        title: 'Children Plans',
+        options: const [
+          'Want kids',
+          "Don't want kids",
+          'Undecided',
+          'Not specified',
+        ],
+        currentValue: _childrenPlans,
+        onSelected: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
+      );
+    } else if (label == 'Religious Beliefs') {
+      _openBottomSelectionSheet(
+        title: 'Religious Beliefs',
+        options: const [
+          'Atheist',
+          'Agnostic',
+          'Spiritual',
+          'Christian',
+          'Muslim',
+          'Jewish',
+          'Hindu',
+          'Buddhist',
+          'Sikh',
+          'Jain',
+          'Shinto',
+          'Baháʼí',
+          'Taoist',
+          'Zoroastrian',
+          'Pagan',
+          'Wiccan',
+          'Other',
+          'Not specified',
+        ],
+        currentValue: _religiousBeliefs,
+        onSelected: (val) => unawaited(_saveProfileChanges(religiousBeliefs: val)),
+      );
+    } else if (['Lifestyle Description', 'Partner Values', 'Pets'].contains(label)) {
+      _scrollToSection(_lifestyleResonanceKey);
+    }
+    // 4. Interests & Hobbies
+    else if (['Interests', 'Causes Supported', 'Top Artists'].contains(label)) {
+      _scrollToSection(_affinityInterestsKey);
+    }
+  }
 
   @override
   void initState() {
@@ -112,6 +376,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     super.dispose();
   }
 
+  List<String> get _flatSubInterests {
+    final list = <String>[];
+    _subInterests.forEach((parent, subs) {
+      for (final sub in subs) {
+        list.add('$parent: $sub');
+      }
+    });
+    return list;
+  }
+
   Future<void> _loadProfileData() async {
     setState(() => _isLoading = true);
     try {
@@ -132,14 +406,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           final data = response.data!;
           setState(() {
             _name = data['name']?.toString() ?? _name;
+            _savedName = _name;
+
             _age = (data['age'] as num?)?.toInt() ?? _age;
             _savedAge = _age;
+
             if (data['campus_year'] != null) {
               _year = (data['campus_year'] as num).toInt();
               _isStudying = _year > 0;
             } else {
               _isStudying = false;
             }
+            _savedYear = _year;
+            _savedIsStudying = _isStudying;
+
             String cleanVal(dynamic val) {
               if (val == null) return '';
               final s = val.toString().trim();
@@ -148,23 +428,50 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             }
 
             _major = cleanVal(data['campus_branch']);
+            _savedMajor = _major;
+
             _campusName = cleanVal(data['campus_name']);
+            _savedCampusName = _campusName;
+
             _displayGender =
                 data['display_gender']?.toString() ?? 'Not specified';
+            _savedDisplayGender = _displayGender;
+
             _displaySexuality =
                 data['display_sexuality']?.toString() ?? 'Not specified';
+            _savedDisplaySexuality = _displaySexuality;
+
             _pronouns = data['pronouns']?.toString() ?? 'they/them';
+            _savedPronouns = _pronouns;
+
             _bio = data['bio']?.toString() ?? '';
+            _savedBio = _bio;
+
             _hometown = cleanVal(data['hometown']);
+            _savedHometown = _hometown;
+
             _currentPlace = cleanVal(data['current_place']);
+            _savedCurrentPlace = _currentPlace;
+
             _partnerValues = data['partner_values']?.toString() ?? '';
+            _savedPartnerValues = _partnerValues;
+
             _childrenPlans =
                 data['children_plans']?.toString() ?? 'Not specified';
+            _savedChildrenPlans = _childrenPlans;
+
             _religiousBeliefs =
                 data['religious_beliefs']?.toString() ?? 'Not specified';
+            _savedReligiousBeliefs = _religiousBeliefs;
+
             _lifestyle = data['lifestyle']?.toString() ?? '';
+            _savedLifestyle = _lifestyle;
+
             _drinking = data['drinking']?.toString() ?? 'Not specified';
+            _savedDrinking = _drinking;
+
             _smoking = data['smoking']?.toString() ?? 'Not specified';
+            _savedSmoking = _smoking;
 
             final rawBuckets = data['search_buckets'];
             if (rawBuckets is List) {
@@ -172,6 +479,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _searchBuckets = [];
             }
+            _savedSearchBuckets = List<String>.from(_searchBuckets);
 
             final rawCauses = data['causes_supported'];
             if (rawCauses is List) {
@@ -179,6 +487,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _causesSupported = [];
             }
+            _savedCausesSupported = List<String>.from(_causesSupported);
 
             final rawArtists = data['top_artists'];
             if (rawArtists is List) {
@@ -186,6 +495,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _topArtists = [];
             }
+            _savedTopArtists = List<String>.from(_topArtists);
 
             final rawLanguages = data['languages'];
             if (rawLanguages is List) {
@@ -193,6 +503,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _languages = [];
             }
+            _savedLanguages = List<String>.from(_languages);
 
             final rawPets = data['pets'];
             if (rawPets is List) {
@@ -200,6 +511,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _pets = [];
             }
+            _savedPets = List<String>.from(_pets);
 
             final rawSubInterests = data['sub_interests'];
             if (rawSubInterests is Map) {
@@ -215,6 +527,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             } else {
               _subInterests = {};
             }
+            _savedSubInterests = Map<String, List<String>>.from(_subInterests);
 
             final rawImages = data['ordered_images'];
             if (rawImages is List) {
@@ -237,6 +550,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        if (_entryController != null) {
+          unawaited(_entryController!.forward(from: 0));
+        }
       }
     }
   }
@@ -273,7 +589,35 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     Map<String, int>? interests,
     Map<String, List<String>>? subInterests,
   }) async {
-    setState(() => _isSavingDetails = true);
+    final fields = <String>[];
+    if (name != null) fields.add('name');
+    if (age != null) fields.add('age');
+    if (displayGender != null) fields.add('displayGender');
+    if (displaySexuality != null) fields.add('displaySexuality');
+    if (pronouns != null) fields.add('pronouns');
+    if (bio != null) fields.add('bio');
+    if (searchBuckets != null) fields.add('searchBuckets');
+    if (campusBranch != null) fields.add('campusBranch');
+    if (campusYear != null || clearCampusYear) fields.add('campusYear');
+    if (campusName != null) fields.add('campusName');
+    if (hometown != null) fields.add('hometown');
+    if (currentPlace != null) fields.add('currentPlace');
+    if (partnerValues != null) fields.add('partnerValues');
+    if (childrenPlans != null) fields.add('childrenPlans');
+    if (religiousBeliefs != null) fields.add('religiousBeliefs');
+    if (lifestyle != null) fields.add('lifestyle');
+    if (drinking != null) fields.add('drinking');
+    if (smoking != null) fields.add('smoking');
+    if (causesSupported != null) fields.add('causesSupported');
+    if (topArtists != null) fields.add('topArtists');
+    if (languages != null) fields.add('languages');
+    if (pets != null) fields.add('pets');
+    if (subInterests != null || interests != null) fields.add('interests');
+
+    setState(() {
+      _savingFields.addAll(fields);
+    });
+
     try {
       final session = _client.auth.currentSession;
       if (session != null) {
@@ -335,38 +679,104 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
           if (response.statusCode == 200 && mounted) {
             setState(() {
-              if (age != null) _savedAge = age;
-              if (name != null) _name = name;
-              if (displayGender != null) _displayGender = displayGender;
+              if (age != null) {
+                _age = age;
+                _savedAge = age;
+              }
+              if (name != null) {
+                _name = name;
+                _savedName = name;
+              }
+              if (displayGender != null) {
+                _displayGender = displayGender;
+                _savedDisplayGender = displayGender;
+              }
               if (displaySexuality != null) {
                 _displaySexuality = displaySexuality;
+                _savedDisplaySexuality = displaySexuality;
               }
-              if (pronouns != null) _pronouns = pronouns;
-              if (bio != null) _bio = bio;
-              if (searchBuckets != null) _searchBuckets = searchBuckets;
-              if (campusBranch != null) _major = campusBranch;
+              if (pronouns != null) {
+                _pronouns = pronouns;
+                _savedPronouns = pronouns;
+              }
+              if (bio != null) {
+                _bio = bio;
+                _savedBio = bio;
+              }
+              if (searchBuckets != null) {
+                _searchBuckets = searchBuckets;
+                _savedSearchBuckets = List<String>.from(searchBuckets);
+              }
+              if (campusBranch != null) {
+                _major = campusBranch;
+                _savedMajor = campusBranch;
+              }
               if (campusYear != null) {
                 _year = campusYear;
+                _savedYear = campusYear;
               } else if (clearCampusYear) {
                 _year = 0;
+                _savedYear = 0;
               }
-              if (campusName != null) _campusName = campusName;
-              if (hometown != null) _hometown = hometown;
-              if (currentPlace != null) _currentPlace = currentPlace;
-              if (partnerValues != null) _partnerValues = partnerValues;
-              if (childrenPlans != null) _childrenPlans = childrenPlans;
+              if (campusName != null) {
+                _campusName = campusName;
+                _savedCampusName = campusName;
+              }
+              if (hometown != null) {
+                _hometown = hometown;
+                _savedHometown = hometown;
+              }
+              if (currentPlace != null) {
+                _currentPlace = currentPlace;
+                _savedCurrentPlace = currentPlace;
+              }
+              if (partnerValues != null) {
+                _partnerValues = partnerValues;
+                _savedPartnerValues = partnerValues;
+              }
+              if (childrenPlans != null) {
+                _childrenPlans = childrenPlans;
+                _savedChildrenPlans = childrenPlans;
+              }
               if (religiousBeliefs != null) {
                 _religiousBeliefs = religiousBeliefs;
+                _savedReligiousBeliefs = religiousBeliefs;
               }
-              if (lifestyle != null) _lifestyle = lifestyle;
-              if (drinking != null) _drinking = drinking;
-              if (smoking != null) _smoking = smoking;
-              if (causesSupported != null) _causesSupported = causesSupported;
-              if (topArtists != null) _topArtists = topArtists;
-              if (languages != null) _languages = languages;
-              if (pets != null) _pets = pets;
-              if (subInterests != null) _subInterests = subInterests;
+              if (lifestyle != null) {
+                _lifestyle = lifestyle;
+                _savedLifestyle = lifestyle;
+              }
+              if (drinking != null) {
+                _drinking = drinking;
+                _savedDrinking = drinking;
+              }
+              if (smoking != null) {
+                _smoking = smoking;
+                _savedSmoking = smoking;
+              }
+              if (causesSupported != null) {
+                _causesSupported = causesSupported;
+                _savedCausesSupported = List<String>.from(causesSupported);
+              }
+              if (topArtists != null) {
+                _topArtists = topArtists;
+                _savedTopArtists = List<String>.from(topArtists);
+              }
+              if (languages != null) {
+                _languages = languages;
+                _savedLanguages = List<String>.from(languages);
+              }
+              if (pets != null) {
+                _pets = pets;
+                _savedPets = List<String>.from(pets);
+              }
+              if (subInterests != null) {
+                _subInterests = subInterests;
+                _savedSubInterests = Map<String, List<String>>.from(subInterests);
+              }
             });
+          } else {
+            throw Exception('API responded with status code: ${response.statusCode}');
           }
         }
 
@@ -390,9 +800,60 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
       }
     } on Object catch (e) {
       debugPrint('[ProfileTab] Error saving profile details: $e');
+      if (mounted) {
+        setState(() {
+          // Revert all modified fields back to their saved versions
+          if (name != null) _name = _savedName;
+          if (age != null) _age = _savedAge;
+          if (displayGender != null) _displayGender = _savedDisplayGender;
+          if (displaySexuality != null) _displaySexuality = _savedDisplaySexuality;
+          if (pronouns != null) _pronouns = _savedPronouns;
+          if (bio != null) _bio = _savedBio;
+          if (searchBuckets != null) _searchBuckets = List<String>.from(_savedSearchBuckets);
+          if (campusBranch != null) _major = _savedMajor;
+          if (campusYear != null || clearCampusYear) {
+            _year = _savedYear;
+            _isStudying = _savedIsStudying;
+          }
+          if (campusName != null) _campusName = _savedCampusName;
+          if (hometown != null) _hometown = _savedHometown;
+          if (currentPlace != null) _currentPlace = _savedCurrentPlace;
+          if (partnerValues != null) _partnerValues = _savedPartnerValues;
+          if (childrenPlans != null) _childrenPlans = _savedChildrenPlans;
+          if (religiousBeliefs != null) _religiousBeliefs = _savedReligiousBeliefs;
+          if (lifestyle != null) _lifestyle = _savedLifestyle;
+          if (drinking != null) _drinking = _savedDrinking;
+          if (smoking != null) _smoking = _savedSmoking;
+          if (causesSupported != null) _causesSupported = List<String>.from(_savedCausesSupported);
+          if (topArtists != null) _topArtists = List<String>.from(_savedTopArtists);
+          if (languages != null) _languages = List<String>.from(_savedLanguages);
+          if (pets != null) _pets = List<String>.from(_savedPets);
+          if (subInterests != null || interests != null) {
+            _subInterests = Map<String, List<String>>.from(_savedSubInterests);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFC0392B),
+            content: Text(
+              'Failed to synchronize cosmic frequency: $e',
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(20),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() => _isSavingDetails = false);
+        setState(() {
+          _savingFields.removeAll(fields);
+        });
       }
     }
   }
@@ -993,285 +1454,448 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           currentFocus.unfocus();
         }
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
         children: [
-          if (_isSavingDetails)
-            const LinearProgressIndicator(
-              backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-              minHeight: 2,
+          // Base background color
+          Positioned.fill(
+            child: Container(color: const Color(0xFF0B0D13)),
+          ),
+          // Futuristic Grid Pattern Overlay
+          const Positioned.fill(
+            child: CustomPaint(
+              painter: FuturisticBackgroundPainter(),
             ),
-          Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(0, 12, 0, 110),
-              children: [
-                // 🪐 1. Pulsing & Rotating Profile Header
-                ProfileHeader(
-                  avatarPath: _imagePaths[0],
-                  name: _name,
-                  rotationController: rotationController,
-                  pulseController: pulseController,
-                  isProcessingAI: providerState.isProcessingAI,
-                  isSaving: providerState.isSaving,
-                  hasPendingUpload: providerState.pendingUploads.containsKey(0),
-                  onAvatarTap: () => _showImageSlotPicker(0),
+          ),
+          // Layered Ambient Glows
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-0.8, -0.6),
+                  radius: 1.2,
+                  colors: [
+                    Color(0x1B6366F1), // Soft Indigo/Purple glow
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(height: 20),
-
-                // Stability Tracker Card
-                StabilityTracker(
-                  stabilityPercentage: _calculateStability(),
-                  imagePaths: _imagePaths,
-                  name: _name,
-                  age: _age,
-                  bio: _bio,
-                  searchBuckets: _searchBuckets,
-                  displayGender: _displayGender,
-                  displaySexuality: _displaySexuality,
-                  pronouns: _pronouns,
-                  hometown: _hometown,
-                  currentPlace: _currentPlace,
-                  languages: _languages,
-                  campusName: _campusName,
-                  major: _major,
-                  isStudying: _isStudying,
-                  year: _year,
-                  lifestyle: _lifestyle,
-                  drinking: _drinking,
-                  smoking: _smoking,
-                  childrenPlans: _childrenPlans,
-                  religiousBeliefs: _religiousBeliefs,
-                  partnerValues: _partnerValues,
-                  pets: _pets,
-                  subInterests: _subInterests,
-                  causesSupported: _causesSupported,
-                  topArtists: _topArtists,
-                  pulseController: pulseController,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0.9, 0.2),
+                  radius: 1.5,
+                  colors: [
+                    Color(0x1300E5FF), // Soft Cyan glow
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(height: 24),
-
-                // 🌌 2. Modular Custom Universe Cards
-                // Card Layer A: The Core Signal
-                CoreSignalSection(
-                  name: _name,
-                  age: _age,
-                  savedAge: _savedAge,
-                  searchBuckets: _searchBuckets,
-                  displayGender: _displayGender,
-                  displaySexuality: _displaySexuality,
-                  pronouns: _pronouns,
-                  imagePaths: _imagePaths,
-                  isProcessingAI: providerState.isProcessingAI,
-                  isSaving: providerState.isSaving,
-                  pendingUploads: providerState.pendingUploads,
-                  onNameChanged: (val) => setState(() => _name = val),
-                  onNameSubmitted: (val) => unawaited(_saveProfileChanges(name: val)),
-                  onAgeChanged: (val) => setState(() => _age = val),
-                  onAgeConfirmed: (val) => unawaited(_saveProfileChanges(age: val)),
-                  onBucketChanged: (val) {
-                    setState(() => _searchBuckets = val);
-                    unawaited(_saveProfileChanges(searchBuckets: val));
-                  },
-                  onSelectGender: () {
-                    _openSelectionOverlay(
-                      title: 'Gender',
-                      options: const [
-                        'Man',
-                        'Woman',
-                        'Non-binary',
-                        'Genderqueer',
-                        'Genderfluid',
-                        'Agender',
-                        'Transgender Man',
-                        'Transgender Woman',
-                        'Gender Non-Conforming',
-                        'Pangender',
-                        'Androgynous',
-                        'Neutrois',
-                        'Third Gender',
-                        'Intersex',
-                        'Bigender',
-                        'Two-Spirit',
-                        'Demiboy',
-                        'Demigirl',
-                        'Queer',
-                        'Questioning',
-                        'Prefer not to say',
-                      ],
-                      currentValue: _displayGender,
-                      onSelected: (val) => unawaited(_saveProfileChanges(displayGender: val)),
-                    );
-                  },
-                  onSelectSexuality: () {
-                    _openSelectionOverlay(
-                      title: 'Sexuality',
-                      options: const [
-                        'Straight',
-                        'Gay',
-                        'Lesbian',
-                        'Bisexual',
-                        'Pansexual',
-                        'Asexual',
-                        'Aromantic',
-                        'Greysexual',
-                        'Polysexual',
-                        'Omnisexual',
-                        'Fluid',
-                        'Skoliosexual',
-                        'Demisexual',
-                        'Queer',
-                        'Questioning',
-                        'Prefer not to say',
-                      ],
-                      currentValue: _displaySexuality,
-                      onSelected: (val) => unawaited(_saveProfileChanges(displaySexuality: val)),
-                    );
-                  },
-                  onSelectPronouns: () {
-                    _openBottomSelectionSheet(
-                      title: 'Pronouns',
-                      options: const [
-                        'he/him',
-                        'she/her',
-                        'they/them',
-                        'he/they',
-                        'she/they',
-                        'it/its',
-                        'any/all',
-                        'xe/xem',
-                        'fae/faer',
-                        'Prefer not to say',
-                      ],
-                      currentValue: _pronouns,
-                      onSelected: (val) {
-                        setState(() => _pronouns = val);
-                        unawaited(_saveProfileChanges(pronouns: val));
-                      },
-                    );
-                  },
-                  onImageSlotTap: _showImageSlotPicker,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-0.5, 0.9),
+                  radius: 1.2,
+                  colors: [
+                    Color(0x11FF7597), // Soft Pink glow
+                    Colors.transparent,
+                  ],
                 ),
-
-                // Card Layer B: Cosmic Signature (Bio)
-                BioSection(
-                  bio: _bio,
-                  onBioChanged: (val) => setState(() => _bio = val),
-                  onBioSubmitted: (val) => unawaited(_saveProfileChanges(bio: val)),
-                ),
-
-                // Card Layer C: Social Coordinates
-                SocialCoordinatesSection(
-                  hometown: _hometown,
-                  currentPlace: _currentPlace,
-                  languages: _languages,
-                  campusName: _campusName,
-                  major: _major,
-                  isStudying: _isStudying,
-                  year: _year,
-                  onHometownChanged: (val) => setState(() => _hometown = val),
-                  onHometownSubmitted: (val) => unawaited(_saveProfileChanges(hometown: val)),
-                  onCurrentPlaceChanged: (val) => setState(() => _currentPlace = val),
-                  onCurrentPlaceSubmitted: (val) => unawaited(_saveProfileChanges(currentPlace: val)),
-                  onLanguagesChanged: (val) {
-                    setState(() => _languages = val);
-                    unawaited(_saveProfileChanges(languages: val));
-                  },
-                  onCampusNameChanged: (val) => setState(() => _campusName = val),
-                  onCampusNameSubmitted: (val) => unawaited(_saveProfileChanges(campusName: val)),
-                  onMajorChanged: (val) => setState(() => _major = val),
-                  onMajorSubmitted: (val) => unawaited(_saveProfileChanges(campusBranch: val)),
-                  onIsStudyingChanged: (val) {
-                    setState(() => _isStudying = val);
-                    if (!val) {
-                      unawaited(_saveProfileChanges(clearCampusYear: true));
-                    }
-                  },
-                  onYearChanged: (val) {
-                    setState(() => _year = val);
-                    unawaited(_saveProfileChanges(campusYear: val));
-                  },
-                ),
-
-                // Card Layer D: Lifestyle & Resonance
-                LifestyleResonanceSection(
-                  lifestyle: _lifestyle,
-                  drinking: _drinking,
-                  smoking: _smoking,
-                  childrenPlans: _childrenPlans,
-                  religiousBeliefs: _religiousBeliefs,
-                  partnerValues: _partnerValues,
-                  pets: _pets,
-                  onLifestyleChanged: (val) => setState(() => _lifestyle = val),
-                  onLifestyleSubmitted: (val) => unawaited(_saveProfileChanges(lifestyle: val)),
-                  onPartnerValuesChanged: (val) => setState(() => _partnerValues = val),
-                  onPartnerValuesSubmitted: (val) => unawaited(_saveProfileChanges(partnerValues: val)),
-                  onPetsChanged: (val) {
-                    setState(() => _pets = val);
-                    unawaited(_saveProfileChanges(pets: val));
-                  },
-                  openBottomSelectionSheet: _openBottomSelectionSheet,
-                  onDrinkingSaved: (val) => unawaited(_saveProfileChanges(drinking: val)),
-                  onSmokingSaved: (val) => unawaited(_saveProfileChanges(smoking: val)),
-                  onChildrenPlansSaved: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
-                  onReligiousBeliefsSaved: (val) => unawaited(_saveProfileChanges(religiousBeliefs: val)),
-                ),
-
-                // Card Layer E: Affinity & Interests
-                AffinityInterestsSection(
-                  flatSubInterests: _flatSubInterests,
-                  causesSupported: _causesSupported,
-                  topArtists: _topArtists,
-                  onInterestsSaved: (val) {
-                    final newSubInterests = <String, List<String>>{};
-                    for (final item in val) {
-                      final parts = item.split(': ');
-                      if (parts.length == 2) {
-                        newSubInterests.putIfAbsent(parts[0], () => []).add(parts[1]);
-                      }
-                    }
-                    final newInterests = <String, int>{};
-                    newSubInterests.forEach((parent, subs) {
-                      var weight = 1;
-                      if (subs.length == 2) weight = 2;
-                      if (subs.length >= 3) weight = 3;
-                      newInterests[parent] = weight;
-                    });
-                    setState(() {
-                      _subInterests = newSubInterests;
-                    });
-                    unawaited(
-                      _saveProfileChanges(
-                        interests: newInterests,
-                        subInterests: newSubInterests,
+              ),
+            ),
+          ),
+          // Scrollable content
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ListView(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(0, 12, 0, 110),
+                  children: [
+                    // 🪐 1. Pulsing & Rotating Profile Header
+                    _buildStaggeredEntrance(
+                      index: 0,
+                      child: ProfileHeader(
+                        avatarPath: _imagePaths[0],
+                        name: _name,
+                        rotationController: rotationController,
+                        pulseController: pulseController,
+                        isProcessingAI: providerState.isProcessingAI,
+                        isSaving: providerState.isSaving,
+                        hasPendingUpload: providerState.pendingUploads.containsKey(0),
+                        onAvatarTap: () => _showImageSlotPicker(0),
                       ),
-                    );
-                  },
-                  onCausesSupportedChanged: (val) {
-                    setState(() => _causesSupported = val);
-                    unawaited(_saveProfileChanges(causesSupported: val));
-                  },
-                  onTopArtistsChanged: (val) {
-                    setState(() => _topArtists = val);
-                    unawaited(_saveProfileChanges(topArtists: val));
-                  },
-                ),
-                const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: 20),
 
-                // Export code card if flavor variant
-                if (config.isFlavorVariant) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: ExportCodeCard(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ],
-            ),
+                    // Stability Tracker Card
+                    _buildStaggeredEntrance(
+                      index: 1,
+                      child: StabilityTracker(
+                        stabilityPercentage: _calculateStability(),
+                        imagePaths: _imagePaths,
+                        name: _name,
+                        age: _age,
+                        bio: _bio,
+                        searchBuckets: _searchBuckets,
+                        displayGender: _displayGender,
+                        displaySexuality: _displaySexuality,
+                        pronouns: _pronouns,
+                        hometown: _hometown,
+                        currentPlace: _currentPlace,
+                        languages: _languages,
+                        campusName: _campusName,
+                        major: _major,
+                        isStudying: _isStudying,
+                        year: _year,
+                        lifestyle: _lifestyle,
+                        drinking: _drinking,
+                        smoking: _smoking,
+                        childrenPlans: _childrenPlans,
+                        religiousBeliefs: _religiousBeliefs,
+                        partnerValues: _partnerValues,
+                        pets: _pets,
+                        subInterests: _subInterests,
+                        causesSupported: _causesSupported,
+                        topArtists: _topArtists,
+                        pulseController: pulseController,
+                        onCriteriaTap: _handleCriteriaTap,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 🌌 2. Modular Custom Universe Cards
+                    // Card Layer A: The Core Signal
+                    _buildStaggeredEntrance(
+                      index: 2,
+                      child: CoreSignalSection(
+                        key: _coreSignalKey,
+                        name: _name,
+                        age: _age,
+                        savedAge: _savedAge,
+                        searchBuckets: _searchBuckets,
+                        displayGender: _displayGender,
+                        displaySexuality: _displaySexuality,
+                        pronouns: _pronouns,
+                        imagePaths: _imagePaths,
+                        isProcessingAI: providerState.isProcessingAI,
+                        isSaving: providerState.isSaving,
+                        pendingUploads: providerState.pendingUploads,
+                        isSavingName: _savingFields.contains('name'),
+                        isSavingGender: _savingFields.contains('displayGender'),
+                        isSavingSexuality: _savingFields.contains('displaySexuality'),
+                        isSavingPronouns: _savingFields.contains('pronouns'),
+                        isSavingAge: _savingFields.contains('age'),
+                        isSavingBuckets: _savingFields.contains('searchBuckets'),
+                        nameFocusNode: _nameFocusNode,
+                        onNameChanged: (val) => setState(() => _name = val),
+                        onNameSubmitted: (val) => unawaited(_saveProfileChanges(name: val)),
+                        onAgeChanged: (val) => setState(() => _age = val),
+                        onAgeConfirmed: (val) => unawaited(_saveProfileChanges(age: val)),
+                        onBucketChanged: (val) {
+                          setState(() => _searchBuckets = val);
+                          unawaited(_saveProfileChanges(searchBuckets: val));
+                        },
+                        onSelectGender: () {
+                          _openSelectionOverlay(
+                            title: 'Gender',
+                            options: const [
+                              'Man',
+                              'Woman',
+                              'Non-binary',
+                              'Genderqueer',
+                              'Genderfluid',
+                              'Agender',
+                              'Transgender Man',
+                              'Transgender Woman',
+                              'Gender Non-Conforming',
+                              'Pangender',
+                              'Androgynous',
+                              'Neutrois',
+                              'Third Gender',
+                              'Intersex',
+                              'Bigender',
+                              'Two-Spirit',
+                              'Demiboy',
+                              'Demigirl',
+                              'Queer',
+                              'Questioning',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _displayGender,
+                            onSelected: (val) => unawaited(_saveProfileChanges(displayGender: val)),
+                          );
+                        },
+                        onSelectSexuality: () {
+                          _openSelectionOverlay(
+                            title: 'Sexuality',
+                            options: const [
+                              'Straight',
+                              'Gay',
+                              'Lesbian',
+                              'Bisexual',
+                              'Pansexual',
+                              'Asexual',
+                              'Aromantic',
+                              'Greysexual',
+                              'Polysexual',
+                              'Omnisexual',
+                              'Fluid',
+                              'Skoliosexual',
+                              'Demisexual',
+                              'Queer',
+                              'Questioning',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _displaySexuality,
+                            onSelected: (val) => unawaited(_saveProfileChanges(displaySexuality: val)),
+                          );
+                        },
+                        onSelectPronouns: () {
+                          _openBottomSelectionSheet(
+                            title: 'Pronouns',
+                            options: const [
+                              'he/him',
+                              'she/her',
+                              'they/them',
+                              'he/they',
+                              'she/they',
+                              'it/its',
+                              'any/all',
+                              'xe/xem',
+                              'fae/faer',
+                              'Prefer not to say',
+                            ],
+                            currentValue: _pronouns,
+                            onSelected: (val) {
+                              setState(() => _pronouns = val);
+                              unawaited(_saveProfileChanges(pronouns: val));
+                            },
+                          );
+                        },
+                        onImageSlotTap: _showImageSlotPicker,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer B: Cosmic Signature (Bio)
+                    _buildStaggeredEntrance(
+                      index: 3,
+                      child: BioSection(
+                        key: _bioKey,
+                        bio: _bio,
+                        isSaving: _savingFields.contains('bio'),
+                        focusNode: _bioFocusNode,
+                        onBioChanged: (val) => setState(() => _bio = val),
+                        onBioSubmitted: (val) => unawaited(_saveProfileChanges(bio: val)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer C: Social Coordinates
+                    _buildStaggeredEntrance(
+                      index: 4,
+                      child: SocialCoordinatesSection(
+                        key: _socialCoordinatesKey,
+                        hometown: _hometown,
+                        currentPlace: _currentPlace,
+                        languages: _languages,
+                        campusName: _campusName,
+                        major: _major,
+                        isStudying: _isStudying,
+                        year: _year,
+                        isSavingHometown: _savingFields.contains('hometown'),
+                        isSavingCurrentPlace: _savingFields.contains('currentPlace'),
+                        isSavingCampusName: _savingFields.contains('campusName'),
+                        isSavingMajor: _savingFields.contains('campusBranch'),
+                        isSavingLanguages: _savingFields.contains('languages'),
+                        isSavingCampusYear: _savingFields.contains('campusYear'),
+                        hometownFocusNode: _hometownFocusNode,
+                        currentPlaceFocusNode: _currentPlaceFocusNode,
+                        campusNameFocusNode: _campusNameFocusNode,
+                        majorFocusNode: _majorFocusNode,
+                        onHometownChanged: (val) => setState(() => _hometown = val),
+                        onHometownSubmitted: (val) => unawaited(_saveProfileChanges(hometown: val)),
+                        onCurrentPlaceChanged: (val) => setState(() => _currentPlace = val),
+                        onCurrentPlaceSubmitted: (val) => unawaited(_saveProfileChanges(currentPlace: val)),
+                        onLanguagesChanged: (val) {
+                          setState(() => _languages = val);
+                          unawaited(_saveProfileChanges(languages: val));
+                        },
+                        onCampusNameChanged: (val) => setState(() => _campusName = val),
+                        onCampusNameSubmitted: (val) => unawaited(_saveProfileChanges(campusName: val)),
+                        onMajorChanged: (val) => setState(() => _major = val),
+                        onMajorSubmitted: (val) => unawaited(_saveProfileChanges(campusBranch: val)),
+                        onIsStudyingChanged: (val) {
+                          setState(() => _isStudying = val);
+                          if (!val) {
+                            unawaited(_saveProfileChanges(clearCampusYear: true));
+                          }
+                        },
+                        onYearChanged: (val) {
+                          setState(() => _year = val);
+                          unawaited(_saveProfileChanges(campusYear: val));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer D: Lifestyle & Resonance
+                    _buildStaggeredEntrance(
+                      index: 5,
+                      child: LifestyleResonanceSection(
+                        key: _lifestyleResonanceKey,
+                        lifestyle: _lifestyle,
+                        drinking: _drinking,
+                        smoking: _smoking,
+                        childrenPlans: _childrenPlans,
+                        religiousBeliefs: _religiousBeliefs,
+                        partnerValues: _partnerValues,
+                        pets: _pets,
+                        isSavingLifestyle: _savingFields.contains('lifestyle'),
+                        isSavingPartnerValues: _savingFields.contains('partnerValues'),
+                        isSavingDrinking: _savingFields.contains('drinking'),
+                        isSavingSmoking: _savingFields.contains('smoking'),
+                        isSavingChildrenPlans: _savingFields.contains('childrenPlans'),
+                        isSavingReligiousBeliefs: _savingFields.contains('religiousBeliefs'),
+                        isSavingPets: _savingFields.contains('pets'),
+                        onLifestyleChanged: (val) => setState(() => _lifestyle = val),
+                        onLifestyleSubmitted: (val) => unawaited(_saveProfileChanges(lifestyle: val)),
+                        onPartnerValuesChanged: (val) => setState(() => _partnerValues = val),
+                        onPartnerValuesSubmitted: (val) => unawaited(_saveProfileChanges(partnerValues: val)),
+                        onPetsChanged: (val) {
+                          setState(() => _pets = val);
+                          unawaited(_saveProfileChanges(pets: val));
+                        },
+                        openBottomSelectionSheet: _openBottomSelectionSheet,
+                        onDrinkingSaved: (val) => unawaited(_saveProfileChanges(drinking: val)),
+                        onSmokingSaved: (val) => unawaited(_saveProfileChanges(smoking: val)),
+                        onChildrenPlansSaved: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
+                        onReligiousBeliefsSaved: (val) => unawaited(_saveProfileChanges(religiousBeliefs: val)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer E: Affinity & Interests
+                    _buildStaggeredEntrance(
+                      index: 6,
+                      child: AffinityInterestsSection(
+                        key: _affinityInterestsKey,
+                        flatSubInterests: _flatSubInterests,
+                        causesSupported: _causesSupported,
+                        topArtists: _topArtists,
+                        isSavingInterests: _savingFields.contains('interests'),
+                        isSavingCauses: _savingFields.contains('causesSupported'),
+                        isSavingTopArtists: _savingFields.contains('topArtists'),
+                        onInterestsSaved: (val) {
+                          final newSubInterests = <String, List<String>>{};
+                          for (final item in val) {
+                            final parts = item.split(': ');
+                            if (parts.length == 2) {
+                              newSubInterests.putIfAbsent(parts[0], () => []).add(parts[1]);
+                            }
+                          }
+                          final newInterests = <String, int>{};
+                          newSubInterests.forEach((parent, subs) {
+                            var weight = 1;
+                            if (subs.length == 2) weight = 2;
+                            if (subs.length >= 3) weight = 3;
+                            newInterests[parent] = weight;
+                          });
+                          setState(() {
+                            _subInterests = newSubInterests;
+                          });
+                          unawaited(
+                            _saveProfileChanges(
+                              interests: newInterests,
+                              subInterests: newSubInterests,
+                            ),
+                          );
+                        },
+                        onCausesSupportedChanged: (val) {
+                          setState(() => _causesSupported = val);
+                          unawaited(_saveProfileChanges(causesSupported: val));
+                        },
+                        onTopArtistsChanged: (val) {
+                          setState(() => _topArtists = val);
+                          unawaited(_saveProfileChanges(topArtists: val));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Export code card if flavor variant
+                    if (config.isFlavorVariant) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: ExportCodeCard(),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class FuturisticBackgroundPainter extends CustomPainter {
+  const FuturisticBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.01)
+      ..strokeWidth = 0.5;
+
+    // Draw vertical grid lines
+    const gridSize = 32.0;
+    for (var x = 0.0; x < size.width; x += gridSize) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw horizontal grid lines
+    for (var y = 0.0; y < size.height; y += gridSize) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // Draw a few subtle decorative crosses at grid intersections
+    final crossPaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.03)
+      ..strokeWidth = 1.0;
+
+    final crosshairs = [
+      Offset(size.width * 0.15, size.height * 0.25),
+      Offset(size.width * 0.85, size.height * 0.45),
+      Offset(size.width * 0.3, size.height * 0.75),
+    ];
+
+    for (final center in crosshairs) {
+      canvas
+        ..drawLine(
+          Offset(center.dx - 8, center.dy),
+          Offset(center.dx + 8, center.dy),
+          crossPaint,
+        )
+        ..drawLine(
+          Offset(center.dx, center.dy - 8),
+          Offset(center.dx, center.dy + 8),
+          crossPaint,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

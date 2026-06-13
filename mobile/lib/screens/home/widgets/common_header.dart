@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CommonHeader extends StatelessWidget {
   const CommonHeader({
@@ -16,98 +14,117 @@ class CommonHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the theme color based on the current active tab
+    // Determine the theme colors and labels based on the current active tab
     Color tabThemeColor;
+    Color tabThemeColorSecondary;
     String chatLabel;
+    IconData tabIcon;
+
     switch (currentTab) {
       case 0:
-        tabThemeColor = const Color(0xFFFF4F81);
+        tabThemeColor = const Color(0xFFFF2A54);
+        tabThemeColorSecondary = const Color(0xFFFF6B8B);
         chatLabel = 'Dating';
+        tabIcon = LucideIcons.heart;
       case 1:
-        tabThemeColor = const Color(0xFFFF9F1C);
+        tabThemeColor = const Color(0xFFD32F2F); // Rich crimson/red-orange
+        tabThemeColorSecondary = const Color(0xFFF57C00); // Deep orange
         chatLabel = 'Friends';
+        tabIcon = LucideIcons.users;
       case 2:
-        tabThemeColor = const Color(0xFF8B5CF6);
+        tabThemeColor = const Color(0xFF6366F1);
+        tabThemeColorSecondary = const Color(0xFFA855F7);
         chatLabel = 'Personal';
+        tabIcon = LucideIcons.user;
       case 3:
-        tabThemeColor = const Color(0xFF00F5D4);
+        tabThemeColor = const Color(0xFF00796B); // Deep teal
+        tabThemeColorSecondary = const Color(0xFF0097A7); // Rich dark cyan
         chatLabel = 'Professional';
+        tabIcon = LucideIcons.briefcase;
       case 4:
-        tabThemeColor = const Color(0xFF4EA8DE);
+        tabThemeColor = const Color(0xFF0284C7);
+        tabThemeColorSecondary = const Color(0xFF3B82F6);
         chatLabel = 'System';
+        tabIcon = LucideIcons.settings;
       default:
-        tabThemeColor = const Color(0xFFFF7597);
+        tabThemeColor = const Color(0xFFFF2A54);
+        tabThemeColorSecondary = const Color(0xFFFF6B8B);
         chatLabel = 'System';
+        tabIcon = LucideIcons.settings;
     }
 
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      padding: EdgeInsets.fromLTRB(24, 18 + statusBarHeight, 24, 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B0D13),
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.white.withAlpha(10),
-          ),
+        gradient: LinearGradient(
+          colors: [tabThemeColor, tabThemeColorSecondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            appName.toUpperCase(),
-            style: GoogleFonts.orbitron(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-              color: Colors.white,
-            ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tabThemeColor.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-          // Dynamic Action Button based on Tab
-          if (currentTab == 2)
-            IconButton(
-              icon: const Icon(LucideIcons.logOut, color: Colors.white),
-              tooltip: 'Sign Out',
-              onPressed: () {
-                unawaited(Supabase.instance.client.auth.signOut());
-              },
-            )
-          else
+        ],
+      ),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF161B26),
+                color: Colors.white.withValues(alpha: 0.22),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withAlpha(20),
-                  width: 1.5,
-                ),
               ),
-              child: IconButton(
-                icon: Icon(LucideIcons.messageSquare, color: tabThemeColor),
-                tooltip: 'Open Chats',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: const Color(0xFF161B26),
-                      content: Row(
-                        children: [
-                          Icon(LucideIcons.messageSquare, color: tabThemeColor),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Opening $chatLabel messages channel...',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+              child: Icon(
+                tabIcon,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-        ],
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  appName.toUpperCase(),
+                  style: GoogleFonts.orbitron(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.5,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        offset: const Offset(0, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  chatLabel.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -15,6 +15,7 @@ class TagChipsEditor extends StatelessWidget {
     this.allowCustom = true,
     this.onTapEdit,
     this.showEdit = true,
+    this.isSaving = false,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class TagChipsEditor extends StatelessWidget {
   final bool allowCustom;
   final VoidCallback? onTapEdit;
   final bool showEdit;
+  final bool isSaving;
 
   void _openMultiSelectSheet(BuildContext context) {
     final localSelected = List<String>.from(currentValues);
@@ -392,6 +394,17 @@ class TagChipsEditor extends StatelessWidget {
                     letterSpacing: 1.2,
                   ),
                 ),
+                if (isSaving) ...[
+                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                    ),
+                  ),
+                ],
               ],
             ),
             if (showEdit)

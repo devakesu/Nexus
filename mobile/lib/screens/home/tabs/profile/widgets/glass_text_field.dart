@@ -11,6 +11,8 @@ class GlassTextField extends StatefulWidget {
     this.maxLines = 1,
     this.minLines = 1,
     this.keyboardType,
+    this.isSaving = false,
+    this.focusNode,
     super.key,
   });
 
@@ -23,6 +25,8 @@ class GlassTextField extends StatefulWidget {
   final int? maxLines;
   final int? minLines;
   final TextInputType? keyboardType;
+  final bool isSaving;
+  final FocusNode? focusNode;
 
   @override
   State<GlassTextField> createState() => _GlassTextFieldState();
@@ -30,13 +34,14 @@ class GlassTextField extends StatefulWidget {
 
 class _GlassTextFieldState extends State<GlassTextField> {
   late TextEditingController _controller;
-  final _focusNode = FocusNode();
+  late FocusNode _focusNode;
   bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(() {
       setState(() {
         _isFocused = _focusNode.hasFocus;
@@ -58,7 +63,9 @@ class _GlassTextFieldState extends State<GlassTextField> {
   @override
   void dispose() {
     _controller.dispose();
-    _focusNode.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -110,55 +117,80 @@ class _GlassTextFieldState extends State<GlassTextField> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               margin: const EdgeInsets.all(1.2),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
               decoration: BoxDecoration(
                 color: _isFocused
                     ? const Color(0xFF0D1017)
                     : const Color(0xFF141822),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Row(
-                crossAxisAlignment: isMultiLine
-                    ? CrossAxisAlignment.start
-                    : CrossAxisAlignment.center,
+              child: Stack(
                 children: [
                   Padding(
-                    padding: isMultiLine
-                        ? const EdgeInsets.only(top: 2)
-                        : EdgeInsets.zero,
-                    child: Icon(
-                      widget.prefixIcon,
-                      color: _isFocused ? pulsarPink : Colors.white38,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      onChanged: widget.onChanged,
-                      maxLines: widget.maxLines,
-                      minLines: widget.minLines,
-                      keyboardType: widget.keyboardType,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Outfit',
-                        fontSize: 14,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: widget.hintText,
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          fontSize: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                    child: Row(
+                      crossAxisAlignment: isMultiLine
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: isMultiLine
+                              ? const EdgeInsets.only(top: 2)
+                              : EdgeInsets.zero,
+                          child: Icon(
+                            widget.prefixIcon,
+                            color: _isFocused ? pulsarPink : Colors.white38,
+                            size: 18,
+                          ),
                         ),
-                        hintMaxLines: 5,
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            onChanged: widget.onChanged,
+                            maxLines: widget.maxLines,
+                            minLines: widget.minLines,
+                            keyboardType: widget.keyboardType,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Outfit',
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: widget.hintText,
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                fontSize: 14,
+                              ),
+                              hintMaxLines: 5,
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  if (widget.isSaving)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(15),
+                          bottomRight: Radius.circular(15),
+                        ),
+                        child: SizedBox(
+                          height: 2,
+                          child: LinearProgressIndicator(
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
