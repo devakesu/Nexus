@@ -1552,15 +1552,7 @@ class _DatingTabState extends State<DatingTab>
                       ),
                       child: InkWell(
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              behavior: SnackBarBehavior.floating,
-                              backgroundColor: Color(0xFFFF4F81),
-                              content: Text(
-                                'Opening Dating Orbit scan view... 📡',
-                              ),
-                            ),
-                          );
+                          widget.onOpenOrbit('Dating', const Color(0xFFFF4F81));
                         },
                         borderRadius: BorderRadius.circular(24),
                         child: Padding(

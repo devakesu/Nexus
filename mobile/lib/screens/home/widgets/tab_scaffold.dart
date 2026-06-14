@@ -123,7 +123,8 @@ class TabScaffold extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      orbitDescription ?? 'Activate your network scanner to search for other matches nearby.',
+                      orbitDescription ??
+                          'Activate your network scanner to search for other matches nearby.',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF334155),
@@ -136,7 +137,9 @@ class TabScaffold extends StatelessWidget {
                       height: 48,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isOrbitActive ? const Color(0xFFEF4444) : themeColor,
+                          backgroundColor: isOrbitActive
+                              ? const Color(0xFFEF4444)
+                              : themeColor,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -146,7 +149,12 @@ class TabScaffold extends StatelessWidget {
                         onPressed: isOrbitActive
                             ? (onDeactivateOrbitPressed ?? onOpenOrbitPressed)
                             : onOpenOrbitPressed,
-                        icon: Icon(isOrbitActive ? LucideIcons.stopCircle : LucideIcons.play, size: 16),
+                        icon: Icon(
+                          isOrbitActive
+                              ? LucideIcons.stopCircle
+                              : LucideIcons.play,
+                          size: 16,
+                        ),
                         label: Text(
                           isOrbitActive ? 'Deactivate Orbit' : 'Activate Orbit',
                           style: const TextStyle(
@@ -159,7 +167,7 @@ class TabScaffold extends StatelessWidget {
                     if (isOrbitActive) ...[
                       const SizedBox(height: 12),
                       const Text(
-                        'If you need a break and to stop being discoverable to others, you can deactivate your orbit.',
+                        'If you need a break or you need to stop being discoverable to others, you can deactivate your orbit.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,

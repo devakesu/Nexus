@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/dating_tab.dart';
 import 'package:nexus/screens/home/tabs/friends_tab.dart';
 import 'package:nexus/screens/home/tabs/professional_tab.dart';
@@ -9,6 +8,7 @@ import 'package:nexus/screens/home/tabs/settings_tab.dart';
 import 'package:nexus/screens/home/widgets/common_header.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/orbit_animation_overlay.dart';
+import 'package:nexus/screens/orbit_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({required this.title, super.key});
@@ -38,22 +38,14 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           _isOrbitOpening = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: themeColor,
-            content: Row(
-              children: [
-                const Icon(LucideIcons.globe, color: Colors.white),
-                const SizedBox(width: 12),
-                Text(
-                  '$sectionName Orbit is now open and transmitting!',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
+        unawaited(
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (context) => OrbitScreen(
+                tab: sectionName,
+                themeColor: themeColor,
+              ),
             ),
           ),
         );

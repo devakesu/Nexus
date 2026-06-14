@@ -62,7 +62,7 @@ async def get_discovery_orbit(
             viewer_id=user_id,
             center_x=0.0,
             center_y=0.0,
-            radius=300.0,
+            radius=1000.0,
         )
 
         return OrbitDiscoverResponse(
@@ -73,6 +73,7 @@ async def get_discovery_orbit(
                 OrbitNodeOut(
                     id=node["id"],
                     name=node.get("name"),
+                    profile_pic=node.get("profile_pic"),
                     score=float(node.get("score") or 0.0),
                     x=float(node.get("x") or 0.0),
                     y=float(node.get("y") or 0.0),
@@ -113,7 +114,7 @@ async def get_discovery_orbit(
         ) from err
 
 
-@router.post("/api/v1/discover/node-details", response_model=OrbitNodeDetailResponse)
+@router.post("/api/v1/discover/node-detail", response_model=OrbitNodeDetailResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def get_discovery_node_detail(
     request: Request,
@@ -216,6 +217,7 @@ async def get_discovery_viewport(
                 OrbitNodeOut(
                     id=node["id"],
                     name=node.get("name"),
+                    profile_pic=node.get("profile_pic"),
                     score=float(node.get("score") or 0.0),
                     x=float(node.get("x") or 0.0),
                     y=float(node.get("y") or 0.0),

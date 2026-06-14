@@ -271,10 +271,15 @@ async def _filter_and_sort_viewport_items(
         dy = y - center_y
 
         if dx * dx + dy * dy <= radius_sq:
+            try:
+                decrypted = decrypt_profile_record(profile)
+            except Exception:  # noqa: BLE001
+                decrypted = profile
             result.append(
                 {
                     "id": cid,
-                    "name": profile.get("name"),
+                    "name": decrypted.get("name"),
+                    "profile_pic": decrypted.get("profile_pic"),
                     "score": coerce_score(row.get("score")),
                     "orbit_tier": int(coerce_float(row.get("orbit_tier"), 3.0)),
                     "x": x,
@@ -344,6 +349,7 @@ async def fetch_spatial_viewport(
                 profiles:candidate_id (
                     id,
                     name,
+                    profile_pic,
                     is_deactivated
                 ),
                 discovery_sessions!inner (

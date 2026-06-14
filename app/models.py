@@ -395,6 +395,7 @@ class OrbitNodeOut(BaseModel):
 
     id: str
     name: str | None = None
+    profile_pic: str | None = None
     score: float
     x: float
     y: float

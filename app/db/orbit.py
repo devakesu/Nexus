@@ -173,6 +173,41 @@ def _extract_candidate_ids(ranked_items: list[dict[str, Any]]) -> list[str]:
     return candidate_ids
 
 
+def _bucket_low_score_items(
+    sorted_items: list[dict[str, Any]],
+    tier_buckets: dict[int, list[dict[str, Any]]],
+) -> None:
+    """Helper to bucket sorted items when max score is < 70.0."""
+    for index, item in enumerate(sorted_items):
+        if index < 3:
+            # Top 3 matches go to Tier 1 (radius 200) so they are visible,
+            # close but not too near (Tier 0).
+            tier_buckets[1].append(item)
+        elif index < 8:
+            # Next 5 matches go to Tier 2 (radius 300)
+            tier_buckets[2].append(item)
+        else:
+            # The rest go to Tier 3 (radius 420)
+            tier_buckets[3].append(item)
+
+
+def _bucket_standard_score_items(
+    sorted_items: list[dict[str, Any]],
+    tier_buckets: dict[int, list[dict[str, Any]]],
+) -> None:
+    """Helper to bucket sorted items based on standard absolute score ranges."""
+    for item in sorted_items:
+        score = coerce_score(item.get("score"))
+        if score >= 85.0:
+            tier_buckets[0].append(item)
+        elif score >= 70.0:
+            tier_buckets[1].append(item)
+        elif score >= 50.0:
+            tier_buckets[2].append(item)
+        else:
+            tier_buckets[3].append(item)
+
+
 def _bucket_items_by_tier(
     ranked_items: list[dict[str, Any]],
 ) -> dict[int, list[dict[str, Any]]]:
@@ -183,17 +218,98 @@ def _bucket_items_by_tier(
         2: [],
         3: [],
     }
-    for item in ranked_items:
-        score = coerce_score(item.get("score"))
-        if score >= 85.0:
-            tier_buckets[0].append(item)
-        elif score >= 70.0:
-            tier_buckets[1].append(item)
-        elif score >= 50.0:
-            tier_buckets[2].append(item)
-        else:
-            tier_buckets[3].append(item)
+    if not ranked_items:
+        return tier_buckets
+
+    sorted_items = sorted(
+        ranked_items,
+        key=lambda x: coerce_score(x.get("score")),
+        reverse=True,
+    )
+
+    max_score = coerce_score(sorted_items[0].get("score"))
+
+    # If the maximum score is very low, dynamically scale/distribute them
+    # so that the user sees matches on their screen (in Tier 1 and Tier 2)
+    # instead of pushing all matches off-screen into Tier 3
+    if max_score < 70.0:
+        _bucket_low_score_items(sorted_items, tier_buckets)
+    else:
+        # Standard absolute score bucketing
+        _bucket_standard_score_items(sorted_items, tier_buckets)
+
     return tier_buckets
+
+
+def _resolve_pair_collision(
+    node1: dict[str, Any],
+    node2: dict[str, Any],
+    rng: DeterministicRNG,
+) -> bool:
+    """Resolve collision between two nodes and return True if they were moved."""
+    p1 = node1.get("profile")
+    p2 = node2.get("profile")
+    p1_dict: dict[str, Any] = (
+        cast(dict[str, Any], p1) if isinstance(p1, dict) else {}
+    )
+    p2_dict: dict[str, Any] = (
+        cast(dict[str, Any], p2) if isinstance(p2, dict) else {}
+    )
+
+    name1 = str(node1.get("name") or p1_dict.get("name") or "Anonymous")
+    name2 = str(node2.get("name") or p2_dict.get("name") or "Anonymous")
+
+    # Calculate bounding box dimensions based on name card length
+    hw1 = (58.0 + len(name1) * 6.5) / 2.0 + 8.0
+    hw2 = (58.0 + len(name2) * 6.5) / 2.0 + 8.0
+    hh1 = 45.0  # Avatar height + name card height + padding
+    hh2 = 45.0
+
+    dx: float = node1["_x"] - node2["_x"]
+    dy: float = node1["_y"] - node2["_y"]
+
+    overlap_x = (hw1 + hw2) - abs(dx)
+    overlap_y = (hh1 + hh2) - abs(dy)
+
+    if overlap_x > 0 and overlap_y > 0:
+        # Resolve overlap along the axis of minimum overlap
+        if overlap_x < overlap_y:
+            # Push in X
+            sign = 1.0 if dx >= 0 else -1.0
+            if dx == 0:
+                sign = 1.0 if rng.uniform(-1.0, 1.0) >= 0 else -1.0
+            px = overlap_x * 0.5 * sign
+            node1["_x"] = round(node1["_x"] + px, 2)
+            node2["_x"] = round(node2["_x"] - px, 2)
+        else:
+            # Push in Y
+            sign = 1.0 if dy >= 0 else -1.0
+            if dy == 0:
+                sign = 1.0 if rng.uniform(-1.0, 1.0) >= 0 else -1.0
+            py = overlap_y * 0.5 * sign
+            node1["_y"] = round(node1["_y"] + py, 2)
+            node2["_y"] = round(node2["_y"] - py, 2)
+        return True
+    return False
+
+
+def _resolve_node_collisions(
+    positioned_items: list[dict[str, Any]],
+    rng: DeterministicRNG,
+) -> None:
+    """Relaxation loop to resolve any remaining overlaps using AABB checks."""
+    for _ in range(50):
+        moved = False
+        for i in range(len(positioned_items)):
+            for j in range(i + 1, len(positioned_items)):
+                if _resolve_pair_collision(
+                    positioned_items[i],
+                    positioned_items[j],
+                    rng,
+                ):
+                    moved = True
+        if not moved:
+            break
 
 
 def assign_orbit_positions(
@@ -208,10 +324,10 @@ def assign_orbit_positions(
 
     tier_buckets = _bucket_items_by_tier(ranked_items)
     tier_radii = {
-        0: 120.0,
-        1: 240.0,
-        2: 380.0,
-        3: 560.0,
+        0: 100.0,
+        1: 200.0,
+        2: 300.0,
+        3: 420.0,
     }
 
     positioned_items: list[dict[str, Any]] = []
@@ -222,24 +338,53 @@ def assign_orbit_positions(
 
         radius = tier_radii[tier]
         count = len(items)
-        base_angle_offset = rng.uniform(0.0, 2.0 * math.pi)
 
-        for index, item in enumerate(items):
-            angle = base_angle_offset + ((2.0 * math.pi * index) / count)
-            radial_jitter = rng.uniform(-18.0, 18.0)
-            angular_jitter = rng.uniform(-0.08, 0.08)
+        # Distribute items into nested sub-orbitals if a tier contains
+        # too many nodes to prevent overlaps
+        max_per_ring = 8
+        num_rings = math.ceil(count / max_per_ring)
+        global_base_angle_offset = rng.uniform(0.0, 2.0 * math.pi)
 
-            final_radius = max(40.0, radius + radial_jitter)
-            final_angle = angle + angular_jitter
+        for ring_idx in range(num_rings):
+            # Alternating slice so scores/nodes are distributed evenly
+            ring_items = items[ring_idx::num_rings]
+            ring_count = len(ring_items)
+            if not ring_items:
+                continue
 
-            positioned_items.append(
-                {
-                    **item,
-                    "_orbit_tier": tier,
-                    "_x": round(final_radius * math.cos(final_angle), 2),
-                    "_y": round(final_radius * math.sin(final_angle), 2),
-                },
-            )
+            # Sub-orbital radius spacing (e.g. 60 units apart)
+            if num_rings > 1:
+                ring_offset = (ring_idx - (num_rings - 1) / 2.0) * 60.0
+                # Stagger the angle of each ring by a fraction of the angular step
+                # so nodes align with the gaps of the adjacent ring
+                stagger_angle = (ring_idx * math.pi) / ring_count
+            else:
+                ring_offset = 0.0
+                stagger_angle = 0.0
+
+            ring_radius = radius + ring_offset
+            ring_base_angle = global_base_angle_offset + stagger_angle
+
+            for index, item in enumerate(ring_items):
+                angle = ring_base_angle + ((2.0 * math.pi * index) / ring_count)
+                radial_jitter = rng.uniform(-10.0, 10.0)
+                angular_jitter = rng.uniform(-0.05, 0.05)
+
+                final_radius = max(40.0, ring_radius + radial_jitter)
+                final_angle = angle + angular_jitter
+
+                positioned_items.append(
+                    {
+                        **item,
+                        "_orbit_tier": tier,
+                        "_x": round(final_radius * math.cos(final_angle), 2),
+                        "_y": round(final_radius * math.sin(final_angle), 2),
+                    },
+                )
+
+    # Relaxation loop to resolve any remaining overlaps using AABB (bounding box) checks
+    # to account for name card widths and prevent overlaps 100%
+    _resolve_node_collisions(positioned_items, rng)
 
     positioned_items.sort(
         key=lambda item: (
