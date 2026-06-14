@@ -30,7 +30,9 @@ class SelectorTile extends StatelessWidget {
         ? 'Select...'
         : (emoji.isNotEmpty ? '$emoji  $value' : value);
     final textColor = isEmpty
-        ? (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3))
+        ? (isDark
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.black.withValues(alpha: 0.3))
         : (isDark ? Colors.white : const Color(0xFF0F172A));
 
     return Column(
@@ -39,7 +41,9 @@ class SelectorTile extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.5)
+                : Colors.black.withValues(alpha: 0.5),
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.2,
@@ -51,9 +55,13 @@ class SelectorTile extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              color: isDark ? Colors.white.withValues(alpha: 0.02) : const Color(0xFFF3F4F6),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.02)
+                  : const Color(0xFFF3F4F6),
               border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.08),
               ),
             ),
             child: ClipRRect(
@@ -93,14 +101,16 @@ class SelectorTile extends StatelessWidget {
                       ),
                       Icon(
                         LucideIcons.chevronRight,
-                        color: isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.35),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.35)
+                            : Colors.black.withValues(alpha: 0.35),
                         size: 14,
                       ),
                       const SizedBox(width: 12),
                     ],
                   ),
                   if (isSaving)
-                    Positioned(
+                    const Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,

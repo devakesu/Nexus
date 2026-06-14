@@ -154,7 +154,6 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF4F6FA),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0891B2),
-          brightness: Brightness.light,
           primary: const Color(0xFF0891B2),
           surface: Colors.white,
         ),

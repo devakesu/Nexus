@@ -126,6 +126,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "value_dimensions": 5,
         "partner_values": 5,
         "interests": 5,
+        "dating_for": 4,
         "drinking": 4,
         "smoking": 4,
         "bio_embedding": 4,

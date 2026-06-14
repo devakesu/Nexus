@@ -7,12 +7,6 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LikeItem {
-  final String name;
-  final String age;
-  final String type;
-  final String tag;
-  final Color color;
-  bool hasActioned;
 
   LikeItem({
     required this.name,
@@ -22,15 +16,15 @@ class LikeItem {
     required this.color,
     this.hasActioned = false,
   });
+  final String name;
+  final String age;
+  final String type;
+  final String tag;
+  final Color color;
+  bool hasActioned;
 }
 
 class ChatItem {
-  final String name;
-  final String age;
-  final String lastMsg;
-  final String time;
-  final bool unread;
-  final Color color;
 
   ChatItem({
     required this.name,
@@ -40,6 +34,12 @@ class ChatItem {
     required this.unread,
     required this.color,
   });
+  final String name;
+  final String age;
+  final String lastMsg;
+  final String time;
+  final bool unread;
+  final Color color;
 }
 
 class DatingTab extends StatefulWidget {
@@ -119,7 +119,7 @@ class _DatingTabState extends State<DatingTab>
     ChatItem(
       name: 'Ethan',
       age: '23',
-      lastMsg: 'That track is amazing. Let\'s collaborate!',
+      lastMsg: "That track is amazing. Let's collaborate!",
       time: '2h ago',
       unread: false,
       color: Colors.greenAccent,
@@ -127,7 +127,7 @@ class _DatingTabState extends State<DatingTab>
     ChatItem(
       name: 'Chloe',
       age: '21',
-      lastMsg: 'Let\'s grab a coffee sometime this week.',
+      lastMsg: "Let's grab a coffee sometime this week.",
       time: '1d ago',
       unread: false,
       color: Colors.amberAccent,
@@ -486,18 +486,18 @@ class _DatingTabState extends State<DatingTab>
 
   // Show slide-up Dating Settings overlay
   void _showDatingSettingsOverlay({bool isActivating = false}) {
-    List<String> localBuckets = List<String>.from(_datingTargetBuckets);
-    List<String> localDatingFor = List<String>.from(_datingFor);
-    List<String> localPartnerValues = _partnerValues.isNotEmpty
+    final localBuckets = List<String>.from(_datingTargetBuckets);
+    final localDatingFor = List<String>.from(_datingFor);
+    final List<String> localPartnerValues = _partnerValues.isNotEmpty
         ? _partnerValues
               .split(',')
               .map((e) => e.trim())
               .where((e) => e.isNotEmpty)
               .toList()
-        : [];
-    String searchQuery = '';
+        : <String>[];
+    var searchQuery = '';
 
-    final List<String> predefinedValues = [
+    final predefinedValues = <String>[
       'Authenticity',
       'Empathy',
       'Ambition',
@@ -575,7 +575,7 @@ class _DatingTabState extends State<DatingTab>
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(2.5),
                     ),
                   ),
@@ -610,7 +610,7 @@ class _DatingTabState extends State<DatingTab>
                             elevation: 4,
                             shadowColor: const Color(
                               0xFFFF4F81,
-                            ).withOpacity(0.4),
+                            ).withValues(alpha: 0.4),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 10,
@@ -695,8 +695,8 @@ class _DatingTabState extends State<DatingTab>
                                   label: Text(item['label']!),
                                   selected: isSelected,
                                   selectedColor: const Color(0xFFFF4F81),
-                                  backgroundColor: Colors.black.withOpacity(
-                                    0.04,
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
                                   ),
                                   checkmarkColor: Colors.white,
                                   labelStyle: TextStyle(
@@ -709,13 +709,13 @@ class _DatingTabState extends State<DatingTab>
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide.none,
                                   ),
                                   onSelected: (selected) async {
                                     if (_savingFields.contains(
                                       'dating_target_buckets',
-                                    ))
+                                    )) {
                                       return;
+                                    }
                                     setModalState(() {
                                       if (selected) {
                                         localBuckets.add(code);
@@ -810,8 +810,8 @@ class _DatingTabState extends State<DatingTab>
                                   label: Text(item['label']!),
                                   selected: isSelected,
                                   selectedColor: const Color(0xFFFF4F81),
-                                  backgroundColor: Colors.black.withOpacity(
-                                    0.04,
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
                                   ),
                                   checkmarkColor: Colors.white,
                                   labelStyle: TextStyle(
@@ -824,11 +824,11 @@ class _DatingTabState extends State<DatingTab>
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide.none,
                                   ),
                                   onSelected: (selected) async {
-                                    if (_savingFields.contains('dating_for'))
+                                    if (_savingFields.contains('dating_for')) {
                                       return;
+                                    }
                                     setModalState(() {
                                       if (selected) {
                                         localDatingFor.add(code);
@@ -906,7 +906,7 @@ class _DatingTabState extends State<DatingTab>
                                 label: Text(val),
                                 backgroundColor: const Color(
                                   0xFFFF4F81,
-                                ).withOpacity(0.1),
+                                ).withValues(alpha: 0.1),
                                 labelStyle: const TextStyle(
                                   color: Color(0xFFFF4F81),
                                   fontWeight: FontWeight.bold,
@@ -922,8 +922,9 @@ class _DatingTabState extends State<DatingTab>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 onDeleted: () async {
-                                  if (_savingFields.contains('partner_values'))
+                                  if (_savingFields.contains('partner_values')) {
                                     return;
+                                  }
                                   setModalState(() {
                                     localPartnerValues.remove(val);
                                   });
@@ -953,7 +954,7 @@ class _DatingTabState extends State<DatingTab>
                               color: Colors.grey,
                             ),
                             filled: true,
-                            fillColor: Colors.black.withOpacity(0.04),
+                            fillColor: Colors.black.withValues(alpha: 0.04),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -1001,8 +1002,9 @@ class _DatingTabState extends State<DatingTab>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 onPressed: () async {
-                                  if (_savingFields.contains('partner_values'))
+                                  if (_savingFields.contains('partner_values')) {
                                     return;
+                                  }
                                   setModalState(() {
                                     localPartnerValues.add(searchQuery.trim());
                                     searchQuery = '';
@@ -1017,7 +1019,7 @@ class _DatingTabState extends State<DatingTab>
                             ...filteredValues.map((val) {
                               return ActionChip(
                                 label: Text(val),
-                                backgroundColor: Colors.black.withOpacity(0.04),
+                                backgroundColor: Colors.black.withValues(alpha: 0.04),
                                 labelStyle: const TextStyle(
                                   color: Color(0xFF0F172A),
                                   fontSize: 12,
@@ -1027,8 +1029,9 @@ class _DatingTabState extends State<DatingTab>
                                 ),
                                 side: BorderSide.none,
                                 onPressed: () async {
-                                  if (_savingFields.contains('partner_values'))
+                                  if (_savingFields.contains('partner_values')) {
                                     return;
+                                  }
                                   setModalState(() {
                                     localPartnerValues.add(val);
                                   });
@@ -1088,15 +1091,15 @@ class _DatingTabState extends State<DatingTab>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               LucideIcons.heart,
                               color: Color(0xFFFF4F81),
                               size: 24,
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
+                            SizedBox(width: 8),
+                            Text(
                               'Likes & Waves',
                               style: TextStyle(
                                 color: Colors.white,
@@ -1361,20 +1364,20 @@ class _DatingTabState extends State<DatingTab>
                 ),
               ),
               const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.messageSquare,
                           color: Color(0xFFFF4F81),
                           size: 24,
                         ),
-                        const SizedBox(width: 8),
-                        const Text(
+                        SizedBox(width: 8),
+                        Text(
                           'Chats & Matches',
                           style: TextStyle(
                             color: Colors.white,
@@ -1384,7 +1387,7 @@ class _DatingTabState extends State<DatingTab>
                         ),
                       ],
                     ),
-                    const Icon(
+                    Icon(
                       LucideIcons.slidersHorizontal,
                       color: Colors.white70,
                       size: 20,
@@ -1514,7 +1517,7 @@ class _DatingTabState extends State<DatingTab>
           'Start broadcasting your matching signals & begin viewing active profiles near your orbit.',
       onOpenOrbitPressed: () => _toggleOrbitState(true),
       onDeactivateOrbitPressed: () => _toggleOrbitState(false),
-      onSettingsPressed: () => _showDatingSettingsOverlay(isActivating: false),
+      onSettingsPressed: _showDatingSettingsOverlay,
       children: [
         Stack(
           children: [
@@ -2019,12 +2022,12 @@ class _DatingTabState extends State<DatingTab>
                       vertical: 24,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
+                      color: Colors.white.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(color: Colors.black.withAlpha(15)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -2080,8 +2083,7 @@ class _DatingTabState extends State<DatingTab>
                               vertical: 10,
                             ),
                           ),
-                          onPressed: () =>
-                              _showDatingSettingsOverlay(isActivating: false),
+                          onPressed: _showDatingSettingsOverlay,
                           icon: const Icon(LucideIcons.settings, size: 16),
                           label: const Text(
                             'Dating Settings',
@@ -2128,20 +2130,20 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.8, curve: Curves.easeOutBack),
+        curve: const Interval(0, 0.8, curve: Curves.easeOutBack),
       ),
     );
 
     _fadeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 0.0, end: 1.0), weight: 15),
-      TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 70),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 0.0), weight: 15),
+      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 15),
+      TweenSequenceItem(tween: ConstantTween<double>(1), weight: 70),
+      TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 15),
     ]).animate(_controller);
 
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 2 * 3.14159).animate(
+    _rotationAnimation = Tween<double>(begin: 0, end: 2 * 3.14159).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.9, curve: Curves.linear),
+        curve: const Interval(0, 0.9),
       ),
     );
 
@@ -2171,7 +2173,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
               colors: [
                 const Color(0xFF0F172A),
                 const Color(0xFF1E1B4B), // deep purple
-                const Color(0xFF581C87).withOpacity(0.95), // violet
+                const Color(0xFF581C87).withValues(alpha: 0.95), // violet
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -2189,9 +2191,9 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        _buildRadarRing(260, 4, brandPink.withOpacity(0.1)),
-                        _buildRadarRing(200, 3, brandPink.withOpacity(0.2)),
-                        _buildRadarRing(140, 2, brandPink.withOpacity(0.3)),
+                        _buildRadarRing(260, 4, brandPink.withValues(alpha: 0.1)),
+                        _buildRadarRing(200, 3, brandPink.withValues(alpha: 0.2)),
+                        _buildRadarRing(140, 2, brandPink.withValues(alpha: 0.3)),
                       ],
                     ),
                   );
@@ -2208,7 +2210,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     color: brandPink,
                     boxShadow: [
                       BoxShadow(
-                        color: brandPink.withOpacity(0.5),
+                        color: brandPink.withValues(alpha: 0.5),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -2235,7 +2237,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                         color: brandPink,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 4.0,
+                        letterSpacing: 4,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -2252,7 +2254,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     Text(
                       'Broadcasting matching signals near you...',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -2276,7 +2278,6 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
         border: Border.all(
           color: color,
           width: strokeWidth,
-          style: BorderStyle.solid,
         ),
       ),
     );

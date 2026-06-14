@@ -90,7 +90,9 @@ class _BioSectionState extends State<BioSection> {
       description:
           'Your signal to the universe — who you are in your own words',
       cardColor: isDark ? const Color(0xFF1B0F20) : const Color(0xFFFFF0F5),
-      borderColor: const Color(0xFFFF4D7E).withValues(alpha: isDark ? 0.35 : 0.4),
+      borderColor: const Color(
+        0xFFFF4D7E,
+      ).withValues(alpha: isDark ? 0.35 : 0.4),
       accentColor: _pulsarPink,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,8 +108,14 @@ class _BioSectionState extends State<BioSection> {
                     )
                   : LinearGradient(
                       colors: [
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
               boxShadow: _focusNode.hasFocus
@@ -126,7 +134,9 @@ class _BioSectionState extends State<BioSection> {
               decoration: BoxDecoration(
                 color: _focusNode.hasFocus
                     ? (isDark ? const Color(0xFF0D1017) : Colors.white)
-                    : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
+                    : (isDark
+                          ? const Color(0xFF141822)
+                          : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Stack(
@@ -147,7 +157,9 @@ class _BioSectionState extends State<BioSection> {
                             Text(
                               'BIO',
                               style: GoogleFonts.plusJakartaSans(
-                                color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.45),
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.4)
+                                    : Colors.black.withValues(alpha: 0.45),
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.2,
@@ -168,9 +180,11 @@ class _BioSectionState extends State<BioSection> {
                               required currentLength,
                               required isFocused,
                               maxLength,
-                             }) => null,
+                            }) => null,
                         style: GoogleFonts.plusJakartaSans(
-                          color: isDark ? _mistLavender : const Color(0xFF0F172A),
+                          color: isDark
+                              ? _mistLavender
+                              : const Color(0xFF0F172A),
                           fontSize: 14,
                           height: 1.55,
                         ),
@@ -178,12 +192,19 @@ class _BioSectionState extends State<BioSection> {
                           hintText:
                               'Tell your story — your vibe, your passions, what makes you, you...',
                           hintStyle: GoogleFonts.plusJakartaSans(
-                            color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.3),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.3),
                             fontSize: 13,
                             height: 1.5,
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                          contentPadding: const EdgeInsets.fromLTRB(
+                            14,
+                            8,
+                            14,
+                            12,
+                          ),
                         ),
                         onChanged: (val) {
                           widget.onBioChanged(val);
@@ -197,12 +218,12 @@ class _BioSectionState extends State<BioSection> {
                     ],
                   ),
                   if (widget.isSaving)
-                    Positioned(
+                    const Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
+                        borderRadius: BorderRadius.only(
                           bottomLeft: Radius.circular(15),
                           bottomRight: Radius.circular(15),
                         ),
@@ -210,7 +231,9 @@ class _BioSectionState extends State<BioSection> {
                           height: 2,
                           child: LinearProgressIndicator(
                             backgroundColor: Colors.transparent,
-                            valueColor: AlwaysStoppedAnimation<Color>(_pulsarPink),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _pulsarPink,
+                            ),
                           ),
                         ),
                       ),

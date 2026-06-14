@@ -33,7 +33,8 @@ class ProfileTab extends ConsumerStatefulWidget {
   ConsumerState<ProfileTab> createState() => _ProfileTabState();
 }
 
-class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStateMixin {
+class _ProfileTabState extends ConsumerState<ProfileTab>
+    with TickerProviderStateMixin {
   AnimationController? _pulseController;
   AnimationController? _rotationController;
   late PageController _pageController;
@@ -146,15 +147,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
       ),
     );
 
-    final slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entryController!,
-        curve: Interval(start, end, curve: Curves.easeOutCubic),
-      ),
-    );
+    final slideAnimation =
+        Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _entryController!,
+            curve: Interval(start, end, curve: Curves.easeOutCubic),
+          ),
+        );
 
     return FadeTransition(
       opacity: fadeAnimation,
@@ -231,7 +233,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           'Prefer not to say',
         ],
         currentValue: _displaySexuality,
-        onSelected: (val) => unawaited(_saveProfileChanges(displaySexuality: val)),
+        onSelected: (val) =>
+            unawaited(_saveProfileChanges(displaySexuality: val)),
       );
     } else if (label == 'Pronouns') {
       _openBottomSelectionSheet(
@@ -337,9 +340,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           'Not specified',
         ],
         currentValue: _religiousBeliefs,
-        onSelected: (val) => unawaited(_saveProfileChanges(religiousBeliefs: val)),
+        onSelected: (val) =>
+            unawaited(_saveProfileChanges(religiousBeliefs: val)),
       );
-    } else if (['Lifestyle Description', 'Partner Values', 'Pets'].contains(label)) {
+    } else if ([
+      'Lifestyle Description',
+      'Partner Values',
+      'Pets',
+    ].contains(label)) {
       _scrollToSection(_lifestyleResonanceKey);
     }
     // 4. Interests & Hobbies
@@ -529,7 +537,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
             final rawImages = data['ordered_images'];
             if (rawImages is List) {
               final loadedImages = List<String>.generate(5, (i) {
-                if (i < rawImages.length && rawImages[i] != null && rawImages[i].toString().isNotEmpty) {
+                if (i < rawImages.length &&
+                    rawImages[i] != null &&
+                    rawImages[i].toString().isNotEmpty) {
                   _imagePaths[i] = rawImages[i].toString();
                   return rawImages[i].toString();
                 } else {
@@ -537,7 +547,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   return '';
                 }
               });
-              ref.read(clientAIImageManagerProvider.notifier).setRemotePaths(loadedImages);
+              ref
+                  .read(clientAIImageManagerProvider.notifier)
+                  .setRemotePaths(loadedImages);
             }
           });
         }
@@ -769,11 +781,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               }
               if (subInterests != null) {
                 _subInterests = subInterests;
-                _savedSubInterests = Map<String, List<String>>.from(subInterests);
+                _savedSubInterests = Map<String, List<String>>.from(
+                  subInterests,
+                );
               }
             });
           } else {
-            throw Exception('API responded with status code: ${response.statusCode}');
+            throw Exception(
+              'API responded with status code: ${response.statusCode}',
+            );
           }
         }
 
@@ -803,7 +819,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           if (name != null) _name = _savedName;
           if (age != null) _age = _savedAge;
           if (displayGender != null) _displayGender = _savedDisplayGender;
-          if (displaySexuality != null) _displaySexuality = _savedDisplaySexuality;
+          if (displaySexuality != null) {
+            _displaySexuality = _savedDisplaySexuality;
+          }
           if (pronouns != null) _pronouns = _savedPronouns;
           if (bio != null) _bio = _savedBio;
           if (searchBucket != null) _searchBucket = _savedSearchBucket;
@@ -817,13 +835,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           if (currentPlace != null) _currentPlace = _savedCurrentPlace;
           if (partnerValues != null) _partnerValues = _savedPartnerValues;
           if (childrenPlans != null) _childrenPlans = _savedChildrenPlans;
-          if (religiousBeliefs != null) _religiousBeliefs = _savedReligiousBeliefs;
+          if (religiousBeliefs != null) {
+            _religiousBeliefs = _savedReligiousBeliefs;
+          }
           if (lifestyle != null) _lifestyle = _savedLifestyle;
           if (drinking != null) _drinking = _savedDrinking;
           if (smoking != null) _smoking = _savedSmoking;
-          if (causesSupported != null) _causesSupported = List<String>.from(_savedCausesSupported);
-          if (topArtists != null) _topArtists = List<String>.from(_savedTopArtists);
-          if (languages != null) _languages = List<String>.from(_savedLanguages);
+          if (causesSupported != null) {
+            _causesSupported = List<String>.from(_savedCausesSupported);
+          }
+          if (topArtists != null) {
+            _topArtists = List<String>.from(_savedTopArtists);
+          }
+          if (languages != null) {
+            _languages = List<String>.from(_savedLanguages);
+          }
           if (pets != null) _pets = List<String>.from(_savedPets);
           if (subInterests != null || interests != null) {
             _subInterests = Map<String, List<String>>.from(_savedSubInterests);
@@ -837,7 +863,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               'Failed to synchronize cosmic frequency: $e',
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
-            duration: const Duration(seconds: 4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -865,8 +890,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     if (_age >= 18) filled++;
     if (_bio.isNotEmpty) filled++;
     if (_searchBucket.isNotEmpty) filled++;
-    if (_displayGender.isNotEmpty && _displayGender != 'Prefer not to say') filled++;
-    if (_displaySexuality.isNotEmpty && _displaySexuality != 'Prefer not to say') filled++;
+    if (_displayGender.isNotEmpty && _displayGender != 'Prefer not to say') {
+      filled++;
+    }
+    if (_displaySexuality.isNotEmpty &&
+        _displaySexuality != 'Prefer not to say') {
+      filled++;
+    }
     if (_pronouns.isNotEmpty && _pronouns != 'Prefer not to say') filled++;
     if (_imagePaths[1] != null && _imagePaths[1]!.isNotEmpty) filled++;
     if (_imagePaths[2] != null && _imagePaths[2]!.isNotEmpty) filled++;
@@ -885,8 +915,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
     if (_lifestyle.isNotEmpty) filled++;
     if (_drinking.isNotEmpty && _drinking != 'Not specified') filled++;
     if (_smoking.isNotEmpty && _smoking != 'Not specified') filled++;
-    if (_childrenPlans.isNotEmpty && _childrenPlans != 'Not specified') filled++;
-    if (_religiousBeliefs.isNotEmpty && _religiousBeliefs != 'Not specified') filled++;
+    if (_childrenPlans.isNotEmpty && _childrenPlans != 'Not specified') {
+      filled++;
+    }
+    if (_religiousBeliefs.isNotEmpty && _religiousBeliefs != 'Not specified') {
+      filled++;
+    }
     if (_partnerValues.isNotEmpty) filled++;
     if (_pets.isNotEmpty) filled++;
 
@@ -911,7 +945,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
 
       try {
         // 1. Run local client-side vision AI model & stage local file
-        await ref.read(clientAIImageManagerProvider.notifier).stageImageSlot(slotIndex, file, userBranch: _major);
+        await ref
+            .read(clientAIImageManagerProvider.notifier)
+            .stageImageSlot(slotIndex, file, userBranch: _major);
 
         if (!mounted) return;
 
@@ -919,7 +955,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         final userId = _client.auth.currentUser?.id;
         if (userId != null) {
           final dio = createDio();
-          await ref.read(clientAIImageManagerProvider.notifier).commitProfileChanges(dio, userId);
+          await ref
+              .read(clientAIImageManagerProvider.notifier)
+              .commitProfileChanges(dio, userId);
 
           if (!mounted) return;
 
@@ -927,7 +965,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           final providerState = ref.read(clientAIImageManagerProvider);
           setState(() {
             for (var i = 0; i < _imagePaths.length; i++) {
-              if (i < providerState.remotePaths.length && providerState.remotePaths[i].isNotEmpty) {
+              if (i < providerState.remotePaths.length &&
+                  providerState.remotePaths[i].isNotEmpty) {
                 _imagePaths[i] = providerState.remotePaths[i];
               } else {
                 _imagePaths[i] = null;
@@ -967,7 +1006,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
       final userId = _client.auth.currentUser?.id;
       if (userId != null) {
         final dio = createDio();
-        await ref.read(clientAIImageManagerProvider.notifier).commitProfileChanges(dio, userId);
+        await ref
+            .read(clientAIImageManagerProvider.notifier)
+            .commitProfileChanges(dio, userId);
 
         if (!mounted) return;
 
@@ -975,7 +1016,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
         final providerState = ref.read(clientAIImageManagerProvider);
         setState(() {
           for (var i = 0; i < _imagePaths.length; i++) {
-            if (i < providerState.remotePaths.length && providerState.remotePaths[i].isNotEmpty) {
+            if (i < providerState.remotePaths.length &&
+                providerState.remotePaths[i].isNotEmpty) {
               _imagePaths[i] = providerState.remotePaths[i];
             } else {
               _imagePaths[i] = null;
@@ -1011,12 +1053,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
           return Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF161B26).withValues(alpha: 0.98) : Colors.white,
+              color: isDark
+                  ? const Color(0xFF161B26).withValues(alpha: 0.98)
+                  : Colors.white,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(30),
                 topRight: Radius.circular(30),
               ),
-              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08)),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.08),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1030,7 +1078,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      slotIndex == 0 ? 'Profile Avatar' : 'Gallery - Slot $slotIndex',
+                      slotIndex == 0
+                          ? 'Profile Avatar'
+                          : 'Gallery - Slot $slotIndex',
                       style: TextStyle(
                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 18,
@@ -1072,7 +1122,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                       ),
                       title: Text(
                         'Replace Image',
-                        style: TextStyle(color: isDark ? Colors.white : const Color(0xFF0F172A)),
+                        style: TextStyle(
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                        ),
                       ),
                       onTap: () {
                         Navigator.pop(context);
@@ -1100,7 +1154,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                 ] else ...[
                   Text(
                     'Upload an image from your device gallery to represent you in this slot.',
-                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13),
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black54,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -1194,8 +1251,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
               final filteredOptions = showSearch
                   ? options.where((option) {
                       return option.toLowerCase().contains(
-                            searchController.text.toLowerCase(),
-                          );
+                        searchController.text.toLowerCase(),
+                      );
                     }).toList()
                   : options;
 
@@ -1207,13 +1264,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                   bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF131722).withValues(alpha: 0.98) : Colors.white,
+                  color: isDark
+                      ? const Color(0xFF131722).withValues(alpha: 0.98)
+                      : Colors.white,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
                   border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: SafeArea(
@@ -1227,7 +1288,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 18),
                           decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.15),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.15)
+                                : Colors.black.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -1238,7 +1301,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           Text(
                             title,
                             style: TextStyle(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Outfit',
@@ -1248,7 +1313,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           Text(
                             '${filteredOptions.length} options',
                             style: TextStyle(
-                              color: isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.45),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.35)
+                                  : Colors.black.withValues(alpha: 0.45),
                               fontSize: 11,
                               fontFamily: 'Outfit',
                             ),
@@ -1261,10 +1328,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                           height: 44,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.04),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.02)
+                                : Colors.black.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
@@ -1279,14 +1350,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                 child: TextField(
                                   controller: searchController,
                                   style: TextStyle(
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
                                     fontSize: 13,
                                     fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Search signals...',
                                     hintStyle: TextStyle(
-                                      color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.35),
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.25)
+                                          : Colors.black.withValues(
+                                              alpha: 0.35,
+                                            ),
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -1306,7 +1383,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                   },
                                   child: Icon(
                                     LucideIcons.xCircle,
-                                    color: isDark ? Colors.white38 : Colors.black45,
+                                    color: isDark
+                                        ? Colors.white38
+                                        : Colors.black45,
                                     size: 16,
                                   ),
                                 ),
@@ -1333,7 +1412,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                             shrinkWrap: true,
                             physics: const BouncingScrollPhysics(),
                             itemCount: filteredOptions.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final option = filteredOptions[index];
                               final isSelected = option == currentValue;
@@ -1345,16 +1425,35 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(0xFFFF7597).withValues(alpha: 0.08)
-                                        : (isDark ? Colors.white.withValues(alpha: 0.01) : Colors.black.withValues(alpha: 0.02)),
+                                        ? const Color(
+                                            0xFFFF7597,
+                                          ).withValues(alpha: 0.08)
+                                        : (isDark
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.01,
+                                                )
+                                              : Colors.black.withValues(
+                                                  alpha: 0.02,
+                                                )),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFFFF7597).withValues(alpha: 0.45)
-                                          : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.06)),
+                                          ? const Color(
+                                              0xFFFF7597,
+                                            ).withValues(alpha: 0.45)
+                                          : (isDark
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.05,
+                                                  )
+                                                : Colors.black.withValues(
+                                                    alpha: 0.06,
+                                                  )),
                                     ),
                                   ),
                                   child: Row(
@@ -1365,7 +1464,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                           height: 14,
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFFF7597),
-                                            borderRadius: BorderRadius.circular(1.5),
+                                            borderRadius: BorderRadius.circular(
+                                              1.5,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
@@ -1382,7 +1483,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                           size: 14,
                                           color: isSelected
                                               ? const Color(0xFFFF7597)
-                                              : (isDark ? Colors.white24 : Colors.black26),
+                                              : (isDark
+                                                    ? Colors.white24
+                                                    : Colors.black26),
                                         ),
                                         const SizedBox(width: 12),
                                       ],
@@ -1391,11 +1494,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                                           option,
                                           style: TextStyle(
                                             color: isSelected
-                                                ? (isDark ? Colors.white : const Color(0xFFFF7597))
-                                                : (isDark ? Colors.white70 : Colors.black87),
+                                                ? (isDark
+                                                      ? Colors.white
+                                                      : const Color(0xFFFF7597))
+                                                : (isDark
+                                                      ? Colors.white70
+                                                      : Colors.black87),
                                             fontFamily: 'Outfit',
                                             fontSize: 14,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
                                           ),
                                         ),
                                       ),
@@ -1532,7 +1641,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         pulseController: pulseController,
                         isProcessingAI: providerState.isProcessingAI,
                         isSaving: providerState.isSaving,
-                        hasPendingUpload: providerState.pendingUploads.containsKey(0),
+                        hasPendingUpload: providerState.pendingUploads
+                            .containsKey(0),
                         onAvatarTap: () => _showImageSlotPicker(0),
                       ),
                     ),
@@ -1593,15 +1703,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         pendingUploads: providerState.pendingUploads,
                         isSavingName: _savingFields.contains('name'),
                         isSavingGender: _savingFields.contains('displayGender'),
-                        isSavingSexuality: _savingFields.contains('displaySexuality'),
+                        isSavingSexuality: _savingFields.contains(
+                          'displaySexuality',
+                        ),
                         isSavingPronouns: _savingFields.contains('pronouns'),
                         isSavingAge: _savingFields.contains('age'),
                         isSavingBuckets: _savingFields.contains('searchBucket'),
                         nameFocusNode: _nameFocusNode,
                         onNameChanged: (val) => setState(() => _name = val),
-                        onNameSubmitted: (val) => unawaited(_saveProfileChanges(name: val)),
+                        onNameSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(name: val)),
                         onAgeChanged: (val) => setState(() => _age = val),
-                        onAgeConfirmed: (val) => unawaited(_saveProfileChanges(age: val)),
+                        onAgeConfirmed: (val) =>
+                            unawaited(_saveProfileChanges(age: val)),
                         onBucketChanged: (val) {
                           setState(() => _searchBucket = val);
                           unawaited(_saveProfileChanges(searchBucket: val));
@@ -1633,7 +1747,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                               'Prefer not to say',
                             ],
                             currentValue: _displayGender,
-                            onSelected: (val) => unawaited(_saveProfileChanges(displayGender: val)),
+                            onSelected: (val) => unawaited(
+                              _saveProfileChanges(displayGender: val),
+                            ),
                           );
                         },
                         onSelectSexuality: () {
@@ -1658,7 +1774,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                               'Prefer not to say',
                             ],
                             currentValue: _displaySexuality,
-                            onSelected: (val) => unawaited(_saveProfileChanges(displaySexuality: val)),
+                            onSelected: (val) => unawaited(
+                              _saveProfileChanges(displaySexuality: val),
+                            ),
                           );
                         },
                         onSelectPronouns: () {
@@ -1697,7 +1815,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         isSaving: _savingFields.contains('bio'),
                         focusNode: _bioFocusNode,
                         onBioChanged: (val) => setState(() => _bio = val),
-                        onBioSubmitted: (val) => unawaited(_saveProfileChanges(bio: val)),
+                        onBioSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(bio: val)),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1715,31 +1834,46 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         isStudying: _isStudying,
                         year: _year,
                         isSavingHometown: _savingFields.contains('hometown'),
-                        isSavingCurrentPlace: _savingFields.contains('currentPlace'),
-                        isSavingCampusName: _savingFields.contains('campusName'),
+                        isSavingCurrentPlace: _savingFields.contains(
+                          'currentPlace',
+                        ),
+                        isSavingCampusName: _savingFields.contains(
+                          'campusName',
+                        ),
                         isSavingMajor: _savingFields.contains('campusBranch'),
                         isSavingLanguages: _savingFields.contains('languages'),
-                        isSavingCampusYear: _savingFields.contains('campusYear'),
+                        isSavingCampusYear: _savingFields.contains(
+                          'campusYear',
+                        ),
                         hometownFocusNode: _hometownFocusNode,
                         currentPlaceFocusNode: _currentPlaceFocusNode,
                         campusNameFocusNode: _campusNameFocusNode,
                         majorFocusNode: _majorFocusNode,
-                        onHometownChanged: (val) => setState(() => _hometown = val),
-                        onHometownSubmitted: (val) => unawaited(_saveProfileChanges(hometown: val)),
-                        onCurrentPlaceChanged: (val) => setState(() => _currentPlace = val),
-                        onCurrentPlaceSubmitted: (val) => unawaited(_saveProfileChanges(currentPlace: val)),
+                        onHometownChanged: (val) =>
+                            setState(() => _hometown = val),
+                        onHometownSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(hometown: val)),
+                        onCurrentPlaceChanged: (val) =>
+                            setState(() => _currentPlace = val),
+                        onCurrentPlaceSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(currentPlace: val)),
                         onLanguagesChanged: (val) {
                           setState(() => _languages = val);
                           unawaited(_saveProfileChanges(languages: val));
                         },
-                        onCampusNameChanged: (val) => setState(() => _campusName = val),
-                        onCampusNameSubmitted: (val) => unawaited(_saveProfileChanges(campusName: val)),
+                        onCampusNameChanged: (val) =>
+                            setState(() => _campusName = val),
+                        onCampusNameSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(campusName: val)),
                         onMajorChanged: (val) => setState(() => _major = val),
-                        onMajorSubmitted: (val) => unawaited(_saveProfileChanges(campusBranch: val)),
+                        onMajorSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(campusBranch: val)),
                         onIsStudyingChanged: (val) {
                           setState(() => _isStudying = val);
                           if (!val) {
-                            unawaited(_saveProfileChanges(clearCampusYear: true));
+                            unawaited(
+                              _saveProfileChanges(clearCampusYear: true),
+                            );
                           }
                         },
                         onYearChanged: (val) {
@@ -1763,25 +1897,40 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         partnerValues: _partnerValues,
                         pets: _pets,
                         isSavingLifestyle: _savingFields.contains('lifestyle'),
-                        isSavingPartnerValues: _savingFields.contains('partnerValues'),
+                        isSavingPartnerValues: _savingFields.contains(
+                          'partnerValues',
+                        ),
                         isSavingDrinking: _savingFields.contains('drinking'),
                         isSavingSmoking: _savingFields.contains('smoking'),
-                        isSavingChildrenPlans: _savingFields.contains('childrenPlans'),
-                        isSavingReligiousBeliefs: _savingFields.contains('religiousBeliefs'),
+                        isSavingChildrenPlans: _savingFields.contains(
+                          'childrenPlans',
+                        ),
+                        isSavingReligiousBeliefs: _savingFields.contains(
+                          'religiousBeliefs',
+                        ),
                         isSavingPets: _savingFields.contains('pets'),
-                        onLifestyleChanged: (val) => setState(() => _lifestyle = val),
-                        onLifestyleSubmitted: (val) => unawaited(_saveProfileChanges(lifestyle: val)),
-                        onPartnerValuesChanged: (val) => setState(() => _partnerValues = val),
-                        onPartnerValuesSubmitted: (val) => unawaited(_saveProfileChanges(partnerValues: val)),
+                        onLifestyleChanged: (val) =>
+                            setState(() => _lifestyle = val),
+                        onLifestyleSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(lifestyle: val)),
+                        onPartnerValuesChanged: (val) =>
+                            setState(() => _partnerValues = val),
+                        onPartnerValuesSubmitted: (val) =>
+                            unawaited(_saveProfileChanges(partnerValues: val)),
                         onPetsChanged: (val) {
                           setState(() => _pets = val);
                           unawaited(_saveProfileChanges(pets: val));
                         },
                         openBottomSelectionSheet: _openBottomSelectionSheet,
-                        onDrinkingSaved: (val) => unawaited(_saveProfileChanges(drinking: val)),
-                        onSmokingSaved: (val) => unawaited(_saveProfileChanges(smoking: val)),
-                        onChildrenPlansSaved: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
-                        onReligiousBeliefsSaved: (val) => unawaited(_saveProfileChanges(religiousBeliefs: val)),
+                        onDrinkingSaved: (val) =>
+                            unawaited(_saveProfileChanges(drinking: val)),
+                        onSmokingSaved: (val) =>
+                            unawaited(_saveProfileChanges(smoking: val)),
+                        onChildrenPlansSaved: (val) =>
+                            unawaited(_saveProfileChanges(childrenPlans: val)),
+                        onReligiousBeliefsSaved: (val) => unawaited(
+                          _saveProfileChanges(religiousBeliefs: val),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1795,14 +1944,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with TickerProviderStat
                         causesSupported: _causesSupported,
                         topArtists: _topArtists,
                         isSavingInterests: _savingFields.contains('interests'),
-                        isSavingCauses: _savingFields.contains('causesSupported'),
-                        isSavingTopArtists: _savingFields.contains('topArtists'),
+                        isSavingCauses: _savingFields.contains(
+                          'causesSupported',
+                        ),
+                        isSavingTopArtists: _savingFields.contains(
+                          'topArtists',
+                        ),
                         onInterestsSaved: (val) {
                           final newSubInterests = <String, List<String>>{};
                           for (final item in val) {
                             final parts = item.split(': ');
                             if (parts.length == 2) {
-                              newSubInterests.putIfAbsent(parts[0], () => []).add(parts[1]);
+                              newSubInterests
+                                  .putIfAbsent(parts[0], () => [])
+                                  .add(parts[1]);
                             }
                           }
                           final newInterests = <String, int>{};
@@ -1862,9 +2017,15 @@ class FuturisticBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Colors based on theme brightness (higher contrast for light mode)
     final gridAlpha = isDark ? 0.04 : 0.08;
-    final primaryOrbitColor = isDark ? const Color(0xFF00E5FF) : const Color(0xFF0891B2);
-    final secondaryOrbitColor = isDark ? const Color(0xFFFF7597) : const Color(0xFFE91E63);
-    final tertiaryOrbitColor = isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5);
+    final primaryOrbitColor = isDark
+        ? const Color(0xFF00E5FF)
+        : const Color(0xFF0891B2);
+    final secondaryOrbitColor = isDark
+        ? const Color(0xFFFF7597)
+        : const Color(0xFFE91E63);
+    final tertiaryOrbitColor = isDark
+        ? const Color(0xFF6366F1)
+        : const Color(0xFF4F46E5);
 
     final lineAlpha = isDark ? 0.08 : 0.16;
     final glowAlpha = isDark ? 0.06 : 0.12;
@@ -1872,7 +2033,9 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
     // 1. Grid/Matrix Coordinate Dots
     final dotPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: gridAlpha) : Colors.black.withValues(alpha: gridAlpha * 0.8)
+      ..color = isDark
+          ? Colors.white.withValues(alpha: gridAlpha)
+          : Colors.black.withValues(alpha: gridAlpha * 0.8)
       ..style = PaintingStyle.fill;
 
     const spacing = 45.0;
@@ -1886,16 +2049,23 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
     // 2. Radial Telemetry Rays (Faint rays from center coordinate)
     final rayPaint = Paint()
-      ..color = isDark ? Colors.white.withValues(alpha: isDark ? 0.015 : 0.035) : Colors.black.withValues(alpha: 0.02)
+      ..color = isDark
+          ? Colors.white.withValues(alpha: isDark ? 0.015 : 0.035)
+          : Colors.black.withValues(alpha: 0.02)
       ..strokeWidth = 0.8;
     const rayCount = 12;
-    const double angleStep = (2 * 3.1415926535) / rayCount;
+    const angleStep = (2 * 3.1415926535) / rayCount;
     for (var i = 0; i < rayCount; i++) {
-      final double angle = i * angleStep;
+      final angle = i * angleStep;
       canvas.drawLine(
         center,
         Offset(
-          center.dx + size.height * 0.8 * double.parse(center.dx.sign.toString()) * 0.5 + 300 * math.cos(angle),
+          center.dx +
+              size.height *
+                  0.8 *
+                  double.parse(center.dx.sign.toString()) *
+                  0.5 +
+              300 * math.cos(angle),
           center.dy + size.height * 0.8 + 300 * math.sin(angle),
         ),
         rayPaint,
@@ -1903,7 +2073,12 @@ class FuturisticBackgroundPainter extends CustomPainter {
     }
 
     // 3. Multi-colored Cosmic Orbits (Concentric dashed circles)
-    final colors = [primaryOrbitColor, secondaryOrbitColor, tertiaryOrbitColor, primaryOrbitColor];
+    final colors = [
+      primaryOrbitColor,
+      secondaryOrbitColor,
+      tertiaryOrbitColor,
+      primaryOrbitColor,
+    ];
     final radii = [110.0, 230.0, 350.0, 480.0];
 
     for (var r = 0; r < radii.length; r++) {
@@ -1915,7 +2090,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
       // Draw dashed circle
       const dashCount = 80;
-      final sweepAngle = (2 * 3.1415926535) / dashCount;
+      const sweepAngle = (2 * 3.1415926535) / dashCount;
       for (var i = 0; i < dashCount; i++) {
         if (i % 2 == 0) {
           canvas.drawArc(
@@ -1965,8 +2140,8 @@ class FuturisticBackgroundPainter extends CustomPainter {
     // Draw nodes
     for (final node in nodes) {
       canvas
-        ..drawCircle(node, 8.0, starGlowPaint) // Outer glow ring
-        ..drawCircle(node, 3.5, starPaint);     // Core coordinate star
+        ..drawCircle(node, 8, starGlowPaint) // Outer glow ring
+        ..drawCircle(node, 3.5, starPaint); // Core coordinate star
     }
 
     // 5. Technical Corner Brackets (Corner design elements)
@@ -1980,13 +2155,29 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
     // Top Left Bracket
     canvas
-      ..drawLine(const Offset(margin, margin), const Offset(margin + bracketSize, margin), bracketPaint)
-      ..drawLine(const Offset(margin, margin), const Offset(margin, margin + bracketSize), bracketPaint);
+      ..drawLine(
+        const Offset(margin, margin),
+        const Offset(margin + bracketSize, margin),
+        bracketPaint,
+      )
+      ..drawLine(
+        const Offset(margin, margin),
+        const Offset(margin, margin + bracketSize),
+        bracketPaint,
+      );
 
     // Top Right Bracket
     canvas
-      ..drawLine(Offset(size.width - margin, margin), Offset(size.width - margin - bracketSize, margin), bracketPaint)
-      ..drawLine(Offset(size.width - margin, margin), Offset(size.width - margin, margin + bracketSize), bracketPaint);
+      ..drawLine(
+        Offset(size.width - margin, margin),
+        Offset(size.width - margin - bracketSize, margin),
+        bracketPaint,
+      )
+      ..drawLine(
+        Offset(size.width - margin, margin),
+        Offset(size.width - margin, margin + bracketSize),
+        bracketPaint,
+      );
   }
 
   @override

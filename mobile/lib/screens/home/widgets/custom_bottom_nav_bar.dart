@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -45,11 +44,15 @@ class CustomBottomNavBar extends StatelessWidget {
         color: isDark ? const Color(0xFF161B26) : Colors.white,
         borderRadius: BorderRadius.circular(36),
         border: Border.all(
-          color: isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(15),
+          color: isDark
+              ? Colors.white.withAlpha(20)
+              : Colors.black.withAlpha(15),
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withAlpha(50) : Colors.black.withAlpha(15),
+            color: isDark
+                ? Colors.black.withAlpha(50)
+                : Colors.black.withAlpha(15),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -61,17 +64,35 @@ class CustomBottomNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(context, 0, Icons.favorite_rounded, 'dating', isDark),
-            _buildNavItem(context, 1, Icons.all_inclusive_rounded, 'friends', isDark),
+            _buildNavItem(
+              context,
+              1,
+              Icons.all_inclusive_rounded,
+              'friends',
+              isDark,
+            ),
             _buildCenterNavItem(context, isDark),
             _buildNavItem(context, 3, Icons.work_rounded, 'work', isDark),
-            _buildNavItem(context, 4, Icons.blur_circular_rounded, 'settings', isDark),
+            _buildNavItem(
+              context,
+              4,
+              Icons.blur_circular_rounded,
+              'settings',
+              isDark,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(BuildContext context, int index, IconData icon, String label, bool isDark) {
+  Widget _buildNavItem(
+    BuildContext context,
+    int index,
+    IconData icon,
+    String label,
+    bool isDark,
+  ) {
     final isSelected = currentIndex == index;
     final selectedColor = _getSelectedColor(index);
     final unselectedColor = _getUnselectedColor(isDark);

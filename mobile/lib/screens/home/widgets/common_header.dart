@@ -69,7 +69,6 @@ class CommonHeader extends StatelessWidget {
       ),
       child: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
@@ -77,7 +76,7 @@ class CommonHeader extends StatelessWidget {
               style: GoogleFonts.orbitron(
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 6.0,
+                letterSpacing: 6,
                 color: Colors.white,
                 shadows: [
                   Shadow(
@@ -100,7 +99,7 @@ class CommonHeader extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 2.0,
+                  letterSpacing: 2,
                   color: Colors.white.withValues(alpha: 0.95),
                 ),
               ),

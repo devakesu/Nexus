@@ -84,7 +84,9 @@ class _GlassTextFieldState extends State<GlassTextField> {
           Text(
             widget.label,
             style: TextStyle(
-              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.5)
+                  : Colors.black.withValues(alpha: 0.5),
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -101,8 +103,14 @@ class _GlassTextFieldState extends State<GlassTextField> {
                     )
                   : LinearGradient(
                       colors: [
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
               boxShadow: _isFocused
@@ -121,13 +129,18 @@ class _GlassTextFieldState extends State<GlassTextField> {
               decoration: BoxDecoration(
                 color: _isFocused
                     ? (isDark ? const Color(0xFF0D1017) : Colors.white)
-                    : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
+                    : (isDark
+                          ? const Color(0xFF141822)
+                          : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Stack(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 13,
+                    ),
                     child: Row(
                       crossAxisAlignment: isMultiLine
                           ? CrossAxisAlignment.start
@@ -155,13 +168,17 @@ class _GlassTextFieldState extends State<GlassTextField> {
                             minLines: widget.minLines,
                             keyboardType: widget.keyboardType,
                             style: TextStyle(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                               fontSize: 14,
                             ),
                             decoration: InputDecoration(
                               hintText: widget.hintText,
                               hintStyle: TextStyle(
-                                color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : Colors.black.withValues(alpha: 0.3),
                                 fontSize: 14,
                               ),
                               hintMaxLines: 5,
@@ -175,12 +192,12 @@ class _GlassTextFieldState extends State<GlassTextField> {
                     ),
                   ),
                   if (widget.isSaving)
-                    Positioned(
+                    const Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
+                        borderRadius: BorderRadius.only(
                           bottomLeft: Radius.circular(15),
                           bottomRight: Radius.circular(15),
                         ),
@@ -188,7 +205,9 @@ class _GlassTextFieldState extends State<GlassTextField> {
                           height: 2,
                           child: LinearProgressIndicator(
                             backgroundColor: Colors.transparent,
-                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              pulsarPink,
+                            ),
                           ),
                         ),
                       ),

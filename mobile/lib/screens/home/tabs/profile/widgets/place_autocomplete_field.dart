@@ -133,7 +133,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
           Text(
             widget.label.toUpperCase(),
             style: TextStyle(
-              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.5)
+                  : Colors.black.withValues(alpha: 0.5),
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -150,8 +152,14 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                     )
                   : LinearGradient(
                       colors: [
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
-                        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
+                        if (isDark)
+                          Colors.white.withValues(alpha: 0.12)
+                        else
+                          Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
               boxShadow: _isFocused
@@ -170,7 +178,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
               decoration: BoxDecoration(
                 color: _isFocused
                     ? (isDark ? const Color(0xFF0D1017) : Colors.white)
-                    : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
+                    : (isDark
+                          ? const Color(0xFF141822)
+                          : const Color(0xFFF3F4F6)),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Stack(
@@ -200,7 +210,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                       ),
                       hintText: widget.hintText,
                       hintStyle: TextStyle(
-                        color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.3),
                         fontSize: 14,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -210,12 +222,12 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                     ),
                   ),
                   if (widget.isSaving)
-                    Positioned(
+                    const Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
+                        borderRadius: BorderRadius.only(
                           bottomLeft: Radius.circular(15),
                           bottomRight: Radius.circular(15),
                         ),
@@ -223,7 +235,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                           height: 2,
                           child: LinearProgressIndicator(
                             backgroundColor: Colors.transparent,
-                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              pulsarPink,
+                            ),
                           ),
                         ),
                       ),
@@ -237,10 +251,14 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF161B26).withValues(alpha: 0.95) : Colors.white,
+                color: isDark
+                    ? const Color(0xFF161B26).withValues(alpha: 0.95)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.08),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -272,7 +290,9 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                       title: Text(
                         suggestion,
                         style: TextStyle(
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           fontSize: 13,
                         ),
                       ),
