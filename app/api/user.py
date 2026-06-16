@@ -422,6 +422,10 @@ def update_profile_details(  # noqa: C901
         update_data["smoking_blind_index"] = compute_blind_index(payload.smoking)
     if payload.role is not None:
         update_data["role_blind_index"] = compute_blind_index(payload.role)
+    if payload.children_plans is not None:
+        update_data["children_plans_blind_index"] = compute_blind_index(payload.children_plans)
+    if payload.religious_beliefs is not None:
+        update_data["religious_beliefs_blind_index"] = compute_blind_index(payload.religious_beliefs)
 
     array_fields = [
         "looking_for", "activities", "causes_supported",

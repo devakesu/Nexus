@@ -11,6 +11,8 @@ from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
 
+_PASS_EXPIRY_DAYS = 14
+
 
 def _block_ids_cache_key(viewer_id: str) -> str:
     return f"discovery:block_ids:{viewer_id}"
@@ -123,8 +125,8 @@ def fetch_active_discovery_excluded_ids(
     Active exclusions:
     - block: both directions, global
     - hide: actor -> target for this tab
-    - pass: actor -> target for this tab while not expired
-    - optionally like/superlike depending on product policy
+    - pass: actor -> target for this tab while not yet expired
+    - like/superlike: actor -> target for this tab
     """
     excluded: set[str] = set()
     now = utcnow()
@@ -228,7 +230,9 @@ def record_discovery_action(
                 payload["tab"] = tab
 
             if base_action == "pass":
-                payload["expires_at"] = (now + timedelta(days=14)).isoformat()
+                payload["expires_at"] = (
+                    now + timedelta(days=_PASS_EXPIRY_DAYS)
+                ).isoformat()
 
             supabase_client.table("profile_discovery_actions").insert(payload).execute()
 
@@ -243,6 +247,59 @@ def record_discovery_action(
             },
         )
         raise DatabaseAccessError("Failed to record discovery action") from e
+
+
+def fetch_expired_pass_candidates(
+    viewer_id: str,
+    active_tab: DiscoveryTab,
+) -> dict[str, datetime]:
+    """
+    Return {candidate_id: expires_at} for passes that have expired.
+    Used to apply a time-graduated score penalty after the exclusion window ends.
+
+    Penalty schedule (days since expiry):
+      ≤ 7 days  → heavy   (0.25×)
+      ≤ 30 days → moderate (0.50×)
+      > 30 days → light   (0.85×)
+    """
+    now = utcnow()
+    try:
+        res = (
+            supabase_client.table("profile_discovery_actions")
+            .select("target_id, expires_at")
+            .eq("actor_id", viewer_id)
+            .eq("action", "pass")
+            .eq("tab", active_tab)
+            .is_("revoked_at", "null")
+            .not_.is_("expires_at", "null")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        result: dict[str, datetime] = {}
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            row_dict = cast(dict[str, Any], r)
+            target_id = cast(object, row_dict.get("target_id"))
+            expires_at_raw = cast(object, row_dict.get("expires_at"))
+            if not target_id or not isinstance(expires_at_raw, str):
+                continue
+            try:
+                expires_at = datetime.fromisoformat(
+                    expires_at_raw.replace("Z", "+00:00"),
+                )
+            except ValueError:
+                continue
+            # Only include rows where the pass has actually expired
+            if expires_at <= now:
+                result[str(target_id)] = expires_at
+        return result
+    except Exception:
+        logger.exception(
+            "Failed to fetch expired pass candidates",
+            extra={"viewer_id": viewer_id, "active_tab": active_tab},
+        )
+        return {}
 
 
 async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:

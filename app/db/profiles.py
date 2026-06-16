@@ -238,12 +238,27 @@ def _build_candidate_query(
     if filters.role:
         query = query.eq("role_blind_index", compute_blind_index(filters.role))
 
+    if filters.children_plans:
+        query = query.in_(
+            "children_plans_blind_index",
+            [compute_blind_index(v) for v in filters.children_plans],
+        )
+    if filters.religious_beliefs:
+        query = query.in_(
+            "religious_beliefs_blind_index",
+            [compute_blind_index(v) for v in filters.religious_beliefs],
+        )
+    dealbreakers = filters.dealbreaker_fields or []
+    if filters.dating_for and "dating_for" in dealbreakers:
+        query = query.overlaps("dating_for", filters.dating_for)
+    if filters.search_bucket_filter:
+        query = query.in_("search_bucket", filters.search_bucket_filter)
+
     query = query.gte("age", filters.min_age)
     query = query.lte("age", filters.max_age)
 
     if excluded_ids:
-        excluded_filter = f"({','.join(str(x) for x in excluded_ids)})"
-        query = query.not_.in_("id", excluded_filter)
+        query = query.not_.in_("id", list(excluded_ids))
 
     return query
 
@@ -313,6 +328,58 @@ def _filter_candidate_matches(
         if any(bucket in candidate_targets for bucket in viewer_search_expanded):
             candidates_to_enrich.append(decrypt_profile_record(cand_dict))
     return candidates_to_enrich
+
+
+_POST_FETCH_FIELDS: frozenset[str] = frozenset({
+    "languages",
+    "sub_interests",
+    "looking_for",
+    "causes_supported",
+    "tech_skills",
+    "partner_values",
+})
+
+
+def _apply_post_fetch_filters(
+    candidates: list[dict[str, Any]],
+    filters: DiscoveryFilters,
+) -> list[dict[str, Any]]:
+    """In-memory filter pass for encrypted fields that have no blind indexes."""
+    dealbreakers = set(filters.dealbreaker_fields or [])
+
+    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
+        return bool(set(cand_list) & set(allowed))
+
+    result: list[dict[str, Any]] = []
+    for c in candidates:
+        if filters.languages and not list_overlap(
+            c.get("languages") or [], filters.languages
+        ):
+            continue
+        if filters.sub_interests:
+            sub_raw = cast(dict[str, list[str]], c.get("sub_interests") or {})
+            flat: list[str] = [v for vs in sub_raw.values() for v in vs]
+            if not list_overlap(flat, filters.sub_interests):
+                continue
+        if filters.looking_for and not list_overlap(
+            c.get("looking_for") or [], filters.looking_for
+        ):
+            continue
+        if filters.causes_supported and not list_overlap(
+            c.get("causes_supported") or [], filters.causes_supported
+        ):
+            continue
+        if filters.tech_skills and not list_overlap(
+            c.get("tech_skills") or [], filters.tech_skills
+        ):
+            continue
+        if filters.partner_values and "partner_values" in dealbreakers:
+            pv_raw = c.get("partner_values") or ""
+            pv_list = [v.strip() for v in pv_raw.split(",") if v.strip()]
+            if not list_overlap(pv_list, filters.partner_values):
+                continue
+        result.append(c)
+    return result
 
 
 def _execute_and_filter_candidates(
@@ -469,17 +536,25 @@ def fetch_stage_1_candidates(
 
     excluded_ids = fetch_active_discovery_excluded_ids(viewer_id, active_tab)
     query = _build_candidate_query(viewer_id, active_tab, filters, excluded_ids)
+
+    active_post_fetch = sum(
+        1 for f in _POST_FETCH_FIELDS if getattr(filters, f, None)
+    )
+    effective_limit = min(candidate_limit + active_post_fetch * 100, 600)
+
     candidates_to_enrich = _execute_and_filter_candidates(
         query=query,
         viewer=viewer,
         active_tab=active_tab,
-        candidate_limit=candidate_limit,
+        candidate_limit=effective_limit,
     )
 
     if excluded_ids:
         candidates_to_enrich = [
             c for c in candidates_to_enrich if str(c.get("id")) not in excluded_ids
         ]
+
+    candidates_to_enrich = _apply_post_fetch_filters(candidates_to_enrich, filters)
 
     if not candidates_to_enrich:
         logger.info(

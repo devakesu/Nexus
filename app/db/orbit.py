@@ -64,96 +64,57 @@ def build_tab_aware_orbit_node_detail(
         "y": coerce_float(payload.get("y")),
         "orbit_tier": int(coerce_float(payload.get("orbit_tier"), 3.0)),
         "profile_pic": payload.get("profile_pic"),
-        "normal_pics": payload.get("normal_pics") or [],
+        # Common fields (all tabs)
+        "bio": payload.get("bio"),
+        "pronouns": payload.get("pronouns"),
+        "display_gender": payload.get("display_gender"),
+        "hometown": payload.get("hometown"),
+        "current_place": payload.get("current_place"),
+        "languages": payload.get("languages") or [],
+        "causes_supported": payload.get("causes_supported") or [],
+        "interests": payload.get("interests") or {},
+        "sub_interests": payload.get("sub_interests") or {},
+        "ai_vibe_tags": payload.get("ai_vibe_tags") or [],
     }
 
     if session_tab == "Dating":
         return OrbitNodeDetailDatingOut(
-            id=base["id"],
-            name=base["name"],
-            age=base["age"],
-            campus_branch=base["campus_branch"],
-            campus_year=base["campus_year"],
-            campus_name=base.get("campus_name"),
-            role=base["role"],
-            score=base["score"],
-            x=base["x"],
-            y=base["y"],
-            orbit_tier=base["orbit_tier"],
-            profile_pic=base["profile_pic"],
-            normal_pics=base["normal_pics"],
+            **base,
             tab="Dating",
-            display_gender=payload.get("display_gender"),
             display_sexuality=payload.get("display_sexuality"),
             drinking=payload.get("drinking"),
             smoking=payload.get("smoking"),
-            hometown=payload.get("hometown"),
-            current_place=payload.get("current_place"),
-            pronouns=payload.get("pronouns"),
+            lifestyle=payload.get("lifestyle"),
+            religious_beliefs=payload.get("religious_beliefs"),
             partner_values=payload.get("partner_values"),
             children_plans=payload.get("children_plans"),
-            religious_beliefs=payload.get("religious_beliefs"),
-            lifestyle=payload.get("lifestyle"),
-            activities=payload.get("activities") or [],
-            looking_for=payload.get("looking_for") or [],
-            causes_supported=payload.get("causes_supported") or [],
+            dating_for=payload.get("dating_for") or [],
+            normal_pics=payload.get("normal_pics") or [],
             top_artists=payload.get("top_artists") or [],
-            tech_skills=payload.get("tech_skills") or [],
-            languages=payload.get("languages") or [],
-            ai_vibe_tags=payload.get("ai_vibe_tags") or [],
             pets=payload.get("pets") or [],
         )
 
     if session_tab == "Friends":
         return OrbitNodeDetailFriendsOut(
-            id=base["id"],
-            name=base["name"],
-            age=base["age"],
-            campus_branch=base["campus_branch"],
-            campus_year=base["campus_year"],
-            campus_name=base.get("campus_name"),
-            role=base["role"],
-            score=base["score"],
-            x=base["x"],
-            y=base["y"],
-            orbit_tier=base["orbit_tier"],
-            profile_pic=base["profile_pic"],
-            normal_pics=base["normal_pics"],
+            **base,
             tab="Friends",
-            hometown=payload.get("hometown"),
-            current_place=payload.get("current_place"),
-            pronouns=payload.get("pronouns"),
+            display_sexuality=payload.get("display_sexuality"),
+            drinking=payload.get("drinking"),
+            smoking=payload.get("smoking"),
             lifestyle=payload.get("lifestyle"),
-            activities=payload.get("activities") or [],
-            causes_supported=payload.get("causes_supported") or [],
+            religious_beliefs=payload.get("religious_beliefs"),
+            normal_pics=payload.get("normal_pics") or [],
             top_artists=payload.get("top_artists") or [],
-            languages=payload.get("languages") or [],
-            ai_vibe_tags=payload.get("ai_vibe_tags") or [],
             pets=payload.get("pets") or [],
         )
 
     if session_tab == "Professional":
         return OrbitNodeDetailProfessionalOut(
-            id=base["id"],
-            name=base["name"],
-            age=base["age"],
-            campus_branch=base["campus_branch"],
-            campus_year=base["campus_year"],
-            campus_name=base.get("campus_name"),
-            role=base["role"],
-            score=base["score"],
-            x=base["x"],
-            y=base["y"],
-            orbit_tier=base["orbit_tier"],
-            profile_pic=base["profile_pic"],
-            normal_pics=base["normal_pics"],
+            **base,
             tab="Professional",
-            hometown=payload.get("hometown"),
-            current_place=payload.get("current_place"),
-            pronouns=payload.get("pronouns"),
+            activities=payload.get("activities") or [],
+            looking_for=payload.get("looking_for") or [],
             tech_skills=payload.get("tech_skills") or [],
-            languages=payload.get("languages") or [],
-            causes_supported=payload.get("causes_supported") or [],
         )
 
     raise ValueError(f"Unsupported session_tab: {session_tab}")
@@ -293,6 +254,39 @@ def _resolve_pair_collision(
     return False
 
 
+def _reclamp_nodes_to_tier_bands(
+    positioned_items: list[dict[str, Any]],
+    tier_radii: dict[int, float],
+) -> None:
+    """Re-project nodes that drifted outside their tier's radial band back into it.
+
+    Bands are defined to be strictly non-overlapping so that a higher-scored
+    node (inner tier) is always visually closer to the center than a
+    lower-scored node (outer tier), regardless of collision-resolution drift.
+    """
+    tier_bands: dict[int, tuple[float, float]] = {
+        0: (40.0, 149.0),
+        1: (150.0, 249.0),
+        2: (250.0, 359.0),
+        3: (360.0, 600.0),
+    }
+    for item in positioned_items:
+        tier = item.get("_orbit_tier", 3)
+        band_min, band_max = tier_bands.get(tier, (360.0, 600.0))
+        x: float = item["_x"]
+        y: float = item["_y"]
+        r = math.sqrt(x * x + y * y)
+        if r < 1.0:
+            item["_x"] = round(tier_radii.get(tier, 420.0), 2)
+            item["_y"] = 0.0
+            continue
+        clamped_r = max(band_min, min(band_max, r))
+        if clamped_r != r:
+            scale = clamped_r / r
+            item["_x"] = round(x * scale, 2)
+            item["_y"] = round(y * scale, 2)
+
+
 def _resolve_node_collisions(
     positioned_items: list[dict[str, Any]],
     rng: DeterministicRNG,
@@ -385,6 +379,7 @@ def assign_orbit_positions(
     # Relaxation loop to resolve any remaining overlaps using AABB (bounding box) checks
     # to account for name card widths and prevent overlaps 100%
     _resolve_node_collisions(positioned_items, rng)
+    _reclamp_nodes_to_tier_bands(positioned_items, tier_radii)
 
     positioned_items.sort(
         key=lambda item: (

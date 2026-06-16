@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
@@ -7,7 +8,6 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LikeItem {
-
   LikeItem({
     required this.name,
     required this.age,
@@ -25,7 +25,6 @@ class LikeItem {
 }
 
 class ChatItem {
-
   ChatItem({
     required this.name,
     required this.age,
@@ -204,15 +203,59 @@ class _DatingTabState extends State<DatingTab>
       );
     }
 
-    // Offline/Error fallback data to ensure loading screen always disappears
     if (mounted) {
       setState(() {
-        _datingTargetBuckets = ['M', 'F'];
-        _datingFor = ['short', 'long'];
-        _partnerValues = 'Deep trust, open communication, and shared growth.';
+        if (_datingTargetBuckets.isEmpty) {
+          _datingTargetBuckets = ['M', 'F'];
+        }
+        if (_datingFor.isEmpty) {
+          _datingFor = ['short', 'long'];
+        }
+        if (_partnerValues.isEmpty) {
+          _partnerValues = 'Deep trust, open communication, and shared growth.';
+        }
         _isOrbitActive = false;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadDatingProfileStatusSilent() async {
+    try {
+      final supabaseClient = Supabase.instance.client;
+      final session = supabaseClient.auth.currentSession;
+      if (session != null) {
+        final config = AppConfig.current;
+        final dio = createDio();
+        dio.options.connectTimeout = const Duration(seconds: 3);
+        dio.options.receiveTimeout = const Duration(seconds: 3);
+
+        final response = await dio.get<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/profile/details',
+          options: Options(
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ),
+        );
+
+        if (response.statusCode == 200 && response.data != null && mounted) {
+          final data = response.data!;
+          setState(() {
+            _isOrbitActive = data['is_dating_complete'] == true;
+
+            final rawBuckets = data['dating_target_buckets'];
+            _datingTargetBuckets = rawBuckets is List
+                ? rawBuckets.map((e) => e.toString()).toList()
+                : [];
+            final rawDatingFor = data['dating_for'];
+            _datingFor = rawDatingFor is List
+                ? rawDatingFor.map((e) => e.toString()).toList()
+                : [];
+            _partnerValues = data['partner_values']?.toString() ?? '';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatingTab] Error fetching dating status silently: $e');
     }
   }
 
@@ -343,7 +386,7 @@ class _DatingTabState extends State<DatingTab>
             if (hasMissingProfileFields) {
               _showProfileIncompleteDialog();
             } else {
-              _showDatingSettingsOverlay(isActivating: true);
+              unawaited(_showDatingSettingsOverlay(isActivating: true));
             }
             return;
           }
@@ -485,10 +528,11 @@ class _DatingTabState extends State<DatingTab>
   }
 
   // Show slide-up Dating Settings overlay
-  void _showDatingSettingsOverlay({bool isActivating = false}) {
+  Future<void> _showDatingSettingsOverlay({bool isActivating = false}) async {
+    await _loadDatingProfileStatusSilent();
     final localBuckets = List<String>.from(_datingTargetBuckets);
     final localDatingFor = List<String>.from(_datingFor);
-    final List<String> localPartnerValues = _partnerValues.isNotEmpty
+    final localPartnerValues = _partnerValues.isNotEmpty
         ? _partnerValues
               .split(',')
               .map((e) => e.trim())
@@ -536,7 +580,7 @@ class _DatingTabState extends State<DatingTab>
       'Warmth',
     ];
 
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -922,7 +966,9 @@ class _DatingTabState extends State<DatingTab>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 onDeleted: () async {
-                                  if (_savingFields.contains('partner_values')) {
+                                  if (_savingFields.contains(
+                                    'partner_values',
+                                  )) {
                                     return;
                                   }
                                   setModalState(() {
@@ -1002,7 +1048,9 @@ class _DatingTabState extends State<DatingTab>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 onPressed: () async {
-                                  if (_savingFields.contains('partner_values')) {
+                                  if (_savingFields.contains(
+                                    'partner_values',
+                                  )) {
                                     return;
                                   }
                                   setModalState(() {
@@ -1019,7 +1067,9 @@ class _DatingTabState extends State<DatingTab>
                             ...filteredValues.map((val) {
                               return ActionChip(
                                 label: Text(val),
-                                backgroundColor: Colors.black.withValues(alpha: 0.04),
+                                backgroundColor: Colors.black.withValues(
+                                  alpha: 0.04,
+                                ),
                                 labelStyle: const TextStyle(
                                   color: Color(0xFF0F172A),
                                   fontSize: 12,
@@ -1029,7 +1079,9 @@ class _DatingTabState extends State<DatingTab>
                                 ),
                                 side: BorderSide.none,
                                 onPressed: () async {
-                                  if (_savingFields.contains('partner_values')) {
+                                  if (_savingFields.contains(
+                                    'partner_values',
+                                  )) {
                                     return;
                                   }
                                   setModalState(() {
@@ -1574,8 +1626,7 @@ class _DatingTabState extends State<DatingTab>
                               const SizedBox(width: 16),
                               const Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Open your Dating Orbit',
@@ -2183,9 +2234,21 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        _buildRadarRing(260, 4, brandPink.withValues(alpha: 0.1)),
-                        _buildRadarRing(200, 3, brandPink.withValues(alpha: 0.2)),
-                        _buildRadarRing(140, 2, brandPink.withValues(alpha: 0.3)),
+                        _buildRadarRing(
+                          260,
+                          4,
+                          brandPink.withValues(alpha: 0.1),
+                        ),
+                        _buildRadarRing(
+                          200,
+                          3,
+                          brandPink.withValues(alpha: 0.2),
+                        ),
+                        _buildRadarRing(
+                          140,
+                          2,
+                          brandPink.withValues(alpha: 0.3),
+                        ),
                       ],
                     ),
                   );

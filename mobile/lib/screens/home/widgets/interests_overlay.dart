@@ -351,10 +351,14 @@ class InterestsOverlay extends StatefulWidget {
   const InterestsOverlay({
     required this.initialSelected,
     required this.onSave,
+    this.saveButtonText = 'Save Alignments',
+    this.themeColor,
     super.key,
   });
   final List<String> initialSelected;
   final ValueChanged<List<String>> onSave;
+  final String saveButtonText;
+  final Color? themeColor;
 
   @override
   State<InterestsOverlay> createState() => _InterestsOverlayState();
@@ -588,24 +592,31 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
     const deepPurple = Color(0xFF00E5FF);
     const bgDark = Color(0xFF0F131E);
 
-    return Scaffold(
-      backgroundColor: bgDark,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Gorgeous Header with Search
-            _buildHeader(pulsarPink, deepPurple),
-
-            // Main Body: Search Results or Categories Tree
-            Expanded(
-              child: _searchQuery.isNotEmpty
-                  ? _buildSearchResults(pulsarPink, deepPurple)
-                  : _buildCategoriesTree(pulsarPink, deepPurple),
-            ),
-
-            // Bottom Actions Bar
-            _buildBottomBar(pulsarPink, deepPurple),
-          ],
+    return Theme(
+      data: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        canvasColor: bgDark,
+      ),
+      child: Scaffold(
+        backgroundColor: bgDark,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Gorgeous Header with Search
+              _buildHeader(pulsarPink, deepPurple),
+  
+              // Main Body: Search Results or Categories Tree
+              Expanded(
+                child: _searchQuery.isNotEmpty
+                    ? _buildSearchResults(pulsarPink, deepPurple)
+                    : _buildCategoriesTree(pulsarPink, deepPurple),
+              ),
+  
+              // Bottom Actions Bar
+              _buildBottomBar(pulsarPink, deepPurple),
+            ],
+          ),
         ),
       ),
     );
@@ -1056,36 +1067,36 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: deepPurple,
+              backgroundColor: widget.themeColor ?? deepPurple,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               elevation: 4,
-              shadowColor: deepPurple.withValues(alpha: 0.4),
+              shadowColor: (widget.themeColor ?? deepPurple).withValues(alpha: 0.4),
             ).copyWith(
               side: WidgetStateProperty.all(
-                BorderSide(color: pulsarPink, width: 0.8),
+                BorderSide(color: widget.themeColor ?? pulsarPink, width: 0.8),
               ),
             ),
             onPressed: () {
               widget.onSave(_selectedInterests);
               Navigator.pop(context);
             },
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Save Alignments',
-                  style: TextStyle(
+                  widget.saveButtonText,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Outfit',
                   ),
                 ),
-                SizedBox(width: 8),
-                Icon(LucideIcons.save, size: 16),
+                const SizedBox(width: 8),
+                const Icon(LucideIcons.save, size: 16),
               ],
             ),
           ),

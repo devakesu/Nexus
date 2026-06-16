@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException
 
 from app.core.config import DiscoveryTab
 from app.db.client import parse_utc_datetime, utcnow
+from app.db.exclusions import fetch_expired_pass_candidates
 from app.db.profiles import fetch_stage_1_candidates
 from app.db.sessions import (
     create_discovery_session,
@@ -78,6 +79,30 @@ def create_new_discovery_session(
         candidate_pool,
         orbit_limit=200,
     )
+
+    # Time-graduated score penalty for candidates whose pass window has expired.
+    # While the pass is active they are excluded entirely (handled by exclusions).
+    # Once expired they re-enter the pool but land lower depending on how long ago
+    # the exclusion window ended:
+    #   ≤  7 days → heavy penalty   (0.25×) → outer orbit
+    #   ≤ 30 days → moderate penalty (0.50×) → mid-outer orbit
+    #   > 30 days → light penalty   (0.85×) → near-normal position
+    expired_passes = fetch_expired_pass_candidates(user_id, active_tab)
+    if expired_passes:
+        now = utcnow()
+        for item in ranked_orbit:
+            profile = item.get("profile")
+            profile_dict = cast(dict[str, Any], profile) if isinstance(profile, dict) else {}
+            cid = str(cast(object, profile_dict.get("id")) or "")
+            if cid in expired_passes:
+                days_since = (now - expired_passes[cid]).days
+                if days_since <= 7:
+                    multiplier = 0.25
+                elif days_since <= 30:
+                    multiplier = 0.50
+                else:
+                    multiplier = 0.85
+                item["score"] = float(item.get("score") or 0.0) * multiplier
 
     ranked_orbit.sort(
         key=lambda x: (

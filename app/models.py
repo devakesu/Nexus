@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -262,6 +262,58 @@ class DiscoveryFilters(BaseModel):
         description="Target professional role designation.",
     )
 
+    # DB-level blind index filters (new columns)
+    children_plans: list[str] | None = Field(
+        default=None,
+        description="Acceptable children-plans values (multi-select; IN on HMAC blind index).",
+    )
+    religious_beliefs: list[str] | None = Field(
+        default=None,
+        description="Acceptable religious-belief values (multi-select; IN on HMAC blind index).",
+    )
+
+    # DB-level unencrypted filters
+    dating_for: list[str] | None = Field(
+        default=None,
+        description="Target dating intent codes (GIN overlap on dating_for TEXT[] column).",
+    )
+    search_bucket_filter: list[str] | None = Field(
+        default=None,
+        description="Restrict candidates to specific search_bucket values (M/F/NB).",
+    )
+
+    # Post-fetch in-memory filters (encrypted fields — no blind indexes)
+    languages: list[str] | None = Field(
+        default=None,
+        description="Candidate must speak at least one of these languages.",
+    )
+    sub_interests: list[str] | None = Field(
+        default=None,
+        description="Flat list of sub-interest values; candidate must have at least one.",
+    )
+    looking_for: list[str] | None = Field(
+        default=None,
+        description="Professional tab: candidate looking_for must overlap.",
+    )
+    causes_supported: list[str] | None = Field(
+        default=None,
+        description="Professional tab: candidate causes_supported must overlap.",
+    )
+    tech_skills: list[str] | None = Field(
+        default=None,
+        description="Professional tab: candidate tech_skills must overlap.",
+    )
+    partner_values: list[str] | None = Field(
+        default=None,
+        description="Dating tab: applied only when 'partner_values' is in dealbreaker_fields.",
+    )
+
+    # Dealbreaker gate — hard-filter only when the field name is listed here
+    dealbreaker_fields: list[str] | None = Field(
+        default=None,
+        description="Names of filter fields to enforce as strict dealbreakers.",
+    )
+
     @field_validator("role")
     @classmethod
     def validate_role(cls, value: str | None) -> str | None:
@@ -270,16 +322,17 @@ class DiscoveryFilters(BaseModel):
         return value.strip().lower()
 
     # Inclusive age bounds.
+    # Upper bound is 80 to support the main variant's wider age range.
     min_age: int = Field(
         default=18,
         ge=18,
-        le=27,
+        le=80,
         description="Minimum age constraint boundary.",
     )
     max_age: int = Field(
         default=27,
         ge=18,
-        le=27,
+        le=80,
         description="Maximum age constraint boundary.",
     )
 
@@ -335,6 +388,7 @@ class DiscoveryActionRequest(BaseModel):
         "like",
         "superlike",
         "block",
+        "report",
         "unhide",
         "unlike",
         "unsuperlike",
@@ -365,8 +419,8 @@ class DiscoveryActionRequest(BaseModel):
             "unsuperlike",
         }
 
-        # Global block actions must not include tab context.
-        tab_forbidden_actions = {"block", "unblock"}
+        # Global actions must not include tab context.
+        tab_forbidden_actions = {"block", "unblock", "report"}
 
         if self.action in tab_required_actions and self.tab is None:
             raise ValueError("tab is required for this action")
@@ -442,52 +496,49 @@ class OrbitNodeDetailBaseOut(BaseModel):
     y: float = 0.0
     orbit_tier: int = 0
     profile_pic: str | None = None
-    normal_pics: list[str] = Field(default_factory=list)
+
+    # Common fields (all tabs)
+    bio: str | None = None
+    pronouns: str | None = None
+    display_gender: str | None = None
+    hometown: str | None = None
+    current_place: str | None = None
+    languages: list[str] = Field(default_factory=list)
+    causes_supported: list[str] = Field(default_factory=list)
+    interests: dict[str, Any] = Field(default_factory=dict)
+    sub_interests: dict[str, Any] = Field(default_factory=dict)
+    ai_vibe_tags: list[str] = Field(default_factory=list)
 
 
 class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
-    display_gender: str | None = None
     display_sexuality: str | None = None
-    pronouns: str | None = None
     drinking: str | None = None
     smoking: str | None = None
-    hometown: str | None = None
-    current_place: str | None = None
+    lifestyle: str | None = None
+    religious_beliefs: str | None = None
     partner_values: str | None = None
     children_plans: str | None = None
-    religious_beliefs: str | None = None
-    lifestyle: str | None = None
-
-    activities: list[str] = Field(default_factory=list)
-    looking_for: list[str] = Field(default_factory=list)
-    causes_supported: list[str] = Field(default_factory=list)
+    dating_for: list[str] = Field(default_factory=list)
+    normal_pics: list[str] = Field(default_factory=list)
     top_artists: list[str] = Field(default_factory=list)
-    tech_skills: list[str] = Field(default_factory=list)
-    languages: list[str] = Field(default_factory=list)
-    ai_vibe_tags: list[str] = Field(default_factory=list)
     pets: list[str] = Field(default_factory=list)
 
 
 class OrbitNodeDetailFriendsOut(OrbitNodeDetailBaseOut):
-    hometown: str | None = None
-    current_place: str | None = None
-    pronouns: str | None = None
+    display_sexuality: str | None = None
+    drinking: str | None = None
+    smoking: str | None = None
     lifestyle: str | None = None
-    activities: list[str] = Field(default_factory=list)
-    causes_supported: list[str] = Field(default_factory=list)
+    religious_beliefs: str | None = None
+    normal_pics: list[str] = Field(default_factory=list)
     top_artists: list[str] = Field(default_factory=list)
-    languages: list[str] = Field(default_factory=list)
-    ai_vibe_tags: list[str] = Field(default_factory=list)
     pets: list[str] = Field(default_factory=list)
 
 
 class OrbitNodeDetailProfessionalOut(OrbitNodeDetailBaseOut):
-    hometown: str | None = None
-    current_place: str | None = None
-    pronouns: str | None = None
+    activities: list[str] = Field(default_factory=list)
+    looking_for: list[str] = Field(default_factory=list)
     tech_skills: list[str] = Field(default_factory=list)
-    languages: list[str] = Field(default_factory=list)
-    causes_supported: list[str] = Field(default_factory=list)
 
 
 OrbitNodeDetailResponse = (
