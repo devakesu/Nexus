@@ -613,3 +613,38 @@ async def update_profile_images_and_metadata(
             user_id,
         )
         raise e
+
+
+def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
+    """
+    Fetch and fully decrypt a profile record by ID for peer viewing
+    (e.g., from the likes inbox). Returns None if the profile is not found
+    or is inactive. Raises DatabaseAccessError on query failure.
+    """
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("*")
+            .eq("id", target_id)
+            .eq("is_deactivated", False)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data
+        if not rows:
+            return None
+        row = cast(dict[str, Any], rows[0])
+        # Resolve the first image as profile_pic if a separate ordered_images list exists.
+        if not row.get("profile_pic") and row.get("ordered_images"):
+            images = row["ordered_images"]
+            if isinstance(images, list) and images:
+                row["profile_pic"] = images[0]
+        return decrypt_profile_record(row)
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch peer profile",
+            extra={"target_id": target_id},
+        )
+        raise DatabaseAccessError(
+            "Failed to fetch peer profile",
+        ) from e

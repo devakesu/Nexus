@@ -80,9 +80,23 @@ class _MyHomePageState extends State<MyHomePage> {
                           });
                         },
                       ),
-                      FriendsTab(onOpenOrbit: _triggerOpenOrbit),
+                      FriendsTab(
+                        onOpenOrbit: _triggerOpenOrbit,
+                        onNavigateToTab: (index) {
+                          setState(() {
+                            _currentTab = index;
+                          });
+                        },
+                      ),
                       ProfileTab(onOpenOrbit: _triggerOpenOrbit),
-                      ProfessionalTab(onOpenOrbit: _triggerOpenOrbit),
+                      ProfessionalTab(
+                        onOpenOrbit: _triggerOpenOrbit,
+                        onNavigateToTab: (index) {
+                          setState(() {
+                            _currentTab = index;
+                          });
+                        },
+                      ),
                       SettingsTab(onOpenOrbit: _triggerOpenOrbit),
                     ],
                   ),

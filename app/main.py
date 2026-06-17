@@ -11,6 +11,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
 from app.api.discovery import router as discovery_router
+from app.api.likes import router as likes_router
 from app.api.status import router as status_router
 from app.api.sync import router as sync_router
 from app.api.user import router as user_router
@@ -113,6 +114,7 @@ app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(discovery_router)
+app.include_router(likes_router)
 app.include_router(user_router)
 app.include_router(sync_router)
 app.include_router(status_router)

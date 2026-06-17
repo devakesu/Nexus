@@ -574,6 +574,81 @@ OrbitNodeDetailResponse = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Likes inbox
+# ---------------------------------------------------------------------------
+
+class LikeListItem(BaseModel):
+    """One entry in the likes inbox — who liked the viewer and when."""
+
+    actor_id: str
+    action: Literal["like", "superlike"]
+    created_at: datetime
+    seen_at: datetime | None = None
+    name: str | None = None
+    age: int | None = None
+    profile_pic: str | None = None
+
+
+class LikesListResponse(BaseModel):
+    likes: list[LikeListItem]
+    unseen_count: int
+
+
+class MarkLikesSeenRequest(BaseModel):
+    """
+    Mark one or more likes as seen.
+    Set mark_all=True to mark every unseen like for the authenticated user.
+    Otherwise supply a list of actor_ids to mark selectively.
+    """
+
+    actor_ids: list[str] = Field(default_factory=list)
+    mark_all: bool = False
+
+
+class PeerProfileRequest(BaseModel):
+    """Fetch the full profile detail for a specific user (e.g., from the likes inbox)."""
+
+    target_id: str = Field(..., min_length=1)
+    tab: DiscoveryTab
+
+
+class LikeActionRequest(BaseModel):
+    """Record an action from the likes inbox (no session required)."""
+
+    target_id: str = Field(..., min_length=1)
+    action: Literal["like", "superlike", "pass", "hide", "block", "report"]
+    tab: DiscoveryTab = "Dating"
+    reason: str | None = None
+    reason_detail: str | None = None
+
+
+# Matches
+# ---------------------------------------------------------------------------
+
+class MatchItem(BaseModel):
+    match_id: str
+    matched_user_id: str
+    name: str | None = None
+    age: int | None = None
+    profile_pic: str | None = None
+    matched_at: datetime
+
+
+class MatchesListResponse(BaseModel):
+    matches: list[MatchItem]
+
+
+class MatchActionRequest(BaseModel):
+    """Record an action on an active match (unmatch, block, or report)."""
+
+    target_id: str = Field(..., min_length=1)
+    action: Literal["unmatch", "block", "report"]
+    tab: DiscoveryTab = "Dating"
+    reason: str | None = None
+    reason_detail: str | None = None
+
+
 class DiscoveryViewportRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     center_x: float
@@ -714,3 +789,5 @@ class ProfileDetailsUpdate(BaseModel):
     interests: dict[str, int] | None = None
     sub_interests: dict[str, list[str]] | None = None
     is_dating_complete: bool | None = None
+    is_friends_complete: bool | None = None
+    is_professional_complete: bool | None = None

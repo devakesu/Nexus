@@ -202,6 +202,7 @@ def record_discovery_action(
     target_id: str,
     action: str,
     tab: DiscoveryTab | None = None,
+    expires_days: int | None = None,
 ) -> None:
     now = utcnow()
     is_reversal = action.startswith("un")
@@ -230,9 +231,8 @@ def record_discovery_action(
                 payload["tab"] = tab
 
             if base_action == "pass":
-                payload["expires_at"] = (
-                    now + timedelta(days=_PASS_EXPIRY_DAYS)
-                ).isoformat()
+                days = expires_days if expires_days is not None else _PASS_EXPIRY_DAYS
+                payload["expires_at"] = (now + timedelta(days=days)).isoformat()
 
             supabase_client.table("profile_discovery_actions").insert(payload).execute()
 
@@ -366,3 +366,82 @@ async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
         await redis_client.delete(f"discovery:block_ids:{target_id}")
     except Exception:
         logger.exception("Failed to invalidate block cache")
+
+
+def fetch_likes_for_user(
+    viewer_id: str,
+    tab: str = "Dating",
+) -> list[dict[str, Any]]:
+    """
+    Return like/superlike rows targeting viewer_id in the given tab.
+    Unseen rows (seen_at IS NULL) sort first; within each group newest first.
+    """
+    try:
+        res = (
+            supabase_client.table("profile_discovery_actions")
+            .select("actor_id, action, created_at, seen_at")
+            .eq("target_id", viewer_id)
+            .eq("tab", tab)
+            .in_("action", ["like", "superlike"])
+            .is_("revoked_at", "null")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return [cast(dict[str, Any], r) for r in rows if isinstance(r, dict)]
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch likes for user",
+            extra={"viewer_id": viewer_id, "tab": tab},
+        )
+        raise DatabaseAccessError("Failed to fetch likes") from e
+
+
+def mark_likes_seen(
+    viewer_id: str,
+    actor_ids: list[str] | None = None,
+) -> None:
+    """
+    Stamp seen_at on unseen likes for viewer_id.
+    Pass actor_ids to mark only specific senders; omit (None) to mark all.
+    """
+    now = utcnow()
+    try:
+        q = (
+            supabase_client.table("profile_discovery_actions")
+            .update({"seen_at": now.isoformat()})
+            .eq("target_id", viewer_id)
+            .in_("action", ["like", "superlike"])
+            .is_("revoked_at", "null")
+            .is_("seen_at", "null")
+        )
+        if actor_ids:
+            q = q.in_("actor_id", actor_ids)
+        q.execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to mark likes as seen",
+            extra={"viewer_id": viewer_id},
+        )
+        raise DatabaseAccessError("Failed to mark likes as seen") from e
+
+
+def revoke_incoming_like(viewer_id: str, actor_id: str) -> None:
+    """Revoke actor_id's like/superlike targeting viewer_id (clears it from the inbox)."""
+    now = utcnow()
+    try:
+        (
+            supabase_client.table("profile_discovery_actions")
+            .update({"revoked_at": now.isoformat()})
+            .eq("actor_id", actor_id)
+            .eq("target_id", viewer_id)
+            .in_("action", ["like", "superlike"])
+            .is_("revoked_at", "null")
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to revoke incoming like",
+            extra={"viewer_id": viewer_id, "actor_id": actor_id},
+        )
+        raise DatabaseAccessError("Failed to revoke incoming like") from e

@@ -11,6 +11,7 @@ class StorageImage extends StatelessWidget {
     this.width,
     this.height,
     this.fit = BoxFit.cover,
+    this.errorWidget,
     super.key,
   });
 
@@ -18,6 +19,8 @@ class StorageImage extends StatelessWidget {
   final double? width;
   final double? height;
   final BoxFit fit;
+  /// Shown when the image fails to load. Defaults to a dark container with an imageOff icon.
+  final Widget? errorWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -27,15 +30,19 @@ class StorageImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        errorBuilder: (_, e, s) => _buildError(),
       );
     }
-    
-    final publicUrl = Supabase.instance.client.storage.from('user_media').getPublicUrl(imagePath);
-    final authenticatedUrl = publicUrl.replaceFirst('/public/', '/authenticated/');
+
+    final publicUrl = Supabase.instance.client.storage
+        .from('user_media')
+        .getPublicUrl(imagePath);
+    final authenticatedUrl =
+        publicUrl.replaceFirst('/public/', '/authenticated/');
     final session = Supabase.instance.client.auth.currentSession;
     final token = session?.accessToken;
     final apikey = AppConfig.current.supabasePublishableKey;
-    
+
     return Image.network(
       authenticatedUrl,
       headers: {
@@ -45,16 +52,19 @@ class StorageImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          color: const Color(0xFF161B26),
-          width: width,
-          height: height,
-          child: const Center(
-            child: Icon(LucideIcons.imageOff, color: Colors.white24, size: 24),
-          ),
-        );
-      },
+      errorBuilder: (_, __, ___) => _buildError(),
+    );
+  }
+
+  Widget _buildError() {
+    if (errorWidget != null) return errorWidget!;
+    return Container(
+      color: const Color(0xFF161B26),
+      width: width,
+      height: height,
+      child: const Center(
+        child: Icon(LucideIcons.imageOff, color: Colors.white24, size: 24),
+      ),
     );
   }
 }

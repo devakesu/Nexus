@@ -368,6 +368,8 @@ def get_profile_details(
             ),
             "ai_vibe_tags": profile.get("ai_vibe_tags") or [],
             "is_dating_complete": bool(profile.get("is_dating_complete", False)),
+            "is_friends_complete": bool(profile.get("is_friends_complete", False)),
+            "is_professional_complete": bool(profile.get("is_professional_complete", False)),
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
@@ -489,7 +491,11 @@ def update_profile_details(  # noqa: C901
                 if payload.dating_for is not None
                 else profile.get("dating_for")
             )
-
+            val_partner_values = (
+                payload.partner_values
+                if payload.partner_values is not None
+                else profile.get("partner_values")
+            )
 
             missing: list[str] = []
             if not isinstance(val_name, str) or not val_name.strip():
@@ -522,6 +528,8 @@ def update_profile_details(  # noqa: C901
                 or len(cast(list[Any], val_dating_for)) < 1
             ):
                 missing.append("dating_for")
+            if not isinstance(val_partner_values, str) or not val_partner_values.strip():
+                missing.append("partner_values")
 
 
             if missing:
@@ -535,6 +543,134 @@ def update_profile_details(  # noqa: C901
             update_data["is_dating_complete"] = True
         else:
             update_data["is_dating_complete"] = False
+
+    if payload.is_friends_complete is not None:
+        if payload.is_friends_complete:
+            profile_res = (
+                supabase_client.table("profiles")
+                .select("*")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            profile_data = getattr(profile_res, "data", None)
+            if not profile_data or not isinstance(profile_data, dict):
+                raise HTTPException(status_code=404, detail="Profile not found")
+            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+
+            val_name = payload.name if payload.name is not None else profile.get("name")
+            val_age = payload.age if payload.age is not None else profile.get("age")
+            val_interests = payload.interests if payload.interests is not None else profile.get("interests")
+            val_profile_pic = profile.get("profile_pic")
+            val_normal_pics = profile.get("normal_pics")
+            val_friends_target_buckets = (
+                payload.friends_target_buckets
+                if payload.friends_target_buckets is not None
+                else profile.get("friends_target_buckets")
+            )
+            val_sub_interests = (
+                payload.sub_interests
+                if payload.sub_interests is not None
+                else profile.get("sub_interests")
+            )
+            val_causes_supported = (
+                payload.causes_supported
+                if payload.causes_supported is not None
+                else profile.get("causes_supported")
+            )
+
+            missing: list[str] = []
+            if not isinstance(val_name, str) or not val_name.strip():
+                missing.append("name")
+            if val_age is None:
+                missing.append("age")
+            if not isinstance(val_interests, dict) or len(cast(dict[Any, Any], val_interests)) < 3:
+                missing.append("interests")
+            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
+                missing.append("profile_pic")
+            if not isinstance(val_normal_pics, list) or len(cast(list[Any], val_normal_pics)) < 2:
+                missing.append("normal_pics")
+            if not isinstance(val_friends_target_buckets, list) or len(cast(list[Any], val_friends_target_buckets)) < 1:
+                missing.append("friends_target_buckets")
+            sub_count = (
+                sum(len(v) for v in val_sub_interests.values())
+                if isinstance(val_sub_interests, dict) else 0
+            )
+            if sub_count < 2:
+                missing.append("sub_interests")
+            if not isinstance(val_causes_supported, list) or len(cast(list[Any], val_causes_supported)) < 1:
+                missing.append("causes_supported")
+
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"message": "Friends profile incomplete", "missing_fields": missing},
+                )
+            update_data["is_friends_complete"] = True
+        else:
+            update_data["is_friends_complete"] = False
+
+    if payload.is_professional_complete is not None:
+        if payload.is_professional_complete:
+            profile_res = (
+                supabase_client.table("profiles")
+                .select("*")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            profile_data = getattr(profile_res, "data", None)
+            if not profile_data or not isinstance(profile_data, dict):
+                raise HTTPException(status_code=404, detail="Profile not found")
+            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+
+            val_name = payload.name if payload.name is not None else profile.get("name")
+            val_age = payload.age if payload.age is not None else profile.get("age")
+            val_interests = payload.interests if payload.interests is not None else profile.get("interests")
+            val_profile_pic = profile.get("profile_pic")
+            val_normal_pics = profile.get("normal_pics")
+            val_professional_target_buckets = (
+                payload.professional_target_buckets
+                if payload.professional_target_buckets is not None
+                else profile.get("professional_target_buckets")
+            )
+            val_looking_for = (
+                payload.looking_for
+                if payload.looking_for is not None
+                else profile.get("looking_for")
+            )
+            val_tech_skills = (
+                payload.tech_skills
+                if payload.tech_skills is not None
+                else profile.get("tech_skills")
+            )
+
+            missing: list[str] = []
+            if not isinstance(val_name, str) or not val_name.strip():
+                missing.append("name")
+            if val_age is None:
+                missing.append("age")
+            if not isinstance(val_interests, dict) or len(cast(dict[Any, Any], val_interests)) < 3:
+                missing.append("interests")
+            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
+                missing.append("profile_pic")
+            if not isinstance(val_normal_pics, list) or len(cast(list[Any], val_normal_pics)) < 2:
+                missing.append("normal_pics")
+            if not isinstance(val_professional_target_buckets, list) or len(cast(list[Any], val_professional_target_buckets)) < 1:
+                missing.append("professional_target_buckets")
+            if not isinstance(val_looking_for, list) or len(cast(list[Any], val_looking_for)) < 1:
+                missing.append("looking_for")
+            if not isinstance(val_tech_skills, list) or len(cast(list[Any], val_tech_skills)) < 1:
+                missing.append("tech_skills")
+
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"message": "Professional profile incomplete", "missing_fields": missing},
+                )
+            update_data["is_professional_complete"] = True
+        else:
+            update_data["is_professional_complete"] = False
 
     if not update_data:
         return {"status": "success", "detail": "No fields to update."}

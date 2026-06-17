@@ -6,40 +6,9 @@ import 'package:dio/dio.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-class LikeItem {
-  LikeItem({
-    required this.name,
-    required this.age,
-    required this.type,
-    required this.tag,
-    required this.color,
-    this.hasActioned = false,
-  });
-  final String name;
-  final String age;
-  final String type;
-  final String tag;
-  final Color color;
-  bool hasActioned;
-}
-
-class ChatItem {
-  ChatItem({
-    required this.name,
-    required this.age,
-    required this.lastMsg,
-    required this.time,
-    required this.unread,
-    required this.color,
-  });
-  final String name;
-  final String age;
-  final String lastMsg;
-  final String time;
-  final bool unread;
-  final Color color;
-}
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/screens/home/widgets/match_screen.dart';
+import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 
 class DatingTab extends StatefulWidget {
   const DatingTab({
@@ -71,75 +40,13 @@ class _DatingTabState extends State<DatingTab>
 
   // Local state for checking off missing fields dialog
   List<dynamic> _missingFields = [];
-  int? _selectedSparkOption;
 
-  // Mock data for Likes
-  final List<LikeItem> _likes = [
-    LikeItem(
-      name: 'Sophia',
-      age: '21',
-      type: 'Liked your profile',
-      tag: 'Art',
-      color: Colors.pinkAccent,
-    ),
-    LikeItem(
-      name: 'Olivia',
-      age: '20',
-      type: 'Waved at you',
-      tag: 'Tech',
-      color: Colors.cyan,
-    ),
-    LikeItem(
-      name: 'Emma',
-      age: '22',
-      type: 'Liked your prompt',
-      tag: 'Travel',
-      color: Colors.purpleAccent,
-    ),
-    LikeItem(
-      name: 'Ava',
-      age: '23',
-      type: 'Liked your music',
-      tag: 'Music',
-      color: Colors.orangeAccent,
-    ),
-  ];
+  // Likes inbox — populated from GET /api/v1/likes
+  List<Map<String, dynamic>> _likeItems = [];
+  int _unseenCount = 0;
 
-  // Mock data for Chats
-  final List<ChatItem> _chats = [
-    ChatItem(
-      name: 'Liam',
-      age: '22',
-      lastMsg: 'Hey! Are you going to the gig tonight?',
-      time: '1m ago',
-      unread: true,
-      color: Colors.blueAccent,
-    ),
-    ChatItem(
-      name: 'Ethan',
-      age: '23',
-      lastMsg: "That track is amazing. Let's collaborate!",
-      time: '2h ago',
-      unread: false,
-      color: Colors.greenAccent,
-    ),
-    ChatItem(
-      name: 'Chloe',
-      age: '21',
-      lastMsg: "Let's grab a coffee sometime this week.",
-      time: '1d ago',
-      unread: false,
-      color: Colors.amberAccent,
-    ),
-    ChatItem(
-      name: 'Noah',
-      age: '24',
-      lastMsg: 'Hey there! Nice profile.',
-      time: '2d ago',
-      unread: false,
-      color: Colors.redAccent,
-    ),
-  ];
+  // Matches — populated from GET /api/v1/matches
+  List<Map<String, dynamic>> _matches = [];
 
   @override
   void initState() {
@@ -148,7 +55,9 @@ class _DatingTabState extends State<DatingTab>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-    _loadDatingProfileStatus();
+    unawaited(_loadDatingProfileStatus());
+    unawaited(_fetchLikes());
+    unawaited(_fetchMatches());
   }
 
   @override
@@ -385,9 +294,15 @@ class _DatingTabState extends State<DatingTab>
 
             if (hasMissingProfileFields) {
               _showProfileIncompleteDialog();
-            } else {
-              unawaited(_showDatingSettingsOverlay(isActivating: true));
+              return;
             }
+            unawaited(_showDatingSettingsOverlay(isActivating: true));
+            await Future<void>.delayed(const Duration(milliseconds: 380));
+            if (!mounted) return;
+            _showFloatingToast(
+              'Complete your Dating settings to activate your orbit.',
+              const Color(0xFFFF4F81),
+            );
             return;
           }
         }
@@ -443,7 +358,11 @@ class _DatingTabState extends State<DatingTab>
               ),
               const SizedBox(height: 16),
               ..._missingFields
-                  .where((f) => f.toString() != 'dating_target_buckets')
+                  .where((f) => !const {
+                    'dating_target_buckets',
+                    'dating_for',
+                    'partner_values',
+                  }.contains(f.toString()))
                   .map((field) {
                     final fieldStr = field.toString();
                     String label;
@@ -525,6 +444,56 @@ class _DatingTabState extends State<DatingTab>
         );
       },
     );
+  }
+
+  void _showFloatingToast(String message, Color color) {
+    final overlay = Navigator.of(context).overlay;
+    if (overlay == null) return;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        top: MediaQuery.of(ctx).padding.top + 12,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.info, color: Colors.white, size: 17),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    unawaited(Future<void>.delayed(const Duration(seconds: 3)).then((_) {
+      if (entry.mounted) entry.remove();
+    }));
   }
 
   // Show slide-up Dating Settings overlay
@@ -761,10 +730,22 @@ class _DatingTabState extends State<DatingTab>
                                       return;
                                     }
                                     setModalState(() {
-                                      if (selected) {
-                                        localBuckets.add(code);
+                                      if (code == 'Open') {
+                                        if (selected) {
+                                          localBuckets
+                                            ..clear()
+                                            ..add('Open');
+                                        } else {
+                                          localBuckets.remove('Open');
+                                        }
                                       } else {
-                                        localBuckets.remove(code);
+                                        if (selected) {
+                                          localBuckets
+                                            ..remove('Open')
+                                            ..add(code);
+                                        } else {
+                                          localBuckets.remove(code);
+                                        }
                                       }
                                     });
                                     await _saveDatingField(
@@ -1110,18 +1091,459 @@ class _DatingTabState extends State<DatingTab>
     );
   }
 
-  void _showLikesOverlay() {
-    showModalBottomSheet<void>(
+  Future<void> _fetchLikes() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    try {
+      final config = AppConfig.current;
+      final dio = createDio();
+      final response = await dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/likes',
+        queryParameters: {'tab': 'Dating'},
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final data = response.data!;
+        final likes = data['likes'];
+        final unseen = data['unseen_count'];
+        setState(() {
+          _likeItems = likes is List
+              ? List<Map<String, dynamic>>.from(
+                  likes.cast<Map<String, dynamic>>(),
+                )
+              : [];
+          _unseenCount = (unseen as num?)?.toInt() ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('[DatingTab] Error fetching likes: $e');
+    }
+  }
+
+  Future<void> _fetchMatches() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    try {
+      final config = AppConfig.current;
+      final dio = createDio();
+      final response = await dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/matches',
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final raw = response.data!['matches'];
+        final list = raw is List
+            ? raw.cast<Map<String, dynamic>>()
+            : <Map<String, dynamic>>[];
+        // Preserve is_new flags set by optimistic inserts this session
+        final newIds = _matches
+            .where((m) => m['is_new'] == true)
+            .map((m) => m['matched_user_id'] as String?)
+            .whereType<String>()
+            .toSet();
+        setState(() {
+          _matches = list.map((m) {
+            final uid = m['matched_user_id'] as String?;
+            return (uid != null && newIds.contains(uid))
+                ? {...m, 'is_new': true}
+                : m;
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('[DatingTab] Error fetching matches: $e');
+    }
+  }
+
+  Future<bool> _recordMatchAction(
+    String targetId,
+    String action,
+    String accessToken, {
+    String? reason,
+    String? reasonDetail,
+  }) async {
+    try {
+      final config = AppConfig.current;
+      final dio = createDio();
+      final body = <String, dynamic>{
+        'target_id': targetId,
+        'action': action,
+        'tab': 'Dating',
+      };
+      if (reason != null) body['reason'] = reason;
+      if (reasonDetail != null) body['reason_detail'] = reasonDetail;
+      final response = await dio.post<void>(
+        '${config.backendUrl}/api/v1/matches/action',
+        data: body,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[DatingTab] Error recording match action: $e');
+      return false;
+    }
+  }
+
+  Future<void> _markAllLikesSeen() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    try {
+      final config = AppConfig.current;
+      final dio = createDio();
+      await dio.post<void>(
+        '${config.backendUrl}/api/v1/likes/mark-seen',
+        data: {'mark_all': true},
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+    } catch (e) {
+      debugPrint('[DatingTab] Error marking likes seen: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchPeerProfile(
+    String actorId,
+    String accessToken,
+  ) async {
+    final config = AppConfig.current;
+    final dio = createDio();
+    final response = await dio.post<Map<String, dynamic>>(
+      '${config.backendUrl}/api/v1/profile/peer',
+      data: {'target_id': actorId, 'tab': 'Dating'},
+      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+    );
+    if (response.statusCode == 200 && response.data != null) {
+      return response.data!;
+    }
+    throw Exception('Failed to load peer profile');
+  }
+
+  Future<Map<String, dynamic>?> _recordLikeAction(
+    String targetId,
+    String action,
+    String accessToken, {
+    String? reason,
+    String? reasonDetail,
+  }) async {
+    try {
+      final config = AppConfig.current;
+      final dio = createDio();
+      final body = <String, dynamic>{
+        'target_id': targetId,
+        'action': action,
+        'tab': 'Dating',
+      };
+      if (reason != null) body['reason'] = reason;
+      if (reasonDetail != null) body['reason_detail'] = reasonDetail;
+      final response = await dio.post<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/likes/action',
+        data: body,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      if (response.statusCode == 200) return response.data;
+      return null;
+    } catch (e) {
+      debugPrint('[DatingTab] Error recording like action: $e');
+      return null;
+    }
+  }
+
+  Widget _buildLikeBackActionBar(
+    BuildContext ctx,
+    String actorId,
+    String name,
+    Color theme,
+    String? matchedProfilePic,
+    void Function(String) onActioned,
+  ) {
+    final session = Supabase.instance.client.auth.currentSession;
+
+    Future<void> doAction(String action) async {
+      final rootNav = Navigator.of(ctx, rootNavigator: true);
+      Navigator.pop(ctx);
+      final result = session != null
+          ? await _recordLikeAction(actorId, action, session.accessToken)
+          : null;
+      onActioned(actorId);
+      if (result?['matched'] == true) {
+        // Optimistic insert covers both "Send a message" and "Keep browsing" paths.
+        if (mounted) {
+          setState(() {
+            _matches.insert(0, {
+              'match_id': null,
+              'matched_user_id': actorId,
+              'name': name,
+              'age': null,
+              'profile_pic': matchedProfilePic,
+              'matched_at': DateTime.now().toIso8601String(),
+              'is_new': true,
+            });
+          });
+        }
+        // Refresh in background to get real match_id and full profile data.
+        unawaited(_fetchMatches());
+
+        final goToChat = await rootNav.push<bool?>(
+          MaterialPageRoute<bool?>(
+            fullscreenDialog: true,
+            builder: (_) => MatchScreen(
+              matchedName: name,
+              matchedProfilePic: matchedProfilePic,
+            ),
+          ),
+        );
+        if (goToChat == true && mounted) {
+          Navigator.of(context).pop(); // close likes overlay
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showMatchesOverlay();
+          });
+        }
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      decoration: BoxDecoration(
+        color: const Color(0xFF090D1A),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white54,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () => doAction('pass'),
+              icon: const Icon(LucideIcons.x, size: 14),
+              label: const Text(
+                'Pass',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () => doAction('superlike'),
+                icon: const Icon(LucideIcons.star, size: 14),
+                label: const Text(
+                  'Super Back',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme,
+                    Color.lerp(theme, const Color(0xFF7C3AED), 0.42)!,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.withValues(alpha: 0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () => doAction('like'),
+                icon: const Icon(LucideIcons.heart, size: 14),
+                label: const Text(
+                  'Like Back',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showLikeProfile({
+    required BuildContext ctx,
+    required String actorId,
+    required String name,
+    required void Function(String actorId) onActioned,
+  }) async {
+    const themeColor = Color(0xFFFF4F81);
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+
+    final likeEntry = _likeItems.firstWhere(
+      (i) => i['actor_id'] == actorId,
+      orElse: () => <String, dynamic>{},
+    );
+    final matchedProfilePic = likeEntry['profile_pic'] as String?;
+
+    await showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: _fetchPeerProfile(actorId, session.accessToken),
+          builder: (sheetCtx, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: MediaQuery.of(sheetCtx).size.height * 0.7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(color: themeColor),
+                ),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Container(
+                height: MediaQuery.of(sheetCtx).size.height * 0.4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Unable to load profile.',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                ),
+              );
+            }
+            return DraggableScrollableSheet(
+              initialChildSize: 0.92,
+              minChildSize: 0.5,
+              maxChildSize: 0.97,
+              expand: false,
+              builder: (dsCtx, scrollController) {
+                return ProfileDetailSheet(
+                  data: snapshot.data!,
+                  themeColor: themeColor,
+                  scrollController: scrollController,
+                  showScoreBadge: false,
+                  actionBar: _buildLikeBackActionBar(
+                    dsCtx,
+                    actorId,
+                    name,
+                    themeColor,
+                    matchedProfilePic,
+                    onActioned,
+                  ),
+                  onHideTap: (c) async {
+                    Navigator.pop(c);
+                    await _recordLikeAction(
+                      actorId,
+                      'hide',
+                      session.accessToken,
+                    );
+                    onActioned(actorId);
+                  },
+                  onBlockTap: (c) async {
+                    final ok = await showProfileBlockDialog(c, name);
+                    if ((ok ?? false) && c.mounted) {
+                      Navigator.pop(c);
+                      await _recordLikeAction(
+                        actorId,
+                        'block',
+                        session.accessToken,
+                      );
+                      onActioned(actorId);
+                    }
+                  },
+                  onReportTap: (c) => showProfileReportDialog(
+                    c,
+                    onConfirmed: (reason, detail) async {
+                      Navigator.pop(c);
+                      await _recordLikeAction(
+                        actorId,
+                        'report',
+                        session.accessToken,
+                        reason: reason,
+                        reasonDetail: detail,
+                      );
+                      onActioned(actorId);
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showLikesOverlay() async {
+    const themeColor = Color(0xFFFF4F81);
+
+    setState(() => _unseenCount = 0);
+    unawaited(_markAllLikesSeen());
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
+      builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            final activeLikes = _likes.where((l) => !l.hasActioned).toList();
-
+          builder: (ctx, setModalState) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
+              height: MediaQuery.of(ctx).size.height * 0.75,
               decoration: const BoxDecoration(
                 color: Color(0xFF0F172A),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -1171,7 +1593,7 @@ class _DatingTabState extends State<DatingTab>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${activeLikes.length} New',
+                            '${_likeItems.length} likes',
                             style: const TextStyle(
                               color: Color(0xFFFF4F81),
                               fontSize: 12,
@@ -1184,7 +1606,7 @@ class _DatingTabState extends State<DatingTab>
                   ),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: activeLikes.isEmpty
+                    child: _likeItems.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -1196,7 +1618,7 @@ class _DatingTabState extends State<DatingTab>
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'All caught up!',
+                                  'No likes yet',
                                   style: TextStyle(
                                     color: Colors.white.withAlpha(150),
                                     fontSize: 16,
@@ -1215,167 +1637,515 @@ class _DatingTabState extends State<DatingTab>
                                   crossAxisSpacing: 16,
                                   childAspectRatio: 0.82,
                                 ),
-                            itemCount: activeLikes.length,
-                            itemBuilder: (context, index) {
-                              final like = activeLikes[index];
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: Colors.white.withAlpha(20),
-                                  ),
+                            itemCount: _likeItems.length,
+                            itemBuilder: (ctx, index) {
+                              final item = _likeItems[index];
+                              final actorId = item['actor_id'] as String? ?? '';
+                              final name = item['name'] as String? ?? 'Unknown';
+                              final age = item['age'];
+                              final profilePic =
+                                  item['profile_pic'] as String? ?? '';
+                              final isSuperlike = item['action'] == 'superlike';
+
+                              return GestureDetector(
+                                onTap: () => _showLikeProfile(
+                                  ctx: ctx,
+                                  actorId: actorId,
+                                  name: name,
+                                  onActioned: (id) {
+                                    setState(() {
+                                      _likeItems.removeWhere(
+                                        (i) => i['actor_id'] == id,
+                                      );
+                                    });
+                                    setModalState(() {});
+                                  },
                                 ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              like.color.withAlpha(128),
-                                              like.color.withAlpha(26),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E293B),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withAlpha(20),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: ClipRRect(
                                           borderRadius:
                                               const BorderRadius.vertical(
                                                 top: Radius.circular(20),
                                               ),
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            LucideIcons.user,
-                                            color: Colors.white.withAlpha(180),
-                                            size: 40,
-                                          ),
+                                          child: profilePic.isNotEmpty
+                                              ? StorageImage(
+                                                  imagePath: profilePic,
+                                                )
+                                              : Container(
+                                                  color: themeColor.withAlpha(
+                                                    40,
+                                                  ),
+                                                  child: const Center(
+                                                    child: Icon(
+                                                      LucideIcons.user,
+                                                      color: Colors.white38,
+                                                      size: 36,
+                                                    ),
+                                                  ),
+                                                ),
                                         ),
                                       ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    age != null
+                                                        ? '$name, $age'
+                                                        : name,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                if (isSuperlike)
+                                                  const Icon(
+                                                    LucideIcons.star,
+                                                    color: Color(0xFFF59E0B),
+                                                    size: 13,
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              isSuperlike
+                                                  ? 'Superliked you ⭐'
+                                                  : 'Liked you ❤️',
+                                              style: TextStyle(
+                                                color: Colors.white.withAlpha(
+                                                  140,
+                                                ),
+                                                fontSize: 11,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showMatchesOverlay() {
+    const themeColor = Color(0xFFFF4F81);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setModalState) {
+            final session = Supabase.instance.client.auth.currentSession;
+
+            void removeMatch(String userId) {
+              setState(
+                () => _matches.removeWhere(
+                  (m) => m['matched_user_id'] == userId,
+                ),
+              );
+              setModalState(() {});
+            }
+
+            return Container(
+              height: MediaQuery.of(sheetCtx).size.height * 0.78,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(50),
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              LucideIcons.heartHandshake,
+                              color: themeColor,
+                              size: 24,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Matches',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: themeColor.withAlpha(38),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_matches.length} matched',
+                            style: const TextStyle(
+                              color: themeColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: _matches.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  LucideIcons.heartOff,
+                                  color: Colors.white.withAlpha(50),
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No matches yet',
+                                  style: TextStyle(
+                                    color: Colors.white.withAlpha(150),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Like someone back from your inbox',
+                                  style: TextStyle(
+                                    color: Colors.white.withAlpha(80),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
+                            itemCount: _matches.length,
+                            separatorBuilder: (_, __) =>
+                                Divider(color: Colors.white.withAlpha(12)),
+                            itemBuilder: (_, i) {
+                              final match = _matches[i];
+                              final userId =
+                                  match['matched_user_id'] as String? ?? '';
+                              final name =
+                                  match['name'] as String? ?? 'Unknown';
+                              final age = match['age'];
+                              final profilePic =
+                                  match['profile_pic'] as String?;
+                              final isNew = match['is_new'] == true;
+                              final displayName = age != null
+                                  ? '$name, $age'
+                                  : name;
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Avatar
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: themeColor.withAlpha(80),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: ClipOval(
+                                        child:
+                                            profilePic != null &&
+                                                profilePic.isNotEmpty
+                                            ? StorageImage(
+                                                imagePath: profilePic,
+                                              )
+                                            : Container(
+                                                color: themeColor.withAlpha(30),
+                                                child: Icon(
+                                                  LucideIcons.user,
+                                                  color: themeColor.withAlpha(
+                                                    160,
+                                                  ),
+                                                  size: 26,
+                                                ),
+                                              ),
+                                      ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(12),
+                                    const SizedBox(width: 12),
+                                    // Name + new badge
+                                    Expanded(
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            '${like.name}, ${like.age}',
+                                            displayName,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 14,
+                                              fontSize: 15,
                                             ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            like.type,
-                                            style: TextStyle(
-                                              color: Colors.white.withAlpha(
-                                                140,
-                                              ),
-                                              fontSize: 11,
-                                            ),
-                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: SizedBox(
-                                                  height: 32,
-                                                  child: ElevatedButton(
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor:
-                                                          const Color(
-                                                            0xFFFF4F81,
-                                                          ),
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      padding: EdgeInsets.zero,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              10,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    onPressed: () {
-                                                      setModalState(() {
-                                                        like.hasActioned = true;
-                                                      });
-                                                      setState(() {});
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        SnackBar(
-                                                          behavior:
-                                                              SnackBarBehavior
-                                                                  .floating,
-                                                          backgroundColor:
-                                                              const Color(
-                                                                0xFFFF4F81,
-                                                              ),
-                                                          content: Text(
-                                                            'Matched with ${like.name}! 🎉',
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                    child: const Icon(
-                                                      LucideIcons.heart,
-                                                      size: 14,
-                                                    ),
-                                                  ),
-                                                ),
+                                          if (isNew)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 3,
                                               ),
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                height: 32,
-                                                width: 32,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.white.withAlpha(
-                                                    20,
+                                                  color: themeColor.withAlpha(
+                                                    38,
                                                   ),
                                                   borderRadius:
-                                                      BorderRadius.circular(10),
+                                                      BorderRadius.circular(8),
                                                 ),
-                                                child: IconButton(
-                                                  padding: EdgeInsets.zero,
-                                                  icon: const Icon(
-                                                    LucideIcons.hand,
-                                                    size: 14,
-                                                    color: Colors.amber,
+                                                child: const Text(
+                                                  'New match ✨',
+                                                  style: TextStyle(
+                                                    color: themeColor,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
-                                                  onPressed: () {
-                                                    setModalState(() {
-                                                      like.hasActioned = true;
-                                                    });
-                                                    setState(() {});
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        behavior:
-                                                            SnackBarBehavior
-                                                                .floating,
-                                                        backgroundColor:
-                                                            Colors.amber[800],
-                                                        content: Text(
-                                                          'Waved back at ${like.name}! 👋',
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
                                                 ),
                                               ),
-                                            ],
-                                          ),
+                                            ),
                                         ],
                                       ),
+                                    ),
+                                    // Action buttons
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Chat (stub)
+                                        IconButton(
+                                          icon: const Icon(
+                                            LucideIcons.messageCircle,
+                                            size: 20,
+                                          ),
+                                          color: Colors.white54,
+                                          visualDensity: VisualDensity.compact,
+                                          tooltip: 'Chat',
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(
+                                              sheetCtx,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                                backgroundColor: Color(
+                                                  0xFF1E293B,
+                                                ),
+                                                content: Text(
+                                                  'Chat coming soon 💬',
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // Unmatch
+                                        IconButton(
+                                          icon: const Icon(
+                                            LucideIcons.x,
+                                            size: 20,
+                                          ),
+                                          color: Colors.white38,
+                                          visualDensity: VisualDensity.compact,
+                                          tooltip: 'Unmatch',
+                                          onPressed: () async {
+                                            final ok = await showDialog<bool>(
+                                              context: sheetCtx,
+                                              builder: (d) => AlertDialog(
+                                                backgroundColor: const Color(
+                                                  0xFF1E293B,
+                                                ),
+                                                title: Text(
+                                                  'Unmatch from $name?',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 17,
+                                                  ),
+                                                ),
+                                                content: Text(
+                                                  "You won't see each other for some time.",
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withAlpha(160),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(d, false),
+                                                    child: Text(
+                                                      'Cancel',
+                                                      style: TextStyle(
+                                                        color: Colors.white
+                                                            .withAlpha(160),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(d, true),
+                                                    child: const Text(
+                                                      'Unmatch',
+                                                      style: TextStyle(
+                                                        color: themeColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if ((ok ?? false) &&
+                                                session != null) {
+                                              await _recordMatchAction(
+                                                userId,
+                                                'unmatch',
+                                                session.accessToken,
+                                              );
+                                              removeMatch(userId);
+                                            }
+                                          },
+                                        ),
+                                        // Block / Report
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(
+                                            LucideIcons.moreVertical,
+                                            size: 20,
+                                            color: Colors.white38,
+                                          ),
+                                          color: const Color(0xFF1E293B),
+                                          padding: EdgeInsets.zero,
+                                          onSelected: (value) async {
+                                            if (value == 'block') {
+                                              final ok =
+                                                  await showProfileBlockDialog(
+                                                    sheetCtx,
+                                                    name,
+                                                  );
+                                              if ((ok ?? false) &&
+                                                  session != null) {
+                                                await _recordMatchAction(
+                                                  userId,
+                                                  'block',
+                                                  session.accessToken,
+                                                );
+                                                removeMatch(userId);
+                                              }
+                                            } else if (value == 'report') {
+                                              if (!sheetCtx.mounted) return;
+                                              unawaited(
+                                                showProfileReportDialog(
+                                                  sheetCtx,
+                                                  onConfirmed:
+                                                      (reason, detail) async {
+                                                        if (session == null)
+                                                          return;
+                                                        await _recordMatchAction(
+                                                          userId,
+                                                          'report',
+                                                          session.accessToken,
+                                                          reason: reason,
+                                                          reasonDetail: detail,
+                                                        );
+                                                        removeMatch(userId);
+                                                      },
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          itemBuilder: (_) => [
+                                            const PopupMenuItem(
+                                              value: 'block',
+                                              child: Text(
+                                                'Block',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'report',
+                                              child: Text(
+                                                'Report',
+                                                style: TextStyle(
+                                                  color: Colors.redAccent,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -1392,166 +2162,10 @@ class _DatingTabState extends State<DatingTab>
     );
   }
 
-  void _showChatsOverlay() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F172A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(50),
-                  borderRadius: BorderRadius.circular(2.5),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          LucideIcons.messageSquare,
-                          color: Color(0xFFFF4F81),
-                          size: 24,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Chats & Matches',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Icon(
-                      LucideIcons.slidersHorizontal,
-                      color: Colors.white70,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
-                  ),
-                  itemCount: _chats.length,
-                  separatorBuilder: (context, index) =>
-                      Divider(color: Colors.white.withAlpha(15)),
-                  itemBuilder: (context, index) {
-                    final chat = _chats[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        radius: 26,
-                        backgroundColor: chat.color.withAlpha(50),
-                        child: Icon(
-                          LucideIcons.user,
-                          color: chat.color,
-                          size: 24,
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          Text(
-                            '${chat.name}, ${chat.age}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          if (chat.unread)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF4F81),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        chat.lastMsg,
-                        style: TextStyle(
-                          color: chat.unread
-                              ? Colors.white
-                              : Colors.white.withAlpha(140),
-                          fontSize: 13,
-                          fontWeight: chat.unread
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            chat.time,
-                            style: TextStyle(
-                              color: Colors.white.withAlpha(100),
-                              fontSize: 11,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Icon(
-                            LucideIcons.chevronRight,
-                            color: Colors.white38,
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: const Color(0xFF1E293B),
-                            content: Text(
-                              'Opening chat with ${chat.name}... 💬',
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const themeColor = Color(0xFFFF4F81);
-    final activeLikesCount = _likes.where((l) => !l.hasActioned).length;
+    final activeLikesCount = _unseenCount;
 
     if (_isLoading) {
       return const Scaffold(
@@ -1766,7 +2380,7 @@ class _DatingTabState extends State<DatingTab>
                             color: const Color(0xFF1E293B),
                             borderRadius: BorderRadius.circular(24),
                             child: InkWell(
-                              onTap: _showChatsOverlay,
+                              onTap: _showMatchesOverlay,
                               borderRadius: BorderRadius.circular(24),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1797,14 +2411,14 @@ class _DatingTabState extends State<DatingTab>
                                         shape: BoxShape.circle,
                                       ),
                                       child: const Icon(
-                                        LucideIcons.messageSquare,
+                                        LucideIcons.heartHandshake,
                                         color: Colors.white,
                                         size: 28,
                                       ),
                                     ),
                                     const SizedBox(height: 16),
                                     const Text(
-                                      'Chats & Matches',
+                                      'Matches',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w800,
@@ -1822,7 +2436,7 @@ class _DatingTabState extends State<DatingTab>
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        '${_chats.length} ACTIVE',
+                                        '${_matches.length} ACTIVE',
                                         style: TextStyle(
                                           color: Colors.white.withAlpha(200),
                                           fontSize: 10,
@@ -1838,216 +2452,6 @@ class _DatingTabState extends State<DatingTab>
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 28),
-                    const Text(
-                      'Daily Spark',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.black.withAlpha(10)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(8),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.withAlpha(38),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  LucideIcons.sparkles,
-                                  color: Colors.amber,
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Ideal first date activity?',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          if (_selectedSparkOption == null) ...[
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                side: BorderSide(
-                                  color: Colors.black.withAlpha(20),
-                                ),
-                              ),
-                              onPressed: () =>
-                                  setState(() => _selectedSparkOption = 0),
-                              child: const Text(
-                                '☕ Casual Coffee & Walk',
-                                style: TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                side: BorderSide(
-                                  color: Colors.black.withAlpha(20),
-                                ),
-                              ),
-                              onPressed: () =>
-                                  setState(() => _selectedSparkOption = 1),
-                              child: const Text(
-                                '🍹 Skyline Rooftop Drinks',
-                                style: TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF4F81).withAlpha(15),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '☕ Casual Coffee & Walk',
-                                        style: TextStyle(
-                                          fontWeight: _selectedSparkOption == 0
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: _selectedSparkOption == 0
-                                              ? const Color(0xFFFF4F81)
-                                              : Colors.grey[700],
-                                        ),
-                                      ),
-                                      const Text(
-                                        '62%',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: const LinearProgressIndicator(
-                                      value: 0.62,
-                                      backgroundColor: Colors.white,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFFFF4F81),
-                                      ),
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(10),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '🍹 Skyline Rooftop Drinks',
-                                        style: TextStyle(
-                                          fontWeight: _selectedSparkOption == 1
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: _selectedSparkOption == 1
-                                              ? const Color(0xFFFF4F81)
-                                              : Colors.grey[700],
-                                        ),
-                                      ),
-                                      const Text(
-                                        '38%',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: const LinearProgressIndicator(
-                                      value: 0.38,
-                                      backgroundColor: Colors.white,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFFFF4F81),
-                                      ),
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Center(
-                              child: Text(
-                                'Choice saved! Matches with same choice will glow in your Orbit.',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
                     ),
                   ],
                 ),

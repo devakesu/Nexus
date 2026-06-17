@@ -11,6 +11,7 @@ import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -829,140 +830,6 @@ class _OrbitScreenState extends State<OrbitScreen>
     } on Exception catch (_) {}
   }
 
-  Future<void> _showReportDialog(BuildContext ctx, String candidateId) async {
-    String? selectedReason;
-    final otherCtrl = TextEditingController();
-
-    final confirmed = await showDialog<bool>(
-      context: ctx,
-      builder: (_) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) {
-          const reasons = [
-            ('scam', 'Scam or Fraud'),
-            ('bot', 'Bot / Fake Account'),
-            ('harassment', 'Harassment'),
-            ('inappropriate', 'Inappropriate Content'),
-            ('spam', 'Spam'),
-            ('underage', 'Underage User'),
-            ('other', 'Other'),
-          ];
-          return AlertDialog(
-            backgroundColor: const Color(0xFF0F172A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text(
-              'Report & Block',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Why are you reporting this profile?',
-                    style: TextStyle(color: Colors.white60, fontSize: 13),
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: reasons.map(((String code, String label) r) {
-                      final selected = selectedReason == r.$1;
-                      return ChoiceChip(
-                        label: Text(r.$2),
-                        selected: selected,
-                        onSelected: (_) => setDialogState(() => selectedReason = r.$1),
-                        selectedColor: const Color(0xFFFF4F81),
-                        backgroundColor: const Color(0xFF1E293B),
-                        side: BorderSide(
-                          color: selected
-                              ? Colors.transparent
-                              : Colors.white.withValues(alpha: 0.1),
-                        ),
-                        labelStyle: TextStyle(
-                          color: selected ? Colors.white : Colors.white60,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        showCheckmark: false,
-                      );
-                    }).toList(),
-                  ),
-                  if (selectedReason == 'other') ...[
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: otherCtrl,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      maxLines: 3,
-                      maxLength: 200,
-                      decoration: InputDecoration(
-                        hintText: 'Describe the issue…',
-                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFF1E293B),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        counterStyle: const TextStyle(color: Colors.white24, fontSize: 10),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  const Text(
-                    'This profile will also be blocked.',
-                    style: TextStyle(color: Colors.white24, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogCtx, false),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
-              ),
-              ElevatedButton(
-                onPressed: selectedReason == null
-                    ? null
-                    : () => Navigator.pop(dialogCtx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF4F81),
-                  disabledBackgroundColor: Colors.white12,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                ),
-                child: const Text(
-                  'Report & Block',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if ((confirmed ?? false) && ctx.mounted) {
-      final detail = selectedReason == 'other' ? otherCtrl.text.trim() : null;
-      otherCtrl.dispose();
-      Navigator.pop(ctx);
-      await _performAction(
-        candidateId,
-        'report',
-        reason: selectedReason,
-        reasonDetail: detail?.isEmpty == true ? null : detail,
-      );
-    } else {
-      otherCtrl.dispose();
-    }
-  }
-
   Future<void> _performAction(
     String candidateId,
     String actionType, {
@@ -1053,35 +920,6 @@ class _OrbitScreenState extends State<OrbitScreen>
     }
   }
 
-  Widget _safetyButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _showNodeDetails(String candidateId) async {
     final theme = widget.themeColor;
 
@@ -1152,1051 +990,38 @@ class _OrbitScreenState extends State<OrbitScreen>
               );
             }
 
-            // ── Data extraction ──────────────────────────────────────────────
             final data = snapshot.data!;
-            final profilePic = data['profile_pic']?.toString() ?? '';
-            final normalPics = <String>[];
-            if (data['normal_pics'] is List) {
-              normalPics.addAll(List<String>.from(data['normal_pics'] as List));
-            }
-
             final name = data['name']?.toString() ?? 'Anonymous';
-            final age = data['age'];
-            final score = ((data['score'] as num?) ?? 0).round();
-            final tab = data['tab']?.toString() ?? widget.tab;
 
-            final pronouns = data['pronouns']?.toString() ?? '';
-            final displayGender = data['display_gender']?.toString() ?? '';
-            final displaySexuality = data['display_sexuality']?.toString() ?? '';
-            final hometown = data['hometown']?.toString() ?? '';
-            final currentPlace = data['current_place']?.toString() ?? '';
-            final bio = data['bio']?.toString() ?? '';
-
-            final campusBranch = data['campus_branch']?.toString() ?? '';
-            final campusYear = data['campus_year'];
-            final campusName = data['campus_name']?.toString() ?? '';
-            final role = data['role']?.toString() ?? '';
-
-            final drinking = data['drinking']?.toString() ?? '';
-            final smoking = data['smoking']?.toString() ?? '';
-            final lifestyle = data['lifestyle']?.toString() ?? '';
-            final religiousBeliefs = data['religious_beliefs']?.toString() ?? '';
-            final partnerValues = data['partner_values']?.toString() ?? '';
-            final childrenPlans = data['children_plans']?.toString() ?? '';
-
-            final interests = data['interests'] is Map
-                ? Map<String, dynamic>.from(data['interests'] as Map)
-                : <String, dynamic>{};
-            final subInterests = data['sub_interests'] is Map
-                ? Map<String, dynamic>.from(data['sub_interests'] as Map)
-                : <String, dynamic>{};
-            final interestKeys = interests.keys.toList();
-            final subInterestTags = subInterests.values
-                .expand(
-                  (v) => v is List ? v.cast<String>() : <String>[],
-                )
-                .toList();
-
-            final aiVibeTags = data['ai_vibe_tags'] is List
-                ? List<String>.from(data['ai_vibe_tags'] as List)
-                : <String>[];
-            final activities = data['activities'] is List
-                ? List<String>.from(data['activities'] as List)
-                : <String>[];
-            final languages = data['languages'] is List
-                ? List<String>.from(data['languages'] as List)
-                : <String>[];
-            final pets = data['pets'] is List
-                ? List<String>.from(data['pets'] as List)
-                : <String>[];
-            final topArtists = data['top_artists'] is List
-                ? List<String>.from(data['top_artists'] as List)
-                : <String>[];
-            final lookingFor = data['looking_for'] is List
-                ? List<String>.from(data['looking_for'] as List)
-                : <String>[];
-            final techSkills = data['tech_skills'] is List
-                ? List<String>.from(data['tech_skills'] as List)
-                : <String>[];
-            final causesSupported = data['causes_supported'] is List
-                ? List<String>.from(data['causes_supported'] as List)
-                : <String>[];
-            final datingFor = data['dating_for'] is List
-                ? List<String>.from(data['dating_for'] as List)
-                : <String>[];
-
-            String decodeLookingFor(String code) => FilterOptions.lookingForOptions
-                .firstWhere(
-                  (m) => m['code'] == code,
-                  orElse: () => {'code': code, 'label': code},
-                )['label']!;
-            String decodeDatingFor(String code) => FilterOptions.datingForOptions
-                .firstWhere(
-                  (m) => m['code'] == code,
-                  orElse: () => {'code': code, 'label': code},
-                )['label']!;
-
-            final lookingForLabels = lookingFor.map(decodeLookingFor).toList();
-            final datingForLabels = datingFor.map(decodeDatingFor).toList();
-
-            final showSexuality =
-                (tab == 'Dating' || tab == 'Friends') && displaySexuality.isNotEmpty;
-
-            // ── Local widget helpers ─────────────────────────────────────────
-
-            Widget photoBlock(String path, {double height = 240}) {
-              return Container(
-                height: height,
-                margin: const EdgeInsets.fromLTRB(18, 6, 18, 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      StorageImage(imagePath: path),
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.15),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            Widget sectionLabel(String label, {String emoji = '', IconData? icon}) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-                child: Row(
-                  children: [
-                    if (emoji.isNotEmpty) ...[
-                      Text(emoji, style: const TextStyle(fontSize: 13)),
-                      const SizedBox(width: 7),
-                    ] else if (icon != null) ...[
-                      Icon(icon, color: theme, size: 13),
-                      const SizedBox(width: 7),
-                    ],
-                    Text(
-                      label.toUpperCase(),
-                      style: TextStyle(
-                        color: theme.withValues(alpha: 0.75),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.8,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            Widget chipWrap(
-              List<String> items, {
-              Color? accent,
-              Color? labelColor,
-              bool useEmoji = false,
-            }) {
-              final c = accent ?? theme;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: items.map((item) {
-                    final emoji = useEmoji ? getEmojiForTag(item) : '';
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: c.withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: c.withValues(alpha: 0.28)),
-                      ),
-                      child: Text(
-                        emoji.isNotEmpty ? '$emoji $item' : item,
-                        style: TextStyle(
-                          color: labelColor ?? c.withValues(alpha: 0.9),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              );
-            }
-
-            Widget emojiInfoRow(String emoji, String text) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                        child: Text(emoji, style: const TextStyle(fontSize: 17)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        text,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            Widget locationPill(IconData icon, String label) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: Colors.white38, size: 13),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: const TextStyle(color: Colors.white60, fontSize: 12),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final screenHeight = MediaQuery.of(context).size.height;
-
-            // ── Sheet ────────────────────────────────────────────────────────
             return DraggableScrollableSheet(
               initialChildSize: 0.92,
               minChildSize: 0.5,
               maxChildSize: 0.97,
               expand: false,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF090D1A),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                  ),
-                  child: Column(
-                    children: [
-                      // ── Scrollable body ──────────────────────────────────
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          padding: EdgeInsets.zero,
-                          children: [
-
-                            // ═══════════════════════════════════════════════
-                            // HERO PHOTO
-                            // ═══════════════════════════════════════════════
-                            SizedBox(
-                              height: screenHeight * 0.44,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  // Photo / placeholder
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(28),
-                                    ),
-                                    child: profilePic.isNotEmpty
-                                        ? StorageImage(imagePath: profilePic)
-                                        : Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  theme.withValues(alpha: 0.35),
-                                                  const Color(0xFF090D1A),
-                                                ],
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                              ),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                LucideIcons.user,
-                                                color: Colors.white12,
-                                                size: 72,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-
-                                  // Gradient overlay
-                                  Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(28),
-                                        ),
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Colors.transparent,
-                                            Colors.transparent,
-                                            Colors.black.withValues(alpha: 0.5),
-                                            const Color(0xFF090D1A),
-                                          ],
-                                          stops: const [0.0, 0.42, 0.72, 1.0],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Drag handle
-                                  Positioned(
-                                    top: 12,
-                                    left: 0,
-                                    right: 0,
-                                    child: Center(
-                                      child: Container(
-                                        width: 40,
-                                        height: 4,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.3),
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Score badge — top right
-                                  Positioned(
-                                    top: 14,
-                                    right: 16,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 13,
-                                        vertical: 7,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: theme.withValues(alpha: 0.88),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                theme.withValues(alpha: 0.45),
-                                            blurRadius: 18,
-                                            spreadRadius: 1,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            LucideIcons.sparkles,
-                                            color: Colors.white,
-                                            size: 11,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text(
-                                            '$score%',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Name + pronouns + identity pills
-                                  Positioned(
-                                    left: 20,
-                                    right: 20,
-                                    bottom: 18,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          age != null ? '$name, $age' : name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 30,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.2,
-                                            shadows: [
-                                              Shadow(blurRadius: 10, color: Colors.black54),
-                                            ],
-                                          ),
-                                        ),
-                                        if (pronouns.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            pronouns,
-                                            style: const TextStyle(
-                                              color: Colors.white60,
-                                              fontSize: 13,
-                                              shadows: [Shadow(blurRadius: 8, color: Colors.black45)],
-                                            ),
-                                          ),
-                                        ],
-                                        if (displayGender.isNotEmpty || showSexuality) ...[
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            children: [
-                                              if (displayGender.isNotEmpty)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.15),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    border: Border.all(
-                                                      color: Colors.white.withValues(alpha: 0.3),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    '${getEmojiForTag(displayGender)} $displayGender',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              if (showSexuality)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFEC4899).withValues(alpha: 0.2),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    border: Border.all(
-                                                      color: const Color(0xFFEC4899).withValues(alpha: 0.4),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    '${getEmojiForTag(displaySexuality)} $displaySexuality',
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFFCCBE5),
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // ═══════════════════════════════════════════════
-                            // LOCATION PILLS
-                            // ═══════════════════════════════════════════════
-                            // ═══════════════════════════════════════════════
-                            // LOCATION PILLS
-                            // ═══════════════════════════════════════════════
-                            if (currentPlace.isNotEmpty || hometown.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    if (currentPlace.isNotEmpty)
-                                      locationPill(LucideIcons.mapPin, currentPlace),
-                                    if (hometown.isNotEmpty && hometown != currentPlace)
-                                      locationPill(LucideIcons.home, 'From $hometown'),
-                                  ],
-                                ),
-                              ),
-
-                            // ═══════════════════════════════════════════════
-                            // BIO
-                            // ═══════════════════════════════════════════════
-                            if (bio.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
-                                child: Container(
-                                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                                  decoration: BoxDecoration(
-                                    color: theme.withValues(alpha: 0.05),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: theme.withValues(alpha: 0.18),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '“',
-                                        style: TextStyle(
-                                          color: theme.withValues(alpha: 0.6),
-                                          fontSize: 38,
-                                          height: 0.85,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          bio,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.75),
-                                            fontSize: 14,
-                                            height: 1.7,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                            // ═══════════════════════════════════════════════
-                            // BACKGROUND — campus + role
-                            // ═══════════════════════════════════════════════
-                            if (campusBranch.isNotEmpty ||
-                                campusYear != null ||
-                                campusName.isNotEmpty ||
-                                role.isNotEmpty) ...[
-                              sectionLabel('Background', emoji: '🎓'),
-                              if (campusBranch.isNotEmpty ||
-                                  campusYear != null ||
-                                  campusName.isNotEmpty)
-                                emojiInfoRow(
-                                  '🏛️',
-                                  [
-                                    if (campusBranch.isNotEmpty) campusBranch,
-                                    if (campusYear != null) 'Year $campusYear',
-                                    if (campusName.isNotEmpty) campusName,
-                                  ].where((s) => s.isNotEmpty).join(' · '),
-                                ),
-                              if (role.isNotEmpty) emojiInfoRow('💼', role),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // DATING FOR (Dating only) — before 1st photo
-                            // ═══════════════════════════════════════════════
-                            if (tab == 'Dating' && datingForLabels.isNotEmpty) ...[
-                              sectionLabel('Here for', emoji: '💘'),
-                              chipWrap(
-                                datingForLabels,
-                                accent: const Color(0xFFEC4899),
-                                labelColor: const Color(0xFFFCCBE5),
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PHOTO BREAK 1 — after Background + Dating For
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                normalPics.isNotEmpty) ...[
-                              const SizedBox(height: 20),
-                              photoBlock(normalPics[0], height: 280),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // AI VIBE TAGS
-                            // ═══════════════════════════════════════════════
-                            if (aiVibeTags.isNotEmpty) ...[
-                              sectionLabel('Vibe', icon: LucideIcons.sparkles),
-                              chipWrap(aiVibeTags),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // INTERESTS + SUB-INTERESTS
-                            // ═══════════════════════════════════════════════
-                            if (interestKeys.isNotEmpty) ...[
-                              sectionLabel('Interests', emoji: '✨'),
-                              chipWrap(interestKeys, useEmoji: true),
-                            ],
-                            if (subInterestTags.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Wrap(
-                                  spacing: 7,
-                                  runSpacing: 7,
-                                  children: subInterestTags.map((tag) {
-                                    final emoji = getEmojiForTag(tag);
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 11,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.05),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.09),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        emoji.isNotEmpty ? '$emoji $tag' : tag,
-                                        style: const TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PHOTO BREAK 2 — after Interests
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                normalPics.length >= 2) ...[
-                              const SizedBox(height: 20),
-                              photoBlock(normalPics[1]),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // CAUSES
-                            // ═══════════════════════════════════════════════
-                            if (causesSupported.isNotEmpty) ...[
-                              sectionLabel('Cares about', emoji: '🌍'),
-                              chipWrap(
-                                causesSupported,
-                                accent: const Color(0xFF34D399),
-                                labelColor: const Color(0xFF6EE7B7),
-                                useEmoji: true,
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // LIFESTYLE (Dating / Friends)
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                (drinking.isNotEmpty ||
-                                    smoking.isNotEmpty ||
-                                    lifestyle.isNotEmpty ||
-                                    religiousBeliefs.isNotEmpty)) ...[
-                              sectionLabel('Lifestyle', emoji: '🌱'),
-                              if (drinking.isNotEmpty)
-                                emojiInfoRow('🍺', 'Drinks $drinking'),
-                              if (smoking.isNotEmpty)
-                                emojiInfoRow('🚬', 'Smokes $smoking'),
-                              if (lifestyle.isNotEmpty)
-                                emojiInfoRow('💫', lifestyle),
-                              if (religiousBeliefs.isNotEmpty)
-                                emojiInfoRow('🙏', religiousBeliefs),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // RELATIONSHIP — partner values + family plans (Dating)
-                            // ═══════════════════════════════════════════════
-                            if (tab == 'Dating' &&
-                                (partnerValues.isNotEmpty || childrenPlans.isNotEmpty)) ...[
-                              sectionLabel('Relationship', emoji: '❤️'),
-                              if (partnerValues.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEC4899).withValues(alpha: 0.06),
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: const Color(0xFFEC4899).withValues(alpha: 0.18),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      partnerValues,
-                                      style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 14,
-                                        height: 1.65,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              if (partnerValues.isNotEmpty && childrenPlans.isNotEmpty)
-                                const SizedBox(height: 14),
-                              if (childrenPlans.isNotEmpty)
-                                emojiInfoRow('👶', childrenPlans),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PHOTO BREAK 3 — after Lifestyle / Relationship
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                normalPics.length >= 3) ...[
-                              const SizedBox(height: 20),
-                              photoBlock(normalPics[2], height: 260),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // LANGUAGES — just before Soundtrack
-                            // ═══════════════════════════════════════════════
-                            if (languages.isNotEmpty) ...[
-                              sectionLabel('Speaks', emoji: '🗣️'),
-                              chipWrap(
-                                languages,
-                                accent: Colors.white,
-                                labelColor: Colors.white60,
-                                useEmoji: true,
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PHOTO BREAK 4 — after Languages
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                normalPics.length >= 4) ...[
-                              const SizedBox(height: 20),
-                              photoBlock(normalPics[3]),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // SOUNDTRACK (Dating / Friends)
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                topArtists.isNotEmpty) ...[
-                              sectionLabel('Soundtrack', emoji: '🎵'),
-                              chipWrap(
-                                topArtists,
-                                accent: const Color(0xFFA78BFA),
-                                labelColor: const Color(0xFFC4B5FD),
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PETS (Dating / Friends)
-                            // ═══════════════════════════════════════════════
-                            if ((tab == 'Dating' || tab == 'Friends') &&
-                                pets.isNotEmpty) ...[
-                              sectionLabel('Pet parent', emoji: '🐾'),
-                              chipWrap(
-                                pets,
-                                accent: const Color(0xFFFBBF24),
-                                labelColor: const Color(0xFFFDE68A),
-                                useEmoji: true,
-                              ),
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // PROFESSIONAL: Activities + Open to + Tech stack
-                            // ═══════════════════════════════════════════════
-                            if (tab == 'Professional') ...[
-                              if (activities.isNotEmpty) ...[
-                                sectionLabel('Into', icon: LucideIcons.activity),
-                                chipWrap(
-                                  activities,
-                                  accent: Colors.white,
-                                  labelColor: Colors.white60,
-                                ),
-                              ],
-                              if (lookingForLabels.isNotEmpty) ...[
-                                sectionLabel('Open to', emoji: '🤝'),
-                                chipWrap(lookingForLabels),
-                              ],
-                              if (techSkills.isNotEmpty) ...[
-                                sectionLabel('Tech stack', emoji: '💻'),
-                                chipWrap(
-                                  techSkills,
-                                  accent: Colors.cyanAccent,
-                                  labelColor: Colors.cyanAccent,
-                                ),
-                              ],
-                            ],
-
-                            // ═══════════════════════════════════════════════
-                            // REMAINING PHOTOS (5th+, Dating / Friends)
-                            // ═══════════════════════════════════════════════
-                            if (tab == 'Dating' || tab == 'Friends')
-                              ...normalPics.skip(4).map(
-                                    (pic) => Padding(
-                                      padding: const EdgeInsets.only(top: 20),
-                                      child: photoBlock(pic),
-                                    ),
-                                  ),
-
-                            // ═══════════════════════════════════════════════
-                            // SAFETY ACTIONS — Hide · Block · Report
-                            // ═══════════════════════════════════════════════
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
-                              child: Column(
-                                children: [
-                                  Divider(
-                                    color: Colors.white.withValues(alpha: 0.07),
-                                    height: 1,
-                                  ),
-                                  const SizedBox(height: 18),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      _safetyButton(
-                                        context: context,
-                                        icon: LucideIcons.eyeOff,
-                                        label: 'Hide',
-                                        color: Colors.white38,
-                                        onTap: () async {
-                                          Navigator.pop(context);
-                                          await _performAction(candidateId, 'hide');
-                                        },
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        height: 28,
-                                        margin: const EdgeInsets.symmetric(horizontal: 18),
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                      ),
-                                      _safetyButton(
-                                        context: context,
-                                        icon: LucideIcons.shieldOff,
-                                        label: 'Block',
-                                        color: Colors.orange,
-                                        onTap: () async {
-                                          final ok = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              backgroundColor: const Color(0xFF0F172A),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              title: const Text(
-                                                'Block user?',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              content: Text(
-                                                "$name will no longer appear in your discovery, and you'll disappear from theirs.",
-                                                style: const TextStyle(
-                                                  color: Colors.white54,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
-                                                  child: const Text(
-                                                    'Cancel',
-                                                    style: TextStyle(color: Colors.white38),
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: Colors.orange,
-                                                  ),
-                                                  child: const Text(
-                                                    'Block',
-                                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          if ((ok ?? false) && context.mounted) {
-                                            Navigator.pop(context);
-                                            await _performAction(candidateId, 'block');
-                                          }
-                                        },
-                                      ),
-                                      Container(
-                                        width: 1,
-                                        height: 28,
-                                        margin: const EdgeInsets.symmetric(horizontal: 18),
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                      ),
-                                      _safetyButton(
-                                        context: context,
-                                        icon: LucideIcons.flag,
-                                        label: 'Report',
-                                        color: Colors.redAccent,
-                                        onTap: () => _showReportDialog(context, candidateId),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 28),
-                          ],
-                        ),
-                      ),
-
-                      // ── Sticky action bar ──────────────────────────────────
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF090D1A),
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.06),
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Pass
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white54,
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.14),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _passNode(candidateId);
-                                },
-                                icon: const Icon(LucideIcons.x, size: 14),
-                                label: const Text(
-                                  'Pass',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Superlike
-                            Expanded(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _performAction(candidateId, 'superlike');
-                                  },
-                                  icon: const Icon(LucideIcons.star, size: 14),
-                                  label: const Text(
-                                    'Super',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Pull into Orbit
-                            Expanded(
-                              flex: 2,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      theme,
-                                      Color.lerp(theme, const Color(0xFF7C3AED), 0.42)!,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.withValues(alpha: 0.38),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _performAction(candidateId, 'like');
-                                  },
-                                  icon: const Icon(LucideIcons.heart, size: 14),
-                                  label: const Text(
-                                    'Pull into Orbit',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+              builder: (sheetCtx, scrollController) {
+                return ProfileDetailSheet(
+                  data: data,
+                  themeColor: theme,
+                  scrollController: scrollController,
+                  actionBar: _buildOrbitActionBar(sheetCtx, candidateId, theme),
+                  onHideTap: (ctx) async {
+                    Navigator.pop(ctx);
+                    await _performAction(candidateId, 'hide');
+                  },
+                  onBlockTap: (ctx) async {
+                    final ok = await showProfileBlockDialog(ctx, name);
+                    if ((ok ?? false) && ctx.mounted) {
+                      Navigator.pop(ctx);
+                      await _performAction(candidateId, 'block');
+                    }
+                  },
+                  onReportTap: (ctx) => showProfileReportDialog(
+                    ctx,
+                    onConfirmed: (reason, detail) async {
+                      Navigator.pop(ctx);
+                      await _performAction(candidateId, 'report',
+                          reason: reason, reasonDetail: detail);
+                    },
                   ),
                 );
               },
@@ -2206,6 +1031,128 @@ class _OrbitScreenState extends State<OrbitScreen>
       },
     );
   }
+
+  Widget _buildOrbitActionBar(
+    BuildContext context,
+    String candidateId,
+    Color theme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      decoration: BoxDecoration(
+        color: const Color(0xFF090D1A),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white54,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                _passNode(candidateId);
+              },
+              icon: const Icon(LucideIcons.x, size: 14),
+              label: const Text(
+                'Pass',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _performAction(candidateId, 'superlike');
+                },
+                icon: const Icon(LucideIcons.star, size: 14),
+                label: const Text(
+                  'Super',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme,
+                    Color.lerp(theme, const Color(0xFF7C3AED), 0.42)!,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.withValues(alpha: 0.38),
+                    blurRadius: 18,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _performAction(candidateId, 'like');
+                },
+                icon: const Icon(LucideIcons.heart, size: 14),
+                label: const Text(
+                  'Pull into Orbit',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Future<Map<String, dynamic>> _fetchNodeDetails(String candidateId) async {
     final session = Supabase.instance.client.auth.currentSession;
