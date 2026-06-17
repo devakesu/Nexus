@@ -8,7 +8,11 @@ from app.core.config import settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
 from app.db.client import DatabaseAccessError, ProfileDecodeError
-from app.db.exclusions import invalidate_block_cache, record_discovery_action
+from app.db.exclusions import (
+    invalidate_block_cache,
+    record_discovery_action,
+    record_user_report,
+)
 from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.sessions import fetch_discovery_node_detail, fetch_spatial_viewport
 from app.models import (
@@ -267,13 +271,24 @@ async def handle_discovery_action(
     user_id: str = Depends(get_authenticated_user_id),
 ):
     _ = request
-    await asyncio.to_thread(
-        record_discovery_action,
-        actor_id=user_id,
-        target_id=payload.target_id,
-        action=payload.action,
-        tab=payload.tab,
-    )
-    if payload.action in ("block", "unblock"):
+    if payload.action == "report":
+        await asyncio.to_thread(
+            record_user_report,
+            reporter_id=user_id,
+            target_id=payload.target_id,
+            reason=payload.reason or "other",
+            reason_detail=payload.reason_detail,
+            tab=payload.tab,
+        )
         await invalidate_block_cache(user_id, payload.target_id)
+    else:
+        await asyncio.to_thread(
+            record_discovery_action,
+            actor_id=user_id,
+            target_id=payload.target_id,
+            action=payload.action,
+            tab=payload.tab,
+        )
+        if payload.action in ("block", "unblock"):
+            await invalidate_block_cache(user_id, payload.target_id)
     return DiscoveryActionResponse(success=True)

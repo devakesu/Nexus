@@ -249,6 +249,64 @@ def record_discovery_action(
         raise DatabaseAccessError("Failed to record discovery action") from e
 
 
+def record_user_report(
+    reporter_id: str,
+    target_id: str,
+    reason: str,
+    reason_detail: str | None = None,
+    tab: DiscoveryTab | None = None,
+) -> None:
+    """
+    Insert a user report row and ensure a mutual block exists.
+    The block is created silently if one already exists (idempotent).
+    """
+    report_id: str | None = None
+    try:
+        report_payload: dict[str, Any] = {
+            "reporter_id": reporter_id,
+            "target_id": target_id,
+            "reason": reason,
+        }
+        if reason_detail:
+            report_payload["reason_detail"] = reason_detail.strip()
+        if tab is not None:
+            report_payload["tab"] = tab
+
+        res = (
+            supabase_client.table("user_reports")
+            .insert(report_payload)
+            .select("id")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        if rows and isinstance(rows[0], dict):
+            report_id = str(cast(dict[str, Any], rows[0]).get("id") or "")
+    except APIError as e:
+        logger.exception(
+            "Failed to insert user report",
+            extra={"reporter_id": reporter_id, "target_id": target_id},
+        )
+        raise DatabaseAccessError("Failed to insert user report") from e
+
+    # Ensure the reporter is blocked from seeing the target (and vice versa).
+    # Store report provenance in metadata for admin traceability.
+    # Silently skip if a block already exists (unique index violation).
+    block_metadata: dict[str, Any] = {"source": "report", "report_reason": reason}
+    if report_id:
+        block_metadata["report_id"] = report_id
+    try:
+        supabase_client.table("profile_discovery_actions").insert(
+            {
+                "actor_id": reporter_id,
+                "target_id": target_id,
+                "action": "block",
+                "metadata": block_metadata,
+            },
+        ).execute()
+    except APIError:
+        pass  # already blocked — that's fine
+
+
 def fetch_expired_pass_candidates(
     viewer_id: str,
     active_tab: DiscoveryTab,

@@ -398,12 +398,32 @@ class DiscoveryActionRequest(BaseModel):
         description="Discovery action or reversal action to apply.",
     )
 
-    # Tab is required for tab-scoped actions and forbidden for block/unblock.
+    # Tab is required for tab-scoped actions and forbidden for block/report/unblock.
     tab: DiscoveryTab | None = Field(
         default=None,
         description=(
-            "Required for tab-scoped actions; must be omitted for block/unblock."
+            "Required for tab-scoped actions; must be omitted for block/report/unblock."
         ),
+    )
+
+    # Report-specific fields — only valid when action == "report".
+    reason: Literal[
+        "scam",
+        "bot",
+        "harassment",
+        "inappropriate",
+        "spam",
+        "underage",
+        "other",
+    ] | None = Field(
+        default=None,
+        description="Reason code; required when action is report.",
+    )
+
+    reason_detail: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Free-text elaboration; required when reason is other.",
     )
 
     @model_validator(mode="after")
@@ -420,13 +440,19 @@ class DiscoveryActionRequest(BaseModel):
         }
 
         # Global actions must not include tab context.
-        tab_forbidden_actions = {"block", "unblock", "report"}
+        tab_forbidden_actions = {"block", "unblock"}
 
         if self.action in tab_required_actions and self.tab is None:
             raise ValueError("tab is required for this action")
 
         if self.action in tab_forbidden_actions and self.tab is not None:
             raise ValueError("tab must be omitted for block/unblock")
+
+        if self.action == "report":
+            if self.reason is None:
+                raise ValueError("reason is required for report")
+            if self.reason == "other" and not (self.reason_detail or "").strip():
+                raise ValueError("reason_detail is required when reason is other")
 
         return self
 

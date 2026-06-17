@@ -829,7 +829,146 @@ class _OrbitScreenState extends State<OrbitScreen>
     } on Exception catch (_) {}
   }
 
-  Future<void> _performAction(String candidateId, String actionType) async {
+  Future<void> _showReportDialog(BuildContext ctx, String candidateId) async {
+    String? selectedReason;
+    final otherCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          const reasons = [
+            ('scam', 'Scam or Fraud'),
+            ('bot', 'Bot / Fake Account'),
+            ('harassment', 'Harassment'),
+            ('inappropriate', 'Inappropriate Content'),
+            ('spam', 'Spam'),
+            ('underage', 'Underage User'),
+            ('other', 'Other'),
+          ];
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0F172A),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text(
+              'Report & Block',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Why are you reporting this profile?',
+                    style: TextStyle(color: Colors.white60, fontSize: 13),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: reasons.map(((String code, String label) r) {
+                      final selected = selectedReason == r.$1;
+                      return ChoiceChip(
+                        label: Text(r.$2),
+                        selected: selected,
+                        onSelected: (_) => setDialogState(() => selectedReason = r.$1),
+                        selectedColor: const Color(0xFFFF4F81),
+                        backgroundColor: const Color(0xFF1E293B),
+                        side: BorderSide(
+                          color: selected
+                              ? Colors.transparent
+                              : Colors.white.withValues(alpha: 0.1),
+                        ),
+                        labelStyle: TextStyle(
+                          color: selected ? Colors.white : Colors.white60,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        showCheckmark: false,
+                      );
+                    }).toList(),
+                  ),
+                  if (selectedReason == 'other') ...[
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: otherCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      maxLines: 3,
+                      maxLength: 200,
+                      decoration: InputDecoration(
+                        hintText: 'Describe the issue…',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        counterStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  const Text(
+                    'This profile will also be blocked.',
+                    style: TextStyle(color: Colors.white24, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx, false),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+              ),
+              ElevatedButton(
+                onPressed: selectedReason == null
+                    ? null
+                    : () => Navigator.pop(dialogCtx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF4F81),
+                  disabledBackgroundColor: Colors.white12,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+                child: const Text(
+                  'Report & Block',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if ((confirmed ?? false) && ctx.mounted) {
+      final detail = selectedReason == 'other' ? otherCtrl.text.trim() : null;
+      otherCtrl.dispose();
+      Navigator.pop(ctx);
+      await _performAction(
+        candidateId,
+        'report',
+        reason: selectedReason,
+        reasonDetail: detail?.isEmpty == true ? null : detail,
+      );
+    } else {
+      otherCtrl.dispose();
+    }
+  }
+
+  Future<void> _performAction(
+    String candidateId,
+    String actionType, {
+    String? reason,
+    String? reasonDetail,
+  }) async {
     // Remove immediately from local state so the node vanishes before the network round-trip.
     if (mounted) {
       setState(() => _nodes.removeWhere((n) => (n as Map)['id'] == candidateId));
@@ -840,11 +979,13 @@ class _OrbitScreenState extends State<OrbitScreen>
       if (session == null) return;
 
       final config = AppConfig.current;
-      final isGlobal = actionType == 'block' || actionType == 'report';
+      final omitTab = actionType == 'block' || actionType == 'unblock';
       final payload = <String, dynamic>{
         'target_id': candidateId,
         'action': actionType,
-        if (!isGlobal) 'tab': widget.tab,
+        if (!omitTab) 'tab': widget.tab,
+        'reason': ?reason,
+        'reason_detail': ?reasonDetail,
       };
 
       final response = await _dio.post<Map<String, dynamic>>(
@@ -1919,54 +2060,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                         icon: LucideIcons.flag,
                                         label: 'Report',
                                         color: Colors.redAccent,
-                                        onTap: () async {
-                                          final ok = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              backgroundColor: const Color(0xFF0F172A),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              title: const Text(
-                                                'Report profile?',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              content: const Text(
-                                                "We'll review this profile and take appropriate action. Thank you for keeping the community safe.",
-                                                style: TextStyle(
-                                                  color: Colors.white54,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
-                                                  child: const Text(
-                                                    'Cancel',
-                                                    style: TextStyle(color: Colors.white38),
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: Colors.redAccent,
-                                                  ),
-                                                  child: const Text(
-                                                    'Report',
-                                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                          if ((ok ?? false) && context.mounted) {
-                                            Navigator.pop(context);
-                                            await _performAction(candidateId, 'report');
-                                          }
-                                        },
+                                        onTap: () => _showReportDialog(context, candidateId),
                                       ),
                                     ],
                                   ),

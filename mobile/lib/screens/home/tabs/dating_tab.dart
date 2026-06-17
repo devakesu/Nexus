@@ -1152,7 +1152,7 @@ class _DatingTabState extends State<DatingTab>
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'Likes & Waves',
+                              'Likes',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -1724,7 +1724,7 @@ class _DatingTabState extends State<DatingTab>
                                       ),
                                       const SizedBox(height: 16),
                                       const Text(
-                                        'Likes & Waves',
+                                        'Likes',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w800,
