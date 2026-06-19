@@ -345,7 +345,8 @@ def get_profile_details(
             "lifestyle": profile.get("lifestyle"),
             "drinking": profile.get("drinking"),
             "smoking": profile.get("smoking"),
-            "role": profile.get("role"),
+            "role_at": profile.get("role_at"),
+            "role_type": profile.get("role_type") or [],
             "dating_target_buckets": profile.get("dating_target_buckets") or [],
             "dating_for": profile.get("dating_for") or [],
             "friends_target_buckets": profile.get("friends_target_buckets") or [],
@@ -367,9 +368,11 @@ def get_profile_details(
                 else (profile.get("normal_pics") or [])
             ),
             "ai_vibe_tags": profile.get("ai_vibe_tags") or [],
-            "is_dating_complete": bool(profile.get("is_dating_complete", False)),
-            "is_friends_complete": bool(profile.get("is_friends_complete", False)),
-            "is_professional_complete": bool(profile.get("is_professional_complete", False)),
+            "is_dating_active": bool(profile.get("is_dating_active", False)),
+            "is_friends_active": bool(profile.get("is_friends_active", False)),
+            "is_professional_active": bool(
+                profile.get("is_professional_active", False),
+            ),
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
@@ -411,7 +414,7 @@ def update_profile_details(  # noqa: C901
     scalar_fields = [
         "display_gender", "display_sexuality", "pronouns", "bio",
         "hometown", "current_place", "partner_values", "children_plans",
-        "religious_beliefs", "lifestyle", "drinking", "smoking", "role",
+        "religious_beliefs", "lifestyle", "drinking", "smoking", "role_at",
     ]
     for field in scalar_fields:
         val = getattr(payload, field, None)
@@ -422,8 +425,6 @@ def update_profile_details(  # noqa: C901
         update_data["drinking_blind_index"] = compute_blind_index(payload.drinking)
     if payload.smoking is not None:
         update_data["smoking_blind_index"] = compute_blind_index(payload.smoking)
-    if payload.role is not None:
-        update_data["role_blind_index"] = compute_blind_index(payload.role)
     if payload.children_plans is not None:
         update_data["children_plans_blind_index"] = compute_blind_index(payload.children_plans)
     if payload.religious_beliefs is not None:
@@ -431,7 +432,7 @@ def update_profile_details(  # noqa: C901
 
     array_fields = [
         "looking_for", "activities", "causes_supported",
-        "top_artists", "tech_skills", "languages", "pets",
+        "top_artists", "tech_skills", "languages", "pets", "role_type",
     ]
     for field in array_fields:
         val = getattr(payload, field, None)
@@ -443,8 +444,8 @@ def update_profile_details(  # noqa: C901
         if val is not None:
             update_data[field] = encrypt_to_hex(json.dumps(val))
 
-    if payload.is_dating_complete is not None:
-        if payload.is_dating_complete:
+    if payload.is_dating_active is not None:
+        if payload.is_dating_active:
             # Fetch current profile to validate all required fields
             profile_res = (
                 supabase_client.table("profiles")
@@ -540,12 +541,12 @@ def update_profile_details(  # noqa: C901
                         "missing_fields": missing,
                     },
                 )
-            update_data["is_dating_complete"] = True
+            update_data["is_dating_active"] = True
         else:
-            update_data["is_dating_complete"] = False
+            update_data["is_dating_active"] = False
 
-    if payload.is_friends_complete is not None:
-        if payload.is_friends_complete:
+    if payload.is_friends_active is not None:
+        if payload.is_friends_active:
             profile_res = (
                 supabase_client.table("profiles")
                 .select("*")
@@ -593,7 +594,10 @@ def update_profile_details(  # noqa: C901
             if not isinstance(val_friends_target_buckets, list) or len(cast(list[Any], val_friends_target_buckets)) < 1:
                 missing.append("friends_target_buckets")
             sub_count = (
-                sum(len(v) for v in val_sub_interests.values())
+                sum(
+                    len(v)
+                    for v in cast(dict[str, list[str]], val_sub_interests).values()
+                )
                 if isinstance(val_sub_interests, dict) else 0
             )
             if sub_count < 2:
@@ -606,12 +610,12 @@ def update_profile_details(  # noqa: C901
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"message": "Friends profile incomplete", "missing_fields": missing},
                 )
-            update_data["is_friends_complete"] = True
+            update_data["is_friends_active"] = True
         else:
-            update_data["is_friends_complete"] = False
+            update_data["is_friends_active"] = False
 
-    if payload.is_professional_complete is not None:
-        if payload.is_professional_complete:
+    if payload.is_professional_active is not None:
+        if payload.is_professional_active:
             profile_res = (
                 supabase_client.table("profiles")
                 .select("*")
@@ -668,9 +672,9 @@ def update_profile_details(  # noqa: C901
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail={"message": "Professional profile incomplete", "missing_fields": missing},
                 )
-            update_data["is_professional_complete"] = True
+            update_data["is_professional_active"] = True
         else:
-            update_data["is_professional_complete"] = False
+            update_data["is_professional_active"] = False
 
     if not update_data:
         return {"status": "success", "detail": "No fields to update."}

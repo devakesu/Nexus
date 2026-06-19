@@ -34,6 +34,8 @@ class _ProfessionalTabState extends State<ProfessionalTab>
   List<String> _professionalTargetBuckets = [];
   List<String> _lookingFor = [];
   List<String> _techSkills = [];
+  String _company = '';
+  List<String> _roleType = [];
   final Set<String> _savingFields = {};
 
   List<dynamic> _missingFields = [];
@@ -82,7 +84,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_professional_complete'] == true;
+            _isOrbitActive = data['is_professional_active'] == true;
 
             final rawBuckets = data['professional_target_buckets'];
             _professionalTargetBuckets = rawBuckets is List
@@ -95,6 +97,11 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             final rawTechSkills = data['tech_skills'];
             _techSkills = rawTechSkills is List
                 ? rawTechSkills.map((e) => e.toString()).toList()
+                : [];
+            _company = data['role_at']?.toString() ?? '';
+            final rawRoleType = data['role_type'];
+            _roleType = rawRoleType is List
+                ? rawRoleType.map((e) => e.toString()).toList()
                 : [];
 
             _isLoading = false;
@@ -137,7 +144,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_professional_complete'] == true;
+            _isOrbitActive = data['is_professional_active'] == true;
 
             final rawBuckets = data['professional_target_buckets'];
             _professionalTargetBuckets = rawBuckets is List
@@ -150,6 +157,11 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             final rawTechSkills = data['tech_skills'];
             _techSkills = rawTechSkills is List
                 ? rawTechSkills.map((e) => e.toString()).toList()
+                : [];
+            _company = data['role_at']?.toString() ?? '';
+            final rawRoleType2 = data['role_type'];
+            _roleType = rawRoleType2 is List
+                ? rawRoleType2.map((e) => e.toString()).toList()
                 : [];
           });
         }
@@ -201,6 +213,10 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             _lookingFor = List<String>.from(value as List);
           } else if (field == 'tech_skills') {
             _techSkills = List<String>.from(value as List);
+          } else if (field == 'role_at') {
+            _company = value as String;
+          } else if (field == 'role_type') {
+            _roleType = List<String>.from(value as List);
           }
         }
       });
@@ -217,7 +233,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         final dio = createDio();
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
-          data: {'is_professional_complete': active},
+          data: {'is_professional_active': active},
           options: Options(
             headers: {'Authorization': 'Bearer ${session.accessToken}'},
           ),
@@ -261,7 +277,11 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             });
 
             final profileFields = [
-              'name', 'age', 'interests', 'profile_pic', 'normal_pics',
+              'name',
+              'age',
+              'interests',
+              'profile_pic',
+              'normal_pics',
             ];
             final hasMissingProfileFields = _missingFields.any(
               (field) => profileFields.contains(field.toString()),
@@ -272,19 +292,12 @@ class _ProfessionalTabState extends State<ProfessionalTab>
               return;
             }
             unawaited(_showProfessionalSettingsOverlay(isActivating: true));
-            await Future<void>.delayed(const Duration(milliseconds: 350));
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFF00C4AB),
-                  content: Text(
-                    'Complete your Professional settings below to activate your orbit.',
-                  ),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            }
+            await Future<void>.delayed(const Duration(milliseconds: 380));
+            if (!mounted) return;
+            _showFloatingToast(
+              'Complete your Professional settings to activate your orbit.',
+              const Color(0xFF00C4AB),
+            );
             return;
           }
         }
@@ -337,11 +350,13 @@ class _ProfessionalTabState extends State<ProfessionalTab>
               ),
               const SizedBox(height: 16),
               ..._missingFields
-                  .where((f) => !const {
-                    'professional_target_buckets',
-                    'looking_for',
-                    'tech_skills',
-                  }.contains(f.toString()))
+                  .where(
+                    (f) => !const {
+                      'professional_target_buckets',
+                      'looking_for',
+                      'tech_skills',
+                    }.contains(f.toString()),
+                  )
                   .map((field) {
                     final fieldStr = field.toString();
                     String label;
@@ -418,6 +433,58 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     );
   }
 
+  void _showFloatingToast(String message, Color color) {
+    final overlay = Navigator.of(context).overlay;
+    if (overlay == null) return;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        top: MediaQuery.of(ctx).padding.top + 12,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.info, color: Colors.white, size: 17),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3)).then((_) {
+        if (entry.mounted) entry.remove();
+      }),
+    );
+  }
+
   Future<void> _showProfessionalSettingsOverlay({
     bool isActivating = false,
   }) async {
@@ -425,7 +492,32 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     final localBuckets = List<String>.from(_professionalTargetBuckets);
     final localLookingFor = List<String>.from(_lookingFor);
     final localTechSkills = List<String>.from(_techSkills);
+    final localRoleType = List<String>.from(_roleType);
     var skillsSearchQuery = '';
+    final companyController = TextEditingController(text: _company);
+    Timer? companyDebounce;
+
+    final predefinedRoleTypes = <String>[
+      'Founder',
+      'Co-founder',
+      'Engineer',
+      'Designer',
+      'Product Manager',
+      'Data Scientist',
+      'Researcher',
+      'Student',
+      'Investor',
+      'VC',
+      'Consultant',
+      'Manager',
+      'Marketing',
+      'Sales',
+      'Operations',
+      'Healthcare',
+      'Educator',
+      'Freelancer',
+      'Other',
+    ];
 
     final predefinedLookingFor = <String>[
       'Mentorship',
@@ -446,12 +538,36 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     ];
 
     final predefinedTechSkills = <String>[
-      'Flutter', 'React', 'Python', 'Swift', 'Kotlin', 'TypeScript',
-      'Node.js', 'Go', 'Rust', 'Java', 'C++', 'Machine Learning',
-      'Data Science', 'DevOps', 'Kubernetes', 'AWS', 'Firebase',
-      'GraphQL', 'PostgreSQL', 'MongoDB', 'Figma', 'UI/UX Design',
-      'Product Management', 'Agile', 'Blockchain', 'AR/VR',
-      'Cybersecurity', 'Cloud Architecture', 'Android', 'iOS',
+      'Flutter',
+      'React',
+      'Python',
+      'Swift',
+      'Kotlin',
+      'TypeScript',
+      'Node.js',
+      'Go',
+      'Rust',
+      'Java',
+      'C++',
+      'Machine Learning',
+      'Data Science',
+      'DevOps',
+      'Kubernetes',
+      'AWS',
+      'Firebase',
+      'GraphQL',
+      'PostgreSQL',
+      'MongoDB',
+      'Figma',
+      'UI/UX Design',
+      'Product Management',
+      'Agile',
+      'Blockchain',
+      'AR/VR',
+      'Cybersecurity',
+      'Cloud Architecture',
+      'Android',
+      'iOS',
     ];
 
     await showModalBottomSheet<void>(
@@ -463,9 +579,9 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           builder: (context, setModalState) {
             final filteredSkills = predefinedTechSkills
                 .where(
-                  (val) => val
-                      .toLowerCase()
-                      .contains(skillsSearchQuery.toLowerCase()),
+                  (val) => val.toLowerCase().contains(
+                    skillsSearchQuery.toLowerCase(),
+                  ),
                 )
                 .where((val) => !localTechSkills.contains(val))
                 .toList();
@@ -541,6 +657,17 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                             ),
                           ),
                           onPressed: () async {
+                            companyDebounce?.cancel();
+                            final pendingCompany = companyController.text.trim();
+                            if (pendingCompany != _company) {
+                              unawaited(
+                                _saveProfessionalField(
+                                  'role_at',
+                                  pendingCompany,
+                                  setModalState,
+                                ),
+                              );
+                            }
                             Navigator.pop(context);
                             if (isActivating) {
                               await _toggleOrbitState(true);
@@ -612,8 +739,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                 {'code': 'Open', 'label': 'Open to all'},
                               ].map((item) {
                                 final code = item['code']!;
-                                final isSelected =
-                                    localBuckets.contains(code);
+                                final isSelected = localBuckets.contains(code);
                                 return FilterChip(
                                   label: Text(item['label']!),
                                   selected: isSelected,
@@ -654,6 +780,196 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                   },
                                 );
                               }).toList(),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Role Type
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'What best describes your role?',
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (_savingFields.contains('role_type'))
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF00C4AB),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Select all that apply.',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: predefinedRoleTypes.map((item) {
+                            final isSelected = localRoleType.contains(item);
+                            return FilterChip(
+                              label: Text(item),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFF00C4AB),
+                              backgroundColor: Colors.black.withValues(
+                                alpha: 0.04,
+                              ),
+                              checkmarkColor: Colors.white,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              onSelected: (selected) async {
+                                if (_savingFields.contains('role_type')) {
+                                  return;
+                                }
+                                setModalState(() {
+                                  if (selected) {
+                                    localRoleType.add(item);
+                                  } else {
+                                    localRoleType.remove(item);
+                                  }
+                                });
+                                await _saveProfessionalField(
+                                  'role_type',
+                                  localRoleType,
+                                  setModalState,
+                                );
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Company / Institute
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Company / Institute',
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (_savingFields.contains('role_at'))
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF00C4AB),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Leave blank if not applicable — this is optional.',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: companyController,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Google, MIT, Acme Corp',
+                            hintStyle: TextStyle(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              fontSize: 13,
+                            ),
+                            prefixIcon: const Icon(
+                              LucideIcons.briefcase,
+                              size: 18,
+                              color: Color(0xFF00C4AB),
+                            ),
+                            filled: true,
+                            fillColor: Colors.black.withValues(alpha: 0.04),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00C4AB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          textInputAction: TextInputAction.done,
+                          onChanged: (val) {
+                            companyDebounce?.cancel();
+                            companyDebounce = Timer(
+                              const Duration(milliseconds: 800),
+                              () {
+                                if (val.trim() != _company) {
+                                  unawaited(
+                                    _saveProfessionalField(
+                                      'role_at',
+                                      val.trim(),
+                                      setModalState,
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                          onSubmitted: (val) {
+                            companyDebounce?.cancel();
+                            if (val.trim() != _company) {
+                              unawaited(
+                                _saveProfessionalField(
+                                  'role_at',
+                                  val.trim(),
+                                  setModalState,
+                                ),
+                              );
+                            }
+                          },
                         ),
                         const SizedBox(height: 32),
 
@@ -950,6 +1266,12 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           },
         );
       },
+    );
+    companyDebounce?.cancel();
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 350)).then((_) {
+        companyController.dispose();
+      }),
     );
   }
 
@@ -1505,10 +1827,8 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                             itemCount: _handshakeItems.length,
                             itemBuilder: (ctx, index) {
                               final item = _handshakeItems[index];
-                              final actorId =
-                                  item['actor_id'] as String? ?? '';
-                              final name =
-                                  item['name'] as String? ?? 'Unknown';
+                              final actorId = item['actor_id'] as String? ?? '';
+                              final name = item['name'] as String? ?? 'Unknown';
                               final age = item['age'];
                               final profilePic =
                                   item['profile_pic'] as String? ?? '';
@@ -1745,8 +2065,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                             ),
                           )
                         : ListView.separated(
-                            padding:
-                                const EdgeInsets.fromLTRB(24, 4, 12, 32),
+                            padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
                             itemCount: _connections.length,
                             separatorBuilder: (_, __) =>
                                 Divider(color: Colors.white.withAlpha(12)),
@@ -1761,8 +2080,9 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                               final profilePic =
                                   connection['profile_pic'] as String?;
                               final isNew = connection['is_new'] == true;
-                              final displayName =
-                                  age != null ? '$name, $age' : name;
+                              final displayName = age != null
+                                  ? '$name, $age'
+                                  : name;
 
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -1788,8 +2108,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                                 imagePath: profilePic,
                                               )
                                             : ColoredBox(
-                                                color:
-                                                    themeColor.withAlpha(30),
+                                                color: themeColor.withAlpha(30),
                                                 child: Center(
                                                   child: Icon(
                                                     LucideIcons.user,
@@ -1887,64 +2206,62 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Disconnect',
                                           onPressed: () async {
-                                            final ok =
-                                                await showDialog<bool>(
-                                                  context: sheetCtx,
-                                                  builder: (d) => AlertDialog(
-                                                    backgroundColor:
-                                                        const Color(
-                                                          0xFF1E293B,
+                                            final ok = await showDialog<bool>(
+                                              context: sheetCtx,
+                                              builder: (d) => AlertDialog(
+                                                backgroundColor: const Color(
+                                                  0xFF1E293B,
+                                                ),
+                                                title: Text(
+                                                  'Disconnect from $name?',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 17,
+                                                  ),
+                                                ),
+                                                content: Text(
+                                                  "You won't see each other for some time.",
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withAlpha(160),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          d,
+                                                          false,
                                                         ),
-                                                    title: Text(
-                                                      'Disconnect from $name?',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 17,
-                                                      ),
-                                                    ),
-                                                    content: Text(
-                                                      "You won't see each other for some time.",
+                                                    child: Text(
+                                                      'Cancel',
                                                       style: TextStyle(
                                                         color: Colors.white
-                                                            .withAlpha(160),
-                                                        fontSize: 14,
+                                                            .withAlpha(
+                                                              160,
+                                                            ),
                                                       ),
                                                     ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              d,
-                                                              false,
-                                                            ),
-                                                        child: Text(
-                                                          'Cancel',
-                                                          style: TextStyle(
-                                                            color: Colors.white
-                                                                .withAlpha(
-                                                                  160,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              d,
-                                                              true,
-                                                            ),
-                                                        child: const Text(
-                                                          'Disconnect',
-                                                          style: TextStyle(
-                                                            color: themeColor,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
                                                   ),
-                                                );
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          d,
+                                                          true,
+                                                        ),
+                                                    child: const Text(
+                                                      'Disconnect',
+                                                      style: TextStyle(
+                                                        color: themeColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
                                             if ((ok ?? false) &&
                                                 session != null) {
                                               await _recordConnectionAction(
@@ -1997,7 +2314,9 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                                           reason: reason,
                                                           reasonDetail: detail,
                                                         );
-                                                        removeConnection(userId);
+                                                        removeConnection(
+                                                          userId,
+                                                        );
                                                       },
                                                 ),
                                               );
@@ -2121,8 +2440,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                               const SizedBox(width: 16),
                               const Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Open your Professional Orbit',
@@ -2171,8 +2489,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                             .toInt(),
                                       ),
                                       blurRadius: 16,
-                                      spreadRadius:
-                                          _pulseController.value * 2,
+                                      spreadRadius: _pulseController.value * 2,
                                     ),
                                   ],
                                 ),
@@ -2316,8 +2633,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                       ),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withAlpha(25),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         '${_connections.length} ACTIVE',

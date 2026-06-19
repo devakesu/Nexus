@@ -83,7 +83,7 @@ class _FriendsTabState extends State<FriendsTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_friends_complete'] == true;
+            _isOrbitActive = data['is_friends_active'] == true;
 
             final rawBuckets = data['friends_target_buckets'];
             _friendsTargetBuckets = rawBuckets is List
@@ -150,7 +150,7 @@ class _FriendsTabState extends State<FriendsTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_friends_complete'] == true;
+            _isOrbitActive = data['is_friends_active'] == true;
 
             final rawBuckets = data['friends_target_buckets'];
             _friendsTargetBuckets = rawBuckets is List
@@ -245,7 +245,7 @@ class _FriendsTabState extends State<FriendsTab>
         final dio = createDio();
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
-          data: {'is_friends_complete': active},
+          data: {'is_friends_active': active},
           options: Options(
             headers: {'Authorization': 'Bearer ${session.accessToken}'},
           ),
@@ -300,19 +300,12 @@ class _FriendsTabState extends State<FriendsTab>
               return;
             }
             unawaited(_showFriendsSettingsOverlay(isActivating: true));
-            await Future<void>.delayed(const Duration(milliseconds: 350));
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFFFF9F1C),
-                  content: Text(
-                    'Complete your Friends settings below to activate your orbit.',
-                  ),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            }
+            await Future<void>.delayed(const Duration(milliseconds: 380));
+            if (!mounted) return;
+            _showFloatingToast(
+              'Complete your Friends settings to activate your orbit.',
+              const Color(0xFFFF9F1C),
+            );
             return;
           }
         }

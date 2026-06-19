@@ -97,6 +97,25 @@ temp/
 .infisical.json
 .certificates/
 app/api/dev_temp.py
+.github/prompts
+.agent*
+.claude
+.codebuddy
+.codex
+.continue
+.cursor
+.gemini
+.kris
+.mem
+.aider
+.aiderignore
+.cursorignore
+.trae
+.opencode
+.qoder
+.roo
+.windsurf
+.kiro
 
 # ==========================================
 # 9. Flutter & Mobile Monorepo Architecture

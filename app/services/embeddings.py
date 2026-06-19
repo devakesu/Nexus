@@ -64,7 +64,7 @@ def generate_nexus_intent_embeddings(
 
     campus_branch: str = (profile.get("campus_branch") or "B.Tech.").strip()
     campus_year: int | str = profile.get("campus_year") or 1
-    role: str = (profile.get("role") or "").strip()
+    role: str = (profile.get("role_at") or "").strip()
 
     display_gender: str = (profile.get("display_gender") or "").strip()
     pronouns: str = (profile.get("pronouns") or "").strip()

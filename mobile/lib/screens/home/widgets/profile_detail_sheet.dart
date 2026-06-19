@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/screens/home/widgets/interests_overlay.dart';
 
 // ---------------------------------------------------------------------------
 // Shared profile detail sheet — used by OrbitScreen and the Likes inbox.
@@ -23,22 +24,24 @@ class ProfileDetailSheet extends StatelessWidget {
     required this.data,
     required this.themeColor,
     required this.scrollController,
-    required this.actionBar,
-    required this.onHideTap,
-    required this.onBlockTap,
-    required this.onReportTap,
+    this.actionBar,
+    this.onHideTap,
+    this.onBlockTap,
+    this.onReportTap,
     this.showScoreBadge = true,
+    this.showSafetyActions = true,
     super.key,
   });
 
   final Map<String, dynamic> data;
   final Color themeColor;
   final ScrollController scrollController;
-  final Widget actionBar;
-  final SheetSafetyCallback onHideTap;
-  final SheetSafetyCallback onBlockTap;
-  final SheetSafetyCallback onReportTap;
+  final Widget? actionBar;
+  final SheetSafetyCallback? onHideTap;
+  final SheetSafetyCallback? onBlockTap;
+  final SheetSafetyCallback? onReportTap;
   final bool showScoreBadge;
+  final bool showSafetyActions;
 
   // ── Data helpers ───────────────────────────────────────────────────────────
 
@@ -88,7 +91,8 @@ class ProfileDetailSheet extends StatelessWidget {
     final campusBranch = _str(data, 'campus_branch');
     final campusYear = data['campus_year'];
     final campusName = _str(data, 'campus_name');
-    final role = _str(data, 'role');
+    final role = _str(data, 'role_at');
+    final roleType = _strList(data, 'role_type');
     final drinking = _str(data, 'drinking');
     final smoking = _str(data, 'smoking');
     final lifestyle = _str(data, 'lifestyle');
@@ -102,12 +106,7 @@ class ProfileDetailSheet extends StatelessWidget {
     final subInterests = data['sub_interests'] is Map
         ? Map<String, dynamic>.from(data['sub_interests'] as Map)
         : <String, dynamic>{};
-    final interestKeys = interests.keys.toList();
-    final subInterestTags = subInterests.values
-        .expand((v) => v is List ? v.cast<String>() : <String>[])
-        .toList();
-
-    final aiVibeTags = _strList(data, 'ai_vibe_tags');
+    final interestKeys = interests.keys.toSet();
     final activities = _strList(data, 'activities');
     final languages = _strList(data, 'languages');
     final pets = _strList(data, 'pets');
@@ -609,7 +608,8 @@ class ProfileDetailSheet extends StatelessWidget {
                 if (campusBranch.isNotEmpty ||
                     campusYear != null ||
                     campusName.isNotEmpty ||
-                    role.isNotEmpty) ...[
+                    role.isNotEmpty ||
+                    roleType.isNotEmpty) ...[
                   sectionLabel('Background', emoji: '🎓'),
                   if (campusBranch.isNotEmpty ||
                       campusYear != null ||
@@ -622,7 +622,83 @@ class ProfileDetailSheet extends StatelessWidget {
                         if (campusName.isNotEmpty) campusName,
                       ].where((s) => s.isNotEmpty).join(' · '),
                     ),
-                  if (role.isNotEmpty) emojiInfoRow('💼', role),
+                  if (roleType.isNotEmpty || role.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                '💼',
+                                style: TextStyle(fontSize: 17),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (roleType.isNotEmpty)
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: roleType
+                                        .map(
+                                          (type) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 9,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.15,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              type,
+                                              style: const TextStyle(
+                                                color: Colors.white60,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.2,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                if (role.isNotEmpty) ...[
+                                  if (roleType.isNotEmpty)
+                                    const SizedBox(height: 5),
+                                  Text(
+                                    role,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
 
                 // ═══════════════════════════════════════════════════════════
@@ -645,53 +721,138 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // AI VIBE TAGS
+                // INTERESTS — organized by category (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
-                if (aiVibeTags.isNotEmpty) ...[
-                  sectionLabel('Vibe', icon: LucideIcons.sparkles),
-                  chipWrap(aiVibeTags),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // INTERESTS + SUB-INTERESTS
-                // ═══════════════════════════════════════════════════════════
-                if (interestKeys.isNotEmpty) ...[
+                if (tab != 'Professional' && interestKeys.isNotEmpty) ...[
                   sectionLabel('Interests', emoji: '✨'),
-                  chipWrap(interestKeys, useEmoji: true),
-                ],
-                if (subInterestTags.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: subInterestTags.map((tag) {
-                        final emoji = getEmojiForTag(tag);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 5,
+                  ...interestsCategories
+                      .where(
+                        (cat) => cat.parents.any(
+                          (p) => interestKeys.contains(p.name),
+                        ),
+                      )
+                      .map((cat) {
+                    final matchedParents = cat.parents
+                        .where((p) => interestKeys.contains(p.name))
+                        .toList();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category rule header
+                          Row(
+                            children: [
+                              Icon(
+                                cat.icon,
+                                size: 12,
+                                color: theme.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cat.name.toUpperCase(),
+                                style: TextStyle(
+                                  color: theme.withValues(alpha: 0.6),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: theme.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.09),
-                            ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            children: matchedParents.map((parent) {
+                              final subs = subInterests[parent.name] is List
+                                  ? List<String>.from(
+                                      subInterests[parent.name] as List,
+                                    )
+                                  : <String>[];
+                              final parentEmoji = getEmojiForTag(parent.name);
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  right: 12,
+                                  bottom: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Parent chip — solid fill, no border
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 11,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.withValues(alpha: 0.14),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        parentEmoji.isNotEmpty
+                                            ? '$parentEmoji ${parent.name}'
+                                            : parent.name,
+                                        style: TextStyle(
+                                          color: theme.withValues(alpha: 0.95),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    if (subs.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Wrap(
+                                        spacing: 5,
+                                        runSpacing: 5,
+                                        children: subs.map((sub) {
+                                          final emoji = getEmojiForTag(sub);
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 9,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.07,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              emoji.isNotEmpty
+                                                  ? '$emoji $sub'
+                                                  : sub,
+                                              style: const TextStyle(
+                                                color: Colors.white60,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
-                          child: Text(
-                            emoji.isNotEmpty ? '$emoji $tag' : tag,
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
 
                 // PHOTO BREAK 2
@@ -702,9 +863,9 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // CAUSES
+                // CAUSES (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
-                if (causesSupported.isNotEmpty) ...[
+                if (tab != 'Professional' && causesSupported.isNotEmpty) ...[
                   sectionLabel('Cares about', emoji: '🌍'),
                   chipWrap(
                     causesSupported,
@@ -777,9 +938,9 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // LANGUAGES
+                // LANGUAGES (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
-                if (languages.isNotEmpty) ...[
+                if (tab != 'Professional' && languages.isNotEmpty) ...[
                   sectionLabel('Speaks', emoji: '🗣️'),
                   chipWrap(
                     languages,
@@ -820,17 +981,10 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // PROFESSIONAL: Activities + Open to + Tech stack
+                // PROFESSIONAL: Open to · Tech stack · Activities ·
+                //               Speaks · Interests · Cares about
                 // ═══════════════════════════════════════════════════════════
                 if (tab == 'Professional') ...[
-                  if (activities.isNotEmpty) ...[
-                    sectionLabel('Into', icon: LucideIcons.activity),
-                    chipWrap(
-                      activities,
-                      accent: Colors.white,
-                      labelColor: Colors.white60,
-                    ),
-                  ],
                   if (lookingForLabels.isNotEmpty) ...[
                     sectionLabel('Open to', emoji: '🤝'),
                     chipWrap(lookingForLabels),
@@ -841,6 +995,167 @@ class ProfileDetailSheet extends StatelessWidget {
                       techSkills,
                       accent: Colors.cyanAccent,
                       labelColor: Colors.cyanAccent,
+                    ),
+                  ],
+                  if (activities.isNotEmpty) ...[
+                    sectionLabel('Activities', icon: LucideIcons.activity),
+                    chipWrap(
+                      activities,
+                      accent: Colors.white,
+                      labelColor: Colors.white60,
+                    ),
+                  ],
+                  if (languages.isNotEmpty) ...[
+                    sectionLabel('Speaks', emoji: '🗣️'),
+                    chipWrap(
+                      languages,
+                      accent: Colors.white,
+                      labelColor: Colors.white60,
+                      useEmoji: true,
+                    ),
+                  ],
+                  if (interestKeys.isNotEmpty) ...[
+                    sectionLabel('Interests', emoji: '✨'),
+                    ...interestsCategories
+                        .where(
+                          (cat) => cat.parents.any(
+                            (p) => interestKeys.contains(p.name),
+                          ),
+                        )
+                        .map((cat) {
+                      final matchedParents = cat.parents
+                          .where((p) => interestKeys.contains(p.name))
+                          .toList();
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  cat.icon,
+                                  size: 12,
+                                  color: theme.withValues(alpha: 0.6),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  cat.name.toUpperCase(),
+                                  style: TextStyle(
+                                    color: theme.withValues(alpha: 0.6),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: theme.withValues(alpha: 0.1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              children: matchedParents.map((parent) {
+                                final subs =
+                                    subInterests[parent.name] is List
+                                        ? List<String>.from(
+                                            subInterests[parent.name] as List,
+                                          )
+                                        : <String>[];
+                                final parentEmoji =
+                                    getEmojiForTag(parent.name);
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 12,
+                                    bottom: 10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 11,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              theme.withValues(alpha: 0.14),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          parentEmoji.isNotEmpty
+                                              ? '$parentEmoji ${parent.name}'
+                                              : parent.name,
+                                          style: TextStyle(
+                                            color:
+                                                theme.withValues(alpha: 0.95),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      if (subs.isNotEmpty) ...[
+                                        const SizedBox(height: 5),
+                                        Wrap(
+                                          spacing: 5,
+                                          runSpacing: 5,
+                                          children: subs.map((sub) {
+                                            final emoji =
+                                                getEmojiForTag(sub);
+                                            return Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 9,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.07),
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                border: Border.all(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.12),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                emoji.isNotEmpty
+                                                    ? '$emoji $sub'
+                                                    : sub,
+                                                style: const TextStyle(
+                                                  color: Colors.white60,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  if (causesSupported.isNotEmpty) ...[
+                    sectionLabel('Cares about', emoji: '🌍'),
+                    chipWrap(
+                      causesSupported,
+                      accent: const Color(0xFF34D399),
+                      labelColor: const Color(0xFF6EE7B7),
+                      useEmoji: true,
                     ),
                   ],
                 ],
@@ -857,44 +1172,48 @@ class ProfileDetailSheet extends StatelessWidget {
                 // ═══════════════════════════════════════════════════════════
                 // SAFETY ACTIONS — Hide · Block · Report
                 // ═══════════════════════════════════════════════════════════
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
-                  child: Column(
-                    children: [
-                      Divider(
-                        color: Colors.white.withValues(alpha: 0.07),
-                        height: 1,
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          safetyBtn(
-                            icon: LucideIcons.eyeOff,
-                            label: 'Hide',
-                            color: Colors.white38,
-                            callback: onHideTap,
-                          ),
-                          divider(),
-                          safetyBtn(
-                            icon: LucideIcons.shieldOff,
-                            label: 'Block',
-                            color: Colors.orange,
-                            callback: onBlockTap,
-                          ),
-                          divider(),
-                          safetyBtn(
-                            icon: LucideIcons.flag,
-                            label: 'Report',
-                            color: Colors.redAccent,
-                            callback: onReportTap,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                if (showSafetyActions &&
+                    onHideTap != null &&
+                    onBlockTap != null &&
+                    onReportTap != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+                    child: Column(
+                      children: [
+                        Divider(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          height: 1,
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            safetyBtn(
+                              icon: LucideIcons.eyeOff,
+                              label: 'Hide',
+                              color: Colors.white38,
+                              callback: onHideTap!,
+                            ),
+                            divider(),
+                            safetyBtn(
+                              icon: LucideIcons.shieldOff,
+                              label: 'Block',
+                              color: Colors.orange,
+                              callback: onBlockTap!,
+                            ),
+                            divider(),
+                            safetyBtn(
+                              icon: LucideIcons.flag,
+                              label: 'Report',
+                              color: Colors.redAccent,
+                              callback: onReportTap!,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 28),
               ],
@@ -902,16 +1221,7 @@ class ProfileDetailSheet extends StatelessWidget {
           ),
 
           // ── Sticky action bar ──────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            decoration: BoxDecoration(
-              color: const Color(0xFF090D1A),
-              border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-              ),
-            ),
-            child: actionBar,
-          ),
+          if (actionBar case final bar?) bar,
         ],
       ),
     );

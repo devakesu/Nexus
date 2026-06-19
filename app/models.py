@@ -46,7 +46,7 @@ class ProfileModel(BaseModel):
     pronouns: str | None = None
     drinking: str | None = None
     smoking: str | None = None
-    role: str | None = None
+    role_at: str | None = None
     hometown: str | None = None
     current_place: str | None = None
     partner_values: str | None = None
@@ -256,12 +256,6 @@ class DiscoveryFilters(BaseModel):
         default=None,
         description="Target engineering branch categories.",
     )
-    role: str | None = Field(
-        default=None,
-        max_length=100,
-        description="Target professional role designation.",
-    )
-
     # DB-level blind index filters (new columns)
     children_plans: list[str] | None = Field(
         default=None,
@@ -291,6 +285,10 @@ class DiscoveryFilters(BaseModel):
         default=None,
         description="Flat list of sub-interest values; candidate must have at least one.",
     )
+    role_type: list[str] | None = Field(
+        default=None,
+        description="Professional tab: candidate role_type must overlap.",
+    )
     looking_for: list[str] | None = Field(
         default=None,
         description="Professional tab: candidate looking_for must overlap.",
@@ -313,13 +311,6 @@ class DiscoveryFilters(BaseModel):
         default=None,
         description="Names of filter fields to enforce as strict dealbreakers.",
     )
-
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        return value.strip().lower()
 
     # Inclusive age bounds.
     # Upper bound is 80 to support the main variant's wider age range.
@@ -515,7 +506,7 @@ class OrbitNodeDetailBaseOut(BaseModel):
     campus_branch: str | None = None
     campus_year: int | None = None
     campus_name: str | None = None
-    role: str | None = None
+    role_at: str | None = None
 
     score: float = 0.0
     x: float = 0.0
@@ -774,7 +765,8 @@ class ProfileDetailsUpdate(BaseModel):
     lifestyle: str | None = None
     drinking: str | None = None
     smoking: str | None = None
-    role: str | None = None
+    role_at: str | None = None
+    role_type: list[str] | None = None
     dating_target_buckets: list[str] | None = None
     dating_for: list[str] | None = None
     friends_target_buckets: list[str] | None = None
@@ -788,6 +780,6 @@ class ProfileDetailsUpdate(BaseModel):
     pets: list[str] | None = None
     interests: dict[str, int] | None = None
     sub_interests: dict[str, list[str]] | None = None
-    is_dating_complete: bool | None = None
-    is_friends_complete: bool | None = None
-    is_professional_complete: bool | None = None
+    is_dating_active: bool | None = None
+    is_friends_active: bool | None = None
+    is_professional_active: bool | None = None

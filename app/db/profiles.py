@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
     if active_tab == "Dating":
-        return "is_dating_complete"
+        return "is_dating_active"
     if active_tab == "Friends":
-        return "is_friends_complete"
+        return "is_friends_active"
     if active_tab == "Professional":
-        return "is_professional_complete"
+        return "is_professional_active"
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
@@ -134,7 +134,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "lifestyle",
         "drinking",
         "smoking",
-        "role",
+        "role_at",
         "profile_pic",
     ]
     for field in scalar_fields:
@@ -146,6 +146,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "causes_supported",
         "top_artists",
         "tech_skills",
+        "role_type",
         "languages",
         "ai_vibe_tags",
         "pets",
@@ -205,6 +206,21 @@ def _fetch_and_decrypt_viewer(
     return decrypt_profile_record(viewer)
 
 
+def _apply_blind_index_filters(query: Any, filters: DiscoveryFilters) -> Any:
+    """Apply all encrypted single-value IN filters using blind indexes."""
+    blind_fields: list[tuple[list[str] | None, str]] = [
+        (filters.drinking, "drinking_blind_index"),
+        (filters.smoking, "smoking_blind_index"),
+        (filters.campus_branches, "campus_branch_blind_index"),
+        (filters.children_plans, "children_plans_blind_index"),
+        (filters.religious_beliefs, "religious_beliefs_blind_index"),
+    ]
+    for values, column in blind_fields:
+        if values:
+            query = query.in_(column, [compute_blind_index(v) for v in values])
+    return query
+
+
 def _build_candidate_query(
     viewer_id: str,
     active_tab: DiscoveryTab,
@@ -220,34 +236,7 @@ def _build_candidate_query(
 
     if filters.campus_years:
         query = query.in_("campus_year", filters.campus_years)
-    if filters.drinking:
-        query = query.in_(
-            "drinking_blind_index",
-            [compute_blind_index(d) for d in filters.drinking],
-        )
-    if filters.smoking:
-        query = query.in_(
-            "smoking_blind_index",
-            [compute_blind_index(s) for s in filters.smoking],
-        )
-    if filters.campus_branches:
-        query = query.in_(
-            "campus_branch_blind_index",
-            [compute_blind_index(b) for b in filters.campus_branches],
-        )
-    if filters.role:
-        query = query.eq("role_blind_index", compute_blind_index(filters.role))
-
-    if filters.children_plans:
-        query = query.in_(
-            "children_plans_blind_index",
-            [compute_blind_index(v) for v in filters.children_plans],
-        )
-    if filters.religious_beliefs:
-        query = query.in_(
-            "religious_beliefs_blind_index",
-            [compute_blind_index(v) for v in filters.religious_beliefs],
-        )
+    query = _apply_blind_index_filters(query, filters)
     dealbreakers = filters.dealbreaker_fields or []
     if filters.dating_for and "dating_for" in dealbreakers:
         query = query.overlaps("dating_for", filters.dating_for)
@@ -333,6 +322,7 @@ def _filter_candidate_matches(
 _POST_FETCH_FIELDS: frozenset[str] = frozenset({
     "languages",
     "sub_interests",
+    "role_type",
     "looking_for",
     "causes_supported",
     "tech_skills",
@@ -361,6 +351,10 @@ def _apply_post_fetch_filters(
             flat: list[str] = [v for vs in sub_raw.values() for v in vs]
             if not list_overlap(flat, filters.sub_interests):
                 continue
+        if filters.role_type and not list_overlap(
+            c.get("role_type") or [], filters.role_type
+        ):
+            continue
         if filters.looking_for and not list_overlap(
             c.get("looking_for") or [], filters.looking_for
         ):

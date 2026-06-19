@@ -660,7 +660,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         if (lifestyle != null) payload['lifestyle'] = lifestyle;
         if (drinking != null) payload['drinking'] = drinking;
         if (smoking != null) payload['smoking'] = smoking;
-        if (role != null) payload['role'] = role;
+        if (role != null) payload['role_at'] = role;
         if (targetBuckets != null) payload['target_buckets'] = targetBuckets;
         if (lookingFor != null) payload['looking_for'] = lookingFor;
         if (activities != null) payload['activities'] = activities;

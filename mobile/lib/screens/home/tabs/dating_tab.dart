@@ -89,7 +89,7 @@ class _DatingTabState extends State<DatingTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_dating_complete'] == true;
+            _isOrbitActive = data['is_dating_active'] == true;
 
             final rawBuckets = data['dating_target_buckets'];
             _datingTargetBuckets = rawBuckets is List
@@ -149,7 +149,7 @@ class _DatingTabState extends State<DatingTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_dating_complete'] == true;
+            _isOrbitActive = data['is_dating_active'] == true;
 
             final rawBuckets = data['dating_target_buckets'];
             _datingTargetBuckets = rawBuckets is List
@@ -220,7 +220,7 @@ class _DatingTabState extends State<DatingTab>
     }
   }
 
-  // Toggle Orbit activation state (patching is_dating_complete)
+  // Toggle Orbit activation state (patching is_dating_active)
   Future<void> _toggleOrbitState(bool active) async {
     setState(() => _isLoading = true);
     try {
@@ -230,7 +230,7 @@ class _DatingTabState extends State<DatingTab>
         final dio = createDio();
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
-          data: {'is_dating_complete': active},
+          data: {'is_dating_active': active},
           options: Options(
             headers: {'Authorization': 'Bearer ${session.accessToken}'},
           ),

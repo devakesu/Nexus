@@ -43,6 +43,24 @@ def coerce_float(value: Any, default: float = 0.0) -> float:
     return default
 
 
+# Minimum and maximum radial distances per tier.
+# Non-overlapping: _TIER_MAX_RADII[N] < _TIER_MIN_RADII[N+1] so that a
+# higher-scored (inner) tier node can never appear visually farther than
+# any lower-scored (outer) tier node after collision drift.
+_TIER_MIN_RADII: dict[int, float] = {
+    0: 40.0,
+    1: 155.0,
+    2: 265.0,
+    3: 375.0,
+}
+_TIER_MAX_RADII: dict[int, float] = {
+    0: 148.0,
+    1: 258.0,
+    2: 368.0,
+    3: 680.0,
+}
+
+
 def build_tab_aware_orbit_node_detail(
     session_tab: DiscoveryTab,
     payload: dict[str, Any],
@@ -58,7 +76,7 @@ def build_tab_aware_orbit_node_detail(
         "campus_branch": payload.get("campus_branch"),
         "campus_year": payload.get("campus_year"),
         "campus_name": payload.get("campus_name"),
-        "role": payload.get("role"),
+        "role_at": payload.get("role_at"),
         "score": coerce_score(payload.get("score")),
         "x": coerce_float(payload.get("x")),
         "y": coerce_float(payload.get("y")),
@@ -256,33 +274,27 @@ def _resolve_pair_collision(
 
 def _reclamp_nodes_to_tier_bands(
     positioned_items: list[dict[str, Any]],
-    tier_radii: dict[int, float],
 ) -> None:
-    """Re-project nodes that drifted outside their tier's radial band back into it.
+    """Enforce the minimum radial distance for each tier after collision resolution.
 
-    Bands are defined to be strictly non-overlapping so that a higher-scored
-    node (inner tier) is always visually closer to the center than a
-    lower-scored node (outer tier), regardless of collision-resolution drift.
+    Only the inner boundary is enforced — outward drift is unrestricted so the
+    collision resolver has room to spread dense clusters without fighting the
+    enforcement. The min radii in _TIER_MIN_RADII are spaced so that a tier-N
+    node pushed outward by its own tier's collision resolver will not intrude
+    on the inner boundary of tier N+1.
     """
-    tier_bands: dict[int, tuple[float, float]] = {
-        0: (40.0, 149.0),
-        1: (150.0, 249.0),
-        2: (250.0, 359.0),
-        3: (360.0, 600.0),
-    }
     for item in positioned_items:
         tier = item.get("_orbit_tier", 3)
-        band_min, band_max = tier_bands.get(tier, (360.0, 600.0))
+        r_min = _TIER_MIN_RADII.get(tier, 40.0)
         x: float = item["_x"]
         y: float = item["_y"]
         r = math.sqrt(x * x + y * y)
         if r < 1.0:
-            item["_x"] = round(tier_radii.get(tier, 420.0), 2)
+            item["_x"] = round(r_min, 2)
             item["_y"] = 0.0
             continue
-        clamped_r = max(band_min, min(band_max, r))
-        if clamped_r != r:
-            scale = clamped_r / r
+        if r < r_min:
+            scale = r_min / r
             item["_x"] = round(x * scale, 2)
             item["_y"] = round(y * scale, 2)
 
@@ -317,12 +329,6 @@ def assign_orbit_positions(
     rng = DeterministicRNG(seed_value)
 
     tier_buckets = _bucket_items_by_tier(ranked_items)
-    tier_radii = {
-        0: 100.0,
-        1: 200.0,
-        2: 300.0,
-        3: 420.0,
-    }
 
     positioned_items: list[dict[str, Any]] = []
 
@@ -330,56 +336,43 @@ def assign_orbit_positions(
         if not items:
             continue
 
-        radius = tier_radii[tier]
         count = len(items)
+        r_min = _TIER_MIN_RADII.get(tier, 40.0)
+        r_max = _TIER_MAX_RADII.get(tier, 680.0)
+        base_angle = rng.uniform(0.0, 2.0 * math.pi)
 
-        # Distribute items into nested sub-orbitals if a tier contains
-        # too many nodes to prevent overlaps
-        max_per_ring = 8
-        num_rings = math.ceil(count / max_per_ring)
-        global_base_angle_offset = rng.uniform(0.0, 2.0 * math.pi)
+        # Items within each tier are already sorted by score descending.
+        # Map each node's rank index to a unique starting radius so that
+        # higher-scored nodes are always placed closer to the center than
+        # lower-scored nodes within the same tier — no discrete ring
+        # boundaries that adjacent nodes can invert across.
+        for idx, item in enumerate(items):
+            normalized = idx / max(count - 1, 1)
+            base_r = r_min + normalized * (r_max - r_min)
 
-        for ring_idx in range(num_rings):
-            # Alternating slice so scores/nodes are distributed evenly
-            ring_items = items[ring_idx::num_rings]
-            ring_count = len(ring_items)
-            if not ring_items:
-                continue
+            angle = base_angle + (2.0 * math.pi * idx) / count
+            radial_jitter = rng.uniform(-8.0, 8.0)
+            angular_jitter = rng.uniform(-0.04, 0.04)
 
-            # Sub-orbital radius spacing (e.g. 60 units apart)
-            if num_rings > 1:
-                ring_offset = (ring_idx - (num_rings - 1) / 2.0) * 60.0
-                # Stagger the angle of each ring by a fraction of the angular step
-                # so nodes align with the gaps of the adjacent ring
-                stagger_angle = (ring_idx * math.pi) / ring_count
-            else:
-                ring_offset = 0.0
-                stagger_angle = 0.0
+            final_r = max(r_min, base_r + radial_jitter)
+            final_angle = angle + angular_jitter
 
-            ring_radius = radius + ring_offset
-            ring_base_angle = global_base_angle_offset + stagger_angle
+            positioned_items.append(
+                {
+                    **item,
+                    "_orbit_tier": tier,
+                    "_x": round(final_r * math.cos(final_angle), 2),
+                    "_y": round(final_r * math.sin(final_angle), 2),
+                },
+            )
 
-            for index, item in enumerate(ring_items):
-                angle = ring_base_angle + ((2.0 * math.pi * index) / ring_count)
-                radial_jitter = rng.uniform(-10.0, 10.0)
-                angular_jitter = rng.uniform(-0.05, 0.05)
-
-                final_radius = max(40.0, ring_radius + radial_jitter)
-                final_angle = angle + angular_jitter
-
-                positioned_items.append(
-                    {
-                        **item,
-                        "_orbit_tier": tier,
-                        "_x": round(final_radius * math.cos(final_angle), 2),
-                        "_y": round(final_radius * math.sin(final_angle), 2),
-                    },
-                )
-
-    # Relaxation loop to resolve any remaining overlaps using AABB (bounding box) checks
-    # to account for name card widths and prevent overlaps 100%
+    # Pass 1: spread nodes using AABB relaxation.
     _resolve_node_collisions(positioned_items, rng)
-    _reclamp_nodes_to_tier_bands(positioned_items, tier_radii)
+    # Enforce inner tier boundaries — nodes pushed inward by pass-1 collisions
+    # are projected back out to their tier's minimum radius.
+    _reclamp_nodes_to_tier_bands(positioned_items)
+    # Pass 2: fix any overlaps introduced by the boundary enforcement.
+    _resolve_node_collisions(positioned_items, rng)
 
     positioned_items.sort(
         key=lambda item: (

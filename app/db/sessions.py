@@ -464,7 +464,7 @@ def _build_node_detail_payload(
         "campus_branch": hydrated_profile.get("campus_branch"),
         "campus_year": hydrated_profile.get("campus_year"),
         "campus_name": hydrated_profile.get("campus_name"),
-        "role": hydrated_profile.get("role"),
+        "role_at": hydrated_profile.get("role_at"),
         "profile_pic": hydrated_profile.get("profile_pic"),
         "normal_pics": hydrated_profile.get("normal_pics") or [],
         "display_gender": hydrated_profile.get("display_gender"),

@@ -330,7 +330,7 @@ _IMPORTABLE_FIELDS = [
     "lifestyle",
     "drinking",
     "smoking",
-    "role",
+    "role_at",
     "looking_for",
     "activities",
     "causes_supported",
@@ -349,7 +349,6 @@ _IMPORTABLE_FIELDS = [
     "campus_branch_blind_index",
     "smoking_blind_index",
     "drinking_blind_index",
-    "role_blind_index",
 ]
 
 

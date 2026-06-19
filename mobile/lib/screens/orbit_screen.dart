@@ -1089,7 +1089,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -1142,7 +1142,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                 },
                 icon: const Icon(LucideIcons.heart, size: 14),
                 label: const Text(
-                  'Pull into Orbit',
+                  'Pull to Orbit',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
@@ -1153,6 +1153,123 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
   }
 
+
+  Future<Map<String, dynamic>> _fetchSelfDetails() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) throw Exception('Not authenticated.');
+
+    final config = AppConfig.current;
+    final response = await _dio.get<Map<String, dynamic>>(
+      '${config.backendUrl}/api/v1/profile/details',
+      options: Options(
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      ),
+    );
+
+    if (response.statusCode == 200 && response.data != null) {
+      final d = response.data!;
+      final orderedImages = d['ordered_images'] as List? ?? [];
+      return {
+        ...d,
+        'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
+        'normal_pics':
+            orderedImages.length > 1 ? orderedImages.sublist(1) : <dynamic>[],
+        'tab': widget.tab,
+        'score': 0,
+      };
+    }
+
+    throw Exception('Failed to load your profile.');
+  }
+
+  Future<void> _showSelfDetails() async {
+    final theme = widget.themeColor;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: _fetchSelfDetails(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 48),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(theme),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading your profile...',
+                      style: TextStyle(
+                        color: theme.withValues(alpha: 0.55),
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Unable to load profile.',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                ),
+              );
+            }
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.92,
+              minChildSize: 0.5,
+              maxChildSize: 0.97,
+              expand: false,
+              builder: (sheetCtx, scrollController) {
+                return ProfileDetailSheet(
+                  data: snapshot.data!,
+                  themeColor: theme,
+                  scrollController: scrollController,
+                  showScoreBadge: false,
+                  showSafetyActions: false,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 
   Future<Map<String, dynamic>> _fetchNodeDetails(String candidateId) async {
     final session = Supabase.instance.client.auth.currentSession;
@@ -1611,21 +1728,23 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ),
                           ),
 
-                          filterSection(
-                            label: 'Drinking',
-                            child: filterChips(
-                              FilterOptions.drinking,
-                              _selectedDrinking,
+                          if (widget.tab != 'Professional') ...[
+                            filterSection(
+                              label: 'Drinking',
+                              child: filterChips(
+                                FilterOptions.drinking,
+                                _selectedDrinking,
+                              ),
                             ),
-                          ),
 
-                          filterSection(
-                            label: 'Smoking',
-                            child: filterChips(
-                              FilterOptions.smoking,
-                              _selectedSmoking,
+                            filterSection(
+                              label: 'Smoking',
+                              child: filterChips(
+                                FilterOptions.smoking,
+                                _selectedSmoking,
+                              ),
                             ),
-                          ),
+                          ],
 
                           // Languages section (Custom design with separate selection pane)
                           filterSection(
@@ -2123,14 +2242,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ),
 
                             filterSection(
-                              label: 'Causes Supported',
-                              child: filterChips(
-                                FilterOptions.causesSupported,
-                                _selectedCausesSupported,
-                              ),
-                            ),
-
-                            filterSection(
                               label: 'Tech Skills',
                               child: filterChips(
                                 FilterOptions.techSkills,
@@ -2251,8 +2362,9 @@ class _OrbitScreenState extends State<OrbitScreen>
 
                       // Pulsing Center Node (Viewer)
                       Center(
-                        child:
-                            Container(
+                        child: GestureDetector(
+                          onTap: _showSelfDetails,
+                          child: Container(
                                   width: 76,
                                   height: 76,
                                   decoration: BoxDecoration(
@@ -2301,6 +2413,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   duration: 2.seconds,
                                   curve: Curves.easeInOut,
                                 ),
+                        ),
                       ),
                       // Floating Nodes
                       ..._buildConstellationNodes(),
@@ -2341,21 +2454,24 @@ class _OrbitScreenState extends State<OrbitScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              LucideIcons.arrowLeft,
-                              color: Colors.white,
+                      Flexible(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                LucideIcons.arrowLeft,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(context),
                             ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${widget.tab} Constellation',
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                widget.tab == 'Professional'
+                                    ? 'Pro Constellation'
+                                    : '${widget.tab} Constellation',
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -2363,11 +2479,12 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(
