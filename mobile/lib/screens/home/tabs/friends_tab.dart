@@ -289,7 +289,11 @@ class _FriendsTabState extends State<FriendsTab>
             });
 
             final profileFields = [
-              'name', 'age', 'interests', 'profile_pic', 'normal_pics',
+              'name',
+              'age',
+              'interests',
+              'profile_pic',
+              'normal_pics',
             ];
             final hasMissingProfileFields = _missingFields.any(
               (field) => profileFields.contains(field.toString()),
@@ -358,11 +362,13 @@ class _FriendsTabState extends State<FriendsTab>
               ),
               const SizedBox(height: 16),
               ..._missingFields
-                  .where((f) => !const {
-                    'friends_target_buckets',
-                    'sub_interests',
-                    'causes_supported',
-                  }.contains(f.toString()))
+                  .where(
+                    (f) => !const {
+                      'friends_target_buckets',
+                      'sub_interests',
+                      'causes_supported',
+                    }.contains(f.toString()),
+                  )
                   .map((field) {
                     final fieldStr = field.toString();
                     String label;
@@ -375,8 +381,7 @@ class _FriendsTabState extends State<FriendsTab>
                     } else if (fieldStr == 'profile_pic') {
                       label = 'Profile avatar image is missing';
                     } else if (fieldStr == 'normal_pics') {
-                      label =
-                          'At least 2 images required in profile gallery';
+                      label = 'At least 2 images required in profile gallery';
                     } else {
                       label = fieldStr.replaceAll('_', ' ');
                       label = label[0].toUpperCase() + label.substring(1);
@@ -485,9 +490,11 @@ class _FriendsTabState extends State<FriendsTab>
       ),
     );
     overlay.insert(entry);
-    unawaited(Future<void>.delayed(const Duration(seconds: 3)).then((_) {
-      if (entry.mounted) entry.remove();
-    }));
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3)).then((_) {
+        if (entry.mounted) entry.remove();
+      }),
+    );
   }
 
   Future<void> _showFriendsSettingsOverlay({bool isActivating = false}) async {
@@ -497,11 +504,22 @@ class _FriendsTabState extends State<FriendsTab>
     var localCauses = List<String>.from(_causesSupported);
 
     const causesPresets = <String>[
-      'Climate Action', 'Tech Ethics', 'Mental Health', 'LGBTQ+ Rights',
-      'Education Access', 'Animal Protection', 'Disaster Relief',
-      'Poverty Alleviation', 'Gender Equality', 'Scientific Research',
-      'Mental Health Advocacy', 'Human Rights', 'Clean Water & Sanitation',
-      'Renewable Energy', 'Economic Development', 'Arts & Culture Preservation',
+      'Climate Action',
+      'Tech Ethics',
+      'Mental Health',
+      'LGBTQ+ Rights',
+      'Education Access',
+      'Animal Protection',
+      'Disaster Relief',
+      'Poverty Alleviation',
+      'Gender Equality',
+      'Scientific Research',
+      'Mental Health Advocacy',
+      'Human Rights',
+      'Clean Water & Sanitation',
+      'Renewable Energy',
+      'Economic Development',
+      'Arts & Culture Preservation',
     ];
 
     final pageContext = context;
@@ -605,7 +623,9 @@ class _FriendsTabState extends State<FriendsTab>
                                 ),
                               ),
                             ),
-                            if (_savingFields.contains('friends_target_buckets'))
+                            if (_savingFields.contains(
+                              'friends_target_buckets',
+                            ))
                               const Padding(
                                 padding: EdgeInsets.only(left: 8),
                                 child: SizedBox(
@@ -632,64 +652,66 @@ class _FriendsTabState extends State<FriendsTab>
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
-                          children: [
-                            {'code': 'M', 'label': 'Men'},
-                            {'code': 'F', 'label': 'Women'},
-                            {'code': 'NB', 'label': 'Non-binary'},
-                            {'code': 'Open', 'label': 'Open to all'},
-                          ].map((item) {
-                            final code = item['code']!;
-                            final isSelected = localBuckets.contains(code);
-                            return FilterChip(
-                              label: Text(item['label']!),
-                              selected: isSelected,
-                              selectedColor: const Color(0xFFFF9F1C),
-                              backgroundColor: Colors.black.withValues(
-                                alpha: 0.04,
-                              ),
-                              checkmarkColor: Colors.white,
-                              labelStyle: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              onSelected: (selected) async {
-                                if (_savingFields.contains(
-                                  'friends_target_buckets',
-                                )) return;
-                                setModalState(() {
-                                  if (code == 'Open') {
-                                    if (selected) {
-                                      localBuckets
-                                        ..clear()
-                                        ..add('Open');
-                                    } else {
-                                      localBuckets.remove('Open');
-                                    }
-                                  } else {
-                                    if (selected) {
-                                      localBuckets
-                                        ..remove('Open')
-                                        ..add(code);
-                                    } else {
-                                      localBuckets.remove(code);
-                                    }
-                                  }
-                                });
-                                await _saveFriendsField(
-                                  'friends_target_buckets',
-                                  localBuckets,
-                                  setModalState,
+                          children:
+                              [
+                                {'code': 'M', 'label': 'Men'},
+                                {'code': 'F', 'label': 'Women'},
+                                {'code': 'NB', 'label': 'Non-binary'},
+                                {'code': 'Open', 'label': 'Open to all'},
+                              ].map((item) {
+                                final code = item['code']!;
+                                final isSelected = localBuckets.contains(code);
+                                return FilterChip(
+                                  label: Text(item['label']!),
+                                  selected: isSelected,
+                                  selectedColor: const Color(0xFFFF9F1C),
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
+                                  ),
+                                  checkmarkColor: Colors.white,
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  onSelected: (selected) async {
+                                    if (_savingFields.contains(
+                                      'friends_target_buckets',
+                                    ))
+                                      return;
+                                    setModalState(() {
+                                      if (code == 'Open') {
+                                        if (selected) {
+                                          localBuckets
+                                            ..clear()
+                                            ..add('Open');
+                                        } else {
+                                          localBuckets.remove('Open');
+                                        }
+                                      } else {
+                                        if (selected) {
+                                          localBuckets
+                                            ..remove('Open')
+                                            ..add(code);
+                                        } else {
+                                          localBuckets.remove(code);
+                                        }
+                                      }
+                                    });
+                                    await _saveFriendsField(
+                                      'friends_target_buckets',
+                                      localBuckets,
+                                      setModalState,
+                                    );
+                                  },
                                 );
-                              },
-                            );
-                          }).toList(),
+                              }).toList(),
                         ),
                         const SizedBox(height: 32),
 
@@ -735,48 +757,48 @@ class _FriendsTabState extends State<FriendsTab>
                           Wrap(
                             spacing: 8,
                             runSpacing: 4,
-                            children: localInterests.take(6).map((val) {
-                              final label = val.contains(': ')
-                                  ? val.split(': ').last
-                                  : val;
-                              return Chip(
-                                label: Text(label),
-                                backgroundColor: const Color(
-                                  0xFFFF9F1C,
-                                ).withValues(alpha: 0.1),
-                                labelStyle: const TextStyle(
-                                  color: Color(0xFFFF9F1C),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
+                            children:
+                                localInterests.take(6).map((val) {
+                                  final label = val.contains(': ')
+                                      ? val.split(': ').last
+                                      : val;
+                                  return Chip(
+                                    label: Text(label),
+                                    backgroundColor: const Color(
+                                      0xFFFF9F1C,
+                                    ).withValues(alpha: 0.1),
+                                    labelStyle: const TextStyle(
+                                      color: Color(0xFFFF9F1C),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                    side: BorderSide.none,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  );
+                                }).toList()..addAll(
+                                  localInterests.length > 6
+                                      ? [
+                                          Chip(
+                                            label: Text(
+                                              '+${localInterests.length - 6} more',
+                                            ),
+                                            backgroundColor: Colors.black
+                                                .withValues(alpha: 0.05),
+                                            labelStyle: const TextStyle(
+                                              color: Color(0xFF64748B),
+                                              fontSize: 12,
+                                            ),
+                                            side: BorderSide.none,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                        ]
+                                      : [],
                                 ),
-                                side: BorderSide.none,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              );
-                            }).toList()
-                              ..addAll(
-                                localInterests.length > 6
-                                    ? [
-                                        Chip(
-                                          label: Text(
-                                            '+${localInterests.length - 6} more',
-                                          ),
-                                          backgroundColor: Colors.black
-                                              .withValues(alpha: 0.05),
-                                          labelStyle: const TextStyle(
-                                            color: Color(0xFF64748B),
-                                            fontSize: 12,
-                                          ),
-                                          side: BorderSide.none,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                      ]
-                                    : [],
-                              ),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -805,44 +827,46 @@ class _FriendsTabState extends State<FriendsTab>
                               ),
                             ),
                             onPressed: () {
-                              unawaited(Navigator.push<void>(
-                                pageContext,
-                                MaterialPageRoute(
-                                  builder: (_) => InterestsOverlay(
-                                    initialSelected: localInterests,
-                                    onSave: (selected) {
-                                      setModalState(
-                                        () => localInterests =
-                                            List<String>.from(selected),
-                                      );
-                                      final dict =
-                                          <String, List<String>>{};
-                                      for (final item in selected) {
-                                        final idx = item.indexOf(': ');
-                                        if (idx > 0) {
-                                          final parent =
-                                              item.substring(0, idx);
-                                          final sub =
-                                              item.substring(idx + 2);
-                                          dict
-                                              .putIfAbsent(
-                                                parent,
-                                                () => [],
-                                              )
-                                              .add(sub);
+                              unawaited(
+                                Navigator.push<void>(
+                                  pageContext,
+                                  MaterialPageRoute(
+                                    builder: (_) => InterestsOverlay(
+                                      initialSelected: localInterests,
+                                      onSave: (selected) {
+                                        setModalState(
+                                          () => localInterests =
+                                              List<String>.from(selected),
+                                        );
+                                        final dict = <String, List<String>>{};
+                                        for (final item in selected) {
+                                          final idx = item.indexOf(': ');
+                                          if (idx > 0) {
+                                            final parent = item.substring(
+                                              0,
+                                              idx,
+                                            );
+                                            final sub = item.substring(idx + 2);
+                                            dict
+                                                .putIfAbsent(
+                                                  parent,
+                                                  () => [],
+                                                )
+                                                .add(sub);
+                                          }
                                         }
-                                      }
-                                      unawaited(
-                                        _saveFriendsField(
-                                          'sub_interests',
-                                          dict,
-                                          setModalState,
-                                        ),
-                                      );
-                                    },
+                                        unawaited(
+                                          _saveFriendsField(
+                                            'sub_interests',
+                                            dict,
+                                            setModalState,
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
-                              ));
+                              );
                             },
                           ),
                         ),
@@ -913,7 +937,8 @@ class _FriendsTabState extends State<FriendsTab>
                                 onDeleted: () async {
                                   if (_savingFields.contains(
                                     'causes_supported',
-                                  )) return;
+                                  ))
+                                    return;
                                   setModalState(() => localCauses.remove(val));
                                   await _saveFriendsField(
                                     'causes_supported',
@@ -942,32 +967,34 @@ class _FriendsTabState extends State<FriendsTab>
                           children: causesPresets
                               .where((c) => !localCauses.contains(c))
                               .map((val) {
-                            return ActionChip(
-                              label: Text(val),
-                              backgroundColor: Colors.black.withValues(
-                                alpha: 0.04,
-                              ),
-                              labelStyle: const TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontSize: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              side: BorderSide.none,
-                              onPressed: () async {
-                                if (_savingFields.contains(
-                                  'causes_supported',
-                                )) return;
-                                setModalState(() => localCauses.add(val));
-                                await _saveFriendsField(
-                                  'causes_supported',
-                                  localCauses,
-                                  setModalState,
+                                return ActionChip(
+                                  label: Text(val),
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
+                                  ),
+                                  labelStyle: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: BorderSide.none,
+                                  onPressed: () async {
+                                    if (_savingFields.contains(
+                                      'causes_supported',
+                                    ))
+                                      return;
+                                    setModalState(() => localCauses.add(val));
+                                    await _saveFriendsField(
+                                      'causes_supported',
+                                      localCauses,
+                                      setModalState,
+                                    );
+                                  },
                                 );
-                              },
-                            );
-                          }).toList(),
+                              })
+                              .toList(),
                         ),
                         const SizedBox(height: 40),
                       ],
@@ -1534,10 +1561,8 @@ class _FriendsTabState extends State<FriendsTab>
                             itemCount: _waveItems.length,
                             itemBuilder: (ctx, index) {
                               final item = _waveItems[index];
-                              final actorId =
-                                  item['actor_id'] as String? ?? '';
-                              final name =
-                                  item['name'] as String? ?? 'Unknown';
+                              final actorId = item['actor_id'] as String? ?? '';
+                              final name = item['name'] as String? ?? 'Unknown';
                               final age = item['age'];
                               final profilePic =
                                   item['profile_pic'] as String? ?? '';
@@ -1773,8 +1798,7 @@ class _FriendsTabState extends State<FriendsTab>
                             ),
                           )
                         : ListView.separated(
-                            padding:
-                                const EdgeInsets.fromLTRB(24, 4, 12, 32),
+                            padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
                             itemCount: _friends.length,
                             separatorBuilder: (_, __) =>
                                 Divider(color: Colors.white.withAlpha(12)),
@@ -1788,8 +1812,9 @@ class _FriendsTabState extends State<FriendsTab>
                               final profilePic =
                                   friend['profile_pic'] as String?;
                               final isNew = friend['is_new'] == true;
-                              final displayName =
-                                  age != null ? '$name, $age' : name;
+                              final displayName = age != null
+                                  ? '$name, $age'
+                                  : name;
 
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -1815,8 +1840,7 @@ class _FriendsTabState extends State<FriendsTab>
                                                 imagePath: profilePic,
                                               )
                                             : Container(
-                                                color:
-                                                    themeColor.withAlpha(30),
+                                                color: themeColor.withAlpha(30),
                                                 child: Icon(
                                                   LucideIcons.user,
                                                   color: themeColor.withAlpha(
@@ -1912,64 +1936,62 @@ class _FriendsTabState extends State<FriendsTab>
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Unfriend',
                                           onPressed: () async {
-                                            final ok =
-                                                await showDialog<bool>(
-                                                  context: sheetCtx,
-                                                  builder: (d) => AlertDialog(
-                                                    backgroundColor:
-                                                        const Color(
-                                                          0xFF1E293B,
+                                            final ok = await showDialog<bool>(
+                                              context: sheetCtx,
+                                              builder: (d) => AlertDialog(
+                                                backgroundColor: const Color(
+                                                  0xFF1E293B,
+                                                ),
+                                                title: Text(
+                                                  'Unfriend $name?',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 17,
+                                                  ),
+                                                ),
+                                                content: Text(
+                                                  "You won't see each other for some time.",
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withAlpha(160),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          d,
+                                                          false,
                                                         ),
-                                                    title: Text(
-                                                      'Unfriend $name?',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 17,
-                                                      ),
-                                                    ),
-                                                    content: Text(
-                                                      "You won't see each other for some time.",
+                                                    child: Text(
+                                                      'Cancel',
                                                       style: TextStyle(
                                                         color: Colors.white
-                                                            .withAlpha(160),
-                                                        fontSize: 14,
+                                                            .withAlpha(
+                                                              160,
+                                                            ),
                                                       ),
                                                     ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              d,
-                                                              false,
-                                                            ),
-                                                        child: Text(
-                                                          'Cancel',
-                                                          style: TextStyle(
-                                                            color: Colors.white
-                                                                .withAlpha(
-                                                                  160,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              d,
-                                                              true,
-                                                            ),
-                                                        child: const Text(
-                                                          'Unfriend',
-                                                          style: TextStyle(
-                                                            color: themeColor,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
                                                   ),
-                                                );
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          d,
+                                                          true,
+                                                        ),
+                                                    child: const Text(
+                                                      'Unfriend',
+                                                      style: TextStyle(
+                                                        color: themeColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
                                             if ((ok ?? false) &&
                                                 session != null) {
                                               await _recordFriendAction(
@@ -2145,8 +2167,7 @@ class _FriendsTabState extends State<FriendsTab>
                               const SizedBox(width: 16),
                               const Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Open your Friends Orbit',
@@ -2159,7 +2180,7 @@ class _FriendsTabState extends State<FriendsTab>
                                     ),
                                     SizedBox(height: 4),
                                     Text(
-                                      'Scan nearby people who share your vibe',
+                                      'Discover people who share your vibe',
                                       style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 11,
@@ -2195,8 +2216,7 @@ class _FriendsTabState extends State<FriendsTab>
                                             .toInt(),
                                       ),
                                       blurRadius: 16,
-                                      spreadRadius:
-                                          _pulseController.value * 2,
+                                      spreadRadius: _pulseController.value * 2,
                                     ),
                                   ],
                                 ),
@@ -2340,8 +2360,7 @@ class _FriendsTabState extends State<FriendsTab>
                                       ),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withAlpha(25),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         '${_friends.length} ACTIVE',

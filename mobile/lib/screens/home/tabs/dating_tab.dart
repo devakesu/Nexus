@@ -358,11 +358,13 @@ class _DatingTabState extends State<DatingTab>
               ),
               const SizedBox(height: 16),
               ..._missingFields
-                  .where((f) => !const {
-                    'dating_target_buckets',
-                    'dating_for',
-                    'partner_values',
-                  }.contains(f.toString()))
+                  .where(
+                    (f) => !const {
+                      'dating_target_buckets',
+                      'dating_for',
+                      'partner_values',
+                    }.contains(f.toString()),
+                  )
                   .map((field) {
                     final fieldStr = field.toString();
                     String label;
@@ -491,9 +493,11 @@ class _DatingTabState extends State<DatingTab>
       ),
     );
     overlay.insert(entry);
-    unawaited(Future<void>.delayed(const Duration(seconds: 3)).then((_) {
-      if (entry.mounted) entry.remove();
-    }));
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3)).then((_) {
+        if (entry.mounted) entry.remove();
+      }),
+    );
   }
 
   // Show slide-up Dating Settings overlay
@@ -2253,7 +2257,7 @@ class _DatingTabState extends State<DatingTab>
                                     ),
                                     SizedBox(height: 4),
                                     Text(
-                                      'Enter 3D radar to scan nearby signals',
+                                      'Discover connections beyond the swipe',
                                       style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 11,

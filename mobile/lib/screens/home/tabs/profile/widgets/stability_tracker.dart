@@ -25,7 +25,6 @@ class StabilityTracker extends StatelessWidget {
     required this.smoking,
     required this.childrenPlans,
     required this.religiousBeliefs,
-    required this.partnerValues,
     required this.pets,
     required this.subInterests,
     required this.causesSupported,
@@ -56,7 +55,6 @@ class StabilityTracker extends StatelessWidget {
   final String smoking;
   final String childrenPlans;
   final String religiousBeliefs;
-  final String partnerValues;
   final List<String> pets;
   final Map<String, List<String>> subInterests;
   final List<String> causesSupported;
@@ -241,11 +239,6 @@ class StabilityTracker extends StatelessWidget {
                             icon: LucideIcons.sparkles,
                             label: 'Religious Beliefs',
                             complete: religiousBeliefs.isNotEmpty && religiousBeliefs != 'Not specified',
-                          ),
-                          _CriteriaItem(
-                            icon: LucideIcons.users,
-                            label: 'Partner Values',
-                            complete: partnerValues.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.pawPrint,

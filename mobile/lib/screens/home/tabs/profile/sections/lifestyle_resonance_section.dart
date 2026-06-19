@@ -12,12 +12,9 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.smoking,
     required this.childrenPlans,
     required this.religiousBeliefs,
-    required this.partnerValues,
     required this.pets,
     required this.onLifestyleChanged,
     required this.onLifestyleSubmitted,
-    required this.onPartnerValuesChanged,
-    required this.onPartnerValuesSubmitted,
     required this.onPetsChanged,
     required this.openBottomSelectionSheet,
     required this.onDrinkingSaved,
@@ -25,7 +22,6 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.onChildrenPlansSaved,
     required this.onReligiousBeliefsSaved,
     this.isSavingLifestyle = false,
-    this.isSavingPartnerValues = false,
     this.isSavingDrinking = false,
     this.isSavingSmoking = false,
     this.isSavingChildrenPlans = false,
@@ -39,10 +35,8 @@ class LifestyleResonanceSection extends StatelessWidget {
   final String smoking;
   final String childrenPlans;
   final String religiousBeliefs;
-  final String partnerValues;
   final List<String> pets;
   final bool isSavingLifestyle;
-  final bool isSavingPartnerValues;
   final bool isSavingDrinking;
   final bool isSavingSmoking;
   final bool isSavingChildrenPlans;
@@ -51,8 +45,6 @@ class LifestyleResonanceSection extends StatelessWidget {
 
   final ValueChanged<String> onLifestyleChanged;
   final ValueChanged<String> onLifestyleSubmitted;
-  final ValueChanged<String> onPartnerValuesChanged;
-  final ValueChanged<String> onPartnerValuesSubmitted;
   final ValueChanged<List<String>> onPetsChanged;
 
   final void Function({
@@ -210,20 +202,6 @@ class LifestyleResonanceSection extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-
-          GlassTextField(
-            label: 'Partner Values',
-            initialValue: partnerValues,
-            hintText: 'What qualities/values do you prioritize in a partner?',
-            prefixIcon: LucideIcons.users,
-            maxLines: null,
-            minLines: 4,
-            keyboardType: TextInputType.multiline,
-            onChanged: onPartnerValuesChanged,
-            onFieldSubmitted: onPartnerValuesSubmitted,
-            isSaving: isSavingPartnerValues,
           ),
           const SizedBox(height: 16),
 

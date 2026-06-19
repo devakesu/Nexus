@@ -658,7 +658,8 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                           ),
                           onPressed: () async {
                             companyDebounce?.cancel();
-                            final pendingCompany = companyController.text.trim();
+                            final pendingCompany = companyController.text
+                                .trim();
                             if (pendingCompany != _company) {
                               unawaited(
                                 _saveProfessionalField(
@@ -2443,7 +2444,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Open your Professional Orbit',
+                                      'Open your Pro Orbit',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
