@@ -1,11 +1,13 @@
+import contextlib
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.cache import BLOCK_IDS_CACHE_TTL_SECONDS, redis_client
+from app.core.cache import get_block_ids_cache_ttl, redis_client
 from app.core.config import DiscoveryTab
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
@@ -36,7 +38,7 @@ async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
     await redis_client.set(
         key,
         json.dumps(sorted(block_ids)),
-        ex=BLOCK_IDS_CACHE_TTL_SECONDS,
+        ex=get_block_ids_cache_ttl(),
     )
     return block_ids
 
@@ -128,6 +130,7 @@ def fetch_active_discovery_excluded_ids(
     - pass: actor -> target for this tab while not yet expired
     - like/superlike: actor -> target for this tab
     """
+    uuid.UUID(viewer_id)
     excluded: set[str] = set()
     now = utcnow()
 
@@ -171,6 +174,7 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
     Return ids of users with an active block in either direction.
     Used for lightweight re-check at snapshot page read time.
     """
+    uuid.UUID(viewer_id)
     try:
         res = (
             supabase_client.table("profile_discovery_actions")
@@ -294,7 +298,6 @@ def record_user_report(
     block_metadata: dict[str, Any] = {"source": "report", "report_reason": reason}
     if report_id:
         block_metadata["report_id"] = report_id
-    import contextlib
 
     with contextlib.suppress(APIError):
         supabase_client.table("profile_discovery_actions").insert(

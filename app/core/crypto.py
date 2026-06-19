@@ -14,7 +14,14 @@ class DecryptFailedError(Exception):
     pass
 
 
-_cipher_suite = Fernet(settings.pii_encryption_key.encode())
+_cipher_suite: Fernet | None = None
+
+
+def _get_cipher_suite() -> Fernet:
+    global _cipher_suite
+    if _cipher_suite is None:
+        _cipher_suite = Fernet(settings.pii_encryption_key.encode())
+    return _cipher_suite
 
 
 def encrypt_pii(plaintext: str | None) -> bytes:
@@ -23,7 +30,7 @@ def encrypt_pii(plaintext: str | None) -> bytes:
     """
     if plaintext is None or plaintext == "":
         return b""
-    return _cipher_suite.encrypt(plaintext.encode("utf-8"))
+    return _get_cipher_suite().encrypt(plaintext.encode("utf-8"))
 
 
 def decrypt_pii(ciphertext: Any) -> str:
@@ -48,7 +55,7 @@ def decrypt_pii(ciphertext: Any) -> str:
             ciphertext = ciphertext.encode("utf-8")
 
     try:
-        return _cipher_suite.decrypt(ciphertext).decode("utf-8")
+        return _get_cipher_suite().decrypt(ciphertext).decode("utf-8")
     except InvalidToken as e:
         raise DecryptFailedError("Invalid Fernet token or wrong key") from e
     except Exception as e:

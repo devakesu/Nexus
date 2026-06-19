@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 # Global thread-safe memory cache primitives for zero-latency signature parsing
 _cached_jwks: PyJWKSet | None = None
 _last_fetch_time: float = 0.0
+_jwks_lock = asyncio.Lock()
 
 
 def _parse_jwk_dict(raw_data: Any) -> dict[str, Any]:
@@ -107,12 +109,13 @@ def syntax_has_kid(jwk_set: PyJWKSet, kid: str) -> bool:
     return any(jwk.key_id == kid for jwk in jwk_set.keys)
 
 
-def _fetch_and_update_cached_jwks(current_time: float) -> None:
+async def _fetch_and_update_cached_jwks(current_time: float) -> None:
     """Helper to dynamically retrieve and update Supabase rotating public keys."""
     global _cached_jwks, _last_fetch_time
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
-        response = httpx.get(jwks_url, timeout=5.0)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(jwks_url, timeout=5.0)
         if response.status_code == 200:
             _cached_jwks = PyJWKSet.from_dict(response.json())
             _last_fetch_time = current_time
@@ -135,7 +138,7 @@ def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
     return None
 
 
-def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
+async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
     """
     Dynamically tracks, fetches, and returns Supabase's rotating Elliptic Curve keys.
     Caches results in memory for up to 24 hours to prevent network call degradation,
@@ -155,11 +158,21 @@ def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
     # or tracking a new key ID (kid)
     cache_expired = (current_time - _last_fetch_time) > 86400
     missing_kid = token_kid is not None and (
-        _cached_jwks is None or not syntax_has_kid(_cached_jwks, token_kid)
+        _cached_jwks is None
+        or not syntax_has_kid(_cached_jwks, token_kid)
     )
 
     if not _cached_jwks or cache_expired or missing_kid:
-        _fetch_and_update_cached_jwks(current_time)
+        async with _jwks_lock:
+            # Re-check inside lock to prevent dogpiling/multiple fetches
+            current_time = time.time()
+            cache_expired = (current_time - _last_fetch_time) > 86400
+            missing_kid = token_kid is not None and (
+                _cached_jwks is None
+                or not syntax_has_kid(_cached_jwks, token_kid)
+            )
+            if not _cached_jwks or cache_expired or missing_kid:
+                await _fetch_and_update_cached_jwks(current_time)
 
     if token_kid:
         resolved = _resolve_key_from_cache(token_kid)

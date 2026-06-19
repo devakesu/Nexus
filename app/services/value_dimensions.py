@@ -224,7 +224,7 @@ def derive_value_dimensions(
     isolated dimensional text blocks independently.
     """
     has_signal = any(
-        [
+        (
             interests,
             sub_interests,
             causes_supported,
@@ -232,7 +232,7 @@ def derive_value_dimensions(
             activities,
             lifestyle,
             bio,
-        ],
+        ),
     )
     if not has_signal:
         return _DEFAULT_DIMENSIONS.copy()

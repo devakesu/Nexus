@@ -273,8 +273,12 @@ async def _filter_and_sort_viewport_items(
         if dx * dx + dy * dy <= radius_sq:
             try:
                 decrypted = decrypt_profile_record(profile)
-            except Exception:  # noqa: BLE001
-                decrypted = profile
+            except Exception:
+                logger.exception(
+                    "Skipping candidate %s due to decryption failure.",
+                    cid,
+                )
+                continue
             result.append(
                 {
                     "id": cid,
@@ -524,7 +528,7 @@ async def fetch_discovery_node_detail(
                     campus_branch,
                     campus_year,
                     campus_name,
-                    role,
+                    role_at,
                     profile_pic,
                     normal_pics,
                     display_gender,

@@ -133,12 +133,8 @@ def upsert_public_user(
     mobile: str | None = None,
     app_variant: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    existing = fetch_public_user(user_id)
-    newly_created = existing is None
-
     payload: dict[str, Any] = {
         "id": user_id,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     if email is not None:
         payload["email"] = email.strip().lower()
@@ -178,6 +174,11 @@ def upsert_public_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="User account initialization returned no row.",
         )
+
+    # Detect if newly created (inserted) by checking if created_at == updated_at
+    created_at = row.get("created_at")
+    updated_at = row.get("updated_at")
+    newly_created = bool(created_at and updated_at and created_at == updated_at)
 
     return cast(dict[str, Any], row), newly_created
 
@@ -485,6 +486,7 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
             copy_payload[field] = value
             copied_fields.append(field)
 
+    # --- 6. Set has_imported_data = True on target ---
     copy_payload["has_imported_data"] = True
     copy_payload["updated_at"] = now.isoformat()
 
@@ -610,6 +612,9 @@ def update_user_terms(
     cleaned_version = accepted_terms_version.strip()
     _validate_terms_versions(cleaned_version)
 
+    # Cast to float to prevent any potential SQL/PostgREST injection
+    version_val = float(cleaned_version)
+
     accepted_at = datetime.now(timezone.utc)
 
     try:
@@ -624,7 +629,7 @@ def update_user_terms(
             )
             .eq("id", user_id)
             .or_(
-                f"accepted_terms_version.is.null,accepted_terms_version.lt.{cleaned_version}",
+                f"accepted_terms_version.is.null,accepted_terms_version::numeric.lt.{version_val}",
             )
             .execute()
         )
@@ -658,7 +663,7 @@ def update_user_terms(
     existing = _fetch_existing_terms(user_id)
     existing_version = existing.get("accepted_terms_version")
     if existing_version is not None:
-        if int(cleaned_version) < int(existing_version):
+        if float(cleaned_version) < float(existing_version):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="accepted_terms_version cannot be downgraded.",

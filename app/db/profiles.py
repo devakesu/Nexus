@@ -34,8 +34,6 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
-def _get_search_bucket_column(_active_tab: DiscoveryTab) -> str:
-    return "search_bucket"
 
 
 def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
@@ -258,7 +256,7 @@ def _get_expanded_viewer_buckets(
 ) -> tuple[list[str], list[str]]:
     """Helper to extract and expand target and search preference buckets from viewer."""
     target_bucket_column = _get_target_bucket_column(active_tab)
-    search_bucket_column = _get_search_bucket_column(active_tab)
+    search_bucket_column = "search_bucket"
     viewer_targets_raw = viewer.get(target_bucket_column)
     viewer_search_raw = viewer.get(search_bucket_column)
 
@@ -330,11 +328,12 @@ _POST_FETCH_FIELDS: frozenset[str] = frozenset({
 })
 
 
-def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
-    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
-        return bool(set(cand_list) & set(allowed))
+def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
+    return bool(set(cand_list) & set(allowed))
 
-    if filters.languages and not list_overlap(
+
+def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
+    if filters.languages and not _list_overlap(
         c.get("languages") or [],
         filters.languages,
     ):
@@ -342,11 +341,11 @@ def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     if filters.sub_interests:
         sub_raw = cast(dict[str, list[str]], c.get("sub_interests") or {})
         flat: list[str] = [v for vs in sub_raw.values() for v in vs]
-        if not list_overlap(flat, filters.sub_interests):
+        if not _list_overlap(flat, filters.sub_interests):
             return False
     return not (
         filters.role_type
-        and not list_overlap(c.get("role_type") or [], filters.role_type)
+        and not _list_overlap(c.get("role_type") or [], filters.role_type)
     )
 
 
@@ -358,20 +357,17 @@ def _check_candidate_match(
     if not _check_basic_overlap(c, filters):
         return False
 
-    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
-        return bool(set(cand_list) & set(allowed))
-
-    if filters.looking_for and not list_overlap(
+    if filters.looking_for and not _list_overlap(
         c.get("looking_for") or [],
         filters.looking_for,
     ):
         return False
-    if filters.causes_supported and not list_overlap(
+    if filters.causes_supported and not _list_overlap(
         c.get("causes_supported") or [],
         filters.causes_supported,
     ):
         return False
-    if filters.tech_skills and not list_overlap(
+    if filters.tech_skills and not _list_overlap(
         c.get("tech_skills") or [],
         filters.tech_skills,
     ):
@@ -379,7 +375,7 @@ def _check_candidate_match(
     if filters.partner_values and "partner_values" in dealbreakers:
         pv_raw = c.get("partner_values") or ""
         pv_list = [v.strip() for v in pv_raw.split(",") if v.strip()]
-        if not list_overlap(pv_list, filters.partner_values):
+        if not _list_overlap(pv_list, filters.partner_values):
             return False
     return True
 
@@ -411,7 +407,7 @@ def _execute_and_filter_candidates(
     if not viewer_targets:
         return []
 
-    search_bucket_column = _get_search_bucket_column(active_tab)
+    search_bucket_column = "search_bucket"
     try:
         res = (
             query.in_(search_bucket_column, viewer_targets)
@@ -564,11 +560,6 @@ def fetch_stage_1_candidates(
         candidate_limit=effective_limit,
     )
 
-    if excluded_ids:
-        candidates_to_enrich = [
-            c for c in candidates_to_enrich if str(c.get("id")) not in excluded_ids
-        ]
-
     candidates_to_enrich = _apply_post_fetch_filters(candidates_to_enrich, filters)
 
     if not candidates_to_enrich:
@@ -627,7 +618,7 @@ async def update_profile_images_and_metadata(
             "Failed to update profile images and metadata for user %s",
             user_id,
         )
-        raise e
+        raise DatabaseAccessError("Failed to update profile images and metadata") from e
 
 
 def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:

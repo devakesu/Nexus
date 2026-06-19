@@ -1,6 +1,6 @@
 import base64
 import logging
-import secrets
+import random
 from collections.abc import Callable, Coroutine
 from html.parser import HTMLParser
 from typing import Any, Literal, cast
@@ -231,7 +231,7 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
 
 def should_use_sendpulse() -> bool:
     if has_brevo and has_sendpulse:
-        return secrets.randbelow(100) < 50
+        return random.random() < 0.5  # noqa: S311
     return has_sendpulse
 
 
@@ -488,6 +488,7 @@ def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> st
 async def send_bootstrap_welcome_email(
     email: str,
     auth_user: dict[str, Any] | None = None,
+    app_variant: str = "nexus",
 ) -> ProviderResult:
     """
     Sends the welcome email to a user who completed the initial auth bootstrap.
@@ -572,9 +573,10 @@ async def send_bootstrap_welcome_email(
           </tr>
     """
 
+    scheme = "devakesu-nexus-mec" if app_variant == "nexus_mec" else "devakesu-nexus"
     button_row = render_cta_button_row(
         cta_text="Initialize Alignment",
-        cta_url="devakesu-nexus://home",
+        cta_url=f"{scheme}://home",
     )
 
     html_content = render_email_template(
@@ -601,17 +603,27 @@ async def send_bootstrap_welcome_email(
     )
 
     try:
-        logger.info(f"Sending auth bootstrap welcome email to {email}")
+        redacted = redact_email(email)
+        logger.info("Sending auth bootstrap welcome email to %s", redacted)
         result = await send_email(props)
         if result.success:
             logger.info(
-                f"Successfully sent welcome email to {email} via {result.provider}",
+                "Successfully sent welcome email to %s via %s",
+                redacted,
+                result.provider,
             )
         else:
-            logger.error(f"Failed to send welcome email to {email}: {result.error}")
+            logger.error(
+                "Failed to send welcome email to %s: %s",
+                redacted,
+                result.error,
+            )
         return result
     except Exception as err:
-        logger.exception(f"Unexpected exception while sending welcome email to {email}")
+        logger.exception(
+            "Unexpected exception while sending welcome email to %s",
+            redact_email(email),
+        )
         return ProviderResult(
             success=False,
             provider="Brevo",

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -110,7 +111,6 @@ class BaseOnboardingRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
-        import re
         cleaned = value.strip()
         if not re.match(r"^\+?[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -137,7 +137,6 @@ class NexusOnboardingRequest(BaseOnboardingRequest):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
-        import re
         cleaned = value.strip()
         if len(cleaned) < 4:
             raise ValueError("Name must be at least 4 characters.")
@@ -181,10 +180,6 @@ OnboardingPayload = Annotated[
     NexusOnboardingRequest | MECOnboardingRequest,
     Field(discriminator="app_variant"),
 ]
-
-
-# Kept for backwards-compatibility; new code should use OnboardingPayload.
-CompleteOnboardingRequest = BaseOnboardingRequest
 
 
 class CompleteOnboardingResponse(BaseModel):
@@ -623,8 +618,32 @@ class LikeActionRequest(BaseModel):
     target_id: str = Field(..., min_length=1)
     action: Literal["like", "superlike", "pass", "hide", "block", "report"]
     tab: DiscoveryTab = "Dating"
-    reason: str | None = None
-    reason_detail: str | None = None
+    reason: Literal[
+        "scam",
+        "bot",
+        "harassment",
+        "inappropriate",
+        "spam",
+        "underage",
+        "other",
+    ] | None = Field(
+        default=None,
+        description="Reason code; required when action is report.",
+    )
+    reason_detail: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Free-text elaboration; required when reason is other.",
+    )
+
+    @model_validator(mode="after")
+    def validate_report_fields(self) -> "LikeActionRequest":
+        if self.action == "report":
+            if self.reason is None:
+                raise ValueError("reason is required for report")
+            if self.reason == "other" and not (self.reason_detail or "").strip():
+                raise ValueError("reason_detail is required when reason is other")
+        return self
 
 
 # Matches
@@ -649,8 +668,32 @@ class MatchActionRequest(BaseModel):
     target_id: str = Field(..., min_length=1)
     action: Literal["unmatch", "block", "report"]
     tab: DiscoveryTab = "Dating"
-    reason: str | None = None
-    reason_detail: str | None = None
+    reason: Literal[
+        "scam",
+        "bot",
+        "harassment",
+        "inappropriate",
+        "spam",
+        "underage",
+        "other",
+    ] | None = Field(
+        default=None,
+        description="Reason code; required when action is report.",
+    )
+    reason_detail: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Free-text elaboration; required when reason is other.",
+    )
+
+    @model_validator(mode="after")
+    def validate_report_fields(self) -> "MatchActionRequest":
+        if self.action == "report":
+            if self.reason is None:
+                raise ValueError("reason is required for report")
+            if self.reason == "other" and not (self.reason_detail or "").strip():
+                raise ValueError("reason_detail is required when reason is other")
+        return self
 
 
 class DiscoveryViewportRequest(BaseModel):
@@ -760,8 +803,8 @@ class ProfileImagesAndTagsUpdate(BaseModel):
 
 
 class ProfileDetailsUpdate(BaseModel):
-    name: str | None = None
-    age: int | None = None
+    name: str | None = Field(default=None, min_length=4, max_length=100)
+    age: int | None = Field(default=None, ge=18, le=80)
     campus_branch: str | None = None
     campus_year: int | None = None
     campus_name: str | None = None
@@ -769,7 +812,7 @@ class ProfileDetailsUpdate(BaseModel):
     display_sexuality: str | None = None
     pronouns: str | None = None
     bio: str | None = None
-    search_bucket: str | None = None
+    search_bucket: Literal["M", "F", "NB", "Q"] | None = None
     hometown: str | None = None
     current_place: str | None = None
     partner_values: str | None = None

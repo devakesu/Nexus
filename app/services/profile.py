@@ -78,6 +78,7 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
                 "career_embedding": vectors["career_embedding"],
                 "identity_embedding": vectors["identity_embedding"],
             },
+            on_conflict="pseudonym_id",
         ).execute()
 
         logger.info(

@@ -39,23 +39,32 @@ def get_bearer_token(
 # ---------------------------------------------------------------------------
 
 
-def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or malformed Authorization header credentials.",
-        )
-
-    token = authorization.split(" ", 1)[1]
-
+async def get_authenticated_user_payload(
+    token: str = Depends(get_bearer_token),
+) -> dict[str, Any]:
     try:
-        public_key = get_live_supabase_public_key(token)
-        payload = jwt.decode(
-            token,
-            public_key,
-            algorithms=["ES256"],
-            audience="authenticated",
-        )
+        unverified_header = jwt.get_unverified_header(token)
+        algo = unverified_header.get("alg", "ES256")
+
+        if algo == "HS256":
+            if not isinstance(settings.supabase_jwt_secret, str):
+                raise jwt.InvalidTokenError(
+                    "Symmetric HS256 secret key config mismatch.",
+                )
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        else:
+            public_key = await get_live_supabase_public_key(token)
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["ES256"],
+                audience="authenticated",
+            )
 
         user_uuid: str | None = payload.get("sub")
         if not user_uuid:
@@ -64,7 +73,11 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
                 detail="Invalid token: sub claim missing.",
             )
 
-        return user_uuid
+        # Map id to user_uuid for compatibility
+        if "id" not in payload and user_uuid:
+            payload["id"] = user_uuid
+
+        return payload
 
     except jwt.ExpiredSignatureError as err:
         raise HTTPException(
@@ -77,6 +90,12 @@ def get_authenticated_user_id(authorization: str | None = Header(None)) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Cryptographic signature verification failed.",
         ) from err
+
+
+async def get_authenticated_user_id(
+    payload: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+) -> str:
+    return payload["sub"]
 
 
 # ---------------------------------------------------------------------------

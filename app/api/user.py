@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, cast
 
 from fastapi import (
@@ -16,7 +17,7 @@ from fastapi import (
 from app.api.dependencies import (
     assert_account_active,
     get_authenticated_user_id,
-    get_bearer_token,
+    get_authenticated_user_payload,
     verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
@@ -28,7 +29,6 @@ from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, update_profile_images_and_metadata
 from app.db.users import (
     fetch_public_user,
-    get_supabase_user_from_jwt,
     is_allowed_email,
     update_user_terms,
     upsert_profile_variant,
@@ -67,12 +67,10 @@ def auth_bootstrap(
     request: Request,
     background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
-    access_token: str = Depends(get_bearer_token),
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
     x_app_variant: str | None = Header(None, alias="X-App-Variant"),
 ):
     _ = request
-
-    auth_user = get_supabase_user_from_jwt(access_token)
 
     user_id = str(auth_user.get("id") or "").strip()
     email = str(auth_user.get("email") or "").strip().lower()
@@ -121,6 +119,7 @@ def auth_bootstrap(
             send_bootstrap_welcome_email,
             email=email,
             auth_user=auth_user,
+            app_variant=app_variant,
         )
 
     return AuthBootstrapResponse(
@@ -144,7 +143,7 @@ def complete_onboarding(
     request: Request,
     payload: OnboardingPayload = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    access_token: str = Depends(get_bearer_token),
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
     """
     Complete the onboarding flow.
@@ -158,12 +157,11 @@ def complete_onboarding(
     """
     _ = request
 
-    auth_user = get_supabase_user_from_jwt(access_token)
-
     user_id = str(auth_user.get("id") or "").strip()
-    email = str(auth_user.get("email") or "").strip().lower()
+    email_raw = auth_user.get("email")
+    email = str(email_raw).strip().lower() if email_raw else None
 
-    if not user_id or not email:
+    if not user_id or (not email and not auth_user.get("phone")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user payload is incomplete.",
@@ -181,6 +179,11 @@ def complete_onboarding(
     # Resolve name and variant-specific fields per flavor.
     if isinstance(payload, MECOnboardingRequest):
         # MEC: name is derived server-side from Google OAuth metadata.
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for campus MEC onboarding.",
+            )
         user_name = extract_user_name(email, auth_user)
         user_branch: str | None = payload.campus_branch
         user_year: int | None = payload.campus_year
@@ -234,11 +237,9 @@ def accept_terms(
     request: Request,
     payload: AcceptTermsRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    access_token: str = Depends(get_bearer_token),
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
     _ = request
-
-    auth_user = get_supabase_user_from_jwt(access_token)
 
     user_id = str(auth_user.get("id") or "").strip()
     email = str(auth_user.get("email") or "").strip().lower()
@@ -376,7 +377,162 @@ def get_profile_details(
         }
     except Exception as e:
         logger.exception("Failed to get profile details")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error.",
+        ) from e
+
+
+def _validate_common_activation(
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+    missing: list[str],
+) -> None:
+    def resolve_field(field_name: str) -> Any:
+        payload_val = getattr(payload, field_name, None)
+        return payload_val if payload_val is not None else profile.get(field_name)
+
+    val_name = resolve_field("name")
+    val_age = resolve_field("age")
+    val_interests = resolve_field("interests")
+    val_profile_pic = profile.get("profile_pic")
+    val_normal_pics = profile.get("normal_pics")
+
+    if not isinstance(val_name, str) or not val_name.strip():
+        missing.append("name")
+    if val_age is None:
+        missing.append("age")
+    if (
+        not isinstance(val_interests, dict)
+        or len(cast(dict[Any, Any], val_interests)) < 3
+    ):
+        missing.append("interests")
+    if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
+        missing.append("profile_pic")
+    if (
+        not isinstance(val_normal_pics, list)
+        or len(cast(list[Any], val_normal_pics)) < 2
+    ):
+        missing.append("normal_pics")
+
+
+def _validate_dating_activation(
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+    missing: list[str],
+) -> None:
+    def resolve_field(field_name: str) -> Any:
+        payload_val = getattr(payload, field_name, None)
+        return payload_val if payload_val is not None else profile.get(field_name)
+
+    val_drinking = resolve_field("drinking")
+    val_smoking = resolve_field("smoking")
+    val_dating_target_buckets = resolve_field("dating_target_buckets")
+    val_dating_for = resolve_field("dating_for")
+    val_partner_values = resolve_field("partner_values")
+
+    if not isinstance(val_drinking, str) or not val_drinking.strip():
+        missing.append("drinking")
+    if not isinstance(val_smoking, str) or not val_smoking.strip():
+        missing.append("smoking")
+    if (
+        not isinstance(val_dating_target_buckets, list)
+        or len(cast(list[Any], val_dating_target_buckets)) < 1
+    ):
+        missing.append("dating_target_buckets")
+    if (
+        not isinstance(val_dating_for, list)
+        or len(cast(list[Any], val_dating_for)) < 1
+    ):
+        missing.append("dating_for")
+    if not isinstance(val_partner_values, str) or not val_partner_values.strip():
+        missing.append("partner_values")
+
+
+def _validate_friends_activation(
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+    missing: list[str],
+) -> None:
+    def resolve_field(field_name: str) -> Any:
+        payload_val = getattr(payload, field_name, None)
+        return payload_val if payload_val is not None else profile.get(field_name)
+
+    val_friends_target_buckets = resolve_field("friends_target_buckets")
+    val_sub_interests = resolve_field("sub_interests")
+    val_causes_supported = resolve_field("causes_supported")
+
+    if (
+        not isinstance(val_friends_target_buckets, list)
+        or len(cast(list[Any], val_friends_target_buckets)) < 1
+    ):
+        missing.append("friends_target_buckets")
+    sub_count = (
+        sum(
+            len(v)
+            for v in cast(dict[str, list[str]], val_sub_interests).values()
+        )
+        if isinstance(val_sub_interests, dict) else 0
+    )
+    if sub_count < 2:
+        missing.append("sub_interests")
+    if (
+        not isinstance(val_causes_supported, list)
+        or len(cast(list[Any], val_causes_supported)) < 1
+    ):
+        missing.append("causes_supported")
+
+
+def _validate_professional_activation(
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+    missing: list[str],
+) -> None:
+    def resolve_field(field_name: str) -> Any:
+        payload_val = getattr(payload, field_name, None)
+        return payload_val if payload_val is not None else profile.get(field_name)
+
+    val_professional_target_buckets = resolve_field("professional_target_buckets")
+    val_looking_for = resolve_field("looking_for")
+    val_tech_skills = resolve_field("tech_skills")
+
+    if (
+        not isinstance(val_professional_target_buckets, list)
+        or len(cast(list[Any], val_professional_target_buckets)) < 1
+    ):
+        missing.append("professional_target_buckets")
+    if (
+        not isinstance(val_looking_for, list)
+        or len(cast(list[Any], val_looking_for)) < 1
+    ):
+        missing.append("looking_for")
+    if (
+        not isinstance(val_tech_skills, list)
+        or len(cast(list[Any], val_tech_skills)) < 1
+    ):
+        missing.append("tech_skills")
+
+
+def _validate_tab_activation(
+    tab_name: str,
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+) -> list[str]:
+    """
+    Validates required profile fields for activating a specific tab.
+    Supports 'Dating', 'Friends', or 'Professional'.
+    """
+    missing: list[str] = []
+    _validate_common_activation(profile, payload, missing)
+
+    if tab_name == "Dating":
+        _validate_dating_activation(profile, payload, missing)
+    elif tab_name == "Friends":
+        _validate_friends_activation(profile, payload, missing)
+    elif tab_name == "Professional":
+        _validate_professional_activation(profile, payload, missing)
+
+    return missing
 
 
 @router.patch("/api/v1/profile/details")
@@ -448,276 +604,69 @@ def update_profile_details(  # noqa: C901
         if val is not None:
             update_data[field] = encrypt_to_hex(json.dumps(val))
 
+    need_profile_fetch = (
+        (payload.is_dating_active is True)
+        or (payload.is_friends_active is True)
+        or (payload.is_professional_active is True)
+    )
+    profile = None
+    if need_profile_fetch:
+        profile_res = (
+            supabase_client.table("profiles")
+            .select("*")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        profile_data = getattr(profile_res, "data", None)
+        if not profile_data or not isinstance(profile_data, dict):
+            raise HTTPException(status_code=404, detail="Profile not found")
+        profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+
     if payload.is_dating_active is not None:
         if payload.is_dating_active:
-            # Fetch current profile to validate all required fields
-            profile_res = (
-                supabase_client.table("profiles")
-                .select("*")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            profile_data = getattr(profile_res, "data", None)
-            if not profile_data or not isinstance(profile_data, dict):
-                raise HTTPException(status_code=404, detail="Profile not found")
-            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
-
-            # Resolve actual state (payload takes precedence over current DB state)
-            val_name = (
-                payload.name if payload.name is not None
-                else profile.get("name")
-            )
-            val_age = (
-                payload.age if payload.age is not None
-                else profile.get("age")
-            )
-            val_drinking = (
-                payload.drinking if payload.drinking is not None
-                else profile.get("drinking")
-            )
-            val_smoking = (
-                payload.smoking if payload.smoking is not None
-                else profile.get("smoking")
-            )
-            val_interests = (
-                payload.interests if payload.interests is not None
-                else profile.get("interests")
-            )
-            val_profile_pic = profile.get("profile_pic")
-            val_normal_pics = profile.get("normal_pics")
-            val_dating_target_buckets = (
-                payload.dating_target_buckets
-                if payload.dating_target_buckets is not None
-                else profile.get("dating_target_buckets")
-            )
-            val_dating_for = (
-                payload.dating_for
-                if payload.dating_for is not None
-                else profile.get("dating_for")
-            )
-            val_partner_values = (
-                payload.partner_values
-                if payload.partner_values is not None
-                else profile.get("partner_values")
-            )
-
-            missing: list[str] = []
-            if not isinstance(val_name, str) or not val_name.strip():
-                missing.append("name")
-            if val_age is None:
-                missing.append("age")
-            if not isinstance(val_drinking, str) or not val_drinking.strip():
-                missing.append("drinking")
-            if not isinstance(val_smoking, str) or not val_smoking.strip():
-                missing.append("smoking")
-            if (
-                not isinstance(val_interests, dict)
-                or len(cast(dict[Any, Any], val_interests)) < 3
-            ):
-                missing.append("interests")
-            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
-                missing.append("profile_pic")
-            if (
-                not isinstance(val_normal_pics, list)
-                or len(cast(list[Any], val_normal_pics)) < 2
-            ):
-                missing.append("normal_pics")
-            if (
-                not isinstance(val_dating_target_buckets, list)
-                or len(cast(list[Any], val_dating_target_buckets)) < 1
-            ):
-                missing.append("dating_target_buckets")
-            if (
-                not isinstance(val_dating_for, list)
-                or len(cast(list[Any], val_dating_for)) < 1
-            ):
-                missing.append("dating_for")
-            if (
-                not isinstance(val_partner_values, str)
-                or not val_partner_values.strip()
-            ):
-                missing.append("partner_values")
-
-
-            if missing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "message": "Dating profile incomplete",
-                        "missing_fields": missing,
-                    },
-                )
+            if profile is not None:
+                missing = _validate_tab_activation("Dating", profile, payload)
+                if missing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "message": "Dating profile incomplete",
+                            "missing_fields": missing,
+                        },
+                    )
             update_data["is_dating_active"] = True
         else:
             update_data["is_dating_active"] = False
 
     if payload.is_friends_active is not None:
         if payload.is_friends_active:
-            profile_res = (
-                supabase_client.table("profiles")
-                .select("*")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            profile_data = getattr(profile_res, "data", None)
-            if not profile_data or not isinstance(profile_data, dict):
-                raise HTTPException(status_code=404, detail="Profile not found")
-            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
-
-            val_name = payload.name if payload.name is not None else profile.get("name")
-            val_age = payload.age if payload.age is not None else profile.get("age")
-            val_interests = (
-                payload.interests if payload.interests is not None
-                else profile.get("interests")
-            )
-            val_profile_pic = profile.get("profile_pic")
-            val_normal_pics = profile.get("normal_pics")
-            val_friends_target_buckets = (
-                payload.friends_target_buckets
-                if payload.friends_target_buckets is not None
-                else profile.get("friends_target_buckets")
-            )
-            val_sub_interests = (
-                payload.sub_interests
-                if payload.sub_interests is not None
-                else profile.get("sub_interests")
-            )
-            val_causes_supported = (
-                payload.causes_supported
-                if payload.causes_supported is not None
-                else profile.get("causes_supported")
-            )
-
-            missing: list[str] = []
-            if not isinstance(val_name, str) or not val_name.strip():
-                missing.append("name")
-            if val_age is None:
-                missing.append("age")
-            if (
-                not isinstance(val_interests, dict)
-                or len(cast(dict[Any, Any], val_interests)) < 3
-            ):
-                missing.append("interests")
-            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
-                missing.append("profile_pic")
-            if (
-                not isinstance(val_normal_pics, list)
-                or len(cast(list[Any], val_normal_pics)) < 2
-            ):
-                missing.append("normal_pics")
-            if (
-                not isinstance(val_friends_target_buckets, list)
-                or len(cast(list[Any], val_friends_target_buckets)) < 1
-            ):
-                missing.append("friends_target_buckets")
-            sub_count = (
-                sum(
-                    len(v)
-                    for v in cast(dict[str, list[str]], val_sub_interests).values()
-                )
-                if isinstance(val_sub_interests, dict) else 0
-            )
-            if sub_count < 2:
-                missing.append("sub_interests")
-            if (
-                not isinstance(val_causes_supported, list)
-                or len(cast(list[Any], val_causes_supported)) < 1
-            ):
-                missing.append("causes_supported")
-
-            if missing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "message": "Friends profile incomplete",
-                        "missing_fields": missing,
-                    },
-                )
+            if profile is not None:
+                missing = _validate_tab_activation("Friends", profile, payload)
+                if missing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "message": "Friends profile incomplete",
+                            "missing_fields": missing,
+                        },
+                    )
             update_data["is_friends_active"] = True
         else:
             update_data["is_friends_active"] = False
 
     if payload.is_professional_active is not None:
         if payload.is_professional_active:
-            profile_res = (
-                supabase_client.table("profiles")
-                .select("*")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            profile_data = getattr(profile_res, "data", None)
-            if not profile_data or not isinstance(profile_data, dict):
-                raise HTTPException(status_code=404, detail="Profile not found")
-            profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
-
-            val_name = payload.name if payload.name is not None else profile.get("name")
-            val_age = payload.age if payload.age is not None else profile.get("age")
-            val_interests = (
-                payload.interests if payload.interests is not None
-                else profile.get("interests")
-            )
-            val_profile_pic = profile.get("profile_pic")
-            val_normal_pics = profile.get("normal_pics")
-            val_professional_target_buckets = (
-                payload.professional_target_buckets
-                if payload.professional_target_buckets is not None
-                else profile.get("professional_target_buckets")
-            )
-            val_looking_for = (
-                payload.looking_for
-                if payload.looking_for is not None
-                else profile.get("looking_for")
-            )
-            val_tech_skills = (
-                payload.tech_skills
-                if payload.tech_skills is not None
-                else profile.get("tech_skills")
-            )
-
-            missing: list[str] = []
-            if not isinstance(val_name, str) or not val_name.strip():
-                missing.append("name")
-            if val_age is None:
-                missing.append("age")
-            if (
-                not isinstance(val_interests, dict)
-                or len(cast(dict[Any, Any], val_interests)) < 3
-            ):
-                missing.append("interests")
-            if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
-                missing.append("profile_pic")
-            if (
-                not isinstance(val_normal_pics, list)
-                or len(cast(list[Any], val_normal_pics)) < 2
-            ):
-                missing.append("normal_pics")
-            if (
-                not isinstance(val_professional_target_buckets, list)
-                or len(cast(list[Any], val_professional_target_buckets)) < 1
-            ):
-                missing.append("professional_target_buckets")
-            if (
-                not isinstance(val_looking_for, list)
-                or len(cast(list[Any], val_looking_for)) < 1
-            ):
-                missing.append("looking_for")
-            if (
-                not isinstance(val_tech_skills, list)
-                or len(cast(list[Any], val_tech_skills)) < 1
-            ):
-                missing.append("tech_skills")
-
-            if missing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "message": "Professional profile incomplete",
-                        "missing_fields": missing,
-                    },
-                )
+            if profile is not None:
+                missing = _validate_tab_activation("Professional", profile, payload)
+                if missing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "message": "Professional profile incomplete",
+                            "missing_fields": missing,
+                        },
+                    )
             update_data["is_professional_active"] = True
         else:
             update_data["is_professional_active"] = False
@@ -725,7 +674,7 @@ def update_profile_details(  # noqa: C901
     if not update_data:
         return {"status": "success", "detail": "No fields to update."}
 
-    update_data["updated_at"] = "now()"
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     try:
         res = (
@@ -746,4 +695,7 @@ def update_profile_details(  # noqa: C901
         return {"status": "success", "detail": "Profile details synchronized."}
     except Exception as e:
         logger.exception("Failed to update profile details")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error.",
+        ) from e

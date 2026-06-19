@@ -13,6 +13,7 @@ from app.db.sessions import (
     get_discovery_session,
     get_discovery_session_by_id,
 )
+from app.models import DiscoveryFilters
 from Nexus_Engine import engine
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def get_or_validate_session(
 def create_new_discovery_session(
     user_id: str,
     active_tab: DiscoveryTab,
-    filters: Any,
+    filters: DiscoveryFilters,
 ) -> tuple[str, datetime]:
     viewer, candidate_pool = fetch_stage_1_candidates(
         viewer_id=user_id,

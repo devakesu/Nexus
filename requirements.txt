@@ -5,3 +5,10 @@ sentence-transformers==5.5.1
 pydantic==2.13.4
 pydantic-settings==2.14.1
 sentry-sdk==2.5.1
+firebase-admin==7.4.0
+redis==8.0.0
+PyJWT==2.13.0
+numpy==2.2.6
+python-dateutil==2.9.0.post0
+slowapi==0.1.9
+postgrest==2.30.1

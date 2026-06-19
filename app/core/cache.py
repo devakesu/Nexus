@@ -7,7 +7,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-BLOCK_IDS_CACHE_TTL_SECONDS = 300 + secrets.randbelow(31)
+def get_block_ids_cache_ttl() -> int:
+    return 300 + secrets.randbelow(31)
 
 # Single shared async Redis client — connection pool is managed internally by redis-py
 redis_client = aioredis.from_url(
