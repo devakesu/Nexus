@@ -426,9 +426,13 @@ def update_profile_details(  # noqa: C901
     if payload.smoking is not None:
         update_data["smoking_blind_index"] = compute_blind_index(payload.smoking)
     if payload.children_plans is not None:
-        update_data["children_plans_blind_index"] = compute_blind_index(payload.children_plans)
+        update_data["children_plans_blind_index"] = compute_blind_index(
+            payload.children_plans,
+        )
     if payload.religious_beliefs is not None:
-        update_data["religious_beliefs_blind_index"] = compute_blind_index(payload.religious_beliefs)
+        update_data["religious_beliefs_blind_index"] = compute_blind_index(
+            payload.religious_beliefs,
+        )
 
     array_fields = [
         "looking_for", "activities", "causes_supported",
@@ -529,7 +533,10 @@ def update_profile_details(  # noqa: C901
                 or len(cast(list[Any], val_dating_for)) < 1
             ):
                 missing.append("dating_for")
-            if not isinstance(val_partner_values, str) or not val_partner_values.strip():
+            if (
+                not isinstance(val_partner_values, str)
+                or not val_partner_values.strip()
+            ):
                 missing.append("partner_values")
 
 
@@ -561,7 +568,10 @@ def update_profile_details(  # noqa: C901
 
             val_name = payload.name if payload.name is not None else profile.get("name")
             val_age = payload.age if payload.age is not None else profile.get("age")
-            val_interests = payload.interests if payload.interests is not None else profile.get("interests")
+            val_interests = (
+                payload.interests if payload.interests is not None
+                else profile.get("interests")
+            )
             val_profile_pic = profile.get("profile_pic")
             val_normal_pics = profile.get("normal_pics")
             val_friends_target_buckets = (
@@ -585,13 +595,22 @@ def update_profile_details(  # noqa: C901
                 missing.append("name")
             if val_age is None:
                 missing.append("age")
-            if not isinstance(val_interests, dict) or len(cast(dict[Any, Any], val_interests)) < 3:
+            if (
+                not isinstance(val_interests, dict)
+                or len(cast(dict[Any, Any], val_interests)) < 3
+            ):
                 missing.append("interests")
             if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
                 missing.append("profile_pic")
-            if not isinstance(val_normal_pics, list) or len(cast(list[Any], val_normal_pics)) < 2:
+            if (
+                not isinstance(val_normal_pics, list)
+                or len(cast(list[Any], val_normal_pics)) < 2
+            ):
                 missing.append("normal_pics")
-            if not isinstance(val_friends_target_buckets, list) or len(cast(list[Any], val_friends_target_buckets)) < 1:
+            if (
+                not isinstance(val_friends_target_buckets, list)
+                or len(cast(list[Any], val_friends_target_buckets)) < 1
+            ):
                 missing.append("friends_target_buckets")
             sub_count = (
                 sum(
@@ -602,13 +621,19 @@ def update_profile_details(  # noqa: C901
             )
             if sub_count < 2:
                 missing.append("sub_interests")
-            if not isinstance(val_causes_supported, list) or len(cast(list[Any], val_causes_supported)) < 1:
+            if (
+                not isinstance(val_causes_supported, list)
+                or len(cast(list[Any], val_causes_supported)) < 1
+            ):
                 missing.append("causes_supported")
 
             if missing:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"message": "Friends profile incomplete", "missing_fields": missing},
+                    detail={
+                        "message": "Friends profile incomplete",
+                        "missing_fields": missing,
+                    },
                 )
             update_data["is_friends_active"] = True
         else:
@@ -630,7 +655,10 @@ def update_profile_details(  # noqa: C901
 
             val_name = payload.name if payload.name is not None else profile.get("name")
             val_age = payload.age if payload.age is not None else profile.get("age")
-            val_interests = payload.interests if payload.interests is not None else profile.get("interests")
+            val_interests = (
+                payload.interests if payload.interests is not None
+                else profile.get("interests")
+            )
             val_profile_pic = profile.get("profile_pic")
             val_normal_pics = profile.get("normal_pics")
             val_professional_target_buckets = (
@@ -654,23 +682,41 @@ def update_profile_details(  # noqa: C901
                 missing.append("name")
             if val_age is None:
                 missing.append("age")
-            if not isinstance(val_interests, dict) or len(cast(dict[Any, Any], val_interests)) < 3:
+            if (
+                not isinstance(val_interests, dict)
+                or len(cast(dict[Any, Any], val_interests)) < 3
+            ):
                 missing.append("interests")
             if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
                 missing.append("profile_pic")
-            if not isinstance(val_normal_pics, list) or len(cast(list[Any], val_normal_pics)) < 2:
+            if (
+                not isinstance(val_normal_pics, list)
+                or len(cast(list[Any], val_normal_pics)) < 2
+            ):
                 missing.append("normal_pics")
-            if not isinstance(val_professional_target_buckets, list) or len(cast(list[Any], val_professional_target_buckets)) < 1:
+            if (
+                not isinstance(val_professional_target_buckets, list)
+                or len(cast(list[Any], val_professional_target_buckets)) < 1
+            ):
                 missing.append("professional_target_buckets")
-            if not isinstance(val_looking_for, list) or len(cast(list[Any], val_looking_for)) < 1:
+            if (
+                not isinstance(val_looking_for, list)
+                or len(cast(list[Any], val_looking_for)) < 1
+            ):
                 missing.append("looking_for")
-            if not isinstance(val_tech_skills, list) or len(cast(list[Any], val_tech_skills)) < 1:
+            if (
+                not isinstance(val_tech_skills, list)
+                or len(cast(list[Any], val_tech_skills)) < 1
+            ):
                 missing.append("tech_skills")
 
             if missing:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"message": "Professional profile incomplete", "missing_fields": missing},
+                    detail={
+                        "message": "Professional profile incomplete",
+                        "missing_fields": missing,
+                    },
                 )
             update_data["is_professional_active"] = True
         else:

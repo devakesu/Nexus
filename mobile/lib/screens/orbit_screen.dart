@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
-import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
@@ -79,9 +78,10 @@ class _OrbitScreenState extends State<OrbitScreen>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
+    unawaited(_pulseController.repeat(reverse: true));
 
-    _initData();
+    unawaited(_initData());
   }
 
   Future<void> _initData() async {
@@ -108,28 +108,31 @@ class _OrbitScreenState extends State<OrbitScreen>
           setState(() {
             final rawBuckets = data['dating_target_buckets'];
             if (rawBuckets is List) {
-              _selectedShowBuckets.clear();
-              _selectedShowBuckets.addAll(rawBuckets.map((e) => e.toString()));
+              _selectedShowBuckets
+                ..clear()
+                ..addAll(rawBuckets.map((e) => e.toString()));
             }
             final rawDatingFor = data['dating_for'];
             if (rawDatingFor is List) {
-              _selectedDatingFor.clear();
-              _selectedDatingFor.addAll(rawDatingFor.map((e) => e.toString()));
+              _selectedDatingFor
+                ..clear()
+                ..addAll(rawDatingFor.map((e) => e.toString()));
             }
             final rawPartnerValues = data['partner_values']?.toString() ?? '';
             if (rawPartnerValues.isNotEmpty) {
-              _selectedPartnerValues.clear();
-              _selectedPartnerValues.addAll(
-                rawPartnerValues
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where((e) => e.isNotEmpty),
-              );
+              _selectedPartnerValues
+                ..clear()
+                ..addAll(
+                  rawPartnerValues
+                      .split(',')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty),
+                );
             }
           });
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[OrbitScreen] Error loading profile status: $e');
     }
   }
@@ -148,7 +151,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         );
         return response.statusCode == 200;
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[OrbitScreen] Error saving dating details: $e');
     }
     return false;
@@ -170,19 +173,22 @@ class _OrbitScreenState extends State<OrbitScreen>
         _savingFields.remove(field);
         if (success) {
           if (field == 'dating_target_buckets') {
-            _selectedShowBuckets.clear();
-            _selectedShowBuckets.addAll(List<String>.from(value as List));
+            _selectedShowBuckets
+              ..clear()
+              ..addAll(List<String>.from(value as List));
           } else if (field == 'dating_for') {
-            _selectedDatingFor.clear();
-            _selectedDatingFor.addAll(List<String>.from(value as List));
+            _selectedDatingFor
+              ..clear()
+              ..addAll(List<String>.from(value as List));
           } else if (field == 'partner_values') {
-            _selectedPartnerValues.clear();
-            _selectedPartnerValues.addAll(
-              (value as String)
-                  .split(',')
-                  .map((e) => e.trim())
-                  .where((e) => e.isNotEmpty),
-            );
+            _selectedPartnerValues
+              ..clear()
+              ..addAll(
+                (value as String)
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty),
+              );
           }
         }
 
@@ -545,7 +551,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                       );
                                     },
                                   );
-                                }).toList(),
+                                }),
                               ],
                             ),
                           ],
@@ -673,7 +679,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         final nodesList =
             discoverResponse.data!['nodes'] as List<dynamic>? ?? [];
         debugPrint('--- CLIENT ORBIT NODES RECEIVED (${nodesList.length}) ---');
-        for (final node in nodesList) {
+        for (final node in nodesList.cast<Map<String, dynamic>>()) {
           debugPrint(
             'Node: ${node['name']}, x: ${node['x']}, y: ${node['y']}, tier: ${node['orbit_tier']}, score: ${node['score']}',
           );
@@ -707,25 +713,25 @@ class _OrbitScreenState extends State<OrbitScreen>
     if (session == null) return;
 
     final matrix = _transformationController.value;
-    final double scale = matrix.getMaxScaleOnAxis();
+    final scale = matrix.getMaxScaleOnAxis();
     if (scale <= 0) return;
 
-    final double translationX = matrix.entry(0, 3);
-    final double translationY = matrix.entry(1, 3);
+    final translationX = matrix.entry(0, 3);
+    final translationY = matrix.entry(1, 3);
 
-    final double visibleCanvasCenterX = (viewWidth / 2 - translationX) / scale;
-    final double visibleCanvasCenterY = (viewHeight / 2 - translationY) / scale;
+    final visibleCanvasCenterX = (viewWidth / 2 - translationX) / scale;
+    final visibleCanvasCenterY = (viewHeight / 2 - translationY) / scale;
 
-    final double center = _canvasSize / 2;
-    final double centerX = visibleCanvasCenterX - center;
-    final double centerY = visibleCanvasCenterY - center;
+    final center = _canvasSize / 2;
+    final centerX = visibleCanvasCenterX - center;
+    final centerY = visibleCanvasCenterY - center;
 
-    final double screenHalfWidth = viewWidth / 2;
-    final double screenHalfHeight = viewHeight / 2;
-    final double screenDiagonal = math.sqrt(
+    final screenHalfWidth = viewWidth / 2;
+    final screenHalfHeight = viewHeight / 2;
+    final screenDiagonal = math.sqrt(
       screenHalfWidth * screenHalfWidth + screenHalfHeight * screenHalfHeight,
     );
-    double radius = (screenDiagonal / scale) * 1.2;
+    var radius = (screenDiagonal / scale) * 1.2;
     if (radius > 2000.0) {
       radius = 2000.0;
     }
@@ -755,10 +761,10 @@ class _OrbitScreenState extends State<OrbitScreen>
       if (response.statusCode == 200 && response.data != null) {
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
         setState(() {
-          final Map<String, dynamic> nodeMap = {
-            for (var node in _nodes) node['id'] as String: node
+          final nodeMap = {
+            for (final node in _nodes.cast<Map<String, dynamic>>()) node['id'] as String: node
           };
-          for (var node in newNodes) {
+          for (final node in newNodes) {
             if (node is Map<String, dynamic>) {
               nodeMap[node['id'] as String] = node;
             }
@@ -1426,9 +1432,10 @@ class _OrbitScreenState extends State<OrbitScreen>
                               } else if (opt == 'Not specified') {
                                 selected.clear();
                               } else {
-                                selected.remove('Atheist');
-                                selected.remove('Agnostic');
-                                selected.remove('Not specified');
+                                selected
+                                  ..remove('Atheist')
+                                  ..remove('Agnostic')
+                                  ..remove('Not specified');
                               }
                             }
                             selected.add(opt);
@@ -1502,7 +1509,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                       color: value ? theme : Colors.white.withValues(alpha: 0.08),
                       border: Border.all(
                         color: value ? theme : Colors.white.withValues(alpha: 0.15),
-                        width: 1,
                       ),
                     ),
                     child: AnimatedAlign(
@@ -1533,7 +1539,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: theme.withValues(alpha: 0.2),
-                        width: 1,
                       ),
                     ),
                     child: Row(
@@ -1557,8 +1562,8 @@ class _OrbitScreenState extends State<OrbitScreen>
 
               Widget filterSection({
                 required String label,
-                Widget? action,
                 required Widget child,
+                Widget? action,
                 String? subtitle,
               }) {
                 return Container(
@@ -1569,7 +1574,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.05),
-                      width: 1,
                     ),
                   ),
                   child: Column(
@@ -1588,7 +1592,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               ),
                             ),
                           ),
-                          if (action != null) action,
+                          ?action,
                         ],
                       ),
                       if (subtitle != null && subtitle.isNotEmpty) ...[
@@ -1676,7 +1680,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: theme.withValues(alpha: 0.2),
-                                  width: 1,
                                 ),
                               ),
                               child: Text(
@@ -1692,7 +1695,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               data: SliderTheme.of(context).copyWith(
                                 activeTrackColor: theme,
                                 inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
-                                trackHeight: 3.0,
+                                trackHeight: 3,
                                 thumbColor: theme,
                                 overlayColor: theme.withValues(alpha: 0.12),
                                 valueIndicatorColor: theme,
@@ -1701,8 +1704,8 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   fontWeight: FontWeight.bold,
                                 ),
                                 rangeThumbShape: const RoundRangeSliderThumbShape(
-                                  enabledThumbRadius: 6.0,
-                                  elevation: 2.0,
+                                  enabledThumbRadius: 6,
+                                  elevation: 2,
                                 ),
                                 rangeTrackShape: const RoundedRectRangeSliderTrackShape(),
                               ),
@@ -1816,8 +1819,9 @@ class _OrbitScreenState extends State<OrbitScreen>
                                         themeColor: theme,
                                         onSave: (newInterests) {
                                           setModalState(() {
-                                            _selectedSubInterests.clear();
-                                            _selectedSubInterests.addAll(newInterests);
+                                            _selectedSubInterests
+                                              ..clear()
+                                              ..addAll(newInterests);
                                           });
                                           setState(() {});
                                           unawaited(_fetchOrbitNodes());
@@ -1948,7 +1952,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   color: Colors.white38,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: 2.0,
+                                  letterSpacing: 2,
                                 ),
                               ),
                             ),
@@ -2602,7 +2606,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               )
                               .fade(
                                 begin: 0.5,
-                                end: 1.0,
+                                end: 1,
                                 duration: 1200.ms,
                                 curve: Curves.easeInOut,
                               ),
@@ -2769,8 +2773,9 @@ class CelestialBackgroundPainter extends CustomPainter {
         paint.color = Colors.white.withValues(
           alpha: (twinklePhase - 0.85) * 2.0,
         );
-        canvas.drawLine(Offset(x - 4, y), Offset(x + 4, y), paint);
-        canvas.drawLine(Offset(x, y - 4), Offset(x, y + 4), paint);
+        canvas
+          ..drawLine(Offset(x - 4, y), Offset(x + 4, y), paint)
+          ..drawLine(Offset(x, y - 4), Offset(x, y + 4), paint);
       }
     }
 
@@ -2781,42 +2786,45 @@ class CelestialBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Cardinal axis lines
-    canvas.drawLine(
-      Offset(0, center.dy),
-      Offset(size.width, center.dy),
-      gridPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, 0),
-      Offset(center.dx, size.height),
-      gridPaint,
-    );
+    canvas
+      ..drawLine(
+        Offset(0, center.dy),
+        Offset(size.width, center.dy),
+        gridPaint,
+      )
+      ..drawLine(
+        Offset(center.dx, 0),
+        Offset(center.dx, size.height),
+        gridPaint,
+      );
 
     // Diagonal coordinate sweeps
     final diagonalPaint = Paint()
       ..color = themeColor.withValues(alpha: 0.03)
       ..strokeWidth = 0.8;
-    canvas.drawLine(
-      const Offset(0, 0),
-      Offset(size.width, size.height),
-      diagonalPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(0, size.height),
-      diagonalPaint,
-    );
+    canvas
+      ..drawLine(
+        Offset.zero,
+        Offset(size.width, size.height),
+        diagonalPaint,
+      )
+      ..drawLine(
+        Offset(size.width, 0),
+        Offset(0, size.height),
+        diagonalPaint,
+      );
 
     // 3. Tick marks on cardinal lines
     for (var r = 100.0; r <= 600.0; r += 100.0) {
-      canvas.drawCircle(
-        Offset(center.dx + r, center.dy),
-        2,
-        paint..color = themeColor.withValues(alpha: 0.35),
-      );
-      canvas.drawCircle(Offset(center.dx - r, center.dy), 2, paint);
-      canvas.drawCircle(Offset(center.dx, center.dy + r), 2, paint);
-      canvas.drawCircle(Offset(center.dx, center.dy - r), 2, paint);
+      canvas
+        ..drawCircle(
+          Offset(center.dx + r, center.dy),
+          2,
+          paint..color = themeColor.withValues(alpha: 0.35),
+        )
+        ..drawCircle(Offset(center.dx - r, center.dy), 2, paint)
+        ..drawCircle(Offset(center.dx, center.dy + r), 2, paint)
+        ..drawCircle(Offset(center.dx, center.dy - r), 2, paint);
     }
   }
 
@@ -2846,7 +2854,7 @@ class ConstellationLinesPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Draw lines from center to nodes
-    for (final node in nodes) {
+    for (final node in nodes.cast<Map<String, dynamic>>()) {
       final x = (node['x'] as num?)?.toDouble() ?? 0.0;
       final y = (node['y'] as num?)?.toDouble() ?? 0.0;
       final nodePos = Offset(center.dx + x, center.dy + y);
@@ -2855,14 +2863,15 @@ class ConstellationLinesPainter extends CustomPainter {
 
     // Draw lines between nearby nodes (e.g. within 160 units of each other)
     const maxDistSq = 160.0 * 160.0;
-    for (var i = 0; i < nodes.length; i++) {
-      final x1 = (nodes[i]['x'] as num?)?.toDouble() ?? 0.0;
-      final y1 = (nodes[i]['y'] as num?)?.toDouble() ?? 0.0;
+    final typedNodes = nodes.cast<Map<String, dynamic>>();
+    for (var i = 0; i < typedNodes.length; i++) {
+      final x1 = (typedNodes[i]['x'] as num?)?.toDouble() ?? 0.0;
+      final y1 = (typedNodes[i]['y'] as num?)?.toDouble() ?? 0.0;
       final p1 = Offset(center.dx + x1, center.dy + y1);
 
-      for (var j = i + 1; j < nodes.length; j++) {
-        final x2 = (nodes[j]['x'] as num?)?.toDouble() ?? 0.0;
-        final y2 = (nodes[j]['y'] as num?)?.toDouble() ?? 0.0;
+      for (var j = i + 1; j < typedNodes.length; j++) {
+        final x2 = (typedNodes[j]['x'] as num?)?.toDouble() ?? 0.0;
+        final y2 = (typedNodes[j]['y'] as num?)?.toDouble() ?? 0.0;
         final p2 = Offset(center.dx + x2, center.dy + y2);
 
         final dx = p1.dx - p2.dx;
@@ -2898,43 +2907,46 @@ class OrbitGridPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Cardinal axis lines
-    canvas.drawLine(
-      Offset(0, center.dy),
-      Offset(size.width, center.dy),
-      gridPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, 0),
-      Offset(center.dx, size.height),
-      gridPaint,
-    );
+    canvas
+      ..drawLine(
+        Offset(0, center.dy),
+        Offset(size.width, center.dy),
+        gridPaint,
+      )
+      ..drawLine(
+        Offset(center.dx, 0),
+        Offset(center.dx, size.height),
+        gridPaint,
+      );
 
     // Diagonal coordinate sweeps
     final diagonalPaint = Paint()
       ..color = themeColor.withValues(alpha: 0.03)
       ..strokeWidth = 0.8;
-    canvas.drawLine(
-      const Offset(0, 0),
-      Offset(size.width, size.height),
-      diagonalPaint,
-    );
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(0, size.height),
-      diagonalPaint,
-    );
+    canvas
+      ..drawLine(
+        Offset.zero,
+        Offset(size.width, size.height),
+        diagonalPaint,
+      )
+      ..drawLine(
+        Offset(size.width, 0),
+        Offset(0, size.height),
+        diagonalPaint,
+      );
 
     // Tick marks on cardinal lines
     final paint = Paint()..isAntiAlias = true;
     for (var r = 100.0; r <= 600.0; r += 100.0) {
-      canvas.drawCircle(
-        Offset(center.dx + r, center.dy),
-        2,
-        paint..color = themeColor.withValues(alpha: 0.35),
-      );
-      canvas.drawCircle(Offset(center.dx - r, center.dy), 2, paint);
-      canvas.drawCircle(Offset(center.dx, center.dy + r), 2, paint);
-      canvas.drawCircle(Offset(center.dx, center.dy - r), 2, paint);
+      canvas
+        ..drawCircle(
+          Offset(center.dx + r, center.dy),
+          2,
+          paint..color = themeColor.withValues(alpha: 0.35),
+        )
+        ..drawCircle(Offset(center.dx - r, center.dy), 2, paint)
+        ..drawCircle(Offset(center.dx, center.dy + r), 2, paint)
+        ..drawCircle(Offset(center.dx, center.dy - r), 2, paint);
     }
   }
 

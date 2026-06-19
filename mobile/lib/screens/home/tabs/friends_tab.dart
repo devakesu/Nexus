@@ -1,15 +1,16 @@
 import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
-import 'package:dio/dio.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/utils/network_utils.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/screens/home/widgets/interests_overlay.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
-import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/utils/network_utils.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendsTab extends StatefulWidget {
   const FriendsTab({
@@ -50,7 +51,8 @@ class _FriendsTabState extends State<FriendsTab>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
+    unawaited(_pulseController.repeat(reverse: true));
     unawaited(_loadFriendsProfileStatus());
     unawaited(_fetchWaves());
     unawaited(_fetchFriends());
@@ -115,7 +117,7 @@ class _FriendsTabState extends State<FriendsTab>
           return;
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error fetching friends status: $e');
     }
 
@@ -179,7 +181,7 @@ class _FriendsTabState extends State<FriendsTab>
           });
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error fetching friends status silently: $e');
     }
   }
@@ -199,7 +201,7 @@ class _FriendsTabState extends State<FriendsTab>
         );
         return response.statusCode == 200;
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error saving friends details: $e');
     }
     return false;
@@ -321,7 +323,7 @@ class _FriendsTabState extends State<FriendsTab>
           ),
         );
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Orbit activation failed: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -329,9 +331,10 @@ class _FriendsTabState extends State<FriendsTab>
   }
 
   void _showProfileIncompleteDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
@@ -442,7 +445,7 @@ class _FriendsTabState extends State<FriendsTab>
           ],
         );
       },
-    );
+    ));
   }
 
   void _showFloatingToast(String message, Color color) {
@@ -499,9 +502,10 @@ class _FriendsTabState extends State<FriendsTab>
 
   Future<void> _showFriendsSettingsOverlay({bool isActivating = false}) async {
     await _loadFriendsProfileStatusSilent();
+    if (!mounted) return;
     final localBuckets = List<String>.from(_friendsTargetBuckets);
     var localInterests = List<String>.from(_flatInterests);
-    var localCauses = List<String>.from(_causesSupported);
+    final localCauses = List<String>.from(_causesSupported);
 
     const causesPresets = <String>[
       'Climate Action',
@@ -683,8 +687,9 @@ class _FriendsTabState extends State<FriendsTab>
                                   onSelected: (selected) async {
                                     if (_savingFields.contains(
                                       'friends_target_buckets',
-                                    ))
+                                    )) {
                                       return;
+                                    }
                                     setModalState(() {
                                       if (code == 'Open') {
                                         if (selected) {
@@ -937,8 +942,9 @@ class _FriendsTabState extends State<FriendsTab>
                                 onDeleted: () async {
                                   if (_savingFields.contains(
                                     'causes_supported',
-                                  ))
+                                  )) {
                                     return;
+                                  }
                                   setModalState(() => localCauses.remove(val));
                                   await _saveFriendsField(
                                     'causes_supported',
@@ -965,7 +971,6 @@ class _FriendsTabState extends State<FriendsTab>
                           spacing: 8,
                           runSpacing: 4,
                           children: causesPresets
-                              .where((c) => !localCauses.contains(c))
                               .map((val) {
                                 return ActionChip(
                                   label: Text(val),
@@ -983,8 +988,9 @@ class _FriendsTabState extends State<FriendsTab>
                                   onPressed: () async {
                                     if (_savingFields.contains(
                                       'causes_supported',
-                                    ))
+                                    )) {
                                       return;
+                                    }
                                     setModalState(() => localCauses.add(val));
                                     await _saveFriendsField(
                                       'causes_supported',
@@ -1035,7 +1041,7 @@ class _FriendsTabState extends State<FriendsTab>
           _unseenCount = (unseen as num?)?.toInt() ?? 0;
         });
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error fetching waves: $e');
     }
   }
@@ -1072,7 +1078,7 @@ class _FriendsTabState extends State<FriendsTab>
           }).toList();
         });
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error fetching friends: $e');
     }
   }
@@ -1100,7 +1106,7 @@ class _FriendsTabState extends State<FriendsTab>
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return response.statusCode == 200;
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error recording friend action: $e');
       return false;
     }
@@ -1119,7 +1125,7 @@ class _FriendsTabState extends State<FriendsTab>
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
       );
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error marking waves seen: $e');
     }
   }
@@ -1165,7 +1171,7 @@ class _FriendsTabState extends State<FriendsTab>
       );
       if (response.statusCode == 200) return response.data;
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[FriendsTab] Error recording wave action: $e');
       return null;
     }
@@ -1604,10 +1610,8 @@ class _FriendsTabState extends State<FriendsTab>
                                               ? StorageImage(
                                                   imagePath: profilePic,
                                                 )
-                                              : Container(
-                                                  color: themeColor.withAlpha(
-                                                    40,
-                                                  ),
+                                              : ColoredBox(
+                                                  color: themeColor.withValues(alpha: 0.15),
                                                   child: const Center(
                                                     child: Icon(
                                                       LucideIcons.user,
@@ -1685,8 +1689,9 @@ class _FriendsTabState extends State<FriendsTab>
   void _showFriendsListOverlay() {
     const themeColor = Color(0xFFFF9F1C);
 
-    showModalBottomSheet<void>(
-      context: context,
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
@@ -1800,7 +1805,7 @@ class _FriendsTabState extends State<FriendsTab>
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
                             itemCount: _friends.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 Divider(color: Colors.white.withAlpha(12)),
                             itemBuilder: (_, i) {
                               final friend = _friends[i];
@@ -1839,8 +1844,8 @@ class _FriendsTabState extends State<FriendsTab>
                                             ? StorageImage(
                                                 imagePath: profilePic,
                                               )
-                                            : Container(
-                                                color: themeColor.withAlpha(30),
+                                            : ColoredBox(
+                                                 color: themeColor.withValues(alpha: 0.12),
                                                 child: Icon(
                                                   LucideIcons.user,
                                                   color: themeColor.withAlpha(
@@ -2034,8 +2039,9 @@ class _FriendsTabState extends State<FriendsTab>
                                                   sheetCtx,
                                                   onConfirmed:
                                                       (reason, detail) async {
-                                                        if (session == null)
-                                                          return;
+                                                         if (session == null) {
+                                                           return;
+                                                         }
                                                         await _recordFriendAction(
                                                           userId,
                                                           'report',
@@ -2084,7 +2090,7 @@ class _FriendsTabState extends State<FriendsTab>
           },
         );
       },
-    );
+    ));
   }
 
   @override
@@ -2520,7 +2526,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
       ),
     );
 
-    _controller.forward().then((_) => widget.onFinished());
+    unawaited(_controller.forward().then((_) => widget.onFinished()));
   }
 
   @override

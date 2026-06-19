@@ -259,17 +259,23 @@ class DiscoveryFilters(BaseModel):
     # DB-level blind index filters (new columns)
     children_plans: list[str] | None = Field(
         default=None,
-        description="Acceptable children-plans values (multi-select; IN on HMAC blind index).",
+        description=(
+            "Acceptable children-plans values (multi-select; IN on HMAC blind index)."
+        ),
     )
     religious_beliefs: list[str] | None = Field(
         default=None,
-        description="Acceptable religious-belief values (multi-select; IN on HMAC blind index).",
+        description=(
+            "Acceptable religious-belief values (multi-select; IN on HMAC blind index)."
+        ),
     )
 
     # DB-level unencrypted filters
     dating_for: list[str] | None = Field(
         default=None,
-        description="Target dating intent codes (GIN overlap on dating_for TEXT[] column).",
+        description=(
+            "Target dating intent codes (GIN overlap on dating_for TEXT[] column)."
+        ),
     )
     search_bucket_filter: list[str] | None = Field(
         default=None,
@@ -283,7 +289,9 @@ class DiscoveryFilters(BaseModel):
     )
     sub_interests: list[str] | None = Field(
         default=None,
-        description="Flat list of sub-interest values; candidate must have at least one.",
+        description=(
+            "Flat list of sub-interest values; candidate must have at least one."
+        ),
     )
     role_type: list[str] | None = Field(
         default=None,
@@ -303,7 +311,10 @@ class DiscoveryFilters(BaseModel):
     )
     partner_values: list[str] | None = Field(
         default=None,
-        description="Dating tab: applied only when 'partner_values' is in dealbreaker_fields.",
+        description=(
+            "Dating tab: applied only when 'partner_values' is in "
+            "dealbreaker_fields."
+        ),
     )
 
     # Dealbreaker gate — hard-filter only when the field name is listed here
@@ -598,7 +609,9 @@ class MarkLikesSeenRequest(BaseModel):
 
 
 class PeerProfileRequest(BaseModel):
-    """Fetch the full profile detail for a specific user (e.g., from the likes inbox)."""
+    """
+    Fetch the full profile detail for a specific user (e.g., from the likes inbox).
+    """
 
     target_id: str = Field(..., min_length=1)
     tab: DiscoveryTab

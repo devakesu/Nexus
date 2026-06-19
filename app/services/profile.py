@@ -66,7 +66,7 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
                 )
                 return
             pseudonym_id: str = str(
-                cast(dict[str, Any], map_rows_fallback)["pseudonym_id"]
+                cast(dict[str, Any], map_rows_fallback)["pseudonym_id"],
             )
         else:
             pseudonym_id = str(cast(list[Any], map_rows)[0]["pseudonym_id"])

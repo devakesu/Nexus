@@ -236,7 +236,7 @@ class ClientAIImageManager extends _$ClientAIImageManager {
             state.slotSpecificVibeTags, // Retain for cache reference
         pendingDeletions: [],
       );
-    } catch (e) {
+    } on Exception catch (_) {
       // Clean up any newly uploaded images from the storage bucket since the transaction failed
       if (uploadedPaths.isNotEmpty) {
         try {

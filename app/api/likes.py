@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
@@ -32,8 +32,8 @@ from app.models import (
     LikesListResponse,
     MarkLikesSeenRequest,
     MatchActionRequest,
-    MatchItem,
     MatchesListResponse,
+    MatchItem,
     OrbitNodeDetailResponse,
     PeerProfileRequest,
 )
@@ -42,11 +42,36 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _decrypt_profiles(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
+    profile_map: dict[str, dict[str, Any]] = {}
+    for p in profiles_data:
+        if not isinstance(p, dict):
+            continue
+        p_dict = cast(dict[str, Any], p)
+        pid = str(p_dict.get("id") or "")
+        raw_pic = p_dict.get("profile_pic")
+        if raw_pic:
+            try:
+                p_dict["profile_pic"] = decrypt_pii(raw_pic)
+            except DecryptFailedError:
+                p_dict["profile_pic"] = None
+        profile_map[pid] = p_dict
+    return profile_map
+
+
+def _parse_matched_at(raw_ts: Any) -> datetime:
+    if isinstance(raw_ts, str):
+        return datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+    if isinstance(raw_ts, datetime):
+        return raw_ts
+    return datetime.now(tz=timezone.utc)
+
+
 @router.get("/api/v1/likes", response_model=LikesListResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def get_likes_inbox(
     request: Request,
-    tab: DiscoveryTab = Query(default="Dating"),
+    tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> LikesListResponse:
@@ -58,7 +83,7 @@ async def get_likes_inbox(
             return LikesListResponse(likes=[], unseen_count=0)
 
         actor_ids = list(
-            {str(row["actor_id"]) for row in like_rows if row.get("actor_id")}
+            {str(row["actor_id"]) for row in like_rows if row.get("actor_id")},
         )
 
         profiles_res = await asyncio.to_thread(
@@ -66,22 +91,10 @@ async def get_likes_inbox(
             .select("id, name, age, profile_pic")
             .in_("id", actor_ids)
             .eq("is_deactivated", False)
-            .execute()
+            .execute(),
         )
 
-        profile_map: dict[str, dict[str, Any]] = {}
-        for p in cast(list[Any], profiles_res.data or []):
-            if not isinstance(p, dict):
-                continue
-            p_dict = cast(dict[str, Any], p)
-            pid = str(p_dict.get("id") or "")
-            raw_pic = p_dict.get("profile_pic")
-            if raw_pic:
-                try:
-                    p_dict["profile_pic"] = decrypt_pii(raw_pic)
-                except Exception:
-                    p_dict["profile_pic"] = None
-            profile_map[pid] = p_dict
+        profile_map = _decrypt_profiles(cast(list[Any], profiles_res.data or []))
 
         items: list[LikeListItem] = []
         for row in like_rows:
@@ -96,7 +109,7 @@ async def get_likes_inbox(
                     name=profile.get("name"),
                     age=profile.get("age"),
                     profile_pic=profile.get("profile_pic"),
-                )
+                ),
             )
 
         # Unseen first → superlikes before likes → newest first
@@ -105,7 +118,7 @@ async def get_likes_inbox(
                 x.seen_at is not None,       # False(0) = unseen first
                 x.action != "superlike",     # False(0) = superlike first
                 -(x.created_at.timestamp()), # negative = newest first
-            )
+            ),
         )
         unseen_count = sum(1 for item in items if item.seen_at is None)
         return LikesListResponse(likes=items, unseen_count=unseen_count)
@@ -159,7 +172,7 @@ async def get_peer_profile(
     _ = user_id  # authenticated but not used in the query itself
     try:
         profile = await asyncio.to_thread(
-            fetch_peer_profile_by_id, payload.target_id
+            fetch_peer_profile_by_id, payload.target_id,
         )
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found.")
@@ -243,7 +256,7 @@ async def record_like_back_action(
         if matched:
             # payload.target_id is the original liker; user_id liked back
             await asyncio.to_thread(
-                record_match, payload.target_id, user_id, payload.tab
+                record_match, payload.target_id, user_id, payload.tab,
             )
         return {"success": True, "matched": matched}
 
@@ -262,7 +275,7 @@ async def record_like_back_action(
 @limiter.limit(settings.rate_limit_discover)
 async def get_matches(
     request: Request,
-    tab: DiscoveryTab = Query(default="Dating"),
+    tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> MatchesListResponse:
@@ -273,41 +286,27 @@ async def get_matches(
         if not rows:
             return MatchesListResponse(matches=[])
 
-        counterpart_ids = [str(r["matched_user_id"]) for r in rows if r.get("matched_user_id")]
+        counterpart_ids = [
+            str(r["matched_user_id"])
+            for r in rows
+            if r.get("matched_user_id")
+        ]
 
         profiles_res = await asyncio.to_thread(
             lambda: supabase_client.table("profiles")
             .select("id, name, age, profile_pic")
             .in_("id", counterpart_ids)
             .eq("is_deactivated", False)
-            .execute()
+            .execute(),
         )
 
-        profile_map: dict[str, dict[str, Any]] = {}
-        for p in cast(list[Any], profiles_res.data or []):
-            if not isinstance(p, dict):
-                continue
-            p_dict = cast(dict[str, Any], p)
-            pid = str(p_dict.get("id") or "")
-            raw_pic = p_dict.get("profile_pic")
-            if raw_pic:
-                try:
-                    p_dict["profile_pic"] = decrypt_pii(raw_pic)
-                except Exception:
-                    p_dict["profile_pic"] = None
-            profile_map[pid] = p_dict
+        profile_map = _decrypt_profiles(cast(list[Any], profiles_res.data or []))
 
         items: list[MatchItem] = []
         for row in rows:
             uid = str(row.get("matched_user_id") or "")
             profile = profile_map.get(uid, {})
-            raw_ts = row.get("created_at")
-            if isinstance(raw_ts, str):
-                matched_at = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
-            elif isinstance(raw_ts, datetime):
-                matched_at = raw_ts
-            else:
-                matched_at = datetime.now(tz=timezone.utc)
+            matched_at = _parse_matched_at(row.get("created_at"))
             items.append(
                 MatchItem(
                     match_id=str(row.get("match_id") or ""),
@@ -316,7 +315,7 @@ async def get_matches(
                     age=profile.get("age"),
                     profile_pic=profile.get("profile_pic"),
                     matched_at=matched_at,
-                )
+                ),
             )
 
         return MatchesListResponse(matches=items)
@@ -354,17 +353,29 @@ async def record_match_action(
             await invalidate_block_cache(user_id, payload.target_id)
         elif payload.action == "block":
             await asyncio.to_thread(
-                record_discovery_action, user_id, payload.target_id, "block", None, None
+                record_discovery_action,
+                user_id,
+                payload.target_id,
+                "block",
+                None,
+                None,
             )
             await invalidate_block_cache(user_id, payload.target_id)
         else:  # unmatch
             await asyncio.to_thread(
-                record_mutual_pass, user_id, payload.target_id, payload.tab, 14
+                record_mutual_pass,
+                user_id,
+                payload.target_id,
+                payload.tab,
+                14,
             )
 
         # Dissolve the match row for all action types
         await asyncio.to_thread(
-            set_match_unmatched, user_id, payload.target_id, payload.tab
+            set_match_unmatched,
+            user_id,
+            payload.target_id,
+            payload.tab,
         )
 
         return {"success": True}

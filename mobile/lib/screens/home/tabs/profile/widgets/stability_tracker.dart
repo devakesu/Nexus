@@ -750,5 +750,3 @@ class _CriteriaItem {
   final String label;
   final bool complete;
 }
-
-

@@ -2070,7 +2070,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
       const dashCount = 80;
       const sweepAngle = (2 * 3.1415926535) / dashCount;
       for (var i = 0; i < dashCount; i++) {
-        if (i % 2 == 0) {
+        if (i.isEven) {
           canvas.drawArc(
             Rect.fromCircle(center: center, radius: radius),
             i * sweepAngle,
@@ -2131,7 +2131,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
     const bracketSize = 14.0;
     const margin = 12.0;
 
-    // Top Left Bracket
+    // Top Left & Right Brackets
     canvas
       ..drawLine(
         const Offset(margin, margin),
@@ -2142,10 +2142,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
         const Offset(margin, margin),
         const Offset(margin, margin + bracketSize),
         bracketPaint,
-      );
-
-    // Top Right Bracket
-    canvas
+      )
       ..drawLine(
         Offset(size.width - margin, margin),
         Offset(size.width - margin - bracketSize, margin),

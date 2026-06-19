@@ -330,50 +330,71 @@ _POST_FETCH_FIELDS: frozenset[str] = frozenset({
 })
 
 
+def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
+    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
+        return bool(set(cand_list) & set(allowed))
+
+    if filters.languages and not list_overlap(
+        c.get("languages") or [],
+        filters.languages,
+    ):
+        return False
+    if filters.sub_interests:
+        sub_raw = cast(dict[str, list[str]], c.get("sub_interests") or {})
+        flat: list[str] = [v for vs in sub_raw.values() for v in vs]
+        if not list_overlap(flat, filters.sub_interests):
+            return False
+    return not (
+        filters.role_type
+        and not list_overlap(c.get("role_type") or [], filters.role_type)
+    )
+
+
+def _check_candidate_match(
+    c: dict[str, Any],
+    filters: DiscoveryFilters,
+    dealbreakers: set[str],
+) -> bool:
+    if not _check_basic_overlap(c, filters):
+        return False
+
+    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
+        return bool(set(cand_list) & set(allowed))
+
+    if filters.looking_for and not list_overlap(
+        c.get("looking_for") or [],
+        filters.looking_for,
+    ):
+        return False
+    if filters.causes_supported and not list_overlap(
+        c.get("causes_supported") or [],
+        filters.causes_supported,
+    ):
+        return False
+    if filters.tech_skills and not list_overlap(
+        c.get("tech_skills") or [],
+        filters.tech_skills,
+    ):
+        return False
+    if filters.partner_values and "partner_values" in dealbreakers:
+        pv_raw = c.get("partner_values") or ""
+        pv_list = [v.strip() for v in pv_raw.split(",") if v.strip()]
+        if not list_overlap(pv_list, filters.partner_values):
+            return False
+    return True
+
+
 def _apply_post_fetch_filters(
     candidates: list[dict[str, Any]],
     filters: DiscoveryFilters,
 ) -> list[dict[str, Any]]:
     """In-memory filter pass for encrypted fields that have no blind indexes."""
     dealbreakers = set(filters.dealbreaker_fields or [])
-
-    def list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
-        return bool(set(cand_list) & set(allowed))
-
-    result: list[dict[str, Any]] = []
-    for c in candidates:
-        if filters.languages and not list_overlap(
-            c.get("languages") or [], filters.languages
-        ):
-            continue
-        if filters.sub_interests:
-            sub_raw = cast(dict[str, list[str]], c.get("sub_interests") or {})
-            flat: list[str] = [v for vs in sub_raw.values() for v in vs]
-            if not list_overlap(flat, filters.sub_interests):
-                continue
-        if filters.role_type and not list_overlap(
-            c.get("role_type") or [], filters.role_type
-        ):
-            continue
-        if filters.looking_for and not list_overlap(
-            c.get("looking_for") or [], filters.looking_for
-        ):
-            continue
-        if filters.causes_supported and not list_overlap(
-            c.get("causes_supported") or [], filters.causes_supported
-        ):
-            continue
-        if filters.tech_skills and not list_overlap(
-            c.get("tech_skills") or [], filters.tech_skills
-        ):
-            continue
-        if filters.partner_values and "partner_values" in dealbreakers:
-            pv_raw = c.get("partner_values") or ""
-            pv_list = [v.strip() for v in pv_raw.split(",") if v.strip()]
-            if not list_overlap(pv_list, filters.partner_values):
-                continue
-        result.append(c)
-    return result
+    return [
+        c
+        for c in candidates
+        if _check_candidate_match(c, filters, dealbreakers)
+    ]
 
 
 def _execute_and_filter_candidates(
@@ -628,7 +649,8 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
         if not rows:
             return None
         row = cast(dict[str, Any], rows[0])
-        # Resolve the first image as profile_pic if a separate ordered_images list exists.
+        # Resolve the first image as profile_pic if a separate
+        # ordered_images list exists.
         if not row.get("profile_pic") and row.get("ordered_images"):
             images = row["ordered_images"]
             if isinstance(images, list) and images:

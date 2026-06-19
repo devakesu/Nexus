@@ -10,8 +10,14 @@ from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
-# High-privilege backend client. Service role access must be treated as trusted
-# backend-only code because it can bypass RLS depending on how requests are made.
+# Service role client — bypasses all RLS by design.
+# Authorization is enforced at the FastAPI layer:
+#   1. ES256 JWT verification (get_authenticated_user_id in dependencies.py)
+#   2. user_id scoping: every write is filtered to the verified caller's user_id
+#   3. Account-status checks (suspension, deactivation) before any mutation
+#   4. Firebase App Check device attestation on sensitive routes
+# DB-level backstops: guard_service_fields() trigger (server-owned columns),
+# deny-all RLS on vector_profiles and profile_pseudonym_map.
 supabase_client: Client = create_client(
     settings.supabase_url,
     settings.supabase_service_role_key,

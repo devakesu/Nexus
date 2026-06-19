@@ -51,7 +51,8 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
+    unawaited(_pulseController.repeat(reverse: true));
     unawaited(_loadProfessionalProfileStatus());
     unawaited(_fetchHandshakes());
     unawaited(_fetchConnections());
@@ -317,9 +318,10 @@ class _ProfessionalTabState extends State<ProfessionalTab>
   }
 
   void _showProfileIncompleteDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
@@ -430,7 +432,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           ],
         );
       },
-    );
+    ));
   }
 
   void _showFloatingToast(String message, Color color) {
@@ -489,6 +491,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     bool isActivating = false,
   }) async {
     await _loadProfessionalProfileStatusSilent();
+    if (!mounted) return;
     final localBuckets = List<String>.from(_professionalTargetBuckets);
     final localLookingFor = List<String>.from(_lookingFor);
     final localTechSkills = List<String>.from(_techSkills);
@@ -1477,7 +1480,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             builder: (_) => MatchScreen(
               matchedName: name,
               matchedProfilePic: matchedProfilePic,
-              titleText: "Connected! 🤝",
+              titleText: 'Connected! 🤝',
               subtitleText:
                   'You and $name are now connected.\nTime to build something great together!',
               themeColor: theme,
@@ -1953,8 +1956,9 @@ class _ProfessionalTabState extends State<ProfessionalTab>
   void _showConnectionsOverlay() {
     const themeColor = Color(0xFF00C4AB);
 
-    showModalBottomSheet<void>(
-      context: context,
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
@@ -2068,7 +2072,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
                             itemCount: _connections.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 Divider(color: Colors.white.withAlpha(12)),
                             itemBuilder: (_, i) {
                               final connection = _connections[i];
@@ -2358,7 +2362,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           },
         );
       },
-    );
+    ));
   }
 
   @override
@@ -2795,7 +2799,7 @@ class _ProfessionalActivationOverlayState
       ),
     );
 
-    _controller.forward().then((_) => widget.onFinished());
+    unawaited(_controller.forward().then((_) => widget.onFinished()));
   }
 
   @override

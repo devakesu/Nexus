@@ -294,7 +294,9 @@ def record_user_report(
     block_metadata: dict[str, Any] = {"source": "report", "report_reason": reason}
     if report_id:
         block_metadata["report_id"] = report_id
-    try:
+    import contextlib
+
+    with contextlib.suppress(APIError):
         supabase_client.table("profile_discovery_actions").insert(
             {
                 "actor_id": reporter_id,
@@ -303,8 +305,6 @@ def record_user_report(
                 "metadata": block_metadata,
             },
         ).execute()
-    except APIError:
-        pass  # already blocked — that's fine
 
 
 def fetch_expired_pass_candidates(
@@ -316,9 +316,9 @@ def fetch_expired_pass_candidates(
     Used to apply a time-graduated score penalty after the exclusion window ends.
 
     Penalty schedule (days since expiry):
-      ≤ 7 days  → heavy   (0.25×)
-      ≤ 30 days → moderate (0.50×)
-      > 30 days → light   (0.85×)
+      ≤ 7 days  → heavy   (0.25x)
+      ≤ 30 days → moderate (0.50x)
+      > 30 days → light   (0.85x)
     """
     now = utcnow()
     try:
@@ -427,7 +427,9 @@ def mark_likes_seen(
 
 
 def revoke_incoming_like(viewer_id: str, actor_id: str) -> None:
-    """Revoke actor_id's like/superlike targeting viewer_id (clears it from the inbox)."""
+    """
+    Revoke actor_id's like/superlike targeting viewer_id (clears it from the inbox).
+    """
     now = utcnow()
     try:
         (

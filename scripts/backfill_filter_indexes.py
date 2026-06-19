@@ -14,15 +14,14 @@ from typing import Any, cast
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core.crypto import compute_blind_index
-from app.db.client import supabase_client
+from app.core.crypto import DecryptFailedError, compute_blind_index
+from app.db.client import ProfileDecodeError, supabase_client
 from app.db.profiles import decrypt_profile_record
 
 BATCH = 50
 
 
 def main() -> None:
-    print("Starting blind index backfill...")
     offset = 0
     total_updated = 0
     total_skipped = 0
@@ -42,8 +41,7 @@ def main() -> None:
             row: dict[str, Any] = cast(dict[str, Any], _row)
             try:
                 profile = decrypt_profile_record(row)
-            except Exception as exc:
-                print(f"  SKIP {row.get('id')}: decrypt error — {exc}")
+            except (DecryptFailedError, ProfileDecodeError):
                 total_skipped += 1
                 continue
 
@@ -56,16 +54,12 @@ def main() -> None:
 
             if update:
                 supabase_client.table("profiles").update(update).eq(
-                    "id", profile["id"]
+                    "id", profile["id"],
                 ).execute()
                 total_updated += 1
 
-        print(f"  Processed batch offset={offset}, rows={len(rows)}")
         offset += BATCH
 
-    print(
-        f"Done. Updated: {total_updated}, Skipped (decrypt error): {total_skipped}"
-    )
 
 
 if __name__ == "__main__":

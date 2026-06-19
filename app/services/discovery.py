@@ -84,15 +84,19 @@ def create_new_discovery_session(
     # While the pass is active they are excluded entirely (handled by exclusions).
     # Once expired they re-enter the pool but land lower depending on how long ago
     # the exclusion window ended:
-    #   ≤  7 days → heavy penalty   (0.25×) → outer orbit
-    #   ≤ 30 days → moderate penalty (0.50×) → mid-outer orbit
-    #   > 30 days → light penalty   (0.85×) → near-normal position
+    #   ≤  7 days → heavy penalty   (0.25x) → outer orbit
+    #   ≤ 30 days → moderate penalty (0.50x) → mid-outer orbit
+    #   > 30 days → light penalty   (0.85x) → near-normal position
     expired_passes = fetch_expired_pass_candidates(user_id, active_tab)
     if expired_passes:
         now = utcnow()
         for item in ranked_orbit:
             profile = item.get("profile")
-            profile_dict = cast(dict[str, Any], profile) if isinstance(profile, dict) else {}
+            profile_dict = (
+                cast(dict[str, Any], profile)
+                if isinstance(profile, dict)
+                else {}
+            )
             cid = str(cast(object, profile_dict.get("id")) or "")
             if cid in expired_passes:
                 days_since = (now - expired_passes[cid]).days

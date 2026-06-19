@@ -52,7 +52,7 @@ class StorageImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (_, __, ___) => _buildError(),
+      errorBuilder: (_, _, _) => _buildError(),
     );
   }
 

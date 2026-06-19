@@ -1,14 +1,15 @@
 import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
-import 'package:dio/dio.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/utils/network_utils.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/utils/network_utils.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DatingTab extends StatefulWidget {
   const DatingTab({
@@ -54,7 +55,8 @@ class _DatingTabState extends State<DatingTab>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
+    unawaited(_pulseController.repeat(reverse: true));
     unawaited(_loadDatingProfileStatus());
     unawaited(_fetchLikes());
     unawaited(_fetchMatches());
@@ -106,7 +108,7 @@ class _DatingTabState extends State<DatingTab>
           return;
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint(
         '[DatingTab] Error fetching dating status, using fallback: $e',
       );
@@ -163,7 +165,7 @@ class _DatingTabState extends State<DatingTab>
           });
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error fetching dating status silently: $e');
     }
   }
@@ -184,7 +186,7 @@ class _DatingTabState extends State<DatingTab>
         );
         return response.statusCode == 200;
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error saving dating details: $e');
     }
     return false;
@@ -314,7 +316,7 @@ class _DatingTabState extends State<DatingTab>
           ),
         );
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Orbit activation failed: $e');
     } finally {
       if (mounted) {
@@ -325,7 +327,7 @@ class _DatingTabState extends State<DatingTab>
 
   // Show dialog when core profile is incomplete (Light themed, matching app design)
   void _showProfileIncompleteDialog() {
-    showDialog<void>(
+    unawaited(showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -436,16 +438,14 @@ class _DatingTabState extends State<DatingTab>
               ),
               onPressed: () {
                 Navigator.pop(context);
-                if (widget.onNavigateToTab != null) {
-                  widget.onNavigateToTab!(2); // Go to Profile Tab (index 2)
-                }
+                widget.onNavigateToTab?.call(2); // Go to Profile Tab (index 2)
               },
               child: const Text('Go to Profile Tab'),
             ),
           ],
         );
       },
-    );
+    ));
   }
 
   void _showFloatingToast(String message, Color color) {
@@ -553,6 +553,7 @@ class _DatingTabState extends State<DatingTab>
       'Warmth',
     ];
 
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1121,7 +1122,7 @@ class _DatingTabState extends State<DatingTab>
           _unseenCount = (unseen as num?)?.toInt() ?? 0;
         });
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error fetching likes: $e');
     }
   }
@@ -1158,7 +1159,7 @@ class _DatingTabState extends State<DatingTab>
           }).toList();
         });
       }
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error fetching matches: $e');
     }
   }
@@ -1186,7 +1187,7 @@ class _DatingTabState extends State<DatingTab>
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return response.statusCode == 200;
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error recording match action: $e');
       return false;
     }
@@ -1205,7 +1206,7 @@ class _DatingTabState extends State<DatingTab>
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
       );
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error marking likes seen: $e');
     }
   }
@@ -1251,7 +1252,7 @@ class _DatingTabState extends State<DatingTab>
       );
       if (response.statusCode == 200) return response.data;
       return null;
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('[DatingTab] Error recording like action: $e');
       return null;
     }
@@ -1687,7 +1688,7 @@ class _DatingTabState extends State<DatingTab>
                                               ? StorageImage(
                                                   imagePath: profilePic,
                                                 )
-                                              : Container(
+                                              : ColoredBox(
                                                   color: themeColor.withAlpha(
                                                     40,
                                                   ),
@@ -1768,7 +1769,7 @@ class _DatingTabState extends State<DatingTab>
   void _showMatchesOverlay() {
     const themeColor = Color(0xFFFF4F81);
 
-    showModalBottomSheet<void>(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1883,7 +1884,7 @@ class _DatingTabState extends State<DatingTab>
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(24, 4, 12, 32),
                             itemCount: _matches.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (context, index) =>
                                 Divider(color: Colors.white.withAlpha(12)),
                             itemBuilder: (_, i) {
                               final match = _matches[i];
@@ -1923,7 +1924,7 @@ class _DatingTabState extends State<DatingTab>
                                             ? StorageImage(
                                                 imagePath: profilePic,
                                               )
-                                            : Container(
+                                            : ColoredBox(
                                                 color: themeColor.withAlpha(30),
                                                 child: Icon(
                                                   LucideIcons.user,
@@ -2113,8 +2114,9 @@ class _DatingTabState extends State<DatingTab>
                                                   sheetCtx,
                                                   onConfirmed:
                                                       (reason, detail) async {
-                                                        if (session == null)
+                                                        if (session == null) {
                                                           return;
+                                                        }
                                                         await _recordMatchAction(
                                                           userId,
                                                           'report',
@@ -2163,7 +2165,7 @@ class _DatingTabState extends State<DatingTab>
           },
         );
       },
-    );
+    ));
   }
 
   @override
@@ -2598,9 +2600,9 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
       ),
     );
 
-    _controller.forward().then((_) {
+    unawaited(_controller.forward().then((_) {
       widget.onFinished();
-    });
+    }));
   }
 
   @override

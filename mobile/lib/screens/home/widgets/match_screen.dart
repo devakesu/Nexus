@@ -103,10 +103,10 @@ class _MatchScreenState extends State<MatchScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _ProfileCircle(
+                      const _ProfileCircle(
                         profilePic: null,
                         label: 'You',
-                        ringColor: const Color(0xFFA78BFA),
+                        ringColor: Color(0xFFA78BFA),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 30),

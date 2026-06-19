@@ -1221,7 +1221,7 @@ class ProfileDetailSheet extends StatelessWidget {
           ),
 
           // ── Sticky action bar ──────────────────────────────────────────────
-          if (actionBar case final bar?) bar,
+          ?actionBar,
         ],
       ),
     );

@@ -12,7 +12,11 @@ logger = logging.getLogger(__name__)
 _UNMATCH_PASS_DAYS = 14  # 2 weeks — both users are hidden from each other's orbit
 
 
-def record_match(liker_id: str, liked_back_id: str, tab: DiscoveryTab = "Dating") -> None:
+def record_match(
+    liker_id: str,
+    liked_back_id: str,
+    tab: DiscoveryTab = "Dating",
+) -> None:
     """Insert a match row when a like-back action creates a mutual match."""
     try:
         supabase_client.table("matches").insert(
@@ -20,7 +24,7 @@ def record_match(liker_id: str, liked_back_id: str, tab: DiscoveryTab = "Dating"
                 "liker_id": liker_id,
                 "liked_back_id": liked_back_id,
                 "tab": tab,
-            }
+            },
         ).execute()
     except APIError as e:
         logger.exception(
@@ -59,7 +63,7 @@ def fetch_matches_for_user(user_id: str, tab: str = "Dating") -> list[dict[str, 
                     "match_id": str(row_dict.get("id") or ""),
                     "matched_user_id": counterpart_id,
                     "created_at": row_dict.get("created_at"),
-                }
+                },
             )
         return result
     except APIError as e:
@@ -79,7 +83,7 @@ def set_match_unmatched(user_id: str, target_id: str, tab: str = "Dating") -> No
             .update({"unmatched_at": now.isoformat(), "unmatched_by": user_id})
             .or_(
                 f"and(liker_id.eq.{user_id},liked_back_id.eq.{target_id}),"
-                f"and(liker_id.eq.{target_id},liked_back_id.eq.{user_id})"
+                f"and(liker_id.eq.{target_id},liked_back_id.eq.{user_id})",
             )
             .eq("tab", tab)
             .is_("unmatched_at", "null")
