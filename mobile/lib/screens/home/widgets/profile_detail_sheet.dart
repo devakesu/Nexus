@@ -721,6 +721,23 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
+                // LIFESTYLE — Dating & Friends (after 1st pic, before interests)
+                // ═══════════════════════════════════════════════════════════
+                if ((tab == 'Dating' || tab == 'Friends') &&
+                    (drinking.isNotEmpty ||
+                        smoking.isNotEmpty ||
+                        lifestyle.isNotEmpty ||
+                        religiousBeliefs.isNotEmpty)) ...[
+                  sectionLabel('Lifestyle', emoji: '🌱'),
+                  if (drinking.isNotEmpty)
+                    emojiInfoRow('🍺', 'Drinks $drinking'),
+                  if (smoking.isNotEmpty) emojiInfoRow('🚬', 'Smokes $smoking'),
+                  if (lifestyle.isNotEmpty) emojiInfoRow('💫', lifestyle),
+                  if (religiousBeliefs.isNotEmpty)
+                    emojiInfoRow('🙏', religiousBeliefs),
+                ],
+
+                // ═══════════════════════════════════════════════════════════
                 // INTERESTS — organized by category (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
                 if (tab != 'Professional' && interestKeys.isNotEmpty) ...[
@@ -873,23 +890,6 @@ class ProfileDetailSheet extends StatelessWidget {
                     labelColor: const Color(0xFF6EE7B7),
                     useEmoji: true,
                   ),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // LIFESTYLE (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    (drinking.isNotEmpty ||
-                        smoking.isNotEmpty ||
-                        lifestyle.isNotEmpty ||
-                        religiousBeliefs.isNotEmpty)) ...[
-                  sectionLabel('Lifestyle', emoji: '🌱'),
-                  if (drinking.isNotEmpty)
-                    emojiInfoRow('🍺', 'Drinks $drinking'),
-                  if (smoking.isNotEmpty) emojiInfoRow('🚬', 'Smokes $smoking'),
-                  if (lifestyle.isNotEmpty) emojiInfoRow('💫', lifestyle),
-                  if (religiousBeliefs.isNotEmpty)
-                    emojiInfoRow('🙏', religiousBeliefs),
                 ],
 
                 // ═══════════════════════════════════════════════════════════

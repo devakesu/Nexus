@@ -8,6 +8,7 @@ import 'package:nexus/screens/home/tabs/professional/widgets/professional_lists_
 import 'package:nexus/screens/home/tabs/professional/widgets/professional_settings_overlay.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -490,32 +491,43 @@ class _ProfessionalTabState extends State<ProfessionalTab>
   }
 
   Future<void> _showProfessionalSettingsOverlay({bool isActivating = false}) async {
-    await _loadProfessionalProfileStatusSilent();
     if (!mounted) return;
+    final loadingNotifier = ValueNotifier<bool>(true);
+    unawaited(
+      _loadProfessionalProfileStatusSilent().then((_) {
+        if (mounted) loadingNotifier.value = false;
+      }),
+    );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return ProfessionalSettingsOverlay(
-          professionalTargetBuckets: _professionalTargetBuckets,
-          lookingFor: _lookingFor,
-          techSkills: _techSkills,
-          company: _company,
-          roleType: _roleType,
-          savingFields: _savingFields,
-          onSaveProfessionalField: (field, value, setStateCallback) async {
-            await _saveProfessionalField(field, value, setStateCallback);
-          },
-          onLoadProfessionalProfileStatusSilent: () async {
-            await _loadProfessionalProfileStatusSilent();
-          },
-          isActivating: isActivating,
-          onToggleOrbitState: ({required active}) async {
-            await _toggleOrbitState(active);
-          },
-        );
-      },
+      builder: (context) => ValueListenableBuilder<bool>(
+        valueListenable: loadingNotifier,
+        builder: (context, isLoading, _) {
+          if (isLoading) {
+            return const SettingsLoadingSkeleton(themeColor: Color(0xFF00C4AB));
+          }
+          return ProfessionalSettingsOverlay(
+            professionalTargetBuckets: _professionalTargetBuckets,
+            lookingFor: _lookingFor,
+            techSkills: _techSkills,
+            company: _company,
+            roleType: _roleType,
+            savingFields: _savingFields,
+            onSaveProfessionalField: (field, value, setStateCallback) async {
+              await _saveProfessionalField(field, value, setStateCallback);
+            },
+            onLoadProfessionalProfileStatusSilent: () async {
+              await _loadProfessionalProfileStatusSilent();
+            },
+            isActivating: isActivating,
+            onToggleOrbitState: ({required active}) async {
+              await _toggleOrbitState(active);
+            },
+          );
+        },
+      ),
     );
   }
 

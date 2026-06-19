@@ -22,7 +22,12 @@ supabase_client: Client = create_client(
     settings.supabase_url,
     settings.supabase_service_role_key,
     options=SyncClientOptions(
-        httpx_client=httpx.Client(http2=True),
+        httpx_client=httpx.Client(
+            http1=True,
+            http2=True,
+            timeout=httpx.Timeout(30.0, read=20.0, connect=10.0),
+            limits=httpx.Limits(keepalive_expiry=30.0),
+        ),
     ),
 )
 

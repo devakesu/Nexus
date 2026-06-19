@@ -9,20 +9,121 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/orbit/widgets/constellation_loader.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_filters_panel.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_painters.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class OrbitPrefetchResult {
+  OrbitPrefetchResult({
+    required this.nodes,
+    required this.sessionId,
+    required this.profilePicUrl,
+    this.showBuckets = const [],
+    this.datingFor = const [],
+    this.partnerValues = const [],
+  });
+
+  final List<dynamic> nodes;
+  final String? sessionId;
+  final String? profilePicUrl;
+  final List<String> showBuckets;
+  final List<String> datingFor;
+  final List<String> partnerValues;
+}
+
 class OrbitScreen extends StatefulWidget {
   const OrbitScreen({
     required this.tab,
     required this.themeColor,
+    this.prefetchFuture,
     super.key,
   });
 
   final String tab;
   final Color themeColor;
+  final Future<OrbitPrefetchResult?>? prefetchFuture;
+
+  static Future<OrbitPrefetchResult?> prefetch(String tab) async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return null;
+      final config = AppConfig.current;
+      final dio = createDio();
+      final headers = {'Authorization': 'Bearer ${session.accessToken}'};
+
+      var showBuckets = <String>[];
+      var datingFor = <String>[];
+      var partnerValues = <String>[];
+      String? profilePicUrl;
+
+      final profileResp = await dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/profile/details',
+        options: Options(headers: headers),
+      );
+
+      if (profileResp.statusCode == 200 && profileResp.data != null) {
+        final data = profileResp.data!;
+        final rawImages = data['ordered_images'];
+        if (rawImages is List && rawImages.isNotEmpty) {
+          profilePicUrl = rawImages[0]?.toString();
+        }
+        if (tab == 'Dating') {
+          final rawBuckets = data['dating_target_buckets'];
+          if (rawBuckets is List) {
+            showBuckets = rawBuckets.map((e) => e.toString()).toList();
+          }
+          final rawDatingFor = data['dating_for'];
+          if (rawDatingFor is List) {
+            datingFor = rawDatingFor.map((e) => e.toString()).toList();
+          }
+          final rawPartnerValues = data['partner_values']?.toString() ?? '';
+          if (rawPartnerValues.isNotEmpty) {
+            partnerValues = rawPartnerValues
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+          }
+        }
+      }
+
+      final defaultAgeMax = config.isMainVariant ? 80 : 27;
+      final payload = <String, dynamic>{
+        'tab': tab,
+        'filters': <String, dynamic>{
+          'min_age': 18,
+          'max_age': defaultAgeMax,
+          if (tab == 'Dating') ...{
+            if (showBuckets.isNotEmpty) 'search_bucket_filter': showBuckets,
+            if (datingFor.isNotEmpty) 'dating_for': datingFor,
+            if (partnerValues.isNotEmpty) 'partner_values': partnerValues,
+          },
+        },
+      };
+
+      final discoverResp = await dio.post<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/discover',
+        data: payload,
+        options: Options(headers: headers),
+      );
+
+      if (discoverResp.statusCode == 200 && discoverResp.data != null) {
+        return OrbitPrefetchResult(
+          nodes: discoverResp.data!['nodes'] as List<dynamic>? ?? [],
+          sessionId: discoverResp.data!['session_id'] as String?,
+          profilePicUrl: profilePicUrl,
+          showBuckets: showBuckets,
+          datingFor: datingFor,
+          partnerValues: partnerValues,
+        );
+      }
+    } on Exception catch (e) {
+      debugPrint('[OrbitScreen] Prefetch error: $e');
+    }
+    return null;
+  }
 
   @override
   State<OrbitScreen> createState() => _OrbitScreenState();
@@ -81,7 +182,54 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
     unawaited(_pulseController.repeat(reverse: true));
 
-    unawaited(_initData());
+    if (widget.prefetchFuture != null) {
+      unawaited(_applyPrefetchData());
+    } else {
+      unawaited(_initData());
+    }
+  }
+
+  Future<void> _applyPrefetchData() async {
+    final future = widget.prefetchFuture;
+    if (future == null) return;
+    setState(() => _isReloading = true);
+    try {
+      final result = await future;
+      if (!mounted) return;
+      if (result != null) {
+        setState(() {
+          _sessionId = result.sessionId;
+          _nodes = result.nodes;
+          if (result.profilePicUrl != null) {
+            _currentUserProfilePic = result.profilePicUrl;
+          }
+          if (widget.tab == 'Dating') {
+            if (result.showBuckets.isNotEmpty) {
+              _selectedShowBuckets
+                ..clear()
+                ..addAll(result.showBuckets);
+            }
+            if (result.datingFor.isNotEmpty) {
+              _selectedDatingFor
+                ..clear()
+                ..addAll(result.datingFor);
+            }
+            if (result.partnerValues.isNotEmpty) {
+              _selectedPartnerValues
+                ..clear()
+                ..addAll(result.partnerValues);
+            }
+          }
+        });
+      } else {
+        await _initData();
+      }
+    } on Exception catch (e) {
+      debugPrint('[OrbitScreen] Prefetch apply error: $e');
+      if (mounted) await _initData();
+    } finally {
+      if (mounted) setState(() => _isReloading = false);
+    }
   }
 
   Future<void> _initData() async {
@@ -1391,6 +1539,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                       predefinedValues: predefinedValues,
                     );
                   },
+                  isRefreshing: _isReloading,
                   onFetchOrbitNodes: () async {
                     await _fetchOrbitNodes();
                   },
@@ -1691,7 +1840,8 @@ class _OrbitScreenState extends State<OrbitScreen>
               ),
             ),
 
-          if (_isReloading)
+          // Full blocking loader only on initial load (no nodes yet)
+          if (_isReloading && _nodes.isEmpty)
             Positioned.fill(
               child: ClipRect(
                 child: BackdropFilter(
@@ -1699,61 +1849,20 @@ class _OrbitScreenState extends State<OrbitScreen>
                   child: ColoredBox(
                     color: const Color(0xFF020408).withValues(alpha: 0.6),
                     child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: widget.themeColor.withValues(alpha: 0.25),
-                                  blurRadius: 30,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                widget.themeColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'Aligning Constellations...',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 2.5,
-                              shadows: [
-                                Shadow(
-                                  color: widget.themeColor.withValues(alpha: 0.4),
-                                  blurRadius: 12,
-                                ),
-                              ],
-                            ),
-                          )
-                              .animate(
-                                onPlay: (controller) =>
-                                    controller.repeat(reverse: true),
-                              )
-                              .fade(
-                                begin: 0.5,
-                                end: 1,
-                                duration: 1200.ms,
-                                curve: Curves.easeInOut,
-                              ),
-                        ],
-                      ),
+                      child: ConstellationLoader(themeColor: widget.themeColor),
                     ),
                   ),
                 ),
               ),
+            ),
+
+          // Non-blocking shimmer strip for filter-triggered refreshes
+          if (_isReloading && _nodes.isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _OrbitRefreshStrip(themeColor: widget.themeColor),
             ),
         ],
       ),
@@ -1876,5 +1985,61 @@ class _OrbitScreenState extends State<OrbitScreen>
                 .scale(begin: const Offset(0.3, 0.3)),
       );
     }).toList();
+  }
+}
+
+// ── Non-blocking shimmer strip shown during filter-triggered refreshes ─────────
+
+class _OrbitRefreshStrip extends StatefulWidget {
+  const _OrbitRefreshStrip({required this.themeColor});
+  final Color themeColor;
+
+  @override
+  State<_OrbitRefreshStrip> createState() => _OrbitRefreshStripState();
+}
+
+class _OrbitRefreshStripState extends State<_OrbitRefreshStrip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    unawaited(_ctrl.repeat());
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, _) {
+        return Container(
+          height: 2,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(_ctrl.value * 2 - 1, 0),
+              end: Alignment(_ctrl.value * 2 + 0.4, 0),
+              colors: [
+                Colors.transparent,
+                widget.themeColor.withValues(alpha: 0.85),
+                widget.themeColor,
+                widget.themeColor.withValues(alpha: 0.85),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

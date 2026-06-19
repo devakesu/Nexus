@@ -8,6 +8,7 @@ import 'package:nexus/screens/home/tabs/friends/widgets/friends_lists_overlays.d
 import 'package:nexus/screens/home/tabs/friends/widgets/friends_settings_overlay.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -501,30 +502,41 @@ class _FriendsTabState extends State<FriendsTab>
   }
 
   Future<void> _showFriendsSettingsOverlay({bool isActivating = false}) async {
-    await _loadFriendsProfileStatusSilent();
     if (!mounted) return;
+    final loadingNotifier = ValueNotifier<bool>(true);
+    unawaited(
+      _loadFriendsProfileStatusSilent().then((_) {
+        if (mounted) loadingNotifier.value = false;
+      }),
+    );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return FriendsSettingsOverlay(
-          friendsTargetBuckets: _friendsTargetBuckets,
-          flatInterests: _flatInterests,
-          causesSupported: _causesSupported,
-          savingFields: _savingFields,
-          onSaveFriendsField: (field, value, setStateCallback) async {
-            await _saveFriendsField(field, value, setStateCallback);
-          },
-          onLoadFriendsProfileStatusSilent: () async {
-            await _loadFriendsProfileStatusSilent();
-          },
-          isActivating: isActivating,
-          onToggleOrbitState: ({required active}) async {
-            await _toggleOrbitState(active);
-          },
-        );
-      },
+      builder: (context) => ValueListenableBuilder<bool>(
+        valueListenable: loadingNotifier,
+        builder: (context, isLoading, _) {
+          if (isLoading) {
+            return const SettingsLoadingSkeleton(themeColor: Color(0xFFFF9F1C));
+          }
+          return FriendsSettingsOverlay(
+            friendsTargetBuckets: _friendsTargetBuckets,
+            flatInterests: _flatInterests,
+            causesSupported: _causesSupported,
+            savingFields: _savingFields,
+            onSaveFriendsField: (field, value, setStateCallback) async {
+              await _saveFriendsField(field, value, setStateCallback);
+            },
+            onLoadFriendsProfileStatusSilent: () async {
+              await _loadFriendsProfileStatusSilent();
+            },
+            isActivating: isActivating,
+            onToggleOrbitState: ({required active}) async {
+              await _toggleOrbitState(active);
+            },
+          );
+        },
+      ),
     );
   }
 

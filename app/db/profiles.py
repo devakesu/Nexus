@@ -174,7 +174,16 @@ def _fetch_and_decrypt_viewer(
     try:
         viewer_res = (
             supabase_client.table("profiles")
-            .select("*")
+            .select(
+                "id, name, age, campus_year, campus_branch, campus_name, "
+                "display_gender, display_sexuality, pronouns, bio, search_bucket, "
+                "hometown, current_place, partner_values, children_plans, "
+                "religious_beliefs, lifestyle, drinking, smoking, role_at, "
+                "dating_target_buckets, dating_for, friends_target_buckets, "
+                "professional_target_buckets, looking_for, activities, "
+                "causes_supported, top_artists, tech_skills, languages, "
+                "ai_vibe_tags, pets, interests, sub_interests, value_dimensions",
+            )
             .eq("id", viewer_id)
             .limit(1)
             .execute()

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
@@ -29,6 +30,7 @@ class OrbitFiltersPanel extends StatefulWidget {
     required this.onSaveDatingField,
     required this.onOpenTagSelectionPane,
     required this.onOpenPartnerValuesSelectionPane,
+    required this.isRefreshing,
     required this.onFetchOrbitNodes,
     required this.scrollController,
     super.key,
@@ -57,6 +59,7 @@ class OrbitFiltersPanel extends StatefulWidget {
   final Future<void> Function(String field, dynamic value, StateSetter setModalState) onSaveDatingField;
   final void Function(String title, List<String> options, List<String> selected, StateSetter setModalState) onOpenTagSelectionPane;
   final void Function(StateSetter setModalState, List<String> predefinedValues) onOpenPartnerValuesSelectionPane;
+  final bool isRefreshing;
   final Future<void> Function() onFetchOrbitNodes;
   final ScrollController scrollController;
 
@@ -386,15 +389,50 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
           ),
 
           // Header
-          const Text(
-            'Constellation Filters',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Row(
+            children: [
+              Icon(
+                LucideIcons.sparkles,
+                color: theme.withValues(alpha: 0.8),
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Constellation Filters',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: widget.isRefreshing
+                    ? _SyncingBadge(key: const ValueKey('syncing'), themeColor: theme)
+                    : const SizedBox.shrink(key: ValueKey('idle')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Animated progress line under header
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            height: widget.isRefreshing ? 1.5 : 0,
+            margin: const EdgeInsets.only(bottom: 18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  theme.withValues(alpha: 0.7),
+                  theme,
+                  theme.withValues(alpha: 0.7),
+                  Colors.transparent,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(1),
             ),
           ),
-          const SizedBox(height: 24),
 
           // ── Age Range ──────────────────────────────────────────────────────
           filterSection(
@@ -967,5 +1005,49 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
         ],
       ),
     );
+  }
+}
+
+// ── Pulsing "Syncing orbit…" badge shown in the panel header ──────────────────
+
+class _SyncingBadge extends StatelessWidget {
+  const _SyncingBadge({required this.themeColor, super.key});
+  final Color themeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: themeColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 8,
+            height: 8,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Syncing orbit',
+            style: TextStyle(
+              color: themeColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    )
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .fade(begin: 0.6, end: 1, duration: 900.ms, curve: Curves.easeInOut);
   }
 }

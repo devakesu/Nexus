@@ -9,6 +9,7 @@ import 'package:nexus/screens/home/tabs/dating/widgets/dating_lists_overlays.dar
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_settings_overlay.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -504,30 +505,41 @@ class _DatingTabState extends State<DatingTab>
 
   // Show slide-up Dating Settings overlay
   Future<void> _showDatingSettingsOverlay({bool isActivating = false}) async {
-    await _loadDatingProfileStatusSilent();
     if (!mounted) return;
+    final loadingNotifier = ValueNotifier<bool>(true);
+    unawaited(
+      _loadDatingProfileStatusSilent().then((_) {
+        if (mounted) loadingNotifier.value = false;
+      }),
+    );
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DatingSettingsOverlay(
-          datingTargetBuckets: _datingTargetBuckets,
-          datingFor: _datingFor,
-          partnerValues: _partnerValues,
-          savingFields: _savingFields,
-          onSaveDatingField: (field, value, setStateCallback) async {
-            await _saveDatingField(field, value, setStateCallback);
-          },
-          onLoadDatingProfileStatusSilent: () async {
-            await _loadDatingProfileStatusSilent();
-          },
-          isActivating: isActivating,
-          onToggleOrbitState: ({required active}) async {
-            await _toggleOrbitState(active);
-          },
-        );
-      },
+      builder: (context) => ValueListenableBuilder<bool>(
+        valueListenable: loadingNotifier,
+        builder: (context, isLoading, _) {
+          if (isLoading) {
+            return const SettingsLoadingSkeleton(themeColor: Color(0xFFFF4F81));
+          }
+          return DatingSettingsOverlay(
+            datingTargetBuckets: _datingTargetBuckets,
+            datingFor: _datingFor,
+            partnerValues: _partnerValues,
+            savingFields: _savingFields,
+            onSaveDatingField: (field, value, setStateCallback) async {
+              await _saveDatingField(field, value, setStateCallback);
+            },
+            onLoadDatingProfileStatusSilent: () async {
+              await _loadDatingProfileStatusSilent();
+            },
+            isActivating: isActivating,
+            onToggleOrbitState: ({required active}) async {
+              await _toggleOrbitState(active);
+            },
+          );
+        },
+      ),
     );
   }
 
