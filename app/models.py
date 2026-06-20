@@ -84,10 +84,12 @@ class ProfileModel(BaseModel):
 def _validate_terms_version(value: str) -> str:
     cleaned = value.strip()
     try:
-        if float(cleaned) != float(settings.current_terms_version):
-            raise ValueError("You must accept the current terms version.")
+        float(cleaned)
     except ValueError as err:
-        raise ValueError("You must accept the current terms version.") from err
+        raise ValueError("accepted_terms_version must be a numeric string.") from err
+
+    if cleaned != settings.current_terms_version.strip():
+        raise ValueError("You must accept the current terms version.")
     return cleaned
 
 
@@ -601,6 +603,7 @@ class MarkLikesSeenRequest(BaseModel):
 
     actor_ids: list[str] = Field(default_factory=list)
     mark_all: bool = False
+    tab: DiscoveryTab | None = None
 
 
 class PeerProfileRequest(BaseModel):
@@ -805,23 +808,25 @@ class ProfileImagesAndTagsUpdate(BaseModel):
 class ProfileDetailsUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=4, max_length=100)
     age: int | None = Field(default=None, ge=18, le=80)
-    campus_branch: str | None = None
+    campus_branch: str | None = Field(default=None, max_length=100)
     campus_year: int | None = None
-    campus_name: str | None = None
-    display_gender: str | None = None
-    display_sexuality: str | None = None
-    pronouns: str | None = None
-    bio: str | None = None
+    campus_name: str | None = Field(default=None, max_length=150)
+    display_gender: str | None = Field(default=None, max_length=50)
+    display_sexuality: str | None = Field(default=None, max_length=50)
+    pronouns: str | None = Field(default=None, max_length=50)
+    bio: str | None = Field(default=None, max_length=1000)
     search_bucket: Literal["M", "F", "NB", "Q"] | None = None
-    hometown: str | None = None
-    current_place: str | None = None
-    partner_values: str | None = None
-    children_plans: str | None = None
-    religious_beliefs: str | None = None
-    lifestyle: str | None = None
-    drinking: str | None = None
-    smoking: str | None = None
-    role_at: str | None = None
+    hometown: str | None = Field(default=None, max_length=100)
+    current_place: str | None = Field(default=None, max_length=100)
+    partner_values: str | None = Field(default=None, max_length=200)
+    children_plans: str | None = Field(default=None, max_length=100)
+    religious_beliefs: str | None = Field(default=None, max_length=100)
+    lifestyle: str | None = Field(default=None, max_length=200)
+    drinking: str | None = Field(default=None, max_length=50)
+    smoking: str | None = Field(default=None, max_length=50)
+    role_at: str | None = Field(default=None, max_length=150)
+    profile_pic: str | None = Field(default=None, max_length=255)
+    normal_pics: list[str] | None = None
     role_type: list[str] | None = None
     dating_target_buckets: list[str] | None = None
     dating_for: list[str] | None = None

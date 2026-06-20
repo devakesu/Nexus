@@ -82,11 +82,12 @@ def auth_bootstrap(
             detail="Authenticated user payload is incomplete.",
         )
 
-    # Determine which variant this client is running under.
-    # Defaults to 'nexus' (main) when the header is absent or unrecognised.
     app_variant = (x_app_variant or "nexus").strip().lower()
     if app_variant not in ("nexus", "nexus_mec"):
-        app_variant = "nexus"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unrecognized X-App-Variant header value.",
+        )
 
     if email and not is_allowed_email(email, app_variant=app_variant):
         try:
@@ -212,7 +213,6 @@ def complete_onboarding(
         campus_branch=user_branch,
         campus_year=user_year,
         age=payload.age,
-        app_variant=payload.app_variant,
         campus_name=user_campus_name,
         lifestyle=user_lifestyle,
     )
@@ -247,8 +247,9 @@ def accept_terms(
 
     user_id = str(auth_user.get("id") or "").strip()
     email = str(auth_user.get("email") or "").strip().lower()
+    phone = str(auth_user.get("phone") or "").strip()
 
-    if not user_id or not email:
+    if not user_id or (not email and not phone):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authenticated user payload is incomplete.",
@@ -313,9 +314,21 @@ def get_profile_details(
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, Any]:
     try:
+        select_cols = (
+            "id, name, age, campus_year, campus_branch, campus_name, "
+            "display_gender, display_sexuality, pronouns, bio, search_bucket, "
+            "hometown, current_place, partner_values, children_plans, "
+            "religious_beliefs, lifestyle, drinking, smoking, role_at, "
+            "role_type, dating_target_buckets, dating_for, friends_target_buckets, "
+            "professional_target_buckets, looking_for, activities, "
+            "causes_supported, top_artists, tech_skills, languages, "
+            "pets, interests, sub_interests, profile_pic, normal_pics, "
+            "ai_vibe_tags, is_dating_active, is_friends_active, "
+            "is_professional_active"
+        )
         res = (
             supabase_client.table("profiles")
-            .select("*")
+            .select(select_cols)
             .eq("id", user_id)
             .maybe_single()
             .execute()
@@ -388,20 +401,25 @@ def get_profile_details(
         ) from e
 
 
+def _resolve_field(
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+    field_name: str,
+) -> Any:
+    payload_val = getattr(payload, field_name, None)
+    return payload_val if payload_val is not None else profile.get(field_name)
+
+
 def _validate_common_activation(
     profile: dict[str, Any],
     payload: ProfileDetailsUpdate,
     missing: list[str],
 ) -> None:
-    def resolve_field(field_name: str) -> Any:
-        payload_val = getattr(payload, field_name, None)
-        return payload_val if payload_val is not None else profile.get(field_name)
-
-    val_name = resolve_field("name")
-    val_age = resolve_field("age")
-    val_interests = resolve_field("interests")
-    val_profile_pic = profile.get("profile_pic")
-    val_normal_pics = profile.get("normal_pics")
+    val_name = _resolve_field(profile, payload, "name")
+    val_age = _resolve_field(profile, payload, "age")
+    val_interests = _resolve_field(profile, payload, "interests")
+    val_profile_pic = _resolve_field(profile, payload, "profile_pic")
+    val_normal_pics = _resolve_field(profile, payload, "normal_pics")
 
     if not isinstance(val_name, str) or not val_name.strip():
         missing.append("name")
@@ -426,15 +444,15 @@ def _validate_dating_activation(
     payload: ProfileDetailsUpdate,
     missing: list[str],
 ) -> None:
-    def resolve_field(field_name: str) -> Any:
-        payload_val = getattr(payload, field_name, None)
-        return payload_val if payload_val is not None else profile.get(field_name)
-
-    val_drinking = resolve_field("drinking")
-    val_smoking = resolve_field("smoking")
-    val_dating_target_buckets = resolve_field("dating_target_buckets")
-    val_dating_for = resolve_field("dating_for")
-    val_partner_values = resolve_field("partner_values")
+    val_drinking = _resolve_field(profile, payload, "drinking")
+    val_smoking = _resolve_field(profile, payload, "smoking")
+    val_dating_target_buckets = _resolve_field(
+        profile,
+        payload,
+        "dating_target_buckets",
+    )
+    val_dating_for = _resolve_field(profile, payload, "dating_for")
+    val_partner_values = _resolve_field(profile, payload, "partner_values")
 
     if not isinstance(val_drinking, str) or not val_drinking.strip():
         missing.append("drinking")
@@ -459,13 +477,13 @@ def _validate_friends_activation(
     payload: ProfileDetailsUpdate,
     missing: list[str],
 ) -> None:
-    def resolve_field(field_name: str) -> Any:
-        payload_val = getattr(payload, field_name, None)
-        return payload_val if payload_val is not None else profile.get(field_name)
-
-    val_friends_target_buckets = resolve_field("friends_target_buckets")
-    val_sub_interests = resolve_field("sub_interests")
-    val_causes_supported = resolve_field("causes_supported")
+    val_friends_target_buckets = _resolve_field(
+        profile,
+        payload,
+        "friends_target_buckets",
+    )
+    val_sub_interests = _resolve_field(profile, payload, "sub_interests")
+    val_causes_supported = _resolve_field(profile, payload, "causes_supported")
 
     if (
         not isinstance(val_friends_target_buckets, list)
@@ -493,13 +511,13 @@ def _validate_professional_activation(
     payload: ProfileDetailsUpdate,
     missing: list[str],
 ) -> None:
-    def resolve_field(field_name: str) -> Any:
-        payload_val = getattr(payload, field_name, None)
-        return payload_val if payload_val is not None else profile.get(field_name)
-
-    val_professional_target_buckets = resolve_field("professional_target_buckets")
-    val_looking_for = resolve_field("looking_for")
-    val_tech_skills = resolve_field("tech_skills")
+    val_professional_target_buckets = _resolve_field(
+        profile,
+        payload,
+        "professional_target_buckets",
+    )
+    val_looking_for = _resolve_field(profile, payload, "looking_for")
+    val_tech_skills = _resolve_field(profile, payload, "tech_skills")
 
     if (
         not isinstance(val_professional_target_buckets, list)
@@ -582,6 +600,11 @@ def update_profile_details(  # noqa: C901
         val = getattr(payload, field, None)
         if val is not None:
             update_data[field] = encrypt_to_hex(val)
+
+    if payload.profile_pic is not None:
+        update_data["profile_pic"] = encrypt_to_hex(payload.profile_pic)
+    if payload.normal_pics is not None:
+        update_data["normal_pics"] = encrypt_to_hex(json.dumps(payload.normal_pics))
 
     if payload.drinking is not None:
         update_data["drinking_blind_index"] = compute_blind_index(payload.drinking)
@@ -711,6 +734,8 @@ def update_profile_details(  # noqa: C901
             background_tasks.add_task(recompile_value_dimensions, user_id)
 
         return {"status": "success", "detail": "Profile details synchronized."}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Failed to update profile details")
         raise HTTPException(

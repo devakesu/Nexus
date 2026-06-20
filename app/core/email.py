@@ -229,8 +229,13 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
         return ProviderResult(success=True, provider="Brevo", id=message_id)
 
 
-def should_use_sendpulse() -> bool:
+def should_use_sendpulse(email: str | None = None) -> bool:
     if has_brevo and has_sendpulse:
+        if email:
+            import hashlib
+            encoded_email = email.lower().encode("utf-8")
+            hash_val = int(hashlib.sha256(encoded_email).hexdigest(), 16)
+            return hash_val % 2 == 0
         return random.random() < 0.5  # noqa: S311
     return has_sendpulse
 
@@ -295,7 +300,7 @@ async def send_email(props: SendEmailProps) -> ProviderResult:
         sentry_sdk.capture_exception(err, tags={"location": "send_email"})
         raise err
 
-    use_sp = should_use_sendpulse()
+    use_sp = should_use_sendpulse(props.to)
     config = get_providers(use_sp)
 
     try:
@@ -573,10 +578,14 @@ async def send_bootstrap_welcome_email(
           </tr>
     """
 
-    scheme = "devakesu-nexus-mec" if app_variant == "nexus_mec" else "devakesu-nexus"
+    domain = (
+        "nexus-mec.devakesu.com"
+        if app_variant == "nexus_mec"
+        else "nexus.devakesu.com"
+    )
     button_row = render_cta_button_row(
         cta_text="Initialize Alignment",
-        cta_url=f"{scheme}://home",
+        cta_url=f"https://{domain}/app",
     )
 
     html_content = render_email_template(
@@ -624,8 +633,10 @@ async def send_bootstrap_welcome_email(
             "Unexpected exception while sending welcome email to %s",
             redact_email(email),
         )
+        use_sp = should_use_sendpulse(email)
+        provider_name = "SendPulse" if use_sp else "Brevo"
         return ProviderResult(
             success=False,
-            provider="Brevo",
+            provider=provider_name,
             error=str(err),
         )

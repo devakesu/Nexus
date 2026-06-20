@@ -10,6 +10,7 @@ from supabase_auth import User, UserResponse
 
 from app.core.config import settings
 from app.core.crypto import compute_blind_index, encrypt_to_hex
+from app.core.email import redact_email
 from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
@@ -157,9 +158,18 @@ def upsert_public_user(
             .execute()
         )
     except APIError as e:
+        masked_mobile = (
+            f"******{mobile[-4:]}"
+            if mobile and len(mobile) >= 4
+            else (mobile or "")
+        )
         logger.exception(
             "Failed to upsert public user",
-            extra={"user_id": user_id, "email": email, "mobile": mobile},
+            extra={
+                "user_id": user_id,
+                "email": redact_email(email) if email else None,
+                "mobile": masked_mobile if mobile else None,
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -218,12 +228,10 @@ def upsert_profile_variant(
     campus_branch: str | None,
     campus_year: int | None,
     age: int,
-    app_variant: str,
     campus_name: str | None = None,
     lifestyle: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Upsert a profile row with variant-specific columns."""
-    _ = app_variant
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
@@ -521,11 +529,14 @@ def execute_import(
             },
         ).eq("id", source.get("id")).execute()
     except APIError as e:
-        # Non-fatal: log but don't fail the import — target already updated.
-        logger.error(
-            "Failed to nullify source import_sync_code after import (non-fatal)",
-            extra={"source_id": source.get("id"), "error": str(e)},
+        logger.exception(
+            "Failed to nullify source import_sync_code after import",
+            extra={"source_id": source.get("id")},
         )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to finalize import. Please try again.",
+        ) from e
 
     logger.info(
         "Cross-flavor import completed",
@@ -552,8 +563,9 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
 
 def _validate_terms_versions(version: str) -> None:
     current_version = settings.current_terms_version.strip()
+    cleaned_version = version.strip()
     try:
-        val_float = float(version)
+        float(cleaned_version)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -561,14 +573,14 @@ def _validate_terms_versions(version: str) -> None:
         ) from None
 
     try:
-        curr_float = float(current_version)
+        float(current_version)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server terms configuration is invalid.",
         ) from None
 
-    if val_float != curr_float:
+    if cleaned_version != current_version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(

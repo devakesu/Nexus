@@ -148,7 +148,7 @@ async def mark_likes_as_seen(
         actor_ids: list[str] | None = (
             None if payload.mark_all else (payload.actor_ids or None)
         )
-        await asyncio.to_thread(mark_likes_seen, user_id, actor_ids)
+        await asyncio.to_thread(mark_likes_seen, user_id, actor_ids, payload.tab)
         return {"success": True}
     except DatabaseAccessError as err:
         logger.exception(
@@ -171,15 +171,15 @@ async def get_peer_profile(
 ) -> OrbitNodeDetailResponse:
     _ = request
     try:
-        uuid.UUID(payload.target_id)
-        uuid.UUID(user_id)
+        target_id = str(uuid.UUID(payload.target_id)).lower()
+        user_id_normalized = str(uuid.UUID(user_id)).lower()
 
         # Verify access: either target liked the viewer, or they are matched
         query_like = supabase_client.table(
             "profile_discovery_actions",
         ).select("id")
-        query_like = query_like.eq("actor_id", payload.target_id)
-        query_like = query_like.eq("target_id", user_id)
+        query_like = query_like.eq("actor_id", target_id)
+        query_like = query_like.eq("target_id", user_id_normalized)
         query_like = query_like.in_("action", ["like", "superlike"])
         query_like = query_like.is_("revoked_at", "null")
         access_check_res = await asyncio.to_thread(query_like.execute)
@@ -189,10 +189,10 @@ async def get_peer_profile(
         if not has_like:
             query_match = supabase_client.table("matches").select("id")
             query_match = query_match.or_(
-                f"and(liker_id.eq.{payload.target_id},"
-                f"liked_back_id.eq.{user_id}),"
-                f"and(liker_id.eq.{user_id},"
-                f"liked_back_id.eq.{payload.target_id})"
+                f"and(liker_id.eq.{target_id},"
+                f"liked_back_id.eq.{user_id_normalized}),"
+                f"and(liker_id.eq.{user_id_normalized},"
+                f"liked_back_id.eq.{target_id}),",
             )
             query_match = query_match.is_("unmatched_at", "null")
             match_check_res = await asyncio.to_thread(query_match.execute)
@@ -205,7 +205,7 @@ async def get_peer_profile(
             )
 
         profile = await asyncio.to_thread(
-            fetch_peer_profile_by_id, payload.target_id,
+            fetch_peer_profile_by_id, target_id,
         )
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found.")
@@ -282,30 +282,26 @@ async def record_like_back_action(
             if payload.action == "block":
                 await invalidate_block_cache(user_id, payload.target_id)
 
-        # Revoke their incoming like so it clears from the inbox
-        await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
-
         matched = payload.action in ("like", "superlike")
         if matched:
-            # Verify the incoming like exists and is active before creating a match
-            query_exist = supabase_client.table(
-                "profile_discovery_actions",
-            ).select("id")
-            query_exist = query_exist.eq("actor_id", payload.target_id)
-            query_exist = query_exist.eq("target_id", user_id)
-            query_exist = query_exist.in_("action", ["like", "superlike"])
-            query_exist = query_exist.is_("revoked_at", "null")
-            like_exists = await asyncio.to_thread(query_exist.execute)
-            if not like_exists.data:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No active incoming like found.",
+            try:
+                # payload.target_id is the original liker; user_id liked back
+                await asyncio.to_thread(
+                    record_match, payload.target_id, user_id, payload.tab,
                 )
+            except DatabaseAccessError as err:
+                orig = err.__cause__
+                if orig and "No active incoming like found" in str(orig):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No active incoming like found.",
+                    ) from err
+                raise
 
-            # payload.target_id is the original liker; user_id liked back
-            await asyncio.to_thread(
-                record_match, payload.target_id, user_id, payload.tab,
-            )
+        # Revoke their incoming like so it clears from the inbox
+        if payload.action in ("like", "superlike", "pass", "block", "report"):
+            await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
+
         return {"success": True, "matched": matched}
 
     except DatabaseAccessError as err:

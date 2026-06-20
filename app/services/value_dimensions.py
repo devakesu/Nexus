@@ -301,8 +301,7 @@ def recompile_value_dimensions(user_id: str) -> None:
             )
             return
 
-        row = cast(dict[str, Any], raw)
-        decrypt_profile_record(row)
+        row = decrypt_profile_record(cast(dict[str, Any], raw))
 
         dimensions = derive_value_dimensions(
             interests=row.get("interests") or {},

@@ -121,7 +121,6 @@ def create_new_discovery_session(
         active_tab=active_tab,
         filters=filters.model_dump(mode="json"),
         ranked_items=ranked_orbit,
-        expires_in_minutes=15,
     )
 
     return session_id, expires_at

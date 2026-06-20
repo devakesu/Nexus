@@ -22,6 +22,7 @@ from app.api.dependencies import (
     get_authenticated_user_payload,
     verify_app_check_token,
 )
+from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.users import (
@@ -97,7 +98,7 @@ def create_export_code(
     summary="Import profile data from a flavor variant (main nexus only)",
 )
 @limiter.limit(settings.rate_limit_auth)
-def import_from_flavor(
+async def import_from_flavor(
     request: Request,
     payload: ImportRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
@@ -122,6 +123,16 @@ def import_from_flavor(
             detail="Authenticated user payload is incomplete.",
         )
 
+    # Redis key for tracking failed attempts by target user_id
+    attempts_key = f"import:attempts:{user_id}"
+
+    attempts = await redis_client.get(attempts_key)
+    if attempts and int(attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed import attempts. Please try again in 15 minutes.",
+        )
+
     # Verify the caller is the main 'nexus' app variant early
     user_row = fetch_public_user(user_id)
     if not user_row:
@@ -135,11 +146,17 @@ def import_from_flavor(
             detail="Import is only available for the main 'nexus' app variant.",
         )
 
-    copied_fields = execute_import(
-        target_user_id=user_id,
-        sync_code=payload.sync_code,
-        target_variant=str(user_row.get("app_variant") or "nexus"),
-    )
+    try:
+        copied_fields = execute_import(
+            target_user_id=user_id,
+            sync_code=payload.sync_code,
+            target_variant=str(user_row.get("app_variant") or "nexus"),
+        )
+    except HTTPException as e:
+        if e.status_code == status.HTTP_400_BAD_REQUEST:
+            await redis_client.incr(attempts_key)
+            await redis_client.expire(attempts_key, 900)
+        raise e
 
     logger.info(
         "Cross-flavor import successful",

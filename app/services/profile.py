@@ -15,9 +15,15 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
     Runs after the profile write commits so all fields are current.
     """
     try:
+        select_cols = (
+            "id, bio, lifestyle, partner_values, religious_beliefs, "
+            "children_plans, campus_branch, campus_year, role_at, "
+            "display_gender, pronouns, looking_for, activities, "
+            "causes_supported, ai_vibe_tags, tech_skills, sub_interests"
+        )
         res = (
             supabase_client.table("profiles")
-            .select("*")
+            .select(select_cols)
             .eq("id", user_id)
             .maybe_single()
             .execute()

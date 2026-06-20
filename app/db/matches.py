@@ -40,7 +40,7 @@ def fetch_matches_for_user(user_id: str, tab: str = "Dating") -> list[dict[str, 
     Return active match rows for user_id.
     Each row includes match_id, matched_user_id (the counterpart), and created_at.
     """
-    uuid.UUID(user_id)
+    user_id = str(uuid.UUID(user_id)).lower()
     try:
         res = (
             supabase_client.table("matches")
@@ -78,8 +78,8 @@ def fetch_matches_for_user(user_id: str, tab: str = "Dating") -> list[dict[str, 
 
 def set_match_unmatched(user_id: str, target_id: str, tab: str = "Dating") -> None:
     """Mark the match between user_id and target_id as dissolved."""
-    uuid.UUID(user_id)
-    uuid.UUID(target_id)
+    user_id = str(uuid.UUID(user_id)).lower()
+    target_id = str(uuid.UUID(target_id)).lower()
     now = utcnow()
     try:
         (

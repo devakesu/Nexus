@@ -14,13 +14,10 @@ class DecryptFailedError(Exception):
     pass
 
 
-_cipher_suite: Fernet | None = None
+_cipher_suite = Fernet(settings.pii_encryption_key.encode())
 
 
 def _get_cipher_suite() -> Fernet:
-    global _cipher_suite
-    if _cipher_suite is None:
-        _cipher_suite = Fernet(settings.pii_encryption_key.encode())
     return _cipher_suite
 
 

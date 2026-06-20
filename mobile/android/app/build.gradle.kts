@@ -43,12 +43,14 @@ android {
             applicationId = "com.devakesu.apps.nexus"
             resValue("string", "app_name", "Nexus")
             manifestPlaceholders["appScheme"] = "devakesu-nexus"
+            manifestPlaceholders["appHost"] = "nexus.devakesu.com"
         }
         create("mec") {
             dimension = "brand"
             applicationId = "com.devakesu.apps.nexus.mec"
             resValue("string", "app_name", "Nexus MEC")
             manifestPlaceholders["appScheme"] = "devakesu-nexus-mec"
+            manifestPlaceholders["appHost"] = "nexus-mec.devakesu.com"
         }
     }
 

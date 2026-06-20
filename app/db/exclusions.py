@@ -130,7 +130,7 @@ def fetch_active_discovery_excluded_ids(
     - pass: actor -> target for this tab while not yet expired
     - like/superlike: actor -> target for this tab
     """
-    uuid.UUID(viewer_id)
+    viewer_id = str(uuid.UUID(viewer_id)).lower()
     excluded: set[str] = set()
     now = utcnow()
 
@@ -174,7 +174,7 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
     Return ids of users with an active block in either direction.
     Used for lightweight re-check at snapshot page read time.
     """
-    uuid.UUID(viewer_id)
+    viewer_id = str(uuid.UUID(viewer_id)).lower()
     try:
         res = (
             supabase_client.table("profile_discovery_actions")
@@ -286,6 +286,12 @@ def record_user_report(
         if rows and isinstance(rows[0], dict):
             report_id = str(cast(dict[str, Any], rows[0]).get("id") or "")
     except APIError as e:
+        if getattr(e, "code", None) == "23505":
+            logger.info(
+                "Duplicate pending report ignored (idempotent no-op)",
+                extra={"reporter_id": reporter_id, "target_id": target_id},
+            )
+            return
         logger.exception(
             "Failed to insert user report",
             extra={"reporter_id": reporter_id, "target_id": target_id},
@@ -403,10 +409,12 @@ def fetch_likes_for_user(
 def mark_likes_seen(
     viewer_id: str,
     actor_ids: list[str] | None = None,
+    tab: str | None = None,
 ) -> None:
     """
     Stamp seen_at on unseen likes for viewer_id.
     Pass actor_ids to mark only specific senders; omit (None) to mark all.
+    Optionally filter by discovery tab.
     """
     now = utcnow()
     try:
@@ -420,6 +428,8 @@ def mark_likes_seen(
         )
         if actor_ids:
             q = q.in_("actor_id", actor_ids)
+        if tab:
+            q = q.eq("tab", tab)
         q.execute()
     except APIError as e:
         logger.exception(

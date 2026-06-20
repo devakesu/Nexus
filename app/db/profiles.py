@@ -34,8 +34,6 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
 
-
-
 def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
     if not buckets:
         return []
@@ -583,10 +581,13 @@ def fetch_stage_1_candidates(
     excluded_ids = fetch_active_discovery_excluded_ids(viewer_id, active_tab)
     query = _build_candidate_query(viewer_id, active_tab, filters, excluded_ids)
 
+    dealbreakers = set(filters.dealbreaker_fields or [])
     active_post_fetch = sum(
-        1 for f in _POST_FETCH_FIELDS if getattr(filters, f, None)
+        1 for f in _POST_FETCH_FIELDS
+        if getattr(filters, f, None)
+        and (f != "partner_values" or "partner_values" in dealbreakers)
     )
-    effective_limit = min(candidate_limit + active_post_fetch * 100, 600)
+    effective_limit = min(candidate_limit + active_post_fetch * 50, 400)
 
     candidates_to_enrich = _execute_and_filter_candidates(
         query=query,
@@ -644,10 +645,11 @@ async def update_profile_images_and_metadata(
             supabase_client.table("profiles")
             .update(db_mutation_payload)
             .eq("id", user_id)
+            .select("id")
             .execute()
         )
         if not response.data:
-            raise ValueError("Profile update returned no data")
+            raise ValueError("Profile not found")
     except Exception as e:
         logger.exception(
             "Failed to update profile images and metadata for user %s",
