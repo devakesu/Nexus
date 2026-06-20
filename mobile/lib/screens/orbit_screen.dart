@@ -12,6 +12,7 @@ import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/orbit/widgets/constellation_loader.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_filters_panel.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_painters.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -232,11 +233,25 @@ class _OrbitScreenState extends State<OrbitScreen>
     }
   }
 
-  Future<void> _initData() async {
+  Future<void> _initData({OrbitPrefetchResult? prefetch}) async {
     if (widget.tab == 'Dating') {
-      await _loadDatingProfileStatus();
+      if (prefetch != null) {
+        setState(() {
+          _selectedShowBuckets
+            ..clear()
+            ..addAll(prefetch.showBuckets);
+          _selectedDatingFor
+            ..clear()
+            ..addAll(prefetch.datingFor);
+          _selectedPartnerValues
+            ..clear()
+            ..addAll(prefetch.partnerValues);
+        });
+      } else {
+        await _loadDatingProfileStatus();
+      }
     }
-    await _fetchOrbitNodes();
+    await _fetchOrbitNodes(skipProfileFetch: prefetch != null);
   }
 
   Future<void> _loadDatingProfileStatus() async {
@@ -598,6 +613,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: TextField(
                           style: const TextStyle(color: Colors.white, fontSize: 14),
+                          maxLength: 30,
                           decoration: InputDecoration(
                             hintText: 'Search or add custom value...',
                             hintStyle: const TextStyle(color: Colors.white38),
@@ -609,6 +625,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               borderSide: BorderSide.none,
                             ),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            counterText: '',
                           ),
                           onChanged: (v) {
                             setPaneState(() {
@@ -626,7 +643,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               spacing: 8,
                               runSpacing: 6,
                               children: [
-                                if (showCustomOption)
+                                if (showCustomOption && searchQuery.trim().length <= 30)
                                   ActionChip(
                                     avatar: const Icon(
                                       LucideIcons.plus,
@@ -720,6 +737,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   void dispose() {
     _pulseController.dispose();
     _transformationController.dispose();
+    _dio.close();
     super.dispose();
   }
 
@@ -743,7 +761,10 @@ class _OrbitScreenState extends State<OrbitScreen>
     _isCentered = true;
   }
 
-  Future<void> _fetchOrbitNodes({bool useExistingSession = false}) async {
+  Future<void> _fetchOrbitNodes({
+    bool useExistingSession = false,
+    bool skipProfileFetch = false,
+  }) async {
     setState(() {
       _errorMessage = null;
       _isReloading = true;
@@ -803,19 +824,23 @@ class _OrbitScreenState extends State<OrbitScreen>
         ),
       );
 
-      final profileFuture = _dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/profile/details',
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+      final profileFuture = skipProfileFetch
+          ? Future<Response<Map<String, dynamic>>?>.value()
+          : _dio.get<Map<String, dynamic>>(
+              '${config.backendUrl}/api/v1/profile/details',
+              options: Options(
+                headers: {'Authorization': 'Bearer ${session.accessToken}'},
+              ),
+            );
 
       final results = await Future.wait([discoverFuture, profileFuture]);
-      final discoverResponse = results[0];
+      final discoverResponse = results[0]!;
       final profileResponse = results[1];
 
       String? profilePicUrl;
-      if (profileResponse.statusCode == 200 && profileResponse.data != null) {
+      if (profileResponse != null &&
+          profileResponse.statusCode == 200 &&
+          profileResponse.data != null) {
         final profileData = profileResponse.data!;
         final rawImages = profileData['ordered_images'];
         if (rawImages is List && rawImages.isNotEmpty) {
@@ -1063,11 +1088,12 @@ class _OrbitScreenState extends State<OrbitScreen>
       }
     } on Exception catch (e) {
       if (mounted) {
+        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-            content: Text('Action failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            content: Text('Action failed: $friendlyMsg'),
           ),
         );
       }

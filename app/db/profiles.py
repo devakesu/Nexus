@@ -113,6 +113,11 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     Encrypted list payloads must decrypt to JSON arrays.
     Encrypted structured payloads must decrypt to JSON objects.
 
+    IMPORTANT: profile_pic and normal_pics are decrypted as scalar/list fields.
+    If the caller is constructing ordered_images lists, decrypt_profile_record
+    MUST be called before accessing profile_pic or normal_pics, otherwise
+    the returned lists will contain raw hex ciphertexts.
+
     Raises:
         DecryptFailedError: ciphertext cannot be decrypted
         ProfileDecodeError: decrypted content has an invalid shape
@@ -174,6 +179,9 @@ def _fetch_and_decrypt_viewer(
     try:
         viewer_res = (
             supabase_client.table("profiles")
+            # NOTE: We fetch all fields needed for decryption. If any expected
+            # columns are omitted, decrypt_profile_record will receive None
+            # and default them to empty.
             .select(
                 "id, name, age, campus_year, campus_branch, campus_name, "
                 "display_gender, display_sexuality, pronouns, bio, search_bucket, "
@@ -182,7 +190,8 @@ def _fetch_and_decrypt_viewer(
                 "dating_target_buckets, dating_for, friends_target_buckets, "
                 "professional_target_buckets, looking_for, activities, "
                 "causes_supported, top_artists, tech_skills, languages, "
-                "ai_vibe_tags, pets, interests, sub_interests, value_dimensions",
+                "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
+                "role_type, normal_pics, profile_pic",
             )
             .eq("id", viewer_id)
             .limit(1)
@@ -236,7 +245,18 @@ def _build_candidate_query(
 ) -> Any:
     """Helper to assemble query constraints for candidate matching."""
     completion_flag_column = _get_completion_flag_column(active_tab)
-    query = supabase_client.table("profiles").select("*")
+    explicit_columns = (
+        "id, name, age, campus_year, campus_branch, campus_name, "
+        "display_gender, display_sexuality, pronouns, bio, search_bucket, "
+        "hometown, current_place, partner_values, children_plans, "
+        "religious_beliefs, lifestyle, drinking, smoking, role_at, "
+        "dating_target_buckets, dating_for, friends_target_buckets, "
+        "professional_target_buckets, looking_for, activities, "
+        "causes_supported, top_artists, tech_skills, languages, "
+        "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
+        f"profile_pic, normal_pics, {completion_flag_column}"
+    )
+    query = supabase_client.table("profiles").select(explicit_columns)
     query = query.neq("id", viewer_id)
     query = query.eq(completion_flag_column, True)
     query = query.eq("is_deactivated", False)
@@ -254,6 +274,11 @@ def _build_candidate_query(
     query = query.lte("age", filters.max_age)
 
     if excluded_ids:
+        # NOTE: At scale, if excluded_ids has thousands of entries (e.g. from
+        # user blocks/passes), converting it to a comma-separated filter in a
+        # PostgREST GET request can exceed URL length limits.
+        # Consider chunking or migrating this to a DB-side RPC function /
+        # exclusion view if this list grows large.
         query = query.not_.in_("id", list(excluded_ids))
 
     return query
@@ -383,8 +408,9 @@ def _check_candidate_match(
         return False
     if filters.partner_values and "partner_values" in dealbreakers:
         pv_raw = c.get("partner_values") or ""
-        pv_list = [v.strip() for v in pv_raw.split(",") if v.strip()]
-        if not _list_overlap(pv_list, filters.partner_values):
+        pv_list = [v.strip().lower() for v in pv_raw.split(",") if v.strip()]
+        lower_filters = [v.strip().lower() for v in filters.partner_values if v.strip()]
+        if not _list_overlap(pv_list, lower_filters):
             return False
     return True
 

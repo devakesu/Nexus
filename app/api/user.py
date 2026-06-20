@@ -124,7 +124,11 @@ def auth_bootstrap(
 
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
-        email=str(user_row["email"]) if user_row.get("email") else None,
+        email=(
+            str(user_row["email"])
+            if user_row.get("email")
+            else (email if email else None)
+        ),
         is_active=bool(user_row.get("is_active", True)),
         is_suspended=bool(user_row.get("is_suspended", False)),
         moderation_status=str(user_row.get("moderation_status") or "clear"),
@@ -142,7 +146,7 @@ def auth_bootstrap(
 def complete_onboarding(
     request: Request,
     payload: OnboardingPayload = Body(...),  # noqa: B008
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
     """
@@ -278,6 +282,7 @@ async def update_profile_media_and_tags(
     request: Request,
     payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
+    _device: None = Depends(verify_app_check_token),
 ):
     _ = request
     try:
@@ -540,6 +545,7 @@ def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
+    _device: None = Depends(verify_app_check_token),
 ) -> dict[str, Any]:
     update_data: dict[str, Any] = {}
 
@@ -625,48 +631,60 @@ def update_profile_details(  # noqa: C901
 
     if payload.is_dating_active is not None:
         if payload.is_dating_active:
-            if profile is not None:
-                missing = _validate_tab_activation("Dating", profile, payload)
-                if missing:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail={
-                            "message": "Dating profile incomplete",
-                            "missing_fields": missing,
-                        },
-                    )
+            if profile is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Profile must be loaded for dating tab activation",
+                )
+            missing = _validate_tab_activation("Dating", profile, payload)
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Dating profile incomplete",
+                        "missing_fields": missing,
+                    },
+                )
             update_data["is_dating_active"] = True
         else:
             update_data["is_dating_active"] = False
 
     if payload.is_friends_active is not None:
         if payload.is_friends_active:
-            if profile is not None:
-                missing = _validate_tab_activation("Friends", profile, payload)
-                if missing:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail={
-                            "message": "Friends profile incomplete",
-                            "missing_fields": missing,
-                        },
-                    )
+            if profile is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Profile must be loaded for friends tab activation",
+                )
+            missing = _validate_tab_activation("Friends", profile, payload)
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Friends profile incomplete",
+                        "missing_fields": missing,
+                    },
+                )
             update_data["is_friends_active"] = True
         else:
             update_data["is_friends_active"] = False
 
     if payload.is_professional_active is not None:
         if payload.is_professional_active:
-            if profile is not None:
-                missing = _validate_tab_activation("Professional", profile, payload)
-                if missing:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail={
-                            "message": "Professional profile incomplete",
-                            "missing_fields": missing,
-                        },
-                    )
+            if profile is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Profile must be loaded for professional tab activation",
+                )
+            missing = _validate_tab_activation("Professional", profile, payload)
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "message": "Professional profile incomplete",
+                        "missing_fields": missing,
+                    },
+                )
             update_data["is_professional_active"] = True
         else:
             update_data["is_professional_active"] = False

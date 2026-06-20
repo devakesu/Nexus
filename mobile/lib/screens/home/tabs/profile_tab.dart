@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +22,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -372,6 +374,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _rotationController = rotation;
     unawaited(rotation.repeat());
 
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
     _pageController = PageController();
     unawaited(_loadProfileData());
   }
@@ -380,7 +387,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   void dispose() {
     _pulseController?.dispose();
     _rotationController?.dispose();
+    _entryController?.dispose();
     _pageController.dispose();
+    _scrollController.dispose();
+    _nameFocusNode.dispose();
+    _bioFocusNode.dispose();
+    _hometownFocusNode.dispose();
+    _currentPlaceFocusNode.dispose();
+    _campusNameFocusNode.dispose();
+    _majorFocusNode.dispose();
     super.dispose();
   }
 
@@ -398,160 +413,185 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     setState(() => _isLoading = true);
     try {
       final session = _client.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {
-              'Authorization': 'Bearer ${session.accessToken}',
-            },
-          ),
-        );
+      if (session == null) {
+        unawaited(_client.auth.signOut());
+        return;
+      }
+      final config = AppConfig.current;
+      final dio = createDio();
+      final response = await dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/profile/details',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${session.accessToken}',
+          },
+        ),
+      );
 
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
-          setState(() {
-            _name = data['name']?.toString() ?? _name;
-            _savedName = _name;
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final data = response.data!;
+        setState(() {
+          _name = data['name']?.toString() ?? _name;
+          _savedName = _name;
 
-            _age = (data['age'] as num?)?.toInt() ?? _age;
-            _savedAge = _age;
+          _age = (data['age'] as num?)?.toInt() ?? _age;
+          _savedAge = _age;
 
-            if (data['campus_year'] != null) {
-              _year = (data['campus_year'] as num).toInt();
-              _isStudying = _year > 0;
-            } else {
-              _isStudying = false;
-            }
-            _savedYear = _year;
-            _savedIsStudying = _isStudying;
+          if (data['campus_year'] != null) {
+            _year = (data['campus_year'] as num).toInt();
+            _isStudying = _year > 0;
+          } else {
+            _isStudying = false;
+          }
+          _savedYear = _year;
+          _savedIsStudying = _isStudying;
 
-            String cleanVal(dynamic val) {
-              if (val == null) return '';
-              final s = val.toString().trim();
-              if (s.toLowerCase() == 'not specified') return '';
-              return s;
-            }
+          String cleanVal(dynamic val) {
+            if (val == null) return '';
+            final s = val.toString().trim();
+            if (s.toLowerCase() == 'not specified') return '';
+            return s;
+          }
 
-            _major = cleanVal(data['campus_branch']);
-            _savedMajor = _major;
+          _major = cleanVal(data['campus_branch']);
+          _savedMajor = _major;
 
-            _campusName = cleanVal(data['campus_name']);
-            _savedCampusName = _campusName;
+          _campusName = cleanVal(data['campus_name']);
+          _savedCampusName = _campusName;
 
-            _displayGender =
-                data['display_gender']?.toString() ?? 'Not specified';
-            _savedDisplayGender = _displayGender;
+          _displayGender =
+              data['display_gender']?.toString() ?? 'Not specified';
+          _savedDisplayGender = _displayGender;
 
-            _displaySexuality =
-                data['display_sexuality']?.toString() ?? 'Not specified';
-            _savedDisplaySexuality = _displaySexuality;
+          _displaySexuality =
+              data['display_sexuality']?.toString() ?? 'Not specified';
+          _savedDisplaySexuality = _displaySexuality;
 
-            _pronouns = data['pronouns']?.toString() ?? 'they/them';
-            _savedPronouns = _pronouns;
+          _pronouns = data['pronouns']?.toString() ?? 'they/them';
+          _savedPronouns = _pronouns;
 
-            _bio = data['bio']?.toString() ?? '';
-            _savedBio = _bio;
+          _bio = data['bio']?.toString() ?? '';
+          _savedBio = _bio;
 
-            _hometown = cleanVal(data['hometown']);
-            _savedHometown = _hometown;
+          _hometown = cleanVal(data['hometown']);
+          _savedHometown = _hometown;
 
-            _currentPlace = cleanVal(data['current_place']);
-            _savedCurrentPlace = _currentPlace;
+          _currentPlace = cleanVal(data['current_place']);
+          _savedCurrentPlace = _currentPlace;
 
-            _childrenPlans =
-                data['children_plans']?.toString() ?? 'Not specified';
-            _savedChildrenPlans = _childrenPlans;
+          _childrenPlans =
+              data['children_plans']?.toString() ?? 'Not specified';
+          _savedChildrenPlans = _childrenPlans;
 
-            _religiousBeliefs =
-                data['religious_beliefs']?.toString() ?? 'Not specified';
-            _savedReligiousBeliefs = _religiousBeliefs;
+          _religiousBeliefs =
+              data['religious_beliefs']?.toString() ?? 'Not specified';
+          _savedReligiousBeliefs = _religiousBeliefs;
 
-            _lifestyle = data['lifestyle']?.toString() ?? '';
-            _savedLifestyle = _lifestyle;
+          _lifestyle = data['lifestyle']?.toString() ?? '';
+          _savedLifestyle = _lifestyle;
 
-            _drinking = data['drinking']?.toString() ?? 'Not specified';
-            _savedDrinking = _drinking;
+          _drinking = data['drinking']?.toString() ?? 'Not specified';
+          _savedDrinking = _drinking;
 
-            _smoking = data['smoking']?.toString() ?? 'Not specified';
-            _savedSmoking = _smoking;
+          _smoking = data['smoking']?.toString() ?? 'Not specified';
+          _savedSmoking = _smoking;
 
-            final rawBucket = data['search_bucket'];
-            _searchBucket = rawBucket?.toString() ?? 'NB';
-            _savedSearchBucket = _searchBucket;
+          final rawBucket = data['search_bucket'];
+          _searchBucket = rawBucket?.toString() ?? 'NB';
+          _savedSearchBucket = _searchBucket;
 
-            final rawCauses = data['causes_supported'];
-            if (rawCauses is List) {
-              _causesSupported = rawCauses.map((e) => e.toString()).toList();
-            } else {
-              _causesSupported = [];
-            }
-            _savedCausesSupported = List<String>.from(_causesSupported);
+          final rawCauses = data['causes_supported'];
+          if (rawCauses is List) {
+            _causesSupported = rawCauses.map((e) => e.toString()).toList();
+          } else {
+            _causesSupported = [];
+          }
+          _savedCausesSupported = List<String>.from(_causesSupported);
 
-            final rawArtists = data['top_artists'];
-            if (rawArtists is List) {
-              _topArtists = rawArtists.map((e) => e.toString()).toList();
-            } else {
-              _topArtists = [];
-            }
-            _savedTopArtists = List<String>.from(_topArtists);
+          final rawArtists = data['top_artists'];
+          if (rawArtists is List) {
+            _topArtists = rawArtists.map((e) => e.toString()).toList();
+          } else {
+            _topArtists = [];
+          }
+          _savedTopArtists = List<String>.from(_topArtists);
 
-            final rawLanguages = data['languages'];
-            if (rawLanguages is List) {
-              _languages = rawLanguages.map((e) => e.toString()).toList();
-            } else {
-              _languages = [];
-            }
-            _savedLanguages = List<String>.from(_languages);
+          final rawLanguages = data['languages'];
+          if (rawLanguages is List) {
+            _languages = rawLanguages.map((e) => e.toString()).toList();
+          } else {
+            _languages = [];
+          }
+          _savedLanguages = List<String>.from(_languages);
 
-            final rawPets = data['pets'];
-            if (rawPets is List) {
-              _pets = rawPets.map((e) => e.toString()).toList();
-            } else {
-              _pets = [];
-            }
-            _savedPets = List<String>.from(_pets);
+          final rawPets = data['pets'];
+          if (rawPets is List) {
+            _pets = rawPets.map((e) => e.toString()).toList();
+          } else {
+            _pets = [];
+          }
+          _savedPets = List<String>.from(_pets);
 
-            final rawSubInterests = data['sub_interests'];
-            if (rawSubInterests is Map) {
-              _subInterests = Map<String, List<String>>.from(
-                rawSubInterests.map((k, v) {
-                  final list = v as List? ?? [];
-                  return MapEntry(
-                    k.toString(),
-                    list.map((e) => e.toString()).toList(),
-                  );
-                }),
-              );
-            } else {
-              _subInterests = {};
-            }
-            _savedSubInterests = Map<String, List<String>>.from(_subInterests);
+          final rawSubInterests = data['sub_interests'];
+          if (rawSubInterests is Map) {
+            _subInterests = Map<String, List<String>>.from(
+              rawSubInterests.map((k, v) {
+                final list = v as List? ?? [];
+                return MapEntry(
+                  k.toString(),
+                  list.map((e) => e.toString()).toList(),
+                );
+              }),
+            );
+          } else {
+            _subInterests = {};
+          }
+          _savedSubInterests = Map<String, List<String>>.from(_subInterests);
 
-            final rawImages = data['ordered_images'];
-            if (rawImages is List) {
-              final loadedImages = List<String>.generate(5, (i) {
-                if (i < rawImages.length &&
-                    rawImages[i] != null &&
-                    rawImages[i].toString().isNotEmpty) {
-                  _imagePaths[i] = rawImages[i].toString();
-                  return rawImages[i].toString();
-                } else {
-                  _imagePaths[i] = null;
-                  return '';
-                }
-              });
-              ref
-                  .read(clientAIImageManagerProvider.notifier)
-                  .setRemotePaths(loadedImages);
-            }
-          });
-        }
+          final rawImages = data['ordered_images'];
+          if (rawImages is List) {
+            final loadedImages = List<String>.generate(5, (i) {
+              if (i < rawImages.length &&
+                  rawImages[i] != null &&
+                  rawImages[i].toString().isNotEmpty) {
+                _imagePaths[i] = rawImages[i].toString();
+                return rawImages[i].toString();
+              } else {
+                _imagePaths[i] = null;
+                return '';
+              }
+            });
+            ref
+                .read(clientAIImageManagerProvider.notifier)
+                .setRemotePaths(loadedImages);
+          }
+        });
       }
     } on Object catch (e) {
       debugPrint('[ProfileTab] Error loading profile details: $e');
+      if (mounted) {
+        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            content: Text('Failed to load profile: $friendlyMsg'),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => unawaited(_loadProfileData()),
+            ),
+          ),
+        );
+        
+        // Handle session/auth failure specifically
+        if (e is DioException) {
+          final statusCode = e.response?.statusCode;
+          if (statusCode == 401 || statusCode == 403) {
+            // Unauthenticated/Session expired: logout/re-route to login
+            unawaited(_client.auth.signOut());
+          }
+        }
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -669,12 +709,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
         // Perform the details secure endpoint update
         if (payload.isNotEmpty) {
+          String? appCheckToken;
+          try {
+            appCheckToken = await FirebaseAppCheck.instance.getToken();
+          } on Object catch (_) {}
+
           final response = await dio.patch<Map<String, dynamic>>(
             '${config.backendUrl}/api/v1/profile/details',
             data: payload,
             options: Options(
               headers: {
                 'Authorization': 'Bearer ${session.accessToken}',
+                'X-Firebase-AppCheck': ?appCheckToken,
               },
             ),
           );
@@ -844,11 +890,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           }
         });
 
+        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFC0392B),
+            backgroundColor: Theme.of(context).colorScheme.error,
             content: Text(
-              'Failed to synchronize cosmic frequency: $e',
+              'Failed to synchronize cosmic frequency: $friendlyMsg',
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             shape: RoundedRectangleBorder(
@@ -966,11 +1013,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         setState(() {
           _imagePaths[slotIndex] = oldPaths[slotIndex];
         });
+        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFC0392B),
+            backgroundColor: Theme.of(context).colorScheme.error,
             content: Text(
-              'Failed to sync media: ${e.toString().contains('Bucket not found') ? 'Storage bucket not configured' : e.toString()}',
+              e.toString().contains('Bucket not found')
+                  ? 'Failed to sync media: Storage bucket not configured'
+                  : 'Failed to sync media: $friendlyMsg',
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
@@ -1017,11 +1067,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       setState(() {
         _imagePaths[slotIndex] = oldPaths[slotIndex];
       });
+      final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFC0392B),
+          backgroundColor: Theme.of(context).colorScheme.error,
           content: Text(
-            'Failed to clear media: ${e.toString().contains('Bucket not found') ? 'Storage bucket not configured' : e.toString()}',
+            e.toString().contains('Bucket not found')
+                ? 'Failed to clear media: Storage bucket not configured'
+                : 'Failed to clear media: $friendlyMsg',
             style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),

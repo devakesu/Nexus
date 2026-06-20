@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
     rate_limit_auth: str = "5/minute"
-    allowed_origins: str = "*"
+    allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # --- Infrastructure / crypto ---
     redis_url: str
@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     sendpulse_client_secret: str | None = None
     app_domain: str
     app_name: str = "Nexus Orbit"
+    debug: bool = False
 
     model_config = SettingsConfigDict(
         env_file=None,

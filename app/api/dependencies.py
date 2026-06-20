@@ -46,6 +46,9 @@ async def get_authenticated_user_payload(
         unverified_header = jwt.get_unverified_header(token)
         algo = unverified_header.get("alg", "ES256")
 
+        if algo not in ("HS256", "ES256"):
+            raise jwt.InvalidTokenError("Unsupported algorithm.")
+
         if algo == "HS256":
             if not isinstance(settings.supabase_jwt_secret, str):
                 raise jwt.InvalidTokenError(

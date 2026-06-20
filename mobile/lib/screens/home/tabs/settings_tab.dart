@@ -14,6 +14,8 @@ class SettingsTab extends StatelessWidget {
       title: 'Settings',
       themeColor: themeColor,
       chatLabel: 'System',
+      // Note: Settings screen is primarily display-only.
+      // onOpenOrbit is provided for consistency with other tabs in the scaffold.
       onOpenOrbitPressed: () => onOpenOrbit('Settings', themeColor),
       children: [
         const Text(
@@ -28,24 +30,28 @@ class SettingsTab extends StatelessWidget {
         Column(
           children: [
             _buildSettingTile(
+              context,
               LucideIcons.bell,
               'Notifications',
               'On',
               themeColor,
             ),
             _buildSettingTile(
+              context,
               LucideIcons.shieldAlert,
               'Privacy & Safety',
               'Secure',
               themeColor,
             ),
             _buildSettingTile(
+              context,
               LucideIcons.palette,
               'App Theme',
               'Dark Mode',
               themeColor,
             ),
             _buildSettingTile(
+              context,
               LucideIcons.helpCircle,
               'Help & Feedback',
               '',
@@ -58,47 +64,62 @@ class SettingsTab extends StatelessWidget {
   }
 
   Widget _buildSettingTile(
+    BuildContext context,
     IconData icon,
     String title,
     String subtitle,
     Color themeColor,
   ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161B26),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withAlpha(13)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: themeColor, size: 20),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1E293B),
+            content: Text(
+              '$title preferences configuration is coming soon.',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
-          if (subtitle.isNotEmpty)
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.white.withAlpha(102),
-                fontSize: 13,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF161B26),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withAlpha(13)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: themeColor, size: 20),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
-          const SizedBox(width: 8),
-          const Icon(
-            LucideIcons.chevronRight,
-            color: Color(0x33FFFFFF),
-            size: 16,
-          ),
-        ],
+            if (subtitle.isNotEmpty)
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withAlpha(102),
+                  fontSize: 13,
+                ),
+              ),
+            const SizedBox(width: 8),
+            const Icon(
+              LucideIcons.chevronRight,
+              color: Color(0x33FFFFFF),
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }

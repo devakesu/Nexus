@@ -138,6 +138,7 @@ def import_from_flavor(
     copied_fields = execute_import(
         target_user_id=user_id,
         sync_code=payload.sync_code,
+        target_variant=str(user_row.get("app_variant") or "nexus"),
     )
 
     logger.info(

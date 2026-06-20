@@ -119,8 +119,9 @@ app.include_router(user_router)
 app.include_router(sync_router)
 app.include_router(status_router)
 
-try:
-    from app.api.dev_temp import router as dev_router
-    app.include_router(dev_router)
-except ImportError:
-    pass
+if settings.debug:
+    try:
+        from app.api.dev_temp import router as dev_router
+        app.include_router(dev_router)
+    except ImportError:
+        pass

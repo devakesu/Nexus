@@ -82,7 +82,15 @@ class _MyHomePageState extends State<MyHomePage> {
                         },
                       ),
                       SettingsTab(onOpenOrbit: _triggerOpenOrbit),
-                    ],
+                    ].map((widgetItem) {
+                      if (widgetItem is ProfileTab) {
+                        return TickerMode(
+                          enabled: _currentTab == 2,
+                          child: widgetItem,
+                        );
+                      }
+                      return widgetItem;
+                    }).toList(),
                   ),
                 ),
               ),

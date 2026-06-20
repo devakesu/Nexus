@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:nexus/config/app_config.dart';
@@ -204,6 +205,10 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       final config = AppConfig.current;
       final session = Supabase.instance.client.auth.currentSession;
       final token = session?.accessToken;
+      String? appCheckToken;
+      try {
+        appCheckToken = await FirebaseAppCheck.instance.getToken();
+      } on Object catch (_) {}
 
       await dioClient.post<dynamic>(
         '${config.backendUrl}/api/v1/profile/media',
@@ -213,7 +218,10 @@ class ClientAIImageManager extends _$ClientAIImageManager {
           'ai_vibe_tags': unifiedUniqueTags.isNotEmpty ? unifiedUniqueTags.toList() : ['ambient-vibe'],
         },
         options: Options(
-          headers: token != null ? {'Authorization': 'Bearer $token'} : null,
+          headers: {
+            if (token != null) 'Authorization': 'Bearer $token',
+            'X-Firebase-AppCheck': ?appCheckToken,
+          },
         ),
       );
 

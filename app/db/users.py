@@ -1,5 +1,5 @@
 import logging
-import random
+import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
@@ -143,6 +143,10 @@ def upsert_public_user(
     if app_variant is not None:
         payload["app_variant"] = app_variant
 
+    # Check if the user exists before upsert to determine newly_created status
+    existing_user = fetch_public_user(user_id)
+    newly_created = existing_user is None
+
     try:
         result = (
             supabase_client.table("users")
@@ -174,11 +178,6 @@ def upsert_public_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="User account initialization returned no row.",
         )
-
-    # Detect if newly created (inserted) by checking if created_at == updated_at
-    created_at = row.get("created_at")
-    updated_at = row.get("updated_at")
-    newly_created = bool(created_at and updated_at and created_at == updated_at)
 
     return cast(dict[str, Any], row), newly_created
 
@@ -294,7 +293,7 @@ def generate_export_code(user_id: str) -> tuple[str, datetime]:
     The code is valid for 15 minutes. Any previous code is silently overwritten.
     Returns (code, expires_at).
     """
-    code = "".join(random.choices(_SYNC_CODE_CHARS, k=_SYNC_CODE_LENGTH))  # noqa: S311
+    code = "".join(secrets.choice(_SYNC_CODE_CHARS) for _ in range(_SYNC_CODE_LENGTH))
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=_SYNC_CODE_TTL_MINUTES)
 
     try:
@@ -353,26 +352,61 @@ _IMPORTABLE_FIELDS = [
 ]
 
 
-def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C901
-    """
-    Execute the cross-flavor import handshake.
-
-    Direction: flavor account (source) → main nexus account (target).
-
-    Steps:
-      1. Look up source profile by import_sync_code (service role bypasses RLS).
-      2. Validate the code is not expired.
-      3. Validate the target has not already imported data.
-      4. Validate the source is a non-main flavor (prevents main→main imports).
-      5. Copy encrypted PII fields from source to target.
-      6. Set has_imported_data = True on target.
-      7. Nullify import_sync_code on source to prevent re-use.
-
-    Returns the list of field names actually copied.
-    Raises HTTPException on any validation or database error.
-    """
+def _validate_import(
+    source: dict[str, Any],
+    target: dict[str, Any],
+    target_variant: str,
+) -> tuple[str, str]:
+    # --- 2. Validate expiry ---
     now = datetime.now(timezone.utc)
+    expires_raw = source.get("import_sync_expires_at")
+    if not expires_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Export code has no expiry. Please generate a new code.",
+        )
+    expires_at = parse_utc_datetime(expires_raw)
 
+    if now > expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Export code has expired. "
+                "Please generate a new one from the flavor app."
+            ),
+        )
+
+    # --- 3. Prevent re-import on target ---
+    if target.get("has_imported_data"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This account has already imported data. Import can only happen once."
+            ),
+        )
+
+    # --- 4. Ensure target is the main variant, source is a flavor ---
+    source_user = fetch_public_user(source["id"])
+    source_variant = source_user.get("app_variant", "nexus") if source_user else "nexus"
+
+    if target_variant != "nexus":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import is only allowed into the main Nexus account.",
+        )
+
+    if source_variant == "nexus":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Export codes must originate from a flavor variant account.",
+        )
+    return source_variant, source["id"]
+
+
+def _fetch_import_profiles(
+    sync_code: str,
+    target_user_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     # --- 1. Fetch source profile by sync code ---
     try:
         source_res = (
@@ -403,27 +437,6 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
             detail="Invalid or already-used export code.",
         )
 
-    source = cast(dict[str, Any], source_res.data[0])
-
-    # --- 2. Validate expiry ---
-    expires_raw = source.get("import_sync_expires_at")
-    if not expires_raw:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Export code has no expiry. Please generate a new code.",
-        )
-    expires_at = parse_utc_datetime(expires_raw)
-
-    if now > expires_at:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Export code has expired. "
-                "Please generate a new one from the flavor app."
-            ),
-        )
-
-    # --- 3. Prevent re-import on target ---
     try:
         target_res = (
             supabase_client.table("profiles")
@@ -448,34 +461,27 @@ def execute_import(target_user_id: str, sync_code: str) -> list[str]:  # noqa: C
             detail="Target profile not found. Complete onboarding first.",
         )
 
-    target = cast(dict[str, Any], target_res.data[0])
+    return (
+        cast(dict[str, Any], source_res.data[0]),
+        cast(dict[str, Any], target_res.data[0]),
+    )
 
-    if target.get("has_imported_data"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "This account has already imported data. Import can only happen once."
-            ),
-        )
 
-    # --- 4. Ensure target is the main variant, source is a flavor ---
-    source_user = fetch_public_user(source["id"])
-    source_variant = source_user.get("app_variant", "nexus") if source_user else "nexus"
+def execute_import(
+    target_user_id: str,
+    sync_code: str,
+    target_variant: str = "nexus",
+) -> list[str]:
+    """
+    Execute the cross-flavor import handshake.
 
-    target_user = fetch_public_user(target_user_id)
-    target_variant = target_user.get("app_variant", "nexus") if target_user else "nexus"
+    Direction: flavor account (source) → main nexus account (target).
+    """
+    now = datetime.now(timezone.utc)
 
-    if target_variant != "nexus":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Import is only allowed into the main Nexus account.",
-        )
+    source, target = _fetch_import_profiles(sync_code, target_user_id)
 
-    if source_variant == "nexus":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Export codes must originate from a flavor variant account.",
-        )
+    source_variant, _ = _validate_import(source, target, target_variant)
 
     # --- 5. Copy encrypted fields ---
     copy_payload: dict[str, Any] = {}
@@ -628,6 +634,10 @@ def update_user_terms(
                 },
             )
             .eq("id", user_id)
+            # NOTE: version_val is cast to float above to prevent injection.
+            # Using an f-string in the PostgREST .or_() filter is safe here,
+            # but future changes must ensure any interpolated variables are
+            # strictly typed.
             .or_(
                 f"accepted_terms_version.is.null,accepted_terms_version::numeric.lt.{version_val}",
             )
