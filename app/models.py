@@ -4,6 +4,19 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.core.choices import (
+    CAUSES_SUPPORTED_CHOICES,
+    CHILDREN_PLANS_CHOICES,
+    DRINKING_CHOICES,
+    GENDER_CHOICES,
+    LANGUAGES_CHOICES,
+    PETS_CHOICES,
+    PRONOUNS_CHOICES,
+    RELIGIOUS_BELIEFS_CHOICES,
+    SEXUALITY_CHOICES,
+    SMOKING_CHOICES,
+    VALID_INTERESTS,
+)
 from app.core.config import DiscoveryTab, settings
 
 
@@ -50,12 +63,12 @@ class ProfileModel(BaseModel):
     role_at: str | None = None
     hometown: str | None = None
     current_place: str | None = None
-    partner_values: str | None = None
     children_plans: str | None = None
     religious_beliefs: str | None = None
     profile_pic: str | None = None
 
     # Optional decrypted list attributes.
+    partner_values: list[str] = Field(default_factory=list)
     activities: list[str] = Field(default_factory=list)
     looking_for: list[str] = Field(default_factory=list)
     causes_supported: list[str] = Field(default_factory=list)
@@ -80,6 +93,7 @@ class ProfileModel(BaseModel):
 # ---------------------------------------------------------------------------
 # Onboarding — Polymorphic models
 # ---------------------------------------------------------------------------
+
 
 def _validate_terms_version(value: str) -> str:
     cleaned = value.strip()
@@ -122,7 +136,6 @@ class BaseOnboardingRequest(BaseModel):
         return cleaned
 
 
-
 class NexusOnboardingRequest(BaseOnboardingRequest):
     """
     Onboarding payload for the main Nexus (personal) flavor.
@@ -134,6 +147,7 @@ class NexusOnboardingRequest(BaseOnboardingRequest):
 
     app_variant: Literal["nexus"] = "nexus"
     name: str = Field(..., min_length=4, max_length=100)
+    age: int = Field(..., ge=18, le=80)
     lifestyle: str = Field(..., min_length=1)
 
     @field_validator("name")
@@ -196,6 +210,7 @@ class CompleteOnboardingResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Cross-flavor import / export handshake
 # ---------------------------------------------------------------------------
+
 
 class ExportCodeResponse(BaseModel):
     """
@@ -309,8 +324,7 @@ class DiscoveryFilters(BaseModel):
     partner_values: list[str] | None = Field(
         default=None,
         description=(
-            "Dating tab: applied only when 'partner_values' is in "
-            "dealbreaker_fields."
+            "Dating tab: applied only when 'partner_values' is in dealbreaker_fields."
         ),
     )
 
@@ -380,6 +394,17 @@ class DiscoveryActionRequest(BaseModel):
         description="Profile id of the candidate the action applies to.",
     )
 
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("target_id must be a valid UUID") from e
+        return v
+
     # Supported actions, including reversal operations.
     action: Literal[
         "pass",
@@ -406,15 +431,18 @@ class DiscoveryActionRequest(BaseModel):
     )
 
     # Report-specific fields — only valid when action == "report".
-    reason: Literal[
-        "scam",
-        "bot",
-        "harassment",
-        "inappropriate",
-        "spam",
-        "underage",
-        "other",
-    ] | None = Field(
+    reason: (
+        Literal[
+            "scam",
+            "bot",
+            "harassment",
+            "inappropriate",
+            "spam",
+            "underage",
+            "other",
+        ]
+        | None
+    ) = Field(
         default=None,
         description="Reason code; required when action is report.",
     )
@@ -541,7 +569,7 @@ class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
     smoking: str | None = None
     lifestyle: str | None = None
     religious_beliefs: str | None = None
-    partner_values: str | None = None
+    partner_values: list[str] = Field(default_factory=list)
     children_plans: str | None = None
     dating_for: list[str] = Field(default_factory=list)
     normal_pics: list[str] = Field(default_factory=list)
@@ -576,6 +604,7 @@ OrbitNodeDetailResponse = (
 # ---------------------------------------------------------------------------
 # Likes inbox
 # ---------------------------------------------------------------------------
+
 
 class LikeListItem(BaseModel):
     """One entry in the likes inbox — who liked the viewer and when."""
@@ -614,22 +643,48 @@ class PeerProfileRequest(BaseModel):
     target_id: str = Field(..., min_length=1)
     tab: DiscoveryTab
 
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("target_id must be a valid UUID") from e
+        return v
+
 
 class LikeActionRequest(BaseModel):
     """Record an action from the likes inbox (no session required)."""
 
     target_id: str = Field(..., min_length=1)
+
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("target_id must be a valid UUID") from e
+        return v
+
     action: Literal["like", "superlike", "pass", "hide", "block", "report"]
     tab: DiscoveryTab = "Dating"
-    reason: Literal[
-        "scam",
-        "bot",
-        "harassment",
-        "inappropriate",
-        "spam",
-        "underage",
-        "other",
-    ] | None = Field(
+    reason: (
+        Literal[
+            "scam",
+            "bot",
+            "harassment",
+            "inappropriate",
+            "spam",
+            "underage",
+            "other",
+        ]
+        | None
+    ) = Field(
         default=None,
         description="Reason code; required when action is report.",
     )
@@ -652,6 +707,7 @@ class LikeActionRequest(BaseModel):
 # Matches
 # ---------------------------------------------------------------------------
 
+
 class MatchItem(BaseModel):
     match_id: str
     matched_user_id: str
@@ -669,17 +725,32 @@ class MatchActionRequest(BaseModel):
     """Record an action on an active match (unmatch, block, or report)."""
 
     target_id: str = Field(..., min_length=1)
+
+    @field_validator("target_id")
+    @classmethod
+    def validate_target_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("target_id must be a valid UUID") from e
+        return v
+
     action: Literal["unmatch", "block", "report"]
     tab: DiscoveryTab = "Dating"
-    reason: Literal[
-        "scam",
-        "bot",
-        "harassment",
-        "inappropriate",
-        "spam",
-        "underage",
-        "other",
-    ] | None = Field(
+    reason: (
+        Literal[
+            "scam",
+            "bot",
+            "harassment",
+            "inappropriate",
+            "spam",
+            "underage",
+            "other",
+        ]
+        | None
+    ) = Field(
         default=None,
         description="Reason code; required when action is report.",
     )
@@ -729,12 +800,12 @@ class AcceptTermsResponse(BaseModel):
     terms_recorded: bool
 
 
-
 class ProfileImagesAndTagsUpdate(BaseModel):
     """
     Client contract model for on-device edge AI calculations.
     Ingests storage asset paths and computed text arrays directly.
     """
+
     profile_pic: str = Field(
         ...,
         description="Mandatory relative storage path to the user avatar image.",
@@ -765,13 +836,11 @@ class ProfileImagesAndTagsUpdate(BaseModel):
 
         if total_count < 1:
             raise ValueError(
-                "Validation Error: At least one normal gallery image path "
-                "is required.",
+                "Validation Error: At least one normal gallery image path is required.",
             )
         if total_count > 4:
             raise ValueError(
-                "Validation Error: A maximum of 4 gallery images can be "
-                "registered.",
+                "Validation Error: A maximum of 4 gallery images can be registered.",
             )
         return cleaned_list
 
@@ -779,9 +848,7 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     @classmethod
     def validate_vibe_tags_integrity(cls, value: list[str]) -> list[str]:
         # Defensive cleanup: strip whitespaces, convert to lowercase, remove duplicates
-        cleaned_tags = list(set([
-            t.strip().lower() for t in value if t and t.strip()
-        ]))
+        cleaned_tags = list(set([t.strip().lower() for t in value if t and t.strip()]))
 
         if len(cleaned_tags) < 1:
             raise ValueError(
@@ -818,12 +885,123 @@ class ProfileDetailsUpdate(BaseModel):
     search_bucket: Literal["M", "F", "NB", "Q"] | None = None
     hometown: str | None = Field(default=None, max_length=100)
     current_place: str | None = Field(default=None, max_length=100)
-    partner_values: str | None = Field(default=None, max_length=200)
+    partner_values: list[str] | None = Field(default=None)
     children_plans: str | None = Field(default=None, max_length=100)
     religious_beliefs: str | None = Field(default=None, max_length=100)
     lifestyle: str | None = Field(default=None, max_length=200)
     drinking: str | None = Field(default=None, max_length=50)
     smoking: str | None = Field(default=None, max_length=50)
+
+    @field_validator("drinking")
+    @classmethod
+    def validate_drinking(cls, v: str | None) -> str | None:
+        if v is not None and v not in DRINKING_CHOICES:
+            raise ValueError(f"drinking must be one of {DRINKING_CHOICES}")
+        return v
+
+    @field_validator("smoking")
+    @classmethod
+    def validate_smoking(cls, v: str | None) -> str | None:
+        if v is not None and v not in SMOKING_CHOICES:
+            raise ValueError(f"smoking must be one of {SMOKING_CHOICES}")
+        return v
+
+    @field_validator("children_plans")
+    @classmethod
+    def validate_children_plans(cls, v: str | None) -> str | None:
+        if v is not None and v not in CHILDREN_PLANS_CHOICES:
+            raise ValueError(f"children_plans must be one of {CHILDREN_PLANS_CHOICES}")
+        return v
+
+    @field_validator("religious_beliefs")
+    @classmethod
+    def validate_religious_beliefs(cls, v: str | None) -> str | None:
+        if v is not None and v not in RELIGIOUS_BELIEFS_CHOICES:
+            raise ValueError(
+                f"religious_beliefs must be one of {RELIGIOUS_BELIEFS_CHOICES}",
+            )
+        return v
+
+    @field_validator("interests")
+    @classmethod
+    def validate_interests(cls, v: dict[str, int] | None) -> dict[str, int] | None:
+        if v is None:
+            return v
+        for k, val in v.items():
+            if k not in VALID_INTERESTS:
+                raise ValueError(f"Invalid interest: {k}")
+            if val < 1 or val > 5:
+                raise ValueError(
+                    f"Interest level for {k} must be an integer between 1 and 5",
+                )
+        return v
+
+    @field_validator("sub_interests")
+    @classmethod
+    def validate_sub_interests(
+        cls, v: dict[str, list[str]] | None,
+    ) -> dict[str, list[str]] | None:
+        if v is None:
+            return v
+        for k, subs in v.items():
+            if k not in VALID_INTERESTS:
+                raise ValueError(f"Invalid parent interest: {k}")
+            allowed_subs = VALID_INTERESTS[k]
+            for s in subs:
+                if s not in allowed_subs:
+                    raise ValueError(
+                        f"Invalid sub-interest '{s}' for parent interest '{k}'",
+                    )
+        return v
+
+    @field_validator("display_gender")
+    @classmethod
+    def validate_display_gender(cls, v: str | None) -> str | None:
+        if v is not None and v not in GENDER_CHOICES:
+            raise ValueError(f"display_gender must be one of {GENDER_CHOICES}")
+        return v
+
+    @field_validator("display_sexuality")
+    @classmethod
+    def validate_display_sexuality(cls, v: str | None) -> str | None:
+        if v is not None and v not in SEXUALITY_CHOICES:
+            raise ValueError(f"display_sexuality must be one of {SEXUALITY_CHOICES}")
+        return v
+
+    @field_validator("pronouns")
+    @classmethod
+    def validate_pronouns(cls, v: str | None) -> str | None:
+        if v is not None and v not in PRONOUNS_CHOICES:
+            raise ValueError(f"pronouns must be one of {PRONOUNS_CHOICES}")
+        return v
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None:
+            for lang in v:
+                if lang not in LANGUAGES_CHOICES:
+                    raise ValueError(f"Invalid language: {lang}")
+        return v
+
+    @field_validator("causes_supported")
+    @classmethod
+    def validate_causes_supported(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None:
+            for cause in v:
+                if cause not in CAUSES_SUPPORTED_CHOICES:
+                    raise ValueError(f"Invalid cause: {cause}")
+        return v
+
+    @field_validator("pets")
+    @classmethod
+    def validate_pets(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None:
+            for pet in v:
+                if pet not in PETS_CHOICES:
+                    raise ValueError(f"Invalid pet: {pet}")
+        return v
+
     role_at: str | None = Field(default=None, max_length=150)
     profile_pic: str | None = Field(default=None, max_length=255)
     normal_pics: list[str] | None = None

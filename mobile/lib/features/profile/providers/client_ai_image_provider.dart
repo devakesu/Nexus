@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:nexus/config/app_config.dart';
@@ -129,20 +129,43 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       if (deletedPath.isNotEmpty) {
         updatedDeletions.add(deletedPath);
       }
-      updatedRemote[slotIndex] =
-          ''; // Do NOT remove or shift elements, just empty the slot
     }
 
-    // Re-index remaining pending and tags to avoid shifts in mapping
+    if (slotIndex > 0) {
+      // Shift normal pics (1, 2, 3, 4) down
+      for (var i = slotIndex; i < 4; i++) {
+        updatedRemote[i] = updatedRemote[i + 1];
+      }
+      updatedRemote[4] = '';
+    } else {
+      updatedRemote[0] = '';
+    }
+
+    // Re-index remaining pending and tags consistent with shifting
     final updatedPending = <int, File>{};
     state.pendingUploads.forEach((k, v) {
-      if (k < slotIndex) updatedPending[k] = v;
-      if (k > slotIndex) updatedPending[k - 1] = v;
+      if (k < slotIndex) {
+        updatedPending[k] = v;
+      } else if (k > slotIndex) {
+        if (slotIndex > 0) {
+          updatedPending[k - 1] = v;
+        } else {
+          updatedPending[k] = v;
+        }
+      }
     });
+
     final updatedTags = <int, List<String>>{};
     state.slotSpecificVibeTags.forEach((k, v) {
-      if (k < slotIndex) updatedTags[k] = v;
-      if (k > slotIndex) updatedTags[k - 1] = v;
+      if (k < slotIndex) {
+        updatedTags[k] = v;
+      } else if (k > slotIndex) {
+        if (slotIndex > 0) {
+          updatedTags[k - 1] = v;
+        } else {
+          updatedTags[k] = v;
+        }
+      }
     });
 
     state = state.copyWith(
@@ -150,6 +173,48 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       pendingUploads: updatedPending,
       slotSpecificVibeTags: updatedTags,
       pendingDeletions: updatedDeletions,
+    );
+  }
+
+  void swapImageSlots(int fromIndex, int toIndex) {
+    backupState();
+    final updatedRemote = List<String>.from(state.remotePaths);
+    final tempRemote = updatedRemote[fromIndex];
+    updatedRemote[fromIndex] = updatedRemote[toIndex];
+    updatedRemote[toIndex] = tempRemote;
+
+    final updatedPending = Map<int, File>.from(state.pendingUploads);
+    final fromFile = updatedPending[fromIndex];
+    final toFile = updatedPending[toIndex];
+    if (fromFile != null) {
+      updatedPending[toIndex] = fromFile;
+    } else {
+      updatedPending.remove(toIndex);
+    }
+    if (toFile != null) {
+      updatedPending[fromIndex] = toFile;
+    } else {
+      updatedPending.remove(fromIndex);
+    }
+
+    final updatedTags = Map<int, List<String>>.from(state.slotSpecificVibeTags);
+    final fromTags = updatedTags[fromIndex];
+    final toTags = updatedTags[toIndex];
+    if (fromTags != null) {
+      updatedTags[toIndex] = fromTags;
+    } else {
+      updatedTags.remove(toIndex);
+    }
+    if (toTags != null) {
+      updatedTags[fromIndex] = toTags;
+    } else {
+      updatedTags.remove(fromIndex);
+    }
+
+    state = state.copyWith(
+      remotePaths: updatedRemote,
+      pendingUploads: updatedPending,
+      slotSpecificVibeTags: updatedTags,
     );
   }
 
@@ -205,10 +270,6 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       final config = AppConfig.current;
       final session = Supabase.instance.client.auth.currentSession;
       final token = session?.accessToken;
-      String? appCheckToken;
-      try {
-        appCheckToken = await FirebaseAppCheck.instance.getToken();
-      } on Object catch (_) {}
 
       await dioClient.post<dynamic>(
         '${config.backendUrl}/api/v1/profile/media',
@@ -220,7 +281,6 @@ class ClientAIImageManager extends _$ClientAIImageManager {
         options: Options(
           headers: {
             if (token != null) 'Authorization': 'Bearer $token',
-            'X-Firebase-AppCheck': ?appCheckToken,
           },
         ),
       );
@@ -504,8 +564,26 @@ class RefinedEdgeVisionBroker {
 
   /// Low-resolution thumbnail factory downscaling target scopes to maximize NPU efficiency
   Future<File> _downscaleInferenceTarget(File file) async {
-    // Returns the file itself since we don't have native image codec packages to keep dependencies clean,
-    // which is fully compatible and safe for modern NPUs.
-    return file;
+    try {
+      final bytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: 640,
+      );
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return file;
+
+      final scaledBytes = byteData.buffer.asUint8List();
+
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}/scaled_${DateTime.now().microsecondsSinceEpoch}.png');
+      await tempFile.writeAsBytes(scaledBytes);
+      return tempFile;
+    } on Object catch (_) {
+      return file;
+    }
   }
 }

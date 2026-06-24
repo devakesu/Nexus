@@ -3,7 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
-import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+
 
 // ---------------------------------------------------------------------------
 // Shared profile detail sheet — used by OrbitScreen and the Likes inbox.

@@ -6,7 +6,12 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
+from app.core.crypto import (
+    DecryptFailedError,
+    compute_blind_index,
+    decrypt_pii,
+    encrypt_to_hex,
+)
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import fetch_active_discovery_excluded_ids
 from app.models import DiscoveryFilters
@@ -50,7 +55,10 @@ def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
         row[field] = ""
         return
 
-    row[field] = decrypt_pii(raw)
+    try:
+        row[field] = decrypt_pii(raw)
+    except DecryptFailedError:
+        row[field] = "__DECRYPTION_FAILED__"
 
 
 def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
@@ -59,7 +67,11 @@ def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
         row[field] = []
         return
 
-    decrypted = decrypt_pii(raw)
+    try:
+        decrypted = decrypt_pii(raw)
+    except DecryptFailedError:
+        row[field] = ["__DECRYPTION_FAILED__"]
+        return
 
     if decrypted == "":
         row[field] = []
@@ -67,13 +79,12 @@ def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
 
     try:
         parsed = json.loads(decrypted)
-    except json.JSONDecodeError as e:
-        raise ProfileDecodeError(
-            f"{field} decrypted to invalid JSON list payload",
-        ) from e
+    except json.JSONDecodeError:
+        # Fallback: if it was stored as a comma-separated string, split it!
+        parsed = [v.strip() for v in decrypted.split(",") if v.strip()]
 
     if not isinstance(parsed, list):
-        raise ProfileDecodeError(f"{field} must decrypt to a list")
+        parsed = [str(parsed)]
 
     row[field] = parsed
 
@@ -84,7 +95,11 @@ def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
         row[field] = {}
         return
 
-    decrypted = decrypt_pii(raw)
+    try:
+        decrypted = decrypt_pii(raw)
+    except DecryptFailedError:
+        row[field] = {"__DECRYPTION_FAILED__": True}
+        return
 
     if decrypted == "":
         row[field] = {}
@@ -101,6 +116,7 @@ def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
         raise ProfileDecodeError(f"{field} must decrypt to a dict")
 
     row[field] = parsed
+
 
 
 def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
@@ -129,7 +145,6 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "campus_name",
         "hometown",
         "current_place",
-        "partner_values",
         "children_plans",
         "religious_beliefs",
         "lifestyle",
@@ -152,6 +167,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
         "ai_vibe_tags",
         "pets",
         "normal_pics",
+        "partner_values",
     ]
     for field in array_fields:
         _parse_encrypted_list(row, field)
@@ -349,15 +365,17 @@ def _filter_candidate_matches(
     return candidates_to_enrich
 
 
-_POST_FETCH_FIELDS: frozenset[str] = frozenset({
-    "languages",
-    "sub_interests",
-    "role_type",
-    "looking_for",
-    "causes_supported",
-    "tech_skills",
-    "partner_values",
-})
+_POST_FETCH_FIELDS: frozenset[str] = frozenset(
+    {
+        "languages",
+        "sub_interests",
+        "role_type",
+        "looking_for",
+        "causes_supported",
+        "tech_skills",
+        "partner_values",
+    },
+)
 
 
 def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
@@ -405,8 +423,15 @@ def _check_candidate_match(
     ):
         return False
     if filters.partner_values and "partner_values" in dealbreakers:
-        pv_raw = c.get("partner_values") or ""
-        pv_list = [v.strip().lower() for v in pv_raw.split(",") if v.strip()]
+        pv_raw: Any = c.get("partner_values") or []
+        if isinstance(pv_raw, str):
+            pv_list: list[str] = [
+                v.strip().lower() for v in pv_raw.split(",") if v.strip()
+            ]
+        else:
+            pv_list: list[str] = [
+                str(v).strip().lower() for v in pv_raw if str(v).strip()
+            ]
         lower_filters = [v.strip().lower() for v in filters.partner_values if v.strip()]
         if not _list_overlap(pv_list, lower_filters):
             return False
@@ -419,11 +444,7 @@ def _apply_post_fetch_filters(
 ) -> list[dict[str, Any]]:
     """In-memory filter pass for encrypted fields that have no blind indexes."""
     dealbreakers = set(filters.dealbreaker_fields or [])
-    return [
-        c
-        for c in candidates
-        if _check_candidate_match(c, filters, dealbreakers)
-    ]
+    return [c for c in candidates if _check_candidate_match(c, filters, dealbreakers)]
 
 
 def _execute_and_filter_candidates(
@@ -455,7 +476,7 @@ def _execute_and_filter_candidates(
         raise DatabaseAccessError("Failed to fetch candidate profiles") from e
 
     target_bucket_column = _get_target_bucket_column(active_tab)
-    from app.core.crypto import DecryptFailedError
+
 
     try:
         return _filter_candidate_matches(
@@ -583,7 +604,8 @@ def fetch_stage_1_candidates(
 
     dealbreakers = set(filters.dealbreaker_fields or [])
     active_post_fetch = sum(
-        1 for f in _POST_FETCH_FIELDS
+        1
+        for f in _POST_FETCH_FIELDS
         if getattr(filters, f, None)
         and (f != "partner_values" or "partner_values" in dealbreakers)
     )
@@ -631,7 +653,7 @@ async def update_profile_images_and_metadata(
     and locally computed vibe tags directly into Supabase BYTEA fields.
     """
     profile_pic = images[0] if images else ""
-    normal_pics = images[1:] if len(images) > 1 else []
+    normal_pics = [pic for pic in images[1:] if pic] if len(images) > 1 else []
 
     db_mutation_payload = {
         "profile_pic": encrypt_to_hex(profile_pic),

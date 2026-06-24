@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:nexus/screens/orbit_screen.dart';
+
 
 class CelestialBackgroundPainter extends CustomPainter {
   CelestialBackgroundPainter({
@@ -101,7 +103,7 @@ class ConstellationLinesPainter extends CustomPainter {
     required this.themeColor,
   });
 
-  final List<dynamic> nodes;
+  final List<OrbitNode> nodes;
   final Color themeColor;
 
   @override
@@ -114,25 +116,18 @@ class ConstellationLinesPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Draw lines from center to nodes
-    for (final node in nodes.cast<Map<String, dynamic>>()) {
-      final x = (node['x'] as num?)?.toDouble() ?? 0.0;
-      final y = (node['y'] as num?)?.toDouble() ?? 0.0;
-      final nodePos = Offset(center.dx + x, center.dy + y);
+    for (final node in nodes) {
+      final nodePos = Offset(center.dx + node.x, center.dy + node.y);
       canvas.drawLine(center, nodePos, paint);
     }
 
     // Draw lines between nearby nodes (e.g. within 160 units of each other)
     const maxDistSq = 160.0 * 160.0;
-    final typedNodes = nodes.cast<Map<String, dynamic>>();
-    for (var i = 0; i < typedNodes.length; i++) {
-      final x1 = (typedNodes[i]['x'] as num?)?.toDouble() ?? 0.0;
-      final y1 = (typedNodes[i]['y'] as num?)?.toDouble() ?? 0.0;
-      final p1 = Offset(center.dx + x1, center.dy + y1);
+    for (var i = 0; i < nodes.length; i++) {
+      final p1 = Offset(center.dx + nodes[i].x, center.dy + nodes[i].y);
 
-      for (var j = i + 1; j < typedNodes.length; j++) {
-        final x2 = (typedNodes[j]['x'] as num?)?.toDouble() ?? 0.0;
-        final y2 = (typedNodes[j]['y'] as num?)?.toDouble() ?? 0.0;
-        final p2 = Offset(center.dx + x2, center.dy + y2);
+      for (var j = i + 1; j < nodes.length; j++) {
+        final p2 = Offset(center.dx + nodes[j].x, center.dy + nodes[j].y);
 
         final dx = p1.dx - p2.dx;
         final dy = p1.dy - p2.dy;

@@ -104,7 +104,7 @@ def build_tab_aware_orbit_node_detail(
             smoking=payload.get("smoking"),
             lifestyle=payload.get("lifestyle"),
             religious_beliefs=payload.get("religious_beliefs"),
-            partner_values=payload.get("partner_values"),
+            partner_values=payload.get("partner_values") or [],
             children_plans=payload.get("children_plans"),
             dating_for=payload.get("dating_for") or [],
             normal_pics=payload.get("normal_pics") or [],

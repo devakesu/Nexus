@@ -42,13 +42,13 @@ final class ClientAIImageManagerProvider
 }
 
 String _$clientAIImageManagerHash() =>
-    r'fa2262c141880825abd7cb3430c73350ba3fb503';
+    r'cc6df745f7725ffd733b29f4e46a820f1b5aec40';
 
 abstract class _$ClientAIImageManager extends $Notifier<ClientAIProfileState> {
   ClientAIProfileState build();
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<ClientAIProfileState, ClientAIProfileState>;
     final element =
         ref.element
@@ -58,6 +58,6 @@ abstract class _$ClientAIImageManager extends $Notifier<ClientAIProfileState> {
               Object?,
               Object?
             >;
-    element.handleCreate(ref, build);
+    return element.handleCreate(ref, build);
   }
 }

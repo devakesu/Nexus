@@ -2,19 +2,18 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/features/profile/providers/client_ai_image_provider.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/affinity_interests_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/bio_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/core_signal_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
-// Modular Imports
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
@@ -40,6 +39,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   AnimationController? _pulseController;
   AnimationController? _rotationController;
   late PageController _pageController;
+  late final Dio _dio;
   final SupabaseClient _client = Supabase.instance.client;
 
   // Loading state
@@ -102,6 +102,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   // Profile images slot paths: supports up to 5 images (1 primary profile pic + 4 gallery pics)
   final List<String?> _imagePaths = [null, null, null, null, null];
+  List<String?> _savedImagePaths = [null, null, null, null, null];
+  Timer? _saveImagesDebounceTimer;
 
   final GlobalKey _coreSignalKey = GlobalKey();
   final GlobalKey _bioKey = GlobalKey();
@@ -187,53 +189,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     } else if (label == 'Gender') {
       _openSelectionOverlay(
         title: 'Gender',
-        options: const [
-          'Man',
-          'Woman',
-          'Non-binary',
-          'Genderqueer',
-          'Genderfluid',
-          'Agender',
-          'Transgender Man',
-          'Transgender Woman',
-          'Gender Non-Conforming',
-          'Pangender',
-          'Androgynous',
-          'Neutrois',
-          'Third Gender',
-          'Intersex',
-          'Bigender',
-          'Two-Spirit',
-          'Demiboy',
-          'Demigirl',
-          'Queer',
-          'Questioning',
-          'Prefer not to say',
-        ],
+        options: FilterOptions.genderOptions,
         currentValue: _displayGender,
         onSelected: (val) => unawaited(_saveProfileChanges(displayGender: val)),
       );
     } else if (label == 'Sexuality') {
       _openSelectionOverlay(
         title: 'Sexuality',
-        options: const [
-          'Straight',
-          'Gay',
-          'Lesbian',
-          'Bisexual',
-          'Pansexual',
-          'Asexual',
-          'Aromantic',
-          'Greysexual',
-          'Polysexual',
-          'Omnisexual',
-          'Fluid',
-          'Skoliosexual',
-          'Demisexual',
-          'Queer',
-          'Questioning',
-          'Prefer not to say',
-        ],
+        options: FilterOptions.sexualityOptions,
         currentValue: _displaySexuality,
         onSelected: (val) =>
             unawaited(_saveProfileChanges(displaySexuality: val)),
@@ -241,18 +204,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     } else if (label == 'Pronouns') {
       _openBottomSelectionSheet(
         title: 'Pronouns',
-        options: const [
-          'he/him',
-          'she/her',
-          'they/them',
-          'he/they',
-          'she/they',
-          'it/its',
-          'any/all',
-          'xe/xem',
-          'fae/faer',
-          'Prefer not to say',
-        ],
+        options: FilterOptions.pronounOptions,
         currentValue: _pronouns,
         onSelected: (val) {
           setState(() => _pronouns = val);
@@ -360,6 +312,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   @override
   void initState() {
     super.initState();
+    _dio = createDio();
     final pulse = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -396,6 +349,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _currentPlaceFocusNode.dispose();
     _campusNameFocusNode.dispose();
     _majorFocusNode.dispose();
+    _dio.close();
     super.dispose();
   }
 
@@ -418,7 +372,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         return;
       }
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/details',
         options: Options(
@@ -564,6 +518,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             ref
                 .read(clientAIImageManagerProvider.notifier)
                 .setRemotePaths(loadedImages);
+            _savedImagePaths = List<String?>.from(_imagePaths);
           }
         });
       }
@@ -665,7 +620,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       final session = _client.auth.currentSession;
       if (session != null) {
         final config = AppConfig.current;
-        final dio = createDio();
+        final dio = _dio;
 
         final payload = <String, dynamic>{};
         if (name != null) payload['name'] = name;
@@ -709,18 +664,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
         // Perform the details secure endpoint update
         if (payload.isNotEmpty) {
-          String? appCheckToken;
-          try {
-            appCheckToken = await FirebaseAppCheck.instance.getToken();
-          } on Object catch (_) {}
-
           final response = await dio.patch<Map<String, dynamic>>(
             '${config.backendUrl}/api/v1/profile/details',
             data: payload,
             options: Options(
               headers: {
                 'Authorization': 'Bearer ${session.accessToken}',
-                'X-Firebase-AppCheck': ?appCheckToken,
               },
             ),
           );
@@ -966,6 +915,80 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return ((filled / total) * 100).round();
   }
 
+  void _debounceSaveImages() {
+    _saveImagesDebounceTimer?.cancel();
+    _saveImagesDebounceTimer = Timer(const Duration(milliseconds: 1500), () async {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return;
+      try {
+        final dio = _dio;
+        await ref
+            .read(clientAIImageManagerProvider.notifier)
+            .commitProfileChanges(dio, userId);
+
+        if (!mounted) return;
+
+        // Save succeeded! Sync local state and update savedState
+        final providerState = ref.read(clientAIImageManagerProvider);
+        setState(() {
+          for (var i = 0; i < _imagePaths.length; i++) {
+            if (i < providerState.remotePaths.length &&
+                providerState.remotePaths[i].isNotEmpty) {
+              _imagePaths[i] = providerState.remotePaths[i];
+            } else {
+              _imagePaths[i] = null;
+            }
+          }
+          _savedImagePaths = List<String?>.from(_imagePaths);
+        });
+      } on Object catch (e) {
+        if (!mounted) return;
+        // Restore from last known good state
+        setState(() {
+          _imagePaths
+            ..clear()
+            ..addAll(_savedImagePaths);
+        });
+        ref.read(clientAIImageManagerProvider.notifier).restoreBackup();
+
+        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            content: Text('Failed to save profile changes: $friendlyMsg'),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _swapImages(int fromIndex, int toIndex) async {
+    setState(() {
+      final temp = _imagePaths[fromIndex];
+      _imagePaths[fromIndex] = _imagePaths[toIndex];
+      _imagePaths[toIndex] = temp;
+    });
+
+    try {
+      ref.read(clientAIImageManagerProvider.notifier).swapImageSlots(fromIndex, toIndex);
+      _debounceSaveImages();
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() {
+        final temp = _imagePaths[fromIndex];
+        _imagePaths[fromIndex] = _imagePaths[toIndex];
+        _imagePaths[toIndex] = temp;
+      });
+      final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text('Failed to swap images: $friendlyMsg'),
+        ),
+      );
+    }
+  }
+
   Future<void> _pickImage(int slotIndex) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -985,29 +1008,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
         if (!mounted) return;
 
-        // 2. Commit transaction instantly to upload to storage & update DB
-        final userId = _client.auth.currentUser?.id;
-        if (userId != null) {
-          final dio = createDio();
-          await ref
-              .read(clientAIImageManagerProvider.notifier)
-              .commitProfileChanges(dio, userId);
-
-          if (!mounted) return;
-
-          // 3. Sync local state with provider's updated state
-          final providerState = ref.read(clientAIImageManagerProvider);
-          setState(() {
-            for (var i = 0; i < _imagePaths.length; i++) {
-              if (i < providerState.remotePaths.length &&
-                  providerState.remotePaths[i].isNotEmpty) {
-                _imagePaths[i] = providerState.remotePaths[i];
-              } else {
-                _imagePaths[i] = null;
-              }
-            }
-          });
-        }
+        // 2. Trigger debounced save
+        _debounceSaveImages();
       } on Object catch (e) {
         if (!mounted) return;
         setState(() {
@@ -1032,51 +1034,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   Future<void> _clearImage(int slotIndex) async {
     final oldPaths = List<String?>.from(_imagePaths);
     setState(() {
-      _imagePaths[slotIndex] = null;
+      if (slotIndex > 0) {
+        for (var i = slotIndex; i < 4; i++) {
+          _imagePaths[i] = _imagePaths[i + 1];
+        }
+        _imagePaths[4] = null;
+      } else {
+        _imagePaths[0] = null;
+      }
     });
 
     try {
       // 1. Update Riverpod state removing the slot
       ref.read(clientAIImageManagerProvider.notifier).clearImageSlot(slotIndex);
 
-      // 2. Commit transaction instantly to remove from storage & update DB
-      final userId = _client.auth.currentUser?.id;
-      if (userId != null) {
-        final dio = createDio();
-        await ref
-            .read(clientAIImageManagerProvider.notifier)
-            .commitProfileChanges(dio, userId);
-
-        if (!mounted) return;
-
-        // 3. Sync local state with provider
-        final providerState = ref.read(clientAIImageManagerProvider);
-        setState(() {
-          for (var i = 0; i < _imagePaths.length; i++) {
-            if (i < providerState.remotePaths.length &&
-                providerState.remotePaths[i].isNotEmpty) {
-              _imagePaths[i] = providerState.remotePaths[i];
-            } else {
-              _imagePaths[i] = null;
-            }
-          }
-        });
-      }
+      // 2. Trigger debounced save
+      _debounceSaveImages();
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {
-        _imagePaths[slotIndex] = oldPaths[slotIndex];
+        _imagePaths
+          ..clear()
+          ..addAll(oldPaths);
       });
       final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text(
-            e.toString().contains('Bucket not found')
-                ? 'Failed to clear media: Storage bucket not configured'
-                : 'Failed to clear media: $friendlyMsg',
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
+          content: Text('Failed to clear image: $friendlyMsg'),
         ),
       );
     }
@@ -1762,29 +1747,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         onSelectGender: () {
                           _openSelectionOverlay(
                             title: 'Gender',
-                            options: const [
-                              'Man',
-                              'Woman',
-                              'Non-binary',
-                              'Genderqueer',
-                              'Genderfluid',
-                              'Agender',
-                              'Transgender Man',
-                              'Transgender Woman',
-                              'Gender Non-Conforming',
-                              'Pangender',
-                              'Androgynous',
-                              'Neutrois',
-                              'Third Gender',
-                              'Intersex',
-                              'Bigender',
-                              'Two-Spirit',
-                              'Demiboy',
-                              'Demigirl',
-                              'Queer',
-                              'Questioning',
-                              'Prefer not to say',
-                            ],
+                            options: FilterOptions.genderOptions,
                             currentValue: _displayGender,
                             onSelected: (val) => unawaited(
                               _saveProfileChanges(displayGender: val),
@@ -1794,24 +1757,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         onSelectSexuality: () {
                           _openSelectionOverlay(
                             title: 'Sexuality',
-                            options: const [
-                              'Straight',
-                              'Gay',
-                              'Lesbian',
-                              'Bisexual',
-                              'Pansexual',
-                              'Asexual',
-                              'Aromantic',
-                              'Greysexual',
-                              'Polysexual',
-                              'Omnisexual',
-                              'Fluid',
-                              'Skoliosexual',
-                              'Demisexual',
-                              'Queer',
-                              'Questioning',
-                              'Prefer not to say',
-                            ],
+                            options: FilterOptions.sexualityOptions,
                             currentValue: _displaySexuality,
                             onSelected: (val) => unawaited(
                               _saveProfileChanges(displaySexuality: val),
@@ -1821,18 +1767,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         onSelectPronouns: () {
                           _openBottomSelectionSheet(
                             title: 'Pronouns',
-                            options: const [
-                              'he/him',
-                              'she/her',
-                              'they/them',
-                              'he/they',
-                              'she/they',
-                              'it/its',
-                              'any/all',
-                              'xe/xem',
-                              'fae/faer',
-                              'Prefer not to say',
-                            ],
+                            options: FilterOptions.pronounOptions,
                             currentValue: _pronouns,
                             onSelected: (val) {
                               setState(() => _pronouns = val);
@@ -1841,6 +1776,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           );
                         },
                         onImageSlotTap: _showImageSlotPicker,
+                        onSwapImages: _swapImages,
                       ),
                     ),
                     const SizedBox(height: 24),

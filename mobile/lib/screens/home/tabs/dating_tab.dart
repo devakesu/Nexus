@@ -31,15 +31,18 @@ class DatingTab extends StatefulWidget {
 class _DatingTabState extends State<DatingTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  late final Dio _dio;
 
   // State variables for Orbit activation & profile details
   bool _isLoading = true;
   bool _isOrbitActive = false;
+  bool _hasError = false;
+  String? _errorMsg;
 
   // Profile fields loaded from server (for settings form)
   List<String> _datingTargetBuckets = [];
   List<String> _datingFor = [];
-  String _partnerValues = '';
+  List<String> _partnerValues = [];
   final Set<String> _savingFields = {};
 
   // Local state for checking off missing fields dialog
@@ -55,6 +58,7 @@ class _DatingTabState extends State<DatingTab>
   @override
   void initState() {
     super.initState();
+    _dio = createDio();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -68,31 +72,25 @@ class _DatingTabState extends State<DatingTab>
   @override
   void dispose() {
     _pulseController.dispose();
+    _dio.close();
     super.dispose();
   }
 
   // Load current profile details from secure endpoint
   Future<void> _loadDatingProfileStatus() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMsg = null;
+    });
     try {
       final supabaseClient = Supabase.instance.client;
       final session = supabaseClient.auth.currentSession;
       if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-        // 3-second quick timeout to prevent hanging on slow/inactive local server
-        dio.options.connectTimeout = const Duration(seconds: 3);
-        dio.options.receiveTimeout = const Duration(seconds: 3);
+        final dio = _dio;
+        final data = await NetworkUtils.fetchProfileDetails(dio, session.accessToken);
 
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
+        if (data != null && mounted) {
           setState(() {
             _isOrbitActive = data['is_dating_active'] == true;
 
@@ -104,7 +102,10 @@ class _DatingTabState extends State<DatingTab>
             _datingFor = rawDatingFor is List
                 ? rawDatingFor.map((e) => e.toString()).toList()
                 : [];
-            _partnerValues = data['partner_values']?.toString() ?? '';
+            final rawPartnerValues = data['partner_values'];
+            _partnerValues = rawPartnerValues is List
+                ? rawPartnerValues.map((e) => e.toString()).toList()
+                : [];
 
             _isLoading = false;
           });
@@ -112,23 +113,21 @@ class _DatingTabState extends State<DatingTab>
         }
       }
     } on Exception catch (e) {
-      debugPrint(
-        '[DatingTab] Error fetching dating status, using fallback: $e',
-      );
+      debugPrint('[DatingTab] Error fetching dating status: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMsg = e.toString();
+          _isLoading = false;
+        });
+      }
+      return;
     }
 
     if (mounted) {
       setState(() {
-        if (_datingTargetBuckets.isEmpty) {
-          _datingTargetBuckets = ['M', 'F'];
-        }
-        if (_datingFor.isEmpty) {
-          _datingFor = ['short', 'long'];
-        }
-        if (_partnerValues.isEmpty) {
-          _partnerValues = 'Deep trust, open communication, and shared growth.';
-        }
-        _isOrbitActive = false;
+        _hasError = true;
+        _errorMsg = 'Failed to fetch dating profile status.';
         _isLoading = false;
       });
     }
@@ -139,20 +138,10 @@ class _DatingTabState extends State<DatingTab>
       final supabaseClient = Supabase.instance.client;
       final session = supabaseClient.auth.currentSession;
       if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-        dio.options.connectTimeout = const Duration(seconds: 3);
-        dio.options.receiveTimeout = const Duration(seconds: 3);
+        final dio = _dio;
+        final data = await NetworkUtils.fetchProfileDetails(dio, session.accessToken);
 
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
+        if (data != null && mounted) {
           setState(() {
             _isOrbitActive = data['is_dating_active'] == true;
 
@@ -164,7 +153,10 @@ class _DatingTabState extends State<DatingTab>
             _datingFor = rawDatingFor is List
                 ? rawDatingFor.map((e) => e.toString()).toList()
                 : [];
-            _partnerValues = data['partner_values']?.toString() ?? '';
+            final rawPartnerValues = data['partner_values'];
+            _partnerValues = rawPartnerValues is List
+                ? rawPartnerValues.map((e) => e.toString()).toList()
+                : [];
           });
         }
       }
@@ -179,7 +171,7 @@ class _DatingTabState extends State<DatingTab>
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
         final config = AppConfig.current;
-        final dio = createDio();
+        final dio = _dio;
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
@@ -216,23 +208,27 @@ class _DatingTabState extends State<DatingTab>
           } else if (field == 'dating_for') {
             _datingFor = List<String>.from(value as List);
           } else if (field == 'partner_values') {
-            _partnerValues = value as String;
+            _partnerValues = List<String>.from(value as List);
           }
         }
       });
       // Synchronize states
-      await _loadDatingProfileStatus();
+      await _loadDatingProfileStatusSilent();
     }
   }
 
   // Toggle Orbit activation state (patching is_dating_active)
   Future<void> _toggleOrbitState(bool active) async {
-    setState(() => _isLoading = true);
+    final oldActive = _isOrbitActive;
+    setState(() {
+      _isLoading = true;
+      _isOrbitActive = active;
+    });
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
         final config = AppConfig.current;
-        final dio = createDio();
+        final dio = _dio;
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: {'is_dating_active': active},
@@ -242,9 +238,6 @@ class _DatingTabState extends State<DatingTab>
         );
 
         if (response.statusCode == 200 && mounted) {
-          setState(() {
-            _isOrbitActive = active;
-          });
           if (active) {
             await Navigator.push<void>(
               context,
@@ -271,9 +264,16 @@ class _DatingTabState extends State<DatingTab>
               ),
             );
           }
+        } else {
+          throw Exception('Failed to toggle orbit state');
         }
       }
     } on DioException catch (dioErr) {
+      if (mounted) {
+        setState(() {
+          _isOrbitActive = oldActive;
+        });
+      }
       if (dioErr.response?.statusCode == 400 && mounted) {
         final responseData = dioErr.response?.data;
         if (responseData is Map && responseData['detail'] != null) {
@@ -320,6 +320,11 @@ class _DatingTabState extends State<DatingTab>
         );
       }
     } on Exception catch (e) {
+      if (mounted) {
+        setState(() {
+          _isOrbitActive = oldActive;
+        });
+      }
       debugPrint('[DatingTab] Orbit activation failed: $e');
     } finally {
       if (mounted) {
@@ -548,7 +553,7 @@ class _DatingTabState extends State<DatingTab>
     if (session == null) return;
     try {
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes',
         queryParameters: {'tab': 'Dating'},
@@ -579,7 +584,7 @@ class _DatingTabState extends State<DatingTab>
     if (session == null) return;
     try {
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/matches',
         options: Options(
@@ -620,7 +625,7 @@ class _DatingTabState extends State<DatingTab>
   }) async {
     try {
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       final body = <String, dynamic>{
         'target_id': targetId,
         'action': action,
@@ -645,7 +650,7 @@ class _DatingTabState extends State<DatingTab>
     if (session == null) return;
     try {
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
         data: {'mark_all': true},
@@ -663,7 +668,7 @@ class _DatingTabState extends State<DatingTab>
     String accessToken,
   ) async {
     final config = AppConfig.current;
-    final dio = createDio();
+    final dio = _dio;
     final response = await dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/profile/peer',
       data: {'target_id': actorId, 'tab': 'Dating'},
@@ -684,7 +689,7 @@ class _DatingTabState extends State<DatingTab>
   }) async {
     try {
       final config = AppConfig.current;
-      final dio = createDio();
+      final dio = _dio;
       final body = <String, dynamic>{
         'target_id': targetId,
         'action': action,
@@ -1025,6 +1030,48 @@ class _DatingTabState extends State<DatingTab>
   Widget build(BuildContext context) {
     const themeColor = Color(0xFFFF4F81);
     final activeLikesCount = _unseenCount;
+
+    if (_hasError) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertCircle,
+                  color: themeColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading dating profile:\n${_errorMsg ?? "Unknown error"}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _hasError = false;
+                      _errorMsg = null;
+                    });
+                    unawaited(_loadDatingProfileStatus());
+                  },
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     if (_isLoading) {
       return const Scaffold(

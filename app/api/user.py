@@ -18,7 +18,6 @@ from app.api.dependencies import (
     assert_account_active,
     get_authenticated_user_id,
     get_authenticated_user_payload,
-    verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
@@ -28,6 +27,7 @@ from app.core.limiter import limiter
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, update_profile_images_and_metadata
 from app.db.users import (
+    fetch_profile,
     fetch_public_user,
     is_allowed_email,
     update_user_terms,
@@ -47,14 +47,16 @@ from app.models import (
 from app.services.profile import recompile_and_push_vectors
 from app.services.value_dimensions import recompile_value_dimensions
 
-_VALUE_DIMENSION_TRIGGER_FIELDS = frozenset({
-    "interests",
-    "sub_interests",
-    "causes_supported",
-    "tech_skills",
-    "activities",
-    "lifestyle",
-})
+_VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
+    {
+        "interests",
+        "sub_interests",
+        "causes_supported",
+        "tech_skills",
+        "activities",
+        "lifestyle",
+    },
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +128,7 @@ def auth_bootstrap(
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
         email=(
-            str(user_row["email"])
+            str(user_row["email"]).strip().lower()
             if user_row.get("email")
             else (email if email else None)
         ),
@@ -180,6 +182,12 @@ def complete_onboarding(
         )
 
     assert_account_active(user_row)
+
+    if fetch_profile(user_id) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Onboarding has already been completed.",
+        )
 
     # Resolve name and variant-specific fields per flavor.
     if isinstance(payload, MECOnboardingRequest):
@@ -283,7 +291,7 @@ async def update_profile_media_and_tags(
     request: Request,
     payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
 ):
     _ = request
     try:
@@ -297,8 +305,7 @@ async def update_profile_media_and_tags(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
-                "Target account context mismatch. "
-                "Profile row modification rejected."
+                "Target account context mismatch. Profile row modification rejected."
             ),
         ) from err
     except Exception as e:
@@ -425,14 +432,16 @@ def _validate_common_activation(
         missing.append("name")
     if val_age is None:
         missing.append("age")
-    if (
+    if val_interests != {"__DECRYPTION_FAILED__": True} and (
         not isinstance(val_interests, dict)
         or len(cast(dict[Any, Any], val_interests)) < 3
     ):
         missing.append("interests")
-    if not isinstance(val_profile_pic, str) or not val_profile_pic.strip():
+    if val_profile_pic != "__DECRYPTION_FAILED__" and (
+        not isinstance(val_profile_pic, str) or not val_profile_pic.strip()
+    ):
         missing.append("profile_pic")
-    if (
+    if val_normal_pics != ["__DECRYPTION_FAILED__"] and (
         not isinstance(val_normal_pics, list)
         or len(cast(list[Any], val_normal_pics)) < 2
     ):
@@ -463,12 +472,12 @@ def _validate_dating_activation(
         or len(cast(list[Any], val_dating_target_buckets)) < 1
     ):
         missing.append("dating_target_buckets")
-    if (
-        not isinstance(val_dating_for, list)
-        or len(cast(list[Any], val_dating_for)) < 1
-    ):
+    if not isinstance(val_dating_for, list) or len(cast(list[Any], val_dating_for)) < 1:
         missing.append("dating_for")
-    if not isinstance(val_partner_values, str) or not val_partner_values.strip():
+    if (
+        not isinstance(val_partner_values, list)
+        or len(cast(list[Any], val_partner_values)) < 1
+    ):
         missing.append("partner_values")
 
 
@@ -491,11 +500,9 @@ def _validate_friends_activation(
     ):
         missing.append("friends_target_buckets")
     sub_count = (
-        sum(
-            len(v)
-            for v in cast(dict[str, list[str]], val_sub_interests).values()
-        )
-        if isinstance(val_sub_interests, dict) else 0
+        sum(len(v) for v in cast(dict[str, list[str]], val_sub_interests).values())
+        if isinstance(val_sub_interests, dict)
+        else 0
     )
     if sub_count < 2:
         missing.append("sub_interests")
@@ -563,7 +570,7 @@ def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
     update_data: dict[str, Any] = {}
 
@@ -592,9 +599,19 @@ def update_profile_details(  # noqa: C901
         update_data["professional_target_buckets"] = payload.professional_target_buckets
 
     scalar_fields = [
-        "display_gender", "display_sexuality", "pronouns", "bio",
-        "hometown", "current_place", "partner_values", "children_plans",
-        "religious_beliefs", "lifestyle", "drinking", "smoking", "role_at",
+        "display_gender",
+        "display_sexuality",
+        "pronouns",
+        "bio",
+        "hometown",
+        "current_place",
+        "partner_values",
+        "children_plans",
+        "religious_beliefs",
+        "lifestyle",
+        "drinking",
+        "smoking",
+        "role_at",
     ]
     for field in scalar_fields:
         val = getattr(payload, field, None)
@@ -620,8 +637,14 @@ def update_profile_details(  # noqa: C901
         )
 
     array_fields = [
-        "looking_for", "activities", "causes_supported",
-        "top_artists", "tech_skills", "languages", "pets", "role_type",
+        "looking_for",
+        "activities",
+        "causes_supported",
+        "top_artists",
+        "tech_skills",
+        "languages",
+        "pets",
+        "role_type",
     ]
     for field in array_fields:
         val = getattr(payload, field, None)

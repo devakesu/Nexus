@@ -28,6 +28,7 @@ class CoreSignalSection extends StatefulWidget {
     required this.onSelectSexuality,
     required this.onSelectPronouns,
     required this.onImageSlotTap,
+    required this.onSwapImages,
     this.isSavingName = false,
     this.isSavingGender = false,
     this.isSavingSexuality = false,
@@ -65,6 +66,7 @@ class CoreSignalSection extends StatefulWidget {
   final VoidCallback onSelectSexuality;
   final VoidCallback onSelectPronouns;
   final ValueChanged<int> onImageSlotTap;
+  final void Function(int, int) onSwapImages;
   final FocusNode? nameFocusNode;
 
   @override
@@ -361,97 +363,147 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               final slotIndex = index + 1;
               final imagePath = widget.imagePaths[slotIndex];
 
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => widget.onImageSlotTap(slotIndex),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    height: 72,
-                    margin: EdgeInsets.only(
-                      left: index == 0 ? 0 : 4,
-                      right: index == 3 ? 0 : 4,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: imagePath != null
-                          ? Border.all(
-                              color: const Color(0xFF00E5FF),
-                              width: 1.5,
-                            )
-                          : null,
-                      boxShadow: imagePath != null
-                          ? [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF00E5FF,
-                                ).withValues(alpha: 0.18),
-                                blurRadius: 10,
-                                spreadRadius: 0.5,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(imagePath != null ? 1.5 : 0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18.5),
-                        child: ColoredBox(
-                          color: isDark
-                              ? const Color(0xFF141822)
-                              : const Color(0xFFE2E8F0),
-                          child: Stack(
-                            children: [
-                              if (imagePath != null) ...[
-                                Positioned.fill(
-                                  child: StorageImage(imagePath: imagePath),
-                                ),
-                                if ((widget.isProcessingAI ||
-                                        widget.isSaving) &&
-                                    widget.pendingUploads.containsKey(
-                                      slotIndex,
-                                    ))
-                                  const Positioned.fill(
-                                    child: ColoredBox(
-                                      color: Colors.black54,
-                                      child: Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  pulsarPink,
-                                                ),
-                                          ),
-                                        ),
+              final itemWidget = AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                height: 72,
+                margin: EdgeInsets.only(
+                  left: index == 0 ? 0 : 4,
+                  right: index == 3 ? 0 : 4,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: imagePath != null
+                      ? Border.all(
+                          color: const Color(0xFF00E5FF),
+                          width: 1.5,
+                        )
+                      : null,
+                  boxShadow: imagePath != null
+                      ? [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF00E5FF,
+                            ).withValues(alpha: 0.18),
+                            blurRadius: 10,
+                            spreadRadius: 0.5,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(imagePath != null ? 1.5 : 0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18.5),
+                    child: ColoredBox(
+                      color: isDark
+                          ? const Color(0xFF141822)
+                          : const Color(0xFFE2E8F0),
+                      child: Stack(
+                        children: [
+                          if (imagePath != null) ...[
+                            Positioned.fill(
+                              child: StorageImage(imagePath: imagePath),
+                            ),
+                            if ((widget.isProcessingAI ||
+                                    widget.isSaving) &&
+                                widget.pendingUploads.containsKey(
+                                  slotIndex,
+                                ))
+                              const Positioned.fill(
+                                child: ColoredBox(
+                                  color: Colors.black54,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              pulsarPink,
+                                            ),
                                       ),
                                     ),
                                   ),
-                              ] else
-                                CustomPaint(
-                                  painter: _DashedBorderPainter(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.18)
-                                        : Colors.black.withValues(alpha: 0.15),
-                                    radius: 18.5,
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      LucideIcons.plus,
-                                      color: isDark
-                                          ? Colors.white30
-                                          : Colors.black.withValues(alpha: 0.3),
-                                      size: 20,
-                                    ),
-                                  ),
                                 ),
-                            ],
-                          ),
-                        ),
+                              ),
+                          ] else
+                            CustomPaint(
+                              painter: _DashedBorderPainter(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.18)
+                                    : Colors.black.withValues(alpha: 0.15),
+                                radius: 18.5,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  LucideIcons.plus,
+                                  color: isDark
+                                      ? Colors.white30
+                                      : Colors.black.withValues(alpha: 0.3),
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
+                ),
+              );
+
+              return Expanded(
+                child: DragTarget<int>(
+                  onWillAcceptWithDetails: (details) => details.data != slotIndex,
+                  onAcceptWithDetails: (details) {
+                    widget.onSwapImages(details.data, slotIndex);
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isHovered = candidateData.isNotEmpty;
+                    return LongPressDraggable<int>(
+                      data: slotIndex,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: Opacity(
+                          opacity: 0.8,
+                          child: SizedBox(
+                            width: 72,
+                            height: 72,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: imagePath != null
+                                  ? StorageImage(imagePath: imagePath)
+                                  : Container(
+                                      color: isDark
+                                          ? const Color(0xFF141822)
+                                          : const Color(0xFFE2E8F0),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: itemWidget,
+                      ),
+                      child: GestureDetector(
+                        onTap: () => widget.onImageSlotTap(slotIndex),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: isHovered
+                                ? Border.all(
+                                    color: const Color(0xFFFF2D55),
+                                    width: 2,
+                                  )
+                                : null,
+                          ),
+                          child: itemWidget,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             }),

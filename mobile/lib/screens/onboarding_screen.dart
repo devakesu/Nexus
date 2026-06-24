@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
@@ -175,7 +174,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         throw Exception('Session expired. Please sign in again.');
       }
 
-      final appCheckToken = await FirebaseAppCheck.instance.getToken();
       final dio = createDio();
 
       final Map<String, dynamic> payload;
@@ -213,7 +211,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         options: Options(
           headers: {
             'Authorization': 'Bearer ${session.accessToken}',
-            'X-Firebase-AppCheck': appCheckToken ?? '',
             'X-App-Variant': _config.variantString,
           },
           validateStatus: (status) => status != null && status < 500,

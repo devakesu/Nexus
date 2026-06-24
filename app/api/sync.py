@@ -20,7 +20,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from app.api.dependencies import (
     get_authenticated_user_payload,
-    verify_app_check_token,
+    verify_app_check_with_replay_protection,
 )
 from app.core.cache import redis_client
 from app.core.config import settings
@@ -46,7 +46,7 @@ router = APIRouter()
 @limiter.limit(settings.rate_limit_auth)
 def create_export_code(
     request: Request,
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> ExportCodeResponse:
     """
@@ -101,7 +101,7 @@ def create_export_code(
 async def import_from_flavor(
     request: Request,
     payload: ImportRequest = Body(...),  # noqa: B008
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> ImportResponse:
     """
@@ -125,12 +125,23 @@ async def import_from_flavor(
 
     # Redis key for tracking failed attempts by target user_id
     attempts_key = f"import:attempts:{user_id}"
+    code_attempts_key = f"import:code_attempts:{payload.sync_code}"
 
     attempts = await redis_client.get(attempts_key)
     if attempts and int(attempts) >= 5:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed import attempts. Please try again in 15 minutes.",
+        )
+
+    code_attempts = await redis_client.get(code_attempts_key)
+    if code_attempts and int(code_attempts) >= 10:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "This sync code has had too many failed validation attempts. "
+                "Please export a new code."
+            ),
         )
 
     # Verify the caller is the main 'nexus' app variant early
@@ -156,6 +167,8 @@ async def import_from_flavor(
         if e.status_code == status.HTTP_400_BAD_REQUEST:
             await redis_client.incr(attempts_key)
             await redis_client.expire(attempts_key, 900)
+            await redis_client.incr(code_attempts_key)
+            await redis_client.expire(code_attempts_key, 900)
         raise e
 
     logger.info(

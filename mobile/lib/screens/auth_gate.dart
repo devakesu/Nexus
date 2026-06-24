@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/home_screen.dart';
@@ -8,6 +7,7 @@ import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -147,18 +147,13 @@ class _AuthGateState extends State<AuthGate> {
 
     try {
       final config = AppConfig.current;
-      final dio = Dio();
-
-      // Retrieve limited use App Check token for sensitive bootstrap endpoint
-      final appCheckToken = await FirebaseAppCheck.instance
-          .getLimitedUseToken();
+      final dio = createDio();
 
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/bootstrap',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${activeSession.accessToken}',
-            'X-Firebase-AppCheck': appCheckToken,
           },
           validateStatus: (status) => status != null && status < 500,
         ),

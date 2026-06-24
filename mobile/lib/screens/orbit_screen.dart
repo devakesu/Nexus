@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -16,6 +17,100 @@ import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class OrbitNode {
+  OrbitNode({
+    required this.id,
+    required this.name,
+    required this.x,
+    required this.y,
+    required this.orbitTier,
+    required this.score,
+    required this.profilePic,
+    this.gender,
+    this.sexuality,
+    this.connectionType,
+    this.matchStatus,
+    this.isNew = false,
+  });
+
+  factory OrbitNode.fromJson(Map<String, dynamic> json) {
+    return OrbitNode(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Anonymous',
+      x: (json['x'] as num?)?.toDouble() ?? 0.0,
+      y: (json['y'] as num?)?.toDouble() ?? 0.0,
+      orbitTier: (json['orbit_tier'] as num?)?.toInt() ?? 0,
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+      profilePic: json['profile_pic']?.toString(),
+      gender: json['gender']?.toString(),
+      sexuality: json['sexuality']?.toString(),
+      connectionType: json['connection_type']?.toString(),
+      matchStatus: json['match_status']?.toString(),
+      isNew: json['is_new'] as bool? ?? false,
+    );
+  }
+
+  final String id;
+  final String name;
+  final double x;
+  final double y;
+  final int orbitTier;
+  final double score;
+  final String? profilePic;
+  final String? gender;
+  final String? sexuality;
+  final String? connectionType;
+  final String? matchStatus;
+  final bool isNew;
+
+  OrbitNode copyWith({
+    String? id,
+    String? name,
+    double? x,
+    double? y,
+    int? orbitTier,
+    double? score,
+    String? profilePic,
+    String? gender,
+    String? sexuality,
+    String? connectionType,
+    String? matchStatus,
+    bool? isNew,
+  }) {
+    return OrbitNode(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      orbitTier: orbitTier ?? this.orbitTier,
+      score: score ?? this.score,
+      profilePic: profilePic ?? this.profilePic,
+      gender: gender ?? this.gender,
+      sexuality: sexuality ?? this.sexuality,
+      connectionType: connectionType ?? this.connectionType,
+      matchStatus: matchStatus ?? this.matchStatus,
+      isNew: isNew ?? this.isNew,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'x': x,
+      'y': y,
+      'orbit_tier': orbitTier,
+      'score': score,
+      'profile_pic': profilePic,
+      'gender': gender,
+      'sexuality': sexuality,
+      'connection_type': connectionType,
+      'match_status': matchStatus,
+      'is_new': isNew,
+    };
+  }
+}
+
 class OrbitPrefetchResult {
   OrbitPrefetchResult({
     required this.nodes,
@@ -26,13 +121,14 @@ class OrbitPrefetchResult {
     this.partnerValues = const [],
   });
 
-  final List<dynamic> nodes;
+  final List<OrbitNode> nodes;
   final String? sessionId;
   final String? profilePicUrl;
   final List<String> showBuckets;
   final List<String> datingFor;
   final List<String> partnerValues;
 }
+
 
 class OrbitScreen extends StatefulWidget {
   const OrbitScreen({
@@ -47,11 +143,11 @@ class OrbitScreen extends StatefulWidget {
   final Future<OrbitPrefetchResult?>? prefetchFuture;
 
   static Future<OrbitPrefetchResult?> prefetch(String tab) async {
+    final dio = createDio();
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return null;
       final config = AppConfig.current;
-      final dio = createDio();
       final headers = {'Authorization': 'Bearer ${session.accessToken}'};
 
       var showBuckets = <String>[];
@@ -79,13 +175,9 @@ class OrbitScreen extends StatefulWidget {
           if (rawDatingFor is List) {
             datingFor = rawDatingFor.map((e) => e.toString()).toList();
           }
-          final rawPartnerValues = data['partner_values']?.toString() ?? '';
-          if (rawPartnerValues.isNotEmpty) {
-            partnerValues = rawPartnerValues
-                .split(',')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty)
-                .toList();
+          final rawPartnerValues = data['partner_values'];
+          if (rawPartnerValues is List) {
+            partnerValues = rawPartnerValues.map((e) => e.toString()).toList();
           }
         }
       }
@@ -111,8 +203,12 @@ class OrbitScreen extends StatefulWidget {
       );
 
       if (discoverResp.statusCode == 200 && discoverResp.data != null) {
+        final rawNodes = discoverResp.data!['nodes'] as List<dynamic>? ?? [];
+        final mappedNodes = rawNodes
+            .map((e) => OrbitNode.fromJson(e as Map<String, dynamic>))
+            .toList();
         return OrbitPrefetchResult(
-          nodes: discoverResp.data!['nodes'] as List<dynamic>? ?? [],
+          nodes: mappedNodes,
           sessionId: discoverResp.data!['session_id'] as String?,
           profilePicUrl: profilePicUrl,
           showBuckets: showBuckets,
@@ -122,6 +218,8 @@ class OrbitScreen extends StatefulWidget {
       }
     } on Exception catch (e) {
       debugPrint('[OrbitScreen] Prefetch error: $e');
+    } finally {
+      dio.close();
     }
     return null;
   }
@@ -138,7 +236,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   final Dio _dio = createDio();
 
   String? _sessionId;
-  List<dynamic> _nodes = [];
+  List<OrbitNode> _nodes = [];
   String? _errorMessage;
   String? _currentUserProfilePic;
   bool _isFetchingViewport = false;
@@ -173,6 +271,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   final Set<String> _savingFields = {};
   bool _isCentered = false;
   bool _isReloading = false;
+  Timer? _fetchDebounceTimer;
 
   @override
   void initState() {
@@ -251,23 +350,16 @@ class _OrbitScreenState extends State<OrbitScreen>
         await _loadDatingProfileStatus();
       }
     }
-    await _fetchOrbitNodes(skipProfileFetch: prefetch != null);
+    await _fetchOrbitNodes(skipProfileFetch: prefetch != null, immediate: true);
   }
 
   Future<void> _loadDatingProfileStatus() async {
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
-        final config = AppConfig.current;
-        final response = await _dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+        final data = await NetworkUtils.fetchProfileDetails(_dio, session.accessToken);
 
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
+        if (data != null && mounted) {
           setState(() {
             final rawBuckets = data['dating_target_buckets'];
             if (rawBuckets is List) {
@@ -281,16 +373,11 @@ class _OrbitScreenState extends State<OrbitScreen>
                 ..clear()
                 ..addAll(rawDatingFor.map((e) => e.toString()));
             }
-            final rawPartnerValues = data['partner_values']?.toString() ?? '';
-            if (rawPartnerValues.isNotEmpty) {
+            final rawPartnerValues = data['partner_values'];
+            if (rawPartnerValues is List) {
               _selectedPartnerValues
                 ..clear()
-                ..addAll(
-                  rawPartnerValues
-                      .split(',')
-                      .map((e) => e.trim())
-                      .where((e) => e.isNotEmpty),
-                );
+                ..addAll(rawPartnerValues.map((e) => e.toString()));
             }
           });
         }
@@ -346,12 +433,7 @@ class _OrbitScreenState extends State<OrbitScreen>
           } else if (field == 'partner_values') {
             _selectedPartnerValues
               ..clear()
-              ..addAll(
-                (value as String)
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where((e) => e.isNotEmpty),
-              );
+              ..addAll(List<String>.from(value as List));
           }
         }
 
@@ -367,6 +449,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     required List<String> selected,
     required StateSetter setModalState,
   }) {
+    final localCopy = List<String>.from(selected);
     var searchQuery = '';
     unawaited(
       showModalBottomSheet<void>(
@@ -422,20 +505,25 @@ class _OrbitScreenState extends State<OrbitScreen>
                             Text(
                               title,
                               style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.themeColor,
-                                  foregroundColor: Colors.black87,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
+                                backgroundColor: widget.themeColor,
+                                foregroundColor: Colors.black87,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                              ),
                               onPressed: () {
+                                selected
+                                  ..clear()
+                                  ..addAll(localCopy);
+                                setModalState(() {});
+                                setState(() {});
+                                unawaited(_fetchOrbitNodes());
                                 Navigator.pop(context);
                               },
                               child: const Text('Done'),
@@ -476,7 +564,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               spacing: 8,
                               runSpacing: 6,
                               children: filtered.map((opt) {
-                                final sel = selected.contains(opt);
+                                final sel = localCopy.contains(opt);
                                 return FilterChip(
                                   label: Text(
                                     opt,
@@ -498,14 +586,11 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   onSelected: (v) {
                                     setPaneState(() {
                                       if (v) {
-                                        selected.add(opt);
+                                        localCopy.add(opt);
                                       } else {
-                                        selected.remove(opt);
+                                        localCopy.remove(opt);
                                       }
                                     });
-                                    setModalState(() {});
-                                    setState(() {});
-                                    unawaited(_fetchOrbitNodes());
                                   },
                                 );
                               }).toList(),
@@ -672,7 +757,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                       setModalState(() {});
                                       await _saveDatingField(
                                         'partner_values',
-                                        _selectedPartnerValues.join(', '),
+                                        _selectedPartnerValues,
                                         setModalState,
                                       );
                                     },
@@ -711,7 +796,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                                       setModalState(() {});
                                       await _saveDatingField(
                                         'partner_values',
-                                        _selectedPartnerValues.join(', '),
+                                        _selectedPartnerValues,
                                         setModalState,
                                       );
                                     },
@@ -735,6 +820,7 @@ class _OrbitScreenState extends State<OrbitScreen>
 
   @override
   void dispose() {
+    _fetchDebounceTimer?.cancel();
     _pulseController.dispose();
     _transformationController.dispose();
     _dio.close();
@@ -762,6 +848,36 @@ class _OrbitScreenState extends State<OrbitScreen>
   }
 
   Future<void> _fetchOrbitNodes({
+    bool useExistingSession = false,
+    bool skipProfileFetch = false,
+    bool immediate = false,
+  }) async {
+    _fetchDebounceTimer?.cancel();
+
+    if (!immediate) {
+      final completer = Completer<void>();
+      _fetchDebounceTimer = Timer(const Duration(milliseconds: 500), () async {
+        if (!mounted) return;
+        try {
+          await _executeFetchOrbitNodes(
+            useExistingSession: useExistingSession,
+            skipProfileFetch: skipProfileFetch,
+          );
+          completer.complete();
+        } catch (e) {
+          completer.completeError(e);
+        }
+      });
+      return completer.future;
+    }
+
+    return _executeFetchOrbitNodes(
+      useExistingSession: useExistingSession,
+      skipProfileFetch: skipProfileFetch,
+    );
+  }
+
+  Future<void> _executeFetchOrbitNodes({
     bool useExistingSession = false,
     bool skipProfileFetch = false,
   }) async {
@@ -848,18 +964,23 @@ class _OrbitScreenState extends State<OrbitScreen>
         }
       }
 
-      if (discoverResponse.statusCode == 200 && discoverResponse.data != null) {
-        final nodesList =
+        if (discoverResponse.statusCode == 200 && discoverResponse.data != null) {
+        final rawNodes =
             discoverResponse.data!['nodes'] as List<dynamic>? ?? [];
-        debugPrint('--- CLIENT ORBIT NODES RECEIVED (${nodesList.length}) ---');
-        for (final node in nodesList.cast<Map<String, dynamic>>()) {
-          debugPrint(
-            'Node: ${node['name']}, x: ${node['x']}, y: ${node['y']}, tier: ${node['orbit_tier']}, score: ${node['score']}',
-          );
+        final mappedNodes = rawNodes
+            .map((e) => OrbitNode.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (kDebugMode) {
+          debugPrint('--- CLIENT ORBIT NODES RECEIVED (${rawNodes.length}) ---');
+          for (final node in mappedNodes) {
+            debugPrint(
+              'Node: ${node.name}, x: ${node.x}, y: ${node.y}, tier: ${node.orbitTier}, score: ${node.score}',
+            );
+          }
         }
         setState(() {
           _sessionId = discoverResponse.data!['session_id'] as String?;
-          _nodes = nodesList;
+          _nodes = mappedNodes;
           if (profilePicUrl != null) {
             _currentUserProfilePic = profilePicUrl;
           }
@@ -935,11 +1056,14 @@ class _OrbitScreenState extends State<OrbitScreen>
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
         setState(() {
           final nodeMap = {
-            for (final node in _nodes.cast<Map<String, dynamic>>()) node['id'] as String: node
+            for (final node in _nodes) node.id: node
           };
           for (final node in newNodes) {
             if (node is Map<String, dynamic>) {
-              nodeMap[node['id'] as String] = node;
+              final mapped = OrbitNode.fromJson(node);
+              if (mapped.id.isNotEmpty) {
+                nodeMap[mapped.id] = mapped;
+              }
             }
           }
           _nodes = nodeMap.values.toList();
@@ -965,14 +1089,14 @@ class _OrbitScreenState extends State<OrbitScreen>
     final angle = math.Random().nextDouble() * 2 * math.pi;
     const radius = 540.0;
     setState(() {
-      final idx = _nodes.indexWhere((n) => (n as Map)['id'] == candidateId);
+      final idx = _nodes.indexWhere((n) => n.id == candidateId);
       if (idx != -1) {
-        final updated = Map<String, dynamic>.from(_nodes[idx] as Map);
-        updated['x'] = radius * math.cos(angle);
-        updated['y'] = radius * math.sin(angle);
-        updated['orbit_tier'] = 3;
-        updated['score'] = 0.0;
-        _nodes[idx] = updated;
+        _nodes[idx] = _nodes[idx].copyWith(
+          x: radius * math.cos(angle),
+          y: radius * math.sin(angle),
+          orbitTier: 3,
+          score: 0,
+        );
       }
     });
 
@@ -1015,9 +1139,15 @@ class _OrbitScreenState extends State<OrbitScreen>
     String? reason,
     String? reasonDetail,
   }) async {
+    final index = _nodes.indexWhere((n) => n.id == candidateId);
+    OrbitNode? deletedNode;
+    if (index != -1) {
+      deletedNode = _nodes[index];
+    }
+
     // Remove immediately from local state so the node vanishes before the network round-trip.
     if (mounted) {
-      setState(() => _nodes.removeWhere((n) => (n as Map)['id'] == candidateId));
+      setState(() => _nodes.removeWhere((n) => n.id == candidateId));
     }
 
     try {
@@ -1030,8 +1160,8 @@ class _OrbitScreenState extends State<OrbitScreen>
         'target_id': candidateId,
         'action': actionType,
         if (!omitTab) 'tab': widget.tab,
-        'reason': ?reason,
-        'reason_detail': ?reasonDetail,
+        'reason': reason,
+        'reason_detail': reasonDetail,
       };
 
       final response = await _dio.post<Map<String, dynamic>>(
@@ -1085,9 +1215,20 @@ class _OrbitScreenState extends State<OrbitScreen>
             ),
           );
         }
+      } else {
+        throw Exception('Server returned status code ${response.statusCode}');
       }
     } on Exception catch (e) {
       if (mounted) {
+        if (deletedNode != null) {
+          setState(() {
+            if (index != -1 && index <= _nodes.length) {
+              _nodes.insert(index, deletedNode!);
+            } else {
+              _nodes.add(deletedNode!);
+            }
+          });
+        }
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1459,7 +1600,7 @@ class _OrbitScreenState extends State<OrbitScreen>
 
     // If there is no session yet, create one first.
     if (_sessionId == null) {
-      await _fetchOrbitNodes();
+      await _fetchOrbitNodes(immediate: true);
     }
     if (_sessionId == null) {
       throw Exception('No discovery session available.');
@@ -1483,7 +1624,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     // 404 means the session expired. Silently refresh orbit (creates a new
     // session) then retry once — the candidate is usually still in the pool.
     if (response.statusCode == 404) {
-      await _fetchOrbitNodes();
+      await _fetchOrbitNodes(immediate: true);
       if (_sessionId != null) {
         response = await _dio.post<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/discover/node-detail',
@@ -1567,7 +1708,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                   },
                   isRefreshing: _isReloading,
                   onFetchOrbitNodes: () async {
-                    await _fetchOrbitNodes();
+                    await _fetchOrbitNodes(immediate: true);
                   },
                   scrollController: scrollController,
                 );
@@ -1815,7 +1956,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                               LucideIcons.refreshCw,
                               color: Colors.white,
                             ),
-                            onPressed: () => unawaited(_fetchOrbitNodes()),
+                            onPressed: () => unawaited(_fetchOrbitNodes(immediate: true)),
                           ),
                         ],
                       ),
@@ -1858,7 +1999,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                         backgroundColor: widget.themeColor,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () => unawaited(_fetchOrbitNodes()),
+                      onPressed: () => unawaited(_fetchOrbitNodes(immediate: true)),
                       child: const Text('Try Again'),
                     ),
                   ],
@@ -1913,13 +2054,13 @@ class _OrbitScreenState extends State<OrbitScreen>
 
   List<Widget> _buildConstellationNodes() {
     final center = _canvasSize / 2;
-    return _nodes.cast<Map<String, dynamic>>().map((node) {
-      final x = (node['x'] as num?)?.toDouble() ?? 0.0;
-      final y = (node['y'] as num?)?.toDouble() ?? 0.0;
-      final id = node['id']?.toString() ?? '';
-      final name = node['name']?.toString() ?? 'Anonymous';
-      final profilePic = node['profile_pic']?.toString();
-      final score = (node['score'] as num?)?.toDouble() ?? 0.0;
+    return _nodes.map((node) {
+      final x = node.x;
+      final y = node.y;
+      final id = node.id;
+      final name = node.name;
+      final profilePic = node.profilePic;
+      final score = node.score;
 
       // Position node on the canvas grid
       final posX = center + x - 40;

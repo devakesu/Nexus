@@ -17,7 +17,7 @@ class DatingSettingsOverlay extends StatefulWidget {
 
   final List<String> datingTargetBuckets;
   final List<String> datingFor;
-  final String partnerValues;
+  final List<String> partnerValues;
   final Set<String> savingFields;
   final Future<void> Function(String field, dynamic value, StateSetter setState) onSaveDatingField;
   final Future<void> Function() onLoadDatingProfileStatusSilent;
@@ -78,13 +78,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
     super.initState();
     localBuckets = List<String>.from(widget.datingTargetBuckets);
     localDatingFor = List<String>.from(widget.datingFor);
-    localPartnerValues = widget.partnerValues.isNotEmpty
-        ? widget.partnerValues
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList()
-        : <String>[];
+    localPartnerValues = List<String>.from(widget.partnerValues);
   }
 
   @override
@@ -486,7 +480,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   });
                                   await widget.onSaveDatingField(
                                     'partner_values',
-                                    localPartnerValues.join(', '),
+                                    localPartnerValues,
                                     setState,
                                   );
                                 },
@@ -569,7 +563,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   });
                                   await widget.onSaveDatingField(
                                     'partner_values',
-                                    localPartnerValues.join(', '),
+                                    localPartnerValues,
                                     setState,
                                   );
                                 },
@@ -599,7 +593,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   });
                                   await widget.onSaveDatingField(
                                     'partner_values',
-                                    localPartnerValues.join(', '),
+                                    localPartnerValues,
                                     setState,
                                   );
                                 },

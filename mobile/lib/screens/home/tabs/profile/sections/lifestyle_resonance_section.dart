@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
@@ -209,24 +210,7 @@ class LifestyleResonanceSection extends StatelessWidget {
           TagChipsEditor(
             label: 'Pets',
             currentValues: pets,
-            presets: const [
-              'Dog',
-              'Cat',
-              'Fish',
-              'Bird',
-              'Rabbit',
-              'Hamster',
-              'Guinea Pig',
-              'Ferret',
-              'Reptile',
-              'Amphibian',
-              'Horse',
-              'Chicken',
-              'Sugar Glider',
-              'Chinchilla',
-              'Hedgehog',
-              'No Pets',
-            ],
+            presets: FilterOptions.pets,
             icon: LucideIcons.pawPrint,
             iconColor: const Color(0xFFFF9800),
             onChanged: onPetsChanged,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +14,6 @@ import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/screens/auth_gate.dart';
 import 'package:nexus/utils/error_handler.dart';
-import 'package:nexus/utils/network_utils.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -40,7 +40,9 @@ Future<void> main() async {
     return true;
   };
 
-  // Set global HTTP overrides to handle custom certificate validation in debug mode
+
+
+  // Set global HTTP overrides to handle custom connection timeout
   HttpOverrides.global = MyHttpOverrides();
 
   // Get current flavor configuration
@@ -180,17 +182,9 @@ class MyApp extends StatelessWidget {
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    final client = super.createHttpClient(context)
+    return super.createHttpClient(context)
       ..connectionTimeout = kDebugMode
           ? const Duration(seconds: 45)
           : const Duration(seconds: 30);
-
-    // In debug mode, we allow untrusted certificates ONLY if they match our expected hostname.
-    // In release mode, standard certificate validation is enforced.
-    if (kDebugMode) {
-      client.badCertificateCallback = NetworkUtils.validateCertificateHostname;
-    }
-
-    return client;
   }
 }

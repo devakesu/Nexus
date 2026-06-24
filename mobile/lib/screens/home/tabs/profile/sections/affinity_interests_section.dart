@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
@@ -90,24 +91,7 @@ class _AffinityInterestsSectionState extends State<AffinityInterestsSection> {
           TagChipsEditor(
             label: 'Causes Supported',
             currentValues: widget.causesSupported,
-            presets: const [
-              'Climate Action',
-              'Tech Ethics',
-              'Mental Health',
-              'LGBTQ+ Rights',
-              'Education Access',
-              'Animal Protection',
-              'Disaster Relief',
-              'Poverty Alleviation',
-              'Gender Equality',
-              'Scientific Research',
-              'Mental Health Advocacy',
-              'Human Rights',
-              'Clean Water & Sanitation',
-              'Renewable Energy',
-              'Economic Development',
-              'Arts & Culture Preservation',
-            ],
+            presets: FilterOptions.causesSupported,
             icon: LucideIcons.heart,
             iconColor: const Color(0xFF00BCD4),
             onChanged: widget.onCausesSupportedChanged,

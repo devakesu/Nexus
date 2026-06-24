@@ -58,7 +58,11 @@ def generate_nexus_intent_embeddings(
     # 1. EXTRACT FIELDS WITH SAFE FALLBACKS
     # ──────────────────────────────────────────────────────────────────
     lifestyle: str = (profile.get("lifestyle") or "").strip()
-    partner_values: str = (profile.get("partner_values") or "").strip()
+    partner_values_raw: Any = profile.get("partner_values") or []
+    if isinstance(partner_values_raw, str):
+        partner_values = partner_values_raw.strip()
+    else:
+        partner_values = ", ".join(str(v) for v in partner_values_raw).strip()
     religious_beliefs: str = (profile.get("religious_beliefs") or "").strip()
     children_plans: str = (profile.get("children_plans") or "").strip()
 

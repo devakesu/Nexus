@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -62,7 +61,6 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) throw Exception('Session expired.');
 
-      final appCheckToken = await FirebaseAppCheck.instance.getToken();
       final config = AppConfig.current;
       final dio = createDio();
 
@@ -71,7 +69,6 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
         options: Options(
           headers: {
             'Authorization': 'Bearer ${session.accessToken}',
-            'X-Firebase-AppCheck': appCheckToken ?? '',
             'X-App-Variant': config.variantString,
           },
           validateStatus: (s) => s != null && s < 600,

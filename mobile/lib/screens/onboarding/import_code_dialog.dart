@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
@@ -55,7 +54,6 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) throw Exception('Session expired. Please sign in again.');
 
-      final appCheckToken = await FirebaseAppCheck.instance.getToken();
       final config = AppConfig.current;
       final dio = createDio();
 
@@ -65,7 +63,6 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
         options: Options(
           headers: {
             'Authorization': 'Bearer ${session.accessToken}',
-            'X-Firebase-AppCheck': appCheckToken ?? '',
             'X-App-Variant': config.variantString,
           },
           validateStatus: (status) => status != null && status < 600,
