@@ -73,7 +73,7 @@ class StabilityTracker extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             height: MediaQuery.of(context).size.height * 0.85,
             decoration: BoxDecoration(
-              color: const Color(0xFF161B26).withValues(alpha: 0.95),
+              color: const Color(0xFF161B26),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(30),
                 topRight: Radius.circular(30),

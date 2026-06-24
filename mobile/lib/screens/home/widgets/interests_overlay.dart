@@ -726,39 +726,36 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
               ),
             ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: widget.themeColor ?? deepPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 4,
-              shadowColor: (widget.themeColor ?? deepPurple).withValues(alpha: 0.4),
-            ).copyWith(
-              side: WidgetStateProperty.all(
-                BorderSide(color: widget.themeColor ?? pulsarPink, width: 0.8),
-              ),
-            ),
-            onPressed: () {
+          GestureDetector(
+            onTap: () {
               widget.onSave(_selectedInterests);
               Navigator.pop(context);
             },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.saveButtonText,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Outfit',
-                  ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: (widget.themeColor ?? pulsarPink).withValues(alpha: 0.7),
                 ),
-                const SizedBox(width: 8),
-                const Icon(LucideIcons.save, size: 16),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.saveButtonText,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Outfit',
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(LucideIcons.save, size: 16, color: Colors.white),
+                ],
+              ),
             ),
           ),
         ],

@@ -24,7 +24,7 @@ supabase_client: Client = create_client(
     options=SyncClientOptions(
         httpx_client=httpx.Client(
             http1=True,
-            http2=True,
+            http2=False,
             timeout=httpx.Timeout(30.0, read=20.0, connect=10.0),
             limits=httpx.Limits(keepalive_expiry=30.0),
         ),

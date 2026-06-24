@@ -43,7 +43,6 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    const deepPurple = Color(0xFF00E5FF);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -115,7 +114,10 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                     final isSelected = option == widget.currentValue;
 
                     return GestureDetector(
-                      onTap: () => Navigator.pop(context, option),
+                      onTap: () => Navigator.pop(
+                        context,
+                        isSelected ? null : option,
+                      ),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         margin: const EdgeInsets.only(bottom: 12),
@@ -125,13 +127,13 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? deepPurple.withValues(alpha: isDark ? 0.15 : 0.1)
-                              : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.03)),
+                              ? pulsarPink.withValues(alpha: 0.18)
+                              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.7)),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
                                 ? pulsarPink.withValues(alpha: 0.8)
-                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                                : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.12)),
                             width: isSelected ? 1.5 : 1,
                           ),
                           boxShadow: isSelected

@@ -53,8 +53,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _campusName = '';
   bool _isStudying = true;
   String _major = '';
-  String _displayGender = 'Not specified';
-  String _displaySexuality = 'Not specified';
+  String _displayGender = '';
+  String _displaySexuality = '';
   String _searchBucket = 'NB';
   final Set<String> _savingFields = {};
   String _bio = '';
@@ -63,11 +63,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _hometown = '';
   String _currentPlace = '';
 
-  String _childrenPlans = 'Not specified';
-  String _religiousBeliefs = 'Not specified';
+  String _childrenPlans = '';
+  String _religiousBeliefs = '';
   String _lifestyle = '';
-  String _drinking = 'Not specified';
-  String _smoking = 'Not specified';
+  String _drinking = '';
+  String _smoking = '';
   List<String> _causesSupported = [];
   List<String> _topArtists = [];
   List<String> _languages = [];
@@ -82,18 +82,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _savedCampusName = '';
   bool _savedIsStudying = true;
   String _savedMajor = '';
-  String _savedDisplayGender = 'Not specified';
-  String _savedDisplaySexuality = 'Not specified';
+  String _savedDisplayGender = '';
+  String _savedDisplaySexuality = '';
   String _savedSearchBucket = 'NB';
   String _savedBio = '';
   String _savedHometown = '';
   String _savedCurrentPlace = '';
 
-  String _savedChildrenPlans = 'Not specified';
-  String _savedReligiousBeliefs = 'Not specified';
+  String _savedChildrenPlans = '';
+  String _savedReligiousBeliefs = '';
   String _savedLifestyle = '';
-  String _savedDrinking = 'Not specified';
-  String _savedSmoking = 'Not specified';
+  String _savedDrinking = '';
+  String _savedSmoking = '';
   List<String> _savedCausesSupported = [];
   List<String> _savedTopArtists = [];
   List<String> _savedLanguages = [];
@@ -407,21 +407,28 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             return s;
           }
 
+          String cleanSingle(dynamic val) {
+            if (val == null) { return ''; }
+            final s = val.toString().trim();
+            if (s.isEmpty ||
+                s.toLowerCase() == 'not specified' ||
+                s.toLowerCase() == 'prefer not to say') { return ''; }
+            return s;
+          }
+
           _major = cleanVal(data['campus_branch']);
           _savedMajor = _major;
 
           _campusName = cleanVal(data['campus_name']);
           _savedCampusName = _campusName;
 
-          _displayGender =
-              data['display_gender']?.toString() ?? 'Not specified';
+          _displayGender = cleanSingle(data['display_gender']);
           _savedDisplayGender = _displayGender;
 
-          _displaySexuality =
-              data['display_sexuality']?.toString() ?? 'Not specified';
+          _displaySexuality = cleanSingle(data['display_sexuality']);
           _savedDisplaySexuality = _displaySexuality;
 
-          _pronouns = data['pronouns']?.toString() ?? 'they/them';
+          _pronouns = cleanSingle(data['pronouns']);
           _savedPronouns = _pronouns;
 
           _bio = data['bio']?.toString() ?? '';
@@ -433,21 +440,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           _currentPlace = cleanVal(data['current_place']);
           _savedCurrentPlace = _currentPlace;
 
-          _childrenPlans =
-              data['children_plans']?.toString() ?? 'Not specified';
+          _childrenPlans = cleanSingle(data['children_plans']);
           _savedChildrenPlans = _childrenPlans;
 
-          _religiousBeliefs =
-              data['religious_beliefs']?.toString() ?? 'Not specified';
+          _religiousBeliefs = cleanSingle(data['religious_beliefs']);
           _savedReligiousBeliefs = _religiousBeliefs;
 
           _lifestyle = data['lifestyle']?.toString() ?? '';
           _savedLifestyle = _lifestyle;
 
-          _drinking = data['drinking']?.toString() ?? 'Not specified';
+          _drinking = cleanSingle(data['drinking']);
           _savedDrinking = _drinking;
 
-          _smoking = data['smoking']?.toString() ?? 'Not specified';
+          _smoking = cleanSingle(data['smoking']);
           _savedSmoking = _smoking;
 
           final rawBucket = data['search_bucket'];
@@ -625,11 +630,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         final payload = <String, dynamic>{};
         if (name != null) payload['name'] = name;
         if (age != null) payload['age'] = age;
-        if (displayGender != null) payload['display_gender'] = displayGender;
-        if (displaySexuality != null) {
-          payload['display_sexuality'] = displaySexuality;
+        if (displayGender != null) {
+          payload['display_gender'] =
+              displayGender.isEmpty ? 'Prefer not to say' : displayGender;
         }
-        if (pronouns != null) payload['pronouns'] = pronouns;
+        if (displaySexuality != null) {
+          payload['display_sexuality'] =
+              displaySexuality.isEmpty ? 'Prefer not to say' : displaySexuality;
+        }
+        if (pronouns != null) {
+          payload['pronouns'] =
+              pronouns.isEmpty ? 'Prefer not to say' : pronouns;
+        }
         if (bio != null) payload['bio'] = bio;
         if (searchBucket != null) payload['search_bucket'] = searchBucket;
         if (campusBranch != null) payload['campus_branch'] = campusBranch;
@@ -641,13 +653,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         if (campusName != null) payload['campus_name'] = campusName;
         if (hometown != null) payload['hometown'] = hometown;
         if (currentPlace != null) payload['current_place'] = currentPlace;
-        if (childrenPlans != null) payload['children_plans'] = childrenPlans;
+        if (childrenPlans != null) {
+          payload['children_plans'] =
+              childrenPlans.isEmpty ? 'Not specified' : childrenPlans;
+        }
         if (religiousBeliefs != null) {
-          payload['religious_beliefs'] = religiousBeliefs;
+          payload['religious_beliefs'] =
+              religiousBeliefs.isEmpty ? 'Not specified' : religiousBeliefs;
         }
         if (lifestyle != null) payload['lifestyle'] = lifestyle;
-        if (drinking != null) payload['drinking'] = drinking;
-        if (smoking != null) payload['smoking'] = smoking;
+        if (drinking != null) {
+          payload['drinking'] = drinking.isEmpty ? null : drinking;
+        }
+        if (smoking != null) {
+          payload['smoking'] = smoking.isEmpty ? null : smoking;
+        }
         if (role != null) payload['role_at'] = role;
         if (targetBuckets != null) payload['target_buckets'] = targetBuckets;
         if (lookingFor != null) payload['looking_for'] = lookingFor;
@@ -874,14 +894,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (_age >= 18) filled++;
     if (_bio.isNotEmpty) filled++;
     if (_searchBucket.isNotEmpty) filled++;
-    if (_displayGender.isNotEmpty && _displayGender != 'Prefer not to say') {
-      filled++;
-    }
-    if (_displaySexuality.isNotEmpty &&
-        _displaySexuality != 'Prefer not to say') {
-      filled++;
-    }
-    if (_pronouns.isNotEmpty && _pronouns != 'Prefer not to say') filled++;
+    if (_displayGender.isNotEmpty) filled++;
+    if (_displaySexuality.isNotEmpty) filled++;
+    if (_pronouns.isNotEmpty) filled++;
     if (_imagePaths[1] != null && _imagePaths[1]!.isNotEmpty) filled++;
     if (_imagePaths[2] != null && _imagePaths[2]!.isNotEmpty) filled++;
     if (_imagePaths[3] != null && _imagePaths[3]!.isNotEmpty) filled++;
@@ -897,14 +912,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
     // 3. Lifestyle & Resonance
     if (_lifestyle.isNotEmpty) filled++;
-    if (_drinking.isNotEmpty && _drinking != 'Not specified') filled++;
-    if (_smoking.isNotEmpty && _smoking != 'Not specified') filled++;
-    if (_childrenPlans.isNotEmpty && _childrenPlans != 'Not specified') {
-      filled++;
-    }
-    if (_religiousBeliefs.isNotEmpty && _religiousBeliefs != 'Not specified') {
-      filled++;
-    }
+    if (_drinking.isNotEmpty) filled++;
+    if (_smoking.isNotEmpty) filled++;
+    if (_childrenPlans.isNotEmpty) filled++;
+    if (_religiousBeliefs.isNotEmpty) filled++;
     if (_pets.isNotEmpty) filled++;
 
     // 4. Affinity & Interests
@@ -1249,7 +1260,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       ).then((selected) {
         FocusManager.instance.primaryFocus?.unfocus();
         if (selected != null && mounted) {
-          onSelected(selected);
+          final normalized =
+              selected == 'Prefer not to say' ? '' : selected;
+          onSelected(normalized);
         }
       }),
     );
@@ -1436,6 +1449,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           child: ListView.separated(
                             shrinkWrap: true,
                             physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 20),
                             itemCount: filteredOptions.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: 8),
@@ -1446,7 +1460,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                               return GestureDetector(
                                 onTap: () {
-                                  Navigator.pop(context, option);
+                                  Navigator.pop(
+                                    context,
+                                    isSelected ? null : option,
+                                  );
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
@@ -1557,7 +1574,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       ).then((selected) {
         FocusManager.instance.primaryFocus?.unfocus();
         if (selected != null && mounted) {
-          onSelected(selected);
+          final normalized =
+              (selected == 'Prefer not to say' || selected == 'Not specified')
+                  ? ''
+                  : selected;
+          onSelected(normalized);
         }
       }),
     );
@@ -1754,6 +1775,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             ),
                           );
                         },
+                        onClearGender: () =>
+                            unawaited(_saveProfileChanges(displayGender: '')),
                         onSelectSexuality: () {
                           _openSelectionOverlay(
                             title: 'Sexuality',
@@ -1764,6 +1787,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             ),
                           );
                         },
+                        onClearSexuality: () => unawaited(
+                          _saveProfileChanges(displaySexuality: ''),
+                        ),
                         onSelectPronouns: () {
                           _openBottomSelectionSheet(
                             title: 'Pronouns',
@@ -1774,6 +1800,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                               unawaited(_saveProfileChanges(pronouns: val));
                             },
                           );
+                        },
+                        onClearPronouns: () {
+                          setState(() => _pronouns = '');
+                          unawaited(_saveProfileChanges(pronouns: ''));
                         },
                         onImageSlotTap: _showImageSlotPicker,
                         onSwapImages: _swapImages,
@@ -1891,12 +1921,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         openBottomSelectionSheet: _openBottomSelectionSheet,
                         onDrinkingSaved: (val) =>
                             unawaited(_saveProfileChanges(drinking: val)),
+                        onClearDrinking: () =>
+                            unawaited(_saveProfileChanges(drinking: '')),
                         onSmokingSaved: (val) =>
                             unawaited(_saveProfileChanges(smoking: val)),
+                        onClearSmoking: () =>
+                            unawaited(_saveProfileChanges(smoking: '')),
                         onChildrenPlansSaved: (val) =>
                             unawaited(_saveProfileChanges(childrenPlans: val)),
+                        onClearChildrenPlans: () =>
+                            unawaited(_saveProfileChanges(childrenPlans: '')),
                         onReligiousBeliefsSaved: (val) => unawaited(
                           _saveProfileChanges(religiousBeliefs: val),
+                        ),
+                        onClearReligiousBeliefs: () => unawaited(
+                          _saveProfileChanges(religiousBeliefs: ''),
                         ),
                       ),
                     ),

@@ -65,6 +65,7 @@ class _BioSectionState extends State<BioSection> {
   }
 
   void _onFocusChange() {
+    if (!mounted) return;
     if (!_focusNode.hasFocus && _isDirty) {
       widget.onBioSubmitted(_controller.text.trim());
       setState(() => _isDirty = false);

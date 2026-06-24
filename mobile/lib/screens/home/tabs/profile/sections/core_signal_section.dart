@@ -29,6 +29,9 @@ class CoreSignalSection extends StatefulWidget {
     required this.onSelectPronouns,
     required this.onImageSlotTap,
     required this.onSwapImages,
+    this.onClearGender,
+    this.onClearSexuality,
+    this.onClearPronouns,
     this.isSavingName = false,
     this.isSavingGender = false,
     this.isSavingSexuality = false,
@@ -68,6 +71,9 @@ class CoreSignalSection extends StatefulWidget {
   final ValueChanged<int> onImageSlotTap;
   final void Function(int, int) onSwapImages;
   final FocusNode? nameFocusNode;
+  final VoidCallback? onClearGender;
+  final VoidCallback? onClearSexuality;
+  final VoidCallback? onClearPronouns;
 
   @override
   State<CoreSignalSection> createState() => _CoreSignalSectionState();
@@ -322,6 +328,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.user,
             iconColor: const Color(0xFFE91E63),
             onTap: widget.onSelectGender,
+            onClear: widget.onClearGender,
             isSaving: widget.isSavingGender,
           ),
           const SizedBox(height: 16),
@@ -331,6 +338,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.heart,
             iconColor: const Color(0xFFFF2D55),
             onTap: widget.onSelectSexuality,
+            onClear: widget.onClearSexuality,
             isSaving: widget.isSavingSexuality,
           ),
           const SizedBox(height: 16),
@@ -340,6 +348,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             icon: LucideIcons.smile,
             iconColor: const Color(0xFF30B0C7),
             onTap: widget.onSelectPronouns,
+            onClear: widget.onClearPronouns,
             isSaving: widget.isSavingPronouns,
           ),
           const SizedBox(height: 16),

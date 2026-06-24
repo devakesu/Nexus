@@ -16,6 +16,7 @@ class TagChipsEditor extends StatelessWidget {
     this.onTapEdit,
     this.showEdit = true,
     this.isSaving = false,
+    this.exclusiveOptions = const [],
     super.key,
   });
 
@@ -30,6 +31,10 @@ class TagChipsEditor extends StatelessWidget {
   final VoidCallback? onTapEdit;
   final bool showEdit;
   final bool isSaving;
+  /// Options that are mutually exclusive with everything else.
+  /// Selecting one clears all other selections; selecting a non-exclusive
+  /// option removes any currently selected exclusive ones.
+  final List<String> exclusiveOptions;
 
   void _openMultiSelectSheet(BuildContext context) {
     final localSelected = List<String>.from(currentValues);
@@ -203,6 +208,7 @@ class TagChipsEditor extends StatelessWidget {
                           child: ListView.separated(
                             shrinkWrap: true,
                             physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 20),
                             itemCount: filteredPresets.length,
                             separatorBuilder: (context, index) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
@@ -215,11 +221,23 @@ class TagChipsEditor extends StatelessWidget {
                                   setModalState(() {
                                     if (isSelected) {
                                       localSelected.remove(option);
+                                    } else if (exclusiveOptions.contains(option)) {
+                                      localSelected
+                                        ..clear()
+                                        ..add(option);
                                     } else {
-                                      localSelected.add(option);
+                                      localSelected
+                                        ..removeWhere(
+                                          exclusiveOptions.contains,
+                                        )
+                                        ..add(option);
                                     }
                                   });
                                   onChanged(localSelected);
+                                  if (!isSelected &&
+                                      exclusiveOptions.contains(option)) {
+                                    Navigator.pop(context);
+                                  }
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
@@ -497,9 +515,11 @@ class TagChipsEditor extends StatelessWidget {
 
                 return displayValues.map((val) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                    padding: const EdgeInsets.only(
+                      left: 10,
+                      right: 6,
+                      top: 6,
+                      bottom: 6,
                     ),
                     decoration: BoxDecoration(
                       color: iconColor.withValues(alpha: isDark ? 0.06 : 0.08),
@@ -527,6 +547,30 @@ class TagChipsEditor extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                             softWrap: true,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            final List<String> newValues;
+                            if (label.toLowerCase() == 'interests' &&
+                                val.contains(': ')) {
+                              final parent = val.split(': ')[0];
+                              newValues = currentValues
+                                  .where((v) => !v.startsWith('$parent: '))
+                                  .toList();
+                            } else {
+                              newValues = currentValues
+                                  .where((v) => v != val)
+                                  .toList();
+                            }
+                            onChanged(newValues);
+                          },
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 11,
+                            color: iconColor.withValues(alpha: isDark ? 0.55 : 0.65),
                           ),
                         ),
                       ],

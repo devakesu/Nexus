@@ -22,6 +22,10 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.onSmokingSaved,
     required this.onChildrenPlansSaved,
     required this.onReligiousBeliefsSaved,
+    this.onClearDrinking,
+    this.onClearSmoking,
+    this.onClearChildrenPlans,
+    this.onClearReligiousBeliefs,
     this.isSavingLifestyle = false,
     this.isSavingDrinking = false,
     this.isSavingSmoking = false,
@@ -59,6 +63,10 @@ class LifestyleResonanceSection extends StatelessWidget {
   final ValueChanged<String> onSmokingSaved;
   final ValueChanged<String> onChildrenPlansSaved;
   final ValueChanged<String> onReligiousBeliefsSaved;
+  final VoidCallback? onClearDrinking;
+  final VoidCallback? onClearSmoking;
+  final VoidCallback? onClearChildrenPlans;
+  final VoidCallback? onClearReligiousBeliefs;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +118,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onDrinkingSaved,
                     );
                   },
+                  onClear: onClearDrinking,
                   isSaving: isSavingDrinking,
                 ),
               ),
@@ -133,6 +142,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onSmokingSaved,
                     );
                   },
+                  onClear: onClearSmoking,
                   isSaving: isSavingSmoking,
                 ),
               ),
@@ -162,6 +172,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onChildrenPlansSaved,
                     );
                   },
+                  onClear: onClearChildrenPlans,
                   isSaving: isSavingChildrenPlans,
                 ),
               ),
@@ -199,6 +210,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                       onSelected: onReligiousBeliefsSaved,
                     );
                   },
+                  onClear: onClearReligiousBeliefs,
                   isSaving: isSavingReligiousBeliefs,
                 ),
               ),
@@ -214,8 +226,10 @@ class LifestyleResonanceSection extends StatelessWidget {
             icon: LucideIcons.pawPrint,
             iconColor: const Color(0xFFFF9800),
             onChanged: onPetsChanged,
-            hintText: 'Add custom pet...',
+            hintText: '',
+            allowCustom: false,
             isSaving: isSavingPets,
+            exclusiveOptions: const ['No Pets'],
           ),
         ],
       ),

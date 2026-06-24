@@ -43,6 +43,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
     _controller = TextEditingController(text: widget.initialValue);
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(() {
+      if (!mounted) return;
       setState(() {
         _isFocused = _focusNode.hasFocus;
       });

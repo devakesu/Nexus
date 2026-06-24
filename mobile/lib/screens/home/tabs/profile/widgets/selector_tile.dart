@@ -9,6 +9,7 @@ class SelectorTile extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.onClear,
     this.isSaving = false,
     super.key,
   });
@@ -18,6 +19,7 @@ class SelectorTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
+  final VoidCallback? onClear;
   final bool isSaving;
 
   @override
@@ -99,13 +101,32 @@ class SelectorTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Icon(
-                        LucideIcons.chevronRight,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.35)
-                            : Colors.black.withValues(alpha: 0.35),
-                        size: 14,
-                      ),
+                      if (!isEmpty && onClear != null)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onClear,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 18,
+                            ),
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 13,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.45)
+                                  : Colors.black.withValues(alpha: 0.35),
+                            ),
+                          ),
+                        )
+                      else
+                        Icon(
+                          LucideIcons.chevronRight,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.black.withValues(alpha: 0.35),
+                          size: 14,
+                        ),
                       const SizedBox(width: 12),
                     ],
                   ),
