@@ -44,6 +44,9 @@ android {
             resValue("string", "app_name", "Nexus")
             manifestPlaceholders["appScheme"] = "devakesu-nexus"
             manifestPlaceholders["appHost"] = "nexus.devakesu.com"
+            // Spotify Auth Library redirect URI: devakesu-nexus://spotify-auth
+            manifestPlaceholders["redirectSchemeName"] = "devakesu-nexus"
+            manifestPlaceholders["redirectHostName"] = "spotify-auth"
         }
         create("mec") {
             dimension = "brand"
@@ -51,6 +54,9 @@ android {
             resValue("string", "app_name", "Nexus MEC")
             manifestPlaceholders["appScheme"] = "devakesu-nexus-mec"
             manifestPlaceholders["appHost"] = "nexus-mec.devakesu.com"
+            // Spotify Auth Library redirect URI: devakesu-nexus-mec://spotify-auth
+            manifestPlaceholders["redirectSchemeName"] = "devakesu-nexus-mec"
+            manifestPlaceholders["redirectHostName"] = "spotify-auth"
         }
     }
 
@@ -86,4 +92,11 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Spotify Android Auth Library — provides native SSO when the Spotify app is installed,
+    // falls back to Chrome Custom Tabs otherwise. Register your SHA-1 fingerprints and
+    // both redirect URIs in the Spotify Developer Dashboard.
+    implementation("com.spotify.android:auth:2.1.0")
 }

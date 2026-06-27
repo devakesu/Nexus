@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -14,6 +15,7 @@ import 'package:nexus/screens/home/tabs/profile/sections/bio_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/core_signal_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/spotify_artists_section.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
@@ -24,6 +26,7 @@ import 'package:nexus/screens/home/widgets/export_code_card.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({required this.onOpenOrbit, super.key});
@@ -110,6 +113,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   final GlobalKey _socialCoordinatesKey = GlobalKey();
   final GlobalKey _lifestyleResonanceKey = GlobalKey();
   final GlobalKey _affinityInterestsKey = GlobalKey();
+  final GlobalKey _spotifyArtistsKey = GlobalKey();
+
+  bool _isSpotifyConnecting = false;
   final ScrollController _scrollController = ScrollController();
 
   // Focus nodes for interactive completion triggers
@@ -304,8 +310,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       _scrollToSection(_lifestyleResonanceKey);
     }
     // 4. Interests & Hobbies
-    else if (['Interests', 'Causes Supported', 'Top Artists'].contains(label)) {
+    else if (['Interests', 'Causes Supported'].contains(label)) {
       _scrollToSection(_affinityInterestsKey);
+    } else if (label == 'Top Artists') {
+      _scrollToSection(_spotifyArtistsKey);
     }
   }
 
@@ -924,6 +932,189 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (_topArtists.isNotEmpty) filled++;
 
     return ((filled / total) * 100).round();
+  }
+
+  // Entrypoint: picks native Android SSO or browser fallback automatically.
+  Future<void> _connectSpotify() async {
+    if (Platform.isAndroid) {
+      await _connectSpotifyNative();
+    } else {
+      await _connectSpotifyBrowser();
+    }
+  }
+
+  // Native path: Spotify Android Auth Library → one-tap SSO if Spotify app is installed,
+  // Chrome Custom Tabs otherwise. Token is sent to our backend which fetches top artists.
+  Future<void> _connectSpotifyNative() async {
+    final session = _client.auth.currentSession;
+    if (session == null) return;
+
+    setState(() => _isSpotifyConnecting = true);
+    try {
+      final config = AppConfig.current;
+      const channel = MethodChannel('com.devakesu.apps.nexus/spotify_auth');
+      final code = await channel.invokeMethod<String>(
+        'connectSpotify',
+        {
+          'clientId': config.spotifyClientId,
+          'redirectUri': config.spotifyNativeRedirectUri,
+        },
+      );
+      if (code == null || code.isEmpty || !mounted) return;
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/spotify/native-exchange',
+        data: {
+          'code': code,
+          'redirect_uri': config.spotifyNativeRedirectUri,
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final raw = response.data!['artists'];
+        final artists = (raw is List)
+            ? raw.map((e) => e.toString()).toList()
+            : <String>[];
+        setState(() {
+          _topArtists = artists;
+          _savedTopArtists = List<String>.from(artists);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1A1E2E),
+            content: Text(
+              'Synced ${artists.length} top artists from Spotify!',
+              style: const TextStyle(color: Colors.white),
+            ),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'SPOTIFY_AUTH_CANCELLED') return;
+      // Native Spotify app rejected the request — fall back to browser OAuth.
+      if (e.message == 'AUTHENTICATION_SERVICE_UNAVAILABLE') {
+        setState(() => _isSpotifyConnecting = false);
+        await _connectSpotifyBrowser();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text('Spotify auth failed: ${e.message ?? e.code}'),
+        ),
+      );
+    } on Object catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+            'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSpotifyConnecting = false);
+    }
+  }
+
+  // Browser fallback: server-side OAuth via backend /connect → /callback.
+  // Used on non-Android platforms and as a fallback if native auth is unavailable.
+  Future<void> _connectSpotifyBrowser() async {
+    final session = _client.auth.currentSession;
+    if (session == null) return;
+
+    setState(() => _isSpotifyConnecting = true);
+    try {
+      final config = AppConfig.current;
+      final response = await _dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/spotify/connect',
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null && mounted) {
+        final authUrl = response.data!['auth_url'] as String?;
+        if (authUrl != null) {
+          await launchUrl(
+            Uri.parse(authUrl),
+            mode: LaunchMode.externalApplication,
+          );
+          if (!mounted) return;
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF1A1E2E),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.music_note, color: Color(0xFF1DB954), size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Spotify',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Outfit',
+                    ),
+                  ),
+                ],
+              ),
+              content: const Text(
+                'After connecting on Spotify, tap "Sync" to load your top artists.',
+                style: TextStyle(color: Colors.white70, fontFamily: 'Outfit'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1DB954),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    unawaited(_loadProfileData());
+                  },
+                  child: const Text(
+                    'Sync Artists',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } on Object catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(
+            'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSpotifyConnecting = false);
+    }
   }
 
   void _debounceSaveImages() {
@@ -1948,13 +2139,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         key: _affinityInterestsKey,
                         flatSubInterests: _flatSubInterests,
                         causesSupported: _causesSupported,
-                        topArtists: _topArtists,
                         isSavingInterests: _savingFields.contains('interests'),
                         isSavingCauses: _savingFields.contains(
                           'causesSupported',
-                        ),
-                        isSavingTopArtists: _savingFields.contains(
-                          'topArtists',
                         ),
                         onInterestsSaved: (val) {
                           final newSubInterests = <String, List<String>>{};
@@ -1987,10 +2174,27 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           setState(() => _causesSupported = val);
                           unawaited(_saveProfileChanges(causesSupported: val));
                         },
-                        onTopArtistsChanged: (val) {
-                          setState(() => _topArtists = val);
-                          unawaited(_saveProfileChanges(topArtists: val));
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer F: Top Artists (Spotify)
+                    _buildStaggeredEntrance(
+                      index: 7,
+                      child: SpotifyArtistsSection(
+                        key: _spotifyArtistsKey,
+                        topArtists: _topArtists,
+                        isSaving: _savingFields.contains('topArtists'),
+                        isConnecting: _isSpotifyConnecting,
+                        onArtistRemoved: (artist) {
+                          final updated = List<String>.from(_topArtists)
+                            ..remove(artist);
+                          setState(() => _topArtists = updated);
+                          unawaited(
+                            _saveProfileChanges(topArtists: updated),
+                          );
                         },
+                        onSpotifyConnect: _connectSpotify,
                       ),
                     ),
                     const SizedBox(height: 24),

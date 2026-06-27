@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     enforce_app_check: bool = True
     enable_replay_protection: bool = True
 
+    # --- Spotify OAuth ---
+    spotify_client_id: str | None = None
+    spotify_client_secret: str | None = None
+    # Must be registered in the Spotify Developer Dashboard.
+    # Example: https://api.yourdomain.com/api/v1/spotify/callback
+    spotify_redirect_uri: str = ""
+
     # --- Rate limiting / network policy ---
     enable_rate_limiting: bool = True
     rate_limit_health: str = "15/minute"

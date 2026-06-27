@@ -19,6 +19,8 @@ class AppConfig {
     required this.logoAssetPath,
     required this.backendUrl,
     required this.appVariant,
+    required this.spotifyClientId,
+    required this.spotifyNativeRedirectUri,
     this.allowedEmailDomain,
   });
 
@@ -28,6 +30,14 @@ class AppConfig {
   final String googleIosClientId;
   final String logoAssetPath;
   final String backendUrl;
+
+  /// Spotify public client ID from the Spotify Developer Dashboard.
+  /// Also register your SHA-1 fingerprints and both redirect URIs there.
+  final String spotifyClientId;
+
+  /// Must match manifestPlaceholders in build.gradle.kts:
+  /// "{redirectSchemeName}://{redirectHostName}"
+  final String spotifyNativeRedirectUri;
 
   /// Which flavor this config profile represents.
   final AppVariant appVariant;
@@ -49,6 +59,8 @@ class AppConfig {
     logoAssetPath: 'assets/nexus.png',
     backendUrl: 'https://192.168.0.103:8000',
     appVariant: AppVariant.nexus,
+    spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
+    spotifyNativeRedirectUri: 'devakesu-nexus://spotify-auth',
   );
 
   static const AppConfig mec = AppConfig(
@@ -60,7 +72,9 @@ class AppConfig {
     logoAssetPath: 'assets/nexus-mec.png',
     backendUrl: 'https://192.168.0.103:8000',
     appVariant: AppVariant.nexusMec,
-    allowedEmailDomain: 'mec.edu.in', // campus domain — update as needed
+    spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
+    spotifyNativeRedirectUri: 'devakesu-nexus-mec://spotify-auth',
+    allowedEmailDomain: 'mec.ac.in',
   );
 
   // ---------------------------------------------------------------------------

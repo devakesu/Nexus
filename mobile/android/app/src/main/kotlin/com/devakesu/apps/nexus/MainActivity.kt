@@ -1,5 +1,76 @@
 package com.devakesu.apps.nexus
 
+import android.content.Intent
+import com.spotify.sdk.android.auth.AuthorizationClient
+import com.spotify.sdk.android.auth.AuthorizationRequest
+import com.spotify.sdk.android.auth.AuthorizationResponse
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+
+    private companion object {
+        const val CHANNEL = "com.devakesu.apps.nexus/spotify_auth"
+        const val SPOTIFY_REQUEST_CODE = 0x5B01
+    }
+
+    private var pendingSpotifyResult: MethodChannel.Result? = null
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "connectSpotify" -> {
+                        val clientId = call.argument<String>("clientId").orEmpty()
+                        val redirectUri = call.argument<String>("redirectUri").orEmpty()
+                        launchSpotifyAuth(clientId, redirectUri, result)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun launchSpotifyAuth(
+        clientId: String,
+        redirectUri: String,
+        result: MethodChannel.Result,
+    ) {
+        if (clientId.isEmpty() || redirectUri.isEmpty()) {
+            result.error("INVALID_CONFIG", "clientId or redirectUri is missing", null)
+            return
+        }
+        pendingSpotifyResult = result
+
+        val request = AuthorizationRequest
+            .Builder(clientId, AuthorizationResponse.Type.CODE, redirectUri)
+            .setScopes(arrayOf("user-top-read"))
+            .build()
+
+        // If the Spotify app is installed, this opens a native one-tap approval overlay.
+        // Otherwise it falls back to Chrome Custom Tabs. We use Authorization Code (not
+        // Implicit Grant) because Spotify deprecated response_type=token.
+        AuthorizationClient.openLoginActivity(this, SPOTIFY_REQUEST_CODE, request)
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != SPOTIFY_REQUEST_CODE) return
+
+        val pending = pendingSpotifyResult ?: return
+        pendingSpotifyResult = null
+
+        val response = AuthorizationClient.getResponse(resultCode, data)
+        when (response.type) {
+            AuthorizationResponse.Type.CODE ->
+                pending.success(response.code)
+            AuthorizationResponse.Type.ERROR ->
+                pending.error("SPOTIFY_AUTH_ERROR", response.error ?: "Unknown error", null)
+            else ->
+                pending.error("SPOTIFY_AUTH_CANCELLED", "User cancelled", null)
+        }
+    }
+}
