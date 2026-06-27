@@ -1250,44 +1250,41 @@ class _OrbitScreenState extends State<OrbitScreen>
       backgroundColor: Colors.transparent,
       builder: (context) {
         return FutureBuilder<Map<String, dynamic>>(
-          future: _fetchNodeDetails(candidateId),
+          future: () async {
+            late Map<String, dynamic> data;
+            await Future.wait<dynamic>([
+              _fetchNodeDetails(candidateId).then((d) => data = d),
+              Future<void>.delayed(const Duration(milliseconds: 1500)),
+            ]);
+            return data;
+          }(),
           builder: (context, snapshot) {
             // ── Loading ──────────────────────────────────────────────────────
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
+                width: double.infinity,
                 height: MediaQuery.of(context).size.height * 0.7,
                 decoration: const BoxDecoration(
                   color: Color(0xFF090D1A),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 48),
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
+                    Positioned(
+                      top: 12,
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                    SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(theme),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Tuning into signal...',
-                      style: TextStyle(
-                        color: theme.withValues(alpha: 0.55),
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
+                    ConstellationLoader(
+                      themeColor: theme,
+                      label: 'LOCKING ONTO SIGNAL',
                     ),
                   ],
                 ),

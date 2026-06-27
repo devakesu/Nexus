@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class ConstellationLoader extends StatefulWidget {
-  const ConstellationLoader({required this.themeColor, super.key});
+  const ConstellationLoader({
+    required this.themeColor,
+    this.label = 'ALIGNING CONSTELLATIONS',
+    super.key,
+  });
 
   final Color themeColor;
+  final String label;
 
   @override
   State<ConstellationLoader> createState() => _ConstellationLoaderState();
@@ -94,7 +99,7 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
           ),
         ),
         const SizedBox(height: 28),
-        _AligningText(themeColor: widget.themeColor, dotsController: _dots),
+        _AligningText(themeColor: widget.themeColor, dotsController: _dots, label: widget.label),
       ],
     );
   }
@@ -103,10 +108,11 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
 // ─── Animated "ALIGNING CONSTELLATIONS" + cycling dots ────────────────────────
 
 class _AligningText extends StatelessWidget {
-  const _AligningText({required this.themeColor, required this.dotsController});
+  const _AligningText({required this.themeColor, required this.dotsController, required this.label});
 
   final Color themeColor;
   final AnimationController dotsController;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +125,7 @@ class _AligningText extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'ALIGNING CONSTELLATIONS',
+              label,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.88),
                 fontSize: 11,
