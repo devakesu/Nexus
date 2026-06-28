@@ -12,6 +12,9 @@ import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/orbit_refresh_notifier.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DatingTab extends StatefulWidget {
@@ -32,6 +35,7 @@ class _DatingTabState extends State<DatingTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late final Dio _dio;
+  StreamSubscription<bool>? _orbitSub;
 
   // State variables for Orbit activation & profile details
   bool _isLoading = true;
@@ -67,10 +71,14 @@ class _DatingTabState extends State<DatingTab>
     unawaited(_loadDatingProfileStatus());
     unawaited(_fetchLikes());
     unawaited(_fetchMatches());
+    _orbitSub = OrbitRefreshNotifier.stream.listen((_) {
+      unawaited(_loadDatingProfileStatusSilent());
+    });
   }
 
   @override
   void dispose() {
+    _orbitSub?.cancel();
     _pulseController.dispose();
     _dio.close();
     super.dispose();
@@ -239,6 +247,11 @@ class _DatingTabState extends State<DatingTab>
 
         if (response.statusCode == 200 && mounted) {
           if (active) {
+            OrbitRefreshNotifier.notifyActivated();
+          } else {
+            OrbitRefreshNotifier.notifyDeactivated();
+          }
+          if (active) {
             await Navigator.push<void>(
               context,
               PageRouteBuilder<void>(
@@ -256,13 +269,7 @@ class _DatingTabState extends State<DatingTab>
               ),
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: Color(0xFF1E293B),
-                content: Text('Dating Orbit Deactivated.'),
-              ),
-            );
+            NexusToast.show(context, 'Dating Orbit Deactivated.');
           }
         } else {
           throw Exception('Failed to toggle orbit state');
@@ -304,19 +311,18 @@ class _DatingTabState extends State<DatingTab>
             unawaited(_showDatingSettingsOverlay(isActivating: true));
             await Future<void>.delayed(const Duration(milliseconds: 380));
             if (!mounted) return;
-            _showFloatingToast(
+            NexusToast.show(
+              context,
               'Complete your Dating settings to activate your orbit.',
-              const Color(0xFFFF4F81),
+              type: NexusToastType.error,
             );
             return;
           }
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-            content: Text('Dating Profile is incomplete.'),
-          ),
+        NexusToast.show(
+          context,
+          'Dating Profile is incomplete.',
+          type: NexusToastType.error,
         );
       }
     } on Exception catch (e) {
@@ -454,58 +460,6 @@ class _DatingTabState extends State<DatingTab>
         );
       },
     ));
-  }
-
-  void _showFloatingToast(String message, Color color) {
-    final overlay = Navigator.of(context).overlay;
-    if (overlay == null) return;
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (ctx) => Positioned(
-        top: MediaQuery.of(ctx).padding.top + 12,
-        left: 16,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(LucideIcons.info, color: Colors.white, size: 17),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    overlay.insert(entry);
-    unawaited(
-      Future<void>.delayed(const Duration(seconds: 3)).then((_) {
-        if (entry.mounted) entry.remove();
-      }),
-    );
   }
 
   // Show slide-up Dating Settings overlay
@@ -902,7 +856,7 @@ class _DatingTabState extends State<DatingTab>
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: const Center(
-                  child: CircularProgressIndicator(color: themeColor),
+                  child: NexusOrbitLoader(size: 56),
                 ),
               );
             }
@@ -1076,7 +1030,7 @@ class _DatingTabState extends State<DatingTab>
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(child: CircularProgressIndicator(color: themeColor)),
+        body: Center(child: NexusOrbitLoader(size: 64, lightMode: true)),
       );
     }
 

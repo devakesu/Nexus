@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class FriendsSettingsOverlay extends StatefulWidget {
   const FriendsSettingsOverlay({
@@ -156,16 +157,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     if (widget.savingFields.contains('friends_target_buckets'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFFF9F1C),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -251,16 +243,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     if (widget.savingFields.contains('sub_interests'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFFF9F1C),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -391,16 +374,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     if (widget.savingFields.contains('causes_supported'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFFF9F1C),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),

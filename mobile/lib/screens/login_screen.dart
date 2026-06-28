@@ -13,6 +13,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/login/widgets/login_painters.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -333,14 +334,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _sendEmailOtp() async {
     if (_resendCountdown > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFD32F2F),
-          content: Text(
-            'Please wait $_resendCountdown seconds before requesting another code.',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please wait $_resendCountdown seconds before requesting another code.',
+        type: NexusToastType.error,
       );
       return;
     }
@@ -348,14 +345,10 @@ class _LoginScreenState extends State<LoginScreen>
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter your email address.',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter your email address.',
+        type: NexusToastType.error,
       );
       return;
     }
@@ -364,14 +357,10 @@ class _LoginScreenState extends State<LoginScreen>
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     );
     if (!emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter a valid email address.',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter a valid email address.',
+        type: NexusToastType.error,
       );
       return;
     }
@@ -391,14 +380,10 @@ class _LoginScreenState extends State<LoginScreen>
           _resendCountdown = 60;
           _startCountdown();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFFFF7597),
-            content: Text(
-              'OTP sent successfully!',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          'OTP sent successfully!',
+          type: NexusToastType.success,
         );
       }
     } on Object catch (e, stackTrace) {
@@ -418,14 +403,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _sendOtp() async {
     if (_resendCountdown > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFD32F2F),
-          content: Text(
-            'Please wait $_resendCountdown seconds before requesting another code.',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please wait $_resendCountdown seconds before requesting another code.',
+        type: NexusToastType.error,
       );
       return;
     }
@@ -433,28 +414,20 @@ class _LoginScreenState extends State<LoginScreen>
     final phone = _phoneController.text.trim();
 
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter your phone number.',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter your phone number.',
+        type: NexusToastType.error,
       );
       return;
     }
 
     final phoneRegex = RegExp(r'^\+[1-9]\d{7,14}$');
     if (!phoneRegex.hasMatch(phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter a valid phone number starting with + (e.g. +1234567890).',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter a valid phone number starting with + (e.g. +1234567890).',
+        type: NexusToastType.error,
       );
       return;
     }
@@ -474,14 +447,10 @@ class _LoginScreenState extends State<LoginScreen>
           _resendCountdown = 60;
           _startCountdown();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFFFF7597),
-            content: Text(
-              'OTP sent successfully!',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          'OTP sent successfully!',
+          type: NexusToastType.success,
         );
       }
     } on Object catch (e, stackTrace) {
@@ -521,27 +490,19 @@ class _LoginScreenState extends State<LoginScreen>
     final code = _otpController.text.trim();
 
     if (target.isEmpty || code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter the OTP verification code.',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter the OTP verification code.',
+        type: NexusToastType.error,
       );
       return;
     }
 
     if (code.length != 8 || !RegExp(r'^\d{8}$').hasMatch(code)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Color(0xFFD32F2F),
-          content: Text(
-            'Please enter a valid 8-digit OTP code (digits only).',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Please enter a valid 8-digit OTP code (digits only).',
+        type: NexusToastType.error,
       );
       return;
     }

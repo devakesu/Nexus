@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class DatingSettingsOverlay extends StatefulWidget {
   const DatingSettingsOverlay({
@@ -194,16 +195,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             if (widget.savingFields.contains('dating_target_buckets'))
                               const Padding(
                                 padding: EdgeInsets.only(left: 8),
-                                child: SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFFF4F81),
-                                    ),
-                                  ),
-                                ),
+                                child: NexusOrbitLoader(size: 16, lightMode: true),
                               ),
                           ],
                         ),
@@ -298,16 +290,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             if (widget.savingFields.contains('dating_for'))
                               const Padding(
                                 padding: EdgeInsets.only(left: 8),
-                                child: SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFFF4F81),
-                                    ),
-                                  ),
-                                ),
+                                child: NexusOrbitLoader(size: 16, lightMode: true),
                               ),
                           ],
                         ),
@@ -411,16 +394,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             if (widget.savingFields.contains('partner_values'))
                               const Padding(
                                 padding: EdgeInsets.only(left: 8),
-                                child: SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFFF4F81),
-                                    ),
-                                  ),
-                                ),
+                                child: NexusOrbitLoader(size: 16, lightMode: true),
                               ),
                           ],
                         ),

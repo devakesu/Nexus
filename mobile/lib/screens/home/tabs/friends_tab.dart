@@ -11,6 +11,9 @@ import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/orbit_refresh_notifier.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendsTab extends StatefulWidget {
@@ -30,6 +33,7 @@ class FriendsTab extends StatefulWidget {
 class _FriendsTabState extends State<FriendsTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  StreamSubscription<bool>? _orbitSub;
 
   bool _isLoading = true;
   bool _isOrbitActive = false;
@@ -57,10 +61,14 @@ class _FriendsTabState extends State<FriendsTab>
     unawaited(_loadFriendsProfileStatus());
     unawaited(_fetchWaves());
     unawaited(_fetchFriends());
+    _orbitSub = OrbitRefreshNotifier.stream.listen((_) {
+      unawaited(_loadFriendsProfileStatusSilent());
+    });
   }
 
   @override
   void dispose() {
+    _orbitSub?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -255,6 +263,11 @@ class _FriendsTabState extends State<FriendsTab>
         );
 
         if (response.statusCode == 200 && mounted) {
+          if (active) {
+            OrbitRefreshNotifier.notifyActivated();
+          } else {
+            OrbitRefreshNotifier.notifyDeactivated();
+          }
           setState(() => _isOrbitActive = active);
           if (active) {
             await Navigator.push<void>(
@@ -271,13 +284,7 @@ class _FriendsTabState extends State<FriendsTab>
               ),
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: Color(0xFF1E293B),
-                content: Text('Friends Orbit Deactivated.'),
-              ),
-            );
+            NexusToast.show(context, 'Friends Orbit Deactivated.');
           }
         }
       }
@@ -309,19 +316,18 @@ class _FriendsTabState extends State<FriendsTab>
             unawaited(_showFriendsSettingsOverlay(isActivating: true));
             await Future<void>.delayed(const Duration(milliseconds: 380));
             if (!mounted) return;
-            _showFloatingToast(
+            NexusToast.show(
+              context,
               'Complete your Friends settings to activate your orbit.',
-              const Color(0xFFFF9F1C),
+              type: NexusToastType.error,
             );
             return;
           }
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-            content: Text('Friends Profile is incomplete.'),
-          ),
+        NexusToast.show(
+          context,
+          'Friends Profile is incomplete.',
+          type: NexusToastType.error,
         );
       }
     } on Exception catch (e) {
@@ -447,58 +453,6 @@ class _FriendsTabState extends State<FriendsTab>
         );
       },
     ));
-  }
-
-  void _showFloatingToast(String message, Color color) {
-    final overlay = Navigator.of(context).overlay;
-    if (overlay == null) return;
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (ctx) => Positioned(
-        top: MediaQuery.of(ctx).padding.top + 12,
-        left: 16,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(LucideIcons.info, color: Colors.white, size: 17),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    overlay.insert(entry);
-    unawaited(
-      Future<void>.delayed(const Duration(seconds: 3)).then((_) {
-        if (entry.mounted) entry.remove();
-      }),
-    );
   }
 
   Future<void> _showFriendsSettingsOverlay({bool isActivating = false}) async {
@@ -897,7 +851,7 @@ class _FriendsTabState extends State<FriendsTab>
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: const Center(
-                  child: CircularProgressIndicator(color: themeColor),
+                  child: NexusOrbitLoader(size: 56),
                 ),
               );
             }
@@ -1030,7 +984,7 @@ class _FriendsTabState extends State<FriendsTab>
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(child: CircularProgressIndicator(color: themeColor)),
+        body: Center(child: NexusOrbitLoader(size: 64, lightMode: true)),
       );
     }
 

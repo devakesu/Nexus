@@ -1,6 +1,17 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/settings/blocked_users_page.dart';
+import 'package:nexus/screens/settings/hidden_users_page.dart';
+import 'package:nexus/screens/settings/privacy_settings_page.dart';
+import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/orbit_refresh_notifier.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -8,26 +19,240 @@ const _kAuthorName = '@deva.kesu';
 const _kAuthorUrl = 'https://devakesu.com';
 const _kGithubUrl = 'https://github.com/devakesu/Nexus';
 
-class SettingsTab extends StatelessWidget {
+enum _PauseStatus { loading, active, paused, error }
+
+class SettingsTab extends StatefulWidget {
   const SettingsTab({required this.onOpenOrbit, super.key});
 
   // Kept for home_screen.dart compatibility — not used in this screen.
   final void Function(String, Color) onOpenOrbit;
 
+  @override
+  State<SettingsTab> createState() => _SettingsTabState();
+}
+
+class _SettingsTabState extends State<SettingsTab> {
   static const _accent = Color(0xFF0284C7);
+
+  _PauseStatus _pauseStatus = _PauseStatus.loading;
+  late final Dio _dio;
+  final SupabaseClient _client = Supabase.instance.client;
+  StreamSubscription<bool>? _orbitSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _dio = createDio();
+    unawaited(_loadPauseStatus());
+    _orbitSub = OrbitRefreshNotifier.stream.listen(_onOrbitChange);
+  }
+
+  void _onOrbitChange(bool activated) {
+    if (!mounted) return;
+    if (activated) {
+      setState(() => _pauseStatus = _PauseStatus.active);
+    } else {
+      unawaited(_loadPauseStatus());
+    }
+  }
+
+  @override
+  void dispose() {
+    _orbitSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadPauseStatus() async {
+    try {
+      final session = _client.auth.currentSession;
+      if (session == null) {
+        if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
+        return;
+      }
+      final data = await NetworkUtils.fetchProfileDetails(
+        _dio,
+        session.accessToken,
+      );
+      if (!mounted) return;
+      if (data == null) {
+        setState(() => _pauseStatus = _PauseStatus.error);
+        return;
+      }
+      final isDatingActive = data['is_dating_active'] == true;
+      final isFriendsActive = data['is_friends_active'] == true;
+      final isProfessionalActive = data['is_professional_active'] == true;
+      final isAnyActive = isDatingActive || isFriendsActive || isProfessionalActive;
+      setState(
+        () => _pauseStatus = isAnyActive ? _PauseStatus.active : _PauseStatus.paused,
+      );
+    } on Exception catch (_) {
+      if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
+    }
+  }
+
+  Future<void> _pauseMatching() async {
+    setState(() => _pauseStatus = _PauseStatus.loading);
+    try {
+      final session = _client.auth.currentSession;
+      if (session == null) throw Exception('Not signed in');
+      await _dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/details',
+        data: {
+          'is_dating_active': false,
+          'is_friends_active': false,
+          'is_professional_active': false,
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
+      );
+      if (mounted) setState(() => _pauseStatus = _PauseStatus.paused);
+      OrbitRefreshNotifier.notifyDeactivated();
+    } on Exception catch (_) {
+      if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
+    }
+  }
+
+  Future<void> _handlePauseTap() async {
+    if (_pauseStatus == _PauseStatus.loading) return;
+
+    if (_pauseStatus == _PauseStatus.paused) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Matching is Paused',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+          ),
+          content: Text(
+            "You're not visible to others and won't appear in anyone's Orbit. "
+            'To resume, activate individual Orbits from their tabs.',
+            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // _pauseStatus == active (or error — treat as active to allow retry)
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Pause Matching?',
+          style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'All 3 Orbits will be deactivated:',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const _OrbitBullet(
+              label: 'Dating',
+              color: Color(0xFFFF2A54),
+            ),
+            const _OrbitBullet(
+              label: 'Friends',
+              color: Color(0xFFD32F2F),
+            ),
+            const _OrbitBullet(
+              label: 'Professional',
+              color: Color(0xFF00796B),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "You won't be visible to others and won't be able to discover new profiles until you re-activate an Orbit.",
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Pause',
+              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _pauseMatching();
+    }
+  }
+
+  Widget _buildPauseIndicator() {
+    return switch (_pauseStatus) {
+      _PauseStatus.loading => const NexusOrbitLoader(size: 20, lightMode: true),
+      _PauseStatus.active => const _StatusDot(
+        label: 'Active',
+        color: Color(0xFF16A34A),
+      ),
+      _PauseStatus.paused => const _StatusDot(
+        label: 'Paused',
+        color: Color(0xFFF59E0B),
+      ),
+      _PauseStatus.error => const Icon(
+        LucideIcons.chevronRight,
+        color: Color(0xFFCBD5E1),
+        size: 16,
+      ),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 120),
-      children: const [
-        _NexusBranding(),
-        SizedBox(height: 4),
-        _SettingsSection(
+      children: [
+        const _NexusBranding(),
+        const SizedBox(height: 4),
+        const _SettingsSection(
           title: 'Account',
           accentColor: _accent,
           tiles: [
-            _TileSpec(icon: LucideIcons.userCog, label: 'Edit Profile'),
             _TileSpec(
               icon: LucideIcons.sparkles,
               label: 'Nexus+',
@@ -36,22 +261,7 @@ class SettingsTab extends StatelessWidget {
             _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
           ],
         ),
-        _SettingsSection(
-          title: 'Discovery',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(
-              icon: LucideIcons.sliders,
-              label: 'Discovery Preferences',
-            ),
-            _TileSpec(icon: LucideIcons.eyeOff, label: 'Hide My Profile'),
-            _TileSpec(
-              icon: LucideIcons.pauseCircle,
-              label: 'Pause Matching',
-            ),
-          ],
-        ),
-        _SettingsSection(
+        const _SettingsSection(
           title: 'Notifications',
           accentColor: _accent,
           tiles: [
@@ -63,42 +273,71 @@ class SettingsTab extends StatelessWidget {
           title: 'Privacy & Safety',
           accentColor: _accent,
           tiles: [
-            _TileSpec(icon: LucideIcons.shield, label: 'Privacy Settings'),
-            _TileSpec(icon: LucideIcons.ban, label: 'Blocked Users'),
-            _TileSpec(icon: LucideIcons.ghost, label: 'Incognito Mode'),
             _TileSpec(
+              icon: LucideIcons.shield,
+              label: 'Privacy Settings',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PrivacySettingsPage(),
+                ),
+              ),
+            ),
+            _TileSpec(
+              icon: LucideIcons.ban,
+              label: 'Blocked Users',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BlockedUsersPage(),
+                ),
+              ),
+            ),
+            _TileSpec(
+              icon: LucideIcons.eyeOff,
+              label: 'Hidden Users',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const HiddenUsersPage(),
+                ),
+              ),
+            ),
+            _TileSpec(
+              icon: LucideIcons.pauseCircle,
+              label: 'Pause Matching',
+              trailing: _buildPauseIndicator(),
+              onTap: _handlePauseTap,
+            ),
+            const _TileSpec(
               icon: LucideIcons.heartHandshake,
               label: 'Safety Center',
             ),
           ],
         ),
-        _SettingsSection(
+        const _SettingsSection(
           title: 'Help & Support',
           accentColor: _accent,
           tiles: [
             _TileSpec(icon: LucideIcons.helpCircle, label: 'Help Center'),
             _TileSpec(
               icon: LucideIcons.messageSquare,
-              label: 'Send Feedback',
+              label: 'Feedback & Bug Report',
             ),
-            _TileSpec(icon: LucideIcons.bug, label: 'Report a Bug'),
+          ],
+        ),
+        const _SettingsSection(
+          title: 'Legal',
+          accentColor: _accent,
+          tiles: [
+            _TileSpec(icon: LucideIcons.fileText, label: 'Privacy Policy'),
+            _TileSpec(icon: LucideIcons.scroll, label: 'Terms of Service'),
             _TileSpec(
               icon: LucideIcons.bookOpen,
               label: 'Community Guidelines',
             ),
           ],
         ),
-        _SettingsSection(
-          title: 'Legal',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(icon: LucideIcons.fileText, label: 'Privacy Policy'),
-            _TileSpec(icon: LucideIcons.scroll, label: 'Terms of Service'),
-          ],
-        ),
-        SizedBox(height: 8),
-        _AccountActionsSection(),
-        SizedBox(height: 28),
+        const SizedBox(height: 8),
+        const _AccountActionsSection(),
+        const SizedBox(height: 28),
       ],
     );
   }
@@ -253,10 +492,19 @@ class _BrandingChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _TileSpec {
-  const _TileSpec({required this.icon, required this.label, this.badge});
+  const _TileSpec({
+    required this.icon,
+    required this.label,
+    this.badge,
+    this.trailing,
+    this.onTap,
+  });
   final IconData icon;
   final String label;
   final String? badge;
+  // Overrides the badge + chevron area when set.
+  final Widget? trailing;
+  final VoidCallback? onTap;
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -340,22 +588,8 @@ class _SettingsTile extends StatelessWidget {
     return Column(
       children: [
         InkWell(
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF1E293B),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              content: Text(
-                '${spec.label} — coming soon.',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
+          onTap: spec.onTap ??
+              () => NexusToast.show(context, '${spec.label} — coming soon.'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(
@@ -380,33 +614,37 @@ class _SettingsTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (spec.badge != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      spec.badge!,
-                      style: GoogleFonts.manrope(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
+                if (spec.trailing != null)
+                  spec.trailing!
+                else ...[
+                  if (spec.badge != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        spec.badge!,
+                        style: GoogleFonts.manrope(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                  ],
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    color: Color(0xFFCBD5E1),
+                    size: 16,
                   ),
-                  const SizedBox(width: 8),
                 ],
-                const Icon(
-                  LucideIcons.chevronRight,
-                  color: Color(0xFFCBD5E1),
-                  size: 16,
-                ),
               ],
             ),
           ),
@@ -418,6 +656,72 @@ class _SettingsTile extends StatelessWidget {
             color: const Color(0xFFE2E8F0),
           ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pause Matching helper widgets
+// ---------------------------------------------------------------------------
+
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OrbitBullet extends StatelessWidget {
+  const _OrbitBullet({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF334155),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -529,16 +833,9 @@ class _AccountActionsSection extends StatelessWidget {
   }
 
   void _warnDeleteAccount(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: const Text(
-          'Account deletion coming soon. Contact support to proceed.',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-      ),
+    NexusToast.show(
+      context,
+      'Account deletion coming soon. Contact support to proceed.',
     );
   }
 }

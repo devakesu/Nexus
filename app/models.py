@@ -1022,3 +1022,7 @@ class ProfileDetailsUpdate(BaseModel):
     is_dating_active: bool | None = None
     is_friends_active: bool | None = None
     is_professional_active: bool | None = None
+
+
+class ModerationSubjectsRequest(BaseModel):
+    target_ids: list[str] = Field(..., min_length=1, max_length=50)

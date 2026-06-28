@@ -15,6 +15,7 @@ import 'package:nexus/screens/orbit/widgets/orbit_filters_panel.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_painters.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OrbitNode {
@@ -1100,24 +1101,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       }
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Color(0xFF1E293B),
-        content: Row(
-          children: [
-            Icon(LucideIcons.compass, color: Colors.white, size: 18),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Moved to deep space.',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    NexusToast.show(context, 'Moved to deep space.');
   }
 
   Future<void> _recordPassAction(String candidateId) async {
@@ -1174,46 +1158,13 @@ class _OrbitScreenState extends State<OrbitScreen>
 
       if (response.statusCode == 200) {
         if (mounted) {
-          final (Color bg, IconData icon, String message) = switch (actionType) {
-            'like' || 'superlike' => (
-                const Color(0xFFFF4F81),
-                LucideIcons.heartHandshake,
-                'Pulled into your gravity!',
-              ),
-            'block' => (
-                const Color(0xFF1E293B),
-                LucideIcons.shieldOff,
-                'User blocked.',
-              ),
-            'report' => (
-                const Color(0xFF1E293B),
-                LucideIcons.flag,
-                'Report submitted. Thanks for keeping the space safe.',
-              ),
-            _ => (
-                const Color(0xFF1E293B),
-                LucideIcons.eyeOff,
-                'User hidden.',
-              ),
+          final (NexusToastType toastType, String message) = switch (actionType) {
+            'like' || 'superlike' => (NexusToastType.success, 'Pulled into your gravity!'),
+            'block'  => (NexusToastType.info, 'User blocked.'),
+            'report' => (NexusToastType.info, 'Report submitted. Thanks for keeping the space safe.'),
+            _        => (NexusToastType.info, 'User hidden.'),
           };
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: bg,
-              content: Row(
-                children: [
-                  Icon(icon, color: Colors.white, size: 18),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      message,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          NexusToast.show(context, message, type: toastType);
         }
       } else {
         throw Exception('Server returned status code ${response.statusCode}');
@@ -1230,12 +1181,10 @@ class _OrbitScreenState extends State<OrbitScreen>
           });
         }
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text('Action failed: $friendlyMsg'),
-          ),
+        NexusToast.show(
+          context,
+          'Action failed: $friendlyMsg',
+          type: NexusToastType.error,
         );
       }
     }

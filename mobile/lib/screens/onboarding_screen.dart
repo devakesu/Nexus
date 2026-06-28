@@ -10,6 +10,7 @@ import 'package:nexus/screens/onboarding/nexus_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/otp_verification_dialog.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -239,12 +240,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFFD32F2F),
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-      ),
-    );
+    NexusToast.show(context, message, type: NexusToastType.error);
   }
 
   void _openImportDialog() {

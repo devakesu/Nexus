@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ExportCodeCard extends StatefulWidget {
@@ -84,27 +85,19 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
       } else {
         final detail = response.data?['detail'] ?? 'Failed to generate code.';
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFFD32F2F),
-              content: Text(
-                detail.toString(),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
+          NexusToast.show(
+            context,
+            detail.toString(),
+            type: NexusToastType.error,
           );
         }
       }
     } on Object catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFD32F2F),
-            content: Text(
-              ErrorHandler.getFriendlyMessage(e),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          ErrorHandler.getFriendlyMessage(e),
+          type: NexusToastType.error,
         );
       }
     } finally {
@@ -115,12 +108,11 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
   void _copyCode() {
     if (_code == null) return;
     unawaited(Clipboard.setData(ClipboardData(text: _code!)));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: Color(0xFF161B26),
-        content: Text('Code copied!', style: TextStyle(color: Colors.white)),
-        duration: Duration(seconds: 1),
-      ),
+    NexusToast.show(
+      context,
+      'Code copied!',
+      type: NexusToastType.success,
+      duration: const Duration(seconds: 1),
     );
   }
 

@@ -6,10 +6,18 @@ import 'package:flutter_animate/flutter_animate.dart';
 /// 1. Nexus Orbit Loader (Google Sign-In Loading Animation)
 /// Features a central core with three colorful nodes (Dating, Friends, Pro)
 /// orbiting in distinct elliptical paths with glow effects.
+///
+/// [lightMode] swaps white orbit rings / core for slate-toned equivalents so
+/// the loader looks correct on light scaffold backgrounds.
 class NexusOrbitLoader extends StatefulWidget {
-  const NexusOrbitLoader({super.key, this.size = 80.0});
+  const NexusOrbitLoader({
+    super.key,
+    this.size = 80.0,
+    this.lightMode = false,
+  });
 
   final double size;
+  final bool lightMode;
 
   @override
   State<NexusOrbitLoader> createState() => _NexusOrbitLoaderState();
@@ -45,6 +53,7 @@ class _NexusOrbitLoaderState extends State<NexusOrbitLoader> with SingleTickerPr
           return CustomPaint(
             painter: _OrbitPainter(
               progress: _controller.value,
+              lightMode: widget.lightMode,
             ),
           );
         },
@@ -54,9 +63,10 @@ class _NexusOrbitLoaderState extends State<NexusOrbitLoader> with SingleTickerPr
 }
 
 class _OrbitPainter extends CustomPainter {
-  _OrbitPainter({required this.progress});
+  _OrbitPainter({required this.progress, this.lightMode = false});
 
   final double progress;
+  final bool lightMode;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -64,7 +74,9 @@ class _OrbitPainter extends CustomPainter {
     final maxRadius = size.width / 2;
 
     final paintOrbit = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
+      ..color = lightMode
+          ? const Color(0xFF94A3B8).withValues(alpha: 0.2)
+          : Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -72,32 +84,37 @@ class _OrbitPainter extends CustomPainter {
     canvas
       ..drawCircle(center, maxRadius * 0.5, paintOrbit)
       ..drawCircle(center, maxRadius * 0.8, paintOrbit);
-    
-    // Draw central white core pulsing
-    final corePulse = 4.0 + 2.0 * math.sin(progress * 2 * math.pi);
+
+    // Central core — proportional to canvas size
+    final corePulse =
+        maxRadius * 0.1 + maxRadius * 0.05 * math.sin(progress * 2 * math.pi);
     final corePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill
-      ..imageFilter = null;
+      ..color = lightMode ? const Color(0xFF334155) : Colors.white
+      ..style = PaintingStyle.fill;
     canvas.drawCircle(center, corePulse, corePaint);
+
+    // Particle radii proportional to size, clamped to avoid overflow at tiny sizes.
+    final p1r = (maxRadius * 0.125).clamp(1.5, 7.0);
+    final p2r = (maxRadius * 0.163).clamp(1.5, 8.0);
+    final p3r = (maxRadius * 0.100).clamp(1.5, 6.0);
 
     // Orbiting particle 1: Dating (Red) - Inner orbit
     final angle1 = progress * 2 * math.pi;
     final r1 = maxRadius * 0.5;
     final p1 = center + Offset(math.cos(angle1) * r1, math.sin(angle1) * r1);
-    _drawGlowingParticle(canvas, p1, const Color(0xFFFF7597), 5);
+    _drawGlowingParticle(canvas, p1, const Color(0xFFFF7597), p1r);
 
     // Orbiting particle 2: Friends (Sunset Gold) - Middle orbit, counter-clockwise
     final angle2 = -progress * 2 * math.pi + (math.pi / 3);
     final r2 = maxRadius * 0.75;
-    final p2 = center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8); // Elliptical
-    _drawGlowingParticle(canvas, p2, const Color(0xFFFFB03A), 6.5);
+    final p2 = center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8);
+    _drawGlowingParticle(canvas, p2, const Color(0xFFFFB03A), p2r);
 
     // Orbiting particle 3: Pro (Neon Teal) - Outer orbit, faster
     final angle3 = progress * 3 * math.pi + (math.pi * 2 / 3);
     final r3 = maxRadius * 0.95;
-    final p3 = center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3); // Elliptical
-    _drawGlowingParticle(canvas, p3, const Color(0xFF00F5D4), 4);
+    final p3 = center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
+    _drawGlowingParticle(canvas, p3, const Color(0xFF00F5D4), p3r);
   }
 
   void _drawGlowingParticle(Canvas canvas, Offset position, Color color, double radius) {

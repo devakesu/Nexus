@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Let's import showProfileBlockDialog / showProfileReportDialog if they are defined globally or helper imports.
@@ -500,19 +501,9 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Chat',
                                           onPressed: () {
-                                            ScaffoldMessenger.of(
+                                            NexusToast.show(
                                               context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                backgroundColor: Color(
-                                                  0xFF1E293B,
-                                                ),
-                                                content: Text(
-                                                  'Chat coming soon 💬',
-                                                ),
-                                              ),
+                                              'Chat coming soon 💬',
                                             );
                                           },
                                         ),

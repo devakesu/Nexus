@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dialog to verify the phone number using OTP.
@@ -87,14 +88,10 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
       );
       if (mounted) {
         _startCountdown();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Color(0xFFFF7597),
-            content: Text(
-              'OTP resent successfully!',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          'OTP resent successfully!',
+          type: NexusToastType.success,
         );
       }
     } on Object catch (e, stackTrace) {

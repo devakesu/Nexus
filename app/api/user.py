@@ -40,6 +40,7 @@ from app.models import (
     AuthBootstrapResponse,
     CompleteOnboardingResponse,
     MECOnboardingRequest,
+    ModerationSubjectsRequest,
     OnboardingPayload,
     ProfileDetailsUpdate,
     ProfileImagesAndTagsUpdate,
@@ -406,6 +407,64 @@ def get_profile_details(
             status_code=500,
             detail="Internal server error.",
         ) from e
+
+
+@router.post("/api/v1/users/moderation-subjects")
+def get_moderation_subjects(
+    payload: ModerationSubjectsRequest = Body(...),  # noqa: B008
+    user_id: str = Depends(get_authenticated_user_id),
+) -> list[dict[str, Any]]:
+    """
+    Returns basic decrypted profile info for users the caller has actively blocked or hidden.
+    Validates each requested target_id against profile_discovery_actions before returning data.
+    """
+    try:
+        validated_res = (
+            supabase_client.table("profile_discovery_actions")
+            .select("target_id")
+            .eq("actor_id", user_id)
+            .in_("target_id", payload.target_ids)
+            .in_("action", ["block", "hide"])
+            .is_("revoked_at", "null")
+            .execute()
+        )
+        valid_ids = list({row["target_id"] for row in (validated_res.data or [])})
+        if not valid_ids:
+            return []
+
+        profiles_res = (
+            supabase_client.table("profiles")
+            .select(
+                "id, name, age, campus_year, campus_name, campus_branch, "
+                "hometown, current_place, profile_pic"
+            )
+            .in_("id", valid_ids)
+            .execute()
+        )
+
+        results: list[dict[str, Any]] = []
+        for row in profiles_res.data or []:
+            try:
+                decrypted = decrypt_profile_record(dict(row))
+            except Exception:
+                decrypted = dict(row)
+            results.append(
+                {
+                    "id": decrypted.get("id"),
+                    "name": decrypted.get("name"),
+                    "age": decrypted.get("age"),
+                    "campus_year": decrypted.get("campus_year"),
+                    "campus_name": decrypted.get("campus_name"),
+                    "campus_branch": decrypted.get("campus_branch"),
+                    "hometown": decrypted.get("hometown"),
+                    "current_place": decrypted.get("current_place"),
+                    "profile_pic": decrypted.get("profile_pic"),
+                }
+            )
+        return results
+    except Exception as e:
+        logger.exception("Failed to fetch moderation subjects")
+        raise HTTPException(status_code=500, detail="Internal server error.") from e
 
 
 def _resolve_field(

@@ -25,6 +25,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -539,16 +540,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       debugPrint('[ProfileTab] Error loading profile details: $e');
       if (mounted) {
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text('Failed to load profile: $friendlyMsg'),
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () => unawaited(_loadProfileData()),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          'Failed to load profile: $friendlyMsg',
+          type: NexusToastType.error,
         );
         
         // Handle session/auth failure specifically
@@ -806,20 +801,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFF161B26),
-              content: const Text(
-                'Cosmic frequency synchronized.',
-                style: TextStyle(color: Color(0xFFE2D9F3), fontSize: 13),
-              ),
-              duration: const Duration(seconds: 2),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.all(20),
-            ),
+          NexusToast.show(
+            context,
+            'Cosmic frequency synchronized.',
+            type: NexusToastType.success,
+            duration: const Duration(seconds: 2),
           );
         }
       }
@@ -868,19 +854,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         });
 
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text(
-              'Failed to synchronize cosmic frequency: $friendlyMsg',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(20),
-          ),
+        NexusToast.show(
+          context,
+          'Failed to synchronize cosmic frequency: $friendlyMsg',
+          type: NexusToastType.error,
         );
       }
     } finally {
@@ -981,19 +958,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           _topArtists = artists;
           _savedTopArtists = List<String>.from(artists);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF1A1E2E),
-            content: Text(
-              'Synced ${artists.length} top artists from Spotify!',
-              style: const TextStyle(color: Colors.white),
-            ),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          'Synced ${artists.length} top artists from Spotify!',
+          type: NexusToastType.success,
         );
       }
     } on PlatformException catch (e) {
@@ -1005,21 +973,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         await _connectSpotifyBrowser();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text('Spotify auth failed: ${e.message ?? e.code}'),
-        ),
+      NexusToast.show(
+        context,
+        'Spotify auth failed: ${e.message ?? e.code}',
+        type: NexusToastType.error,
       );
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text(
-            'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
+        type: NexusToastType.error,
       );
     } finally {
       if (mounted) setState(() => _isSpotifyConnecting = false);
@@ -1104,13 +1068,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       }
     } on Object catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text(
-            'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
-          ),
-        ),
+      NexusToast.show(
+        context,
+        'Failed to connect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
+        type: NexusToastType.error,
       );
     } finally {
       if (mounted) setState(() => _isSpotifyConnecting = false);
@@ -1154,11 +1115,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         ref.read(clientAIImageManagerProvider.notifier).restoreBackup();
 
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text('Failed to save profile changes: $friendlyMsg'),
-          ),
+        NexusToast.show(
+          context,
+          'Failed to save profile changes: $friendlyMsg',
+          type: NexusToastType.error,
         );
       }
     });
@@ -1182,11 +1142,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         _imagePaths[toIndex] = temp;
       });
       final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text('Failed to swap images: $friendlyMsg'),
-        ),
+      NexusToast.show(
+        context,
+        'Failed to swap images: $friendlyMsg',
+        type: NexusToastType.error,
       );
     }
   }
@@ -1218,16 +1177,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           _imagePaths[slotIndex] = oldPaths[slotIndex];
         });
         final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            content: Text(
-              e.toString().contains('Bucket not found')
-                  ? 'Failed to sync media: Storage bucket not configured'
-                  : 'Failed to sync media: $friendlyMsg',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ),
+        NexusToast.show(
+          context,
+          e.toString().contains('Bucket not found')
+              ? 'Failed to sync media: Storage bucket not configured'
+              : 'Failed to sync media: $friendlyMsg',
+          type: NexusToastType.error,
         );
       }
     }
@@ -1260,11 +1215,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           ..addAll(oldPaths);
       });
       final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Theme.of(context).colorScheme.error,
-          content: Text('Failed to clear image: $friendlyMsg'),
-        ),
+      NexusToast.show(
+        context,
+        'Failed to clear image: $friendlyMsg',
+        type: NexusToastType.error,
       );
     }
   }

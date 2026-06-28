@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class ProfessionalSettingsOverlay extends StatefulWidget {
   const ProfessionalSettingsOverlay({
@@ -221,16 +222,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     if (widget.savingFields.contains('professional_target_buckets'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF00C4AB),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -316,16 +308,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     if (widget.savingFields.contains('role_type'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF00C4AB),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -394,16 +377,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     if (widget.savingFields.contains('role_at'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF00C4AB),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -500,16 +474,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     if (widget.savingFields.contains('looking_for'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF00C4AB),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
@@ -578,16 +543,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     if (widget.savingFields.contains('tech_skills'))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF00C4AB),
-                            ),
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
                       ),
                   ],
                 ),
