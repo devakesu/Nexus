@@ -428,7 +428,9 @@ def get_moderation_subjects(
             .is_("revoked_at", "null")
             .execute()
         )
-        valid_ids = list({row["target_id"] for row in (validated_res.data or [])})
+        valid_ids: list[str] = list(
+            {row["target_id"] for row in cast(list[dict[str, Any]], validated_res.data or [])}
+        )
         if not valid_ids:
             return []
 
@@ -443,7 +445,7 @@ def get_moderation_subjects(
         )
 
         results: list[dict[str, Any]] = []
-        for row in profiles_res.data or []:
+        for row in cast(list[dict[str, Any]], profiles_res.data or []):
             try:
                 decrypted = decrypt_profile_record(dict(row))
             except Exception:
@@ -724,7 +726,12 @@ def update_profile_details(  # noqa: C901
     if need_profile_fetch:
         profile_res = (
             supabase_client.table("profiles")
-            .select("*")
+            .select(
+                "name,age,profile_pic,normal_pics,interests,sub_interests,"
+                "drinking,smoking,partner_values,dating_target_buckets,dating_for,"
+                "friends_target_buckets,causes_supported,"
+                "professional_target_buckets,looking_for,tech_skills"
+            )
             .eq("id", user_id)
             .maybe_single()
             .execute()

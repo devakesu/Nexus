@@ -519,6 +519,70 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
+class _ConfirmDialog extends StatelessWidget {
+  const _ConfirmDialog({
+    required this.name,
+    required this.message,
+    required this.confirmLabel,
+  });
+
+  final String name;
+  final String message;
+  final String confirmLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+      contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      title: Text(
+        '$confirmLabel $name?',
+        style: GoogleFonts.manrope(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
+      content: Text(
+        message,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          color: const Color(0xFF64748B),
+          height: 1.5,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.manrope(
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0284C7),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(
+            confirmLabel,
+            style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EmptyView extends StatelessWidget {
   const _EmptyView({
     required this.icon,

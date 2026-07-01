@@ -1159,10 +1159,11 @@ class _OrbitScreenState extends State<OrbitScreen>
       if (response.statusCode == 200) {
         if (mounted) {
           final (NexusToastType toastType, String message) = switch (actionType) {
-            'like' || 'superlike' => (NexusToastType.success, 'Pulled into your gravity!'),
-            'block'  => (NexusToastType.info, 'User blocked.'),
-            'report' => (NexusToastType.info, 'Report submitted. Thanks for keeping the space safe.'),
-            _        => (NexusToastType.info, 'User hidden.'),
+            'like'      => (NexusToastType.success, 'Locked into your orbit.'),
+            'superlike' => (NexusToastType.success, 'You just shot them a star ✦'),
+            'block'     => (NexusToastType.info, 'User blocked.'),
+            'report'    => (NexusToastType.info, 'Report submitted. Thanks for keeping the space safe.'),
+            _           => (NexusToastType.info, 'User hidden.'),
           };
           NexusToast.show(context, message, type: toastType);
         }
