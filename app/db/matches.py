@@ -10,7 +10,7 @@ from app.db.exclusions import record_discovery_action
 
 logger = logging.getLogger(__name__)
 
-_UNMATCH_PASS_DAYS = 14  # 2 weeks — both users are hidden from each other's orbit
+_UNMATCH_PASS_DAYS = 14  # 2 weeks - both users are hidden from each other's orbit
 
 
 def record_match(

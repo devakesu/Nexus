@@ -514,7 +514,7 @@ abstract final class FilterOptions {
     'Textile',
   ];
 
-  /// Dating tab — maps to `dating_for` TEXT[] column codes.
+  /// Dating tab - maps to `dating_for` TEXT[] column codes.
   static const List<Map<String, String>> datingForOptions = [
     {'code': 'short', 'label': 'Short-term'},
     {'code': 'long', 'label': 'Long-term'},
@@ -530,7 +530,7 @@ abstract final class FilterOptions {
     {'code': 'unsure', 'label': 'Figuring it out'},
   ];
 
-  /// Professional tab — maps to encrypted `looking_for` list field.
+  /// Professional tab - maps to encrypted `looking_for` list field.
   static const List<Map<String, String>> lookingForOptions = [
     {'code': 'networking', 'label': 'Networking'},
     {'code': 'mentorship', 'label': 'Mentorship'},
@@ -541,7 +541,7 @@ abstract final class FilterOptions {
     {'code': 'short', 'label': 'Short-term project'},
   ];
 
-  /// Dating tab — show who filter (maps to candidate search_bucket values).
+  /// Dating tab - show who filter (maps to candidate search_bucket values).
   static const List<Map<String, String>> searchBuckets = [
     {'code': 'M', 'label': 'Men'},
     {'code': 'F', 'label': 'Women'},

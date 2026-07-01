@@ -23,7 +23,7 @@ from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
-# Module-level singleton — loaded once on first call, reused on all subsequent calls.
+# Module-level singleton - loaded once on first call, reused on all subsequent calls.
 _model: SentenceTransformer | None = None
 
 
@@ -73,14 +73,14 @@ def generate_nexus_intent_embeddings(
     display_gender: str = (profile.get("display_gender") or "").strip()
     pronouns: str = (profile.get("pronouns") or "").strip()
 
-    # List fields — guard against None and non-list shapes.
+    # List fields - guard against None and non-list shapes.
     looking_for: list[str] = list(profile.get("looking_for") or [])
     activities: list[str] = list(profile.get("activities") or [])
     causes_supported: list[str] = list(profile.get("causes_supported") or [])
     ai_vibe_tags: list[str] = list(profile.get("ai_vibe_tags") or [])
     tech_skills: list[str] = list(profile.get("tech_skills") or [])
 
-    # sub_interests is a dict[str, list[str]] — flatten to a single list.
+    # sub_interests is a dict[str, list[str]] - flatten to a single list.
     sub_interests_raw: Any = profile.get("sub_interests") or {}
     sub_interests_flat: list[str] = []
     if isinstance(sub_interests_raw, dict):
@@ -94,7 +94,7 @@ def generate_nexus_intent_embeddings(
     # 2. COMPILE THREE STRICTLY SEGREGATED TEXT CONTEXTS
     # ──────────────────────────────────────────────────────────────────
 
-    # Track A — Platonic / Romantic vibe focus
+    # Track A - Platonic / Romantic vibe focus
     bio_text_context = (
         f"[BIO SPACE] Era: {raw_plaintext_bio} | "
         f"Lifestyle & Day Structure: {lifestyle} | "
@@ -103,7 +103,7 @@ def generate_nexus_intent_embeddings(
         f"Family Direction: {children_plans}"
     )
 
-    # Track B — Technical / Professional focus
+    # Track B - Technical / Professional focus
     career_text_context = (
         f"[CAREER SPACE] Academic Path: {campus_branch} (Year {campus_year}) | "
         f"Target Professional Focus: {role} | "
@@ -112,7 +112,7 @@ def generate_nexus_intent_embeddings(
         f"Granular Coding Dimensions: {', '.join(sub_interests_flat)}"
     )
 
-    # Track C — Cultural identity & aesthetic alignment (shadow telemetry)
+    # Track C - Cultural identity & aesthetic alignment (shadow telemetry)
     identity_text_context = (
         f"[IDENTITY SPACE] Presentation Silhouette: {display_gender} ({pronouns}) | "
         f"Social Causes Supported: {', '.join(causes_supported)} | "
@@ -121,7 +121,7 @@ def generate_nexus_intent_embeddings(
     )
 
     # ──────────────────────────────────────────────────────────────────
-    # 3. LOCAL INFERENCE — zero network latency
+    # 3. LOCAL INFERENCE - zero network latency
     # ──────────────────────────────────────────────────────────────────
     model = get_embedding_model()
     return {

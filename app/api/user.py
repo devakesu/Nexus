@@ -35,6 +35,7 @@ from app.db.users import (
     upsert_public_user,
 )
 from app.models import (
+    ALLOWED_HIDDEN_FIELDS,
     AcceptTermsRequest,
     AcceptTermsResponse,
     AuthBootstrapResponse,
@@ -42,6 +43,8 @@ from app.models import (
     MECOnboardingRequest,
     ModerationSubjectsRequest,
     OnboardingPayload,
+    PrivacySettingsResponse,
+    PrivacySettingsUpdate,
     ProfileDetailsUpdate,
     ProfileImagesAndTagsUpdate,
 )
@@ -831,3 +834,57 @@ def update_profile_details(  # noqa: C901
             status_code=500,
             detail="Internal server error.",
         ) from e
+
+
+@router.get(
+    "/api/v1/profile/privacy-settings",
+    response_model=PrivacySettingsResponse,
+)
+def get_privacy_settings(
+    user_id: str = Depends(get_authenticated_user_id),
+) -> PrivacySettingsResponse:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("hidden_profile_fields")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = getattr(res, "data", None)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        raw: list[str] = list(data.get("hidden_profile_fields") or [])
+        # Defensively strip any field names that are no longer in the allowed set.
+        hidden: list[str] = [f for f in raw if f in ALLOWED_HIDDEN_FIELDS]
+        return PrivacySettingsResponse(hidden_fields=hidden)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to fetch privacy settings for user %s", user_id)
+        raise HTTPException(status_code=500, detail="Internal server error.") from e
+
+
+@router.patch(
+    "/api/v1/profile/privacy-settings",
+    response_model=PrivacySettingsResponse,
+)
+def update_privacy_settings(
+    payload: PrivacySettingsUpdate = Body(...),  # noqa: B008
+    user_id: str = Depends(get_authenticated_user_id),
+) -> PrivacySettingsResponse:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .update({"hidden_profile_fields": payload.hidden_fields})
+            .eq("id", user_id)
+            .execute()
+        )
+        if not getattr(res, "data", None):
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return PrivacySettingsResponse(hidden_fields=payload.hidden_fields)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to update privacy settings for user %s", user_id)
+        raise HTTPException(status_code=500, detail="Internal server error.") from e

@@ -61,78 +61,100 @@ _TIER_MAX_RADII: dict[int, float] = {
 }
 
 
+def _apply_field_visibility(
+    payload: dict[str, Any],
+    hidden: set[str],
+) -> dict[str, Any]:
+    """Return a copy of payload with hidden fields replaced by their null/empty defaults.
+
+    Scalar string fields become None; list fields become [].
+    This is applied before building any response model so scoring logic
+    (which reads from the original dict) is never affected.
+    """
+    if not hidden:
+        return payload
+    _LIST_FIELDS = {"pets", "top_artists", "causes_supported"}
+    result = dict(payload)
+    for field in hidden:
+        result[field] = [] if field in _LIST_FIELDS else None
+    return result
+
+
 def build_tab_aware_orbit_node_detail(
     session_tab: DiscoveryTab,
     payload: dict[str, Any],
+    hidden_fields: set[str] | None = None,
 ) -> (
     OrbitNodeDetailDatingOut
     | OrbitNodeDetailFriendsOut
     | OrbitNodeDetailProfessionalOut
 ):
+    p = _apply_field_visibility(payload, hidden_fields or set())
+
     base: dict[str, Any] = {
-        "id": str(payload.get("id") or ""),
-        "name": payload.get("name"),
-        "age": payload.get("age"),
-        "campus_branch": payload.get("campus_branch"),
-        "campus_year": payload.get("campus_year"),
-        "campus_name": payload.get("campus_name"),
-        "role_at": payload.get("role_at"),
-        "score": coerce_score(payload.get("score")),
-        "x": coerce_float(payload.get("x")),
-        "y": coerce_float(payload.get("y")),
-        "orbit_tier": int(coerce_float(payload.get("orbit_tier"), 3.0)),
-        "profile_pic": payload.get("profile_pic"),
+        "id": str(p.get("id") or ""),
+        "name": p.get("name"),
+        "age": p.get("age"),
+        "campus_branch": p.get("campus_branch"),
+        "campus_year": p.get("campus_year"),
+        "campus_name": p.get("campus_name"),
+        "role_at": p.get("role_at"),
+        "score": coerce_score(p.get("score")),
+        "x": coerce_float(p.get("x")),
+        "y": coerce_float(p.get("y")),
+        "orbit_tier": int(coerce_float(p.get("orbit_tier"), 3.0)),
+        "profile_pic": p.get("profile_pic"),
         # Common fields (all tabs)
-        "bio": payload.get("bio"),
-        "pronouns": payload.get("pronouns"),
-        "display_gender": payload.get("display_gender"),
-        "hometown": payload.get("hometown"),
-        "current_place": payload.get("current_place"),
-        "languages": payload.get("languages") or [],
-        "causes_supported": payload.get("causes_supported") or [],
-        "interests": payload.get("interests") or {},
-        "sub_interests": payload.get("sub_interests") or {},
-        "ai_vibe_tags": payload.get("ai_vibe_tags") or [],
+        "bio": p.get("bio"),
+        "pronouns": p.get("pronouns"),
+        "display_gender": p.get("display_gender"),
+        "hometown": p.get("hometown"),
+        "current_place": p.get("current_place"),
+        "languages": p.get("languages") or [],
+        "causes_supported": p.get("causes_supported") or [],
+        "interests": p.get("interests") or {},
+        "sub_interests": p.get("sub_interests") or {},
+        "ai_vibe_tags": p.get("ai_vibe_tags") or [],
     }
 
     if session_tab == "Dating":
         return OrbitNodeDetailDatingOut(
             **base,
             tab="Dating",
-            display_sexuality=payload.get("display_sexuality"),
-            drinking=payload.get("drinking"),
-            smoking=payload.get("smoking"),
-            lifestyle=payload.get("lifestyle"),
-            religious_beliefs=payload.get("religious_beliefs"),
-            partner_values=payload.get("partner_values") or [],
-            children_plans=payload.get("children_plans"),
-            dating_for=payload.get("dating_for") or [],
-            normal_pics=payload.get("normal_pics") or [],
-            top_artists=payload.get("top_artists") or [],
-            pets=payload.get("pets") or [],
+            display_sexuality=p.get("display_sexuality"),
+            drinking=p.get("drinking"),
+            smoking=p.get("smoking"),
+            lifestyle=p.get("lifestyle"),
+            religious_beliefs=p.get("religious_beliefs"),
+            partner_values=p.get("partner_values") or [],
+            children_plans=p.get("children_plans"),
+            dating_for=p.get("dating_for") or [],
+            normal_pics=p.get("normal_pics") or [],
+            top_artists=p.get("top_artists") or [],
+            pets=p.get("pets") or [],
         )
 
     if session_tab == "Friends":
         return OrbitNodeDetailFriendsOut(
             **base,
             tab="Friends",
-            display_sexuality=payload.get("display_sexuality"),
-            drinking=payload.get("drinking"),
-            smoking=payload.get("smoking"),
-            lifestyle=payload.get("lifestyle"),
-            religious_beliefs=payload.get("religious_beliefs"),
-            normal_pics=payload.get("normal_pics") or [],
-            top_artists=payload.get("top_artists") or [],
-            pets=payload.get("pets") or [],
+            display_sexuality=p.get("display_sexuality"),
+            drinking=p.get("drinking"),
+            smoking=p.get("smoking"),
+            lifestyle=p.get("lifestyle"),
+            religious_beliefs=p.get("religious_beliefs"),
+            normal_pics=p.get("normal_pics") or [],
+            top_artists=p.get("top_artists") or [],
+            pets=p.get("pets") or [],
         )
 
     if session_tab == "Professional":
         return OrbitNodeDetailProfessionalOut(
             **base,
             tab="Professional",
-            activities=payload.get("activities") or [],
-            looking_for=payload.get("looking_for") or [],
-            tech_skills=payload.get("tech_skills") or [],
+            activities=p.get("activities") or [],
+            looking_for=p.get("looking_for") or [],
+            tech_skills=p.get("tech_skills") or [],
         )
 
     raise ValueError(f"Unsupported session_tab: {session_tab}")
@@ -228,12 +250,8 @@ def _resolve_pair_collision(
     """Resolve collision between two nodes and return True if they were moved."""
     p1 = node1.get("profile")
     p2 = node2.get("profile")
-    p1_dict: dict[str, Any] = (
-        cast(dict[str, Any], p1) if isinstance(p1, dict) else {}
-    )
-    p2_dict: dict[str, Any] = (
-        cast(dict[str, Any], p2) if isinstance(p2, dict) else {}
-    )
+    p1_dict: dict[str, Any] = cast(dict[str, Any], p1) if isinstance(p1, dict) else {}
+    p2_dict: dict[str, Any] = cast(dict[str, Any], p2) if isinstance(p2, dict) else {}
 
     name1 = str(node1.get("name") or p1_dict.get("name") or "Anonymous")
     name2 = str(node2.get("name") or p2_dict.get("name") or "Anonymous")
@@ -277,7 +295,7 @@ def _reclamp_nodes_to_tier_bands(
 ) -> None:
     """Enforce the minimum radial distance for each tier after collision resolution.
 
-    Only the inner boundary is enforced — outward drift is unrestricted so the
+    Only the inner boundary is enforced - outward drift is unrestricted so the
     collision resolver has room to spread dense clusters without fighting the
     enforcement. The min radii in _TIER_MIN_RADII are spaced so that a tier-N
     node pushed outward by its own tier's collision resolver will not intrude
@@ -344,7 +362,7 @@ def assign_orbit_positions(
         # Items within each tier are already sorted by score descending.
         # Map each node's rank index to a unique starting radius so that
         # higher-scored nodes are always placed closer to the center than
-        # lower-scored nodes within the same tier — no discrete ring
+        # lower-scored nodes within the same tier - no discrete ring
         # boundaries that adjacent nodes can invert across.
         for idx, item in enumerate(items):
             normalized = idx / max(count - 1, 1)
@@ -368,7 +386,7 @@ def assign_orbit_positions(
 
     # Pass 1: spread nodes using AABB relaxation.
     _resolve_node_collisions(positioned_items, rng)
-    # Enforce inner tier boundaries — nodes pushed inward by pass-1 collisions
+    # Enforce inner tier boundaries - nodes pushed inward by pass-1 collisions
     # are projected back out to their tier's minimum radius.
     _reclamp_nodes_to_tier_bands(positioned_items)
     # Pass 2: fix any overlaps introduced by the boundary enforcement.

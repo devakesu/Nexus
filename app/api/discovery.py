@@ -139,10 +139,12 @@ async def get_discovery_node_detail(
             raise HTTPException(status_code=404, detail="Discovery node not found.")
 
         session_tab, detail_payload = detail_result
+        hidden_fields = set(detail_payload.pop("hidden_profile_fields", None) or [])
 
         return build_tab_aware_orbit_node_detail(
             session_tab=session_tab,
             payload=detail_payload,
+            hidden_fields=hidden_fields,
         )
 
     except (DecryptFailedError, ProfileDecodeError) as err:

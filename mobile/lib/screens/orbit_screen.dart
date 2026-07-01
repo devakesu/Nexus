@@ -130,7 +130,6 @@ class OrbitPrefetchResult {
   final List<String> partnerValues;
 }
 
-
 class OrbitScreen extends StatefulWidget {
   const OrbitScreen({
     required this.tab,
@@ -245,7 +244,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   // Viewport/Canvas Size
   final double _canvasSize = 3200;
 
-  // Filters State — general (all tabs)
+  // Filters State - general (all tabs)
   late RangeValues _ageRange = RangeValues(
     18,
     AppConfig.current.isMainVariant ? 80 : 27,
@@ -256,7 +255,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   final List<String> _selectedLanguages = [];
   final List<String> _selectedSubInterests = [];
 
-  // Filters State — dating tab only
+  // Filters State - dating tab only
   final List<String> _selectedChildrenPlans = [];
   final List<String> _selectedReligiousBeliefs = [];
   final List<String> _selectedDatingFor = [];
@@ -264,7 +263,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   final List<String> _selectedPartnerValues = [];
   final Set<String> _dealbreakerFields = {};
 
-  // Filters State — professional tab only
+  // Filters State - professional tab only
   final List<String> _selectedLookingFor = [];
   final List<String> _selectedCausesSupported = [];
   final List<String> _selectedTechSkills = [];
@@ -358,7 +357,10 @@ class _OrbitScreenState extends State<OrbitScreen>
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
-        final data = await NetworkUtils.fetchProfileDetails(_dio, session.accessToken);
+        final data = await NetworkUtils.fetchProfileDetails(
+          _dio,
+          session.accessToken,
+        );
 
         if (data != null && mounted) {
           setState(() {
@@ -437,7 +439,6 @@ class _OrbitScreenState extends State<OrbitScreen>
               ..addAll(List<String>.from(value as List));
           }
         }
-
       });
       setState(() {});
       unawaited(_fetchOrbitNodes());
@@ -462,7 +463,8 @@ class _OrbitScreenState extends State<OrbitScreen>
             builder: (context, setPaneState) {
               final filtered = options
                   .where(
-                    (opt) => opt.toLowerCase().contains(searchQuery.toLowerCase()),
+                    (opt) =>
+                        opt.toLowerCase().contains(searchQuery.toLowerCase()),
                   )
                   .toList();
 
@@ -506,9 +508,10 @@ class _OrbitScreenState extends State<OrbitScreen>
                             Text(
                               title,
                               style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
@@ -536,18 +539,28 @@ class _OrbitScreenState extends State<OrbitScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: TextField(
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'Search...',
                             hintStyle: const TextStyle(color: Colors.white38),
-                            prefixIcon: const Icon(LucideIcons.search, size: 18, color: Colors.white38),
+                            prefixIcon: const Icon(
+                              LucideIcons.search,
+                              size: 18,
+                              color: Colors.white38,
+                            ),
                             filled: true,
                             fillColor: Colors.white.withValues(alpha: 0.05),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                           ),
                           onChanged: (v) {
                             setPaneState(() {
@@ -571,15 +584,23 @@ class _OrbitScreenState extends State<OrbitScreen>
                                     opt,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: sel ? widget.themeColor : Colors.white60,
+                                      color: sel
+                                          ? widget.themeColor
+                                          : Colors.white60,
                                     ),
                                   ),
                                   selected: sel,
-                                  selectedColor: widget.themeColor.withValues(alpha: 0.15),
-                                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                  selectedColor: widget.themeColor.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.05,
+                                  ),
                                   checkmarkColor: widget.themeColor,
                                   side: BorderSide(
-                                    color: sel ? widget.themeColor : Colors.white.withValues(alpha: 0.2),
+                                    color: sel
+                                        ? widget.themeColor
+                                        : Colors.white.withValues(alpha: 0.2),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -625,13 +646,21 @@ class _OrbitScreenState extends State<OrbitScreen>
             builder: (context, setPaneState) {
               final filtered = predefinedValues
                   .where(
-                    (opt) => opt.toLowerCase().contains(searchQuery.toLowerCase()),
+                    (opt) =>
+                        opt.toLowerCase().contains(searchQuery.toLowerCase()),
                   )
                   .toList();
 
-              final showCustomOption = searchQuery.trim().isNotEmpty &&
-                  !predefinedValues.any((val) => val.toLowerCase() == searchQuery.trim().toLowerCase()) &&
-                  !_selectedPartnerValues.any((val) => val.toLowerCase() == searchQuery.trim().toLowerCase());
+              final showCustomOption =
+                  searchQuery.trim().isNotEmpty &&
+                  !predefinedValues.any(
+                    (val) =>
+                        val.toLowerCase() == searchQuery.trim().toLowerCase(),
+                  ) &&
+                  !_selectedPartnerValues.any(
+                    (val) =>
+                        val.toLowerCase() == searchQuery.trim().toLowerCase(),
+                  );
 
               return Theme(
                 data: ThemeData(
@@ -698,19 +727,29 @@ class _OrbitScreenState extends State<OrbitScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: TextField(
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                           maxLength: 30,
                           decoration: InputDecoration(
                             hintText: 'Search or add custom value...',
                             hintStyle: const TextStyle(color: Colors.white38),
-                            prefixIcon: const Icon(LucideIcons.search, size: 18, color: Colors.white38),
+                            prefixIcon: const Icon(
+                              LucideIcons.search,
+                              size: 18,
+                              color: Colors.white38,
+                            ),
                             filled: true,
                             fillColor: Colors.white.withValues(alpha: 0.05),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             counterText: '',
                           ),
                           onChanged: (v) {
@@ -729,7 +768,8 @@ class _OrbitScreenState extends State<OrbitScreen>
                               spacing: 8,
                               runSpacing: 6,
                               children: [
-                                if (showCustomOption && searchQuery.trim().length <= 30)
+                                if (showCustomOption &&
+                                    searchQuery.trim().length <= 30)
                                   ActionChip(
                                     avatar: const Icon(
                                       LucideIcons.plus,
@@ -747,7 +787,9 @@ class _OrbitScreenState extends State<OrbitScreen>
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     onPressed: () async {
-                                      if (_savingFields.contains('partner_values')) {
+                                      if (_savingFields.contains(
+                                        'partner_values',
+                                      )) {
                                         return;
                                       }
                                       final customVal = searchQuery.trim();
@@ -764,27 +806,39 @@ class _OrbitScreenState extends State<OrbitScreen>
                                     },
                                   ),
                                 ...filtered.map((opt) {
-                                  final sel = _selectedPartnerValues.contains(opt);
+                                  final sel = _selectedPartnerValues.contains(
+                                    opt,
+                                  );
                                   return FilterChip(
                                     label: Text(
                                       opt,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: sel ? widget.themeColor : Colors.white60,
+                                        color: sel
+                                            ? widget.themeColor
+                                            : Colors.white60,
                                       ),
                                     ),
                                     selected: sel,
-                                    selectedColor: widget.themeColor.withValues(alpha: 0.15),
-                                    backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                    selectedColor: widget.themeColor.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.05,
+                                    ),
                                     checkmarkColor: widget.themeColor,
                                     side: BorderSide(
-                                      color: sel ? widget.themeColor : Colors.white.withValues(alpha: 0.2),
+                                      color: sel
+                                          ? widget.themeColor
+                                          : Colors.white.withValues(alpha: 0.2),
                                     ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     onSelected: (v) async {
-                                      if (_savingFields.contains('partner_values')) {
+                                      if (_savingFields.contains(
+                                        'partner_values',
+                                      )) {
                                         return;
                                       }
                                       setPaneState(() {
@@ -882,6 +936,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     bool useExistingSession = false,
     bool skipProfileFetch = false,
   }) async {
+    if (!mounted) return;
     setState(() {
       _errorMessage = null;
       _isReloading = true;
@@ -965,20 +1020,23 @@ class _OrbitScreenState extends State<OrbitScreen>
         }
       }
 
-        if (discoverResponse.statusCode == 200 && discoverResponse.data != null) {
+      if (discoverResponse.statusCode == 200 && discoverResponse.data != null) {
         final rawNodes =
             discoverResponse.data!['nodes'] as List<dynamic>? ?? [];
         final mappedNodes = rawNodes
             .map((e) => OrbitNode.fromJson(e as Map<String, dynamic>))
             .toList();
         if (kDebugMode) {
-          debugPrint('--- CLIENT ORBIT NODES RECEIVED (${rawNodes.length}) ---');
+          debugPrint(
+            '--- CLIENT ORBIT NODES RECEIVED (${rawNodes.length}) ---',
+          );
           for (final node in mappedNodes) {
             debugPrint(
               'Node: ${node.name}, x: ${node.x}, y: ${node.y}, tier: ${node.orbitTier}, score: ${node.score}',
             );
           }
         }
+        if (!mounted) return;
         setState(() {
           _sessionId = discoverResponse.data!['session_id'] as String?;
           _nodes = mappedNodes;
@@ -990,9 +1048,11 @@ class _OrbitScreenState extends State<OrbitScreen>
         throw Exception('Failed to fetch orbit constellation.');
       }
     } on Exception catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -1034,6 +1094,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       radius = 100.0;
     }
 
+    if (!mounted) return;
     setState(() {
       _isFetchingViewport = true;
     });
@@ -1053,12 +1114,10 @@ class _OrbitScreenState extends State<OrbitScreen>
         ),
       );
 
-      if (response.statusCode == 200 && response.data != null) {
+      if (response.statusCode == 200 && response.data != null && mounted) {
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
         setState(() {
-          final nodeMap = {
-            for (final node in _nodes) node.id: node
-          };
+          final nodeMap = {for (final node in _nodes) node.id: node};
           for (final node in newNodes) {
             if (node is Map<String, dynamic>) {
               final mapped = OrbitNode.fromJson(node);
@@ -1082,7 +1141,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   }
 
   void _passNode(String candidateId) {
-    // Fire backend first — before any mounted/setState guard so it always runs.
+    // Fire backend first - before any mounted/setState guard so it always runs.
     unawaited(_recordPassAction(candidateId));
 
     if (!mounted) return;
@@ -1112,7 +1171,9 @@ class _OrbitScreenState extends State<OrbitScreen>
       await _dio.post<dynamic>(
         '${config.backendUrl}/api/v1/discover/action',
         data: {'target_id': candidateId, 'action': 'pass', 'tab': widget.tab},
-        options: Options(headers: {'Authorization': 'Bearer ${session.accessToken}'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+        ),
       );
     } on Exception catch (_) {}
   }
@@ -1158,12 +1219,21 @@ class _OrbitScreenState extends State<OrbitScreen>
 
       if (response.statusCode == 200) {
         if (mounted) {
-          final (NexusToastType toastType, String message) = switch (actionType) {
-            'like'      => (NexusToastType.success, 'Locked into your orbit.'),
-            'superlike' => (NexusToastType.success, 'You just shot them a star ✦'),
-            'block'     => (NexusToastType.info, 'User blocked.'),
-            'report'    => (NexusToastType.info, 'Report submitted. Thanks for keeping the space safe.'),
-            _           => (NexusToastType.info, 'User hidden.'),
+          final (
+            NexusToastType toastType,
+            String message,
+          ) = switch (actionType) {
+            'like' => (NexusToastType.success, 'Locked into your orbit.'),
+            'superlike' => (
+              NexusToastType.success,
+              'You just shot them a star ✦',
+            ),
+            'block' => (NexusToastType.info, 'User blocked.'),
+            'report' => (
+              NexusToastType.info,
+              'Report submitted. Thanks for keeping the space safe.',
+            ),
+            _ => (NexusToastType.info, 'User hidden.'),
           };
           NexusToast.show(context, message, type: toastType);
         }
@@ -1287,8 +1357,12 @@ class _OrbitScreenState extends State<OrbitScreen>
                     ctx,
                     onConfirmed: (reason, detail) async {
                       Navigator.pop(ctx);
-                      await _performAction(candidateId, 'report',
-                          reason: reason, reasonDetail: detail);
+                      await _performAction(
+                        candidateId,
+                        'report',
+                        reason: reason,
+                        reasonDetail: detail,
+                      );
                     },
                   ),
                 );
@@ -1357,7 +1431,10 @@ class _OrbitScreenState extends State<OrbitScreen>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -1421,33 +1498,58 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
   }
 
-
   Future<Map<String, dynamic>> _fetchSelfDetails() async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) throw Exception('Not authenticated.');
 
     final config = AppConfig.current;
-    final response = await _dio.get<Map<String, dynamic>>(
-      '${config.backendUrl}/api/v1/profile/details',
-      options: Options(
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-      ),
-    );
+    final authHeader = {'Authorization': 'Bearer ${session.accessToken}'};
+    final opts = Options(headers: authHeader);
 
-    if (response.statusCode == 200 && response.data != null) {
-      final d = response.data!;
-      final orderedImages = d['ordered_images'] as List? ?? [];
-      return {
-        ...d,
-        'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
-        'normal_pics':
-            orderedImages.length > 1 ? orderedImages.sublist(1) : <dynamic>[],
-        'tab': widget.tab,
-        'score': 0,
-      };
+    // Fetch profile data and privacy settings concurrently.
+    final results = await Future.wait<dynamic>([
+      _dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/profile/details',
+        options: opts,
+      ),
+      _dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/profile/privacy-settings',
+        options: opts,
+      ),
+    ]);
+
+    final profileResp = results[0] as Response<Map<String, dynamic>>;
+    final privacyResp = results[1] as Response<Map<String, dynamic>>;
+
+    if (profileResp.statusCode != 200 || profileResp.data == null) {
+      throw Exception('Failed to load your profile.');
     }
 
-    throw Exception('Failed to load your profile.');
+    final d = Map<String, dynamic>.from(profileResp.data!);
+    final orderedImages = d['ordered_images'] as List? ?? [];
+
+    // Apply hidden fields so the preview matches what other users see.
+    final hiddenFields =
+        (privacyResp.statusCode == 200 && privacyResp.data != null)
+        ? (privacyResp.data!['hidden_fields'] as List<dynamic>? ?? [])
+              .map((e) => e.toString())
+              .toSet()
+        : <String>{};
+
+    const listFields = {'pets', 'top_artists', 'causes_supported'};
+    for (final field in hiddenFields) {
+      d[field] = listFields.contains(field) ? <dynamic>[] : null;
+    }
+
+    return {
+      ...d,
+      'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
+      'normal_pics': orderedImages.length > 1
+          ? orderedImages.sublist(1)
+          : <dynamic>[],
+      'tab': widget.tab,
+      'score': 0,
+    };
   }
 
   Future<void> _showSelfDetails() async {
@@ -1463,39 +1565,29 @@ class _OrbitScreenState extends State<OrbitScreen>
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
+                width: double.infinity,
                 height: MediaQuery.of(context).size.height * 0.7,
                 decoration: const BoxDecoration(
                   color: Color(0xFF090D1A),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 48),
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
+                    Positioned(
+                      top: 12,
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                    SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(theme),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading your profile...',
-                      style: TextStyle(
-                        color: theme.withValues(alpha: 0.55),
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
+                    ConstellationLoader(
+                      themeColor: theme,
+                      label: 'PREVIEWING YOUR SIGNAL',
                     ),
                   ],
                 ),
@@ -1569,7 +1661,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     }
 
     // 404 means the session expired. Silently refresh orbit (creates a new
-    // session) then retry once — the candidate is usually still in the pool.
+    // session) then retry once - the candidate is usually still in the pool.
     if (response.statusCode == 404) {
       await _fetchOrbitNodes(immediate: true);
       if (_sessionId != null) {
@@ -1639,20 +1731,22 @@ class _OrbitScreenState extends State<OrbitScreen>
                   onSaveDatingField: (field, value, setModalState) async {
                     await _saveDatingField(field, value, setModalState);
                   },
-                  onOpenTagSelectionPane: (title, options, selected, setModalState) {
-                    _openTagSelectionPane(
-                      title: title,
-                      options: options,
-                      selected: selected,
-                      setModalState: setModalState,
-                    );
-                  },
-                  onOpenPartnerValuesSelectionPane: (setModalState, predefinedValues) {
-                    _openPartnerValuesSelectionPane(
-                      setModalState: setModalState,
-                      predefinedValues: predefinedValues,
-                    );
-                  },
+                  onOpenTagSelectionPane:
+                      (title, options, selected, setModalState) {
+                        _openTagSelectionPane(
+                          title: title,
+                          options: options,
+                          selected: selected,
+                          setModalState: setModalState,
+                        );
+                      },
+                  onOpenPartnerValuesSelectionPane:
+                      (setModalState, predefinedValues) {
+                        _openPartnerValuesSelectionPane(
+                          setModalState: setModalState,
+                          predefinedValues: predefinedValues,
+                        );
+                      },
                   isRefreshing: _isReloading,
                   onFetchOrbitNodes: () async {
                     await _fetchOrbitNodes(immediate: true);
@@ -1703,7 +1797,12 @@ class _OrbitScreenState extends State<OrbitScreen>
                 constrained: false,
                 boundaryMargin: const EdgeInsets.all(1000),
                 onInteractionEnd: (details) {
-                  unawaited(_fetchViewportNodes(constraints.maxWidth, constraints.maxHeight));
+                  unawaited(
+                    _fetchViewportNodes(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    ),
+                  );
                 },
                 child: SizedBox(
                   width: _canvasSize,
@@ -1769,55 +1868,57 @@ class _OrbitScreenState extends State<OrbitScreen>
                       Center(
                         child: GestureDetector(
                           onTap: _showSelfDetails,
-                          child: Container(
-                                  width: 76,
-                                  height: 76,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: widget.themeColor.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    border: Border.all(
-                                      color: widget.themeColor,
-                                      width: 2.5,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: widget.themeColor.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                        blurRadius: 40,
-                                        spreadRadius: 8,
+                          child:
+                              Container(
+                                    width: 76,
+                                    height: 76,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: widget.themeColor.withValues(
+                                        alpha: 0.15,
                                       ),
-                                    ],
-                                  ),
-                                  child:
-                                      _currentUserProfilePic != null &&
-                                          _currentUserProfilePic!.isNotEmpty
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            38,
+                                      border: Border.all(
+                                        color: widget.themeColor,
+                                        width: 2.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: widget.themeColor.withValues(
+                                            alpha: 0.35,
                                           ),
-                                          child: StorageImage(
-                                            imagePath: _currentUserProfilePic!,
-                                          ),
-                                        )
-                                      : Icon(
-                                          LucideIcons.globe,
-                                          color: widget.themeColor,
-                                          size: 32,
+                                          blurRadius: 40,
+                                          spreadRadius: 8,
                                         ),
-                                )
-                                .animate(
-                                  onPlay: (controller) =>
-                                      controller.repeat(reverse: true),
-                                )
-                                .scale(
-                                  begin: const Offset(0.9, 0.9),
-                                  end: const Offset(1.15, 1.15),
-                                  duration: 2.seconds,
-                                  curve: Curves.easeInOut,
-                                ),
+                                      ],
+                                    ),
+                                    child:
+                                        _currentUserProfilePic != null &&
+                                            _currentUserProfilePic!.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              38,
+                                            ),
+                                            child: StorageImage(
+                                              imagePath:
+                                                  _currentUserProfilePic!,
+                                            ),
+                                          )
+                                        : Icon(
+                                            LucideIcons.globe,
+                                            color: widget.themeColor,
+                                            size: 32,
+                                          ),
+                                  )
+                                  .animate(
+                                    onPlay: (controller) =>
+                                        controller.repeat(reverse: true),
+                                  )
+                                  .scale(
+                                    begin: const Offset(0.9, 0.9),
+                                    end: const Offset(1.15, 1.15),
+                                    duration: 2.seconds,
+                                    curve: Curves.easeInOut,
+                                  ),
                         ),
                       ),
                       // Floating Nodes
@@ -1903,7 +2004,8 @@ class _OrbitScreenState extends State<OrbitScreen>
                               LucideIcons.refreshCw,
                               color: Colors.white,
                             ),
-                            onPressed: () => unawaited(_fetchOrbitNodes(immediate: true)),
+                            onPressed: () =>
+                                unawaited(_fetchOrbitNodes(immediate: true)),
                           ),
                         ],
                       ),
@@ -1946,7 +2048,8 @@ class _OrbitScreenState extends State<OrbitScreen>
                         backgroundColor: widget.themeColor,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () => unawaited(_fetchOrbitNodes(immediate: true)),
+                      onPressed: () =>
+                          unawaited(_fetchOrbitNodes(immediate: true)),
                       child: const Text('Try Again'),
                     ),
                   ],

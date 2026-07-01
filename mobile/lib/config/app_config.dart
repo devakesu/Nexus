@@ -3,10 +3,10 @@
 /// The value is resolved from the 'FLUTTER_APP_FLAVOR' compile-time
 /// constant injected via --dart-define at build time.
 enum AppVariant {
-  /// Main Nexus app — all email domains allowed, imports data from flavors.
+  /// Main Nexus app - all email domains allowed, imports data from flavors.
   nexus,
 
-  /// Nexus MEC flavor — campus email required, generates export codes for import.
+  /// Nexus MEC flavor - campus email required, generates export codes for import.
   nexusMec,
 }
 

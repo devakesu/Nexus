@@ -89,7 +89,7 @@ class _BioSectionState extends State<BioSection> {
       icon: LucideIcons.fileText,
       title: 'Cosmic Signature',
       description:
-          'Your signal to the universe — who you are in your own words',
+          'Your signal to the universe - who you are in your own words',
       cardColor: isDark ? const Color(0xFF1B0F20) : const Color(0xFFFFF0F5),
       borderColor: const Color(
         0xFFFF4D7E,
@@ -191,7 +191,7 @@ class _BioSectionState extends State<BioSection> {
                         ),
                         decoration: InputDecoration(
                           hintText:
-                              'Tell your story — your vibe, your passions, what makes you, you...',
+                              'Tell your story - your vibe, your passions, what makes you, you...',
                           hintStyle: GoogleFonts.plusJakartaSans(
                             color: isDark
                                 ? Colors.white.withValues(alpha: 0.2)

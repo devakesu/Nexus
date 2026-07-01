@@ -45,7 +45,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) throw Exception('Not signed in');
 
-      // 1. Fetch all active hide actions — one row per tab per user.
+      // 1. Fetch all active hide actions - one row per tab per user.
       final res = await _client
           .from('profile_discovery_actions')
           .select('id, target_id, tab, created_at')
@@ -97,8 +97,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
           currentPlace: info?['current_place'] as String?,
           profilePic: info?['profile_pic'] as String?,
         );
-      }).toList()
-        ..sort((a, b) => b.latestHiddenAt.compareTo(a.latestHiddenAt));
+      }).toList()..sort((a, b) => b.latestHiddenAt.compareTo(a.latestHiddenAt));
       setState(() {
         _users = built;
         _loading = false;
@@ -303,7 +302,7 @@ class _HiddenUser {
   DateTime get firstHiddenAt =>
       entries.map((e) => e.hiddenAt).reduce((a, b) => a.isBefore(b) ? a : b);
 
-  // The most recent hide date across all tabs — used for sort ordering.
+  // The most recent hide date across all tabs - used for sort ordering.
   DateTime get latestHiddenAt =>
       entries.map((e) => e.hiddenAt).reduce((a, b) => a.isAfter(b) ? a : b);
 }
@@ -389,7 +388,9 @@ class _UserCard extends StatelessWidget {
                   Wrap(
                     spacing: 5,
                     runSpacing: 4,
-                    children: user.entries.map((e) => _TabBadge(tab: e.tab)).toList(),
+                    children: user.entries
+                        .map((e) => _TabBadge(tab: e.tab))
+                        .toList(),
                   ),
                   const SizedBox(height: 5),
                   Row(
@@ -464,8 +465,18 @@ class _UserCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }

@@ -91,7 +91,7 @@ class ProfileModel(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Onboarding — Polymorphic models
+# Onboarding - Polymorphic models
 # ---------------------------------------------------------------------------
 
 
@@ -294,7 +294,7 @@ class DiscoveryFilters(BaseModel):
         description="Restrict candidates to specific search_bucket values (M/F/NB).",
     )
 
-    # Post-fetch in-memory filters (encrypted fields — no blind indexes)
+    # Post-fetch in-memory filters (encrypted fields - no blind indexes)
     languages: list[str] | None = Field(
         default=None,
         description="Candidate must speak at least one of these languages.",
@@ -328,7 +328,7 @@ class DiscoveryFilters(BaseModel):
         ),
     )
 
-    # Dealbreaker gate — hard-filter only when the field name is listed here
+    # Dealbreaker gate - hard-filter only when the field name is listed here
     dealbreaker_fields: list[str] | None = Field(
         default=None,
         description="Names of filter fields to enforce as strict dealbreakers.",
@@ -430,7 +430,7 @@ class DiscoveryActionRequest(BaseModel):
         ),
     )
 
-    # Report-specific fields — only valid when action == "report".
+    # Report-specific fields - only valid when action == "report".
     reason: (
         Literal[
             "scam",
@@ -607,7 +607,7 @@ OrbitNodeDetailResponse = (
 
 
 class LikeListItem(BaseModel):
-    """One entry in the likes inbox — who liked the viewer and when."""
+    """One entry in the likes inbox - who liked the viewer and when."""
 
     actor_id: str
     action: Literal["like", "superlike"]
@@ -939,7 +939,8 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("sub_interests")
     @classmethod
     def validate_sub_interests(
-        cls, v: dict[str, list[str]] | None,
+        cls,
+        v: dict[str, list[str]] | None,
     ) -> dict[str, list[str]] | None:
         if v is None:
             return v
@@ -1026,3 +1027,42 @@ class ProfileDetailsUpdate(BaseModel):
 
 class ModerationSubjectsRequest(BaseModel):
     target_ids: list[str] = Field(..., min_length=1, max_length=50)
+
+
+# ---------------------------------------------------------------------------
+# Profile field visibility / privacy settings
+# ---------------------------------------------------------------------------
+
+ALLOWED_HIDDEN_FIELDS: frozenset[str] = frozenset(
+    {
+        "display_gender",
+        "display_sexuality",
+        "pronouns",
+        "current_place",
+        "campus_branch",
+        "religious_beliefs",
+        "pets",
+        "top_artists",
+        "causes_supported",
+        "hometown",
+    }
+)
+
+
+class PrivacySettingsResponse(BaseModel):
+    hidden_fields: list[str]
+
+
+class PrivacySettingsUpdate(BaseModel):
+    hidden_fields: list[str]
+
+    @field_validator("hidden_fields")
+    @classmethod
+    def validate_hidden_fields(cls, v: list[str]) -> list[str]:
+        for field in v:
+            if field not in ALLOWED_HIDDEN_FIELDS:
+                raise ValueError(
+                    f"'{field}' is not a hideable field. "
+                    f"Allowed: {sorted(ALLOWED_HIDDEN_FIELDS)}"
+                )
+        return list(set(v))

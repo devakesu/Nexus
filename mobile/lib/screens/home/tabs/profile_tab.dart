@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
@@ -417,11 +418,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           }
 
           String cleanSingle(dynamic val) {
-            if (val == null) { return ''; }
+            if (val == null) {
+              return '';
+            }
             final s = val.toString().trim();
             if (s.isEmpty ||
                 s.toLowerCase() == 'not specified' ||
-                s.toLowerCase() == 'prefer not to say') { return ''; }
+                s.toLowerCase() == 'prefer not to say') {
+              return '';
+            }
             return s;
           }
 
@@ -545,7 +550,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           'Failed to load profile: $friendlyMsg',
           type: NexusToastType.error,
         );
-        
+
         // Handle session/auth failure specifically
         if (e is DioException) {
           final statusCode = e.response?.statusCode;
@@ -634,16 +639,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         if (name != null) payload['name'] = name;
         if (age != null) payload['age'] = age;
         if (displayGender != null) {
-          payload['display_gender'] =
-              displayGender.isEmpty ? 'Prefer not to say' : displayGender;
+          payload['display_gender'] = displayGender.isEmpty
+              ? 'Prefer not to say'
+              : displayGender;
         }
         if (displaySexuality != null) {
-          payload['display_sexuality'] =
-              displaySexuality.isEmpty ? 'Prefer not to say' : displaySexuality;
+          payload['display_sexuality'] = displaySexuality.isEmpty
+              ? 'Prefer not to say'
+              : displaySexuality;
         }
         if (pronouns != null) {
-          payload['pronouns'] =
-              pronouns.isEmpty ? 'Prefer not to say' : pronouns;
+          payload['pronouns'] = pronouns.isEmpty
+              ? 'Prefer not to say'
+              : pronouns;
         }
         if (bio != null) payload['bio'] = bio;
         if (searchBucket != null) payload['search_bucket'] = searchBucket;
@@ -657,12 +665,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         if (hometown != null) payload['hometown'] = hometown;
         if (currentPlace != null) payload['current_place'] = currentPlace;
         if (childrenPlans != null) {
-          payload['children_plans'] =
-              childrenPlans.isEmpty ? 'Not specified' : childrenPlans;
+          payload['children_plans'] = childrenPlans.isEmpty
+              ? 'Not specified'
+              : childrenPlans;
         }
         if (religiousBeliefs != null) {
-          payload['religious_beliefs'] =
-              religiousBeliefs.isEmpty ? 'Not specified' : religiousBeliefs;
+          payload['religious_beliefs'] = religiousBeliefs.isEmpty
+              ? 'Not specified'
+              : religiousBeliefs;
         }
         if (lifestyle != null) payload['lifestyle'] = lifestyle;
         if (drinking != null) {
@@ -967,7 +977,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     } on PlatformException catch (e) {
       if (!mounted) return;
       if (e.code == 'SPOTIFY_AUTH_CANCELLED') return;
-      // Native Spotify app rejected the request — fall back to browser OAuth.
+      // Native Spotify app rejected the request - fall back to browser OAuth.
       if (e.message == 'AUTHENTICATION_SERVICE_UNAVAILABLE') {
         setState(() => _isSpotifyConnecting = false);
         await _connectSpotifyBrowser();
@@ -1080,48 +1090,51 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   void _debounceSaveImages() {
     _saveImagesDebounceTimer?.cancel();
-    _saveImagesDebounceTimer = Timer(const Duration(milliseconds: 1500), () async {
-      final userId = _client.auth.currentUser?.id;
-      if (userId == null) return;
-      try {
-        final dio = _dio;
-        await ref
-            .read(clientAIImageManagerProvider.notifier)
-            .commitProfileChanges(dio, userId);
+    _saveImagesDebounceTimer = Timer(
+      const Duration(milliseconds: 1500),
+      () async {
+        final userId = _client.auth.currentUser?.id;
+        if (userId == null) return;
+        try {
+          final dio = _dio;
+          await ref
+              .read(clientAIImageManagerProvider.notifier)
+              .commitProfileChanges(dio, userId);
 
-        if (!mounted) return;
+          if (!mounted) return;
 
-        // Save succeeded! Sync local state and update savedState
-        final providerState = ref.read(clientAIImageManagerProvider);
-        setState(() {
-          for (var i = 0; i < _imagePaths.length; i++) {
-            if (i < providerState.remotePaths.length &&
-                providerState.remotePaths[i].isNotEmpty) {
-              _imagePaths[i] = providerState.remotePaths[i];
-            } else {
-              _imagePaths[i] = null;
+          // Save succeeded! Sync local state and update savedState
+          final providerState = ref.read(clientAIImageManagerProvider);
+          setState(() {
+            for (var i = 0; i < _imagePaths.length; i++) {
+              if (i < providerState.remotePaths.length &&
+                  providerState.remotePaths[i].isNotEmpty) {
+                _imagePaths[i] = providerState.remotePaths[i];
+              } else {
+                _imagePaths[i] = null;
+              }
             }
-          }
-          _savedImagePaths = List<String?>.from(_imagePaths);
-        });
-      } on Object catch (e) {
-        if (!mounted) return;
-        // Restore from last known good state
-        setState(() {
-          _imagePaths
-            ..clear()
-            ..addAll(_savedImagePaths);
-        });
-        ref.read(clientAIImageManagerProvider.notifier).restoreBackup();
+            _savedImagePaths = List<String?>.from(_imagePaths);
+          });
+        } on Object catch (e) {
+          if (!mounted) return;
+          // Restore from last known good state
+          setState(() {
+            _imagePaths
+              ..clear()
+              ..addAll(_savedImagePaths);
+          });
+          ref.read(clientAIImageManagerProvider.notifier).restoreBackup();
 
-        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        NexusToast.show(
-          context,
-          'Failed to save profile changes: $friendlyMsg',
-          type: NexusToastType.error,
-        );
-      }
-    });
+          final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+          NexusToast.show(
+            context,
+            'Failed to save profile changes: $friendlyMsg',
+            type: NexusToastType.error,
+          );
+        }
+      },
+    );
   }
 
   Future<void> _swapImages(int fromIndex, int toIndex) async {
@@ -1132,7 +1145,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     });
 
     try {
-      ref.read(clientAIImageManagerProvider.notifier).swapImageSlots(fromIndex, toIndex);
+      ref
+          .read(clientAIImageManagerProvider.notifier)
+          .swapImageSlots(fromIndex, toIndex);
       _debounceSaveImages();
     } on Object catch (e) {
       if (!mounted) return;
@@ -1153,39 +1168,72 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   Future<void> _pickImage(int slotIndex) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      final file = File(pickedFile.path);
+    if (pickedFile == null) return;
+
+    // Enforce 1:1 square crop before any processing.
+    final croppedFile = await _cropToSquare(pickedFile.path);
+    if (croppedFile == null || !mounted) return;
+
+    final file = File(croppedFile.path);
+    final oldPaths = List<String?>.from(_imagePaths);
+    setState(() {
+      _imagePaths[slotIndex] = croppedFile.path;
+    });
+
+    try {
+      // 1. Run local client-side vision AI model & stage cropped file
+      await ref
+          .read(clientAIImageManagerProvider.notifier)
+          .stageImageSlot(slotIndex, file, userBranch: _major);
+
       if (!mounted) return;
-      final oldPaths = List<String?>.from(_imagePaths);
+
+      // 2. Trigger debounced save
+      _debounceSaveImages();
+    } on Object catch (e) {
+      if (!mounted) return;
       setState(() {
-        _imagePaths[slotIndex] = pickedFile.path;
+        _imagePaths[slotIndex] = oldPaths[slotIndex];
       });
-
-      try {
-        // 1. Run local client-side vision AI model & stage local file
-        await ref
-            .read(clientAIImageManagerProvider.notifier)
-            .stageImageSlot(slotIndex, file, userBranch: _major);
-
-        if (!mounted) return;
-
-        // 2. Trigger debounced save
-        _debounceSaveImages();
-      } on Object catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _imagePaths[slotIndex] = oldPaths[slotIndex];
-        });
-        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        NexusToast.show(
-          context,
-          e.toString().contains('Bucket not found')
-              ? 'Failed to sync media: Storage bucket not configured'
-              : 'Failed to sync media: $friendlyMsg',
-          type: NexusToastType.error,
-        );
-      }
+      final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+      NexusToast.show(
+        context,
+        e.toString().contains('Bucket not found')
+            ? 'Failed to sync media: Storage bucket not configured'
+            : 'Failed to sync media: $friendlyMsg',
+        type: NexusToastType.error,
+      );
     }
+  }
+
+  Future<CroppedFile?> _cropToSquare(String sourcePath) {
+    return ImageCropper().cropImage(
+      sourcePath: sourcePath,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Photo',
+          toolbarColor: const Color(0xFF0B0D13),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFFFF7597),
+          backgroundColor: const Color(0xFF0B0D13),
+          dimmedLayerColor: Colors.black87,
+          cropFrameColor: const Color(0xFFFF7597),
+          cropGridColor: Colors.white24,
+          lockAspectRatio: true,
+          hideBottomControls: false,
+          showCropGrid: true,
+        ),
+        IOSUiSettings(
+          title: 'Crop Photo',
+          cancelButtonTitle: 'Cancel',
+          doneButtonTitle: 'Done',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          aspectRatioPickerButtonHidden: true,
+        ),
+      ],
+    );
   }
 
   Future<void> _clearImage(int slotIndex) async {
@@ -1405,8 +1453,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       ).then((selected) {
         FocusManager.instance.primaryFocus?.unfocus();
         if (selected != null && mounted) {
-          final normalized =
-              selected == 'Prefer not to say' ? '' : selected;
+          final normalized = selected == 'Prefer not to say' ? '' : selected;
           onSelected(normalized);
         }
       }),
@@ -1721,8 +1768,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         if (selected != null && mounted) {
           final normalized =
               (selected == 'Prefer not to say' || selected == 'Not specified')
-                  ? ''
-                  : selected;
+              ? ''
+              : selected;
           onSelected(normalized);
         }
       }),

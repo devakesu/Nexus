@@ -1,6 +1,99 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/app_config.dart';
+import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// ---------------------------------------------------------------------------
+// Field descriptors
+// ---------------------------------------------------------------------------
+
+class _FieldDescriptor {
+  const _FieldDescriptor({
+    required this.key,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String key;
+  final String label;
+  final String subtitle;
+  final IconData icon;
+}
+
+final _kHideableFields = <_FieldDescriptor>[
+  const _FieldDescriptor(
+    key: 'display_gender',
+    label: 'Gender',
+    subtitle: 'Hide your gender identity from other profiles.',
+    icon: LucideIcons.users,
+  ),
+  const _FieldDescriptor(
+    key: 'display_sexuality',
+    label: 'Sexuality',
+    subtitle: 'Hide your sexual orientation from other profiles.',
+    icon: LucideIcons.heart,
+  ),
+  const _FieldDescriptor(
+    key: 'pronouns',
+    label: 'Pronouns',
+    subtitle: 'Hide your preferred pronouns from other profiles.',
+    icon: LucideIcons.messageSquare,
+  ),
+  const _FieldDescriptor(
+    key: 'hometown',
+    label: 'Hometown',
+    subtitle: 'Hide your hometown from other profiles.',
+    icon: LucideIcons.home,
+  ),
+  const _FieldDescriptor(
+    key: 'current_place',
+    label: 'Current Place',
+    subtitle: 'Hide your current city or location from other profiles.',
+    icon: LucideIcons.mapPin,
+  ),
+  const _FieldDescriptor(
+    key: 'campus_branch',
+    label: 'Major / Branch',
+    subtitle: 'Hide your academic branch or major from other profiles.',
+    icon: LucideIcons.graduationCap,
+  ),
+  const _FieldDescriptor(
+    key: 'religious_beliefs',
+    label: 'Religious Beliefs',
+    subtitle: 'Hide your religious beliefs from other profiles.',
+    icon: LucideIcons.sun,
+  ),
+  const _FieldDescriptor(
+    key: 'pets',
+    label: 'Pets',
+    subtitle: 'Hide your pet preferences from other profiles.',
+    icon: LucideIcons.cat,
+  ),
+  const _FieldDescriptor(
+    key: 'top_artists',
+    label: 'Top Artists',
+    subtitle: 'Hide your Spotify top artists from other profiles.',
+    icon: LucideIcons.music,
+  ),
+  const _FieldDescriptor(
+    key: 'causes_supported',
+    label: 'Causes Supported',
+    subtitle: 'Hide the causes you support from other profiles.',
+    icon: LucideIcons.handHeart,
+  ),
+];
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 class PrivacySettingsPage extends StatefulWidget {
   const PrivacySettingsPage({super.key});
@@ -12,84 +105,318 @@ class PrivacySettingsPage extends StatefulWidget {
 class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   static const _accent = Color(0xFF0284C7);
 
-  // Stub state — will be wired to backend later.
+  late final Dio _dio;
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  // Field visibility: true = VISIBLE to others, false = HIDDEN
+  final Map<String, bool> _visibility = {};
+
+  bool _loading = true;
+  String? _error;
+  // Track which fields are currently being saved to show per-item loading.
+  final Set<String> _saving = {};
+
+  // Stub toggles kept for future wiring.
   bool _activeStatus = true;
   bool _readReceipts = true;
-  bool _showDistance = true;
-  bool _showAge = true;
-  _MessagePermission _whoCanMessage = _MessagePermission.everyone;
+
+  @override
+  void initState() {
+    super.initState();
+    _dio = createDio();
+    // Default all fields to visible.
+    for (final f in _kHideableFields) {
+      _visibility[f.key] = true;
+    }
+    unawaited(_load());
+  }
+
+  Future<String?> _token() async => _supabase.auth.currentSession?.accessToken;
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final token = await _token();
+      if (token == null) throw Exception('Not signed in');
+      final resp = await _dio.get<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (resp.statusCode == 200 && resp.data != null) {
+        final hidden = (resp.data!['hidden_fields'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toSet();
+        setState(() {
+          for (final f in _kHideableFields) {
+            _visibility[f.key] = !hidden.contains(f.key);
+          }
+        });
+      }
+    } on DioException catch (e) {
+      final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
+          ?.toString();
+      setState(() => _error = detail ?? 'Failed to load privacy settings.');
+    } on Exception catch (_) {
+      setState(() => _error = 'Failed to load privacy settings.');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleField(String key, bool visible) async {
+    if (_saving.contains(key)) return;
+    // Optimistic update.
+    setState(() {
+      _visibility[key] = visible;
+      _saving.add(key);
+    });
+    try {
+      final token = await _token();
+      if (token == null) throw Exception('Not signed in');
+      final hidden = _visibility.entries
+          .where((e) => !e.value)
+          .map((e) => e.key)
+          .toList();
+      await _dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
+        data: {'hidden_fields': hidden},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      // Roll back.
+      setState(() => _visibility[key] = !visible);
+      if (mounted) {
+        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
+            ?.toString();
+        NexusToast.show(
+          context,
+          detail ?? 'Failed to save setting.',
+          type: NexusToastType.error,
+        );
+      }
+    } on Exception catch (_) {
+      setState(() => _visibility[key] = !visible);
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Failed to save setting.',
+          type: NexusToastType.error,
+        );
+      }
+    } finally {
+      setState(() => _saving.remove(key));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 48),
+      body: _loading
+          ? const Center(child: NexusOrbitLoader(size: 48))
+          : _error != null
+          ? _buildError()
+          : ListView(
+              padding: const EdgeInsets.only(bottom: 48),
+              children: [
+                _buildFieldVisibilitySection(),
+                _Section(
+                  title: 'Activity',
+                  children: [
+                    _ToggleTile(
+                      icon: LucideIcons.activity,
+                      label: 'Active Status',
+                      subtitle: "Let others see when you're currently active.",
+                      accentColor: _accent,
+                      value: _activeStatus,
+                      isFirst: true,
+                      isLast: true,
+                      saving: false,
+                      onChanged: (v) => setState(() => _activeStatus = v),
+                    ),
+                  ],
+                ),
+                _Section(
+                  title: 'Messages',
+                  children: [
+                    _ToggleTile(
+                      icon: LucideIcons.checkCheck,
+                      label: 'Read Receipts',
+                      subtitle:
+                          "Let matches see when you've read their messages.",
+                      accentColor: _accent,
+                      value: _readReceipts,
+                      isFirst: true,
+                      isLast: true,
+                      saving: false,
+                      onChanged: (v) => setState(() => _readReceipts = v),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.alertCircle,
+              color: Color(0xFFEF4444),
+              size: 40,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _load,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _accent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVisibilityInfo() {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              const Icon(LucideIcons.info, size: 18, color: Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              Text(
+                'About Field Visibility',
+                style: GoogleFonts.manrope(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Hidden fields are still used to find great matches for you - '
+            "they just won't be visible on your public profile.",
+            style: GoogleFonts.inter(
+              fontSize: 13.5,
+              color: const Color(0xFF475569),
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Got it',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0284C7),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldVisibilitySection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Section(
-            title: 'Activity',
-            children: [
-              _ToggleTile(
-                icon: LucideIcons.activity,
-                label: 'Active Status',
-                subtitle: "Let others see when you're currently active.",
-                accentColor: _accent,
-                value: _activeStatus,
-                isFirst: true,
-                isLast: true,
-                onChanged: (v) => setState(() => _activeStatus = v),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Row(
+              children: [
+                Text(
+                  'PROFILE FIELD VISIBILITY',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF64748B),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: _showVisibilityInfo,
+                  child: const Icon(
+                    LucideIcons.info,
+                    size: 13,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
           ),
-          _Section(
-            title: 'Messages',
-            children: [
-              _ToggleTile(
-                icon: LucideIcons.checkCheck,
-                label: 'Read Receipts',
-                subtitle: "Let matches see when you've read their messages.",
-                accentColor: _accent,
-                value: _readReceipts,
-                isFirst: true,
-                isLast: false,
-                onChanged: (v) => setState(() => _readReceipts = v),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                children: [
+                  for (int i = 0; i < _kHideableFields.length; i++)
+                    _ToggleTile(
+                      icon: _kHideableFields[i].icon,
+                      label: _kHideableFields[i].label,
+                      subtitle: _kHideableFields[i].subtitle,
+                      accentColor: _accent,
+                      value: _visibility[_kHideableFields[i].key] ?? true,
+                      isFirst: i == 0,
+                      isLast: i == _kHideableFields.length - 1,
+                      saving: _saving.contains(_kHideableFields[i].key),
+                      onChanged: (v) =>
+                          _toggleField(_kHideableFields[i].key, v),
+                    ),
+                ],
               ),
-              _OptionTile(
-                icon: LucideIcons.messageCircle,
-                label: 'Who Can Message Me',
-                value: _whoCanMessage.label,
-                accentColor: _accent,
-                isFirst: false,
-                isLast: true,
-                onTap: () => _pickMessagePermission(context),
-              ),
-            ],
-          ),
-          _Section(
-            title: 'Profile',
-            children: [
-              _ToggleTile(
-                icon: LucideIcons.mapPin,
-                label: 'Show My Distance',
-                subtitle: 'Show your approximate distance to other users.',
-                accentColor: _accent,
-                value: _showDistance,
-                isFirst: true,
-                isLast: false,
-                onChanged: (v) => setState(() => _showDistance = v),
-              ),
-              _ToggleTile(
-                icon: LucideIcons.cake,
-                label: 'Show My Age',
-                subtitle: 'Display your age on your profile.',
-                accentColor: _accent,
-                value: _showAge,
-                isFirst: false,
-                isLast: true,
-                onChanged: (v) => setState(() => _showAge = v),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -134,32 +461,6 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       ),
     );
   }
-
-  Future<void> _pickMessagePermission(BuildContext context) async {
-    final picked = await showModalBottomSheet<_MessagePermission>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _MessagePermissionSheet(current: _whoCanMessage),
-    );
-    if (picked != null && mounted) {
-      setState(() => _whoCanMessage = picked);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
-
-enum _MessagePermission {
-  everyone('Everyone'),
-  matchesOnly('Matches Only');
-
-  const _MessagePermission(this.label);
-  final String label;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +529,7 @@ class _ToggleTile extends StatelessWidget {
     required this.value,
     required this.isFirst,
     required this.isLast,
+    required this.saving,
     required this.onChanged,
   });
 
@@ -238,12 +540,19 @@ class _ToggleTile extends StatelessWidget {
   final bool value;
   final bool isFirst;
   final bool isLast;
+  final bool saving;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (!isFirst)
+          Container(
+            margin: const EdgeInsets.only(left: 64),
+            height: 0.5,
+            color: const Color(0xFFE2E8F0),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
@@ -283,206 +592,23 @@ class _ToggleTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Switch(
-                value: value,
-                onChanged: onChanged,
-                activeThumbColor: accentColor,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+              if (saving)
+                const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: NexusOrbitLoader(size: 36, lightMode: true),
+                )
+              else
+                Switch(
+                  value: value,
+                  onChanged: onChanged,
+                  activeThumbColor: accentColor,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
             ],
           ),
         ),
-        if (!isLast)
-          Container(
-            margin: const EdgeInsets.only(left: 64),
-            height: 0.5,
-            color: const Color(0xFFE2E8F0),
-          ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Option tile (tappable, shows current value + chevron)
-// ---------------------------------------------------------------------------
-
-class _OptionTile extends StatelessWidget {
-  const _OptionTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.accentColor,
-    required this.isFirst,
-    required this.isLast,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color accentColor;
-  final bool isFirst;
-  final bool isLast;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        if (!isFirst)
-          Container(
-            margin: const EdgeInsets.only(left: 64),
-            height: 0.5,
-            color: const Color(0xFFE2E8F0),
-          ),
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Icon(icon, color: accentColor, size: 17),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-                Text(
-                  value,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: const Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  LucideIcons.chevronRight,
-                  color: Color(0xFFCBD5E1),
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Who Can Message Me — bottom sheet picker
-// ---------------------------------------------------------------------------
-
-class _MessagePermissionSheet extends StatelessWidget {
-  const _MessagePermissionSheet({required this.current});
-
-  final _MessagePermission current;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Who Can Message Me',
-              style: GoogleFonts.manrope(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Control who can start a conversation with you.',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ..._MessagePermission.values.map(
-              (option) => _PermissionOption(
-                option: option,
-                isSelected: option == current,
-                onTap: () => Navigator.of(context).pop(option),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PermissionOption extends StatelessWidget {
-  const _PermissionOption({
-    required this.option,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final _MessagePermission option;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    const accent = Color(0xFF0284C7);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                option.label,
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? accent : const Color(0xFF0F172A),
-                ),
-              ),
-            ),
-            if (isSelected)
-              const Icon(LucideIcons.check, color: accent, size: 18),
-          ],
-        ),
-      ),
     );
   }
 }

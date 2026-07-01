@@ -374,7 +374,6 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
 
               final itemWidget = AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                height: 72,
                 margin: EdgeInsets.only(
                   left: index == 0 ? 0 : 4,
                   right: index == 3 ? 0 : 4,
@@ -462,7 +461,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               );
 
               return Expanded(
-                child: DragTarget<int>(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: DragTarget<int>(
                   onWillAcceptWithDetails: (details) => details.data != slotIndex,
                   onAcceptWithDetails: (details) {
                     widget.onSwapImages(details.data, slotIndex);
@@ -513,6 +514,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                       ),
                     );
                   },
+                ),
                 ),
               );
             }),

@@ -23,7 +23,8 @@ class NexusOrbitLoader extends StatefulWidget {
   State<NexusOrbitLoader> createState() => _NexusOrbitLoaderState();
 }
 
-class _NexusOrbitLoaderState extends State<NexusOrbitLoader> with SingleTickerProviderStateMixin {
+class _NexusOrbitLoaderState extends State<NexusOrbitLoader>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -85,7 +86,7 @@ class _OrbitPainter extends CustomPainter {
       ..drawCircle(center, maxRadius * 0.5, paintOrbit)
       ..drawCircle(center, maxRadius * 0.8, paintOrbit);
 
-    // Central core — proportional to canvas size
+    // Central core - proportional to canvas size
     final corePulse =
         maxRadius * 0.1 + maxRadius * 0.05 * math.sin(progress * 2 * math.pi);
     final corePaint = Paint()
@@ -107,17 +108,24 @@ class _OrbitPainter extends CustomPainter {
     // Orbiting particle 2: Friends (Sunset Gold) - Middle orbit, counter-clockwise
     final angle2 = -progress * 2 * math.pi + (math.pi / 3);
     final r2 = maxRadius * 0.75;
-    final p2 = center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8);
+    final p2 =
+        center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8);
     _drawGlowingParticle(canvas, p2, const Color(0xFFFFB03A), p2r);
 
     // Orbiting particle 3: Pro (Neon Teal) - Outer orbit, faster
     final angle3 = progress * 3 * math.pi + (math.pi * 2 / 3);
     final r3 = maxRadius * 0.95;
-    final p3 = center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
+    final p3 =
+        center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
     _drawGlowingParticle(canvas, p3, const Color(0xFF00F5D4), p3r);
   }
 
-  void _drawGlowingParticle(Canvas canvas, Offset position, Color color, double radius) {
+  void _drawGlowingParticle(
+    Canvas canvas,
+    Offset position,
+    Color color,
+    double radius,
+  ) {
     // Outer glow
     final glowPaint = Paint()
       ..color = color.withValues(alpha: 0.3)
@@ -135,7 +143,6 @@ class _OrbitPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-
 /// 2. Identity Scan Loader (Central Biometric Pulse + Background Face Grid + Laser Sweep)
 /// Designed specifically for the "Verifying your Identity..." gate.
 class IdentityScanLoader extends StatefulWidget {
@@ -145,7 +152,8 @@ class IdentityScanLoader extends StatefulWidget {
   State<IdentityScanLoader> createState() => _IdentityScanLoaderState();
 }
 
-class _IdentityScanLoaderState extends State<IdentityScanLoader> with SingleTickerProviderStateMixin {
+class _IdentityScanLoaderState extends State<IdentityScanLoader>
+    with SingleTickerProviderStateMixin {
   late AnimationController _sweepController;
 
   @override
@@ -181,7 +189,7 @@ class _IdentityScanLoaderState extends State<IdentityScanLoader> with SingleTick
             },
           ),
         ),
-        
+
         // Centered Holographic Fingerprint / Shield pulse
         Center(
           child: Container(
@@ -194,20 +202,24 @@ class _IdentityScanLoaderState extends State<IdentityScanLoader> with SingleTick
                 color: const Color(0xFFFF7597).withValues(alpha: 0.2),
               ),
             ),
-            child: const Icon(
-              Icons.fingerprint_rounded,
-              color: Color(0xFFFF7597),
-              size: 56,
-            )
-                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                .scale(
-                  begin: const Offset(0.9, 0.9),
-                  end: const Offset(1.1, 1.1),
-                  duration: 1200.ms,
-                  curve: Curves.easeInOut,
-                )
-                ..animate(onPlay: (controller) => controller.repeat())
-                    .shimmer(duration: 2000.ms, color: Colors.white24),
+            child:
+                const Icon(
+                      Icons.fingerprint_rounded,
+                      color: Color(0xFFFF7597),
+                      size: 56,
+                    )
+                    .animate(
+                      onPlay: (controller) => controller.repeat(reverse: true),
+                    )
+                    .scale(
+                      begin: const Offset(0.9, 0.9),
+                      end: const Offset(1.1, 1.1),
+                      duration: 1200.ms,
+                      curve: Curves.easeInOut,
+                    )
+                  ..animate(
+                    onPlay: (controller) => controller.repeat(),
+                  ).shimmer(duration: 2000.ms, color: Colors.white24),
           ),
         ),
       ],
@@ -234,7 +246,11 @@ class _ScanBgPainter extends CustomPainter {
     final dy = size.height / (rows - 1);
 
     for (var i = 0; i < cols; i++) {
-      canvas.drawLine(Offset(i * dx, 0), Offset(i * dx, size.height), paintGrid);
+      canvas.drawLine(
+        Offset(i * dx, 0),
+        Offset(i * dx, size.height),
+        paintGrid,
+      );
     }
     for (var j = 0; j < rows; j++) {
       canvas.drawLine(Offset(0, j * dy), Offset(size.width, j * dy), paintGrid);
@@ -249,13 +265,17 @@ class _ScanBgPainter extends CustomPainter {
 
     canvas
       ..drawCircle(center, 100, paintCircles)
-      ..drawCircle(center, 160, paintCircles..color = const Color(0xFFFF7597).withValues(alpha: 0.04));
+      ..drawCircle(
+        center,
+        160,
+        paintCircles..color = const Color(0xFFFF7597).withValues(alpha: 0.04),
+      );
 
     // Draw tech angle ticks around circles
     final tickPaint = Paint()
       ..color = const Color(0xFFFF7597).withValues(alpha: 0.2)
       ..strokeWidth = 2.0;
-    
+
     for (var angleDeg = 0; angleDeg < 360; angleDeg += 45) {
       final angle = angleDeg * math.pi / 180;
       final start = center + Offset(math.cos(angle) * 96, math.sin(angle) * 96);
@@ -265,19 +285,19 @@ class _ScanBgPainter extends CustomPainter {
 
     // 3. Draw the vertical laser sweep line
     final laserY = sweepProgress * size.height;
-    
+
     // Laser glow gradient
     final rect = Rect.fromLTRB(0, laserY - 15, size.width, laserY + 1);
     final laserGlow = Paint()
       ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFF7597).withValues(alpha: 0),
-            const Color(0xFFFF7597).withValues(alpha: 0.15),
-            const Color(0xFFFF7597).withValues(alpha: 0.4),
-          ],
-        ).createShader(rect);
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFFF7597).withValues(alpha: 0),
+          const Color(0xFFFF7597).withValues(alpha: 0.15),
+          const Color(0xFFFF7597).withValues(alpha: 0.4),
+        ],
+      ).createShader(rect);
 
     canvas.drawRect(rect, laserGlow);
 
@@ -286,7 +306,7 @@ class _ScanBgPainter extends CustomPainter {
       ..color = const Color(0xFFFF7597)
       ..strokeWidth = 1.5
       ..imageFilter = null;
-    
+
     canvas.drawLine(Offset(0, laserY), Offset(size.width, laserY), laserCore);
   }
 

@@ -24,16 +24,19 @@ class ProfessionalSettingsOverlay extends StatefulWidget {
   final String company;
   final List<String> roleType;
   final Set<String> savingFields;
-  final Future<void> Function(String field, dynamic value, StateSetter setState) onSaveProfessionalField;
+  final Future<void> Function(String field, dynamic value, StateSetter setState)
+  onSaveProfessionalField;
   final Future<void> Function() onLoadProfessionalProfileStatusSilent;
   final bool isActivating;
   final Future<void> Function({required bool active})? onToggleOrbitState;
 
   @override
-  State<ProfessionalSettingsOverlay> createState() => _ProfessionalSettingsOverlayState();
+  State<ProfessionalSettingsOverlay> createState() =>
+      _ProfessionalSettingsOverlayState();
 }
 
-class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverlay> {
+class _ProfessionalSettingsOverlayState
+    extends State<ProfessionalSettingsOverlay> {
   late List<String> localBuckets;
   late List<String> localLookingFor;
   late List<String> localTechSkills;
@@ -110,13 +113,20 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
   @override
   Widget build(BuildContext context) {
     final filteredSkills = predefinedSkills
-        .where((val) => val.toLowerCase().contains(skillsSearchQuery.toLowerCase()))
+        .where(
+          (val) => val.toLowerCase().contains(skillsSearchQuery.toLowerCase()),
+        )
         .where((val) => !localTechSkills.contains(val))
         .toList();
 
-    final showCustomSkill = skillsSearchQuery.trim().isNotEmpty &&
-        !predefinedSkills.any((val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase()) &&
-        !localTechSkills.any((val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase());
+    final showCustomSkill =
+        skillsSearchQuery.trim().isNotEmpty &&
+        !predefinedSkills.any(
+          (val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase(),
+        ) &&
+        !localTechSkills.any(
+          (val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase(),
+        );
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -186,7 +196,8 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                       );
                     }
                     Navigator.pop(context);
-                    if (widget.isActivating && widget.onToggleOrbitState != null) {
+                    if (widget.isActivating &&
+                        widget.onToggleOrbitState != null) {
                       await widget.onToggleOrbitState!(active: true);
                     }
                   },
@@ -219,7 +230,9 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                         ),
                       ),
                     ),
-                    if (widget.savingFields.contains('professional_target_buckets'))
+                    if (widget.savingFields.contains(
+                      'professional_target_buckets',
+                    ))
                       const Padding(
                         padding: EdgeInsets.only(left: 8),
                         child: NexusOrbitLoader(size: 16, lightMode: true),
@@ -237,58 +250,65 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
-                  children: [
-                    {'code': 'M', 'label': 'Men'},
-                    {'code': 'F', 'label': 'Women'},
-                    {'code': 'NB', 'label': 'Non-binary'},
-                    {'code': 'Open', 'label': 'Open to all'},
-                  ].map((item) {
-                    final code = item['code']!;
-                    final isSelected = localBuckets.contains(code);
-                    return FilterChip(
-                      label: Text(item['label']!),
-                      selected: isSelected,
-                      selectedColor: const Color(0xFF00C4AB),
-                      backgroundColor: Colors.black.withValues(alpha: 0.04),
-                      checkmarkColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (selected) async {
-                        if (widget.savingFields.contains('professional_target_buckets')) {
-                          return;
-                        }
-                        setState(() {
-                          if (code == 'Open') {
-                            if (selected) {
-                              localBuckets
-                                ..clear()
-                                ..add('Open');
-                            } else {
-                              localBuckets.remove('Open');
+                  children:
+                      [
+                        {'code': 'M', 'label': 'Men'},
+                        {'code': 'F', 'label': 'Women'},
+                        {'code': 'NB', 'label': 'Non-binary'},
+                        {'code': 'Open', 'label': 'Open to all'},
+                      ].map((item) {
+                        final code = item['code']!;
+                        final isSelected = localBuckets.contains(code);
+                        return FilterChip(
+                          label: Text(item['label']!),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFF00C4AB),
+                          backgroundColor: Colors.black.withValues(alpha: 0.04),
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onSelected: (selected) async {
+                            if (widget.savingFields.contains(
+                              'professional_target_buckets',
+                            )) {
+                              return;
                             }
-                          } else {
-                            if (selected) {
-                              localBuckets
-                                ..remove('Open')
-                                ..add(code);
-                            } else {
-                              localBuckets.remove(code);
-                            }
-                          }
-                        });
-                        await widget.onSaveProfessionalField(
-                          'professional_target_buckets',
-                          localBuckets,
-                          setState,
+                            setState(() {
+                              if (code == 'Open') {
+                                if (selected) {
+                                  localBuckets
+                                    ..clear()
+                                    ..add('Open');
+                                } else {
+                                  localBuckets.remove('Open');
+                                }
+                              } else {
+                                if (selected) {
+                                  localBuckets
+                                    ..remove('Open')
+                                    ..add(code);
+                                } else {
+                                  localBuckets.remove(code);
+                                }
+                              }
+                            });
+                            await widget.onSaveProfessionalField(
+                              'professional_target_buckets',
+                              localBuckets,
+                              setState,
+                            );
+                          },
                         );
-                      },
-                    );
-                  }).toList(),
+                      }).toList(),
                 ),
                 const SizedBox(height: 32),
 
@@ -333,8 +353,12 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -383,7 +407,7 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Leave blank if not applicable — this is optional.',
+                  'Leave blank if not applicable - this is optional.',
                   style: TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 12,
@@ -499,8 +523,12 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -574,7 +602,9 @@ class _ProfessionalSettingsOverlayState extends State<ProfessionalSettingsOverla
                     children: localTechSkills.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(0xFF00C4AB).withValues(alpha: 0.1),
+                        backgroundColor: const Color(
+                          0xFF00C4AB,
+                        ).withValues(alpha: 0.1),
                         labelStyle: const TextStyle(
                           color: Color(0xFF00C4AB),
                           fontWeight: FontWeight.bold,

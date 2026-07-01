@@ -31,7 +31,7 @@ class CommonHeader extends StatelessWidget {
       case 2:
         tabThemeColor = const Color(0xFF6366F1);
         tabThemeColorSecondary = const Color(0xFFA855F7);
-        tabLabel = null; // Profile tab — no tag
+        tabLabel = null; // Profile tab - no tag
       case 3:
         tabThemeColor = const Color(0xFF00796B);
         tabThemeColorSecondary = const Color(0xFF0097A7);
@@ -39,7 +39,7 @@ class CommonHeader extends StatelessWidget {
       case 4:
         tabThemeColor = const Color(0xFF0284C7);
         tabThemeColorSecondary = const Color(0xFF3B82F6);
-        tabLabel = null; // Settings tab — no tag
+        tabLabel = null; // Settings tab - no tag
       default:
         tabThemeColor = const Color(0xFFFF2A54);
         tabThemeColorSecondary = const Color(0xFFFF6B8B);

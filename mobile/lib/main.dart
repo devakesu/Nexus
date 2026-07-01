@@ -14,6 +14,7 @@ import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/screens/auth_gate.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/utils/secure_session_storage.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -72,6 +73,10 @@ Future<void> main() async {
     Supabase.initialize(
       url: config.supabaseUrl,
       publishableKey: config.supabasePublishableKey,
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: SecureLocalStorage(),
+        pkceAsyncStorage: SecureGotrueAsyncStorage(),
+      ),
     ),
   ]);
 

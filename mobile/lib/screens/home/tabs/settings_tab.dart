@@ -24,7 +24,7 @@ enum _PauseStatus { loading, active, paused, error }
 class SettingsTab extends StatefulWidget {
   const SettingsTab({required this.onOpenOrbit, super.key});
 
-  // Kept for home_screen.dart compatibility — not used in this screen.
+  // Kept for home_screen.dart compatibility - not used in this screen.
   final void Function(String, Color) onOpenOrbit;
 
   @override
@@ -81,9 +81,12 @@ class _SettingsTabState extends State<SettingsTab> {
       final isDatingActive = data['is_dating_active'] == true;
       final isFriendsActive = data['is_friends_active'] == true;
       final isProfessionalActive = data['is_professional_active'] == true;
-      final isAnyActive = isDatingActive || isFriendsActive || isProfessionalActive;
+      final isAnyActive =
+          isDatingActive || isFriendsActive || isProfessionalActive;
       setState(
-        () => _pauseStatus = isAnyActive ? _PauseStatus.active : _PauseStatus.paused,
+        () => _pauseStatus = isAnyActive
+            ? _PauseStatus.active
+            : _PauseStatus.paused,
       );
     } on Exception catch (_) {
       if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
@@ -131,7 +134,10 @@ class _SettingsTabState extends State<SettingsTab> {
           content: Text(
             "You're not visible to others and won't appear in anyone's Orbit. "
             'To resume, activate individual Orbits from their tabs.',
-            style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xFF475569),
+            ),
           ),
           actions: [
             ElevatedButton(
@@ -151,7 +157,7 @@ class _SettingsTabState extends State<SettingsTab> {
       return;
     }
 
-    // _pauseStatus == active (or error — treat as active to allow retry)
+    // _pauseStatus == active (or error - treat as active to allow retry)
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -588,8 +594,9 @@ class _SettingsTile extends StatelessWidget {
     return Column(
       children: [
         InkWell(
-          onTap: spec.onTap ??
-              () => NexusToast.show(context, '${spec.label} — coming soon.'),
+          onTap:
+              spec.onTap ??
+              () => NexusToast.show(context, '${spec.label} - coming soon.'),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(

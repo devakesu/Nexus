@@ -123,7 +123,9 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF111420),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFF7597).withValues(alpha: 0.15)),
+        border: Border.all(
+          color: const Color(0xFFFF7597).withValues(alpha: 0.15),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -253,7 +255,7 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
               ],
             ),
           ] else ...[
-            // No active code — generate prompt
+            // No active code - generate prompt
             const Text(
               'Generate a one-time code to share your profile data with your main Nexus account. '
               'The code expires in 15 minutes.',

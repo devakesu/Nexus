@@ -210,6 +210,8 @@ async def get_peer_profile(
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found.")
 
+        hidden_fields = set(profile.pop("hidden_profile_fields", None) or [])
+
         # Inject orbit-shape fields not present on raw profile rows.
         # score=1.0 signals "this person liked you" to the UI.
         profile.setdefault("score", 1.0)
@@ -220,6 +222,7 @@ async def get_peer_profile(
         return build_tab_aware_orbit_node_detail(
             session_tab=payload.tab,
             payload=profile,
+            hidden_fields=hidden_fields,
         )
 
     except (DecryptFailedError, ProfileDecodeError) as err:

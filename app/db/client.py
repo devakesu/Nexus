@@ -10,7 +10,7 @@ from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
-# Service role client — bypasses all RLS by design.
+# Service role client - bypasses all RLS by design.
 # Authorization is enforced at the FastAPI layer:
 #   1. ES256 JWT verification (get_authenticated_user_id in dependencies.py)
 #   2. user_id scoping: every write is filtered to the verified caller's user_id

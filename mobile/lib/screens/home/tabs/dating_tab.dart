@@ -52,11 +52,11 @@ class _DatingTabState extends State<DatingTab>
   // Local state for checking off missing fields dialog
   List<dynamic> _missingFields = [];
 
-  // Likes inbox — populated from GET /api/v1/likes
+  // Likes inbox - populated from GET /api/v1/likes
   List<Map<String, dynamic>> _likeItems = [];
   int _unseenCount = 0;
 
-  // Matches — populated from GET /api/v1/matches
+  // Matches - populated from GET /api/v1/matches
   List<Map<String, dynamic>> _matches = [];
 
   @override
@@ -96,7 +96,10 @@ class _DatingTabState extends State<DatingTab>
       final session = supabaseClient.auth.currentSession;
       if (session != null) {
         final dio = _dio;
-        final data = await NetworkUtils.fetchProfileDetails(dio, session.accessToken);
+        final data = await NetworkUtils.fetchProfileDetails(
+          dio,
+          session.accessToken,
+        );
 
         if (data != null && mounted) {
           setState(() {
@@ -147,7 +150,10 @@ class _DatingTabState extends State<DatingTab>
       final session = supabaseClient.auth.currentSession;
       if (session != null) {
         final dio = _dio;
-        final data = await NetworkUtils.fetchProfileDetails(dio, session.accessToken);
+        final data = await NetworkUtils.fetchProfileDetails(
+          dio,
+          session.accessToken,
+        );
 
         if (data != null && mounted) {
           setState(() {
@@ -341,125 +347,129 @@ class _DatingTabState extends State<DatingTab>
 
   // Show dialog when core profile is incomplete (Light themed, matching app design)
   void _showProfileIncompleteDialog() {
-    unawaited(showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Row(
-            children: [
-              Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Profile Incomplete',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Profile Incomplete',
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Please complete your core profile details first before setting up Dating features:',
-                style: TextStyle(color: Color(0xFF475569), fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              ..._missingFields
-                  .where(
-                    (f) => !const {
-                      'dating_target_buckets',
-                      'dating_for',
-                      'partner_values',
-                    }.contains(f.toString()),
-                  )
-                  .map((field) {
-                    final fieldStr = field.toString();
-                    String label;
-                    if (fieldStr == 'name') {
-                      label = 'Display Name is missing';
-                    } else if (fieldStr == 'age') {
-                      label = 'Age is missing';
-                    } else if (fieldStr == 'drinking') {
-                      label = 'Drinking preferences are missing';
-                    } else if (fieldStr == 'smoking') {
-                      label = 'Smoking preferences are missing';
-                    } else if (fieldStr == 'interests') {
-                      label = 'At least 3 interests required';
-                    } else if (fieldStr == 'profile_pic') {
-                      label = 'Profile avatar image is missing';
-                    } else if (fieldStr == 'normal_pics') {
-                      label =
-                          'At least 2 images required to be set in profile other than profile avatar';
-                    } else {
-                      label = fieldStr.replaceAll('_', ' ');
-                      label = label[0].toUpperCase() + label.substring(1);
-                    }
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Please complete your core profile details first before setting up Dating features:',
+                  style: TextStyle(color: Color(0xFF475569), fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                ..._missingFields
+                    .where(
+                      (f) => !const {
+                        'dating_target_buckets',
+                        'dating_for',
+                        'partner_values',
+                      }.contains(f.toString()),
+                    )
+                    .map((field) {
+                      final fieldStr = field.toString();
+                      String label;
+                      if (fieldStr == 'name') {
+                        label = 'Display Name is missing';
+                      } else if (fieldStr == 'age') {
+                        label = 'Age is missing';
+                      } else if (fieldStr == 'drinking') {
+                        label = 'Drinking preferences are missing';
+                      } else if (fieldStr == 'smoking') {
+                        label = 'Smoking preferences are missing';
+                      } else if (fieldStr == 'interests') {
+                        label = 'At least 3 interests required';
+                      } else if (fieldStr == 'profile_pic') {
+                        label = 'Profile avatar image is missing';
+                      } else if (fieldStr == 'normal_pics') {
+                        label =
+                            'At least 2 images required to be set in profile other than profile avatar';
+                      } else {
+                        label = fieldStr.replaceAll('_', ' ');
+                        label = label[0].toUpperCase() + label.substring(1);
+                      }
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(
-                              LucideIcons.xCircle,
-                              color: Colors.redAccent,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                color: Color(0xFF334155),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                LucideIcons.xCircle,
+                                color: Colors.redAccent,
+                                size: 16,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-            ],
-          ),
-          actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF64748B),
-              ),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Color(0xFF334155),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+              ],
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4F81),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            actions: [
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
                 ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onNavigateToTab?.call(2); // Go to Profile Tab (index 2)
-              },
-              child: const Text('Go to Profile Tab'),
-            ),
-          ],
-        );
-      },
-    ));
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF4F81),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onNavigateToTab?.call(
+                    2,
+                  ); // Go to Profile Tab (index 2)
+                },
+                child: const Text('Go to Profile Tab'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // Show slide-up Dating Settings overlay
@@ -962,22 +972,30 @@ class _DatingTabState extends State<DatingTab>
   }
 
   void _showMatchesOverlay() {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) {
-        return MatchesOverlay(
-          matches: _matches,
-          onFetchMatches: () async {
-            await _fetchMatches();
-          },
-          onRecordMatchAction: (id, act, tok, {reason, reasonDetail}) async {
-            await _recordMatchAction(id, act, tok, reason: reason, reasonDetail: reasonDetail);
-          },
-        );
-      },
-    ));
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetCtx) {
+          return MatchesOverlay(
+            matches: _matches,
+            onFetchMatches: () async {
+              await _fetchMatches();
+            },
+            onRecordMatchAction: (id, act, tok, {reason, reasonDetail}) async {
+              await _recordMatchAction(
+                id,
+                act,
+                tok,
+                reason: reason,
+                reasonDetail: reasonDetail,
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 
   @override

@@ -2,7 +2,7 @@ import 'dart:async';
 
 /// Broadcast stream that fires whenever any orbit tab changes its active state.
 /// The boolean payload is `true` when an orbit was activated, `false` when
-/// deactivated.  Broadcast streams always deliver — unlike ValueNotifier, they
+/// deactivated.  Broadcast streams always deliver - unlike ValueNotifier, they
 /// don't skip when the same direction fires twice in a row.
 class OrbitRefreshNotifier {
   OrbitRefreshNotifier._();

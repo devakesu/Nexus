@@ -493,6 +493,7 @@ def _build_node_detail_payload(
         "sub_interests": hydrated_profile.get("sub_interests") or {},
         "ai_vibe_tags": hydrated_profile.get("ai_vibe_tags") or [],
         "pets": hydrated_profile.get("pets") or [],
+        "hidden_profile_fields": hydrated_profile.get("hidden_profile_fields") or [],
         "score": coerce_score(row.get("score")),
         "x": coerce_float(row.get("x")),
         "y": coerce_float(row.get("y")),
@@ -553,6 +554,7 @@ async def fetch_discovery_node_detail(
                     sub_interests,
                     ai_vibe_tags,
                     pets,
+                    hidden_profile_fields,
                     is_deactivated
                 ),
                 discovery_sessions!inner (

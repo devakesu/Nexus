@@ -1,5 +1,5 @@
 """
-Spotify OAuth integration — server-side Authorization Code flow.
+Spotify OAuth integration - server-side Authorization Code flow.
 
 Security model:
   - /connect requires a valid Supabase JWT (authenticated user).
@@ -8,6 +8,7 @@ Security model:
   - The Spotify client_secret never leaves the backend.
   - Artist names are encrypted before persisting (same scheme as all PII).
 """
+
 import json
 import logging
 import secrets
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_STATE_TTL_SECONDS = 600  # 10 minutes — enough for the user to complete auth
+_STATE_TTL_SECONDS = 600  # 10 minutes - enough for the user to complete auth
 _TOP_ARTISTS_LIMIT = 10
 _SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 _SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"  # noqa: S105
@@ -70,7 +71,7 @@ async def spotify_native_exchange(
     Exchange a native SDK authorization code for top artists and persist them.
 
     Used by the Android native auth path (Spotify Auth Library) which returns an
-    Authorization Code instead of an access token — the backend holds the secret
+    Authorization Code instead of an access token - the backend holds the secret
     and completes the exchange.
     """
     _ = request
@@ -102,8 +103,7 @@ async def spotify_native_exchange(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
-                "No top artists found. "
-                "Listen to more music on Spotify and try again."
+                "No top artists found. Listen to more music on Spotify and try again."
             ),
         )
 
@@ -213,7 +213,7 @@ async def spotify_callback(
     """
     OAuth callback invoked by Spotify after the user grants (or denies) access.
 
-    Public endpoint — no JWT or App Check — because it is called by Spotify's
+    Public endpoint - no JWT or App Check - because it is called by Spotify's
     servers, not the app. Security comes from the one-time Redis state token.
     """
     _ = request
@@ -284,8 +284,7 @@ async def spotify_callback(
             title="Save failed",
             success=False,
             message=(
-                "Your artists were fetched but could not be saved. "
-                "Please try again."
+                "Your artists were fetched but could not be saved. Please try again."
             ),
         )
 
@@ -294,8 +293,7 @@ async def spotify_callback(
         title="Spotify Connected!",
         success=True,
         message=(
-            f"Synced {len(artist_names)} top artists. "
-            "Return to the app to see them."
+            f"Synced {len(artist_names)} top artists. Return to the app to see them."
         ),
         artists=artist_names,
     )

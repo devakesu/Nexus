@@ -94,6 +94,6 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
     except Exception:
         # Non-fatal: vector staleness is preferable to blocking the save response.
         logger.exception(
-            "Vector recompile failed for user %s — skipping silently",
+            "Vector recompile failed for user %s - skipping silently",
             user_id,
         )

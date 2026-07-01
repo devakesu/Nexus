@@ -95,7 +95,7 @@ flutter {
 }
 
 dependencies {
-    // Spotify Android Auth Library — provides native SSO when the Spotify app is installed,
+    // Spotify Android Auth Library - provides native SSO when the Spotify app is installed,
     // falls back to Chrome Custom Tabs otherwise. Register your SHA-1 fingerprints and
     // both redirect URIs in the Spotify Developer Dashboard.
     implementation("com.spotify.android:auth:2.1.0")

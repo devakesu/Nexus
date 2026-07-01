@@ -1,5 +1,5 @@
 """
-Value dimension scorer — fully local, zero network latency.
+Value dimension scorer - fully local, zero network latency.
 
 Mitigates Semantic Dilution by dynamically compiling intent-segregated text
 blocks per dimension before running sentence transformer dot-product matches.
@@ -164,13 +164,10 @@ def _compile_filtered_text_for_dimension(
     sentences: list[str] = []
 
     # Filter & inject Primary Interests matching domain signals
-    filtered_interests = [
-        inst for inst in interests if inst.lower() in valid_signals
-    ]
+    filtered_interests = [inst for inst in interests if inst.lower() in valid_signals]
     if filtered_interests:
         sentences.append(
-            "Passionate profile interests include: "
-            f"{', '.join(filtered_interests)}.",
+            f"Passionate profile interests include: {', '.join(filtered_interests)}.",
         )
 
     # Filter & inject Granular Sub-Interests matching domain signals
@@ -276,7 +273,7 @@ def derive_value_dimensions(
 
     except Exception:
         logger.exception(
-            "Value dimension derivation failed — using defaults fallback space",
+            "Value dimension derivation failed - using defaults fallback space",
         )
         return _DEFAULT_DIMENSIONS.copy()
 
