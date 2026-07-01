@@ -94,6 +94,12 @@ flutter {
     source = "../.."
 }
 
+// firebase-iid is fully superseded by firebase-messaging; exclude it to prevent
+// duplicate class errors when transitive deps (e.g. Spotify auth) pull it in.
+configurations.all {
+    exclude(group = "com.google.firebase", module = "firebase-iid")
+}
+
 dependencies {
     // Spotify Android Auth Library - provides native SSO when the Spotify app is installed,
     // falls back to Chrome Custom Tabs otherwise. Register your SHA-1 fingerprints and

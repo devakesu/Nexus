@@ -27,6 +27,7 @@ from app.db.matches import (
 )
 from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.profiles import fetch_peer_profile_by_id
+from app.services.fcm_sender import send_match_notification
 from app.models import (
     LikeActionRequest,
     LikeListItem,
@@ -291,6 +292,12 @@ async def record_like_back_action(
                 # payload.target_id is the original liker; user_id liked back
                 await asyncio.to_thread(
                     record_match, payload.target_id, user_id, payload.tab,
+                )
+                asyncio.create_task(
+                    send_match_notification(
+                        user_a_id=payload.target_id,
+                        user_b_id=user_id,
+                    )
                 )
             except DatabaseAccessError as err:
                 orig = err.__cause__

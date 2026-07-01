@@ -27,6 +27,7 @@ from app.models import (
     OrbitNodeOut,
 )
 from app.services.discovery import create_new_discovery_session, get_or_validate_session
+from app.services.fcm_sender import send_like_notification
 
 logger = logging.getLogger(__name__)
 
@@ -293,4 +294,12 @@ async def handle_discovery_action(
         )
         if payload.action in ("block", "unblock"):
             await invalidate_block_cache(user_id, payload.target_id)
+        elif payload.action in ("like", "superlike"):
+            asyncio.create_task(
+                send_like_notification(
+                    actor_id=user_id,
+                    target_id=payload.target_id,
+                    is_superlike=payload.action == "superlike",
+                )
+            )
     return DiscoveryActionResponse(success=True)

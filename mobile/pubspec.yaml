@@ -30,8 +30,10 @@ environment:
 dependencies:
   cupertino_icons: ^1.0.8
   dio: ^5.9.2
+  app_settings: ^6.1.1
   firebase_app_check: ^0.4.3
   firebase_core: ^4.7.0
+  firebase_messaging: ^16.4.1
   flutter:
     sdk: flutter
   flutter_animate: ^4.5.2

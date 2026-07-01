@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
+from app.api.devices import router as devices_router
 from app.api.discovery import router as discovery_router
 from app.api.likes import router as likes_router
 from app.api.spotify import router as spotify_router
@@ -114,6 +115,7 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+app.include_router(devices_router)
 app.include_router(discovery_router)
 app.include_router(likes_router)
 app.include_router(spotify_router)

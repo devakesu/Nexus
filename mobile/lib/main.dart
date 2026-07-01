@@ -13,6 +13,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/screens/auth_gate.dart';
+import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/secure_session_storage.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -79,6 +80,9 @@ Future<void> main() async {
       ),
     ),
   ]);
+
+  // Must be registered before runApp() so the background isolate can find it.
+  NotificationService.registerBackgroundHandler();
 
   await SentryFlutter.init(
     (options) {

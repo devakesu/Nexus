@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,6 +9,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
 import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
+import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -31,10 +33,11 @@ class SettingsTab extends StatefulWidget {
   State<SettingsTab> createState() => _SettingsTabState();
 }
 
-class _SettingsTabState extends State<SettingsTab> {
+class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
   static const _accent = Color(0xFF0284C7);
 
   _PauseStatus _pauseStatus = _PauseStatus.loading;
+  AuthorizationStatus? _notifPermission;
   late final Dio _dio;
   final SupabaseClient _client = Supabase.instance.client;
   StreamSubscription<bool>? _orbitSub;
@@ -42,8 +45,10 @@ class _SettingsTabState extends State<SettingsTab> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _dio = createDio();
     unawaited(_loadPauseStatus());
+    unawaited(_loadNotifPermission());
     _orbitSub = OrbitRefreshNotifier.stream.listen(_onOrbitChange);
   }
 
@@ -57,9 +62,42 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_loadNotifPermission());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _orbitSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadNotifPermission() async {
+    final status = await NotificationService.getPermissionStatus();
+    if (mounted) setState(() => _notifPermission = status);
+  }
+
+  Widget _buildNotifTrailing() {
+    return switch (_notifPermission) {
+      AuthorizationStatus.authorized ||
+      AuthorizationStatus.provisional =>
+        const _StatusDot(label: 'Enabled', color: Color(0xFF16A34A)),
+      AuthorizationStatus.denied =>
+        const _StatusDot(label: 'Disabled', color: Color(0xFFEF4444)),
+      _ => const Icon(LucideIcons.chevronRight, color: Color(0xFFCBD5E1), size: 16),
+    };
+  }
+
+  Future<void> _handleNotifTap() async {
+    if (_notifPermission == AuthorizationStatus.denied) {
+      if (!mounted) return;
+      await NotificationService.showPermissionDeniedDialog(context);
+    } else {
+      await NotificationService.openNotificationSettings();
+    }
   }
 
   Future<void> _loadPauseStatus() async {
@@ -267,12 +305,17 @@ class _SettingsTabState extends State<SettingsTab> {
             _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
           ],
         ),
-        const _SettingsSection(
+        _SettingsSection(
           title: 'Notifications',
           accentColor: _accent,
           tiles: [
-            _TileSpec(icon: LucideIcons.bell, label: 'Push Notifications'),
-            _TileSpec(icon: LucideIcons.mail, label: 'Email Notifications'),
+            _TileSpec(
+              icon: LucideIcons.bell,
+              label: 'Push Notifications',
+              trailing: _buildNotifTrailing(),
+              onTap: _handleNotifTap,
+            ),
+            const _TileSpec(icon: LucideIcons.mail, label: 'Email Notifications'),
           ],
         ),
         _SettingsSection(

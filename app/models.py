@@ -1066,3 +1066,19 @@ class PrivacySettingsUpdate(BaseModel):
                     f"Allowed: {sorted(ALLOWED_HIDDEN_FIELDS)}"
                 )
         return list(set(v))
+
+
+# ---------------------------------------------------------------------------
+# Device / push notification token registration
+# ---------------------------------------------------------------------------
+
+
+class RegisterDeviceRequest(BaseModel):
+    """Register or refresh an FCM push token for the authenticated user's device."""
+
+    fcm_token: str = Field(..., min_length=1)
+    platform: Literal["android", "ios"] = "android"
+    device_id: str | None = Field(
+        default=None,
+        description="Client-supplied stable device identifier (optional).",
+    )

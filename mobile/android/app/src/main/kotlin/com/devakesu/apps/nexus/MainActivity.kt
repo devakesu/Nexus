@@ -1,6 +1,10 @@
 package com.devakesu.apps.nexus
 
+import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
+import android.app.NotificationManager
 import android.content.Intent
+import android.os.Build
 import com.spotify.sdk.android.auth.AuthorizationClient
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
@@ -19,6 +23,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        createNotificationChannels()
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -31,6 +36,49 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val nm = getSystemService(NotificationManager::class.java) ?: return
+
+        // Channel groups
+        nm.createNotificationChannelGroups(
+            listOf(
+                NotificationChannelGroup("likes", "Likes"),
+                NotificationChannelGroup("matches", "Matches"),
+            )
+        )
+
+        nm.createNotificationChannels(
+            listOf(
+                NotificationChannel(
+                    "likes_like",
+                    "Likes",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "When someone likes you"
+                    group = "likes"
+                },
+                NotificationChannel(
+                    "likes_superlike",
+                    "Super Likes",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "When someone super likes you"
+                    group = "likes"
+                },
+                NotificationChannel(
+                    "matches_new",
+                    "New Matches",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "When you get a new match"
+                    group = "matches"
+                },
+            )
+        )
     }
 
     private fun launchSpotifyAuth(

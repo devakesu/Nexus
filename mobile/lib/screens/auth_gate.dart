@@ -6,6 +6,7 @@ import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
+import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -41,6 +42,10 @@ class _AuthGateState extends State<AuthGate> {
     // Listen to Supabase auth state changes
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
       (data) {
+        if (data.event == AuthChangeEvent.signedOut) {
+          unawaited(NotificationService.unregisterToken());
+          unawaited(NotificationService.dispose());
+        }
         if (mounted) {
           setState(() {});
           if (!_showSplash) {
@@ -178,6 +183,7 @@ class _AuthGateState extends State<AuthGate> {
             _lastBootstrappedUserId = activeSession.user.id;
             _isBootstrapping = false;
           });
+          unawaited(NotificationService.initialize());
         }
       } else {
         // Server rejected registration (e.g. 403 Forbidden - non-college email)
