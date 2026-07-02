@@ -9,6 +9,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
 import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
+import 'package:nexus/screens/settings/safety_center_page.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
@@ -71,7 +72,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _orbitSub?.cancel();
+    unawaited(_orbitSub?.cancel());
     super.dispose();
   }
 
@@ -355,9 +356,14 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
               trailing: _buildPauseIndicator(),
               onTap: _handlePauseTap,
             ),
-            const _TileSpec(
+            _TileSpec(
               icon: LucideIcons.heartHandshake,
               label: 'Safety Center',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SafetyCenterPage(),
+                ),
+              ),
             ),
           ],
         ),
