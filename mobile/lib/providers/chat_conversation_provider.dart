@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/local_key_vault.dart';
+import 'package:nexus/services/signal/media_crypto.dart';
 import 'package:nexus/services/signal/message_codec.dart';
 import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_database.dart';
@@ -15,8 +16,46 @@ import 'package:nexus/services/signal/signal_store.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 part 'chat_conversation_provider.g.dart';
+
+/// The decrypted "message" for image/voice types is this JSON pointer,
+/// not the media itself - the actual bytes live in the `chat_media`
+/// Storage bucket, encrypted with [mediaKeyBase64] (a fresh random key
+/// that only ever travels inside this ratchet-encrypted pointer, per
+/// Signal's own attachment design - see `media_crypto.dart`).
+class MediaPointer {
+  const MediaPointer({
+    required this.storagePath,
+    required this.mediaKeyBase64,
+    required this.mimeType,
+    required this.sizeBytes,
+    this.durationMs,
+  });
+
+  factory MediaPointer.fromJson(Map<String, dynamic> json) => MediaPointer(
+    storagePath: json['storage_path'] as String,
+    mediaKeyBase64: json['media_key'] as String,
+    mimeType: json['mime_type'] as String,
+    sizeBytes: json['size_bytes'] as int? ?? 0,
+    durationMs: json['duration_ms'] as int?,
+  );
+
+  final String storagePath;
+  final String mediaKeyBase64;
+  final String mimeType;
+  final int sizeBytes;
+  final int? durationMs;
+
+  Map<String, dynamic> toJson() => {
+    'storage_path': storagePath,
+    'media_key': mediaKeyBase64,
+    'mime_type': mimeType,
+    'size_bytes': sizeBytes,
+    if (durationMs != null) 'duration_ms': durationMs,
+  };
+}
 
 class ChatMessageView {
   const ChatMessageView({
@@ -334,7 +373,73 @@ class ChatConversationController extends _$ChatConversationController {
         );
   }
 
-  Future<bool> sendText(String text) async {
+  Future<bool> sendText(String text) =>
+      _sendEnvelopeText(text: text, messageType: 'text', cachePlaintext: text);
+
+  /// Encrypts [bytes] with a fresh random key, uploads the ciphertext to
+  /// the `chat_media` bucket, then sends a small ratchet-encrypted pointer
+  /// (see [MediaPointer]) as the actual chat message - the same pattern
+  /// Signal uses for attachments.
+  Future<bool> sendImage(Uint8List bytes, {required String mimeType}) =>
+      _sendMedia(bytes: bytes, mimeType: mimeType, messageType: 'image');
+
+  Future<bool> sendVoice(
+    Uint8List bytes, {
+    required String mimeType,
+    required int durationMs,
+  }) => _sendMedia(
+    bytes: bytes,
+    mimeType: mimeType,
+    messageType: 'voice',
+    durationMs: durationMs,
+  );
+
+  Future<bool> _sendMedia({
+    required Uint8List bytes,
+    required String mimeType,
+    required String messageType,
+    int? durationMs,
+  }) async {
+    try {
+      final encrypted = await MediaCrypto.instance.encrypt(bytes);
+      final storagePath = '$conversationId/${const Uuid().v4()}.enc';
+
+      await Supabase.instance.client.storage
+          .from('chat_media')
+          .uploadBinary(
+            storagePath,
+            encrypted.ciphertext,
+            fileOptions: const FileOptions(contentType: 'application/octet-stream'),
+          );
+
+      final pointer = MediaPointer(
+        storagePath: storagePath,
+        mediaKeyBase64: encrypted.mediaKeyBase64,
+        mimeType: mimeType,
+        sizeBytes: bytes.length,
+        durationMs: durationMs,
+      );
+      final pointerJson = jsonEncode(pointer.toJson());
+
+      return await _sendEnvelopeText(
+        text: pointerJson,
+        messageType: messageType,
+        cachePlaintext: pointerJson,
+      );
+    } on Exception {
+      return false;
+    }
+  }
+
+  /// Shared send path: ratchet-encrypts [text], POSTs it as a chat message,
+  /// and caches [cachePlaintext] locally under the resulting message id so
+  /// this device never needs to (and, for a sender, cannot) decrypt its
+  /// own outbound envelope again.
+  Future<bool> _sendEnvelopeText({
+    required String text,
+    required String messageType,
+    required String cachePlaintext,
+  }) async {
     final current = state.value;
     final store = _store;
     final address = _peerAddress;
@@ -355,7 +460,7 @@ class ChatConversationController extends _$ChatConversationController {
       final response = await dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages',
         data: {
-          'message_type': 'text',
+          'message_type': messageType,
           'ciphertext': envelope.ciphertextBase64,
           'ciphertext_metadata': {
             'signal_message_type': envelope.signalMessageType,
@@ -376,8 +481,8 @@ class ChatConversationController extends _$ChatConversationController {
           createdAt: createdAtRaw != null
               ? DateTime.parse(createdAtRaw)
               : DateTime.now(),
-          messageType: 'text',
-          plaintext: text,
+          messageType: messageType,
+          plaintext: cachePlaintext,
           decryptFailed: false,
         );
       }
@@ -391,5 +496,15 @@ class ChatConversationController extends _$ChatConversationController {
       final latest = state.value ?? current;
       state = AsyncData(latest.copyWith(sending: false));
     }
+  }
+
+  /// Fetches and decrypts an attachment's bytes given its pointer -
+  /// called lazily by the image/voice bubbles when they're rendered,
+  /// rather than eagerly for the whole message list.
+  Future<Uint8List> fetchMediaBytes(MediaPointer pointer) async {
+    final ciphertext = await Supabase.instance.client.storage
+        .from('chat_media')
+        .download(pointer.storagePath);
+    return MediaCrypto.instance.decrypt(ciphertext, pointer.mediaKeyBase64);
   }
 }

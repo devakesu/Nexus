@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,6 +102,46 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       NexusToast.show(
         context,
         'Could not send message. Please try again.',
+        type: NexusToastType.error,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  Future<void> _handleSendImage(Uint8List bytes, String mimeType) async {
+    final provider = chatConversationControllerProvider(
+      widget.conversationId,
+      widget.matchedUserId,
+    );
+    final ok = await ref
+        .read(provider.notifier)
+        .sendImage(bytes, mimeType: mimeType);
+    if (!ok && mounted) {
+      NexusToast.show(
+        context,
+        'Could not send photo. Please try again.',
+        type: NexusToastType.error,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  Future<void> _handleSendVoice(
+    Uint8List bytes,
+    String mimeType,
+    int durationMs,
+  ) async {
+    final provider = chatConversationControllerProvider(
+      widget.conversationId,
+      widget.matchedUserId,
+    );
+    final ok = await ref
+        .read(provider.notifier)
+        .sendVoice(bytes, mimeType: mimeType, durationMs: durationMs);
+    if (!ok && mounted) {
+      NexusToast.show(
+        context,
+        'Could not send voice message. Please try again.',
         type: NexusToastType.error,
       );
     }
@@ -224,6 +265,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                           itemBuilder: (_, i) => MessageBubble(
                             message: chatState.messages[i],
                             themeColor: theme.primary,
+                            conversationId: widget.conversationId,
+                            peerUserId: widget.matchedUserId,
                           ),
                         ),
                 ),
@@ -233,6 +276,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                   enabled: chatState.sessionReady,
                   sending: chatState.sending,
                   onSend: _handleSend,
+                  onSendImage: _handleSendImage,
+                  onSendVoice: _handleSendVoice,
                 ),
               ],
             );

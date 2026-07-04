@@ -56,7 +56,7 @@ final class ChatConversationControllerProvider
 }
 
 String _$chatConversationControllerHash() =>
-    r'4eef0a973ff75e880654fae06621b00c96aaee4f';
+    r'61b62e10049f5841f0aba7cfb0c6538c7b44a01b';
 
 final class ChatConversationControllerFamily extends $Family
     with

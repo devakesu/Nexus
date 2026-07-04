@@ -40,6 +40,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nexus needs microphone access to record voice messages in chat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nexus needs camera access to take photos to send in chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
