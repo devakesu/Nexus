@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Base64Bytes, BaseModel, Field, field_validator, model_validator
 
 from app.core.choices import (
     CAUSES_SUPPORTED_CHOICES,
@@ -821,6 +821,60 @@ class CreateChatResponse(BaseModel):
     conversation_id: str
     matched_user_id: str
     tab: DiscoveryTab
+
+
+# Signal Protocol key material
+# ---------------------------------------------------------------------------
+
+
+class UploadIdentityKeyRequest(BaseModel):
+    identity_public_key: Base64Bytes
+    registration_id: int = Field(..., ge=1, le=0x7FFFFFFF)
+
+
+class UploadSignedPrekeyRequest(BaseModel):
+    key_id: int = Field(..., ge=0)
+    public_key: Base64Bytes
+    signature: Base64Bytes
+
+
+class OneTimePrekeyItem(BaseModel):
+    key_id: int = Field(..., ge=0)
+    public_key: Base64Bytes
+
+
+class UploadOneTimePrekeysRequest(BaseModel):
+    prekeys: list[OneTimePrekeyItem] = Field(..., min_length=1, max_length=200)
+
+
+class OneTimePrekeyCountResponse(BaseModel):
+    count: int
+
+
+class KeyBundleResponse(BaseModel):
+    user_id: str
+    identity_public_key: Base64Bytes
+    registration_id: int
+    signed_prekey_id: int
+    signed_prekey_public: Base64Bytes
+    signed_prekey_signature: Base64Bytes
+    one_time_prekey_id: int | None = None
+    one_time_prekey_public: Base64Bytes | None = None
+
+
+class EstablishSessionRequest(BaseModel):
+    conversation_id: str = Field(..., min_length=1)
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("conversation_id must be a valid UUID") from e
+        return v
 
 
 class DiscoveryViewportRequest(BaseModel):

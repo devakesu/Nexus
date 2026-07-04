@@ -1,0 +1,60 @@
+{
+  "version": "1",
+  "commands": [
+    {
+      "command": "cat",
+      "args": ["*"],
+      "description": "Read file contents"
+    },
+    {
+      "command": "ls",
+      "args": ["*"],
+      "description": "List directory contents"
+    },
+    {
+      "command": "grep",
+      "args": ["*"],
+      "description": "Search text patterns"
+    },
+    {
+      "command": "find",
+      "args": ["*"],
+      "description": "Find files in directory tree"
+    },
+    {
+      "command": "git",
+      "args": ["status", "diff", "log", "show", "branch", "blame"],
+      "description": "Git repository inspection tools"
+    },
+    {
+      "command": "npm",
+      "args": ["list", "view", "outdated", "audit"],
+      "description": "Read-only NPM package and dependency project queries"
+    },
+    {
+      "command": "flutter",
+      "args": ["doctor", "analyze", "devices"],
+      "description": "Flutter environment check and static analysis"
+    },
+    {
+      "command": "python",
+      "args": ["--version", "-V", "-m", "pip", "list", "-m", "pip", "show"],
+      "description": "Check Python version and inspect environment packages"
+    },
+    {
+      "command": "unicornv",
+      "args": ["*"],
+      "description": "Unicornv system verification and read operations"
+    },
+    {
+      "command": "ruff",
+      "args": ["check", "--watch"],
+      "description": "Ruff linter execution"
+    },
+    {
+      "command": "pyright",
+      "args": ["*"],
+      "description": "Pyright static type checking"
+    }
+  ]
+}
