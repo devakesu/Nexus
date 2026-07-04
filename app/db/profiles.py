@@ -19,6 +19,24 @@ from app.models import DiscoveryFilters
 logger = logging.getLogger(__name__)
 
 
+def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
+    """Decrypt profile_pic on a list of raw profile rows, keyed by profile id."""
+    profile_map: dict[str, dict[str, Any]] = {}
+    for p in profiles_data:
+        if not isinstance(p, dict):
+            continue
+        p_dict = cast(dict[str, Any], p)
+        pid = str(p_dict.get("id") or "")
+        raw_pic = p_dict.get("profile_pic")
+        if raw_pic:
+            try:
+                p_dict["profile_pic"] = decrypt_pii(raw_pic)
+            except DecryptFailedError:
+                p_dict["profile_pic"] = None
+        profile_map[pid] = p_dict
+    return profile_map
+
+
 def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
     if active_tab == "Dating":
         return "is_dating_active"

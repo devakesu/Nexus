@@ -770,6 +770,59 @@ class MatchActionRequest(BaseModel):
         return self
 
 
+# Chats
+# ---------------------------------------------------------------------------
+
+
+class ChatConversationItem(BaseModel):
+    conversation_id: str
+    matched_user_id: str
+    name: str | None = None
+    age: int | None = None
+    profile_pic: str | None = None
+    last_message_at: datetime
+
+
+class ChatsListResponse(BaseModel):
+    conversations: list[ChatConversationItem]
+
+
+class ChatCandidateItem(BaseModel):
+    """A match with no conversation started yet - shown in the New Chat picker."""
+
+    match_id: str
+    matched_user_id: str
+    name: str | None = None
+    age: int | None = None
+    profile_pic: str | None = None
+    matched_at: datetime
+
+
+class ChatCandidatesResponse(BaseModel):
+    candidates: list[ChatCandidateItem]
+
+
+class CreateChatRequest(BaseModel):
+    match_id: str = Field(..., min_length=1)
+
+    @field_validator("match_id")
+    @classmethod
+    def validate_match_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("match_id must be a valid UUID") from e
+        return v
+
+
+class CreateChatResponse(BaseModel):
+    conversation_id: str
+    matched_user_id: str
+    tab: DiscoveryTab
+
+
 class DiscoveryViewportRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     center_x: float

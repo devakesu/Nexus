@@ -17,16 +17,28 @@ def record_match(
     liker_id: str,
     liked_back_id: str,
     tab: DiscoveryTab = "Dating",
-) -> None:
-    """Insert a match row when a like-back action creates a mutual match."""
+) -> str:
+    """Insert a match row when a like-back action creates a mutual match.
+
+    Returns the new match's id so callers (e.g. the chat "send a message"
+    flow) can open a conversation without a separate matches-list refetch.
+    """
     try:
-        supabase_client.table("matches").insert(
-            {
-                "liker_id": liker_id,
-                "liked_back_id": liked_back_id,
-                "tab": tab,
-            },
-        ).execute()
+        res = (
+            supabase_client.table("matches")
+            .insert(
+                {
+                    "liker_id": liker_id,
+                    "liked_back_id": liked_back_id,
+                    "tab": tab,
+                },
+            )
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        if not rows or not isinstance(rows[0], dict):
+            raise DatabaseAccessError("Match insert returned no row")
+        return str(cast(dict[str, Any], rows[0])["id"])
     except APIError as e:
         logger.exception(
             "Failed to record match",

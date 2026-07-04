@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
-import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Let's import showProfileBlockDialog / showProfileReportDialog if they are defined globally or helper imports.
@@ -392,6 +392,7 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
                                 Divider(color: Colors.white.withAlpha(12)),
                             itemBuilder: (_, i) {
                               final match = widget.matches[i] as Map<String, dynamic>;
+                              final matchId = match['match_id'] as String?;
                               final userId =
                                   match['matched_user_id'] as String? ?? '';
                               final name =
@@ -491,7 +492,7 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        // Chat (stub)
+                                        // Chat
                                         IconButton(
                                           icon: const Icon(
                                             LucideIcons.messageCircle,
@@ -500,12 +501,13 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
                                           color: Colors.white54,
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Chat',
-                                          onPressed: () {
-                                            NexusToast.show(
-                                              context,
-                                              'Chat coming soon 💬',
-                                            );
-                                          },
+                                          onPressed: () => openOrCreateChat(
+                                            context,
+                                            matchId: matchId,
+                                            matchedUserId: userId,
+                                            name: name,
+                                            profilePic: profilePic,
+                                          ),
                                         ),
                                         // Unmatch
                                         IconButton(

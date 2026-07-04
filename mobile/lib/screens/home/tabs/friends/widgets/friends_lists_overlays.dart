@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
-import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WavesOverlay extends StatefulWidget {
@@ -384,6 +384,7 @@ class _FriendsListOverlayState extends State<FriendsListOverlay> {
                                 Divider(color: Colors.white.withAlpha(12)),
                             itemBuilder: (_, i) {
                               final friend = widget.friends[i] as Map<String, dynamic>;
+                              final matchId = friend['match_id'] as String?;
                               final userId =
                                   friend['matched_user_id'] as String? ?? '';
                               final name =
@@ -490,12 +491,13 @@ class _FriendsListOverlayState extends State<FriendsListOverlay> {
                                           color: Colors.white54,
                                           visualDensity: VisualDensity.compact,
                                           tooltip: 'Chat',
-                                          onPressed: () {
-                                            NexusToast.show(
-                                              context,
-                                              'Chat coming soon 💬',
-                                            );
-                                          },
+                                          onPressed: () => openOrCreateChat(
+                                            context,
+                                            matchId: matchId,
+                                            matchedUserId: userId,
+                                            name: name,
+                                            profilePic: profilePic,
+                                          ),
                                         ),
                                         IconButton(
                                           icon: const Icon(

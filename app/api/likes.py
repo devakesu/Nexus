@@ -8,8 +8,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
-from app.core.crypto import DecryptFailedError, decrypt_pii
+from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
+from app.db.chat import close_conversation_for_match_action
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import (
     fetch_likes_for_user,
@@ -26,6 +27,7 @@ from app.db.matches import (
     set_match_unmatched,
 )
 from app.db.orbit import build_tab_aware_orbit_node_detail
+from app.db.profiles import decrypt_profile_rows as _decrypt_profiles
 from app.db.profiles import fetch_peer_profile_by_id
 from app.services.fcm_sender import send_match_notification
 from app.models import (
@@ -42,23 +44,6 @@ from app.models import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def _decrypt_profiles(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
-    profile_map: dict[str, dict[str, Any]] = {}
-    for p in profiles_data:
-        if not isinstance(p, dict):
-            continue
-        p_dict = cast(dict[str, Any], p)
-        pid = str(p_dict.get("id") or "")
-        raw_pic = p_dict.get("profile_pic")
-        if raw_pic:
-            try:
-                p_dict["profile_pic"] = decrypt_pii(raw_pic)
-            except DecryptFailedError:
-                p_dict["profile_pic"] = None
-        profile_map[pid] = p_dict
-    return profile_map
 
 
 def _parse_matched_at(raw_ts: Any) -> datetime:
@@ -287,10 +272,11 @@ async def record_like_back_action(
                 await invalidate_block_cache(user_id, payload.target_id)
 
         matched = payload.action in ("like", "superlike")
+        match_id: str | None = None
         if matched:
             try:
                 # payload.target_id is the original liker; user_id liked back
-                await asyncio.to_thread(
+                match_id = await asyncio.to_thread(
                     record_match, payload.target_id, user_id, payload.tab,
                 )
                 asyncio.create_task(
@@ -312,7 +298,7 @@ async def record_like_back_action(
         if payload.action in ("like", "superlike", "pass", "block", "report"):
             await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
 
-        return {"success": True, "matched": matched}
+        return {"success": True, "matched": matched, "match_id": match_id}
 
     except DatabaseAccessError as err:
         logger.exception(
@@ -430,6 +416,15 @@ async def record_match_action(
             user_id,
             payload.target_id,
             payload.tab,
+        )
+
+        # Close the associated chat conversation, if one was ever started.
+        await asyncio.to_thread(
+            close_conversation_for_match_action,
+            user_id,
+            payload.target_id,
+            payload.tab,
+            payload.action,
         )
 
         return {"success": True}

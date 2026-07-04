@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/providers/chats_providers.dart';
+import 'package:nexus/screens/chats/chat_theme.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
+
+/// Bottom sheet listing matches in [tab] with no conversation started yet.
+/// Pops with the selected [ChatCandidate], or null if dismissed - the caller
+/// is responsible for actually creating/opening the chat, since by the time
+/// the sheet finishes closing its own BuildContext may no longer be usable.
+class NewChatSheet extends ConsumerWidget {
+  const NewChatSheet({required this.tab, super.key});
+
+  final String tab;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = chatTabTheme(tab);
+    final candidatesAsync = ref.watch(newChatCandidatesProvider(tab));
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.72,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2.5),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.messageCirclePlus,
+                  color: theme.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'New Chat',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: candidatesAsync.when(
+              loading: () => const Center(child: NexusOrbitLoader(size: 40)),
+              error: (error, stackTrace) => Center(
+                child: Text(
+                  'Could not load matches',
+                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                ),
+              ),
+              data: (candidates) => _CandidatesList(
+                candidates: candidates,
+                theme: theme,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CandidatesList extends StatelessWidget {
+  const _CandidatesList({required this.candidates, required this.theme});
+
+  final List<ChatCandidate> candidates;
+  final ChatTabTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    if (candidates.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.usersRound,
+                color: theme.primary.withValues(alpha: 0.3),
+                size: 44,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No new matches to chat with yet',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      itemCount: candidates.length,
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+      itemBuilder: (context, index) {
+        final candidate = candidates[index];
+        final displayName = candidate.age != null
+            ? '${candidate.name ?? 'Nexus user'}, ${candidate.age}'
+            : (candidate.name ?? 'Nexus user');
+        final profilePic = candidate.profilePic;
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 4),
+          leading: ClipOval(
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: profilePic != null && profilePic.isNotEmpty
+                  ? StorageImage(imagePath: profilePic)
+                  : ColoredBox(
+                      color: theme.primary.withValues(alpha: 0.12),
+                      child: Icon(LucideIcons.user, color: theme.primary),
+                    ),
+            ),
+          ),
+          title: Text(
+            displayName,
+            style: GoogleFonts.manrope(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          subtitle: Text(
+            'Matched · say hi 👋',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
+          onTap: () => Navigator.of(context).pop(candidate),
+        );
+      },
+    );
+  }
+}

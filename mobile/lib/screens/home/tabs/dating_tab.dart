@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_activation_overlay.dart';
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_lists_overlays.dart';
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_settings_overlay.dart';
@@ -692,11 +693,12 @@ class _DatingTabState extends State<DatingTab>
           : null;
       onActioned(actorId);
       if (result?['matched'] == true) {
+        final matchId = result?['match_id'] as String?;
         // Optimistic insert covers both "Send a message" and "Keep browsing" paths.
         if (mounted) {
           setState(() {
             _matches.insert(0, {
-              'match_id': null,
+              'match_id': matchId,
               'matched_user_id': actorId,
               'name': name,
               'age': null,
@@ -706,7 +708,7 @@ class _DatingTabState extends State<DatingTab>
             });
           });
         }
-        // Refresh in background to get real match_id and full profile data.
+        // Refresh in background to pick up full profile data.
         unawaited(_fetchMatches());
 
         final goToChat = await rootNav.push<bool?>(
@@ -720,9 +722,13 @@ class _DatingTabState extends State<DatingTab>
         );
         if (goToChat == true && mounted) {
           Navigator.of(context).pop(); // close likes overlay
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _showMatchesOverlay();
-          });
+          await openOrCreateChat(
+            context,
+            matchId: matchId,
+            matchedUserId: actorId,
+            name: name,
+            profilePic: matchedProfilePic,
+          );
         }
       }
     }
