@@ -62,3 +62,38 @@ Future<void> openOrCreateChat(
     }
   }
 }
+
+/// Calls `/api/v1/matches/action` (unmatch/block/report) - the same
+/// endpoint the per-tab match-list overlays use, so a match dissolved from
+/// inside a chat behaves identically (dissolves the match row and closes
+/// the conversation).
+Future<bool> recordMatchAction({
+  required String targetId,
+  required String action,
+  required String tab,
+  String? reason,
+  String? reasonDetail,
+}) async {
+  final session = Supabase.instance.client.auth.currentSession;
+  if (session == null) return false;
+  try {
+    final dio = createDio();
+    final body = <String, dynamic>{
+      'target_id': targetId,
+      'action': action,
+      'tab': tab,
+    };
+    if (reason != null) body['reason'] = reason;
+    if (reasonDetail != null) body['reason_detail'] = reasonDetail;
+    final response = await dio.post<void>(
+      '${AppConfig.current.backendUrl}/api/v1/matches/action',
+      data: body,
+      options: Options(
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      ),
+    );
+    return response.statusCode == 200;
+  } on Exception {
+    return false;
+  }
+}

@@ -2,15 +2,17 @@ import asyncio
 import logging
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
 
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
 from app.core.limiter import limiter
 from app.db.chat import (
+    fetch_conversation_participants,
     fetch_conversations_for_user,
     fetch_started_match_ids,
     get_or_create_conversation,
+    insert_message,
 )
 from app.db.client import DatabaseAccessError, supabase_client
 from app.db.matches import fetch_matches_for_user
@@ -22,7 +24,10 @@ from app.models import (
     ChatsListResponse,
     CreateChatRequest,
     CreateChatResponse,
+    SendMessageRequest,
+    SendMessageResponse,
 )
+from app.services.fcm_sender import send_chat_message_notification
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -188,3 +193,72 @@ async def create_chat(
             status_code=503,
             detail="Chats service temporarily unavailable.",
         ) from err
+
+
+@router.post(
+    "/api/v1/chats/{conversation_id}/messages",
+    response_model=SendMessageResponse,
+)
+@limiter.limit(settings.rate_limit_discover)
+async def send_message(
+    request: Request,
+    conversation_id: str = Path(...),
+    payload: SendMessageRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> SendMessageResponse:
+    _ = request
+    try:
+        conversation = await asyncio.to_thread(
+            fetch_conversation_participants, conversation_id,
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+        user_a_id = str(conversation.get("user_a_id") or "")
+        user_b_id = str(conversation.get("user_b_id") or "")
+        if user_id not in (user_a_id, user_b_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Not a participant of this conversation.",
+            )
+        if conversation.get("closed_at") is not None:
+            raise HTTPException(
+                status_code=403,
+                detail="This conversation is closed.",
+            )
+
+        row = await asyncio.to_thread(
+            insert_message,
+            conversation_id,
+            user_id,
+            payload.message_type,
+            payload.ciphertext,
+            payload.ciphertext_metadata,
+        )
+
+        recipient_id = user_b_id if user_id == user_a_id else user_a_id
+        asyncio.create_task(
+            send_chat_message_notification(
+                sender_id=user_id,
+                recipient_id=recipient_id,
+                conversation_id=conversation_id,
+                tab=str(conversation.get("tab") or "Dating"),
+            ),
+        )
+
+        return SendMessageResponse(
+            message_id=str(row.get("id") or ""),
+            created_at=row["created_at"],
+        )
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure sending message",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+    except HTTPException:
+        raise

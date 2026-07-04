@@ -1115,6 +1115,542 @@ class TrustedIdentitiesCompanion extends UpdateCompanion<TrustedIdentity> {
   }
 }
 
+class $LocalMessagesTable extends LocalMessages
+    with TableInfo<$LocalMessagesTable, LocalMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderIdMeta = const VerificationMeta(
+    'senderId',
+  );
+  @override
+  late final GeneratedColumn<String> senderId = GeneratedColumn<String>(
+    'sender_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isMineMeta = const VerificationMeta('isMine');
+  @override
+  late final GeneratedColumn<bool> isMine = GeneratedColumn<bool>(
+    'is_mine',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_mine" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageTypeMeta = const VerificationMeta(
+    'messageType',
+  );
+  @override
+  late final GeneratedColumn<String> messageType = GeneratedColumn<String>(
+    'message_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _plaintextEncMeta = const VerificationMeta(
+    'plaintextEnc',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> plaintextEnc =
+      GeneratedColumn<Uint8List>(
+        'plaintext_enc',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _decryptFailedMeta = const VerificationMeta(
+    'decryptFailed',
+  );
+  @override
+  late final GeneratedColumn<bool> decryptFailed = GeneratedColumn<bool>(
+    'decrypt_failed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("decrypt_failed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    conversationId,
+    senderId,
+    isMine,
+    createdAt,
+    messageType,
+    plaintextEnc,
+    decryptFailed,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('sender_id')) {
+      context.handle(
+        _senderIdMeta,
+        senderId.isAcceptableOrUnknown(data['sender_id']!, _senderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderIdMeta);
+    }
+    if (data.containsKey('is_mine')) {
+      context.handle(
+        _isMineMeta,
+        isMine.isAcceptableOrUnknown(data['is_mine']!, _isMineMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isMineMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('message_type')) {
+      context.handle(
+        _messageTypeMeta,
+        messageType.isAcceptableOrUnknown(
+          data['message_type']!,
+          _messageTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_messageTypeMeta);
+    }
+    if (data.containsKey('plaintext_enc')) {
+      context.handle(
+        _plaintextEncMeta,
+        plaintextEnc.isAcceptableOrUnknown(
+          data['plaintext_enc']!,
+          _plaintextEncMeta,
+        ),
+      );
+    }
+    if (data.containsKey('decrypt_failed')) {
+      context.handle(
+        _decryptFailedMeta,
+        decryptFailed.isAcceptableOrUnknown(
+          data['decrypt_failed']!,
+          _decryptFailedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalMessage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      senderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_id'],
+      )!,
+      isMine: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_mine'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      messageType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_type'],
+      )!,
+      plaintextEnc: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}plaintext_enc'],
+      ),
+      decryptFailed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}decrypt_failed'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalMessagesTable createAlias(String alias) {
+    return $LocalMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class LocalMessage extends DataClass implements Insertable<LocalMessage> {
+  final String id;
+  final String conversationId;
+  final String senderId;
+  final bool isMine;
+  final DateTime createdAt;
+  final String messageType;
+  final Uint8List? plaintextEnc;
+  final bool decryptFailed;
+  const LocalMessage({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    required this.isMine,
+    required this.createdAt,
+    required this.messageType,
+    this.plaintextEnc,
+    required this.decryptFailed,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['sender_id'] = Variable<String>(senderId);
+    map['is_mine'] = Variable<bool>(isMine);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['message_type'] = Variable<String>(messageType);
+    if (!nullToAbsent || plaintextEnc != null) {
+      map['plaintext_enc'] = Variable<Uint8List>(plaintextEnc);
+    }
+    map['decrypt_failed'] = Variable<bool>(decryptFailed);
+    return map;
+  }
+
+  LocalMessagesCompanion toCompanion(bool nullToAbsent) {
+    return LocalMessagesCompanion(
+      id: Value(id),
+      conversationId: Value(conversationId),
+      senderId: Value(senderId),
+      isMine: Value(isMine),
+      createdAt: Value(createdAt),
+      messageType: Value(messageType),
+      plaintextEnc: plaintextEnc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plaintextEnc),
+      decryptFailed: Value(decryptFailed),
+    );
+  }
+
+  factory LocalMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalMessage(
+      id: serializer.fromJson<String>(json['id']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      senderId: serializer.fromJson<String>(json['senderId']),
+      isMine: serializer.fromJson<bool>(json['isMine']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      messageType: serializer.fromJson<String>(json['messageType']),
+      plaintextEnc: serializer.fromJson<Uint8List?>(json['plaintextEnc']),
+      decryptFailed: serializer.fromJson<bool>(json['decryptFailed']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'senderId': serializer.toJson<String>(senderId),
+      'isMine': serializer.toJson<bool>(isMine),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'messageType': serializer.toJson<String>(messageType),
+      'plaintextEnc': serializer.toJson<Uint8List?>(plaintextEnc),
+      'decryptFailed': serializer.toJson<bool>(decryptFailed),
+    };
+  }
+
+  LocalMessage copyWith({
+    String? id,
+    String? conversationId,
+    String? senderId,
+    bool? isMine,
+    DateTime? createdAt,
+    String? messageType,
+    Value<Uint8List?> plaintextEnc = const Value.absent(),
+    bool? decryptFailed,
+  }) => LocalMessage(
+    id: id ?? this.id,
+    conversationId: conversationId ?? this.conversationId,
+    senderId: senderId ?? this.senderId,
+    isMine: isMine ?? this.isMine,
+    createdAt: createdAt ?? this.createdAt,
+    messageType: messageType ?? this.messageType,
+    plaintextEnc: plaintextEnc.present ? plaintextEnc.value : this.plaintextEnc,
+    decryptFailed: decryptFailed ?? this.decryptFailed,
+  );
+  LocalMessage copyWithCompanion(LocalMessagesCompanion data) {
+    return LocalMessage(
+      id: data.id.present ? data.id.value : this.id,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      senderId: data.senderId.present ? data.senderId.value : this.senderId,
+      isMine: data.isMine.present ? data.isMine.value : this.isMine,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      messageType: data.messageType.present
+          ? data.messageType.value
+          : this.messageType,
+      plaintextEnc: data.plaintextEnc.present
+          ? data.plaintextEnc.value
+          : this.plaintextEnc,
+      decryptFailed: data.decryptFailed.present
+          ? data.decryptFailed.value
+          : this.decryptFailed,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalMessage(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('senderId: $senderId, ')
+          ..write('isMine: $isMine, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('messageType: $messageType, ')
+          ..write('plaintextEnc: $plaintextEnc, ')
+          ..write('decryptFailed: $decryptFailed')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    conversationId,
+    senderId,
+    isMine,
+    createdAt,
+    messageType,
+    $driftBlobEquality.hash(plaintextEnc),
+    decryptFailed,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalMessage &&
+          other.id == this.id &&
+          other.conversationId == this.conversationId &&
+          other.senderId == this.senderId &&
+          other.isMine == this.isMine &&
+          other.createdAt == this.createdAt &&
+          other.messageType == this.messageType &&
+          $driftBlobEquality.equals(other.plaintextEnc, this.plaintextEnc) &&
+          other.decryptFailed == this.decryptFailed);
+}
+
+class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
+  final Value<String> id;
+  final Value<String> conversationId;
+  final Value<String> senderId;
+  final Value<bool> isMine;
+  final Value<DateTime> createdAt;
+  final Value<String> messageType;
+  final Value<Uint8List?> plaintextEnc;
+  final Value<bool> decryptFailed;
+  final Value<int> rowid;
+  const LocalMessagesCompanion({
+    this.id = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.senderId = const Value.absent(),
+    this.isMine = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.messageType = const Value.absent(),
+    this.plaintextEnc = const Value.absent(),
+    this.decryptFailed = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalMessagesCompanion.insert({
+    required String id,
+    required String conversationId,
+    required String senderId,
+    required bool isMine,
+    required DateTime createdAt,
+    required String messageType,
+    this.plaintextEnc = const Value.absent(),
+    this.decryptFailed = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       conversationId = Value(conversationId),
+       senderId = Value(senderId),
+       isMine = Value(isMine),
+       createdAt = Value(createdAt),
+       messageType = Value(messageType);
+  static Insertable<LocalMessage> custom({
+    Expression<String>? id,
+    Expression<String>? conversationId,
+    Expression<String>? senderId,
+    Expression<bool>? isMine,
+    Expression<DateTime>? createdAt,
+    Expression<String>? messageType,
+    Expression<Uint8List>? plaintextEnc,
+    Expression<bool>? decryptFailed,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (senderId != null) 'sender_id': senderId,
+      if (isMine != null) 'is_mine': isMine,
+      if (createdAt != null) 'created_at': createdAt,
+      if (messageType != null) 'message_type': messageType,
+      if (plaintextEnc != null) 'plaintext_enc': plaintextEnc,
+      if (decryptFailed != null) 'decrypt_failed': decryptFailed,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalMessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? conversationId,
+    Value<String>? senderId,
+    Value<bool>? isMine,
+    Value<DateTime>? createdAt,
+    Value<String>? messageType,
+    Value<Uint8List?>? plaintextEnc,
+    Value<bool>? decryptFailed,
+    Value<int>? rowid,
+  }) {
+    return LocalMessagesCompanion(
+      id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
+      senderId: senderId ?? this.senderId,
+      isMine: isMine ?? this.isMine,
+      createdAt: createdAt ?? this.createdAt,
+      messageType: messageType ?? this.messageType,
+      plaintextEnc: plaintextEnc ?? this.plaintextEnc,
+      decryptFailed: decryptFailed ?? this.decryptFailed,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (senderId.present) {
+      map['sender_id'] = Variable<String>(senderId.value);
+    }
+    if (isMine.present) {
+      map['is_mine'] = Variable<bool>(isMine.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (messageType.present) {
+      map['message_type'] = Variable<String>(messageType.value);
+    }
+    if (plaintextEnc.present) {
+      map['plaintext_enc'] = Variable<Uint8List>(plaintextEnc.value);
+    }
+    if (decryptFailed.present) {
+      map['decrypt_failed'] = Variable<bool>(decryptFailed.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalMessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('senderId: $senderId, ')
+          ..write('isMine: $isMine, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('messageType: $messageType, ')
+          ..write('plaintextEnc: $plaintextEnc, ')
+          ..write('decryptFailed: $decryptFailed, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$SignalDatabase extends GeneratedDatabase {
   _$SignalDatabase(QueryExecutor e) : super(e);
   $SignalDatabaseManager get managers => $SignalDatabaseManager(this);
@@ -1126,6 +1662,7 @@ abstract class _$SignalDatabase extends GeneratedDatabase {
   late final $SessionsTable sessions = $SessionsTable(this);
   late final $TrustedIdentitiesTable trustedIdentities =
       $TrustedIdentitiesTable(this);
+  late final $LocalMessagesTable localMessages = $LocalMessagesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1136,6 +1673,7 @@ abstract class _$SignalDatabase extends GeneratedDatabase {
     signedPreKeys,
     sessions,
     trustedIdentities,
+    localMessages,
   ];
 }
 
@@ -1855,6 +2393,273 @@ typedef $$TrustedIdentitiesTableProcessedTableManager =
       TrustedIdentity,
       PrefetchHooks Function()
     >;
+typedef $$LocalMessagesTableCreateCompanionBuilder =
+    LocalMessagesCompanion Function({
+      required String id,
+      required String conversationId,
+      required String senderId,
+      required bool isMine,
+      required DateTime createdAt,
+      required String messageType,
+      Value<Uint8List?> plaintextEnc,
+      Value<bool> decryptFailed,
+      Value<int> rowid,
+    });
+typedef $$LocalMessagesTableUpdateCompanionBuilder =
+    LocalMessagesCompanion Function({
+      Value<String> id,
+      Value<String> conversationId,
+      Value<String> senderId,
+      Value<bool> isMine,
+      Value<DateTime> createdAt,
+      Value<String> messageType,
+      Value<Uint8List?> plaintextEnc,
+      Value<bool> decryptFailed,
+      Value<int> rowid,
+    });
+
+class $$LocalMessagesTableFilterComposer
+    extends Composer<_$SignalDatabase, $LocalMessagesTable> {
+  $$LocalMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get decryptFailed => $composableBuilder(
+    column: $table.decryptFailed,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalMessagesTableOrderingComposer
+    extends Composer<_$SignalDatabase, $LocalMessagesTable> {
+  $$LocalMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMine => $composableBuilder(
+    column: $table.isMine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get decryptFailed => $composableBuilder(
+    column: $table.decryptFailed,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalMessagesTableAnnotationComposer
+    extends Composer<_$SignalDatabase, $LocalMessagesTable> {
+  $$LocalMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderId =>
+      $composableBuilder(column: $table.senderId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMine =>
+      $composableBuilder(column: $table.isMine, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get messageType => $composableBuilder(
+    column: $table.messageType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get decryptFailed => $composableBuilder(
+    column: $table.decryptFailed,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$SignalDatabase,
+          $LocalMessagesTable,
+          LocalMessage,
+          $$LocalMessagesTableFilterComposer,
+          $$LocalMessagesTableOrderingComposer,
+          $$LocalMessagesTableAnnotationComposer,
+          $$LocalMessagesTableCreateCompanionBuilder,
+          $$LocalMessagesTableUpdateCompanionBuilder,
+          (
+            LocalMessage,
+            BaseReferences<_$SignalDatabase, $LocalMessagesTable, LocalMessage>,
+          ),
+          LocalMessage,
+          PrefetchHooks Function()
+        > {
+  $$LocalMessagesTableTableManager(
+    _$SignalDatabase db,
+    $LocalMessagesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> senderId = const Value.absent(),
+                Value<bool> isMine = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String> messageType = const Value.absent(),
+                Value<Uint8List?> plaintextEnc = const Value.absent(),
+                Value<bool> decryptFailed = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalMessagesCompanion(
+                id: id,
+                conversationId: conversationId,
+                senderId: senderId,
+                isMine: isMine,
+                createdAt: createdAt,
+                messageType: messageType,
+                plaintextEnc: plaintextEnc,
+                decryptFailed: decryptFailed,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String conversationId,
+                required String senderId,
+                required bool isMine,
+                required DateTime createdAt,
+                required String messageType,
+                Value<Uint8List?> plaintextEnc = const Value.absent(),
+                Value<bool> decryptFailed = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalMessagesCompanion.insert(
+                id: id,
+                conversationId: conversationId,
+                senderId: senderId,
+                isMine: isMine,
+                createdAt: createdAt,
+                messageType: messageType,
+                plaintextEnc: plaintextEnc,
+                decryptFailed: decryptFailed,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$SignalDatabase,
+      $LocalMessagesTable,
+      LocalMessage,
+      $$LocalMessagesTableFilterComposer,
+      $$LocalMessagesTableOrderingComposer,
+      $$LocalMessagesTableAnnotationComposer,
+      $$LocalMessagesTableCreateCompanionBuilder,
+      $$LocalMessagesTableUpdateCompanionBuilder,
+      (
+        LocalMessage,
+        BaseReferences<_$SignalDatabase, $LocalMessagesTable, LocalMessage>,
+      ),
+      LocalMessage,
+      PrefetchHooks Function()
+    >;
 
 class $SignalDatabaseManager {
   final _$SignalDatabase _db;
@@ -1869,4 +2674,6 @@ class $SignalDatabaseManager {
       $$SessionsTableTableManager(_db, _db.sessions);
   $$TrustedIdentitiesTableTableManager get trustedIdentities =>
       $$TrustedIdentitiesTableTableManager(_db, _db.trustedIdentities);
+  $$LocalMessagesTableTableManager get localMessages =>
+      $$LocalMessagesTableTableManager(_db, _db.localMessages);
 }

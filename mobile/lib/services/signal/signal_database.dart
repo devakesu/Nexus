@@ -55,11 +55,43 @@ class TrustedIdentities extends Table {
   Set<Column> get primaryKey => {address};
 }
 
+/// Local plaintext cache, keyed by server message id. Double Ratchet
+/// message keys are deleted immediately after a successful decrypt (that's
+/// the forward-secrecy property), so re-fetching the same ciphertext from
+/// the server a second time (e.g. reopening the chat) cannot be decrypted
+/// again. Every message - sent or received - is decrypted/encrypted at
+/// most once and its plaintext cached here (itself vault-encrypted) for
+/// every subsequent read.
+class LocalMessages extends Table {
+  TextColumn get id => text()();
+  TextColumn get conversationId => text()();
+  TextColumn get senderId => text()();
+  BoolColumn get isMine => boolean()();
+  DateTimeColumn get createdAt => dateTime()();
+  TextColumn get messageType => text()();
+  BlobColumn get plaintextEnc => blob().nullable()();
+  BoolColumn get decryptFailed => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
-  tables: [LocalIdentities, PreKeys, SignedPreKeys, Sessions, TrustedIdentities],
+  tables: [
+    LocalIdentities,
+    PreKeys,
+    SignedPreKeys,
+    Sessions,
+    TrustedIdentities,
+    LocalMessages,
+  ],
 )
 class SignalDatabase extends _$SignalDatabase {
-  SignalDatabase() : super(driftDatabase(name: 'nexus_signal_store'));
+  SignalDatabase._() : super(driftDatabase(name: 'nexus_signal_store'));
+
+  /// Single shared instance - Signal session state and the local message
+  /// cache must never be opened from two separate connections at once.
+  static final SignalDatabase instance = SignalDatabase._();
 
   @override
   int get schemaVersion => 1;

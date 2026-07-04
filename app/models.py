@@ -877,6 +877,34 @@ class EstablishSessionRequest(BaseModel):
         return v
 
 
+# Chat messages
+# ---------------------------------------------------------------------------
+
+
+class SendMessageRequest(BaseModel):
+    """A ciphertext envelope - the server never sees plaintext or keys."""
+
+    message_type: Literal["text", "image", "voice", "event", "location"] = "text"
+    ciphertext: str = Field(..., min_length=1, max_length=200_000)
+    ciphertext_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("ciphertext")
+    @classmethod
+    def validate_base64(cls, v: str) -> str:
+        import base64
+
+        try:
+            base64.b64decode(v, validate=True)
+        except Exception as e:
+            raise ValueError("ciphertext must be valid base64") from e
+        return v
+
+
+class SendMessageResponse(BaseModel):
+    message_id: str
+    created_at: datetime
+
+
 class DiscoveryViewportRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     center_x: float

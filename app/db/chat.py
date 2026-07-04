@@ -187,3 +187,54 @@ def close_conversation_for_match_action(
             extra={"user_id": user_id, "target_id": target_id},
         )
         raise DatabaseAccessError("Failed to close conversation") from e
+
+
+def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("chat_conversations")
+            .select("user_a_id, user_b_id, tab, closed_at")
+            .eq("id", conversation_id)
+            .maybe_single()
+            .execute()
+        )
+        return cast(dict[str, Any] | None, getattr(res, "data", None))
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch conversation participants",
+            extra={"conversation_id": conversation_id},
+        )
+        raise DatabaseAccessError("Failed to fetch conversation participants") from e
+
+
+def insert_message(
+    conversation_id: str,
+    sender_id: str,
+    message_type: str,
+    ciphertext: str,
+    ciphertext_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        res = (
+            supabase_client.table("chat_messages")
+            .insert(
+                {
+                    "conversation_id": conversation_id,
+                    "sender_id": sender_id,
+                    "message_type": message_type,
+                    "ciphertext": ciphertext,
+                    "ciphertext_metadata": ciphertext_metadata,
+                },
+            )
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        if not rows or not isinstance(rows[0], dict):
+            raise DatabaseAccessError("Message insert returned no row")
+        return cast(dict[str, Any], rows[0])
+    except APIError as e:
+        logger.exception(
+            "Failed to insert message",
+            extra={"conversation_id": conversation_id, "sender_id": sender_id},
+        )
+        raise DatabaseAccessError("Failed to insert message") from e

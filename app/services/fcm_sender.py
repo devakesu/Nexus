@@ -164,3 +164,48 @@ async def send_match_notification(
             "Failed to send match notifications",
             extra={"user_a_id": user_a_id, "user_b_id": user_b_id},
         )
+
+
+async def send_chat_message_notification(
+    sender_id: str,
+    recipient_id: str,
+    conversation_id: str,
+    tab: str,
+) -> None:
+    """
+    Fire-and-forget: notify recipient_id of a new message from sender_id.
+
+    The body is deliberately generic - the server never has message
+    plaintext, so it cannot include a content preview. conversation_id/tab/
+    name are included as data-only fields so the client can deep-link
+    straight into the conversation on tap.
+    """
+    if not _is_firebase_initialized():
+        return
+    try:
+        tokens, sender_name = await asyncio.gather(
+            asyncio.to_thread(_fetch_user_fcm_tokens, recipient_id),
+            asyncio.to_thread(_fetch_profile_name, sender_id),
+        )
+        if not tokens:
+            return
+        name = sender_name or "Someone"
+        await asyncio.to_thread(
+            _send_to_tokens,
+            tokens,
+            f"New message from {name}",
+            "Open Nexus to read it",
+            {
+                "type": "chat_message",
+                "actor_id": sender_id,
+                "conversation_id": conversation_id,
+                "tab": tab,
+                "name": name,
+            },
+            "chat_message",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send chat message notification",
+            extra={"sender_id": sender_id, "recipient_id": recipient_id},
+        )

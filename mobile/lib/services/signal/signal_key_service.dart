@@ -27,7 +27,7 @@ class SignalKeyService {
   static const _prefsNextPreKeyId = 'signal_next_prekey_id';
   static const _prefsNextSignedPreKeyId = 'signal_next_signed_prekey_id';
 
-  final _db = SignalDatabase();
+  final SignalDatabase _db = SignalDatabase.instance;
   DriftSignalProtocolStore? _store;
 
   /// Idempotent: safe to call every time a chat screen opens.

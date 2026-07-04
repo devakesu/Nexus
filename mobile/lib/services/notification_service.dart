@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/chats/chat_conversation_page.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -214,7 +215,27 @@ class NotificationService {
   static void _handleNotificationTap(Map<String, dynamic> data) {
     final type = data['type'] as String?;
     if (kDebugMode) debugPrint('[FCM] Tapped: type=$type');
-    // Deep-link routing per type can be added here.
+
+    if (type == 'chat_message') {
+      final conversationId = data['conversation_id'] as String?;
+      final actorId = data['actor_id'] as String?;
+      if (conversationId == null || actorId == null) return;
+
+      final navigator = ErrorHandler.navigatorKey.currentState;
+      if (navigator == null) return;
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => ChatConversationPage(
+              conversationId: conversationId,
+              matchedUserId: actorId,
+              tab: (data['tab'] as String?) ?? 'Dating',
+              name: (data['name'] as String?) ?? 'Nexus user',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

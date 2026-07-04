@@ -1,20 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/screens/chats/chat_theme.dart';
+import 'package:nexus/screens/chats/open_chat.dart';
+import 'package:nexus/screens/chats/widgets/chat_composer.dart';
+import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
-import 'package:nexus/services/signal/session_manager.dart';
+import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 
-enum _SessionState { loading, established, waitingForPeer, error }
-
-/// Individual chat screen. On open, silently performs X3DH key agreement
-/// toward the peer (see `session_manager.dart`) so this device is ready to
-/// encrypt outbound messages the moment the composer ships in a later
-/// phase. Message content/UI itself lands in Phase 3.
-class ChatConversationPage extends StatefulWidget {
+/// Individual chat screen: establishes the Signal Protocol session on open
+/// (see `session_manager.dart`), then shows the live, end-to-end encrypted
+/// message list with a text + emoji composer. Photos, voice, location, and
+/// events land in later phases.
+class ChatConversationPage extends ConsumerStatefulWidget {
   const ChatConversationPage({
     required this.conversationId,
     required this.matchedUserId,
@@ -31,158 +35,229 @@ class ChatConversationPage extends StatefulWidget {
   final String? profilePic;
 
   @override
-  State<ChatConversationPage> createState() => _ChatConversationPageState();
+  ConsumerState<ChatConversationPage> createState() => _ChatConversationPageState();
 }
 
-class _ChatConversationPageState extends State<ChatConversationPage> {
-  _SessionState _state = _SessionState.loading;
+class _ChatConversationPageState extends ConsumerState<ChatConversationPage> {
+  final _scrollController = ScrollController();
 
   @override
-  void initState() {
-    super.initState();
-    unawaited(_establishSession());
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  Future<void> _establishSession() async {
-    setState(() => _state = _SessionState.loading);
-    try {
-      final ready = await SessionManager.instance.ensureSessionForConversation(
-        conversationId: widget.conversationId,
-        peerUserId: widget.matchedUserId,
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    unawaited(
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  Future<void> _handleSend(String text) async {
+    final provider = chatConversationControllerProvider(
+      widget.conversationId,
+      widget.matchedUserId,
+    );
+    final ok = await ref.read(provider.notifier).sendText(text);
+    if (!ok && mounted) {
+      NexusToast.show(
+        context,
+        'Could not send message. Please try again.',
+        type: NexusToastType.error,
       );
-      if (!mounted) return;
-      setState(
-        () => _state = ready ? _SessionState.established : _SessionState.waitingForPeer,
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  Future<void> _confirmUnmatch(ChatTabTheme theme) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Unmatch from ${widget.name}?',
+          style: const TextStyle(color: Colors.white, fontSize: 17),
+        ),
+        content: Text(
+          "You won't see each other for some time.",
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: Text(
+              'Unmatch',
+              style: TextStyle(color: theme.primary, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _runMatchAction(action: 'unmatch');
+  }
+
+  Future<void> _handleBlock() async {
+    final ok = await showProfileBlockDialog(context, widget.name);
+    if (ok != true || !mounted) return;
+    await _runMatchAction(action: 'block');
+  }
+
+  Future<void> _handleReport() async {
+    await showProfileReportDialog(
+      context,
+      onConfirmed: (reason, detail) => _runMatchAction(
+        action: 'report',
+        reason: reason,
+        reasonDetail: detail,
+      ),
+    );
+  }
+
+  Future<void> _runMatchAction({
+    required String action,
+    String? reason,
+    String? reasonDetail,
+  }) async {
+    final success = await recordMatchAction(
+      targetId: widget.matchedUserId,
+      action: action,
+      tab: widget.tab,
+      reason: reason,
+      reasonDetail: reasonDetail,
+    );
+    if (!mounted) return;
+    if (success) {
+      Navigator.of(context).pop();
+    } else {
+      NexusToast.show(
+        context,
+        'Could not complete that action. Please try again.',
+        type: NexusToastType.error,
       );
-    } on Exception {
-      if (!mounted) return;
-      setState(() => _state = _SessionState.error);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = chatTabTheme(widget.tab);
+    final asyncState = ref.watch(
+      chatConversationControllerProvider(widget.conversationId, widget.matchedUserId),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(context, theme),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: _buildBody(theme),
+      body: SafeArea(
+        child: asyncState.when(
+          loading: () => Center(child: _statusMessage(theme, loading: true)),
+          error: (error, stackTrace) => Center(
+            child: _statusMessage(
+              theme,
+              text: 'Could not load this chat. Please try again.',
+              icon: LucideIcons.circleAlert,
+              iconColor: const Color(0xFFEF4444),
+            ),
+          ),
+          data: (chatState) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+            return Column(
+              children: [
+                Expanded(
+                  child: chatState.messages.isEmpty
+                      ? Center(
+                          child: _statusMessage(
+                            theme,
+                            text: 'Say hi to ${widget.name} 👋',
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+                          itemCount: chatState.messages.length,
+                          itemBuilder: (_, i) => MessageBubble(
+                            message: chatState.messages[i],
+                            themeColor: theme.primary,
+                          ),
+                        ),
+                ),
+                if (!chatState.sessionReady) _waitingBanner(theme),
+                ChatComposer(
+                  themeColor: theme.primary,
+                  enabled: chatState.sessionReady,
+                  sending: chatState.sending,
+                  onSend: _handleSend,
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildBody(ChatTabTheme theme) {
-    switch (_state) {
-      case _SessionState.loading:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const NexusOrbitLoader(size: 56),
-            const SizedBox(height: 24),
-            Text(
-              'Setting up secure messaging…',
-              style: GoogleFonts.manrope(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF334155),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _hint(
-              'Nexus chats are end-to-end encrypted. '
-              'Messaging with ${widget.name} is coming soon.',
-            ),
-          ],
-        );
-      case _SessionState.established:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.shieldCheck, color: theme.primary, size: 48),
-            const SizedBox(height: 20),
-            Text(
-              'Secure connection established',
-              style: GoogleFonts.manrope(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF334155),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _hint(
-              'This device is ready to send end-to-end encrypted messages '
-              'to ${widget.name}. The message composer is coming soon.',
-            ),
-          ],
-        );
-      case _SessionState.waitingForPeer:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.clock, color: theme.primary, size: 48),
-            const SizedBox(height: 20),
-            Text(
-              'Waiting for ${widget.name}',
-              style: GoogleFonts.manrope(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF334155),
-              ),
-            ),
-            const SizedBox(height: 8),
-            _hint(
-              '${widget.name} needs to open this chat once before a secure '
-              "connection can be set up. We'll be ready as soon as they do.",
-            ),
+  Widget _statusMessage(
+    ChatTabTheme theme, {
+    String? text,
+    IconData? icon,
+    Color? iconColor,
+    bool loading = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading)
+            const NexusOrbitLoader(size: 48)
+          else if (icon != null)
+            Icon(icon, size: 40, color: iconColor ?? theme.primary),
+          if (text != null) ...[
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: _establishSession,
-              child: Text(
-                'Check again',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: theme.primary,
-                ),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF94A3B8),
+                height: 1.5,
               ),
             ),
           ],
-        );
-      case _SessionState.error:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(LucideIcons.circleAlert, color: Color(0xFFEF4444), size: 44),
-            const SizedBox(height: 16),
-            _hint('Could not set up secure messaging. Please try again.'),
-            const SizedBox(height: 14),
-            TextButton(
-              onPressed: _establishSession,
-              child: Text(
-                'Retry',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: theme.primary,
-                ),
-              ),
-            ),
-          ],
-        );
-    }
+        ],
+      ),
+    );
   }
 
-  Widget _hint(String text) {
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: GoogleFonts.inter(
-        fontSize: 12.5,
-        color: const Color(0xFF94A3B8),
-        height: 1.5,
+  Widget _waitingBanner(ChatTabTheme theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: theme.primary.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          Icon(LucideIcons.clock, size: 15, color: theme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${widget.name} needs to open this chat before you can send a message.',
+              style: GoogleFonts.inter(fontSize: 12, color: theme.primary),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -246,6 +321,26 @@ class _ChatConversationPageState extends State<ChatConversationPage> {
               ),
             ],
           ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(LucideIcons.moreVertical, color: Colors.white),
+              onSelected: (value) {
+                switch (value) {
+                  case 'unmatch':
+                    unawaited(_confirmUnmatch(theme));
+                  case 'block':
+                    unawaited(_handleBlock());
+                  case 'report':
+                    unawaited(_handleReport());
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'unmatch', child: Text('Unmatch')),
+                PopupMenuItem(value: 'block', child: Text('Block')),
+                PopupMenuItem(value: 'report', child: Text('Report & Block')),
+              ],
+            ),
+          ],
         ),
       ),
     );
