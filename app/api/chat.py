@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
@@ -10,11 +11,21 @@ from app.core.limiter import limiter
 from app.db.chat import (
     fetch_conversation_participants,
     fetch_conversations_for_user,
+    fetch_presence,
     fetch_started_match_ids,
+    fetch_user_share_flags,
     get_or_create_conversation,
     insert_message,
+    mark_messages_read,
+    upsert_presence_heartbeat,
 )
-from app.db.client import DatabaseAccessError, supabase_client
+from app.db.chat_keys import has_active_match
+from app.db.client import (
+    DatabaseAccessError,
+    parse_utc_datetime,
+    supabase_client,
+    utcnow,
+)
 from app.db.matches import fetch_matches_for_user
 from app.db.profiles import decrypt_profile_rows
 from app.models import (
@@ -24,6 +35,9 @@ from app.models import (
     ChatsListResponse,
     CreateChatRequest,
     CreateChatResponse,
+    MarkMessagesReadResponse,
+    PresenceHeartbeatRequest,
+    PresenceResponse,
     SendMessageRequest,
     SendMessageResponse,
 )
@@ -254,6 +268,135 @@ async def send_message(
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure sending message",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+    except HTTPException:
+        raise
+
+
+@router.post("/api/v1/chat/presence/heartbeat")
+@limiter.limit(settings.rate_limit_discover)
+async def send_presence_heartbeat(
+    request: Request,
+    payload: PresenceHeartbeatRequest = Body(default=PresenceHeartbeatRequest()),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    _ = request
+    try:
+        await asyncio.to_thread(upsert_presence_heartbeat, user_id, payload.is_online)
+        return {"success": True}
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure recording presence heartbeat",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+
+
+# Presence is treated as offline once the heartbeat is older than this, even
+# if is_online was never explicitly flipped false (e.g. the app was killed).
+_PRESENCE_STALE_AFTER = timedelta(seconds=90)
+
+
+@router.get(
+    "/api/v1/chat/presence/{target_user_id}",
+    response_model=PresenceResponse,
+)
+@limiter.limit(settings.rate_limit_discover)
+async def get_presence(
+    request: Request,
+    target_user_id: str = Path(...),
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> PresenceResponse:
+    """
+    Deliberately returns an empty PresenceResponse (nulls) for every case
+    that should hide presence: no active match, the peer's Active Status
+    is off, or the peer has never been active. These are indistinguishable
+    on purpose so a client can't infer the privacy setting is off.
+    """
+    _ = request
+    try:
+        if not await asyncio.to_thread(has_active_match, user_id, target_user_id):
+            return PresenceResponse()
+
+        flags = await asyncio.to_thread(fetch_user_share_flags, target_user_id)
+        if not flags["share_active_status"]:
+            return PresenceResponse()
+
+        presence = await asyncio.to_thread(fetch_presence, target_user_id)
+        if presence is None:
+            return PresenceResponse()
+
+        raw_last_active = presence.get("last_active_at")
+        if raw_last_active is None:
+            return PresenceResponse()
+
+        last_active_at = parse_utc_datetime(raw_last_active)
+        is_online = bool(presence.get("is_online", False)) and (
+            utcnow() - last_active_at < _PRESENCE_STALE_AFTER
+        )
+        return PresenceResponse(is_online=is_online, last_active_at=last_active_at)
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure fetching presence",
+            extra={"user_id": user_id, "target_user_id": target_user_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+
+
+@router.patch(
+    "/api/v1/chats/{conversation_id}/messages/read",
+    response_model=MarkMessagesReadResponse,
+)
+@limiter.limit(settings.rate_limit_discover)
+async def mark_conversation_messages_read(
+    request: Request,
+    conversation_id: str = Path(...),
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> MarkMessagesReadResponse:
+    """
+    Silently no-ops (returns marked_count=0) if the reader has Read
+    Receipts turned off, rather than erroring - the client can still track
+    its own unread count locally without telling the sender anything.
+    """
+    _ = request
+    try:
+        conversation = await asyncio.to_thread(
+            fetch_conversation_participants, conversation_id,
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+        user_a_id = str(conversation.get("user_a_id") or "")
+        user_b_id = str(conversation.get("user_b_id") or "")
+        if user_id not in (user_a_id, user_b_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Not a participant of this conversation.",
+            )
+
+        flags = await asyncio.to_thread(fetch_user_share_flags, user_id)
+        if not flags["share_read_receipts"]:
+            return MarkMessagesReadResponse(marked_count=0)
+
+        marked = await asyncio.to_thread(mark_messages_read, conversation_id, user_id)
+        return MarkMessagesReadResponse(marked_count=marked)
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure marking messages read",
             extra={"user_id": user_id, "conversation_id": conversation_id},
         )
         raise HTTPException(

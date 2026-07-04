@@ -238,3 +238,79 @@ def insert_message(
             extra={"conversation_id": conversation_id, "sender_id": sender_id},
         )
         raise DatabaseAccessError("Failed to insert message") from e
+
+
+def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("share_active_status, share_read_receipts")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = cast(dict[str, Any] | None, getattr(res, "data", None))
+        if data is None:
+            return {"share_active_status": True, "share_read_receipts": True}
+        return {
+            "share_active_status": bool(data.get("share_active_status", True)),
+            "share_read_receipts": bool(data.get("share_read_receipts", True)),
+        }
+    except APIError as e:
+        logger.exception("Failed to fetch share flags", extra={"user_id": user_id})
+        raise DatabaseAccessError("Failed to fetch share flags") from e
+
+
+def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
+    now = utcnow()
+    try:
+        supabase_client.table("chat_presence").upsert(
+            {
+                "user_id": user_id,
+                "last_active_at": now.isoformat(),
+                "is_online": is_online,
+            },
+            on_conflict="user_id",
+        ).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to upsert presence heartbeat", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to upsert presence heartbeat") from e
+
+
+def fetch_presence(user_id: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("chat_presence")
+            .select("last_active_at, is_online")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return cast(dict[str, Any] | None, getattr(res, "data", None))
+    except APIError as e:
+        logger.exception("Failed to fetch presence", extra={"user_id": user_id})
+        raise DatabaseAccessError("Failed to fetch presence") from e
+
+
+def mark_messages_read(conversation_id: str, reader_id: str) -> int:
+    """Marks unread messages from the peer as read. Returns rows updated."""
+    now = utcnow()
+    try:
+        res = (
+            supabase_client.table("chat_messages")
+            .update({"read_at": now.isoformat()})
+            .eq("conversation_id", conversation_id)
+            .neq("sender_id", reader_id)
+            .is_("read_at", "null")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return len(rows)
+    except APIError as e:
+        logger.exception(
+            "Failed to mark messages read",
+            extra={"conversation_id": conversation_id, "reader_id": reader_id},
+        )
+        raise DatabaseAccessError("Failed to mark messages read") from e

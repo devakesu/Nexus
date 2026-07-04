@@ -84,14 +84,31 @@ class MessageBubble extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 4),
-              Text(
-                _formatTime(message.createdAt),
-                style: GoogleFonts.inter(
-                  fontSize: 10.5,
-                  color: isMine
-                      ? Colors.white.withValues(alpha: 0.7)
-                      : const Color(0xFF94A3B8),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatTime(message.createdAt),
+                    style: GoogleFonts.inter(
+                      fontSize: 10.5,
+                      color: isMine
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  if (isMine) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      message.readAt != null
+                          ? LucideIcons.checkCheck
+                          : LucideIcons.check,
+                      size: 13,
+                      color: Colors.white.withValues(
+                        alpha: message.readAt != null ? 1 : 0.7,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),

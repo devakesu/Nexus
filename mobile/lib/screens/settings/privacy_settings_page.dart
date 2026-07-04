@@ -116,7 +116,6 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   // Track which fields are currently being saved to show per-item loading.
   final Set<String> _saving = {};
 
-  // Stub toggles kept for future wiring.
   bool _activeStatus = true;
   bool _readReceipts = true;
 
@@ -153,6 +152,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
           for (final f in _kHideableFields) {
             _visibility[f.key] = !hidden.contains(f.key);
           }
+          _activeStatus = resp.data!['share_active_status'] as bool? ?? true;
+          _readReceipts = resp.data!['share_read_receipts'] as bool? ?? true;
         });
       }
     } on DioException catch (e) {
@@ -211,6 +212,56 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
   }
 
+  Future<void> _toggleActiveStatus(bool value) =>
+      _togglePrivacyFlag('share_active_status', value, (v) => _activeStatus = v);
+
+  Future<void> _toggleReadReceipts(bool value) =>
+      _togglePrivacyFlag('share_read_receipts', value, (v) => _readReceipts = v);
+
+  Future<void> _togglePrivacyFlag(
+    String field,
+    bool value,
+    void Function(bool) apply,
+  ) async {
+    if (_saving.contains(field)) return;
+    final previous = field == 'share_active_status' ? _activeStatus : _readReceipts;
+    setState(() {
+      apply(value);
+      _saving.add(field);
+    });
+    try {
+      final token = await _token();
+      if (token == null) throw Exception('Not signed in');
+      await _dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
+        data: {field: value},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on DioException catch (e) {
+      setState(() => apply(previous));
+      if (mounted) {
+        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
+            ?.toString();
+        NexusToast.show(
+          context,
+          detail ?? 'Failed to save setting.',
+          type: NexusToastType.error,
+        );
+      }
+    } on Exception catch (_) {
+      setState(() => apply(previous));
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Failed to save setting.',
+          type: NexusToastType.error,
+        );
+      }
+    } finally {
+      setState(() => _saving.remove(field));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -235,8 +286,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       value: _activeStatus,
                       isFirst: true,
                       isLast: true,
-                      saving: false,
-                      onChanged: (v) => setState(() => _activeStatus = v),
+                      saving: _saving.contains('share_active_status'),
+                      onChanged: _toggleActiveStatus,
                     ),
                   ],
                 ),
@@ -252,8 +303,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       value: _readReceipts,
                       isFirst: true,
                       isLast: true,
-                      saving: false,
-                      onChanged: (v) => setState(() => _readReceipts = v),
+                      saving: _saving.contains('share_read_receipts'),
+                      onChanged: _toggleReadReceipts,
                     ),
                   ],
                 ),

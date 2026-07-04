@@ -27,6 +27,7 @@ class ChatMessageView {
     required this.plaintext,
     required this.messageType,
     required this.decryptFailed,
+    this.readAt,
   });
 
   final String id;
@@ -36,6 +37,23 @@ class ChatMessageView {
   final String? plaintext;
   final String messageType;
   final bool decryptFailed;
+
+  /// Metadata-only, refetched from the server every time (never cached
+  /// locally) - unlike plaintext, there's no forward-secrecy concern with
+  /// re-reading a timestamp. Null if unread, or if the reader has Read
+  /// Receipts turned off (the server won't have written it).
+  final DateTime? readAt;
+
+  ChatMessageView copyWith({DateTime? readAt}) => ChatMessageView(
+    id: id,
+    senderId: senderId,
+    isMine: isMine,
+    createdAt: createdAt,
+    plaintext: plaintext,
+    messageType: messageType,
+    decryptFailed: decryptFailed,
+    readAt: readAt ?? this.readAt,
+  );
 }
 
 class ChatConversationState {
@@ -105,6 +123,10 @@ class ChatConversationController extends _$ChatConversationController {
 
     _subscribeRealtime(store, address);
 
+    if (messages.any((m) => !m.isMine && m.readAt == null)) {
+      unawaited(markAsRead());
+    }
+
     return ChatConversationState(
       messages: messages,
       sessionReady: sessionReady,
@@ -129,6 +151,17 @@ class ChatConversationController extends _$ChatConversationController {
           ),
           callback: (payload) => unawaited(_handleIncoming(payload.newRecord, store, address)),
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'chat_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: (payload) => _handleUpdated(payload.newRecord),
+        )
         .subscribe();
     _channel = channel;
   }
@@ -151,6 +184,40 @@ class ChatConversationController extends _$ChatConversationController {
         sessionReady: latest.sessionReady || !view.decryptFailed,
       ),
     );
+    // A message just arrived while this conversation is open - mark it
+    // (and anything else unread) read right away.
+    if (!view.isMine) unawaited(markAsRead());
+  }
+
+  void _handleUpdated(Map<String, dynamic> row) {
+    final current = state.value;
+    if (current == null) return;
+    final id = row['id'] as String;
+    final rawReadAt = row['read_at'] as String?;
+    if (rawReadAt == null) return;
+    final readAt = DateTime.parse(rawReadAt);
+
+    final updated = [
+      for (final m in current.messages)
+        if (m.id == id) m.copyWith(readAt: readAt) else m,
+    ];
+    state = AsyncData(current.copyWith(messages: updated));
+  }
+
+  /// Marks the peer's messages in this conversation as read. No-ops
+  /// server-side (without erroring) if this user has Read Receipts off.
+  Future<void> markAsRead() async {
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (token == null) return;
+    try {
+      final dio = createDio();
+      await dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages/read',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on Exception {
+      // Best-effort - failing to mark read is not user-visible.
+    }
   }
 
   /// Resolves a raw `chat_messages` row to a view, decrypting/encrypting at
@@ -161,6 +228,9 @@ class ChatConversationController extends _$ChatConversationController {
     SignalProtocolAddress address,
   ) async {
     final id = row['id'] as String;
+    final rawReadAt = row['read_at'] as String?;
+    final readAt = rawReadAt != null ? DateTime.parse(rawReadAt) : null;
+
     final cached = await (_db.select(
       _db.localMessages,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -181,6 +251,7 @@ class ChatConversationController extends _$ChatConversationController {
         plaintext: plaintext,
         messageType: cached.messageType,
         decryptFailed: cached.decryptFailed,
+        readAt: readAt,
       );
     }
 
@@ -228,6 +299,7 @@ class ChatConversationController extends _$ChatConversationController {
       plaintext: plaintext,
       messageType: messageType,
       decryptFailed: decryptFailed,
+      readAt: readAt,
     );
   }
 

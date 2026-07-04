@@ -905,6 +905,27 @@ class SendMessageResponse(BaseModel):
     created_at: datetime
 
 
+# Presence & read receipts
+# ---------------------------------------------------------------------------
+
+
+class PresenceHeartbeatRequest(BaseModel):
+    is_online: bool = True
+
+
+class PresenceResponse(BaseModel):
+    """is_online/last_active_at are both null if the peer has Active Status
+    off, has no active match with the caller, or has never been active -
+    these cases are deliberately indistinguishable from the outside."""
+
+    is_online: bool | None = None
+    last_active_at: datetime | None = None
+
+
+class MarkMessagesReadResponse(BaseModel):
+    marked_count: int
+
+
 class DiscoveryViewportRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     center_x: float
@@ -1186,14 +1207,22 @@ ALLOWED_HIDDEN_FIELDS: frozenset[str] = frozenset(
 
 class PrivacySettingsResponse(BaseModel):
     hidden_fields: list[str]
+    share_active_status: bool
+    share_read_receipts: bool
 
 
 class PrivacySettingsUpdate(BaseModel):
-    hidden_fields: list[str]
+    """All fields optional - PATCH only touches the ones provided."""
+
+    hidden_fields: list[str] | None = None
+    share_active_status: bool | None = None
+    share_read_receipts: bool | None = None
 
     @field_validator("hidden_fields")
     @classmethod
-    def validate_hidden_fields(cls, v: list[str]) -> list[str]:
+    def validate_hidden_fields(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
         for field in v:
             if field not in ALLOWED_HIDDEN_FIELDS:
                 raise ValueError(

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chats_providers.dart';
 import 'package:nexus/screens/chats/chat_conversation_page.dart';
+import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 
 class ChatListTile extends StatelessWidget {
@@ -83,11 +84,18 @@ class ChatListTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      'Say hi 👋',
+                    PresenceBadge(
+                      peerUserId: conversation.matchedUserId,
                       style: GoogleFonts.inter(
                         fontSize: 12.5,
                         color: const Color(0xFF94A3B8),
+                      ),
+                      fallback: Text(
+                        'Say hi 👋',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          color: const Color(0xFF94A3B8),
+                        ),
                       ),
                     ),
                   ],

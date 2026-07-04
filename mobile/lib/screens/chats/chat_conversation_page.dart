@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
+import 'package:nexus/providers/presence_provider.dart';
 import 'package:nexus/screens/chats/chat_theme.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/chats/widgets/chat_composer.dart';
 import 'package:nexus/screens/chats/widgets/message_bubble.dart';
+import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -38,13 +40,44 @@ class ChatConversationPage extends ConsumerStatefulWidget {
   ConsumerState<ChatConversationPage> createState() => _ChatConversationPageState();
 }
 
-class _ChatConversationPageState extends ConsumerState<ChatConversationPage> {
+class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
+    with WidgetsBindingObserver {
   final _scrollController = ScrollController();
+  Timer? _heartbeatTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startHeartbeat();
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _heartbeatTimer?.cancel();
+    unawaited(PresenceHeartbeat.beat(isOnline: false));
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startHeartbeat();
+    } else {
+      _heartbeatTimer?.cancel();
+      unawaited(PresenceHeartbeat.beat(isOnline: false));
+    }
+  }
+
+  void _startHeartbeat() {
+    unawaited(PresenceHeartbeat.beat());
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => unawaited(PresenceHeartbeat.beat()),
+    );
   }
 
   void _scrollToBottom() {
@@ -309,14 +342,22 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.manrope(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    PresenceBadge(peerUserId: widget.matchedUserId),
+                  ],
                 ),
               ),
             ],

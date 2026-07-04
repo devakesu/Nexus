@@ -836,6 +836,17 @@ def update_profile_details(  # noqa: C901
         ) from e
 
 
+def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsResponse:
+    raw: list[str] = list(data.get("hidden_profile_fields") or [])
+    # Defensively strip any field names that are no longer in the allowed set.
+    hidden: list[str] = [f for f in raw if f in ALLOWED_HIDDEN_FIELDS]
+    return PrivacySettingsResponse(
+        hidden_fields=hidden,
+        share_active_status=bool(data.get("share_active_status", True)),
+        share_read_receipts=bool(data.get("share_read_receipts", True)),
+    )
+
+
 @router.get(
     "/api/v1/profile/privacy-settings",
     response_model=PrivacySettingsResponse,
@@ -846,7 +857,7 @@ def get_privacy_settings(
     try:
         res = (
             supabase_client.table("profiles")
-            .select("hidden_profile_fields")
+            .select("hidden_profile_fields, share_active_status, share_read_receipts")
             .eq("id", user_id)
             .maybe_single()
             .execute()
@@ -854,10 +865,7 @@ def get_privacy_settings(
         data = getattr(res, "data", None)
         if data is None:
             raise HTTPException(status_code=404, detail="Profile not found")
-        raw: list[str] = list(data.get("hidden_profile_fields") or [])
-        # Defensively strip any field names that are no longer in the allowed set.
-        hidden: list[str] = [f for f in raw if f in ALLOWED_HIDDEN_FIELDS]
-        return PrivacySettingsResponse(hidden_fields=hidden)
+        return _to_privacy_settings_response(data)
     except HTTPException:
         raise
     except Exception as e:
@@ -873,16 +881,28 @@ def update_privacy_settings(
     payload: PrivacySettingsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
 ) -> PrivacySettingsResponse:
+    update_data: dict[str, Any] = {}
+    if payload.hidden_fields is not None:
+        update_data["hidden_profile_fields"] = payload.hidden_fields
+    if payload.share_active_status is not None:
+        update_data["share_active_status"] = payload.share_active_status
+    if payload.share_read_receipts is not None:
+        update_data["share_read_receipts"] = payload.share_read_receipts
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+
     try:
         res = (
             supabase_client.table("profiles")
-            .update({"hidden_profile_fields": payload.hidden_fields})
+            .update(update_data)
             .eq("id", user_id)
+            .select("hidden_profile_fields, share_active_status, share_read_receipts")
             .execute()
         )
-        if not getattr(res, "data", None):
+        rows = cast(list[dict[str, Any]], getattr(res, "data", None) or [])
+        if not rows:
             raise HTTPException(status_code=404, detail="Profile not found")
-        return PrivacySettingsResponse(hidden_fields=payload.hidden_fields)
+        return _to_privacy_settings_response(rows[0])
     except HTTPException:
         raise
     except Exception as e:
