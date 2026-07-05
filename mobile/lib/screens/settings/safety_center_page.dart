@@ -226,7 +226,17 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
 }
 
 class SafetyCenterPage extends StatefulWidget {
-  const SafetyCenterPage({super.key});
+  const SafetyCenterPage({
+    this.initialCheckInLabel,
+    this.initialCheckInDuration,
+    super.key,
+  });
+
+  /// Pre-fills the Date Check-In form and scrolls to it on open - used by
+  /// a chat event card's "Set up a safety check-in" shortcut so the user
+  /// doesn't have to retype a plan they already made in chat.
+  final String? initialCheckInLabel;
+  final Duration? initialCheckInDuration;
 
   @override
   State<SafetyCenterPage> createState() => _SafetyCenterPageState();
@@ -321,6 +331,19 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     super.initState();
     unawaited(_loadContacts());
     unawaited(_loadChecklistFlags());
+
+    final initialLabel = widget.initialCheckInLabel;
+    if (initialLabel != null) {
+      _checkInLabelController.text = initialLabel;
+    }
+    if (widget.initialCheckInDuration != null) {
+      _checkInSelectedDuration = widget.initialCheckInDuration!;
+    }
+    if (initialLabel != null || widget.initialCheckInDuration != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollToKey(_checkInKey),
+      );
+    }
   }
 
   @override

@@ -12,3 +12,4 @@ numpy==2.2.6
 python-dateutil==2.9.0.post0
 slowapi==0.1.9
 postgrest==2.30.1
+apscheduler==3.11.3

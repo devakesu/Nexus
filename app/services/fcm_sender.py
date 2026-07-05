@@ -209,3 +209,60 @@ async def send_chat_message_notification(
             "Failed to send chat message notification",
             extra={"sender_id": sender_id, "recipient_id": recipient_id},
         )
+
+
+async def send_chat_event_reminder_notification(
+    user_a_id: str,
+    user_b_id: str,
+    conversation_id: str,
+    tab: str,
+    location_label: str | None,
+) -> None:
+    """
+    Fire-and-forget: reminds both participants about an upcoming plan.
+
+    The body is deliberately generic (only the plaintext location_label,
+    if any) - the event's title/notes are E2E encrypted and the server
+    never has them. Exact time is shown by the client from data it already
+    has once the notification is tapped open.
+    """
+    if not _is_firebase_initialized():
+        return
+    try:
+        tokens_a, tokens_b = await asyncio.gather(
+            asyncio.to_thread(_fetch_user_fcm_tokens, user_a_id),
+            asyncio.to_thread(_fetch_user_fcm_tokens, user_b_id),
+        )
+        body = (
+            f"Your plan at {location_label} is coming up soon"
+            if location_label
+            else "Your plan is coming up soon"
+        )
+        data = {
+            "type": "chat_event_reminder",
+            "conversation_id": conversation_id,
+            "tab": tab,
+        }
+        if tokens_a:
+            await asyncio.to_thread(
+                _send_to_tokens,
+                tokens_a,
+                "Upcoming plan reminder",
+                body,
+                data,
+                "chat_event_reminder",
+            )
+        if tokens_b:
+            await asyncio.to_thread(
+                _send_to_tokens,
+                tokens_b,
+                "Upcoming plan reminder",
+                body,
+                data,
+                "chat_event_reminder",
+            )
+    except Exception:
+        logger.exception(
+            "Failed to send event reminder notification",
+            extra={"conversation_id": conversation_id},
+        )

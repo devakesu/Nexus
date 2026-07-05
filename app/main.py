@@ -22,6 +22,10 @@ from app.api.user import router as user_router
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.services.reminder_scheduler import (
+    start_reminder_scheduler,
+    stop_reminder_scheduler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +67,11 @@ async def lifespan(_app: FastAPI):
                 "Cannot start with replay protection enabled.",
             ) from err
 
+    start_reminder_scheduler()
+
     yield
 
+    stop_reminder_scheduler()
     with suppress(Exception):
         await redis_client.aclose()
 

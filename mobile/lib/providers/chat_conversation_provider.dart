@@ -57,6 +57,77 @@ class MediaPointer {
   };
 }
 
+/// A casual, fully-encrypted "here's where I am" pin - unlike [ChatEventInfo],
+/// there's no reminder to schedule so nothing needs to be plaintext.
+class LocationPointer {
+  const LocationPointer({required this.lat, required this.lng, this.label});
+
+  factory LocationPointer.fromJson(Map<String, dynamic> json) => LocationPointer(
+    lat: (json['lat'] as num).toDouble(),
+    lng: (json['lng'] as num).toDouble(),
+    label: json['label'] as String?,
+  );
+
+  final double lat;
+  final double lng;
+  final String? label;
+
+  Map<String, dynamic> toJson() => {
+    'lat': lat,
+    'lng': lng,
+    if (label != null) 'label': label,
+  };
+}
+
+/// The E2E-encrypted half of an event message - title/notes, decrypted via
+/// the same ratchet path as a normal text message and cached the same way.
+/// Paired with [ChatEventInfo] (plaintext time/location/status) to render
+/// the full event card.
+class EventPayload {
+  const EventPayload({required this.title, this.notes});
+
+  factory EventPayload.fromJson(Map<String, dynamic> json) => EventPayload(
+    title: json['title'] as String? ?? '',
+    notes: json['notes'] as String?,
+  );
+
+  final String title;
+  final String? notes;
+
+  Map<String, dynamic> toJson() => {'title': title, if (notes != null) 'notes': notes};
+}
+
+/// Balanced-storage half of an event: time/location/status live in
+/// plaintext on `chat_events` (needed for reminder scheduling), so unlike
+/// [ChatMessageView.plaintext] this is never cached locally - always
+/// refetched/refreshed live from the server, same as [ChatMessageView.readAt].
+class ChatEventInfo {
+  const ChatEventInfo({
+    required this.eventId,
+    required this.eventTime,
+    required this.locationLat,
+    required this.locationLng,
+    required this.locationLabel,
+    required this.status,
+  });
+
+  factory ChatEventInfo.fromRow(Map<String, dynamic> row) => ChatEventInfo(
+    eventId: row['id'] as String,
+    eventTime: DateTime.parse(row['event_time'] as String),
+    locationLat: (row['location_lat'] as num?)?.toDouble(),
+    locationLng: (row['location_lng'] as num?)?.toDouble(),
+    locationLabel: row['location_label'] as String?,
+    status: row['status'] as String? ?? 'proposed',
+  );
+
+  final String eventId;
+  final DateTime eventTime;
+  final double? locationLat;
+  final double? locationLng;
+  final String? locationLabel;
+  final String status;
+}
+
 class ChatMessageView {
   const ChatMessageView({
     required this.id,
@@ -67,6 +138,7 @@ class ChatMessageView {
     required this.messageType,
     required this.decryptFailed,
     this.readAt,
+    this.eventInfo,
   });
 
   final String id;
@@ -83,16 +155,21 @@ class ChatMessageView {
   /// Receipts turned off (the server won't have written it).
   final DateTime? readAt;
 
-  ChatMessageView copyWith({DateTime? readAt}) => ChatMessageView(
-    id: id,
-    senderId: senderId,
-    isMine: isMine,
-    createdAt: createdAt,
-    plaintext: plaintext,
-    messageType: messageType,
-    decryptFailed: decryptFailed,
-    readAt: readAt ?? this.readAt,
-  );
+  /// Only set for messageType == 'event'. See [ChatEventInfo] doc comment.
+  final ChatEventInfo? eventInfo;
+
+  ChatMessageView copyWith({DateTime? readAt, ChatEventInfo? eventInfo}) =>
+      ChatMessageView(
+        id: id,
+        senderId: senderId,
+        isMine: isMine,
+        createdAt: createdAt,
+        plaintext: plaintext,
+        messageType: messageType,
+        decryptFailed: decryptFailed,
+        readAt: readAt ?? this.readAt,
+        eventInfo: eventInfo ?? this.eventInfo,
+      );
 }
 
 class ChatConversationState {
@@ -201,8 +278,48 @@ class ChatConversationController extends _$ChatConversationController {
           ),
           callback: (payload) => _handleUpdated(payload.newRecord),
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'chat_events',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: conversationId,
+          ),
+          callback: _handleEventUpdated,
+        )
         .subscribe();
     _channel = channel;
+  }
+
+  void _handleEventUpdated(PostgresChangePayload payload) {
+    final current = state.value;
+    if (current == null) return;
+    final row = payload.newRecord;
+    final messageId = row['message_id'] as String?;
+    if (messageId == null) return;
+    final info = ChatEventInfo.fromRow(row);
+
+    final updated = [
+      for (final m in current.messages)
+        if (m.id == messageId) m.copyWith(eventInfo: info) else m,
+    ];
+    state = AsyncData(current.copyWith(messages: updated));
+  }
+
+  Future<ChatEventInfo?> _fetchEventForMessage(String messageId) async {
+    try {
+      final row = await Supabase.instance.client
+          .from('chat_events')
+          .select()
+          .eq('message_id', messageId)
+          .maybeSingle();
+      if (row == null) return null;
+      return ChatEventInfo.fromRow(row);
+    } on Exception {
+      return null;
+    }
   }
 
   Future<void> _handleIncoming(
@@ -282,6 +399,9 @@ class ChatConversationController extends _$ChatConversationController {
               ),
             )
           : null;
+      final eventInfo = cached.messageType == 'event'
+          ? await _fetchEventForMessage(id)
+          : null;
       return ChatMessageView(
         id: id,
         senderId: cached.senderId,
@@ -291,6 +411,7 @@ class ChatConversationController extends _$ChatConversationController {
         messageType: cached.messageType,
         decryptFailed: cached.decryptFailed,
         readAt: readAt,
+        eventInfo: eventInfo,
       );
     }
 
@@ -330,6 +451,10 @@ class ChatConversationController extends _$ChatConversationController {
       decryptFailed: decryptFailed,
     );
 
+    final eventInfo = messageType == 'event'
+        ? await _fetchEventForMessage(id)
+        : null;
+
     return ChatMessageView(
       id: id,
       senderId: senderId,
@@ -339,6 +464,7 @@ class ChatConversationController extends _$ChatConversationController {
       messageType: messageType,
       decryptFailed: decryptFailed,
       readAt: readAt,
+      eventInfo: eventInfo,
     );
   }
 
@@ -495,6 +621,110 @@ class ChatConversationController extends _$ChatConversationController {
     } finally {
       final latest = state.value ?? current;
       state = AsyncData(latest.copyWith(sending: false));
+    }
+  }
+
+  /// A casual, fully-encrypted location pin - no chat_events row, since
+  /// there's no reminder to schedule for it.
+  Future<bool> sendLocation({
+    required double lat,
+    required double lng,
+    String? label,
+  }) {
+    final pointerJson = jsonEncode(LocationPointer(lat: lat, lng: lng, label: label).toJson());
+    return _sendEnvelopeText(
+      text: pointerJson,
+      messageType: 'location',
+      cachePlaintext: pointerJson,
+    );
+  }
+
+  /// Creates a date/plan proposal: event_time/location are sent as
+  /// plaintext fields (balanced-storage decision - needed for reminder
+  /// scheduling), title/notes are ratchet-encrypted exactly like a normal
+  /// text message.
+  Future<bool> createEvent({
+    required DateTime eventTime,
+    required String title,
+    double? locationLat,
+    double? locationLng,
+    String? locationLabel,
+    String? notes,
+  }) async {
+    final current = state.value;
+    final store = _store;
+    final address = _peerAddress;
+    if (current == null || store == null || address == null) return false;
+
+    state = AsyncData(current.copyWith(sending: true));
+    try {
+      final payloadJson = jsonEncode(EventPayload(title: title, notes: notes).toJson());
+      final envelope = await MessageCodec.instance.encryptText(
+        store: store,
+        address: address,
+        text: payloadJson,
+      );
+
+      final dio = createDio();
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      if (token == null) throw Exception('Not signed in');
+
+      final response = await dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events',
+        data: {
+          'event_time': eventTime.toUtc().toIso8601String(),
+          'location_lat': locationLat,
+          'location_lng': locationLng,
+          'location_label': locationLabel,
+          'ciphertext': envelope.ciphertextBase64,
+          'ciphertext_metadata': {
+            'signal_message_type': envelope.signalMessageType,
+          },
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      final data = response.data;
+      final messageId = data?['message_id'] as String?;
+      final myUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (messageId != null && myUserId != null) {
+        final createdAtRaw = data?['created_at'] as String?;
+        await _cacheMessage(
+          id: messageId,
+          conversationId: conversationId,
+          senderId: myUserId,
+          isMine: true,
+          createdAt: createdAtRaw != null
+              ? DateTime.parse(createdAtRaw)
+              : DateTime.now(),
+          messageType: 'event',
+          plaintext: payloadJson,
+          decryptFailed: false,
+        );
+      }
+      return true;
+    } on Exception {
+      return false;
+    } finally {
+      final latest = state.value ?? current;
+      state = AsyncData(latest.copyWith(sending: false));
+    }
+  }
+
+  /// Confirms or cancels an existing event proposal.
+  Future<bool> updateEventStatus(String eventId, String status) async {
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (token == null) return false;
+    try {
+      final dio = createDio();
+      await dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events/$eventId',
+        data: {'status': status},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    } on Exception {
+      return false;
     }
   }
 

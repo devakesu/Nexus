@@ -6,6 +6,8 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/providers/chat_conversation_provider.dart';
+import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -17,6 +19,8 @@ class ChatComposer extends StatefulWidget {
     required this.onSend,
     required this.onSendImage,
     required this.onSendVoice,
+    required this.onSendLocation,
+    required this.onPlanEvent,
     super.key,
   });
 
@@ -27,6 +31,8 @@ class ChatComposer extends StatefulWidget {
   final Future<void> Function(Uint8List bytes, String mimeType) onSendImage;
   final Future<void> Function(Uint8List bytes, String mimeType, int durationMs)
   onSendVoice;
+  final Future<void> Function(double lat, double lng, String? label) onSendLocation;
+  final VoidCallback onPlanEvent;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -65,6 +71,53 @@ class _ChatComposerState extends State<ChatComposer> {
     if (text.isEmpty || !widget.enabled || widget.sending) return;
     _controller.clear();
     await widget.onSend(text);
+  }
+
+  Future<void> _showAttachMenu() async {
+    final option = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Photo'),
+              onTap: () => Navigator.pop(ctx, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.mapPin),
+              title: const Text('Location'),
+              onTap: () => Navigator.pop(ctx, 'location'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.calendarPlus),
+              title: const Text('Plan a date'),
+              onTap: () => Navigator.pop(ctx, 'event'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (option == null || !mounted) return;
+    switch (option) {
+      case 'photo':
+        await _pickImage();
+      case 'location':
+        await _shareLocation();
+      case 'event':
+        widget.onPlanEvent();
+    }
+  }
+
+  Future<void> _shareLocation() async {
+    final result = await Navigator.of(context).push<LocationPointer>(
+      MaterialPageRoute<LocationPointer>(
+        fullscreenDialog: true,
+        builder: (_) => LocationPickerSheet(themeColor: widget.themeColor),
+      ),
+    );
+    if (result == null) return;
+    await widget.onSendLocation(result.lat, result.lng, result.label);
   }
 
   Future<void> _pickImage() async {
@@ -254,7 +307,7 @@ class _ChatComposerState extends State<ChatComposer> {
         ),
         IconButton(
           icon: const Icon(LucideIcons.paperclip, color: Color(0xFF94A3B8)),
-          onPressed: widget.enabled ? () => unawaited(_pickImage()) : null,
+          onPressed: widget.enabled ? () => unawaited(_showAttachMenu()) : null,
         ),
         CircleAvatar(
           radius: 20,

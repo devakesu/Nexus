@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -314,3 +315,133 @@ def mark_messages_read(conversation_id: str, reader_id: str) -> int:
             extra={"conversation_id": conversation_id, "reader_id": reader_id},
         )
         raise DatabaseAccessError("Failed to mark messages read") from e
+
+
+def create_event_with_message(
+    conversation_id: str,
+    sender_id: str,
+    ciphertext: str,
+    ciphertext_metadata: dict[str, Any],
+    event_time: datetime,
+    location_lat: float | None,
+    location_lng: float | None,
+    location_label: str | None,
+) -> dict[str, Any]:
+    """
+    Creates the linked chat_messages (type=event) + chat_events rows.
+    Not a single DB transaction (postgrest doesn't expose cross-table
+    transactions to this client) - on event-row failure, the just-created
+    message is deleted so we never leave an event-typed message with no
+    event data.
+    """
+    message_row = insert_message(
+        conversation_id, sender_id, "event", ciphertext, ciphertext_metadata,
+    )
+    message_id = str(message_row["id"])
+    try:
+        res = (
+            supabase_client.table("chat_events")
+            .insert(
+                {
+                    "conversation_id": conversation_id,
+                    "message_id": message_id,
+                    "created_by": sender_id,
+                    "event_time": event_time.isoformat(),
+                    "location_lat": location_lat,
+                    "location_lng": location_lng,
+                    "location_label": location_label,
+                },
+            )
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        if not rows or not isinstance(rows[0], dict):
+            raise DatabaseAccessError("Event insert returned no row")
+        return {"message": message_row, "event": cast(dict[str, Any], rows[0])}
+    except APIError as e:
+        try:
+            supabase_client.table("chat_messages").delete().eq(
+                "id", message_id,
+            ).execute()
+        except APIError:
+            logger.exception(
+                "Failed to clean up orphaned event message",
+                extra={"message_id": message_id},
+            )
+        logger.exception(
+            "Failed to insert event", extra={"conversation_id": conversation_id},
+        )
+        raise DatabaseAccessError("Failed to insert event") from e
+
+
+def fetch_event(event_id: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("chat_events")
+            .select(
+                "id, conversation_id, message_id, created_by, event_time, "
+                "location_lat, location_lng, location_label, status",
+            )
+            .eq("id", event_id)
+            .maybe_single()
+            .execute()
+        )
+        return cast(dict[str, Any] | None, getattr(res, "data", None))
+    except APIError as e:
+        logger.exception("Failed to fetch event", extra={"event_id": event_id})
+        raise DatabaseAccessError("Failed to fetch event") from e
+
+
+def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("chat_events")
+            .update({"status": status})
+            .eq("id", event_id)
+            .select(
+                "id, conversation_id, message_id, created_by, event_time, "
+                "location_lat, location_lng, location_label, status, created_at",
+            )
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        if not rows or not isinstance(rows[0], dict):
+            return None
+        return cast(dict[str, Any], rows[0])
+    except APIError as e:
+        logger.exception(
+            "Failed to update event status", extra={"event_id": event_id},
+        )
+        raise DatabaseAccessError("Failed to update event status") from e
+
+
+def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
+    """Events starting within window_minutes that haven't been reminded yet."""
+    now = utcnow()
+    window_end = now + timedelta(minutes=window_minutes)
+    try:
+        res = (
+            supabase_client.table("chat_events")
+            .select("id, conversation_id, created_by, event_time, location_label")
+            .is_("reminder_sent_at", "null")
+            .neq("status", "cancelled")
+            .gte("event_time", now.isoformat())
+            .lte("event_time", window_end.isoformat())
+            .execute()
+        )
+        return cast(list[Any], res.data or [])
+    except APIError as e:
+        logger.exception("Failed to fetch due event reminders")
+        raise DatabaseAccessError("Failed to fetch due event reminders") from e
+
+
+def mark_reminder_sent(event_id: str) -> None:
+    try:
+        supabase_client.table("chat_events").update(
+            {"reminder_sent_at": utcnow().isoformat()},
+        ).eq("id", event_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to mark reminder sent", extra={"event_id": event_id},
+        )
+        raise DatabaseAccessError("Failed to mark reminder sent") from e

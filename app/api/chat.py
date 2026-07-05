@@ -9,14 +9,17 @@ from app.api.dependencies import get_authenticated_user_id, verify_app_check_tok
 from app.core.config import DiscoveryTab, settings
 from app.core.limiter import limiter
 from app.db.chat import (
+    create_event_with_message,
     fetch_conversation_participants,
     fetch_conversations_for_user,
+    fetch_event,
     fetch_presence,
     fetch_started_match_ids,
     fetch_user_share_flags,
     get_or_create_conversation,
     insert_message,
     mark_messages_read,
+    update_event_status,
     upsert_presence_heartbeat,
 )
 from app.db.chat_keys import has_active_match
@@ -35,11 +38,14 @@ from app.models import (
     ChatsListResponse,
     CreateChatRequest,
     CreateChatResponse,
+    CreateEventRequest,
+    EventResponse,
     MarkMessagesReadResponse,
     PresenceHeartbeatRequest,
     PresenceResponse,
     SendMessageRequest,
     SendMessageResponse,
+    UpdateEventStatusRequest,
 )
 from app.services.fcm_sender import send_chat_message_notification
 
@@ -398,6 +404,149 @@ async def mark_conversation_messages_read(
         logger.exception(
             "Database failure marking messages read",
             extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+    except HTTPException:
+        raise
+
+
+@router.post("/api/v1/chats/{conversation_id}/events", response_model=EventResponse)
+@limiter.limit(settings.rate_limit_discover)
+async def create_chat_event(
+    request: Request,
+    conversation_id: str = Path(...),
+    payload: CreateEventRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> EventResponse:
+    """
+    Creates a date/plan proposal: event_time/location are stored in
+    plaintext (needed for reminder scheduling), title/notes travel only as
+    the ratchet-encrypted ciphertext of the linked chat_messages row.
+    """
+    _ = request
+    try:
+        conversation = await asyncio.to_thread(
+            fetch_conversation_participants, conversation_id,
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+
+        user_a_id = str(conversation.get("user_a_id") or "")
+        user_b_id = str(conversation.get("user_b_id") or "")
+        if user_id not in (user_a_id, user_b_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Not a participant of this conversation.",
+            )
+        if conversation.get("closed_at") is not None:
+            raise HTTPException(status_code=403, detail="This conversation is closed.")
+
+        result = await asyncio.to_thread(
+            create_event_with_message,
+            conversation_id,
+            user_id,
+            payload.ciphertext,
+            payload.ciphertext_metadata,
+            payload.event_time,
+            payload.location_lat,
+            payload.location_lng,
+            payload.location_label,
+        )
+        message_row = result["message"]
+        event_row = result["event"]
+
+        recipient_id = user_b_id if user_id == user_a_id else user_a_id
+        asyncio.create_task(
+            send_chat_message_notification(
+                sender_id=user_id,
+                recipient_id=recipient_id,
+                conversation_id=conversation_id,
+                tab=str(conversation.get("tab") or "Dating"),
+            ),
+        )
+
+        return EventResponse(
+            event_id=str(event_row["id"]),
+            message_id=str(message_row["id"]),
+            conversation_id=conversation_id,
+            event_time=event_row["event_time"],
+            location_lat=event_row.get("location_lat"),
+            location_lng=event_row.get("location_lng"),
+            location_label=event_row.get("location_label"),
+            status=event_row["status"],
+            created_at=message_row["created_at"],
+        )
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure creating event",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+    except HTTPException:
+        raise
+
+
+@router.patch(
+    "/api/v1/chats/{conversation_id}/events/{event_id}",
+    response_model=EventResponse,
+)
+@limiter.limit(settings.rate_limit_discover)
+async def update_chat_event(
+    request: Request,
+    conversation_id: str = Path(...),
+    event_id: str = Path(...),
+    payload: UpdateEventStatusRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> EventResponse:
+    _ = request
+    try:
+        event = await asyncio.to_thread(fetch_event, event_id)
+        if event is None or str(event.get("conversation_id")) != conversation_id:
+            raise HTTPException(status_code=404, detail="Event not found.")
+
+        conversation = await asyncio.to_thread(
+            fetch_conversation_participants, conversation_id,
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        if user_id not in (
+            str(conversation.get("user_a_id") or ""),
+            str(conversation.get("user_b_id") or ""),
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Not a participant of this conversation.",
+            )
+
+        updated = await asyncio.to_thread(
+            update_event_status, event_id, payload.status,
+        )
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Event not found.")
+
+        return EventResponse(
+            event_id=str(updated["id"]),
+            message_id=str(updated.get("message_id") or event.get("message_id") or ""),
+            conversation_id=conversation_id,
+            event_time=updated["event_time"],
+            location_lat=updated.get("location_lat"),
+            location_lng=updated.get("location_lng"),
+            location_label=updated.get("location_label"),
+            status=updated["status"],
+            created_at=updated.get("created_at") or utcnow(),
+        )
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure updating event",
+            extra={"user_id": user_id, "event_id": event_id},
         )
         raise HTTPException(
             status_code=503,

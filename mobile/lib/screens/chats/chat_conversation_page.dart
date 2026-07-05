@@ -10,6 +10,7 @@ import 'package:nexus/providers/presence_provider.dart';
 import 'package:nexus/screens/chats/chat_theme.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/chats/widgets/chat_composer.dart';
+import 'package:nexus/screens/chats/widgets/event_planner_sheet.dart';
 import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
@@ -148,6 +149,40 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
+  Future<void> _handleSendLocation(double lat, double lng, String? label) async {
+    final provider = chatConversationControllerProvider(
+      widget.conversationId,
+      widget.matchedUserId,
+    );
+    final ok = await ref
+        .read(provider.notifier)
+        .sendLocation(lat: lat, lng: lng, label: label);
+    if (!ok && mounted) {
+      NexusToast.show(
+        context,
+        'Could not share location. Please try again.',
+        type: NexusToastType.error,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _handlePlanEvent() {
+    final theme = chatTabTheme(widget.tab);
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => EventPlannerSheet(
+          conversationId: widget.conversationId,
+          peerUserId: widget.matchedUserId,
+          themeColor: theme.primary,
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmUnmatch(ChatTabTheme theme) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -278,6 +313,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                   onSend: _handleSend,
                   onSendImage: _handleSendImage,
                   onSendVoice: _handleSendVoice,
+                  onSendLocation: _handleSendLocation,
+                  onPlanEvent: _handlePlanEvent,
                 ),
               ],
             );

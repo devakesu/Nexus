@@ -44,6 +44,8 @@
 	<string>Nexus needs microphone access to record voice messages in chat.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Nexus needs camera access to take photos to send in chat.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nexus needs your location to share it in chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

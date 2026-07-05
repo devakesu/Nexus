@@ -926,6 +926,52 @@ class MarkMessagesReadResponse(BaseModel):
     marked_count: int
 
 
+# Chat events (date/plan proposals)
+# ---------------------------------------------------------------------------
+
+
+class CreateEventRequest(BaseModel):
+    """
+    Balanced storage: event_time/location are plaintext (needed for
+    reminder scheduling); title/notes travel as a ratchet-encrypted
+    ciphertext envelope, identical to a normal text message.
+    """
+
+    event_time: datetime
+    location_lat: float | None = Field(default=None, ge=-90, le=90)
+    location_lng: float | None = Field(default=None, ge=-180, le=180)
+    location_label: str | None = Field(default=None, max_length=200)
+    ciphertext: str = Field(..., min_length=1, max_length=200_000)
+    ciphertext_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("ciphertext")
+    @classmethod
+    def validate_base64(cls, v: str) -> str:
+        import base64
+
+        try:
+            base64.b64decode(v, validate=True)
+        except Exception as e:
+            raise ValueError("ciphertext must be valid base64") from e
+        return v
+
+
+class EventResponse(BaseModel):
+    event_id: str
+    message_id: str
+    conversation_id: str
+    event_time: datetime
+    location_lat: float | None = None
+    location_lng: float | None = None
+    location_label: str | None = None
+    status: Literal["proposed", "confirmed", "cancelled"]
+    created_at: datetime
+
+
+class UpdateEventStatusRequest(BaseModel):
+    status: Literal["confirmed", "cancelled"]
+
+
 class DiscoveryViewportRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     center_x: float
