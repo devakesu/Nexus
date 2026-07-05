@@ -213,20 +213,20 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   }
 
   Future<void> _toggleActiveStatus(bool value) =>
-      _togglePrivacyFlag('share_active_status', value, (v) => _activeStatus = v);
+      _togglePrivacyFlag('share_active_status', value, ({required value}) => _activeStatus = value);
 
   Future<void> _toggleReadReceipts(bool value) =>
-      _togglePrivacyFlag('share_read_receipts', value, (v) => _readReceipts = v);
+      _togglePrivacyFlag('share_read_receipts', value, ({required value}) => _readReceipts = value);
 
   Future<void> _togglePrivacyFlag(
     String field,
     bool value,
-    void Function(bool) apply,
+    void Function({required bool value}) apply,
   ) async {
     if (_saving.contains(field)) return;
     final previous = field == 'share_active_status' ? _activeStatus : _readReceipts;
     setState(() {
-      apply(value);
+      apply(value: value);
       _saving.add(field);
     });
     try {
@@ -238,7 +238,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
     } on DioException catch (e) {
-      setState(() => apply(previous));
+      setState(() => apply(value: previous));
       if (mounted) {
         final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
             ?.toString();
@@ -249,7 +249,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         );
       }
     } on Exception catch (_) {
-      setState(() => apply(previous));
+      setState(() => apply(value: previous));
       if (mounted) {
         NexusToast.show(
           context,

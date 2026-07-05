@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/legal_terms_page.dart';
 import 'package:nexus/screens/onboarding/import_code_dialog.dart';
 import 'package:nexus/screens/onboarding/mec_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/nexus_onboarding_fields.dart';
@@ -307,11 +307,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                unawaited(Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const LegalTermsPage(),
-                  ),
-                ));
+                unawaited(context.push<void>('/legal/terms'));
               },
               child: RichText(
                 text: const TextSpan(

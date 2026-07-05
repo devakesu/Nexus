@@ -248,10 +248,14 @@ class DriftSignalProtocolStore extends IdentityKeyStore
   }
 }
 
+/// Constant-time comparison - identity key bytes are security-sensitive, so
+/// this must not short-circuit on the first mismatching byte the way a
+/// plain loop-with-early-return would.
 bool _bytesEqual(Uint8List a, Uint8List b) {
   if (a.length != b.length) return false;
+  var diff = 0;
   for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
+    diff |= a[i] ^ b[i];
   }
-  return true;
+  return diff == 0;
 }

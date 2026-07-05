@@ -50,14 +50,34 @@ class AppConfig {
   // Configuration profiles for the different flavors
   // ---------------------------------------------------------------------------
 
+  // Overridable at build/run time via --dart-define (e.g. through
+  // `infisical run -- flutter run --dart-define=BACKEND_URL=...`), so real
+  // deployment values never need a code change. The defaults below are
+  // dev-only fallbacks: `backendUrl` is the Android emulator's loopback
+  // alias, and the iOS client IDs are placeholders that make Google Sign-In
+  // on iOS fail loudly rather than silently until the real values (from the
+  // Google Cloud Console, distinct per flavor's bundle ID) are injected.
+  static const String _backendUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'https://10.0.2.2:8000',
+  );
+  static const String _googleIosClientIdNexus = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID_NEXUS',
+    defaultValue: 'your-nexus-ios-client-id.apps.googleusercontent.com',
+  );
+  static const String _googleIosClientIdMec = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID_MEC',
+    defaultValue: 'your-mec-ios-client-id.apps.googleusercontent.com',
+  );
+
   static const AppConfig nexus = AppConfig(
     supabaseUrl: 'https://xqysznugzwkwfhwgxckr.supabase.co',
     supabasePublishableKey: 'sb_publishable_aysVO0aF2hY6DZcd9WtBsg_3NPQduEU',
     googleWebClientId:
         '360032447327-ijma9pp8i1m9263smgdo5u2i0fhj7nal.apps.googleusercontent.com',
-    googleIosClientId: 'your-nexus-ios-client-id.apps.googleusercontent.com',
+    googleIosClientId: _googleIosClientIdNexus,
     logoAssetPath: 'assets/nexus.png',
-    backendUrl: 'https://10.0.2.2:8000',
+    backendUrl: _backendUrl,
     appVariant: AppVariant.nexus,
     spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
     spotifyNativeRedirectUri: 'devakesu-nexus://spotify-auth',
@@ -68,14 +88,19 @@ class AppConfig {
     supabasePublishableKey: 'sb_publishable_aysVO0aF2hY6DZcd9WtBsg_3NPQduEU',
     googleWebClientId:
         '360032447327-ijma9pp8i1m9263smgdo5u2i0fhj7nal.apps.googleusercontent.com',
-    googleIosClientId: 'your-mec-ios-client-id.apps.googleusercontent.com',
+    googleIosClientId: _googleIosClientIdMec,
     logoAssetPath: 'assets/nexus-mec.png',
-    backendUrl: 'https://10.0.2.2:8000',
+    backendUrl: _backendUrl,
     appVariant: AppVariant.nexusMec,
     spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
     spotifyNativeRedirectUri: 'devakesu-nexus-mec://spotify-auth',
     allowedEmailDomain: 'mec.ac.in',
   );
+
+  /// OTP code length for email/phone verification. Must match the "OTP
+  /// Length" setting in the Supabase Auth dashboard for every project this
+  /// app points at - Supabase defaults to 6, this app expects 8.
+  static const int otpLength = 8;
 
   // ---------------------------------------------------------------------------
   // Runtime accessors

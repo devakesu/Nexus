@@ -30,8 +30,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 3200),
     );
 
-    _controller.addListener(() {
-      if (_controller.isCompleted) {
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
         widget.onAnimationComplete();
       }
     });

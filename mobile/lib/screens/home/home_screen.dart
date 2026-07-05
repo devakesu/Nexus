@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:nexus/screens/chats/chats_page.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus/screens/home/tabs/dating_tab.dart';
 import 'package:nexus/screens/home/tabs/friends_tab.dart';
 import 'package:nexus/screens/home/tabs/professional_tab.dart';
@@ -25,15 +25,13 @@ class _MyHomePageState extends State<MyHomePage> {
   void _triggerOpenOrbit(String sectionName, Color themeColor) {
     final prefetch = OrbitScreen.prefetch(sectionName);
     unawaited(
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (context) => OrbitScreen(
-            tab: sectionName,
-            themeColor: themeColor,
-            prefetchFuture: prefetch,
-          ),
-        ),
+      context.push<void>(
+        '/orbit',
+        extra: {
+          'tab': sectionName,
+          'themeColor': themeColor,
+          'prefetchFuture': prefetch,
+        },
       ),
     );
   }
@@ -50,11 +48,7 @@ class _MyHomePageState extends State<MyHomePage> {
               CommonHeader(
                 appName: widget.title,
                 currentTab: _currentTab,
-                onChatTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ChatsPage(),
-                  ),
-                ),
+                onChatTap: () => context.push<void>('/chats'),
               ),
               Expanded(
                 child: SafeArea(

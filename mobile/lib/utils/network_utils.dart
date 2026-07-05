@@ -3,15 +3,15 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:sentry_dio/sentry_dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Creates a [Dio] instance configured for the current environment.
-///
-/// In debug builds, the SSL certificate is validated by hostname only (to allow
-/// self-signed certs in local dev). In release builds, default validation applies.
-Dio createDio() {
-  final dio = Dio();
+final Dio _globalDio = _createDioInstance();
 
-  dio.interceptors.add(AppCheckInterceptor());
+Dio _createDioInstance() {
+  final dio = Dio()
+    ..addSentry()
+    ..interceptors.add(AppCheckInterceptor());
 
   assert(
     () {
@@ -31,6 +31,9 @@ Dio createDio() {
 
   return dio;
 }
+
+/// Returns a shared [Dio] instance configured for the current environment.
+Dio createDio() => _globalDio;
 
 class AppCheckInterceptor extends Interceptor {
   static const _replayProtectedPaths = {
@@ -75,6 +78,12 @@ class AppCheckInterceptor extends Interceptor {
 }
 
 class NetworkUtils {
+  /// Retrieves the current Supabase session access token or throws an exception if not signed in.
+  static Future<String> requireAccessToken() async {
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (token == null) throw Exception('Not signed in');
+    return token;
+  }
   /// Validates that the hostname of the untrusted certificate matches the expected backend host.
   static bool validateCertificateHostname(
     X509Certificate cert,

@@ -13,6 +13,7 @@ import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_database.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/services/signal/signal_store.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,7 +31,7 @@ class MediaPointer {
     required this.storagePath,
     required this.mediaKeyBase64,
     required this.mimeType,
-    required this.sizeBytes,
+    this.sizeBytes,
     this.durationMs,
   });
 
@@ -38,21 +39,25 @@ class MediaPointer {
     storagePath: json['storage_path'] as String,
     mediaKeyBase64: json['media_key'] as String,
     mimeType: json['mime_type'] as String,
-    sizeBytes: json['size_bytes'] as int? ?? 0,
+    sizeBytes: json['size_bytes'] as int?,
     durationMs: json['duration_ms'] as int?,
   );
 
   final String storagePath;
   final String mediaKeyBase64;
   final String mimeType;
-  final int sizeBytes;
+
+  /// Null when the pointer JSON has no `size_bytes` - deliberately not
+  /// coerced to 0, so a UI reading this can tell "unknown" apart from an
+  /// actual 0-byte file.
+  final int? sizeBytes;
   final int? durationMs;
 
   Map<String, dynamic> toJson() => {
     'storage_path': storagePath,
     'media_key': mediaKeyBase64,
     'mime_type': mimeType,
-    'size_bytes': sizeBytes,
+    if (sizeBytes != null) 'size_bytes': sizeBytes,
     if (durationMs != null) 'duration_ms': durationMs,
   };
 }
@@ -216,6 +221,7 @@ class ChatConversationState {
 @riverpod
 class ChatConversationController extends _$ChatConversationController {
   final SignalDatabase _db = SignalDatabase.instance;
+  final Dio _dio = createDio();
   DriftSignalProtocolStore? _store;
   SignalProtocolAddress? _peerAddress;
   RealtimeChannel? _channel;
@@ -423,8 +429,7 @@ class ChatConversationController extends _$ChatConversationController {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return;
     try {
-      final dio = createDio();
-      await dio.patch<void>(
+      await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages/read',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
@@ -609,7 +614,14 @@ class ChatConversationController extends _$ChatConversationController {
         messageType: messageType,
         cachePlaintext: pointerJson,
       );
-    } on Exception {
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: 'Failed to send $messageType message',
+        showUi: false,
+      );
       return false;
     }
   }
@@ -636,11 +648,10 @@ class ChatConversationController extends _$ChatConversationController {
         text: text,
       );
 
-      final dio = createDio();
       final token = Supabase.instance.client.auth.currentSession?.accessToken;
       if (token == null) throw Exception('Not signed in');
 
-      final response = await dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages',
         data: {
           'message_type': messageType,
@@ -656,26 +667,64 @@ class ChatConversationController extends _$ChatConversationController {
       final createdAtRaw = response.data?['created_at'] as String?;
       final myUserId = Supabase.instance.client.auth.currentUser?.id;
       if (messageId != null && myUserId != null) {
+        final messageCreatedAt = createdAtRaw != null
+            ? DateTime.parse(createdAtRaw)
+            : DateTime.now();
         await _cacheMessage(
           id: messageId,
           conversationId: conversationId,
           senderId: myUserId,
           isMine: true,
-          createdAt: createdAtRaw != null
-              ? DateTime.parse(createdAtRaw)
-              : DateTime.now(),
+          createdAt: messageCreatedAt,
           messageType: messageType,
           plaintext: cachePlaintext,
           decryptFailed: false,
         );
+        // Append the resolved view directly rather than waiting for the
+        // realtime INSERT to round-trip back (self-inserts do fire
+        // postgres_changes for the inserting session too, but that event
+        // can arrive before the `_cacheMessage` write above lands, which
+        // would make `_handleIncoming` -> `_resolveMessage` find no cache
+        // entry and mark this device's own just-sent message as
+        // undecryptable). We already have the plaintext in hand, so there's
+        // no reason to depend on that race at all; `_handleIncoming`'s
+        // existing id-dedup check skips the realtime event when it does
+        // arrive.
+        final latestForAppend = state.value ?? current;
+        if (!latestForAppend.messages.any((m) => m.id == messageId)) {
+          state = AsyncData(
+            latestForAppend.copyWith(
+              messages: [
+                ...latestForAppend.messages,
+                ChatMessageView(
+                  id: messageId,
+                  senderId: myUserId,
+                  isMine: true,
+                  createdAt: messageCreatedAt,
+                  plaintext: cachePlaintext,
+                  messageType: messageType,
+                  decryptFailed: false,
+                ),
+              ],
+            ),
+          );
+        }
       }
-      // The realtime subscription will deliver the row itself and append
-      // it (self-inserts fire postgres_changes for the inserting session
-      // too), reading straight from the cache we just wrote above.
       return true;
-    } on Exception {
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: 'Failed to send $messageType message',
+        showUi: false,
+      );
       return false;
     } finally {
+      // NOTE: state.value may reflect a realtime-updated state that came in
+      // during the send, since _handleIncoming can fire and update state
+      // while the HTTP request is in flight. The copyWith(sending: false) on
+      // this updated state is intentional to preserve any new messages.
       final latest = state.value ?? current;
       state = AsyncData(latest.copyWith(sending: false));
     }
@@ -722,11 +771,10 @@ class ChatConversationController extends _$ChatConversationController {
         text: payloadJson,
       );
 
-      final dio = createDio();
       final token = Supabase.instance.client.auth.currentSession?.accessToken;
       if (token == null) throw Exception('Not signed in');
 
-      final response = await dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events',
         data: {
           'event_time': eventTime.toUtc().toIso8601String(),
@@ -760,7 +808,14 @@ class ChatConversationController extends _$ChatConversationController {
         );
       }
       return true;
-    } on Exception {
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: 'Failed to create event "$title"',
+        showUi: false,
+      );
       return false;
     } finally {
       final latest = state.value ?? current;
@@ -773,14 +828,20 @@ class ChatConversationController extends _$ChatConversationController {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return false;
     try {
-      final dio = createDio();
-      await dio.patch<void>(
+      await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events/$eventId',
         data: {'status': status},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } on Exception {
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: 'Failed to update event $eventId status to $status',
+        showUi: false,
+      );
       return false;
     }
   }

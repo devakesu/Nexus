@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chats_providers.dart';
-import 'package:nexus/screens/chats/chat_conversation_page.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 
@@ -38,16 +38,15 @@ class ChatListTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ChatConversationPage(
-              conversationId: conversation.conversationId,
-              matchedUserId: conversation.matchedUserId,
-              tab: tab,
-              name: conversation.name ?? 'Nexus user',
-              profilePic: profilePic,
-            ),
-          ),
+        onTap: () => context.push<void>(
+          '/chat-conversation',
+          extra: {
+            'conversationId': conversation.conversationId,
+            'matchedUserId': conversation.matchedUserId,
+            'tab': tab,
+            'name': conversation.name ?? 'Nexus user',
+            'profilePic': profilePic,
+          },
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),

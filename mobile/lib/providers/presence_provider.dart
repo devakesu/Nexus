@@ -25,10 +25,14 @@ class PresenceInfo {
 @riverpod
 class PeerPresence extends _$PeerPresence {
   Timer? _timer;
+  late final Dio _dio;
 
   @override
   Future<PresenceInfo> build(String peerUserId) async {
-    ref.onDispose(() => _timer?.cancel());
+    _dio = createDio();
+    ref.onDispose(() {
+      _timer?.cancel();
+    });
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
     return _fetch();
   }
@@ -42,8 +46,7 @@ class PeerPresence extends _$PeerPresence {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return const PresenceInfo(isOnline: null, lastActiveAt: null);
     try {
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
+      final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/$peerUserId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
@@ -62,15 +65,18 @@ class PeerPresence extends _$PeerPresence {
 /// Sends this device's own presence heartbeat. Call `beat()` every ~60s
 /// while a chat screen is foregrounded, and `goOffline()` on
 /// background/dispose.
-class PresenceHeartbeat {
-  PresenceHeartbeat._();
+mixin PresenceHeartbeat {
+  // A single Dio instance reused for the app's lifetime - `beat()` is called
+  // repeatedly (every ~60s while a chat screen is foregrounded) outside any
+  // widget/provider lifecycle, so there's no natural dispose hook to close
+  // a per-call instance with.
+  static final Dio _dio = createDio();
 
   static Future<void> beat({bool isOnline = true}) async {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return;
     try {
-      final dio = createDio();
-      await dio.post<void>(
+      await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/heartbeat',
         data: {'is_online': isOnline},
         options: Options(headers: {'Authorization': 'Bearer $token'}),

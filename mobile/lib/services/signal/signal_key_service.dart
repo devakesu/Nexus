@@ -4,14 +4,13 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/local_key_vault.dart';
 import 'package:nexus/services/signal/signal_database.dart';
 import 'package:nexus/services/signal/signal_store.dart';
 import 'package:nexus/utils/network_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Bootstraps this device's Signal Protocol identity: generates the
 /// identity key pair, a signed prekey, and a pool of one-time prekeys on
@@ -27,7 +26,20 @@ class SignalKeyService {
   static const _prefsNextPreKeyId = 'signal_next_prekey_id';
   static const _prefsNextSignedPreKeyId = 'signal_next_signed_prekey_id';
 
+  // Prekey ID counters live in secure storage rather than SharedPreferences:
+  // on a rooted/jailbroken device an attacker who rewinds a plaintext
+  // counter could make the app re-upload already-used prekey IDs.
+  static const _secureStorage = FlutterSecureStorage(
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
+
   final SignalDatabase _db = SignalDatabase.instance;
+  // Reused for the app's lifetime rather than creating a new Dio/HttpClient
+  // per call - this class is a singleton (SignalKeyService.instance), so
+  // there's no shorter-lived scope to tie disposal to anyway.
+  final Dio _dio = createDio();
   DriftSignalProtocolStore? _store;
   bool _isNewLocalIdentity = false;
 
@@ -90,9 +102,8 @@ class SignalKeyService {
     IdentityKeyPair identityKeyPair,
     int registrationId,
   ) async {
-    final dio = createDio();
-    final token = await _requireToken();
-    await dio.put<void>(
+    final token = await NetworkUtils.requireAccessToken();
+    await _dio.put<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/identity',
       data: {
         'identity_public_key': base64Encode(
@@ -106,21 +117,38 @@ class SignalKeyService {
 
   Future<void> _ensureSignedPreKey(DriftSignalProtocolStore store) async {
     final existing = await store.loadSignedPreKeys();
-    // Rotation policy lands in a later phase; for now, one signed prekey
-    // for the lifetime of the local identity is enough to unblock X3DH.
-    if (existing.isNotEmpty) return;
+    
+    // Rotate the signed prekey periodically (weekly/7 days) to enforce forward secrecy
+    // and prevent stale keys.
+    var needsRotation = true;
+    if (existing.isNotEmpty) {
+      final latest = existing.reduce(
+        (curr, next) => curr.timestamp.toInt() > next.timestamp.toInt() ? curr : next,
+      );
+      final age = DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
+      if (age < const Duration(days: 7).inMilliseconds) {
+        needsRotation = false;
+      }
+    }
 
-    final prefs = await SharedPreferences.getInstance();
-    final keyId = prefs.getInt(_prefsNextSignedPreKeyId) ?? 1;
+    if (!needsRotation) return;
+
+    final keyId =
+        int.tryParse(
+          await _secureStorage.read(key: _prefsNextSignedPreKeyId) ?? '',
+        ) ??
+        1;
     final identityKeyPair = await store.getIdentityKeyPair();
     final signedPreKey = generateSignedPreKey(identityKeyPair, keyId);
     await store.storeSignedPreKey(keyId, signedPreKey);
-    await prefs.setInt(_prefsNextSignedPreKeyId, keyId + 1);
+    await _secureStorage.write(
+      key: _prefsNextSignedPreKeyId,
+      value: '${keyId + 1}',
+    );
 
-    final dio = createDio();
-    final token = await _requireToken();
+    final token = await NetworkUtils.requireAccessToken();
     final publicKey = signedPreKey.getKeyPair().publicKey;
-    await dio.put<void>(
+    await _dio.put<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/signed-prekey',
       data: {
         'key_id': keyId,
@@ -136,25 +164,28 @@ class SignalKeyService {
   /// pool is already healthy.
   Future<void> replenishOneTimePrekeysIfNeeded() async {
     final store = await ensureBootstrapped();
-    final dio = createDio();
-    final token = await _requireToken();
+    final token = await NetworkUtils.requireAccessToken();
 
-    final countResponse = await dio.get<Map<String, dynamic>>(
+    final countResponse = await _dio.get<Map<String, dynamic>>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/one-time-prekeys/count',
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     final count = countResponse.data?['count'] as int? ?? 0;
     if (count >= _oneTimePrekeyLowWaterMark) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final startId = prefs.getInt(_prefsNextPreKeyId) ?? 1;
+    final startId =
+        int.tryParse(await _secureStorage.read(key: _prefsNextPreKeyId) ?? '') ??
+        1;
     final newKeys = generatePreKeys(startId, _oneTimePrekeyBatchSize);
     for (final key in newKeys) {
       await store.storePreKey(key.id, key);
     }
-    await prefs.setInt(_prefsNextPreKeyId, startId + _oneTimePrekeyBatchSize);
+    await _secureStorage.write(
+      key: _prefsNextPreKeyId,
+      value: '${startId + _oneTimePrekeyBatchSize}',
+    );
 
-    await dio.post<void>(
+    await _dio.post<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/one-time-prekeys',
       data: {
         'prekeys': newKeys
@@ -170,9 +201,4 @@ class SignalKeyService {
     );
   }
 
-  Future<String> _requireToken() async {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not signed in');
-    return token;
-  }
 }

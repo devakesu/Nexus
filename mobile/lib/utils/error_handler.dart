@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -491,7 +492,13 @@ class ErrorHandler {
                           width: double.infinity,
                           height: 46,
                           child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              if (isCritical) {
+                                unawaited(SystemNavigator.pop());
+                              } else {
+                                Navigator.of(context).pop();
+                              }
+                            },
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.2),

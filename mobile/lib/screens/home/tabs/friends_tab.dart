@@ -11,6 +11,7 @@ import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -69,13 +70,44 @@ class _FriendsTabState extends State<FriendsTab>
 
   @override
   void dispose() {
-    _orbitSub?.cancel();
+    unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFriendsProfileStatus() async {
-    setState(() => _isLoading = true);
+  void _parseProfileData(Map<String, dynamic> data) {
+    _isOrbitActive = data['is_friends_active'] == true;
+
+    final rawBuckets = data['friends_target_buckets'];
+    _friendsTargetBuckets = rawBuckets is List
+        ? rawBuckets.map((e) => e.toString()).toList()
+        : [];
+
+    final rawCauses = data['causes_supported'];
+    _causesSupported = rawCauses is List
+        ? rawCauses.map((e) => e.toString()).toList()
+        : [];
+
+    final rawSubInterests = data['sub_interests'];
+    if (rawSubInterests is Map) {
+      final flat = <String>[];
+      rawSubInterests.forEach((parent, subs) {
+        if (subs is List) {
+          for (final sub in subs) {
+            flat.add('$parent: $sub');
+          }
+        }
+      });
+      _flatInterests = flat;
+    } else {
+      _flatInterests = [];
+    }
+  }
+
+  Future<void> _fetchProfile({bool showLoading = false}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final supabaseClient = Supabase.instance.client;
       final session = supabaseClient.auth.currentSession;
@@ -95,43 +127,27 @@ class _FriendsTabState extends State<FriendsTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_friends_active'] == true;
-
-            final rawBuckets = data['friends_target_buckets'];
-            _friendsTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-
-            final rawCauses = data['causes_supported'];
-            _causesSupported = rawCauses is List
-                ? rawCauses.map((e) => e.toString()).toList()
-                : [];
-
-            final rawSubInterests = data['sub_interests'];
-            if (rawSubInterests is Map) {
-              final flat = <String>[];
-              rawSubInterests.forEach((parent, subs) {
-                if (subs is List) {
-                  for (final sub in subs) {
-                    flat.add('$parent: $sub');
-                  }
-                }
-              });
-              _flatInterests = flat;
-            } else {
-              _flatInterests = [];
+            _parseProfileData(data);
+            if (showLoading) {
+              _isLoading = false;
             }
-
-            _isLoading = false;
           });
           return;
         }
       }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error fetching friends status: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: showLoading
+            ? '[FriendsTab] Error fetching friends status'
+            : '[FriendsTab] Error fetching friends status silently',
+        showUi: false,
+      );
     }
 
-    if (mounted) {
+    if (showLoading && mounted) {
       setState(() {
         if (_friendsTargetBuckets.isEmpty) {
           _friendsTargetBuckets = ['M', 'F', 'NB'];
@@ -142,58 +158,12 @@ class _FriendsTabState extends State<FriendsTab>
     }
   }
 
+  Future<void> _loadFriendsProfileStatus() async {
+    await _fetchProfile(showLoading: true);
+  }
+
   Future<void> _loadFriendsProfileStatusSilent() async {
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-        dio.options.connectTimeout = const Duration(seconds: 3);
-        dio.options.receiveTimeout = const Duration(seconds: 3);
-
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
-          setState(() {
-            _isOrbitActive = data['is_friends_active'] == true;
-
-            final rawBuckets = data['friends_target_buckets'];
-            _friendsTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-
-            final rawCauses = data['causes_supported'];
-            _causesSupported = rawCauses is List
-                ? rawCauses.map((e) => e.toString()).toList()
-                : [];
-
-            final rawSubInterests = data['sub_interests'];
-            if (rawSubInterests is Map) {
-              final flat = <String>[];
-              rawSubInterests.forEach((parent, subs) {
-                if (subs is List) {
-                  for (final sub in subs) {
-                    flat.add('$parent: $sub');
-                  }
-                }
-              });
-              _flatInterests = flat;
-            } else {
-              _flatInterests = [];
-            }
-          });
-        }
-      }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error fetching friends status silently: $e');
-    }
+    await _fetchProfile();
   }
 
   Future<bool> _saveFriendsProfileDetails(Map<String, dynamic> payload) async {
@@ -211,8 +181,14 @@ class _FriendsTabState extends State<FriendsTab>
         );
         return response.statusCode == 200;
       }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error saving friends details: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error saving friends details',
+        showUi: false,
+      );
     }
     return false;
   }
@@ -331,8 +307,14 @@ class _FriendsTabState extends State<FriendsTab>
           type: NexusToastType.error,
         );
       }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Orbit activation failed: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Orbit activation failed',
+        showUi: false,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -521,8 +503,14 @@ class _FriendsTabState extends State<FriendsTab>
           _unseenCount = (unseen as num?)?.toInt() ?? 0;
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error fetching waves: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error fetching waves',
+        showUi: false,
+      );
     }
   }
 
@@ -558,8 +546,14 @@ class _FriendsTabState extends State<FriendsTab>
           }).toList();
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error fetching friends: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error fetching friends',
+        showUi: false,
+      );
     }
   }
 
@@ -586,8 +580,14 @@ class _FriendsTabState extends State<FriendsTab>
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return response.statusCode == 200;
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error recording friend action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error recording friend action',
+        showUi: false,
+      );
       return false;
     }
   }
@@ -605,8 +605,14 @@ class _FriendsTabState extends State<FriendsTab>
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
       );
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error marking waves seen: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error marking waves seen',
+        showUi: false,
+      );
     }
   }
 
@@ -651,8 +657,14 @@ class _FriendsTabState extends State<FriendsTab>
       );
       if (response.statusCode == 200) return response.data;
       return null;
-    } on Exception catch (e) {
-      debugPrint('[FriendsTab] Error recording wave action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[FriendsTab] Error recording wave action',
+        showUi: false,
+      );
       return null;
     }
   }

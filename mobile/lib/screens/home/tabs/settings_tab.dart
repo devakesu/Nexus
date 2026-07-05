@@ -3,13 +3,10 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/settings/blocked_users_page.dart';
-import 'package:nexus/screens/settings/hidden_users_page.dart';
-import 'package:nexus/screens/settings/privacy_settings_page.dart';
-import 'package:nexus/screens/settings/safety_center_page.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
@@ -326,29 +323,17 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             _TileSpec(
               icon: LucideIcons.shield,
               label: 'Privacy Settings',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const PrivacySettingsPage(),
-                ),
-              ),
+              onTap: () => context.push<void>('/settings/privacy'),
             ),
             _TileSpec(
               icon: LucideIcons.ban,
               label: 'Blocked Users',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const BlockedUsersPage(),
-                ),
-              ),
+              onTap: () => context.push<void>('/settings/blocked-users'),
             ),
             _TileSpec(
               icon: LucideIcons.eyeOff,
               label: 'Hidden Users',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const HiddenUsersPage(),
-                ),
-              ),
+              onTap: () => context.push<void>('/settings/hidden-users'),
             ),
             _TileSpec(
               icon: LucideIcons.pauseCircle,
@@ -359,11 +344,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             _TileSpec(
               icon: LucideIcons.heartHandshake,
               label: 'Safety Center',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const SafetyCenterPage(),
-                ),
-              ),
+              onTap: () => context.push<void>('/settings/safety-center'),
             ),
           ],
         ),

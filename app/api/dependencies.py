@@ -39,35 +39,50 @@ def get_bearer_token(
 # ---------------------------------------------------------------------------
 
 
+def _decode_jwt(
+    token: str,
+    secret: str | dict[str, Any],
+    public_key: Any,
+) -> dict[str, Any]:
+    is_jwks = isinstance(secret, dict) or (
+        secret.strip().startswith("{")
+        and "keys" in secret
+    )
+
+    if is_jwks:
+        return jwt.decode(
+            token,
+            public_key,
+            algorithms=["ES256"],
+            audience="authenticated",
+        )
+    if not isinstance(secret, str):
+        raise jwt.InvalidTokenError(
+            "Symmetric HS256 secret key config mismatch.",
+        )
+    return jwt.decode(
+        token,
+        secret,
+        algorithms=["HS256"],
+        audience="authenticated",
+    )
+
+
 async def get_authenticated_user_payload(
     token: str = Depends(get_bearer_token),
 ) -> dict[str, Any]:
     try:
-        unverified_header = jwt.get_unverified_header(token)
-        algo = unverified_header.get("alg", "ES256")
+        secret = settings.supabase_jwt_secret
+        public_key = None
+        is_jwks = isinstance(secret, dict) or (
+            secret.strip().startswith("{")
+            and "keys" in secret
+        )
 
-        if algo not in ("HS256", "ES256"):
-            raise jwt.InvalidTokenError("Unsupported algorithm.")
-
-        if algo == "HS256":
-            if not isinstance(settings.supabase_jwt_secret, str):
-                raise jwt.InvalidTokenError(
-                    "Symmetric HS256 secret key config mismatch.",
-                )
-            payload = jwt.decode(
-                token,
-                settings.supabase_jwt_secret,
-                algorithms=["HS256"],
-                audience="authenticated",
-            )
-        else:
+        if is_jwks:
             public_key = await get_live_supabase_public_key(token)
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=["ES256"],
-                audience="authenticated",
-            )
+
+        payload = _decode_jwt(token, secret, public_key)
 
         user_uuid: str | None = payload.get("sub")
         if not user_uuid:
@@ -120,7 +135,24 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
     if bool(user_row.get("is_suspended", False)):
         suspended_until = user_row.get("suspended_until")
         reason_code = user_row.get("moderation_reason_code")
-        reason_suffix = f" (Reason: {reason_code})" if reason_code else ""
+        # Map internal codes to generic user-facing categories
+        reason_map = {
+            "spam": "spam or promotional activity",
+            "harassment": "harassment or abusive behavior",
+            "csam": "content policy violations",
+            "fraud": "suspicious activity",
+            "inappropriate_content": "inappropriate content",
+            "terms_violation": "violating our Terms of Service",
+        }
+        user_reason = (
+            reason_map.get(
+                str(reason_code).strip().lower(),
+                "violating community guidelines",
+            )
+            if reason_code
+            else None
+        )
+        reason_suffix = f" (Reason: {user_reason})" if user_reason else ""
         if suspended_until:
             try:
                 dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))

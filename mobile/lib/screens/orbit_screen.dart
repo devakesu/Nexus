@@ -218,8 +218,6 @@ class OrbitScreen extends StatefulWidget {
       }
     } on Exception catch (e) {
       debugPrint('[OrbitScreen] Prefetch error: $e');
-    } finally {
-      dio.close();
     }
     return null;
   }
@@ -878,7 +876,6 @@ class _OrbitScreenState extends State<OrbitScreen>
     _fetchDebounceTimer?.cancel();
     _pulseController.dispose();
     _transformationController.dispose();
-    _dio.close();
     super.dispose();
   }
 

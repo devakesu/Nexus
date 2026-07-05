@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/chats/chat_conversation_page.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,16 +41,15 @@ Future<void> openOrCreateChat(
     if (data == null) throw Exception('Empty response');
     if (!context.mounted) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatConversationPage(
-          conversationId: data['conversation_id'] as String,
-          matchedUserId: data['matched_user_id'] as String,
-          tab: data['tab'] as String,
-          name: name,
-          profilePic: profilePic,
-        ),
-      ),
+    await context.push<void>(
+      '/chat-conversation',
+      extra: {
+        'conversationId': data['conversation_id'] as String,
+        'matchedUserId': data['matched_user_id'] as String,
+        'tab': data['tab'] as String,
+        'name': name,
+        'profilePic': profilePic,
+      },
     );
   } on Exception catch (_) {
     if (context.mounted) {

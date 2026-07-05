@@ -359,7 +359,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _currentPlaceFocusNode.dispose();
     _campusNameFocusNode.dispose();
     _majorFocusNode.dispose();
-    _dio.close();
     super.dispose();
   }
 

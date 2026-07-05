@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'chats_providers.g.dart';
 
@@ -64,19 +63,13 @@ class ChatCandidate {
   final DateTime matchedAt;
 }
 
-Future<String> _requireAccessToken() async {
-  final token = Supabase.instance.client.auth.currentSession?.accessToken;
-  if (token == null) throw Exception('Not signed in');
-  return token;
-}
-
 @riverpod
 Future<List<ChatConversationSummary>> chatConversations(
   Ref ref,
   String tab,
 ) async {
   final dio = createDio();
-  final token = await _requireAccessToken();
+  final token = await NetworkUtils.requireAccessToken();
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats',
     queryParameters: {'tab': tab},
@@ -93,7 +86,7 @@ Future<List<ChatConversationSummary>> chatConversations(
 @riverpod
 Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
   final dio = createDio();
-  final token = await _requireAccessToken();
+  final token = await NetworkUtils.requireAccessToken();
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats/new-chat-candidates',
     queryParameters: {'tab': tab},

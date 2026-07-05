@@ -128,10 +128,10 @@ class BaseOnboardingRequest(BaseModel):
     @classmethod
     def validate_phone(cls, value: str) -> str:
         cleaned = value.strip()
-        if not re.match(r"^\+?[1-9]\d{7,14}$", cleaned):
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
                 "Invalid phone number format. "
-                "Must start with optional '+' followed by 8-15 digits.",
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
             )
         return cleaned
 
@@ -1247,7 +1247,7 @@ ALLOWED_HIDDEN_FIELDS: frozenset[str] = frozenset(
         "top_artists",
         "causes_supported",
         "hometown",
-    }
+    },
 )
 
 
@@ -1273,7 +1273,7 @@ class PrivacySettingsUpdate(BaseModel):
             if field not in ALLOWED_HIDDEN_FIELDS:
                 raise ValueError(
                     f"'{field}' is not a hideable field. "
-                    f"Allowed: {sorted(ALLOWED_HIDDEN_FIELDS)}"
+                    f"Allowed: {sorted(ALLOWED_HIDDEN_FIELDS)}",
                 )
         return list(set(v))
 

@@ -12,7 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
-import 'package:nexus/screens/auth_gate.dart';
+import 'package:nexus/navigation/app_router.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/background_prekey_task.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -93,8 +93,14 @@ Future<void> main() async {
   await SentryFlutter.init(
     (options) {
       options
-        ..dsn =
-            'https://b5cd0432aa4dcfbedcffe860e0b90f58@o4510669780287488.ingest.de.sentry.io/4511525319475280'
+        // Not secret (Sentry DSNs are designed for client-side embedding),
+        // but overridable via --dart-define=SENTRY_DSN=... so it can be
+        // rotated without a code change.
+        ..dsn = const String.fromEnvironment(
+          'SENTRY_DSN',
+          defaultValue:
+              'https://b5cd0432aa4dcfbedcffe860e0b90f58@o4510669780287488.ingest.de.sentry.io/4511525319475280',
+        )
         // Adds request headers and IP for users, for more info visit:
         // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
         ..sendDefaultPii = false
@@ -162,8 +168,8 @@ class MyApp extends StatelessWidget {
     const isMec = flavor == 'mec';
     const appName = isMec ? 'Nexus MEC' : 'Nexus';
 
-    return MaterialApp(
-      navigatorKey: ErrorHandler.navigatorKey,
+    return MaterialApp.router(
+      routerConfig: goRouter,
       title: appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -189,7 +195,6 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const AuthGate(appName: appName),
     );
   }
 }

@@ -5,8 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Fixed device id used everywhere in this app - single-device-per-user for
 /// v1 (see the chat feature plan's Risks section for the multi-device
@@ -23,6 +23,11 @@ class SessionManager {
   SessionManager._();
 
   static final SessionManager instance = SessionManager._();
+
+  // Reused for the app's lifetime rather than creating a new Dio/HttpClient
+  // per call - this class is a singleton, so there's no shorter-lived scope
+  // to tie disposal to anyway.
+  final Dio _dio = createDio();
 
   /// Returns true once this device has a session ready to encrypt outbound
   /// messages to [peerUserId]. False means the peer hasn't set up secure
@@ -52,6 +57,12 @@ class SessionManager {
       // mismatch here almost always just means the peer reinstalled.
       final newKey = e.key;
       if (newKey == null) rethrow;
+      ErrorHandler.handleError(
+        e,
+        level: ErrorLevel.warning,
+        customMessage: 'Auto-repinning changed identity key for $address',
+        showUi: false,
+      );
       await store.saveIdentity(address, newKey);
       await sessionBuilder.processPreKeyBundle(bundle);
     }
@@ -61,10 +72,9 @@ class SessionManager {
   }
 
   Future<PreKeyBundle?> _fetchPeerBundle(String peerUserId) async {
-    final dio = createDio();
-    final token = await _requireToken();
+    final token = await NetworkUtils.requireAccessToken();
     try {
-      final response = await dio.get<Map<String, dynamic>>(
+      final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/keys/bundle/$peerUserId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
@@ -109,9 +119,8 @@ class SessionManager {
 
   Future<void> _notifyBackendSessionEstablished(String conversationId) async {
     try {
-      final dio = createDio();
-      final token = await _requireToken();
-      await dio.post<void>(
+      final token = await NetworkUtils.requireAccessToken();
+      await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/sessions/establish',
         data: {'conversation_id': conversationId},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
@@ -122,9 +131,4 @@ class SessionManager {
     }
   }
 
-  Future<String> _requireToken() async {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not signed in');
-    return token;
-  }
 }

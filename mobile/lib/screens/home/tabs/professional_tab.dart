@@ -11,6 +11,7 @@ import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -71,13 +72,37 @@ class _ProfessionalTabState extends State<ProfessionalTab>
 
   @override
   void dispose() {
-    _orbitSub?.cancel();
+    unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadProfessionalProfileStatus() async {
-    setState(() => _isLoading = true);
+  void _parseProfileData(Map<String, dynamic> data) {
+    _isOrbitActive = data['is_professional_active'] == true;
+
+    final rawBuckets = data['professional_target_buckets'];
+    _professionalTargetBuckets = rawBuckets is List
+        ? rawBuckets.map((e) => e.toString()).toList()
+        : [];
+    final rawLookingFor = data['looking_for'];
+    _lookingFor = rawLookingFor is List
+        ? rawLookingFor.map((e) => e.toString()).toList()
+        : [];
+    final rawTechSkills = data['tech_skills'];
+    _techSkills = rawTechSkills is List
+        ? rawTechSkills.map((e) => e.toString()).toList()
+        : [];
+    _company = data['role_at']?.toString() ?? '';
+    final rawRoleType = data['role_type'];
+    _roleType = rawRoleType is List
+        ? rawRoleType.map((e) => e.toString()).toList()
+        : [];
+  }
+
+  Future<void> _fetchProfile({bool showLoading = false}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final supabaseClient = Supabase.instance.client;
       final session = supabaseClient.auth.currentSession;
@@ -97,36 +122,27 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
           setState(() {
-            _isOrbitActive = data['is_professional_active'] == true;
-
-            final rawBuckets = data['professional_target_buckets'];
-            _professionalTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-            final rawLookingFor = data['looking_for'];
-            _lookingFor = rawLookingFor is List
-                ? rawLookingFor.map((e) => e.toString()).toList()
-                : [];
-            final rawTechSkills = data['tech_skills'];
-            _techSkills = rawTechSkills is List
-                ? rawTechSkills.map((e) => e.toString()).toList()
-                : [];
-            _company = data['role_at']?.toString() ?? '';
-            final rawRoleType = data['role_type'];
-            _roleType = rawRoleType is List
-                ? rawRoleType.map((e) => e.toString()).toList()
-                : [];
-
-            _isLoading = false;
+            _parseProfileData(data);
+            if (showLoading) {
+              _isLoading = false;
+            }
           });
           return;
         }
       }
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error fetching professional status: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: showLoading
+            ? '[ProfessionalTab] Error fetching professional status'
+            : '[ProfessionalTab] Error fetching professional status silently',
+        showUi: false,
+      );
     }
 
-    if (mounted) {
+    if (showLoading && mounted) {
       setState(() {
         if (_professionalTargetBuckets.isEmpty) {
           _professionalTargetBuckets = ['M', 'F', 'NB'];
@@ -137,53 +153,12 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     }
   }
 
+  Future<void> _loadProfessionalProfileStatus() async {
+    await _fetchProfile(showLoading: true);
+  }
+
   Future<void> _loadProfessionalProfileStatusSilent() async {
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-        dio.options.connectTimeout = const Duration(seconds: 3);
-        dio.options.receiveTimeout = const Duration(seconds: 3);
-
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
-          setState(() {
-            _isOrbitActive = data['is_professional_active'] == true;
-
-            final rawBuckets = data['professional_target_buckets'];
-            _professionalTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-            final rawLookingFor = data['looking_for'];
-            _lookingFor = rawLookingFor is List
-                ? rawLookingFor.map((e) => e.toString()).toList()
-                : [];
-            final rawTechSkills = data['tech_skills'];
-            _techSkills = rawTechSkills is List
-                ? rawTechSkills.map((e) => e.toString()).toList()
-                : [];
-            _company = data['role_at']?.toString() ?? '';
-            final rawRoleType2 = data['role_type'];
-            _roleType = rawRoleType2 is List
-                ? rawRoleType2.map((e) => e.toString()).toList()
-                : [];
-          });
-        }
-      }
-    } on Exception catch (e) {
-      debugPrint(
-        '[ProfessionalTab] Error fetching professional status silently: $e',
-      );
-    }
+    await _fetchProfile();
   }
 
   Future<bool> _saveProfessionalProfileDetails(
@@ -203,8 +178,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         );
         return response.statusCode == 200;
       }
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error saving professional details: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error saving professional details',
+        showUi: false,
+      );
     }
     return false;
   }
@@ -320,8 +301,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           type: NexusToastType.error,
         );
       }
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Orbit activation failed: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Orbit activation failed',
+        showUi: false,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -512,8 +499,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           _unseenCount = (unseen as num?)?.toInt() ?? 0;
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error fetching handshakes: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error fetching handshakes',
+        showUi: false,
+      );
     }
   }
 
@@ -549,8 +542,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           }).toList();
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error fetching connections: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error fetching connections',
+        showUi: false,
+      );
     }
   }
 
@@ -577,8 +576,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return response.statusCode == 200;
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error recording connection action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error recording connection action',
+        showUi: false,
+      );
       return false;
     }
   }
@@ -596,8 +601,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
       );
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error marking handshakes seen: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error marking handshakes seen',
+        showUi: false,
+      );
     }
   }
 
@@ -642,8 +653,14 @@ class _ProfessionalTabState extends State<ProfessionalTab>
       );
       if (response.statusCode == 200) return response.data;
       return null;
-    } on Exception catch (e) {
-      debugPrint('[ProfessionalTab] Error recording handshake action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[ProfessionalTab] Error recording handshake action',
+        showUi: false,
+      );
       return null;
     }
   }

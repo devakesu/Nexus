@@ -1,3 +1,7 @@
+// The background messaging isolate entry point causes the analyzer to
+// misidentify this file as an executable entry point.
+// ignore_for_file: unreachable_from_main
+
 import 'dart:async';
 import 'dart:io';
 
@@ -9,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/chats/chat_conversation_page.dart';
+import 'package:nexus/navigation/app_router.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -142,7 +146,6 @@ class NotificationService {
 
   /// Show the "enable notifications" dialog. Exposed so the settings page can
   /// call it when the user taps the tile while permission is denied.
-  // ignore: unreachable_from_main
   static Future<void> showPermissionDeniedDialog(BuildContext context) async {
     if (!context.mounted) return;
     await showDialog<void>(
@@ -221,18 +224,16 @@ class NotificationService {
       final actorId = data['actor_id'] as String?;
       if (conversationId == null || actorId == null) return;
 
-      final navigator = ErrorHandler.navigatorKey.currentState;
-      if (navigator == null) return;
       unawaited(
-        navigator.push(
-          MaterialPageRoute<void>(
-            builder: (_) => ChatConversationPage(
-              conversationId: conversationId,
-              matchedUserId: actorId,
-              tab: (data['tab'] as String?) ?? 'Dating',
-              name: (data['name'] as String?) ?? 'Nexus user',
-            ),
-          ),
+        goRouter.push(
+          '/chat-conversation',
+          extra: {
+            'conversationId': conversationId,
+            'matchedUserId': actorId,
+            'tab': (data['tab'] as String?) ?? 'Dating',
+            'name': (data['name'] as String?) ?? 'Nexus user',
+            'profilePic': null,
+          },
         ),
       );
     }

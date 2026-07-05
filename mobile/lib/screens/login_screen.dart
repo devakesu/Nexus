@@ -14,7 +14,6 @@ import 'package:nexus/screens/login/widgets/login_painters.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum LoginView { options, email, phone, otp }
@@ -45,7 +44,6 @@ class _LoginScreenState extends State<LoginScreen>
   // Physics & Particle Field State
   late AnimationController _physicsController;
   final List<SpaceNode> _nodes = [];
-  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   Offset _accelerometerOffset = Offset.zero;
   double _simulatedTime = 0.0;
 
@@ -161,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool get _isOtpValid {
     final code = _otpController.text.trim();
-    return code.length == 8 && RegExp(r'^\d{8}$').hasMatch(code);
+    return code.length == AppConfig.otpLength && RegExp(r'^\d+$').hasMatch(code);
   }
 
   Future<void> _initAccelerometer() async {
@@ -274,7 +272,6 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _matrixTimer?.cancel();
-    unawaited(_accelerometerSubscription?.cancel());
     _physicsController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -498,10 +495,10 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (code.length != 8 || !RegExp(r'^\d{8}$').hasMatch(code)) {
+    if (code.length != AppConfig.otpLength || !RegExp(r'^\d+$').hasMatch(code)) {
       NexusToast.show(
         context,
-        'Please enter a valid 8-digit OTP code (digits only).',
+        'Please enter a valid ${AppConfig.otpLength}-digit OTP code (digits only).',
         type: NexusToastType.error,
       );
       return;
@@ -1106,6 +1103,7 @@ class _LoginScreenState extends State<LoginScreen>
     return TextButton(
       onPressed: () {
         setState(() {
+          _countdownTimer?.cancel();
           _currentView = LoginView.options;
         });
       },

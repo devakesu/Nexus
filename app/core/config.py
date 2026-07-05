@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     app_name: str = "Nexus Orbit"
     debug: bool = False
 
+    # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
+    dev_allowed_email: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=None,
         extra="ignore",

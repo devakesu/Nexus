@@ -27,7 +27,11 @@ class _AuthGateState extends State<AuthGate> {
   bool _isBootstrapping = false;
   String? _lastBootstrappedUserId;
   bool _hasProfile = false;
-  String _termsVersion = '1';
+
+  /// Null until the server tells us which terms version this account is
+  /// bound to. Deliberately has no fallback default - onboarding must not
+  /// proceed against a guessed version if bootstrap never returned one.
+  String? _termsVersion;
 
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
@@ -58,7 +62,13 @@ class _AuthGateState extends State<AuthGate> {
         if ((error is AuthException && error.code == 'refresh_token_not_found') ||
             errorStr.contains('refresh_token_not_found') ||
             errorStr.contains('Invalid Refresh Token')) {
-          debugPrint('[AuthGate] Refresh token invalid or not found. Force signing out.');
+          ErrorHandler.handleError(
+            error,
+            stackTrace: stackTrace,
+            level: ErrorLevel.info,
+            customMessage: '[AuthGate] Refresh token invalid or not found. Force signing out.',
+            showUi: false,
+          );
           unawaited(Supabase.instance.client.auth.signOut());
         } else {
           ErrorHandler.handleError(
@@ -78,10 +88,9 @@ class _AuthGateState extends State<AuthGate> {
       await _checkBootstrap();
     }
     if (mounted) {
-      setState(() {
-        _authCheckCompleted = true;
-        _maybeTransition();
-      });
+      _authCheckCompleted = true;
+      _maybeTransition();
+      setState(() {});
     }
   }
 
@@ -100,45 +109,15 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkBootstrap() async {
-    var session = Supabase.instance.client.auth.currentSession;
+    final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
       _lastBootstrappedUserId = null;
       _hasProfile = false;
       return;
     }
 
-    if (session.isExpired) {
-      try {
-        debugPrint('[AuthGate] Session expired. Refreshing token...');
-        final refreshResponse = await Supabase.instance.client.auth.refreshSession();
-        session = refreshResponse.session;
-        if (session == null) {
-          debugPrint('[AuthGate] Session refresh returned null session. Signing out.');
-          await Supabase.instance.client.auth.signOut();
-          return;
-        }
-      } on Object catch (e, stackTrace) {
-        debugPrint('[AuthGate] Failed to refresh session: $e');
-        await Supabase.instance.client.auth.signOut();
-        if (mounted) {
-          setState(() {
-            _isBootstrapping = false;
-            _lastBootstrappedUserId = null;
-            _hasProfile = false;
-          });
-          ErrorHandler.handleError(
-            e,
-            stackTrace: stackTrace,
-            customMessage: 'Session refresh failed: ${ErrorHandler.getFriendlyMessage(e)}',
-          );
-        }
-        return;
-      }
-    }
-    final activeSession = session;
-
     // If we already bootstrapped this user, do not repeat it
-    if (_lastBootstrappedUserId == activeSession.user.id) {
+    if (_lastBootstrappedUserId == session.user.id) {
       return;
     }
 
@@ -146,9 +125,62 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
+    // Set the guard synchronously, before the first `await` below - this
+    // closes the race window where a second call (racing in via the
+    // auth-state-change listener) could pass both checks above while this
+    // call is still suspended on refreshSession() and start a concurrent
+    // bootstrap.
     setState(() {
       _isBootstrapping = true;
     });
+
+    var activeSession = session;
+    if (activeSession.isExpired) {
+      try {
+        ErrorHandler.handleError(
+          null,
+          level: ErrorLevel.info,
+          customMessage: '[AuthGate] Session expired. Refreshing token...',
+          showUi: false,
+        );
+        final refreshResponse = await Supabase.instance.client.auth.refreshSession();
+        final refreshed = refreshResponse.session;
+        if (refreshed == null) {
+          ErrorHandler.handleError(
+            null,
+            level: ErrorLevel.info,
+            customMessage: '[AuthGate] Session refresh returned null session. Signing out.',
+            showUi: false,
+          );
+          await Supabase.instance.client.auth.signOut();
+          if (mounted) {
+            setState(() {
+              _isBootstrapping = false;
+            });
+          }
+          return;
+        }
+        activeSession = refreshed;
+      } on Object catch (e, stackTrace) {
+        await Supabase.instance.client.auth.signOut();
+        // Always report to Sentry, even if this widget is no longer
+        // mounted - only the user-facing dialog depends on that.
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: 'Session refresh failed: ${ErrorHandler.getFriendlyMessage(e)}',
+          showUi: mounted,
+        );
+        if (mounted) {
+          setState(() {
+            _isBootstrapping = false;
+            _lastBootstrappedUserId = null;
+            _hasProfile = false;
+          });
+        }
+        return;
+      }
+    }
 
     try {
       final config = AppConfig.current;
@@ -191,6 +223,25 @@ class _AuthGateState extends State<AuthGate> {
             response.data?['detail'] ?? 'Server authentication failed.';
         throw Exception(errorMsg);
       }
+    } on DioException catch (e, stackTrace) {
+      // Network-level failures (no connectivity, timeout, DNS, 5xx) are
+      // retry-able and not the user's fault - signing them out here would
+      // force a full re-login just because Wi-Fi hiccupped during app
+      // launch. An actual server rejection (e.g. non-college email) comes
+      // back as a normal <500 response and is handled below via the
+      // manually-thrown Exception instead, which does still sign out.
+      if (mounted) {
+        setState(() {
+          _isBootstrapping = false;
+        });
+      }
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        customMessage: 'Bootstrap connection error: ${ErrorHandler.getFriendlyMessage(e)}',
+        showUi: mounted,
+      );
     } on Object catch (e, stackTrace) {
       // Sign out from Supabase as bootstrap failed
       await Supabase.instance.client.auth.signOut();
@@ -220,10 +271,9 @@ class _AuthGateState extends State<AuthGate> {
         appName: widget.appName,
         onAnimationComplete: () {
           if (mounted) {
-            setState(() {
-              _animationCompleted = true;
-              _maybeTransition();
-            });
+            _animationCompleted = true;
+            _maybeTransition();
+            setState(() {});
           }
         },
       );
@@ -258,15 +308,26 @@ class _AuthGateState extends State<AuthGate> {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null &&
           _lastBootstrappedUserId == session.user.id) {
-        if (!_hasProfile) {
+        final termsVersion = _termsVersion;
+        if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
-            termsVersion: _termsVersion,
+            termsVersion: termsVersion,
             onComplete: () {
               setState(() {
                 _hasProfile = true;
               });
             },
+          );
+        } else if (!_hasProfile) {
+          // Bootstrap succeeded but didn't return a terms version - fail
+          // safe rather than onboard the user against a guessed version.
+          currentWidget = const Scaffold(
+            key: ValueKey('terms-version-missing'),
+            backgroundColor: Color(0xFF0B0D13),
+            body: Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
           );
         } else {
           currentWidget = MyHomePage(

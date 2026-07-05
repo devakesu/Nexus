@@ -13,6 +13,7 @@ from fastapi import (
     Request,
     status,
 )
+from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
     assert_account_active,
@@ -67,9 +68,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
 @limiter.limit(settings.rate_limit_auth)
-def auth_bootstrap(
+async def auth_bootstrap(
     request: Request,
     background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
@@ -95,9 +97,14 @@ def auth_bootstrap(
             detail="Unrecognized X-App-Variant header value.",
         )
 
-    if email and not is_allowed_email(email, app_variant=app_variant):
+    is_allowed = await run_in_threadpool(
+        is_allowed_email,
+        email,
+        app_variant=app_variant,
+    )
+    if email and not is_allowed:
         try:
-            supabase_client.auth.admin.delete_user(user_id)
+            await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
         except Exception as err:  # noqa: BLE001
             logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
         required_domain = settings.allowed_email_domains.get(
@@ -112,7 +119,8 @@ def auth_bootstrap(
             ),
         )
 
-    user_row, newly_created = upsert_public_user(
+    user_row, newly_created = await run_in_threadpool(
+        upsert_public_user,
         user_id=user_id,
         email=email if email else None,
         mobile=phone if phone else None,
@@ -418,8 +426,11 @@ def get_moderation_subjects(
     user_id: str = Depends(get_authenticated_user_id),
 ) -> list[dict[str, Any]]:
     """
-    Returns basic decrypted profile info for users the caller has actively blocked or hidden.
-    Validates each requested target_id against profile_discovery_actions before returning data.
+    Returns basic decrypted profile info for users the caller has actively
+    blocked or hidden.
+
+    Validates each requested target_id against profile_discovery_actions
+    before returning data.
     """
     try:
         validated_res = (
@@ -432,7 +443,13 @@ def get_moderation_subjects(
             .execute()
         )
         valid_ids: list[str] = list(
-            {row["target_id"] for row in cast(list[dict[str, Any]], validated_res.data or [])}
+            {
+                row["target_id"]
+                for row in cast(
+                    list[dict[str, Any]],
+                    validated_res.data or [],
+                )
+            },
         )
         if not valid_ids:
             return []
@@ -441,7 +458,7 @@ def get_moderation_subjects(
             supabase_client.table("profiles")
             .select(
                 "id, name, age, campus_year, campus_name, campus_branch, "
-                "hometown, current_place, profile_pic"
+                "hometown, current_place, profile_pic",
             )
             .in_("id", valid_ids)
             .execute()
@@ -451,7 +468,7 @@ def get_moderation_subjects(
         for row in cast(list[dict[str, Any]], profiles_res.data or []):
             try:
                 decrypted = decrypt_profile_record(dict(row))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 decrypted = dict(row)
             results.append(
                 {
@@ -464,7 +481,7 @@ def get_moderation_subjects(
                     "hometown": decrypted.get("hometown"),
                     "current_place": decrypted.get("current_place"),
                     "profile_pic": decrypted.get("profile_pic"),
-                }
+                },
             )
         return results
     except Exception as e:
@@ -733,7 +750,7 @@ def update_profile_details(  # noqa: C901
                 "name,age,profile_pic,normal_pics,interests,sub_interests,"
                 "drinking,smoking,partner_values,dating_target_buckets,dating_for,"
                 "friends_target_buckets,causes_supported,"
-                "professional_target_buckets,looking_for,tech_skills"
+                "professional_target_buckets,looking_for,tech_skills",
             )
             .eq("id", user_id)
             .maybe_single()

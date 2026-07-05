@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Replaces the default SharedPreferences-based storage used by supabase_flutter.
 
 const _secureStorage = FlutterSecureStorage(
-  iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  iOptions: IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+  ),
 );
 
 class SecureLocalStorage extends LocalStorage {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/services/signal/signal_store.dart';
+import 'package:nexus/utils/error_handler.dart';
 
 class EncryptedEnvelope {
   const EncryptedEnvelope({
@@ -74,7 +75,17 @@ class MessageCodec {
         },
       );
       return utf8.decode(plaintext);
-    } on Exception {
+    } on Object catch (e, st) {
+      // Catches `Error`s too, not just `Exception`s - a malformed envelope
+      // can throw either, and both need forensic visibility even though
+      // both fail the same way from the caller's perspective (return null).
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: 'Signal decryptText failed for $address (${e.runtimeType})',
+        showUi: false,
+      );
       return null;
     }
   }
@@ -104,6 +115,12 @@ class MessageCodec {
     } on UntrustedIdentityException catch (e) {
       final newKey = e.key;
       if (newKey == null) rethrow;
+      ErrorHandler.handleError(
+        e,
+        level: ErrorLevel.warning,
+        customMessage: 'Auto-repinning changed identity key for $address',
+        showUi: false,
+      );
       await store.saveIdentity(address, newKey);
       return action();
     }

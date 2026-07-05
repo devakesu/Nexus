@@ -12,6 +12,7 @@ import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -79,19 +80,37 @@ class _DatingTabState extends State<DatingTab>
 
   @override
   void dispose() {
-    _orbitSub?.cancel();
+    unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
-    _dio.close();
     super.dispose();
   }
 
   // Load current profile details from secure endpoint
-  Future<void> _loadDatingProfileStatus() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-      _errorMsg = null;
-    });
+  void _parseProfileData(Map<String, dynamic> data) {
+    _isOrbitActive = data['is_dating_active'] == true;
+
+    final rawBuckets = data['dating_target_buckets'];
+    _datingTargetBuckets = rawBuckets is List
+        ? rawBuckets.map((e) => e.toString()).toList()
+        : [];
+    final rawDatingFor = data['dating_for'];
+    _datingFor = rawDatingFor is List
+        ? rawDatingFor.map((e) => e.toString()).toList()
+        : [];
+    final rawPartnerValues = data['partner_values'];
+    _partnerValues = rawPartnerValues is List
+        ? rawPartnerValues.map((e) => e.toString()).toList()
+        : [];
+  }
+
+  Future<void> _fetchProfile({bool showLoading = false}) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+        _errorMsg = null;
+      });
+    }
     try {
       final supabaseClient = Supabase.instance.client;
       final session = supabaseClient.auth.currentSession;
@@ -104,29 +123,25 @@ class _DatingTabState extends State<DatingTab>
 
         if (data != null && mounted) {
           setState(() {
-            _isOrbitActive = data['is_dating_active'] == true;
-
-            final rawBuckets = data['dating_target_buckets'];
-            _datingTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-            final rawDatingFor = data['dating_for'];
-            _datingFor = rawDatingFor is List
-                ? rawDatingFor.map((e) => e.toString()).toList()
-                : [];
-            final rawPartnerValues = data['partner_values'];
-            _partnerValues = rawPartnerValues is List
-                ? rawPartnerValues.map((e) => e.toString()).toList()
-                : [];
-
-            _isLoading = false;
+            _parseProfileData(data);
+            if (showLoading) {
+              _isLoading = false;
+            }
           });
           return;
         }
       }
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error fetching dating status: $e');
-      if (mounted) {
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: showLoading
+            ? '[DatingTab] Error fetching dating status'
+            : '[DatingTab] Error fetching dating status silently',
+        showUi: false,
+      );
+      if (showLoading && mounted) {
         setState(() {
           _hasError = true;
           _errorMsg = e.toString();
@@ -136,7 +151,7 @@ class _DatingTabState extends State<DatingTab>
       return;
     }
 
-    if (mounted) {
+    if (showLoading && mounted) {
       setState(() {
         _hasError = true;
         _errorMsg = 'Failed to fetch dating profile status.';
@@ -145,39 +160,12 @@ class _DatingTabState extends State<DatingTab>
     }
   }
 
+  Future<void> _loadDatingProfileStatus() async {
+    await _fetchProfile(showLoading: true);
+  }
+
   Future<void> _loadDatingProfileStatusSilent() async {
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final dio = _dio;
-        final data = await NetworkUtils.fetchProfileDetails(
-          dio,
-          session.accessToken,
-        );
-
-        if (data != null && mounted) {
-          setState(() {
-            _isOrbitActive = data['is_dating_active'] == true;
-
-            final rawBuckets = data['dating_target_buckets'];
-            _datingTargetBuckets = rawBuckets is List
-                ? rawBuckets.map((e) => e.toString()).toList()
-                : [];
-            final rawDatingFor = data['dating_for'];
-            _datingFor = rawDatingFor is List
-                ? rawDatingFor.map((e) => e.toString()).toList()
-                : [];
-            final rawPartnerValues = data['partner_values'];
-            _partnerValues = rawPartnerValues is List
-                ? rawPartnerValues.map((e) => e.toString()).toList()
-                : [];
-          });
-        }
-      }
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error fetching dating status silently: $e');
-    }
+    await _fetchProfile();
   }
 
   // Save profile updates to the details endpoint
@@ -196,8 +184,14 @@ class _DatingTabState extends State<DatingTab>
         );
         return response.statusCode == 200;
       }
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error saving dating details: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error saving dating details',
+        showUi: false,
+      );
     }
     return false;
   }
@@ -332,13 +326,19 @@ class _DatingTabState extends State<DatingTab>
           type: NexusToastType.error,
         );
       }
-    } on Exception catch (e) {
+    } on Exception catch (e, st) {
       if (mounted) {
         setState(() {
           _isOrbitActive = oldActive;
         });
       }
-      debugPrint('[DatingTab] Orbit activation failed: $e');
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Orbit activation failed',
+        showUi: false,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -539,8 +539,14 @@ class _DatingTabState extends State<DatingTab>
           _unseenCount = (unseen as num?)?.toInt() ?? 0;
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error fetching likes: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error fetching likes',
+        showUi: false,
+      );
     }
   }
 
@@ -576,8 +582,14 @@ class _DatingTabState extends State<DatingTab>
           }).toList();
         });
       }
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error fetching matches: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error fetching matches',
+        showUi: false,
+      );
     }
   }
 
@@ -604,8 +616,14 @@ class _DatingTabState extends State<DatingTab>
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return response.statusCode == 200;
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error recording match action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error recording match action',
+        showUi: false,
+      );
       return false;
     }
   }
@@ -623,8 +641,14 @@ class _DatingTabState extends State<DatingTab>
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
       );
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error marking likes seen: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error marking likes seen',
+        showUi: false,
+      );
     }
   }
 
@@ -669,8 +693,14 @@ class _DatingTabState extends State<DatingTab>
       );
       if (response.statusCode == 200) return response.data;
       return null;
-    } on Exception catch (e) {
-      debugPrint('[DatingTab] Error recording like action: $e');
+    } on Exception catch (e, st) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: st,
+        level: ErrorLevel.warning,
+        customMessage: '[DatingTab] Error recording like action',
+        showUi: false,
+      );
       return null;
     }
   }

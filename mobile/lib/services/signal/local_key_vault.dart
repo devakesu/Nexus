@@ -21,7 +21,9 @@ class LocalKeyVault {
   static const _macLength = 16;
 
   static const _secureStorage = FlutterSecureStorage(
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
   );
 
   final _algorithm = AesGcm.with256bits();
