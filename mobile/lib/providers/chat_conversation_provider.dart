@@ -177,21 +177,38 @@ class ChatConversationState {
     required this.messages,
     required this.sessionReady,
     required this.sending,
+    this.isNewLocalIdentity = false,
+    this.conversationClosed = false,
   });
 
   final List<ChatMessageView> messages;
   final bool sessionReady;
   final bool sending;
 
+  /// See `SignalKeyService.isNewLocalIdentity` doc comment - true means
+  /// this device has no local key material predating this conversation,
+  /// so any of its historical messages will show as undecryptable.
+  final bool isNewLocalIdentity;
+
+  /// True once the peer has unmatched/blocked (or this user did, from
+  /// another device) - detected live via a realtime listener on
+  /// chat_conversations.closed_at. Disables the composer and stops the
+  /// message/event realtime subscriptions once set.
+  final bool conversationClosed;
+
   ChatConversationState copyWith({
     List<ChatMessageView>? messages,
     bool? sessionReady,
     bool? sending,
+    bool? isNewLocalIdentity,
+    bool? conversationClosed,
   }) {
     return ChatConversationState(
       messages: messages ?? this.messages,
       sessionReady: sessionReady ?? this.sessionReady,
       sending: sending ?? this.sending,
+      isNewLocalIdentity: isNewLocalIdentity ?? this.isNewLocalIdentity,
+      conversationClosed: conversationClosed ?? this.conversationClosed,
     );
   }
 }
@@ -217,6 +234,7 @@ class ChatConversationController extends _$ChatConversationController {
 
     final store = await SignalKeyService.instance.ensureBootstrapped();
     _store = store;
+    final isNewLocalIdentity = SignalKeyService.instance.isNewLocalIdentity;
     final address = SignalProtocolAddress(peerUserId, kSignalDeviceId);
     _peerAddress = address;
 
@@ -224,6 +242,13 @@ class ChatConversationController extends _$ChatConversationController {
       conversationId: conversationId,
       peerUserId: peerUserId,
     );
+
+    final conversationRow = await Supabase.instance.client
+        .from('chat_conversations')
+        .select('closed_at')
+        .eq('id', conversationId)
+        .maybeSingle();
+    final conversationClosed = conversationRow?['closed_at'] != null;
 
     final rawRows = await Supabase.instance.client
         .from('chat_messages')
@@ -237,7 +262,7 @@ class ChatConversationController extends _$ChatConversationController {
       messages.add(await _resolveMessage(row, store, address));
     }
 
-    _subscribeRealtime(store, address);
+    if (!conversationClosed) _subscribeRealtime(store, address);
 
     if (messages.any((m) => !m.isMine && m.readAt == null)) {
       unawaited(markAsRead());
@@ -247,6 +272,8 @@ class ChatConversationController extends _$ChatConversationController {
       messages: messages,
       sessionReady: sessionReady,
       sending: false,
+      isNewLocalIdentity: isNewLocalIdentity,
+      conversationClosed: conversationClosed,
     );
   }
 
@@ -256,6 +283,17 @@ class ChatConversationController extends _$ChatConversationController {
   ) {
     final channel = Supabase.instance.client.channel('chat:$conversationId');
     channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: conversationId,
+          ),
+          callback: _handleConversationUpdated,
+        )
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -291,6 +329,25 @@ class ChatConversationController extends _$ChatConversationController {
         )
         .subscribe();
     _channel = channel;
+  }
+
+  /// Fires when the peer unmatches/blocks (or this user does, from another
+  /// device) while this conversation is open. Tears down the realtime
+  /// subscription immediately - further chat_messages/chat_events changes
+  /// can't happen once the match is dissolved, so there's nothing left to
+  /// listen for.
+  void _handleConversationUpdated(PostgresChangePayload payload) {
+    final current = state.value;
+    if (current == null) return;
+    final closedAt = payload.newRecord['closed_at'];
+    if (closedAt == null) return;
+
+    state = AsyncData(current.copyWith(conversationClosed: true));
+    final channel = _channel;
+    if (channel != null) {
+      unawaited(Supabase.instance.client.removeChannel(channel));
+      _channel = null;
+    }
   }
 
   void _handleEventUpdated(PostgresChangePayload payload) {

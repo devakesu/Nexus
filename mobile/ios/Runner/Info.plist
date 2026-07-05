@@ -46,6 +46,18 @@
 	<string>Nexus needs camera access to take photos to send in chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nexus needs your location to share it in chat.</string>
+	<!-- Required by workmanager for the periodic one-time-prekey top-up
+	     background task (see lib/services/signal/background_prekey_task.dart
+	     and AppDelegate.swift). The identifier must exactly match
+	     kPrekeyReplenishTaskName in that Dart file. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.devakesu.nexus.prekeyReplenish</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -43,7 +43,18 @@ class SessionManager {
     if (bundle == null) return false;
 
     final sessionBuilder = SessionBuilder(store, store, store, store, address);
-    await sessionBuilder.processPreKeyBundle(bundle);
+    try {
+      await sessionBuilder.processPreKeyBundle(bundle);
+    } on UntrustedIdentityException catch (e) {
+      // See `MessageCodec._withIdentityRepin` for why this app auto-accepts
+      // a changed identity instead of permanently refusing to (re-)session
+      // with this peer: there's no safety-number verification UI, so a
+      // mismatch here almost always just means the peer reinstalled.
+      final newKey = e.key;
+      if (newKey == null) rethrow;
+      await store.saveIdentity(address, newKey);
+      await sessionBuilder.processPreKeyBundle(bundle);
+    }
 
     unawaited(_notifyBackendSessionEstablished(conversationId));
     return true;

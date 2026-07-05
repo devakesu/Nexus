@@ -2,6 +2,7 @@ import logging
 import uuid
 from typing import Any, cast
 
+import sentry_sdk
 from postgrest.exceptions import APIError
 
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
@@ -181,6 +182,11 @@ def fetch_key_bundle(user_id: str) -> dict[str, Any] | None:
             logger.warning(
                 "One-time prekey pool exhausted; degrading to prekey-less X3DH",
                 extra={"user_id": user_id},
+            )
+            sentry_sdk.capture_message(
+                "One-time prekey pool exhausted for user",
+                level="warning",
+                tags={"user_id": user_id, "location": "fetch_key_bundle"},
             )
 
         return {

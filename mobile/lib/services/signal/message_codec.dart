@@ -36,8 +36,13 @@ class MessageCodec {
     required SignalProtocolAddress address,
     required String text,
   }) async {
-    final cipher = SessionCipher(store, store, store, store, address);
-    final message = await cipher.encrypt(Uint8List.fromList(utf8.encode(text)));
+    final plaintext = Uint8List.fromList(utf8.encode(text));
+    final message = await _withIdentityRepin(
+      store: store,
+      address: address,
+      action: () => SessionCipher(store, store, store, store, address)
+          .encrypt(plaintext),
+    );
     final type = message.getType() == CiphertextMessage.prekeyType
         ? 'prekey'
         : 'whisper';
@@ -55,20 +60,52 @@ class MessageCodec {
     required String ciphertextBase64,
     required String signalMessageType,
   }) async {
-    final cipher = SessionCipher(store, store, store, store, address);
     final bytes = base64Decode(ciphertextBase64);
     try {
-      final Uint8List plaintext;
-      if (signalMessageType == 'prekey') {
-        plaintext = await cipher.decrypt(PreKeySignalMessage(bytes));
-      } else {
-        plaintext = await cipher.decryptFromSignal(
-          SignalMessage.fromSerialized(bytes),
-        );
-      }
+      final plaintext = await _withIdentityRepin(
+        store: store,
+        address: address,
+        action: () {
+          final cipher = SessionCipher(store, store, store, store, address);
+          if (signalMessageType == 'prekey') {
+            return cipher.decrypt(PreKeySignalMessage(bytes));
+          }
+          return cipher.decryptFromSignal(SignalMessage.fromSerialized(bytes));
+        },
+      );
       return utf8.decode(plaintext);
     } on Exception {
       return null;
+    }
+  }
+
+  /// Runs [action] once; if it fails because the peer's pinned identity key
+  /// no longer matches (`UntrustedIdentityException` - libsignal's
+  /// trust-on-first-use guard), re-pins the new key and retries exactly
+  /// once.
+  ///
+  /// This app has no safety-number verification screen, so a rejected
+  /// identity change is never surfaced to either user and can never be
+  /// manually accepted - in practice it almost always just means the peer
+  /// reinstalled the app or wiped their device (see
+  /// `SignalKeyService.isNewLocalIdentity`), not an active MITM. Without
+  /// this, the strict pinning check would permanently and silently break
+  /// every future message in the conversation the moment either side's
+  /// identity changes, with no user-facing way to recover. If a real
+  /// verification flow is added later, this auto-accept should be gated
+  /// behind it instead of applying unconditionally.
+  Future<T> _withIdentityRepin<T>({
+    required DriftSignalProtocolStore store,
+    required SignalProtocolAddress address,
+    required Future<T> Function() action,
+  }) async {
+    try {
+      return await action();
+    } on UntrustedIdentityException catch (e) {
+      final newKey = e.key;
+      if (newKey == null) rethrow;
+      await store.saveIdentity(address, newKey);
+      return action();
     }
   }
 }

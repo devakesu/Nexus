@@ -15,6 +15,7 @@ import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
@@ -67,6 +68,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startHeartbeat();
+      unawaited(SignalKeyService.instance.replenishOneTimePrekeysIfNeeded());
     } else {
       _heartbeatTimer?.cancel();
       unawaited(PresenceHeartbeat.beat(isOnline: false));
@@ -283,8 +285,12 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
           ),
           data: (chatState) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+            final showNewDeviceBanner = chatState.isNewLocalIdentity &&
+                chatState.messages.any((m) => m.decryptFailed);
             return Column(
               children: [
+                if (showNewDeviceBanner) _newDeviceBanner(theme),
+                if (chatState.conversationClosed) _conversationClosedBanner(theme),
                 Expanded(
                   child: chatState.messages.isEmpty
                       ? Center(
@@ -305,10 +311,11 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                           ),
                         ),
                 ),
-                if (!chatState.sessionReady) _waitingBanner(theme),
+                if (!chatState.sessionReady && !chatState.conversationClosed)
+                  _waitingBanner(theme),
                 ChatComposer(
                   themeColor: theme.primary,
-                  enabled: chatState.sessionReady,
+                  enabled: chatState.sessionReady && !chatState.conversationClosed,
                   sending: chatState.sending,
                   onSend: _handleSend,
                   onSendImage: _handleSendImage,
@@ -370,6 +377,52 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             child: Text(
               '${widget.name} needs to open this chat before you can send a message.',
               style: GoogleFonts.inter(fontSize: 12, color: theme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown when this device generated a brand-new Signal identity (fresh
+  /// install/reinstall) but the conversation already has history from
+  /// before - that history is permanently undecryptable by design (private
+  /// keys never leave the device), so we say so plainly instead of just
+  /// showing a wall of "Could not decrypt" bubbles with no explanation.
+  Widget _newDeviceBanner(ChatTabTheme theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFFFEF3C7),
+      child: const Row(
+        children: [
+          Icon(LucideIcons.shieldAlert, size: 15, color: Color(0xFFB45309)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'This is a new device. Messages sent before you set up Nexus '
+              "chat here can't be decrypted.",
+              style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _conversationClosedBanner(ChatTabTheme theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFFF1F5F9),
+      child: const Row(
+        children: [
+          Icon(LucideIcons.circleOff, size: 15, color: Color(0xFF64748B)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'This conversation has ended. You can no longer send messages here.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
           ),
         ],

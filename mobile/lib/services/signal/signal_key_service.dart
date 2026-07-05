@@ -29,6 +29,17 @@ class SignalKeyService {
 
   final SignalDatabase _db = SignalDatabase.instance;
   DriftSignalProtocolStore? _store;
+  bool _isNewLocalIdentity = false;
+
+  /// True if this device generated a brand-new Signal identity on this
+  /// `ensureBootstrapped()` call chain rather than loading an existing one
+  /// - i.e. a fresh install/reinstall/device wipe. Since private keys and
+  /// ratchet state never leave the device by design, this means any
+  /// server-side conversation history predating this identity is
+  /// permanently undecryptable (see `chat_conversation_page.dart`'s "new
+  /// device" banner) - correct behavior for E2E encryption, but it must be
+  /// surfaced honestly rather than silently showing decrypt failures.
+  bool get isNewLocalIdentity => _isNewLocalIdentity;
 
   /// Idempotent: safe to call every time a chat screen opens.
   Future<DriftSignalProtocolStore> ensureBootstrapped() async {
@@ -48,12 +59,14 @@ class SignalKeyService {
   Future<(IdentityKeyPair, int)> _loadOrCreateIdentity() async {
     final row = await _db.select(_db.localIdentities).getSingleOrNull();
     if (row != null) {
+      _isNewLocalIdentity = false;
       final decrypted = await LocalKeyVault.instance.decryptBytes(
         Uint8List.fromList(row.identityKeyPairEnc),
       );
       return (IdentityKeyPair.fromSerialized(decrypted), row.registrationId);
     }
 
+    _isNewLocalIdentity = true;
     final identityKeyPair = generateIdentityKeyPair();
     final registrationId = generateRegistrationId(false);
     final encrypted = await LocalKeyVault.instance.encryptBytes(
