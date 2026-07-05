@@ -10,6 +10,7 @@ from app.api.dependencies import get_authenticated_user_id, verify_app_check_tok
 from app.core.config import DiscoveryTab, settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
+from app.core.tasks import safe_create_task
 from app.db.chat import close_conversation_for_match_action
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import (
@@ -29,7 +30,6 @@ from app.db.matches import (
 from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.profiles import decrypt_profile_rows as _decrypt_profiles
 from app.db.profiles import fetch_peer_profile_by_id
-from app.services.fcm_sender import send_match_notification
 from app.models import (
     LikeActionRequest,
     LikeListItem,
@@ -41,6 +41,7 @@ from app.models import (
     OrbitNodeDetailResponse,
     PeerProfileRequest,
 )
+from app.services.fcm_sender import send_match_notification
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -279,11 +280,11 @@ async def record_like_back_action(
                 match_id = await asyncio.to_thread(
                     record_match, payload.target_id, user_id, payload.tab,
                 )
-                asyncio.create_task(
+                safe_create_task(
                     send_match_notification(
                         user_a_id=payload.target_id,
                         user_b_id=user_id,
-                    )
+                    ),
                 )
             except DatabaseAccessError as err:
                 orig = err.__cause__

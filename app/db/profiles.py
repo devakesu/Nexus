@@ -197,6 +197,20 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def sanitize_decrypted_profile(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    Replaces decryption failure sentinels with empty/safe equivalents in-place.
+    """
+    for k, v in list(row.items()):
+        if v == "__DECRYPTION_FAILED__":
+            row[k] = ""
+        elif v == ["__DECRYPTION_FAILED__"]:
+            row[k] = []
+        elif v == {"__DECRYPTION_FAILED__": True}:
+            row[k] = {}
+    return row
+
+
 def _attach_empty_embeddings(record: dict[str, Any]) -> None:
     record["bio_embedding"] = None
     record["career_embedding"] = None

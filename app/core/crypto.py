@@ -3,7 +3,7 @@ import hashlib
 import hmac
 from typing import Any
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
 from app.core.config import settings
 
@@ -14,10 +14,15 @@ class DecryptFailedError(Exception):
     pass
 
 
-_cipher_suite = Fernet(settings.pii_encryption_key.encode())
+_keys = [
+    k.strip().encode()
+    for k in settings.pii_encryption_key.split(",")
+    if k.strip()
+]
+_cipher_suite = MultiFernet([Fernet(k) for k in _keys])
 
 
-def _get_cipher_suite() -> Fernet:
+def _get_cipher_suite() -> MultiFernet:
     return _cipher_suite
 
 

@@ -44,7 +44,7 @@ router = APIRouter()
     summary="Generate a one-time export code (flavor variants only)",
 )
 @limiter.limit(settings.rate_limit_auth)
-def create_export_code(
+async def create_export_code(
     request: Request,
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
@@ -84,7 +84,7 @@ def create_export_code(
             ),
         )
 
-    code, expires_at = generate_export_code(user_id)
+    code, expires_at = await generate_export_code(user_id)
     logger.info(
         "Export code generated",
         extra={"user_id": user_id, "app_variant": app_variant},

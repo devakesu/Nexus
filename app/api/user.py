@@ -26,7 +26,11 @@ from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.limiter import limiter
 from app.db.client import supabase_client
-from app.db.profiles import decrypt_profile_record, update_profile_images_and_metadata
+from app.db.profiles import (
+    decrypt_profile_record,
+    sanitize_decrypted_profile,
+    update_profile_images_and_metadata,
+)
 from app.db.users import (
     fetch_profile,
     fetch_public_user,
@@ -364,6 +368,21 @@ def get_profile_details(
 
         profile = decrypt_profile_record(cast(dict[str, Any], data))
 
+        # Check if any field failed decryption
+        for val in profile.values():
+            if (
+                val == "__DECRYPTION_FAILED__"
+                or val == ["__DECRYPTION_FAILED__"]
+                or val == {"__DECRYPTION_FAILED__": True}
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=(
+                        "Profile decryption failed due to data "
+                        "corruption or key mismatch."
+                    ),
+                )
+
         return {
             "name": profile.get("name"),
             "age": profile.get("age"),
@@ -468,8 +487,9 @@ def get_moderation_subjects(
         for row in cast(list[dict[str, Any]], profiles_res.data or []):
             try:
                 decrypted = decrypt_profile_record(dict(row))
+                decrypted = sanitize_decrypted_profile(decrypted)
             except Exception:  # noqa: BLE001
-                decrypted = dict(row)
+                decrypted = sanitize_decrypted_profile(dict(row))
             results.append(
                 {
                     "id": decrypted.get("id"),

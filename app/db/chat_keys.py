@@ -47,21 +47,14 @@ def upsert_signed_prekey(
     user_id: str, key_id: int, public_key: bytes, signature: bytes,
 ) -> None:
     """Rotate: mark any current signed prekey as rotated, then insert the new one."""
-    now = utcnow()
     try:
-        (
-            supabase_client.table("chat_signed_prekeys")
-            .update({"rotated_at": now.isoformat()})
-            .eq("user_id", user_id)
-            .is_("rotated_at", "null")
-            .execute()
-        )
-        supabase_client.table("chat_signed_prekeys").insert(
+        supabase_client.rpc(
+            "upsert_signed_prekey",
             {
-                "user_id": user_id,
-                "key_id": key_id,
-                "public_key": _to_bytea_hex(public_key),
-                "signature": _to_bytea_hex(signature),
+                "target_user_id": user_id,
+                "new_key_id": key_id,
+                "new_public_key": _to_bytea_hex(public_key),
+                "new_signature": _to_bytea_hex(signature),
             },
         ).execute()
     except APIError as e:

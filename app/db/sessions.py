@@ -14,7 +14,7 @@ from app.db.client import (
 )
 from app.db.exclusions import get_cached_active_block_ids
 from app.db.orbit import assign_orbit_positions, coerce_float, coerce_score
-from app.db.profiles import decrypt_profile_record
+from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +273,7 @@ async def _filter_and_sort_viewport_items(
         if dx * dx + dy * dy <= radius_sq:
             try:
                 decrypted = decrypt_profile_record(profile)
+                decrypted = sanitize_decrypted_profile(decrypted)
             except Exception:
                 logger.exception(
                     "Skipping candidate %s due to decryption failure.",
@@ -449,6 +450,7 @@ def _build_node_detail_payload(
 
     try:
         hydrated_profile = decrypt_profile_record(profile)
+        hydrated_profile = sanitize_decrypted_profile(hydrated_profile)
     except (DecryptFailedError, ProfileDecodeError):
         logger.exception(
             "Failed to decrypt orbit node detail profile",

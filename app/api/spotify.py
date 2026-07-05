@@ -9,6 +9,7 @@ Security model:
   - Artist names are encrypted before persisting (same scheme as all PII).
 """
 
+import html
 import json
 import logging
 import secrets
@@ -75,6 +76,16 @@ async def spotify_native_exchange(
     and completes the exchange.
     """
     _ = request
+    allowed_redirect_uris = {
+        settings.spotify_redirect_uri,
+        "com.devakesu.apps.nexus://callback",
+    }
+    if body.redirect_uri not in allowed_redirect_uris:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid redirect_uri.",
+        )
+
     try:
         access_token = await _exchange_code(body.code, body.redirect_uri)
     except Exception:
@@ -310,15 +321,18 @@ def _html_result(
     icon = "✓" if success else "✕"
     artist_html = ""
     if artists:
-        rows = "".join(f"<li>{name}</li>" for name in artists)
+        rows = "".join(f"<li>{html.escape(name)}</li>" for name in artists)
         artist_html = f'<ul class="artists">{rows}</ul>'
 
-    html = f"""<!DOCTYPE html>
+    safe_title = html.escape(title)
+    safe_message = html.escape(message)
+
+    html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{title}</title>
+  <title>{safe_title}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
     body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -343,11 +357,11 @@ def _html_result(
 <body>
   <div class="card">
     <div class="icon">{icon}</div>
-    <h1>{title}</h1>
-    <p class="msg">{message}</p>
+    <h1>{safe_title}</h1>
+    <p class="msg">{safe_message}</p>
     {artist_html}
     <p class="hint">You can close this tab and return to the app.</p>
   </div>
 </body>
 </html>"""
-    return HTMLResponse(content=html, status_code=200)
+    return HTMLResponse(content=html_content, status_code=200)

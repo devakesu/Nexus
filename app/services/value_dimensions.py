@@ -14,7 +14,7 @@ from numpy.typing import NDArray
 
 from app.core.crypto import encrypt_to_hex
 from app.db.client import supabase_client
-from app.db.profiles import decrypt_profile_record
+from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 from app.services.embeddings import get_embedding_model
 
 logger = logging.getLogger(__name__)
@@ -299,6 +299,7 @@ def recompile_value_dimensions(user_id: str) -> None:
             return
 
         row = decrypt_profile_record(cast(dict[str, Any], raw))
+        row = sanitize_decrypted_profile(row)
 
         dimensions = derive_value_dimensions(
             interests=row.get("interests") or {},

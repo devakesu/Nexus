@@ -7,6 +7,7 @@ from app.api.dependencies import get_authenticated_user_id, verify_app_check_tok
 from app.core.config import settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
+from app.core.tasks import safe_create_task
 from app.db.client import DatabaseAccessError, ProfileDecodeError
 from app.db.exclusions import (
     invalidate_block_cache,
@@ -295,11 +296,11 @@ async def handle_discovery_action(
         if payload.action in ("block", "unblock"):
             await invalidate_block_cache(user_id, payload.target_id)
         elif payload.action in ("like", "superlike"):
-            asyncio.create_task(
+            safe_create_task(
                 send_like_notification(
                     actor_id=user_id,
                     target_id=payload.target_id,
                     is_superlike=payload.action == "superlike",
-                )
+                ),
             )
     return DiscoveryActionResponse(success=True)

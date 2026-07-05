@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
+from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import redact_email
@@ -293,7 +294,7 @@ _SYNC_CODE_LENGTH = 6
 _SYNC_CODE_TTL_MINUTES = 15
 
 
-def generate_export_code(user_id: str) -> tuple[str, datetime]:
+async def generate_export_code(user_id: str) -> tuple[str, datetime]:
     """
     Generate and store a one-time 6-char alphanumeric export code for the
     given profile (must be a flavor-variant user).
@@ -301,6 +302,23 @@ def generate_export_code(user_id: str) -> tuple[str, datetime]:
     The code is valid for 15 minutes. Any previous code is silently overwritten.
     Returns (code, expires_at).
     """
+    try:
+        # Fetch the old code if any to clean up Redis attempts tracker
+        res = (
+            supabase_client.table("profiles")
+            .select("import_sync_code")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        old_code = None
+        if res and isinstance(res.data, dict):
+            old_code = res.data.get("import_sync_code")
+        if isinstance(old_code, str) and old_code:
+            await redis_client.delete(f"import:code_attempts:{old_code}")
+    except Exception:
+        logger.exception("Failed to clean up old export code attempts in Redis")
+
     code = "".join(secrets.choice(_SYNC_CODE_CHARS) for _ in range(_SYNC_CODE_LENGTH))
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=_SYNC_CODE_TTL_MINUTES)
 

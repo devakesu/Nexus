@@ -2,7 +2,7 @@ import logging
 from typing import Any, cast
 
 from app.db.client import supabase_client
-from app.db.profiles import decrypt_profile_record
+from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 from app.services.embeddings import generate_nexus_intent_embeddings
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
             return
 
         profile = decrypt_profile_record(cast(dict[str, Any], raw))
+        profile = sanitize_decrypted_profile(profile)
 
         # Use the caller-supplied plaintext bio so the freshly written value
         # is encoded even before the next full profile fetch would see it.

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Reques
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
 from app.core.limiter import limiter
+from app.core.tasks import safe_create_task
 from app.db.chat import (
     create_event_with_message,
     fetch_conversation_participants,
@@ -258,7 +259,7 @@ async def send_message(
         )
 
         recipient_id = user_b_id if user_id == user_a_id else user_a_id
-        asyncio.create_task(
+        safe_create_task(
             send_chat_message_notification(
                 sender_id=user_id,
                 recipient_id=recipient_id,
@@ -460,7 +461,7 @@ async def create_chat_event(
         event_row = result["event"]
 
         recipient_id = user_b_id if user_id == user_a_id else user_a_id
-        asyncio.create_task(
+        safe_create_task(
             send_chat_message_notification(
                 sender_id=user_id,
                 recipient_id=recipient_id,
