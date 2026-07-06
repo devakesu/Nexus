@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
-import 'package:nexus/screens/settings/safety_center_page.dart';
+import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -69,7 +69,7 @@ class EventCard extends ConsumerWidget {
     unawaited(
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => SafetyCenterPage(
+          builder: (_) => MeetupSafetyPage(
             initialCheckInLabel: payload.title,
             initialCheckInDuration: clamped,
           ),

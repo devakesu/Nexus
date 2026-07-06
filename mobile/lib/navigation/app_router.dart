@@ -82,13 +82,7 @@ final goRouter = GoRouter(
     ),
     GoRoute(
       path: '/settings/safety-center',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return SafetyCenterPage(
-          initialCheckInLabel: extra?['initialCheckInLabel'] as String?,
-          initialCheckInDuration: extra?['initialCheckInDuration'] as Duration?,
-        );
-      },
+      builder: (context, state) => const SafetyCenterPage(),
     ),
     GoRoute(
       path: '/legal/terms',
