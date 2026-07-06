@@ -63,4 +63,9 @@ class LocalKeyVault {
     final plaintext = await _algorithm.decrypt(box, secretKey: key);
     return Uint8List.fromList(plaintext);
   }
+
+  Future<void> wipeKeys() async {
+    _cachedKey = null;
+    await _secureStorage.delete(key: _storageKey);
+  }
 }

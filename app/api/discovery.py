@@ -276,6 +276,18 @@ async def handle_discovery_action(
 ):
     _ = request
     if payload.action == "report":
+        from app.db.sessions import is_candidate_in_active_session
+        is_valid = await asyncio.to_thread(
+            is_candidate_in_active_session,
+            user_id,
+            payload.target_id,
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail="Target user is not in any active discovery session.",
+            )
+
         await asyncio.to_thread(
             record_user_report,
             reporter_id=user_id,

@@ -95,4 +95,12 @@ class SignalDatabase extends _$SignalDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  Future<void> clearAllData() async {
+    await transaction(() async {
+      for (final table in allTables) {
+        await delete(table).go();
+      }
+    });
+  }
 }

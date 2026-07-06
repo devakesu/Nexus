@@ -63,6 +63,7 @@ dependencies:
   sentry_dio: ^9.18.0
   sentry_flutter: ^9.18.0
   shared_preferences: ^2.5.5
+  sqlite3_flutter_libs: ^0.6.0+eol
   supabase_flutter: ^2.12.2
   url_launcher: ^6.3.2
   uuid: ^4.5.3

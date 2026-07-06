@@ -51,6 +51,10 @@ Future<void> main() async {
   // Get current flavor configuration
   final config = AppConfig.current;
   const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
+  assert(
+    flavor == 'nexus' || flavor == 'mec',
+    'FLUTTER_APP_FLAVOR environment variable must be specified as either "nexus" or "mec" at build time via --dart-define=FLUTTER_APP_FLAVOR=...',
+  );
 
   // Initialize Firebase dynamically based on flavor
   final firebaseOptions = flavor == 'mec'

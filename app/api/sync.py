@@ -13,6 +13,7 @@ Direction: flavor variants (e.g. nexus_mec) → main nexus.
     the encrypted profile data into their own account.
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -66,14 +67,14 @@ async def create_export_code(
         )
 
     # Verify the caller is a flavor-variant profile (not the main nexus account).
-    profile = fetch_profile(user_id)
+    profile = await asyncio.to_thread(fetch_profile, user_id)
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Profile not found. Complete onboarding first.",
         )
 
-    user_row = fetch_public_user(user_id)
+    user_row = await asyncio.to_thread(fetch_public_user, user_id)
     app_variant = str(user_row.get("app_variant") or "nexus") if user_row else "nexus"
     if app_variant == "nexus":
         raise HTTPException(
@@ -145,7 +146,7 @@ async def import_from_flavor(
         )
 
     # Verify the caller is the main 'nexus' app variant early
-    user_row = fetch_public_user(user_id)
+    user_row = await asyncio.to_thread(fetch_public_user, user_id)
     if not user_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -158,7 +159,8 @@ async def import_from_flavor(
         )
 
     try:
-        copied_fields = execute_import(
+        copied_fields = await asyncio.to_thread(
+            execute_import,
             target_user_id=user_id,
             sync_code=payload.sync_code,
             target_variant=str(user_row.get("app_variant") or "nexus"),

@@ -19,12 +19,21 @@ from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 logger = logging.getLogger(__name__)
 
 
-def _build_and_insert_session_items(
-    session_id: str,
-    positioned_items: list[dict[str, Any]],
+def create_discovery_session(
     viewer_id: str,
     active_tab: DiscoveryTab,
-) -> None:
+    filters: dict[str, Any],
+    ranked_items: list[dict[str, Any]],
+    expires_in_minutes: int = 60,
+) -> tuple[str, datetime]:
+    expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
+
+    positioned_items = assign_orbit_positions(
+        viewer_id=viewer_id,
+        active_tab=active_tab,
+        ranked_items=ranked_items,
+    )
+
     items_payload: list[dict[str, Any]] = []
     for position, item in enumerate(positioned_items):
         profile_raw = item.get("profile")
@@ -37,7 +46,6 @@ def _build_and_insert_session_items(
 
         items_payload.append(
             {
-                "session_id": session_id,
                 "position": position,
                 "candidate_id": str(candidate_id),
                 "score": coerce_score(item.get("score")),
@@ -47,102 +55,38 @@ def _build_and_insert_session_items(
             },
         )
 
-    if not items_payload:
-        return
-
     try:
-        (
-            supabase_client.table("discovery_session_items")
-            .insert(items_payload)
-            .execute()
-        )
-    except APIError as e:
-        logger.exception(
-            "Failed to insert discovery session items",
-            extra={
-                "viewer_id": viewer_id,
-                "active_tab": active_tab,
-                "session_id": session_id,
-                "item_count": len(items_payload),
-            },
-        )
-        raise DatabaseAccessError("Failed to insert discovery session items") from e
-    except Exception as e:
-        logger.exception(
-            "Unexpected discovery session item insert failure",
-            extra={
-                "viewer_id": viewer_id,
-                "active_tab": active_tab,
-                "session_id": session_id,
-                "item_count": len(items_payload),
-            },
-        )
-        raise DatabaseAccessError(
-            "Unexpected discovery session item insert failure",
-        ) from e
-
-
-def create_discovery_session(
-    viewer_id: str,
-    active_tab: DiscoveryTab,
-    filters: dict[str, Any],
-    ranked_items: list[dict[str, Any]],
-    expires_in_minutes: int = 60,
-) -> tuple[str, datetime]:
-    expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
-
-    try:
-        session_res = (
-            supabase_client.table("discovery_sessions")
-            .insert(
+        res = (
+            supabase_client.rpc(
+                "create_discovery_session_with_items",
                 {
-                    "viewer_id": viewer_id,
-                    "tab": active_tab,
-                    "filters": filters or {},
-                    "expires_at": expires_at.isoformat(),
+                    "p_viewer_id": viewer_id,
+                    "p_tab": active_tab,
+                    "p_filters": filters or {},
+                    "p_expires_at": expires_at.isoformat(),
+                    "p_items": items_payload,
                 },
             )
-            .select("id")
             .execute()
         )
+        session_id = str(res.data)
+        if not session_id or session_id == "None":
+            raise DatabaseAccessError("Failed to create discovery session")
+        return session_id, expires_at
     except APIError as e:
         logger.exception(
-            "Failed to create discovery session",
+            "Failed to create discovery session via RPC",
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
         )
         raise DatabaseAccessError("Failed to create discovery session") from e
     except Exception as e:
         logger.exception(
-            "Unexpected discovery session creation failure",
+            "Unexpected discovery session creation failure via RPC",
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
         )
         raise DatabaseAccessError(
             "Unexpected discovery session creation failure",
         ) from e
-
-    session_rows = cast(list[Any], session_res.data or [])
-    session_row_raw = session_rows[0] if session_rows else None
-
-    if not isinstance(session_row_raw, dict) or "id" not in session_row_raw:
-        raise DatabaseAccessError("Discovery session creation returned malformed data")
-
-    session_row = cast(dict[str, Any], session_row_raw)
-    session_id = str(cast(object, session_row.get("id")))
-
-    positioned_items = assign_orbit_positions(
-        viewer_id=viewer_id,
-        active_tab=active_tab,
-        ranked_items=ranked_items,
-    )
-
-    _build_and_insert_session_items(
-        session_id=session_id,
-        positioned_items=positioned_items,
-        viewer_id=viewer_id,
-        active_tab=active_tab,
-    )
-
-    return session_id, expires_at
 
 
 def get_discovery_session(
@@ -271,20 +215,11 @@ async def _filter_and_sort_viewport_items(
         dy = y - center_y
 
         if dx * dx + dy * dy <= radius_sq:
-            try:
-                decrypted = decrypt_profile_record(profile)
-                decrypted = sanitize_decrypted_profile(decrypted)
-            except Exception:
-                logger.exception(
-                    "Skipping candidate %s due to decryption failure.",
-                    cid,
-                )
-                continue
             result.append(
                 {
                     "id": cid,
-                    "name": decrypted.get("name"),
-                    "profile_pic": decrypted.get("profile_pic"),
+                    "name": None,
+                    "profile_pic": None,
                     "score": coerce_score(row.get("score")),
                     "orbit_tier": int(coerce_float(row.get("orbit_tier"), 3.0)),
                     "x": x,
@@ -353,8 +288,6 @@ async def fetch_spatial_viewport(
                 orbit_tier,
                 profiles:candidate_id (
                     id,
-                    name,
-                    profile_pic,
                     is_deactivated
                 ),
                 discovery_sessions!inner (
@@ -652,3 +585,24 @@ async def _validate_discovery_node_data(
         return None
 
     return cast(DiscoveryTab, session_tab_raw), profile, cid
+
+
+def is_candidate_in_active_session(viewer_id: str, candidate_id: str) -> bool:
+    try:
+        now = utcnow()
+        res = (
+            supabase_client.table("discovery_session_items")
+            .select("session_id, discovery_sessions!inner(viewer_id, expires_at)")
+            .eq("candidate_id", candidate_id)
+            .eq("discovery_sessions.viewer_id", viewer_id)
+            .gt("discovery_sessions.expires_at", now.isoformat())
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception:
+        logger.exception(
+            "Error checking active session for candidate",
+            extra={"viewer_id": viewer_id, "candidate_id": candidate_id},
+        )
+        return False

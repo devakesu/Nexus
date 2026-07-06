@@ -201,4 +201,11 @@ class SignalKeyService {
     );
   }
 
+  Future<void> wipeLocalData() async {
+    _store = null;
+    await _db.clearAllData();
+    await _secureStorage.delete(key: _prefsNextPreKeyId);
+    await _secureStorage.delete(key: _prefsNextSignedPreKeyId);
+    await LocalKeyVault.instance.wipeKeys();
+  }
 }

@@ -148,6 +148,54 @@ async def mark_likes_as_seen(
         ) from err
 
 
+async def _verify_peer_access_and_infer_tab(
+    target_id: str,
+    user_id_normalized: str,
+    default_tab: DiscoveryTab,
+) -> DiscoveryTab:
+    query_like = supabase_client.table(
+        "profile_discovery_actions",
+    ).select("id, tab")
+    query_like = query_like.eq("actor_id", target_id)
+    query_like = query_like.eq("target_id", user_id_normalized)
+    query_like = query_like.in_("action", ["like", "superlike"])
+    query_like = query_like.is_("revoked_at", "null")
+    access_check_res = await asyncio.to_thread(query_like.execute)
+    has_like = bool(access_check_res.data)
+
+    has_match = False
+    match_check_res = None
+    if not has_like:
+        query_match = supabase_client.table("matches").select("id, tab")
+        query_match = query_match.or_(
+            f"and(liker_id.eq.{target_id},"
+            f"liked_back_id.eq.{user_id_normalized}),"
+            f"and(liker_id.eq.{user_id_normalized},"
+            f"liked_back_id.eq.{target_id}),",
+        )
+        query_match = query_match.is_("unmatched_at", "null")
+        match_check_res = await asyncio.to_thread(query_match.execute)
+        has_match = bool(match_check_res.data)
+
+    if not has_like and not has_match:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Viewer not permitted.",
+        )
+
+    inferred_tab = default_tab
+    if has_like and access_check_res.data:
+        like_row = access_check_res.data[0]
+        if isinstance(like_row, dict) and like_row.get("tab"):
+            inferred_tab = cast(DiscoveryTab, like_row["tab"])
+    elif has_match and match_check_res and match_check_res.data:
+        match_row = match_check_res.data[0]
+        if isinstance(match_row, dict) and match_row.get("tab"):
+            inferred_tab = cast(DiscoveryTab, match_row["tab"])
+
+    return inferred_tab
+
+
 @router.post("/api/v1/profile/peer", response_model=OrbitNodeDetailResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def get_peer_profile(
@@ -161,35 +209,11 @@ async def get_peer_profile(
         target_id = str(uuid.UUID(payload.target_id)).lower()
         user_id_normalized = str(uuid.UUID(user_id)).lower()
 
-        # Verify access: either target liked the viewer, or they are matched
-        query_like = supabase_client.table(
-            "profile_discovery_actions",
-        ).select("id")
-        query_like = query_like.eq("actor_id", target_id)
-        query_like = query_like.eq("target_id", user_id_normalized)
-        query_like = query_like.in_("action", ["like", "superlike"])
-        query_like = query_like.is_("revoked_at", "null")
-        access_check_res = await asyncio.to_thread(query_like.execute)
-        has_like = bool(access_check_res.data)
-
-        has_match = False
-        if not has_like:
-            query_match = supabase_client.table("matches").select("id")
-            query_match = query_match.or_(
-                f"and(liker_id.eq.{target_id},"
-                f"liked_back_id.eq.{user_id_normalized}),"
-                f"and(liker_id.eq.{user_id_normalized},"
-                f"liked_back_id.eq.{target_id}),",
-            )
-            query_match = query_match.is_("unmatched_at", "null")
-            match_check_res = await asyncio.to_thread(query_match.execute)
-            has_match = bool(match_check_res.data)
-
-        if not has_like and not has_match:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied. Viewer not permitted.",
-            )
+        inferred_tab = await _verify_peer_access_and_infer_tab(
+            target_id=target_id,
+            user_id_normalized=user_id_normalized,
+            default_tab=payload.tab,
+        )
 
         profile = await asyncio.to_thread(
             fetch_peer_profile_by_id, target_id,
@@ -207,7 +231,7 @@ async def get_peer_profile(
         profile.setdefault("orbit_tier", 1)
 
         return build_tab_aware_orbit_node_detail(
-            session_tab=payload.tab,
+            session_tab=inferred_tab,
             payload=profile,
             hidden_fields=hidden_fields,
         )
@@ -296,7 +320,7 @@ async def record_like_back_action(
                 raise
 
         # Revoke their incoming like so it clears from the inbox
-        if payload.action in ("like", "superlike", "pass", "block", "report"):
+        if payload.action in ("like", "superlike", "pass", "block"):
             await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
 
         return {"success": True, "matched": matched, "match_id": match_id}

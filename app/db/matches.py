@@ -26,12 +26,13 @@ def record_match(
     try:
         res = (
             supabase_client.table("matches")
-            .insert(
+            .upsert(
                 {
                     "liker_id": liker_id,
                     "liked_back_id": liked_back_id,
                     "tab": tab,
                 },
+                on_conflict="liker_id, liked_back_id, tab",
             )
             .execute()
         )

@@ -144,7 +144,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      if (resp.statusCode == 200 && resp.data != null) {
+      if (resp.statusCode == 200 && resp.data != null && mounted) {
         final hidden = (resp.data!['hidden_fields'] as List<dynamic>? ?? [])
             .map((e) => e.toString())
             .toSet();
@@ -157,13 +157,15 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         });
       }
     } on DioException catch (e) {
-      final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-          ?.toString();
-      setState(() => _error = detail ?? 'Failed to load privacy settings.');
+      if (mounted) {
+        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
+            ?.toString();
+        setState(() => _error = detail ?? 'Failed to load privacy settings.');
+      }
     } on Exception catch (_) {
-      setState(() => _error = 'Failed to load privacy settings.');
+      if (mounted) setState(() => _error = 'Failed to load privacy settings.');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -188,8 +190,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       );
     } on DioException catch (e) {
       // Roll back.
-      setState(() => _visibility[key] = !visible);
       if (mounted) {
+        setState(() => _visibility[key] = !visible);
         final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
             ?.toString();
         NexusToast.show(
@@ -199,8 +201,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         );
       }
     } on Exception catch (_) {
-      setState(() => _visibility[key] = !visible);
       if (mounted) {
+        setState(() => _visibility[key] = !visible);
         NexusToast.show(
           context,
           'Failed to save setting.',
@@ -208,7 +210,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         );
       }
     } finally {
-      setState(() => _saving.remove(key));
+      if (mounted) setState(() => _saving.remove(key));
     }
   }
 
@@ -238,8 +240,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
     } on DioException catch (e) {
-      setState(() => apply(value: previous));
       if (mounted) {
+        setState(() => apply(value: previous));
         final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
             ?.toString();
         NexusToast.show(
@@ -249,8 +251,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         );
       }
     } on Exception catch (_) {
-      setState(() => apply(value: previous));
       if (mounted) {
+        setState(() => apply(value: previous));
         NexusToast.show(
           context,
           'Failed to save setting.',
@@ -258,7 +260,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         );
       }
     } finally {
-      setState(() => _saving.remove(field));
+      if (mounted) setState(() => _saving.remove(field));
     }
   }
 

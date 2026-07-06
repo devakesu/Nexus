@@ -1014,6 +1014,7 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     )
     normal_pics: list[str] = Field(
         ...,
+        max_length=4,
         description="Array of up to 4 secondary gallery storage paths.",
     )
     ai_vibe_tags: list[str] = Field(
@@ -1028,7 +1029,13 @@ class ProfileImagesAndTagsUpdate(BaseModel):
             raise ValueError(
                 "Validation Error: Profile picture storage location is mandatory.",
             )
-        return value.strip()
+        stripped = value.strip()
+        if len(stripped) > 500:
+            raise ValueError(
+                "Validation Error: Profile picture path must be "
+                "less than 500 characters.",
+            )
+        return stripped
 
     @field_validator("normal_pics")
     @classmethod
@@ -1044,6 +1051,12 @@ class ProfileImagesAndTagsUpdate(BaseModel):
             raise ValueError(
                 "Validation Error: A maximum of 4 gallery images can be registered.",
             )
+        for v in cleaned_list:
+            if len(v) > 500:
+                raise ValueError(
+                    "Validation Error: Gallery image path must be "
+                    "less than 500 characters.",
+                )
         return cleaned_list
 
     @field_validator("ai_vibe_tags")

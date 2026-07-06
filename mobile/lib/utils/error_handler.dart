@@ -158,7 +158,9 @@ class ErrorHandler {
     bool showUi = true,
   }) {
     // 1. Sanitize input parameters
-    final rawMessage = customMessage ?? error?.toString() ?? 'An unexpected error occurred.';
+    final rawMessage = customMessage != null
+        ? '$customMessage ($error)'
+        : error?.toString() ?? 'An unexpected error occurred.';
     final sanitizedMessage = sanitize(rawMessage);
 
     // Log to console in debug mode

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:nexus/screens/auth_gate.dart';
 import 'package:nexus/screens/chats/chat_conversation_page.dart';
 import 'package:nexus/screens/chats/chats_page.dart';
-import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
 import 'package:nexus/screens/legal_terms_page.dart';
 import 'package:nexus/screens/orbit_screen.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
@@ -28,7 +27,13 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/orbit',
       builder: (context, state) {
-        final extra = state.extra! as Map<String, dynamic>;
+        final extra = state.extra as Map<String, dynamic>?;
+        if (extra == null || extra['tab'] == null || extra['themeColor'] == null) {
+          const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
+          const isMec = flavor == 'mec';
+          const appName = isMec ? 'Nexus MEC' : 'Nexus';
+          return const AuthGate(appName: appName);
+        }
         return OrbitScreen(
           tab: extra['tab']! as String,
           themeColor: extra['themeColor']! as Color,
@@ -43,7 +48,17 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/chat-conversation',
       builder: (context, state) {
-        final extra = state.extra! as Map<String, dynamic>;
+        final extra = state.extra as Map<String, dynamic>?;
+        if (extra == null ||
+            extra['conversationId'] == null ||
+            extra['matchedUserId'] == null ||
+            extra['tab'] == null ||
+            extra['name'] == null) {
+          const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
+          const isMec = flavor == 'mec';
+          const appName = isMec ? 'Nexus MEC' : 'Nexus';
+          return const AuthGate(appName: appName);
+        }
         return ChatConversationPage(
           conversationId: extra['conversationId']! as String,
           matchedUserId: extra['matchedUserId']! as String,
@@ -78,15 +93,6 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/legal/terms',
       builder: (context, state) => const LegalTermsPage(),
-    ),
-    GoRoute(
-      path: '/chats/location-picker',
-      builder: (context, state) {
-        final extra = state.extra! as Map<String, dynamic>;
-        return LocationPickerSheet(
-          themeColor: extra['themeColor']! as Color,
-        );
-      },
     ),
   ],
 );

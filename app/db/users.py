@@ -145,16 +145,17 @@ def upsert_public_user(
     if app_variant is not None:
         payload["app_variant"] = app_variant
 
-    # Check if the user exists before upsert to determine newly_created status
-    existing_user = fetch_public_user(user_id)
-    newly_created = existing_user is None
-
     try:
         result = (
             supabase_client.table("users")
             .upsert(
                 payload,
                 on_conflict="id",
+            )
+            .select(
+                "id, email, app_variant, is_active, is_suspended, suspended_until, "
+                "moderation_status, moderation_reason_code, accepted_terms_version, "
+                "terms_accepted_at, xmax",
             )
             .execute()
         )
@@ -177,9 +178,7 @@ def upsert_public_user(
             detail="Failed to initialize user account.",
         ) from e
 
-    row = None
-    if result.data:
-        row = result.data[0]
+    row = result.data[0] if result.data else None
 
     if not isinstance(row, dict):
         row = fetch_public_user(user_id)
@@ -190,7 +189,13 @@ def upsert_public_user(
             detail="User account initialization returned no row.",
         )
 
-    return cast(dict[str, Any], row), newly_created
+    xmax_val = row.get("xmax")
+    newly_created = xmax_val is not None and str(xmax_val) == "0"
+
+    row_copy = dict(row)
+    row_copy.pop("xmax", None)
+
+    return cast(dict[str, Any], row_copy), newly_created
 
 
 def fetch_profile(user_id: str) -> dict[str, Any] | None:
@@ -289,7 +294,10 @@ def upsert_profile_variant(
 # Cross-flavor import / export handshake
 # ---------------------------------------------------------------------------
 
-_SYNC_CODE_CHARS = string.ascii_uppercase + string.digits
+_SYNC_CODE_CHARS = (
+    string.ascii_uppercase.replace("O", "").replace("I", "")
+    + string.digits.replace("0", "").replace("1", "")
+)
 _SYNC_CODE_LENGTH = 6
 _SYNC_CODE_TTL_MINUTES = 15
 
@@ -375,6 +383,8 @@ _IMPORTABLE_FIELDS = [
     "campus_branch_blind_index",
     "smoking_blind_index",
     "drinking_blind_index",
+    "children_plans_blind_index",
+    "religious_beliefs_blind_index",
 ]
 
 
@@ -382,6 +392,7 @@ def _validate_import(
     source: dict[str, Any],
     target: dict[str, Any],
     target_variant: str,
+    source_user: dict[str, Any] | None,
 ) -> tuple[str, str]:
     # --- 2. Validate expiry ---
     now = datetime.now(timezone.utc)
@@ -412,7 +423,6 @@ def _validate_import(
         )
 
     # --- 4. Ensure target is the main variant, source is a flavor ---
-    source_user = fetch_public_user(source["id"])
     source_variant = source_user.get("app_variant", "nexus") if source_user else "nexus"
 
     if target_variant != "nexus":
@@ -507,7 +517,8 @@ def execute_import(
 
     source, target = _fetch_import_profiles(sync_code, target_user_id)
 
-    source_variant, _ = _validate_import(source, target, target_variant)
+    source_user = fetch_public_user(source["id"])
+    source_variant, _ = _validate_import(source, target, target_variant, source_user)
 
     # --- 5. Copy encrypted fields ---
     copy_payload: dict[str, Any] = {}

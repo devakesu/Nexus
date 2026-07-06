@@ -63,38 +63,55 @@ class AppConfig {
   );
   static const String _googleIosClientIdNexus = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID_NEXUS',
-    defaultValue: 'your-nexus-ios-client-id.apps.googleusercontent.com',
   );
   static const String _googleIosClientIdMec = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID_MEC',
-    defaultValue: 'your-mec-ios-client-id.apps.googleusercontent.com',
+  );
+  static const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String _supabasePublishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
+  static const String _googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+  static const String _spotifyClientId = String.fromEnvironment(
+    'SPOTIFY_CLIENT_ID',
+  );
+  static const String _spotifyNativeRedirectUriNexus = String.fromEnvironment(
+    'SPOTIFY_REDIRECT_URI_NEXUS',
+    defaultValue: 'devakesu-nexus://spotify-auth',
+  );
+  static const String _spotifyNativeRedirectUriMec = String.fromEnvironment(
+    'SPOTIFY_REDIRECT_URI_MEC',
+    defaultValue: 'devakesu-nexus-mec://spotify-auth',
+  );
+  static const String _mecAllowedEmailDomain = String.fromEnvironment(
+    'MEC_ALLOWED_EMAIL_DOMAIN',
   );
 
   static const AppConfig nexus = AppConfig(
-    supabaseUrl: 'https://xqysznugzwkwfhwgxckr.supabase.co',
-    supabasePublishableKey: 'sb_publishable_aysVO0aF2hY6DZcd9WtBsg_3NPQduEU',
-    googleWebClientId:
-        '360032447327-ijma9pp8i1m9263smgdo5u2i0fhj7nal.apps.googleusercontent.com',
+    supabaseUrl: _supabaseUrl,
+    supabasePublishableKey: _supabasePublishableKey,
+    googleWebClientId: _googleWebClientId,
     googleIosClientId: _googleIosClientIdNexus,
     logoAssetPath: 'assets/nexus.png',
     backendUrl: _backendUrl,
     appVariant: AppVariant.nexus,
-    spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
-    spotifyNativeRedirectUri: 'devakesu-nexus://spotify-auth',
+    spotifyClientId: _spotifyClientId,
+    spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
   );
 
   static const AppConfig mec = AppConfig(
-    supabaseUrl: 'https://xqysznugzwkwfhwgxckr.supabase.co',
-    supabasePublishableKey: 'sb_publishable_aysVO0aF2hY6DZcd9WtBsg_3NPQduEU',
-    googleWebClientId:
-        '360032447327-ijma9pp8i1m9263smgdo5u2i0fhj7nal.apps.googleusercontent.com',
+    supabaseUrl: _supabaseUrl,
+    supabasePublishableKey: _supabasePublishableKey,
+    googleWebClientId: _googleWebClientId,
     googleIosClientId: _googleIosClientIdMec,
     logoAssetPath: 'assets/nexus-mec.png',
     backendUrl: _backendUrl,
     appVariant: AppVariant.nexusMec,
-    spotifyClientId: '8e7bcea5271449448e4458fcbd91bca6',
-    spotifyNativeRedirectUri: 'devakesu-nexus-mec://spotify-auth',
-    allowedEmailDomain: 'mec.ac.in',
+    spotifyClientId: _spotifyClientId,
+    spotifyNativeRedirectUri: _spotifyNativeRedirectUriMec,
+    allowedEmailDomain: _mecAllowedEmailDomain,
   );
 
   /// OTP code length for email/phone verification. Must match the "OTP

@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/notification_service.dart';
+import 'package:nexus/services/signal/signal_key_service.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -147,8 +149,21 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
       );
       if (mounted) setState(() => _pauseStatus = _PauseStatus.paused);
       OrbitRefreshNotifier.notifyDeactivated();
-    } on Exception catch (_) {
-      if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
+    } on Exception catch (e, stackTrace) {
+      if (mounted) {
+        setState(() => _pauseStatus = _PauseStatus.error);
+        NexusToast.show(
+          context,
+          'Failed to pause matching. Please try again.',
+          type: NexusToastType.error,
+        );
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: 'Failed to pause matching.',
+          showUi: false,
+        );
+      }
     }
   }
 
@@ -277,9 +292,9 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
         color: Color(0xFFF59E0B),
       ),
       _PauseStatus.error => const Icon(
-        LucideIcons.chevronRight,
-        color: Color(0xFFCBD5E1),
-        size: 16,
+        LucideIcons.alertCircle,
+        color: Color(0xFFEF4444),
+        size: 18,
       ),
     };
   }
@@ -865,6 +880,7 @@ class _AccountActionsSection extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
+      await SignalKeyService.instance.wipeLocalData();
       await Supabase.instance.client.auth.signOut();
     }
   }

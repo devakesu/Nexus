@@ -9,9 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 final Dio _globalDio = _createDioInstance();
 
 Dio _createDioInstance() {
-  final dio = Dio()
-    ..addSentry()
-    ..interceptors.add(AppCheckInterceptor());
+  final dio = Dio();
 
   assert(
     () {
@@ -28,6 +26,10 @@ Dio _createDioInstance() {
     }(),
     '',
   );
+
+  dio
+    ..addSentry()
+    ..interceptors.add(AppCheckInterceptor());
 
   return dio;
 }

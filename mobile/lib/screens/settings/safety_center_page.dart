@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -38,11 +39,13 @@ class _ScalePressableState extends State<ScalePressable> {
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
-    return GestureDetector(
+    return InkWell(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
       child: AnimatedScale(
         scale: _isPressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -105,8 +108,10 @@ class _SafetyScoreRingPainter extends CustomPainter {
     if (progress <= 0) return;
     final rect = Rect.fromCircle(center: center, radius: radius);
     final progressPaint = Paint()
-      ..shader = const SweepGradient(
-        colors: [_accent, _teal, _accent],
+      ..shader = SweepGradient(
+        colors: const [_accent, _teal, _accent],
+        startAngle: -math.pi / 2,
+        endAngle: -math.pi / 2 + math.pi * 2 * progress,
       ).createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
@@ -145,14 +150,23 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      setState(() => _page = _controller.page ?? 0);
-    });
+    _controller.addListener(_onPageChange);
+  }
+
+  void _onPageChange() {
+    if (mounted) {
+      final newPage = _controller.page ?? 0;
+      if (newPage != _page) {
+        setState(() => _page = newPage);
+      }
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller
+      ..removeListener(_onPageChange)
+      ..dispose();
     super.dispose();
   }
 
@@ -292,7 +306,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   // Safety Score checklist state (persisted across sessions)
   bool _quizCompletedOnce = false;
   bool _guidelinesReviewed = false;
-  bool _checkInEverUsed = false;
+  bool _privacySettingsReviewed = false;
 
   // Date Check-In state
   bool _checkInActive = false;
@@ -311,12 +325,19 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   final GlobalKey _quizKey = GlobalKey();
   final GlobalKey _guidelinesKey = GlobalKey();
 
+  // One controller per guideline accordion so a "Next" button can collapse
+  // the current tile and expand the next one in sequence.
+  final List<ExpansibleController> _accordionControllers = List.generate(
+    4,
+    (_) => ExpansibleController(),
+  );
+
   double get _safetyScore {
     var completed = 0;
     if (_contacts.isNotEmpty) completed++;
     if (_quizCompletedOnce) completed++;
     if (_guidelinesReviewed) completed++;
-    if (_checkInEverUsed) completed++;
+    if (_privacySettingsReviewed) completed++;
     return completed / 4;
   }
 
@@ -395,7 +416,8 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
       _quizCompletedOnce = prefs.getBool('safety_quiz_completed') ?? false;
       _guidelinesReviewed =
           prefs.getBool('safety_guidelines_reviewed') ?? false;
-      _checkInEverUsed = prefs.getBool('safety_checkin_used') ?? false;
+      _privacySettingsReviewed =
+          prefs.getBool('safety_privacy_reviewed') ?? false;
     });
   }
 
@@ -413,11 +435,11 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     await prefs.setBool('safety_guidelines_reviewed', true);
   }
 
-  Future<void> _markCheckInUsed() async {
-    if (_checkInEverUsed) return;
-    setState(() => _checkInEverUsed = true);
+  Future<void> _markPrivacySettingsReviewed() async {
+    if (_privacySettingsReviewed) return;
+    setState(() => _privacySettingsReviewed = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_checkin_used', true);
+    await prefs.setBool('safety_privacy_reviewed', true);
   }
 
   void _scrollToKey(GlobalKey key) {
@@ -431,7 +453,35 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           alignment: 0.08,
         ),
       );
+    } else {
+      // The section may not have been laid out yet on this frame; retry
+      // once its RenderObject exists.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final retryCtx = key.currentContext;
+        if (retryCtx != null) {
+          unawaited(
+            Scrollable.ensureVisible(
+              retryCtx,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+              alignment: 0.08,
+            ),
+          );
+        }
+      });
     }
+  }
+
+  void _openPrivacySettings() {
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => const PrivacySettingsPage(),
+            ),
+          )
+          .then((_) => _markPrivacySettingsReviewed()),
+    );
   }
 
   // --- SOS Logic ---
@@ -730,7 +780,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
       _checkInRemaining = _checkInSelectedDuration;
       _checkInContactIndex ??= _contacts.isNotEmpty ? 0 : null;
     });
-    unawaited(_markCheckInUsed());
     _checkInTimer?.cancel();
     _checkInTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final endsAt = _checkInEndsAt;
@@ -897,6 +946,11 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         children: [
           ListView(
             padding: const EdgeInsets.only(bottom: 60),
+            // Large cache extent so every section is laid out up front —
+            // otherwise the Sliver viewport only builds content near the
+            // current scroll position and GlobalKey-based "scroll to
+            // section" taps on far-below-the-fold items silently no-op.
+            scrollCacheExtent: const ScrollCacheExtent.pixels(20000),
             children: [
               _buildSafetyHeroBanner(),
               _buildSafetyScoreSection(),
@@ -906,18 +960,16 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 key: _contactsKey,
                 child: _buildEmergencyContactsSection(),
               ),
-              _buildVerifiedProtectedSection(),
               _buildHelplinesSection(),
-              _buildRedFlagsSection(),
-              KeyedSubtree(
-                key: _quizKey,
-                child: _buildInteractiveQuizSection(),
-              ),
               KeyedSubtree(
                 key: _guidelinesKey,
                 child: _buildSafetyEducationSection(),
               ),
-              _buildProtectionSection(),
+              _buildVerifiedProtectedSection(),
+              KeyedSubtree(
+                key: _quizKey,
+                child: _buildInteractiveQuizSection(),
+              ),
               _buildShortcutsSection(),
               _buildFooterNote(),
             ],
@@ -1094,10 +1146,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         onTap: () => _scrollToKey(_contactsKey),
       ),
       _ChecklistItem(
-        label: 'Set up a date check-in',
-        done: _checkInEverUsed,
-        icon: LucideIcons.mapPin,
-        onTap: () => _scrollToKey(_checkInKey),
+        label: 'Review privacy settings',
+        done: _privacySettingsReviewed,
+        icon: LucideIcons.shield,
+        onTap: _openPrivacySettings,
       ),
       _ChecklistItem(
         label: 'Take the safety quiz',
@@ -1246,7 +1298,9 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         .slideY(begin: 0.05, end: 0, duration: 350.ms);
   }
 
-  // --- SOS Trigger Section ---
+  // --- Meetup Safety Alert Section ---
+  // Explains the persistent alert panel that stays available for the
+  // duration of an active Date Check-In (i.e. an in-person meetup).
   Widget _buildSosToolkitSection() {
     return Container(
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
@@ -1281,20 +1335,60 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    'SOS EMERGENCY TRIGGER',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF475569),
-                      letterSpacing: 1.2,
+                  Expanded(
+                    child: Text(
+                      'MEETUP SAFETY ALERT',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF475569),
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
+                  if (_checkInActive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: _red,
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                              .animate(onPlay: (c) => c.repeat(reverse: true))
+                              .fadeOut(duration: 700.ms, curve: Curves.easeInOut),
+                          const SizedBox(width: 6),
+                          Text(
+                            'LIVE',
+                            style: GoogleFonts.manrope(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: _red,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
-                'In case of immediate threat or danger, hold down or press the SOS button to alert emergency contacts. You will have 5 seconds to cancel before the notification is simulated.',
+                _checkInActive
+                    ? "Your meetup alert panel is active for the rest of this check-in. These stay one tap away — even if you're mid-conversation."
+                    : 'Start a Date Check-In before you head out. While a check-in is active, a persistent alert panel stays on your device for the whole meetup — with SOS, Call 112, and Inform Trusted Contacts always one tap away.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF64748B),
@@ -1302,83 +1396,201 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Center(
-                child: SizedBox(
-                  width: 190,
-                  height: 190,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      ..._buildRadarRings(),
-                      ScalePressable(
-                            onTap: _startSos,
-                            child: Container(
-                              width: 130,
-                              height: 130,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _red,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: _red.withValues(alpha: 0.4),
-                                    blurRadius: 16,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.shieldAlert,
-                                      color: Colors.white,
-                                      size: 36,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'ACTIVATE',
-                                      style: GoogleFonts.manrope(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 13,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                    Text(
-                                      'SOS',
-                                      style: GoogleFonts.manrope(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 18,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                          .animate(
-                            onPlay: (controller) =>
-                                controller.repeat(reverse: true),
-                          )
-                          .scale(
-                            begin: const Offset(0.96, 0.96),
-                            end: const Offset(1.04, 1.04),
-                            duration: 1500.ms,
-                            curve: Curves.easeInOut,
+              if (_checkInActive)
+                _buildMeetupAlertActions()
+              else
+                ScalePressable(
+                  onTap: () => _scrollToKey(_checkInKey),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.mapPin,
+                            size: 15,
+                            color: Colors.white,
                           ),
-                    ],
+                          const SizedBox(width: 8),
+                          Text(
+                            'Start a Date Check-In',
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         )
         .animate()
         .fadeIn(delay: 50.ms, duration: 350.ms)
         .slideY(begin: 0.05, end: 0, duration: 350.ms);
+  }
+
+  // The three quick actions surfaced in the persistent panel during an
+  // active meetup: escalate to full SOS, ring the national emergency
+  // number, or nudge trusted contacts without a full alert.
+  Widget _buildMeetupAlertActions() {
+    return Column(
+      children: [
+        Center(
+          child: SizedBox(
+            width: 190,
+            height: 190,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                ..._buildRadarRings(),
+                ScalePressable(
+                      onTap: _startSos,
+                      child: Container(
+                        width: 130,
+                        height: 130,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _red,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _red.withValues(alpha: 0.4),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                LucideIcons.shieldAlert,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'ACTIVATE',
+                                style: GoogleFonts.manrope(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              Text(
+                                'SOS',
+                                style: GoogleFonts.manrope(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                    .animate(
+                      onPlay: (controller) => controller.repeat(reverse: true),
+                    )
+                    .scale(
+                      begin: const Offset(0.96, 0.96),
+                      end: const Offset(1.04, 1.04),
+                      duration: 1500.ms,
+                      curve: Curves.easeInOut,
+                    ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMeetupActionTile(
+                icon: LucideIcons.phoneCall,
+                label: 'Call 112',
+                color: _accent,
+                onTap: () => _launchUrlHelper('tel:112'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMeetupActionTile(
+                icon: LucideIcons.users,
+                label: 'Inform Contacts',
+                color: _teal,
+                onTap: _informTrustedContacts,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMeetupActionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ScalePressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Lighter-weight than the full SOS flow: no countdown, just a mock nudge
+  // to trusted contacts letting them know to check in on you.
+  void _informTrustedContacts() {
+    if (_contacts.isEmpty) {
+      NexusToast.show(
+        context,
+        'Add a trusted contact first so we know who to alert.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+    final contactNames = _contacts.map((c) => c.name).join(', ');
+    NexusToast.show(
+      context,
+      'Mock alert sent to $contactNames with your live check-in status.',
+      type: NexusToastType.success,
+    );
   }
 
   // Slow radar pings that ripple outward from the SOS button, signaling
@@ -2142,7 +2354,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // --- Verified & Protected Section ---
   Widget _buildVerifiedProtectedSection() {
-    final badges = [
+    final items = [
       (
         icon: LucideIcons.badgeCheck,
         title: 'Photo Verification',
@@ -2156,15 +2368,33 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             'Automated scans flag stolen, AI-generated, or duplicated profile photos.',
       ),
       (
+        icon: LucideIcons.userRoundCheck,
+        title: 'Identity Assurance',
+        desc: 'Age and identity checks help keep the community authentic.',
+      ),
+      (
+        icon: LucideIcons.bot,
+        title: 'AI Photo & Message Moderation',
+        desc:
+            'Automated systems scan for explicit content, spam, and scam patterns in real time.',
+      ),
+      (
+        icon: LucideIcons.headphones,
+        title: '24/7 Human Trust & Safety Team',
+        desc:
+            'Reports are reviewed around the clock by real people, every day of the year.',
+      ),
+      (
         icon: LucideIcons.lockKeyhole,
-        title: 'Encrypted Sessions',
+        title: 'Encrypted Sessions & Data',
         desc:
             'Your login session and personal data are encrypted at rest and in transit.',
       ),
       (
-        icon: LucideIcons.userRoundCheck,
-        title: 'Identity Assurance',
-        desc: 'Age and identity checks help keep the community authentic.',
+        icon: LucideIcons.ban,
+        title: 'Instant Block, Report & Hide',
+        desc:
+            'One tap removes someone from your matches, requests, and search results — permanently.',
       ),
     ];
 
@@ -2172,16 +2402,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF0F172A),
+                const Color(0xFF0F172A).withValues(alpha: 0.92),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2191,12 +2420,12 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       LucideIcons.badgeCheck,
-                      color: _accent,
+                      color: Color(0xFF5EEAD4),
                       size: 18,
                     ),
                   ),
@@ -2206,7 +2435,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF475569),
+                      color: Colors.white70,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -2214,65 +2443,60 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                'A few things working quietly in the background to keep matches genuine.',
+                'Everything working quietly in the background — from identity checks to 24/7 moderation — to keep Nexus genuine and safe.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: const Color(0xFF64748B),
+                  color: Colors.white60,
                   height: 1.45,
                 ),
               ),
               const SizedBox(height: 16),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.15,
-                children: List.generate(badges.length, (i) {
-                  final b = badges[i];
-                  return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(b.icon, color: _teal, size: 22),
-                            const Spacer(),
-                            Text(
-                              b.title,
-                              style: GoogleFonts.inter(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F172A),
-                              ),
+              ...List.generate(items.length, (i) {
+                final item = items[i];
+                return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: i == items.length - 1 ? 0 : 16,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            item.icon,
+                            color: const Color(0xFF5EEAD4),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.desc,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    color: Colors.white60,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              b.desc,
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: const Color(0xFF64748B),
-                                height: 1.3,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      )
-                      .animate()
-                      .fadeIn(delay: (i * 80).ms, duration: 300.ms)
-                      .scale(
-                        begin: const Offset(0.94, 0.94),
-                        curve: Curves.easeOut,
-                      );
-                }),
-              ),
+                          ),
+                        ],
+                      ),
+                    )
+                    .animate()
+                    .fadeIn(delay: (120 + i * 60).ms, duration: 300.ms)
+                    .slideX(begin: 0.03, end: 0);
+              }),
             ],
           ),
         )
@@ -2285,25 +2509,28 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   Widget _buildHelplinesSection() {
     final helplines = [
       {
-        'title': 'National Domestic Violence Hotline',
-        'desc': 'Free, confidential support available 24/7/365.',
-        'actionText': 'Call 1-800-799-7233',
-        'url': 'tel:18007997233',
+        'title': 'Women Helpline (Domestic Abuse)',
+        'desc':
+            'Toll-free, 24/7 government helpline for women facing abuse or violence.',
+        'actionText': 'Call 181',
+        'url': 'tel:181',
         'icon': LucideIcons.phone,
       },
       {
-        'title': 'Crisis Text Line',
-        'desc': 'Text HOME to 741741 to connect with a crisis counselor.',
-        'actionText': 'Text HOME to 741741',
-        'url': 'sms:741741?body=HOME',
+        'title': 'AASRA Suicide Prevention Helpline',
+        'desc':
+            '24/7 confidential support for anyone in emotional distress or crisis.',
+        'actionText': 'Call +91 98204 66726',
+        'url': 'tel:+919820466726',
+        'icon': LucideIcons.phone,
+      },
+      {
+        'title': 'iCall Psychosocial Helpline',
+        'desc':
+            'Free telephone and email counselling from trained mental health professionals.',
+        'actionText': 'Call +91 91529 87821',
+        'url': 'tel:+919152987821',
         'icon': LucideIcons.messageSquare,
-      },
-      {
-        'title': '988 Suicide & Crisis Lifeline',
-        'desc': 'Free and confidential support for people in distress.',
-        'actionText': 'Call 988',
-        'url': 'tel:988',
-        'icon': LucideIcons.phone,
       },
     ];
 
@@ -2353,7 +2580,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                'If you are in immediate physical danger, dial 911 or call your local police. For support services, reach out to these hotlines:',
+                "If you are in immediate physical danger, dial 112 (India's national emergency number) or contact your local police. For support services, reach out to these hotlines:",
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF64748B),
@@ -2442,115 +2669,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         )
         .animate()
         .fadeIn(delay: 150.ms, duration: 350.ms)
-        .slideY(begin: 0.05, end: 0, duration: 350.ms);
-  }
-
-  // --- Spot the Red Flags Section ---
-  Widget _buildRedFlagsSection() {
-    final flags = [
-      (
-        icon: LucideIcons.zap,
-        title: 'Love Bombing',
-        desc:
-            'Overwhelming affection, pet names, or talk of a future together within days of matching.',
-      ),
-      (
-        icon: LucideIcons.videoOff,
-        title: 'Avoids Video Calls',
-        desc:
-            'Always has an excuse to skip a video chat or phone call before meeting.',
-      ),
-      (
-        icon: LucideIcons.handCoins,
-        title: 'Asks for Money',
-        desc:
-            'Requests cash, gift cards, crypto, or your banking details — for any reason.',
-      ),
-      (
-        icon: LucideIcons.messageCircleOff,
-        title: 'Rushes Off the App',
-        desc:
-            'Pushes hard to move to texting or another app before you feel ready.',
-      ),
-      (
-        icon: LucideIcons.fileWarning,
-        title: 'Inconsistent Story',
-        desc:
-            'Details about their job, age, or life keep changing or don’t add up.',
-      ),
-      (
-        icon: LucideIcons.mapPinOff,
-        title: 'Avoids Public Meetups',
-        desc: 'Insists on meeting at a private home instead of a public place.',
-      ),
-    ];
-
-    return Container(
-          margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-          padding: const EdgeInsets.fromLTRB(20, 20, 0, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        LucideIcons.triangleAlert,
-                        color: _red,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'SPOT THE RED FLAGS',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF475569),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: Text(
-                  'Swipe through common warning signs of scams and catfishing.',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: const Color(0xFF64748B),
-                    height: 1.45,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _RedFlagCarousel(flags: flags),
-            ],
-          ),
-        )
-        .animate()
-        .fadeIn(delay: 170.ms, duration: 350.ms)
         .slideY(begin: 0.05, end: 0, duration: 350.ms);
   }
 
@@ -2995,6 +3113,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
           const SizedBox(height: 16),
           _buildEducationAccordion(
+            controller: _accordionControllers[0],
             title: '1. Meeting Up Safely (Offline Safety)',
             icon: LucideIcons.mapPin,
             items: [
@@ -3003,9 +3122,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               'Arrange your own transportation. Avoid getting picked up by your date or letting them know exactly where you live initially.',
               'Stay in control of your drink and personal items at all times. Do not leave your drink unattended.',
             ],
+            nextLabel: 'Next: Chatting Safely',
+            onNext: () {
+              _accordionControllers[0].collapse();
+              _accordionControllers[1].expand();
+            },
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            controller: _accordionControllers[1],
             title: '2. Chatting Safely (Online Safety)',
             icon: LucideIcons.messageSquare,
             items: [
@@ -3014,9 +3139,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               'Stay on the platform. Avoid switching to WhatsApp, Telegram, or personal text messaging too quickly.',
               'Verify before meeting. Ask for a video call to ensure the person matches their profile photos.',
             ],
+            nextLabel: 'Next: Financial & Scams Protection',
+            onNext: () {
+              _accordionControllers[1].collapse();
+              _accordionControllers[2].expand();
+            },
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            controller: _accordionControllers[2],
             title: '3. Financial & Scams Protection',
             icon: LucideIcons.alertCircle,
             items: [
@@ -3024,9 +3155,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               'Report cryptocurrency or investment pitches. Anyone inviting you to participate in crypto trading or stocks is likely a scammer.',
               'Watch for sob stories. Scammers often claim they need funds for an emergency, travel, or medical treatment.',
             ],
+            nextLabel: 'Next: Reporting & What Happens Next',
+            onNext: () {
+              _accordionControllers[2].collapse();
+              _accordionControllers[3].expand();
+            },
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            controller: _accordionControllers[3],
             title: '4. Reporting & What Happens Next',
             icon: LucideIcons.ban,
             items: [
@@ -3034,16 +3171,23 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               'Reporting is confidential. The user will not be notified that they were reported by you.',
               'Our team reviews reports 24/7. Accounts violating community standards are permanently banned to keep Nexus safe.',
             ],
+            nextLabel: 'Done',
+            onNext: () => _accordionControllers[3].collapse(),
           ),
+          const SizedBox(height: 20),
+          _buildRedFlagsContent(),
         ],
       ),
     ).animate().fadeIn(delay: 250.ms, duration: 350.ms).slideY(begin: 0.05, end: 0, duration: 350.ms);
   }
 
   Widget _buildEducationAccordion({
+    required ExpansibleController controller,
     required String title,
     required IconData icon,
     required List<String> items,
+    required String nextLabel,
+    required VoidCallback onNext,
   }) {
     return Theme(
       data: Theme.of(context).copyWith(
@@ -3053,6 +3197,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         highlightColor: Colors.transparent,
       ),
       child: ExpansionTile(
+        controller: controller,
         collapsedBackgroundColor: const Color(0xFFF8FAFC),
         backgroundColor: const Color(0xFFF8FAFC),
         shape: RoundedRectangleBorder(
@@ -3076,159 +3221,141 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: items.map((text) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Icon(Icons.circle, size: 4, color: _teal),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.5,
-                      color: const Color(0xFF475569),
-                      height: 1.45,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // --- How We Protect You Section ---
-  Widget _buildProtectionSection() {
-    final items = [
-      (
-        icon: LucideIcons.bot,
-        title: 'AI Photo & Message Moderation',
-        desc:
-            'Automated systems scan for explicit content, spam, and scam patterns in real time.',
-      ),
-      (
-        icon: LucideIcons.headphones,
-        title: '24/7 Human Trust & Safety Team',
-        desc:
-            'Reports are reviewed around the clock by real people, every day of the year.',
-      ),
-      (
-        icon: LucideIcons.lockKeyhole,
-        title: 'Encrypted Sessions & Data',
-        desc: 'Your login session is encrypted using secure on-device storage.',
-      ),
-      (
-        icon: LucideIcons.ban,
-        title: 'Instant Block, Report & Hide',
-        desc:
-            'One tap removes someone from your matches, requests, and search results — permanently.',
-      ),
-    ];
-
-    return Container(
-          margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF0F172A),
-                const Color(0xFF0F172A).withValues(alpha: 0.92),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        children: [
+          ...items.map((text) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      LucideIcons.shieldCheck,
-                      color: Color(0xFF5EEAD4),
-                      size: 18,
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Icon(Icons.circle, size: 4, color: _teal),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'HOW WE PROTECT YOU',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white70,
-                      letterSpacing: 1.2,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        color: const Color(0xFF475569),
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              ...List.generate(items.length, (i) {
-                final item = items[i];
-                return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: i == items.length - 1 ? 0 : 16,
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            item.icon,
-                            color: const Color(0xFF5EEAD4),
-                            size: 18,
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.title,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  item.desc,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11.5,
-                                    color: Colors.white60,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .animate()
-                    .fadeIn(delay: (220 + i * 90).ms, duration: 300.ms)
-                    .slideX(begin: 0.03, end: 0);
-              }),
-            ],
+            );
+          }),
+          const SizedBox(height: 14),
+          ScalePressable(
+            onTap: onNext,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  nextLabel,
+                  style: GoogleFonts.manrope(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
           ),
-        )
-        .animate()
-        .fadeIn(delay: 220.ms, duration: 350.ms)
-        .slideY(begin: 0.05, end: 0, duration: 350.ms);
+        ],
+      ),
+    );
+  }
+
+  // --- Spot the Red Flags (nested inside Safety Guidelines & Education) ---
+  Widget _buildRedFlagsContent() {
+    final flags = [
+      (
+        icon: LucideIcons.zap,
+        title: 'Love Bombing',
+        desc:
+            'Overwhelming affection, pet names, or talk of a future together within days of matching.',
+      ),
+      (
+        icon: LucideIcons.videoOff,
+        title: 'Avoids Video Calls',
+        desc:
+            'Always has an excuse to skip a video chat or phone call before meeting.',
+      ),
+      (
+        icon: LucideIcons.handCoins,
+        title: 'Asks for Money',
+        desc:
+            'Requests cash, gift cards, crypto, or your banking details — for any reason.',
+      ),
+      (
+        icon: LucideIcons.messageCircleOff,
+        title: 'Rushes Off the App',
+        desc:
+            'Pushes hard to move to texting or another app before you feel ready.',
+      ),
+      (
+        icon: LucideIcons.fileWarning,
+        title: 'Inconsistent Story',
+        desc:
+            'Details about their job, age, or life keep changing or don’t add up.',
+      ),
+      (
+        icon: LucideIcons.mapPinOff,
+        title: 'Avoids Public Meetups',
+        desc: 'Insists on meeting at a private home instead of a public place.',
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                LucideIcons.triangleAlert,
+                color: _red,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'SPOT THE RED FLAGS',
+              style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF475569),
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Swipe through common warning signs of scams and catfishing.',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: const Color(0xFF64748B),
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _RedFlagCarousel(flags: flags),
+      ],
+    );
   }
 
   // --- Shortcuts & Direct Links ---
@@ -3282,11 +3409,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 label: 'Privacy Settings',
                 desc: 'Toggle public profile field visibility.',
                 icon: LucideIcons.shield,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const PrivacySettingsPage(),
-                  ),
-                ),
+                onTap: _openPrivacySettings,
               ),
               const Divider(height: 20, color: Color(0xFFE2E8F0)),
               _buildShortcutTile(

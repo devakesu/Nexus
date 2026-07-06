@@ -494,6 +494,31 @@ async def create_chat_event(
         raise
 
 
+def _validate_event_status_transition(
+    current_status: str,
+    new_status: str,
+    user_id: str,
+    created_by: str,
+) -> None:
+    if current_status == "cancelled":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update status of a cancelled event.",
+        )
+
+    if new_status == "confirmed":
+        if current_status != "proposed":
+            raise HTTPException(
+                status_code=400,
+                detail="Event is already confirmed.",
+            )
+        if user_id == created_by:
+            raise HTTPException(
+                status_code=400,
+                detail="Proposer cannot confirm their own proposed event.",
+            )
+
+
 @router.patch(
     "/api/v1/chats/{conversation_id}/events/{event_id}",
     response_model=EventResponse,
@@ -512,6 +537,13 @@ async def update_chat_event(
         event = await asyncio.to_thread(fetch_event, event_id)
         if event is None or str(event.get("conversation_id")) != conversation_id:
             raise HTTPException(status_code=404, detail="Event not found.")
+
+        _validate_event_status_transition(
+            current_status=str(event.get("status") or ""),
+            new_status=payload.status,
+            user_id=user_id,
+            created_by=str(event.get("created_by") or ""),
+        )
 
         conversation = await asyncio.to_thread(
             fetch_conversation_participants, conversation_id,

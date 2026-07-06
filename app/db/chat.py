@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -6,7 +7,13 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.core.crypto import decrypt_pii, encrypt_to_hex
+from app.db.client import (
+    DatabaseAccessError,
+    parse_utc_datetime,
+    supabase_client,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +324,48 @@ def mark_messages_read(conversation_id: str, reader_id: str) -> int:
         raise DatabaseAccessError("Failed to mark messages read") from e
 
 
+def _decrypt_float_field(val: Any) -> float | None:
+    if not val:
+        return None
+    from app.core.crypto import DecryptFailedError
+    try:
+        return float(decrypt_pii(val))
+    except DecryptFailedError:
+        with contextlib.suppress(ValueError, TypeError):
+            return float(val)
+
+
+def _decrypt_str_field(val: Any) -> str | None:
+    if not val:
+        return None
+    from app.core.crypto import DecryptFailedError
+    with contextlib.suppress(DecryptFailedError):
+        return decrypt_pii(val)
+    return str(val)
+
+
+def _decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    from app.core.crypto import DecryptFailedError
+
+    # Decrypt event_time
+    event_time_raw = row.get("event_time")
+    if event_time_raw:
+        try:
+            decrypted = decrypt_pii(event_time_raw)
+            row["event_time"] = parse_utc_datetime(decrypted)
+        except DecryptFailedError:
+            with contextlib.suppress(Exception):
+                row["event_time"] = parse_utc_datetime(event_time_raw)
+
+    row["location_lat"] = _decrypt_float_field(row.get("location_lat"))
+    row["location_lng"] = _decrypt_float_field(row.get("location_lng"))
+    row["location_label"] = _decrypt_str_field(row.get("location_label"))
+
+    return row
+
+
 def create_event_with_message(
     conversation_id: str,
     sender_id: str,
@@ -346,10 +395,22 @@ def create_event_with_message(
                     "conversation_id": conversation_id,
                     "message_id": message_id,
                     "created_by": sender_id,
-                    "event_time": event_time.isoformat(),
-                    "location_lat": location_lat,
-                    "location_lng": location_lng,
-                    "location_label": location_label,
+                    "event_time": encrypt_to_hex(event_time.isoformat()),
+                    "location_lat": (
+                        encrypt_to_hex(str(location_lat))
+                        if location_lat is not None
+                        else None
+                    ),
+                    "location_lng": (
+                        encrypt_to_hex(str(location_lng))
+                        if location_lng is not None
+                        else None
+                    ),
+                    "location_label": (
+                        encrypt_to_hex(location_label)
+                        if location_label is not None
+                        else None
+                    ),
                 },
             )
             .execute()
@@ -357,7 +418,8 @@ def create_event_with_message(
         rows = cast(list[Any], res.data or [])
         if not rows or not isinstance(rows[0], dict):
             raise DatabaseAccessError("Event insert returned no row")
-        return {"message": message_row, "event": cast(dict[str, Any], rows[0])}
+        decrypted_event = _decrypt_event_row(cast(dict[str, Any], rows[0]))
+        return {"message": message_row, "event": decrypted_event}
     except APIError as e:
         try:
             supabase_client.table("chat_messages").delete().eq(
@@ -386,7 +448,10 @@ def fetch_event(event_id: str) -> dict[str, Any] | None:
             .maybe_single()
             .execute()
         )
-        return cast(dict[str, Any] | None, getattr(res, "data", None))
+        data = getattr(res, "data", None)
+        if data is None:
+            return None
+        return _decrypt_event_row(cast(dict[str, Any], data))
     except APIError as e:
         logger.exception("Failed to fetch event", extra={"event_id": event_id})
         raise DatabaseAccessError("Failed to fetch event") from e
@@ -407,7 +472,7 @@ def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
         rows = cast(list[Any], res.data or [])
         if not rows or not isinstance(rows[0], dict):
             return None
-        return cast(dict[str, Any], rows[0])
+        return _decrypt_event_row(cast(dict[str, Any], rows[0]))
     except APIError as e:
         logger.exception(
             "Failed to update event status", extra={"event_id": event_id},
@@ -417,19 +482,27 @@ def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
 
 def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
     """Events starting within window_minutes that haven't been reminded yet."""
-    now = utcnow()
-    window_end = now + timedelta(minutes=window_minutes)
     try:
         res = (
             supabase_client.table("chat_events")
             .select("id, conversation_id, created_by, event_time, location_label")
             .is_("reminder_sent_at", "null")
             .neq("status", "cancelled")
-            .gte("event_time", now.isoformat())
-            .lte("event_time", window_end.isoformat())
             .execute()
         )
-        return cast(list[Any], res.data or [])
+        rows = cast(list[Any], res.data or [])
+        due_events: list[dict[str, Any]] = []
+        now = utcnow()
+        window_end = now + timedelta(minutes=window_minutes)
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            decrypted_row = _decrypt_event_row(cast(dict[str, Any], row))
+            if decrypted_row and decrypted_row.get("event_time"):
+                e_time = decrypted_row["event_time"]
+                if now <= e_time <= window_end:
+                    due_events.append(decrypted_row)
+        return due_events
     except APIError as e:
         logger.exception("Failed to fetch due event reminders")
         raise DatabaseAccessError("Failed to fetch due event reminders") from e

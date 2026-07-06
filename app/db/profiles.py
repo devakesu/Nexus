@@ -19,6 +19,19 @@ from app.models import DiscoveryFilters
 logger = logging.getLogger(__name__)
 
 
+_PROFILE_SELECT_COLUMNS = (
+    "id, name, age, campus_year, campus_branch, campus_name, "
+    "display_gender, display_sexuality, pronouns, bio, search_bucket, "
+    "hometown, current_place, partner_values, children_plans, "
+    "religious_beliefs, lifestyle, drinking, smoking, role_at, "
+    "dating_target_buckets, dating_for, friends_target_buckets, "
+    "professional_target_buckets, looking_for, activities, "
+    "causes_supported, top_artists, tech_skills, languages, "
+    "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
+    "role_type, normal_pics, profile_pic"
+)
+
+
 def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
     """Decrypt profile_pic on a list of raw profile rows, keyed by profile id."""
     profile_map: dict[str, dict[str, Any]] = {}
@@ -70,7 +83,7 @@ def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
 def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
     raw = row.get(field)
     if raw is None:
-        row[field] = ""
+        row[field] = None
         return
 
     try:
@@ -228,17 +241,7 @@ def _fetch_and_decrypt_viewer(
             # NOTE: We fetch all fields needed for decryption. If any expected
             # columns are omitted, decrypt_profile_record will receive None
             # and default them to empty.
-            .select(
-                "id, name, age, campus_year, campus_branch, campus_name, "
-                "display_gender, display_sexuality, pronouns, bio, search_bucket, "
-                "hometown, current_place, partner_values, children_plans, "
-                "religious_beliefs, lifestyle, drinking, smoking, role_at, "
-                "dating_target_buckets, dating_for, friends_target_buckets, "
-                "professional_target_buckets, looking_for, activities, "
-                "causes_supported, top_artists, tech_skills, languages, "
-                "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
-                "role_type, normal_pics, profile_pic",
-            )
+            .select(_PROFILE_SELECT_COLUMNS)
             .eq("id", viewer_id)
             .limit(1)
             .execute()
@@ -291,17 +294,7 @@ def _build_candidate_query(
 ) -> Any:
     """Helper to assemble query constraints for candidate matching."""
     completion_flag_column = _get_completion_flag_column(active_tab)
-    explicit_columns = (
-        "id, name, age, campus_year, campus_branch, campus_name, "
-        "display_gender, display_sexuality, pronouns, bio, search_bucket, "
-        "hometown, current_place, partner_values, children_plans, "
-        "religious_beliefs, lifestyle, drinking, smoking, role_at, "
-        "dating_target_buckets, dating_for, friends_target_buckets, "
-        "professional_target_buckets, looking_for, activities, "
-        "causes_supported, top_artists, tech_skills, languages, "
-        "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
-        f"profile_pic, normal_pics, {completion_flag_column}"
-    )
+    explicit_columns = f"{_PROFILE_SELECT_COLUMNS}, {completion_flag_column}"
     query = supabase_client.table("profiles").select(explicit_columns)
     query = query.neq("id", viewer_id)
     query = query.eq(completion_flag_column, True)
