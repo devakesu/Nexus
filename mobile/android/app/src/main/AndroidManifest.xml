@@ -8,6 +8,9 @@
     <!-- Required for sharing current location in chat -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Required to read the phone number of a contact picked from the device
+         address book when adding a Safety Center trusted contact -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -81,5 +84,12 @@
         <!-- Required for Spotify native SSO (Android 11+ package visibility) -->
         <package android:name="com.spotify.music" />
         <package android:name="com.spotify.lite" />
+        <!-- Required so url_launcher's canLaunchUrl can find the dialer app
+             for tel: links (Safety Center helplines / Call 112) on
+             Android 11+, where package visibility hides it otherwise. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
     </queries>
 </manifest>

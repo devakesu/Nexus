@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -668,105 +671,98 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     NexusToast.show(context, 'Contact removed');
   }
 
-  void _showAddContactDialog() {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  // Trusted contacts are picked straight from the device address book via
+  // the native contact picker (permissionless on iOS; on Android, reading
+  // the phone number back out requires READ_CONTACTS).
+  Future<void> _pickContactFromDevice() async {
+    if (_contacts.length >= 3) {
+      NexusToast.show(
+        context,
+        'You can add a maximum of 3 trusted contacts.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+    try {
+      if (Platform.isAndroid) {
+        final status = await FlutterContacts.permissions.request(
+          PermissionType.read,
+        );
+        final granted =
+            status == PermissionStatus.granted ||
+            status == PermissionStatus.limited;
+        if (!granted) {
+          if (mounted) {
+            NexusToast.show(
+              context,
+              'Contacts permission is needed to add a trusted contact.',
+              type: NexusToastType.error,
+            );
+          }
+          return;
+        }
+      }
+      final contact = await FlutterContacts.native.showPicker(
+        properties: {ContactProperty.phone},
+      );
+      if (contact == null) return;
+      final name = contact.displayName?.trim() ?? '';
+      final phone = contact.phones.isNotEmpty
+          ? contact.phones.first.number.trim()
+          : '';
+      if (name.isEmpty) {
+        if (mounted) {
+          NexusToast.show(
+            context,
+            'That contact has no name on file.',
+            type: NexusToastType.error,
+          );
+        }
+        return;
+      }
+      if (phone.isEmpty) {
+        if (mounted) {
+          NexusToast.show(
+            context,
+            'That contact has no phone number.',
+            type: NexusToastType.error,
+          );
+        }
+        return;
+      }
+      if (!_isValidPhoneNumber(phone)) {
+        if (mounted) {
+          NexusToast.show(
+            context,
+            "That contact's phone number doesn't look valid.",
+            type: NexusToastType.error,
+          );
+        }
+        return;
+      }
+      _addContact(name, phone);
+    } on PlatformException catch (_) {
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Could not access contacts.',
+          type: NexusToastType.error,
+        );
+      }
+    }
+  }
 
-    unawaited(
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Add Trusted Contact',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
-          ),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    labelStyle: GoogleFonts.inter(fontSize: 14),
-                    prefixIcon: const Icon(LucideIcons.user, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number',
-                    labelStyle: GoogleFonts.inter(fontSize: 14),
-                    prefixIcon: const Icon(LucideIcons.phone, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a phone number';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _accent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  _addContact(
-                    nameController.text.trim(),
-                    phoneController.text.trim(),
-                  );
-                  Navigator.of(ctx).pop();
-                }
-              },
-              child: Text(
-                'Save',
-                style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Accepts any internationally-formatted number (+ country code, 8-15
+  // digits) or a bare 10-digit Indian mobile number (starting 6-9, with an
+  // optional leading 0 or 91 trunk prefix) — covers both local contacts and
+  // contacts synced with a foreign country code.
+  bool _isValidPhoneNumber(String raw) {
+    final cleaned = raw.replaceAll(RegExp(r'[^\d+]'), '');
+    if (cleaned.startsWith('+')) {
+      return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(cleaned);
+    }
+    final withoutTrunkPrefix = cleaned.replaceFirst(RegExp('^(0|91)'), '');
+    return RegExp(r'^[6-9]\d{9}$').hasMatch(withoutTrunkPrefix);
   }
 
   // --- Date Check-In Logic ---
@@ -953,9 +949,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             scrollCacheExtent: const ScrollCacheExtent.pixels(20000),
             children: [
               _buildSafetyHeroBanner(),
-              _buildSafetyScoreSection(),
-              _buildSosToolkitSection(),
-              KeyedSubtree(key: _checkInKey, child: _buildDateCheckInSection()),
+              KeyedSubtree(
+                key: _checkInKey,
+                child: _buildMeetupSafetySection(),
+              ),
               KeyedSubtree(
                 key: _contactsKey,
                 child: _buildEmergencyContactsSection(),
@@ -1021,121 +1018,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // --- Calming Hero Banner ---
   Widget _buildSafetyHeroBanner() {
-    return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Colors.white, Color(0xFFECFDF5)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFD1FAE5)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Safety Matters',
-                      style: GoogleFonts.manrope(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Access resources, configure emergency triggers, and learn guidelines to protect yourself online and offline.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: const Color(0xFF475569),
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 76,
-                height: 76,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ..._buildBreathingRings(),
-                    Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFCCFBF1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.shieldCheck,
-                            color: _teal,
-                            size: 32,
-                          ),
-                        )
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scale(
-                          begin: const Offset(0.92, 0.92),
-                          end: const Offset(1.08, 1.08),
-                          duration: 2500.ms,
-                          curve: Curves.easeInOut,
-                        ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        )
-        .animate()
-        .fadeIn(duration: 350.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.05, end: 0, duration: 350.ms);
-  }
-
-  // Calming "breathing" halo rings that softly expand and fade behind the
-  // hero shield icon, giving the whole header a slow, reassuring pulse.
-  List<Widget> _buildBreathingRings() {
-    return List.generate(2, (i) {
-      return Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: _teal.withValues(alpha: 0.35),
-                width: 1.5,
-              ),
-            ),
-          )
-          .animate(
-            onPlay: (c) => c.repeat(),
-            delay: (i * 900).ms,
-          )
-          .scale(
-            begin: const Offset(0.55, 0.55),
-            end: const Offset(1.35, 1.35),
-            duration: 2600.ms,
-            curve: Curves.easeOut,
-          )
-          .fadeOut(duration: 2600.ms, curve: Curves.easeOut);
-    });
-  }
-
-  // --- Safety Score Section ---
-  Widget _buildSafetyScoreSection() {
     final score = _safetyScore;
     final percent = (score * 100).round();
     final checklist = <_ChecklistItem>[
@@ -1166,23 +1048,89 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     ];
 
     return Container(
-          margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(20, 20, 20, 10),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: const LinearGradient(
+              colors: [Colors.white, Color(0xFFECFDF5)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: const Color(0xFFD1FAE5)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your Safety Matters',
+                          style: GoogleFonts.manrope(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Access resources, configure emergency triggers, and learn guidelines to protect yourself online and offline.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF475569),
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 76,
+                    height: 76,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ..._buildBreathingRings(),
+                        Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFCCFBF1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.shieldCheck,
+                                color: _teal,
+                                size: 32,
+                              ),
+                            )
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .scale(
+                              begin: const Offset(0.92, 0.92),
+                              end: const Offset(1.08, 1.08),
+                              duration: 2500.ms,
+                              curve: Curves.easeInOut,
+                            ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: Color(0xFFD1FAE5), height: 1),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   TweenAnimationBuilder<double>(
@@ -1294,14 +1242,44 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
         )
         .animate()
-        .fadeIn(delay: 30.ms, duration: 350.ms)
+        .fadeIn(duration: 350.ms, curve: Curves.easeOut)
         .slideY(begin: 0.05, end: 0, duration: 350.ms);
   }
 
+  // Calming "breathing" halo rings that softly expand and fade behind the
+  // hero shield icon, giving the whole header a slow, reassuring pulse.
+  List<Widget> _buildBreathingRings() {
+    return List.generate(2, (i) {
+      return Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _teal.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+            ),
+          )
+          .animate(
+            onPlay: (c) => c.repeat(),
+            delay: (i * 900).ms,
+          )
+          .scale(
+            begin: const Offset(0.55, 0.55),
+            end: const Offset(1.35, 1.35),
+            duration: 2600.ms,
+            curve: Curves.easeOut,
+          )
+          .fadeOut(duration: 2600.ms, curve: Curves.easeOut);
+    });
+  }
+
   // --- Meetup Safety Alert Section ---
-  // Explains the persistent alert panel that stays available for the
-  // duration of an active Date Check-In (i.e. an in-person meetup).
-  Widget _buildSosToolkitSection() {
+  // Combines the Date Check-In controls with the persistent alert panel
+  // explainer: start/manage a check-in here, and while one is active the
+  // same card surfaces the SOS / Call 112 / Inform Trusted Contacts panel.
+  Widget _buildMeetupSafetySection() {
     return Container(
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
           padding: const EdgeInsets.all(20),
@@ -1368,7 +1346,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                 ),
                               )
                               .animate(onPlay: (c) => c.repeat(reverse: true))
-                              .fadeOut(duration: 700.ms, curve: Curves.easeInOut),
+                              .fadeOut(
+                                duration: 700.ms,
+                                curve: Curves.easeInOut,
+                              ),
                           const SizedBox(width: 6),
                           Text(
                             'LIVE',
@@ -1388,7 +1369,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               Text(
                 _checkInActive
                     ? "Your meetup alert panel is active for the rest of this check-in. These stay one tap away — even if you're mid-conversation."
-                    : 'Start a Date Check-In before you head out. While a check-in is active, a persistent alert panel stays on your device for the whole meetup — with SOS, Call 112, and Inform Trusted Contacts always one tap away.',
+                    : "Heading out to meet someone? Start a check-in below before you go. While it's active, a persistent alert panel stays on your device for the whole meetup — with SOS, Call 112, and Inform Trusted Contacts always one tap away.",
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF64748B),
@@ -1396,41 +1377,19 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              if (_checkInActive)
-                _buildMeetupAlertActions()
-              else
-                ScalePressable(
-                  onTap: () => _scrollToKey(_checkInKey),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+              AnimatedSwitcher(
+                duration: 300.ms,
+                child: _checkInActive
+                    ? Column(
+                        key: const ValueKey('meetup_active'),
                         children: [
-                          const Icon(
-                            LucideIcons.mapPin,
-                            size: 15,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Start a Date Check-In',
-                            style: GoogleFonts.manrope(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
+                          _buildCheckInActiveCard(),
+                          const SizedBox(height: 20),
+                          _buildMeetupAlertActions(),
                         ],
-                      ),
-                    ),
-                  ),
-                ),
+                      )
+                    : _buildCheckInForm(),
+              ),
             ],
           ),
         )
@@ -1714,76 +1673,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     );
   }
 
-  // --- Date Check-In Section ---
-  Widget _buildDateCheckInSection() {
-    return Container(
-          margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F9FF),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      LucideIcons.mapPin,
-                      color: _accent,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'DATE CHECK-IN',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF475569),
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Heading out to meet someone? Set a timer before you go. If you don't check in as safe, we'll simulate an alert to your trusted contact.",
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: const Color(0xFF64748B),
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 16),
-              AnimatedSwitcher(
-                duration: 300.ms,
-                child: _checkInActive
-                    ? _buildCheckInActiveCard()
-                    : _buildCheckInForm(),
-              ),
-            ],
-          ),
-        )
-        .animate()
-        .fadeIn(delay: 60.ms, duration: 350.ms)
-        .slideY(begin: 0.05, end: 0, duration: 350.ms);
-  }
-
   Widget _buildCheckInForm() {
     final durationOptions = <Duration>[
       const Duration(minutes: 30),
@@ -1876,52 +1765,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             );
           }).toList(),
         ),
-        if (_contacts.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(
-            'ALERT CONTACT',
-            style: GoogleFonts.manrope(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF94A3B8),
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(_contacts.length, (i) {
-              final selected = (_checkInContactIndex ?? 0) == i;
-              return ScalePressable(
-                onTap: () => setState(() => _checkInContactIndex = i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _teal.withValues(alpha: 0.1)
-                        : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: selected ? _teal : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Text(
-                    _contacts[i].name,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? _teal : const Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
         const SizedBox(height: 18),
         if (_contacts.isEmpty)
           Container(
@@ -2187,7 +2030,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   ),
                   if (_contacts.length < 3)
                     ScalePressable(
-                      onTap: _showAddContactDialog,
+                      onTap: _pickContactFromDevice,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -3383,12 +3226,12 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0F9FF),
+                      color: const Color(0xFFEEF2FF),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      LucideIcons.shield,
-                      color: _accent,
+                      LucideIcons.zap,
+                      color: Colors.indigo,
                       size: 18,
                     ),
                   ),

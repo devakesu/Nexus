@@ -56,10 +56,12 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
 
       final rows = List<Map<String, dynamic>>.from(res as List);
       if (rows.isEmpty) {
-        setState(() {
-          _users = [];
-          _loading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _users = [];
+            _loading = false;
+          });
+        }
         return;
       }
 
@@ -98,15 +100,19 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
           profilePic: info?['profile_pic'] as String?,
         );
       }).toList()..sort((a, b) => b.latestHiddenAt.compareTo(a.latestHiddenAt));
-      setState(() {
-        _users = built;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _users = built;
+          _loading = false;
+        });
+      }
     } on Exception catch (_) {
-      setState(() {
-        _error = 'Failed to load hidden users. Tap to retry.';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load hidden users. Tap to retry.';
+          _loading = false;
+        });
+      }
     }
   }
 
