@@ -719,7 +719,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                   iconBg: const Color(0xFFECFDF5),
                   title: 'Contact Support',
                   subtitle: "We're here to help.",
-                  onTap: () => _scrollToKey(_contactKey),
+                  onTap: () => context.push<void>('/settings/feedback'),
                   animateDelay: 40,
                 ),
               ),

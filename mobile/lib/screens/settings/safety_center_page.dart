@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
 import 'package:nexus/screens/settings/crisis_helplines_page.dart';
+import 'package:nexus/screens/settings/feedback_page.dart';
 import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
@@ -1773,6 +1774,17 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const HiddenUsersPage(),
+                  ),
+                ),
+              ),
+              const Divider(height: 20, color: Colors.white12),
+              _buildShortcutTile(
+                label: 'Help, Feedback & Bug Report',
+                desc: 'Reach our team directly, any time.',
+                icon: LucideIcons.messageSquare,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const FeedbackPage(),
                   ),
                 ),
               ),

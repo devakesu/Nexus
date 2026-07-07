@@ -1311,7 +1311,6 @@ class RegisterDeviceRequest(BaseModel):
 # Help, Feedback & Bug Report
 # ---------------------------------------------------------------------------
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _GITHUB_ISSUE_URL_RE = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+/issues/\d+/?$")
 
 
@@ -1321,7 +1320,6 @@ class FeedbackSubmitRequest(BaseModel):
     query_type: Literal["help", "feedback", "bug_report"]
     subject: str = Field(..., min_length=3, max_length=150)
     message: str = Field(..., min_length=10, max_length=5000)
-    contact_email: str | None = Field(default=None, max_length=254)
     github_issue_url: str | None = Field(
         default=None,
         max_length=500,
@@ -1344,18 +1342,6 @@ class FeedbackSubmitRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
-        return v
-
-    @field_validator("contact_email")
-    @classmethod
-    def validate_contact_email(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        v = v.strip().lower()
-        if not v:
-            return None
-        if not _EMAIL_RE.match(v):
-            raise ValueError("contact_email must be a valid email address")
         return v
 
     @field_validator("github_issue_url")
@@ -1393,3 +1379,69 @@ class FeedbackSubmitResponse(BaseModel):
     id: str
     status: str
     created_at: datetime
+
+
+class FeedbackTicketSummary(BaseModel):
+    """Compact ticket row for the "My Tickets" list."""
+
+    id: str
+    query_type: str
+    subject: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class FeedbackStatusHistoryEntry(BaseModel):
+    status: str
+    note: str | None = None
+    changed_by: str | None = None
+    created_at: datetime
+
+
+class FeedbackCommentEntry(BaseModel):
+    id: str
+    author_id: str
+    body: str
+    created_at: datetime
+    is_own: bool
+
+
+class FeedbackTicketDetail(BaseModel):
+    id: str
+    query_type: str
+    subject: str
+    message: str
+    github_issue_url: str | None = None
+    attachment_paths: list[str]
+    app_version: str | None = None
+    platform: str | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    status_history: list[FeedbackStatusHistoryEntry]
+    comments: list[FeedbackCommentEntry]
+
+
+class FeedbackCommentRequest(BaseModel):
+    body: str = Field(..., min_length=1, max_length=3000)
+
+    @field_validator("body")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class FeedbackCloseRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v

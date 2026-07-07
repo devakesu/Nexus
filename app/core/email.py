@@ -343,14 +343,47 @@ def render_email_template(
     subject: str,
     preheader_category: str = "SYSTEM",
     preheader_action: str = "VERIFIED",
+    footer_html: str | None = None,
 ) -> str:
     """
     Renders a unified premium HTML wrapper using standard Nexus branding guidelines.
 
     This enables reusing styling, fonts, layouts, and footer information
     across all transactional emails.
+
+    footer_html: custom footer row content. Defaults (None) to the standard
+    "a Nexus account was created" notice, which is only accurate for
+    account/auth emails - pass an explicit string for anything else, or an
+    empty string to omit the footer row entirely.
     """
     app_domain = settings.app_domain
+    if footer_html is None:
+        footer_html = f"""
+              You are receiving this mandatory service-related communication
+              because a Nexus account was created using this
+              email address. If you did not initiate this action, please contact
+              support at <a href="mailto:support@{app_domain}" style="color: pink;">
+              support@{app_domain}</a>
+              <br>
+              <a href="https://{app_domain}/legal" target="_blank"
+                 style="color: white">Privacy, Terms & Legal</a>
+        """
+    footer_row = (
+        f"""
+          <tr>
+            <td style="padding: 24px 32px; background-color: #0A0B0E;
+                       border-top: 1px solid #1A1C20;
+                       font-family: ui-monospace, SFMono-Regular,
+                       Menlo, Monaco, Consolas, monospace;
+                       font-size: 10px; color: white; line-height: 1.5;
+                       text-align: center;">
+              {footer_html}
+            </td>
+          </tr>
+        """
+        if footer_html.strip()
+        else ""
+    )
     return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -416,23 +449,7 @@ def render_email_template(
 
           {rows_html}
 
-          <tr>
-            <td style="padding: 24px 32px; background-color: #0A0B0E;
-                       border-top: 1px solid #1A1C20;
-                       font-family: ui-monospace, SFMono-Regular,
-                       Menlo, Monaco, Consolas, monospace;
-                       font-size: 10px; color: white; line-height: 1.5;
-                       text-align: center;">
-              You are receiving this mandatory service-related communication
-              because a Nexus account was created using this
-              email address. If you did not initiate this action, please contact
-              support at <a href="mailto:support@{app_domain}" style="color: pink;">
-              support@{app_domain}</a>
-              <br>
-              <a href="https://{app_domain}/legal" target="_blank"
-                 style="color: white">Privacy, Terms & Legal</a>
-            </td>
-          </tr>
+          {footer_row}
         </table>
 
       </td>
@@ -682,6 +699,15 @@ async def send_feedback_confirmation_email(
     user_name = extract_user_name(email, auth_user)
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = _short_report_id(report_id)
+    support_link = (
+        f'<a href="mailto:support@{settings.app_domain}" style="color: pink;">'
+        f"support@{settings.app_domain}</a>"
+    )
+    footer_html = (
+        f"You're receiving this because you submitted ticket #{ticket_ref} on "
+        f"Nexus. Just reply to this email to add more detail, or reach us at "
+        f"{support_link}."
+    )
 
     row_1 = f"""
           <tr>
@@ -746,6 +772,7 @@ async def send_feedback_confirmation_email(
         subject=f"We've received your {label.lower()} — Nexus Support",
         preheader_category="SUPPORT",
         preheader_action=f"TICKET_{ticket_ref}_OPEN",
+        footer_html=footer_html,
     )
 
     text_content = (
@@ -790,7 +817,7 @@ async def send_feedback_admin_notification_email(
     subject: str,
     message: str,
     user_id: str,
-    contact_email: str | None,
+    submitter_email: str | None,
     github_issue_url: str | None = None,
     attachment_count: int = 0,
     app_version: str | None = None,
@@ -812,11 +839,20 @@ async def send_feedback_admin_notification_email(
     def _detail_row(field: str, value: str) -> str:
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
+    # Explicit color + anchor tag rather than bare text: several mail
+    # clients auto-linkify plain email addresses and override styling with
+    # their own (often low-contrast on a dark background) link color.
+    contact_display = (
+        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
+        f"{submitter_email}</a>"
+        if submitter_email
+        else "(none on file)"
+    )
     detail_lines = [
         _detail_row("TICKET", f"#{ticket_ref}"),
         _detail_row("CATEGORY", label.upper()),
         _detail_row("USER_ID", user_id),
-        _detail_row("CONTACT", contact_email or "(none on file)"),
+        _detail_row("CONTACT", contact_display),
     ]
     if platform:
         detail_lines.append(_detail_row("PLATFORM", platform))
@@ -882,11 +918,12 @@ async def send_feedback_admin_notification_email(
         subject=f"[Nexus {label}] {subject}",
         preheader_category="ADMIN",
         preheader_action=f"NEW_{query_type.upper()}",
+        footer_html="",
     )
 
     text_content = (
         f"New {label} — #{ticket_ref}\nSubject: {subject}\n"
-        f"User: {user_id}\nContact: {contact_email or '(none on file)'}\n\n"
+        f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n\n"
         f"{message}"
     )
 
@@ -897,7 +934,7 @@ async def send_feedback_admin_notification_email(
         text=text_content,
         sender_email=f"support@{settings.app_domain}",
         from_name="Nexus Support",
-        reply_to=contact_email or None,
+        reply_to=submitter_email or None,
     )
 
     try:

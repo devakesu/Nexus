@@ -8,54 +8,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/settings/feedback_shared.dart';
+import 'package:nexus/screens/settings/feedback_ticket_detail_page.dart';
+import 'package:nexus/screens/settings/feedback_tickets_list_page.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-
-enum _QueryType { help, feedback, bugReport }
-
-extension on _QueryType {
-  String get apiValue => switch (this) {
-    _QueryType.help => 'help',
-    _QueryType.feedback => 'feedback',
-    _QueryType.bugReport => 'bug_report',
-  };
-
-  String get label => switch (this) {
-    _QueryType.help => 'Help',
-    _QueryType.feedback => 'Feedback',
-    _QueryType.bugReport => 'Bug Report',
-  };
-
-  String get description => switch (this) {
-    _QueryType.help => "I'm stuck on something",
-    _QueryType.feedback => 'I have a suggestion',
-    _QueryType.bugReport => 'Something is broken',
-  };
-
-  IconData get icon => switch (this) {
-    _QueryType.help => LucideIcons.circleHelp,
-    _QueryType.feedback => LucideIcons.lightbulb,
-    _QueryType.bugReport => LucideIcons.bug,
-  };
-
-  String get subjectHint => switch (this) {
-    _QueryType.help => 'e.g. How do I pause my Orbits?',
-    _QueryType.feedback => 'e.g. Add a dark mode toggle',
-    _QueryType.bugReport => 'e.g. Chat crashes when sending a photo',
-  };
-
-  String get messageHint => switch (this) {
-    _QueryType.help => 'Tell us what you were trying to do and where you got stuck.',
-    _QueryType.feedback => "Share what's on your mind — we read every word.",
-    _QueryType.bugReport =>
-      'What did you expect to happen, and what happened instead? '
-          'Steps to reproduce help a lot.',
-  };
-}
 
 class _PendingAttachment {
   _PendingAttachment({required this.id, required this.file});
@@ -83,9 +45,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
   late final Dio _dio;
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  _QueryType _queryType = _QueryType.help;
+  FeedbackQueryType _queryType = FeedbackQueryType.help;
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _contactEmailController;
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _githubUrlController = TextEditingController();
@@ -95,13 +56,15 @@ class _FeedbackPageState extends State<FeedbackPage> {
   bool _submitting = false;
   PackageInfo? _packageInfo;
 
+  bool _loadingTickets = true;
+  List<FeedbackTicketSummary> _recentTickets = [];
+
   @override
   void initState() {
     super.initState();
     _dio = createDio();
-    final user = _supabase.auth.currentUser;
-    _contactEmailController = TextEditingController(text: user?.email ?? '');
     unawaited(_loadPackageInfo());
+    unawaited(_loadRecentTickets());
   }
 
   Future<void> _loadPackageInfo() async {
@@ -109,9 +72,28 @@ class _FeedbackPageState extends State<FeedbackPage> {
     if (mounted) setState(() => _packageInfo = info);
   }
 
+  Future<void> _loadRecentTickets() async {
+    setState(() => _loadingTickets = true);
+    try {
+      final token = await NetworkUtils.requireAccessToken();
+      final response = await _dio.get<List<dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/feedback/mine',
+        queryParameters: {'limit': 3},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final tickets = (response.data ?? [])
+          .map((e) => FeedbackTicketSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
+      if (mounted) setState(() => _recentTickets = tickets);
+    } on Exception {
+      // Silently degrade; the submit form still works without ticket history.
+    } finally {
+      if (mounted) setState(() => _loadingTickets = false);
+    }
+  }
+
   @override
   void dispose() {
-    _contactEmailController.dispose();
     _subjectController.dispose();
     _messageController.dispose();
     _githubUrlController.dispose();
@@ -258,7 +240,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
           : null;
       final platform = Platform.isIOS ? 'ios' : 'android';
 
-      final contactEmail = _contactEmailController.text.trim();
       final githubUrl = _githubUrlController.text.trim();
 
       final response = await _dio.post<Map<String, dynamic>>(
@@ -267,8 +248,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           'query_type': _queryType.apiValue,
           'subject': _subjectController.text.trim(),
           'message': _messageController.text.trim(),
-          if (contactEmail.isNotEmpty) 'contact_email': contactEmail,
-          if (_queryType == _QueryType.bugReport && githubUrl.isNotEmpty)
+          if (_queryType == FeedbackQueryType.bugReport && githubUrl.isNotEmpty)
             'github_issue_url': githubUrl,
           'attachment_paths': attachmentPaths,
           'app_version': ?appVersion,
@@ -279,11 +259,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
       if (!mounted) return;
       final ticketId = response.data?['id'] as String?;
-      final ref = (ticketId != null && ticketId.length >= 8)
-          ? ticketId.substring(0, 8).toUpperCase()
-          : null;
+      final ref = ticketId != null ? feedbackTicketRef(ticketId) : null;
 
       setState(() => _submitting = false);
+      unawaited(_loadRecentTickets());
       await _showSuccessDialog(ref);
     } on DioException catch (e) {
       await _rollbackUploadedAttachments();
@@ -404,7 +383,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
           children: [
             _buildIntro(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            _buildMyTicketsSection(),
+            const SizedBox(height: 20),
             _buildQueryTypeSelector(),
             const SizedBox(height: 16),
             _buildFormCard(),
@@ -459,6 +440,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
   Widget _buildIntro() {
     final name = _greetingName;
+    final email = _supabase.auth.currentUser?.email;
     return Row(
           children: [
             Container(
@@ -495,7 +477,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'This reaches our team directly — no bots in between.',
+                    email != null
+                        ? "This reaches our team directly — we'll reply to $email."
+                        : 'This reaches our team directly — no bots in between.',
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
                       color: const Color(0xFF64748B),
@@ -511,14 +495,154 @@ class _FeedbackPageState extends State<FeedbackPage> {
         .slideY(begin: 0.05, end: 0, duration: 300.ms);
   }
 
+  Future<void> _openTicket(String reportId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FeedbackTicketDetailPage(reportId: reportId),
+      ),
+    );
+    unawaited(_loadRecentTickets());
+  }
+
+  Widget _buildMyTicketsSection() {
+    if (_loadingTickets) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: NexusOrbitLoader(size: 24, lightMode: true)),
+      );
+    }
+    if (_recentTickets.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'YOUR TICKETS',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF64748B),
+                    letterSpacing: 1,
+                  ),
+                ),
+                ScalePressable(
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const FeedbackTicketsListPage(),
+                      ),
+                    );
+                    unawaited(_loadRecentTickets());
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View all',
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: _gradientEnd,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        LucideIcons.chevronRight,
+                        size: 14,
+                        color: _gradientEnd,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < _recentTickets.length; i++)
+                    _buildTicketRow(
+                      _recentTickets[i],
+                      showDivider: i < _recentTickets.length - 1,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        )
+        .animate()
+        .fadeIn(delay: 40.ms, duration: 300.ms)
+        .slideY(begin: 0.04, end: 0, duration: 300.ms);
+  }
+
+  Widget _buildTicketRow(FeedbackTicketSummary ticket, {required bool showDivider}) {
+    return Column(
+      children: [
+        ScalePressable(
+          onTap: () => _openTicket(ticket.id),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(ticket.queryType.icon, size: 16, color: const Color(0xFF94A3B8)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ticket.subject,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        feedbackRelativeTime(ticket.createdAt),
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FeedbackStatusBadge(status: ticket.status, compact: true),
+              ],
+            ),
+          ),
+        ),
+        if (showDivider)
+          Container(
+            margin: const EdgeInsets.only(left: 40),
+            height: 0.5,
+            color: const Color(0xFFE2E8F0),
+          ),
+      ],
+    );
+  }
+
   Widget _buildQueryTypeSelector() {
     return Row(
-      children: _QueryType.values.map((type) {
+      children: FeedbackQueryType.values.map((type) {
         final selected = _queryType == type;
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
-              right: type == _QueryType.values.last ? 0 : 10,
+              right: type == FeedbackQueryType.values.last ? 0 : 10,
             ),
             child: ScalePressable(
               onTap: () => setState(() => _queryType = type),
@@ -589,21 +713,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLabel('CONTACT EMAIL'),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _contactEmailController,
-                hint: 'you@example.com',
-                icon: LucideIcons.mail,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  final value = v?.trim() ?? '';
-                  if (value.isEmpty) return null;
-                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
-                  return ok ? null : 'Enter a valid email address.';
-                },
-              ),
-              const SizedBox(height: 18),
               _buildLabel('SUBJECT'),
               const SizedBox(height: 8),
               _buildTextField(
@@ -634,7 +743,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
               ),
               AnimatedSize(
                 duration: 200.ms,
-                child: _queryType == _QueryType.bugReport
+                child: _queryType == FeedbackQueryType.bugReport
                     ? Padding(
                         padding: const EdgeInsets.only(top: 18),
                         child: Column(
@@ -776,13 +885,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
               color: Colors.black.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-            ),
+            child: const Center(child: NexusOrbitLoader(size: 20)),
           ),
         Positioned(
           top: 4,
@@ -852,11 +955,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         ),
         child: Center(
           child: _submitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                )
+              ? const NexusOrbitLoader(size: 22)
               : Text(
                   'Submit',
                   style: GoogleFonts.manrope(
