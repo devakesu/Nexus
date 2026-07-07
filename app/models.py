@@ -1292,6 +1292,29 @@ class PrivacySettingsUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Email notification preferences
+# ---------------------------------------------------------------------------
+
+
+class EmailNotificationSettingsResponse(BaseModel):
+    email_notify_matches: bool
+    email_notify_messages: bool
+    email_notify_digest: bool
+    email_notify_product_updates: bool
+    email_notify_promotions: bool
+
+
+class EmailNotificationSettingsUpdate(BaseModel):
+    """All fields optional - PATCH only touches the ones provided."""
+
+    email_notify_matches: bool | None = None
+    email_notify_messages: bool | None = None
+    email_notify_digest: bool | None = None
+    email_notify_product_updates: bool | None = None
+    email_notify_promotions: bool | None = None
+
+
+# ---------------------------------------------------------------------------
 # Device / push notification token registration
 # ---------------------------------------------------------------------------
 

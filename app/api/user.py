@@ -45,6 +45,8 @@ from app.models import (
     AcceptTermsResponse,
     AuthBootstrapResponse,
     CompleteOnboardingResponse,
+    EmailNotificationSettingsResponse,
+    EmailNotificationSettingsUpdate,
     MECOnboardingRequest,
     ModerationSubjectsRequest,
     OnboardingPayload,
@@ -944,4 +946,85 @@ def update_privacy_settings(
         raise
     except Exception as e:
         logger.exception("Failed to update privacy settings for user %s", user_id)
+        raise HTTPException(status_code=500, detail="Internal server error.") from e
+
+
+_EMAIL_NOTIFICATION_COLUMNS = (
+    "email_notify_matches, email_notify_messages, email_notify_digest, "
+    "email_notify_product_updates, email_notify_promotions"
+)
+
+
+def _to_email_notification_settings_response(
+    data: dict[str, Any],
+) -> EmailNotificationSettingsResponse:
+    return EmailNotificationSettingsResponse(
+        email_notify_matches=bool(data.get("email_notify_matches", True)),
+        email_notify_messages=bool(data.get("email_notify_messages", True)),
+        email_notify_digest=bool(data.get("email_notify_digest", True)),
+        email_notify_product_updates=bool(
+            data.get("email_notify_product_updates", True),
+        ),
+        email_notify_promotions=bool(data.get("email_notify_promotions", True)),
+    )
+
+
+@router.get(
+    "/api/v1/profile/email-notification-settings",
+    response_model=EmailNotificationSettingsResponse,
+)
+def get_email_notification_settings(
+    user_id: str = Depends(get_authenticated_user_id),
+) -> EmailNotificationSettingsResponse:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select(_EMAIL_NOTIFICATION_COLUMNS)
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = getattr(res, "data", None)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return _to_email_notification_settings_response(data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to fetch email notification settings for user %s", user_id,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error.") from e
+
+
+@router.patch(
+    "/api/v1/profile/email-notification-settings",
+    response_model=EmailNotificationSettingsResponse,
+)
+def update_email_notification_settings(
+    payload: EmailNotificationSettingsUpdate = Body(...),  # noqa: B008
+    user_id: str = Depends(get_authenticated_user_id),
+) -> EmailNotificationSettingsResponse:
+    update_data = payload.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .update(update_data)
+            .eq("id", user_id)
+            .select(_EMAIL_NOTIFICATION_COLUMNS)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], getattr(res, "data", None) or [])
+        if not rows:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return _to_email_notification_settings_response(rows[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(
+            "Failed to update email notification settings for user %s", user_id,
+        )
         raise HTTPException(status_code=500, detail="Internal server error.") from e

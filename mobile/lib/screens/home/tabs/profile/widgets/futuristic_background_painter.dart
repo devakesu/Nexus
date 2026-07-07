@@ -2,23 +2,51 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class FuturisticBackgroundPainter extends CustomPainter {
-  const FuturisticBackgroundPainter({required this.isDark});
+  const FuturisticBackgroundPainter({required this.isDark, this.accentColor});
 
   final bool isDark;
+
+  /// When provided, the orbit/star palette is derived from this color
+  /// instead of the default cyan/pink/indigo triad, so each tab can carry
+  /// its own accent while reusing the same futuristic motif.
+  final Color? accentColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     // Colors based on theme brightness (higher contrast for light mode)
     final gridAlpha = isDark ? 0.04 : 0.08;
-    final primaryOrbitColor = isDark
-        ? const Color(0xFF00E5FF)
-        : const Color(0xFF0891B2);
-    final secondaryOrbitColor = isDark
-        ? const Color(0xFFFF7597)
-        : const Color(0xFFE91E63);
-    final tertiaryOrbitColor = isDark
-        ? const Color(0xFF6366F1)
-        : const Color(0xFF4F46E5);
+
+    final Color primaryOrbitColor;
+    final Color secondaryOrbitColor;
+    final Color tertiaryOrbitColor;
+    final accent = accentColor;
+    if (accent != null) {
+      final hsl = HSLColor.fromColor(accent);
+      primaryOrbitColor = hsl
+          .withSaturation((isDark ? 0.85 : 0.75).clamp(0.0, 1.0))
+          .withLightness((isDark ? 0.65 : 0.42).clamp(0.0, 1.0))
+          .toColor();
+      secondaryOrbitColor = hsl
+          .withHue((hsl.hue + 40) % 360)
+          .withSaturation((isDark ? 0.80 : 0.70).clamp(0.0, 1.0))
+          .withLightness((isDark ? 0.72 : 0.48).clamp(0.0, 1.0))
+          .toColor();
+      tertiaryOrbitColor = hsl
+          .withHue((hsl.hue - 40 + 360) % 360)
+          .withSaturation((isDark ? 0.75 : 0.65).clamp(0.0, 1.0))
+          .withLightness((isDark ? 0.68 : 0.45).clamp(0.0, 1.0))
+          .toColor();
+    } else {
+      primaryOrbitColor = isDark
+          ? const Color(0xFF00E5FF)
+          : const Color(0xFF0891B2);
+      secondaryOrbitColor = isDark
+          ? const Color(0xFFFF7597)
+          : const Color(0xFFE91E63);
+      tertiaryOrbitColor = isDark
+          ? const Color(0xFF6366F1)
+          : const Color(0xFF4F46E5);
+    }
 
     final lineAlpha = isDark ? 0.08 : 0.16;
     final glowAlpha = isDark ? 0.06 : 0.12;
@@ -173,7 +201,8 @@ class FuturisticBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     if (oldDelegate is FuturisticBackgroundPainter) {
-      return oldDelegate.isDark != isDark;
+      return oldDelegate.isDark != isDark ||
+          oldDelegate.accentColor != accentColor;
     }
     return true;
   }

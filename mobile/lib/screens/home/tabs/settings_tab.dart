@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/home/widgets/tab_background.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -82,12 +83,17 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
 
   Widget _buildNotifTrailing() {
     return switch (_notifPermission) {
-      AuthorizationStatus.authorized ||
-      AuthorizationStatus.provisional =>
+      AuthorizationStatus.authorized || AuthorizationStatus.provisional =>
         const _StatusDot(label: 'Enabled', color: Color(0xFF16A34A)),
-      AuthorizationStatus.denied =>
-        const _StatusDot(label: 'Disabled', color: Color(0xFFEF4444)),
-      _ => const Icon(LucideIcons.chevronRight, color: Color(0xFFCBD5E1), size: 16),
+      AuthorizationStatus.denied => const _StatusDot(
+        label: 'Disabled',
+        color: Color(0xFFEF4444),
+      ),
+      _ => const Icon(
+        LucideIcons.chevronRight,
+        color: Color(0xFFCBD5E1),
+        size: 16,
+      ),
     };
   }
 
@@ -184,7 +190,8 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           ),
           content: Text(
             "You're not visible to others and won't appear in anyone's Orbit. "
-            'To resume, activate individual Orbits from their tabs.',
+            'To resume, activate individual Orbits from their tabs. '
+            "You can still chat with people you've already matched with.",
             style: GoogleFonts.inter(
               fontSize: 14,
               color: const Color(0xFF475569),
@@ -244,7 +251,8 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 12),
             Text(
-              "You won't be visible to others and won't be able to discover new profiles until you re-activate an Orbit.",
+              "You won't be visible to others and won't be able to discover new profiles until you re-activate an Orbit. "
+              "You'll still be able to chat with people you've already matched with.",
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF64748B),
@@ -301,100 +309,107 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 120),
-      children: [
-        const _NexusBranding(),
-        const SizedBox(height: 4),
-        const _SettingsSection(
-          title: 'Account',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(
-              icon: LucideIcons.sparkles,
-              label: 'Nexus+',
-              badge: 'UPGRADE',
-            ),
-            _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
-          ],
-        ),
-        _SettingsSection(
-          title: 'Notifications',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(
-              icon: LucideIcons.bell,
-              label: 'Push Notifications',
-              trailing: _buildNotifTrailing(),
-              onTap: _handleNotifTap,
-            ),
-            const _TileSpec(icon: LucideIcons.mail, label: 'Email Notifications'),
-          ],
-        ),
-        _SettingsSection(
-          title: 'Privacy & Safety',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(
-              icon: LucideIcons.shield,
-              label: 'Privacy Settings',
-              onTap: () => context.push<void>('/settings/privacy'),
-            ),
-            _TileSpec(
-              icon: LucideIcons.ban,
-              label: 'Blocked Users',
-              onTap: () => context.push<void>('/settings/blocked-users'),
-            ),
-            _TileSpec(
-              icon: LucideIcons.eyeOff,
-              label: 'Hidden Users',
-              onTap: () => context.push<void>('/settings/hidden-users'),
-            ),
-            _TileSpec(
-              icon: LucideIcons.pauseCircle,
-              label: 'Pause Matching',
-              trailing: _buildPauseIndicator(),
-              onTap: _handlePauseTap,
-            ),
-            _TileSpec(
-              icon: LucideIcons.heartHandshake,
-              label: 'Safety Center',
-              onTap: () => context.push<void>('/settings/safety-center'),
-            ),
-          ],
-        ),
-        _SettingsSection(
-          title: 'Help & Support',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(
-              icon: LucideIcons.helpCircle,
-              label: 'Help Center',
-              onTap: () => context.push<void>('/settings/help-center'),
-            ),
-            _TileSpec(
-              icon: LucideIcons.messageSquare,
-              label: 'Help, Feedback & Bug Report',
-              onTap: () => context.push<void>('/settings/feedback'),
-            ),
-          ],
-        ),
-        const _SettingsSection(
-          title: 'Legal',
-          accentColor: _accent,
-          tiles: [
-            _TileSpec(icon: LucideIcons.fileText, label: 'Privacy Policy'),
-            _TileSpec(icon: LucideIcons.scroll, label: 'Terms of Service'),
-            _TileSpec(
-              icon: LucideIcons.bookOpen,
-              label: 'Community Guidelines',
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const _AccountActionsSection(),
-        const SizedBox(height: 28),
-      ],
+    return TabBackground(
+      accentColor: _accent,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 120),
+        children: [
+          const _NexusBranding(),
+          const SizedBox(height: 4),
+          const _SettingsSection(
+            title: 'Account',
+            accentColor: _accent,
+            tiles: [
+              _TileSpec(
+                icon: LucideIcons.sparkles,
+                label: 'Nexus+',
+                badge: 'UPGRADE',
+              ),
+              _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
+            ],
+          ),
+          _SettingsSection(
+            title: 'Notifications',
+            accentColor: _accent,
+            tiles: [
+              _TileSpec(
+                icon: LucideIcons.bell,
+                label: 'Push Notifications',
+                trailing: _buildNotifTrailing(),
+                onTap: _handleNotifTap,
+              ),
+              _TileSpec(
+                icon: LucideIcons.mail,
+                label: 'Email Notifications',
+                onTap: () => context.push<void>('/settings/email-notifications'),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'Privacy & Safety',
+            accentColor: _accent,
+            tiles: [
+              _TileSpec(
+                icon: LucideIcons.shield,
+                label: 'Privacy Settings',
+                onTap: () => context.push<void>('/settings/privacy'),
+              ),
+              _TileSpec(
+                icon: LucideIcons.ban,
+                label: 'Blocked Users',
+                onTap: () => context.push<void>('/settings/blocked-users'),
+              ),
+              _TileSpec(
+                icon: LucideIcons.eyeOff,
+                label: 'Hidden Users',
+                onTap: () => context.push<void>('/settings/hidden-users'),
+              ),
+              _TileSpec(
+                icon: LucideIcons.pauseCircle,
+                label: 'Pause Matching',
+                trailing: _buildPauseIndicator(),
+                onTap: _handlePauseTap,
+              ),
+              _TileSpec(
+                icon: LucideIcons.heartHandshake,
+                label: 'Safety Center',
+                onTap: () => context.push<void>('/settings/safety-center'),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'Help & Support',
+            accentColor: _accent,
+            tiles: [
+              _TileSpec(
+                icon: LucideIcons.helpCircle,
+                label: 'Help Center',
+                onTap: () => context.push<void>('/settings/help-center'),
+              ),
+              _TileSpec(
+                icon: LucideIcons.messageSquare,
+                label: 'Help, Feedback & Bug Report',
+                onTap: () => context.push<void>('/settings/feedback'),
+              ),
+            ],
+          ),
+          const _SettingsSection(
+            title: 'Legal',
+            accentColor: _accent,
+            tiles: [
+              _TileSpec(icon: LucideIcons.fileText, label: 'Privacy Policy'),
+              _TileSpec(icon: LucideIcons.scroll, label: 'Terms of Service'),
+              _TileSpec(
+                icon: LucideIcons.bookOpen,
+                label: 'Community Guidelines',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const _AccountActionsSection(),
+          const SizedBox(height: 28),
+        ],
+      ),
     );
   }
 }
