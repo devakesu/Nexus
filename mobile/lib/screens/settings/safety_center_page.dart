@@ -427,25 +427,36 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         scrollCacheExtent: const ScrollCacheExtent.pixels(20000),
         children: [
           _buildSafetyHeroBanner(),
-          _buildNavCard(
-            icon: LucideIcons.shieldAlert,
-            iconColor: _red,
-            iconBg: const Color(0xFFFEE2E2),
-            title: 'Meetup Safety Alert',
-            subtitle:
-                'Date check-ins, SOS, and trusted contacts for in-person meetups.',
-            onTap: _openMeetupSafetyPage,
-            animateDelay: 50,
-          ),
-          _buildNavCard(
-            icon: LucideIcons.phoneCall,
-            iconColor: const Color(0xFFEA580C),
-            iconBg: const Color(0xFFFFF7ED),
-            title: 'Crisis Helplines',
-            subtitle:
-                'Confidential support hotlines if you need someone to talk to.',
-            onTap: _openCrisisHelplinesPage,
-            animateDelay: 80,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildNavCard(
+                    icon: LucideIcons.shieldAlert,
+                    iconColor: _red,
+                    iconBg: const Color(0xFFFEE2E2),
+                    title: 'Meetup Safety Alert',
+                    subtitle: 'Check-ins, SOS & trusted contacts.',
+                    onTap: _openMeetupSafetyPage,
+                    animateDelay: 50,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildNavCard(
+                    icon: LucideIcons.phoneCall,
+                    iconColor: const Color(0xFFEA580C),
+                    iconBg: const Color(0xFFFFF7ED),
+                    title: 'Crisis Helplines',
+                    subtitle: 'Confidential support hotlines.',
+                    onTap: _openCrisisHelplinesPage,
+                    animateDelay: 80,
+                  ),
+                ),
+              ],
+            ),
           ),
           KeyedSubtree(
             key: _guidelinesKey,
@@ -465,7 +476,8 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // Tappable summary card that opens a dedicated page — used so Meetup
   // Safety Alert and Crisis Helplines get room to breathe on their own
-  // screen instead of crowding the Safety Center hub.
+  // screen instead of crowding the Safety Center hub. Laid out vertically
+  // (icon, title, subtitle) so a pair fits comfortably side by side.
   Widget _buildNavCard({
     required IconData icon,
     required Color iconColor,
@@ -478,8 +490,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     return ScalePressable(
           onTap: onTap,
           child: Container(
-            margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -492,46 +503,44 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: iconBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: iconColor, size: 20),
+                    ),
+                    const Icon(
+                      LucideIcons.chevronRight,
+                      size: 16,
+                      color: Color(0xFFCBD5E1),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.manrope(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          color: const Color(0xFF64748B),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  LucideIcons.chevronRight,
-                  size: 18,
-                  color: Color(0xFFCBD5E1),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    color: const Color(0xFF64748B),
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -890,15 +899,13 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF0F172A),
-                const Color(0xFF0F172A).withValues(alpha: 0.92),
-              ],
+            gradient: const LinearGradient(
+              colors: [Color(0xFFEFF6FF), Color(0xFFECFDF5)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFBAE6FD)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -908,12 +915,18 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _accent.withValues(alpha: 0.12),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       LucideIcons.badgeCheck,
-                      color: Color(0xFF5EEAD4),
+                      color: _accent,
                       size: 18,
                     ),
                   ),
@@ -923,7 +936,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white70,
+                      color: const Color(0xFF475569),
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -934,7 +947,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 'Everything working quietly in the background — from identity checks to 24/7 moderation — to keep Nexus genuine and safe.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: Colors.white60,
+                  color: const Color(0xFF64748B),
                   height: 1.45,
                 ),
               ),
@@ -948,10 +961,13 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            item.icon,
-                            color: const Color(0xFF5EEAD4),
-                            size: 18,
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(item.icon, color: _teal, size: 16),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -963,7 +979,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: const Color(0xFF0F172A),
                                   ),
                                 ),
                                 const SizedBox(height: 3),
@@ -971,7 +987,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                   item.desc,
                                   style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: Colors.white60,
+                                    color: const Color(0xFF64748B),
                                     height: 1.4,
                                   ),
                                 ),
@@ -1680,19 +1696,25 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   // --- Shortcuts & Direct Links ---
+  // Deliberately the one dark card on the page — every other section is a
+  // light/white card, so this reads instantly as "different kind of
+  // content" (a utility menu, not a safety topic) rather than blending in.
   Widget _buildShortcutsSection() {
     return Container(
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+                color: Colors.indigo.withValues(alpha: 0.18),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -1704,12 +1726,12 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       LucideIcons.zap,
-                      color: Colors.indigo,
+                      color: Color(0xFFC7D2FE),
                       size: 18,
                     ),
                   ),
@@ -1719,7 +1741,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     style: GoogleFonts.manrope(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF475569),
+                      color: Colors.white70,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -1732,7 +1754,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 icon: LucideIcons.shield,
                 onTap: _openPrivacySettings,
               ),
-              const Divider(height: 20, color: Color(0xFFE2E8F0)),
+              const Divider(height: 20, color: Colors.white12),
               _buildShortcutTile(
                 label: 'Blocked Users',
                 desc: 'View and manage users you have blocked.',
@@ -1743,7 +1765,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   ),
                 ),
               ),
-              const Divider(height: 20, color: Color(0xFFE2E8F0)),
+              const Divider(height: 20, color: Colors.white12),
               _buildShortcutTile(
                 label: 'Hidden Users',
                 desc: 'Manage users you have hidden from discovery.',
@@ -1778,10 +1800,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.1),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, color: _accent, size: 18),
+              child: Icon(icon, color: const Color(0xFFC7D2FE), size: 18),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1793,7 +1815,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     style: GoogleFonts.inter(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0F172A),
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1801,7 +1823,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                     desc,
                     style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: const Color(0xFF64748B),
+                      color: Colors.white60,
                     ),
                   ),
                 ],
@@ -1809,7 +1831,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             ),
             const Icon(
               LucideIcons.chevronRight,
-              color: Color(0xFFCBD5E1),
+              color: Colors.white38,
               size: 16,
             ),
           ],

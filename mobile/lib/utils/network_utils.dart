@@ -2,14 +2,25 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Backend requests get longer slack in debug builds, where the app is
+/// often talking to a local server under a debugger, cold-starting
+/// functions, or running over a slower dev network.
+const Duration kNetworkTimeout = kDebugMode
+    ? Duration(seconds: 40)
+    : Duration(seconds: 20);
 
 final Dio _globalDio = _createDioInstance();
 
 Dio _createDioInstance() {
   final dio = Dio();
+
+  dio.options.connectTimeout = kNetworkTimeout;
+  dio.options.receiveTimeout = kNetworkTimeout;
 
   assert(
     () {
@@ -109,8 +120,6 @@ class NetworkUtils {
     String token,
   ) async {
     final config = AppConfig.current;
-    dio.options.connectTimeout = const Duration(seconds: 3);
-    dio.options.receiveTimeout = const Duration(seconds: 3);
 
     final response = await dio.get<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/profile/details',

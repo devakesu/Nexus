@@ -114,8 +114,6 @@ class _FriendsTabState extends State<FriendsTab>
       if (session != null) {
         final config = AppConfig.current;
         final dio = createDio();
-        dio.options.connectTimeout = const Duration(seconds: 3);
-        dio.options.receiveTimeout = const Duration(seconds: 3);
 
         final response = await dio.get<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
