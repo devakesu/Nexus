@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
     rate_limit_auth: str = "5/minute"
+    rate_limit_feedback: str = "5/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # --- Infrastructure / crypto ---
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
     app_domain: str
     app_name: str = "Nexus Orbit"
     debug: bool = False
+
+    # -- Support / feedback routing --
+    # Where "Help, Feedback & Bug Report" admin notifications are sent.
+    # Falls back to admin@{app_domain} when unset (see app/core/email.py).
+    feedback_notify_email: str | None = None
 
     # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
     dev_allowed_email: str | None = None

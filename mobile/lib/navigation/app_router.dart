@@ -6,6 +6,8 @@ import 'package:nexus/screens/chats/chats_page.dart';
 import 'package:nexus/screens/legal_terms_page.dart';
 import 'package:nexus/screens/orbit_screen.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
+import 'package:nexus/screens/settings/feedback_page.dart';
+import 'package:nexus/screens/settings/help_center_page.dart';
 import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
 import 'package:nexus/screens/settings/safety_center_page.dart';
@@ -83,6 +85,14 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/settings/safety-center',
       builder: (context, state) => const SafetyCenterPage(),
+    ),
+    GoRoute(
+      path: '/settings/help-center',
+      builder: (context, state) => const HelpCenterPage(),
+    ),
+    GoRoute(
+      path: '/settings/feedback',
+      builder: (context, state) => const FeedbackPage(),
     ),
     GoRoute(
       path: '/legal/terms',

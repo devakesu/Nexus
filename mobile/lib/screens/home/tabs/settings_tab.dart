@@ -363,14 +363,19 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             ),
           ],
         ),
-        const _SettingsSection(
+        _SettingsSection(
           title: 'Help & Support',
           accentColor: _accent,
           tiles: [
-            _TileSpec(icon: LucideIcons.helpCircle, label: 'Help Center'),
+            _TileSpec(
+              icon: LucideIcons.helpCircle,
+              label: 'Help Center',
+              onTap: () => context.push<void>('/settings/help-center'),
+            ),
             _TileSpec(
               icon: LucideIcons.messageSquare,
-              label: 'Feedback & Bug Report',
+              label: 'Help, Feedback & Bug Report',
+              onTap: () => context.push<void>('/settings/feedback'),
             ),
           ],
         ),
