@@ -5,6 +5,8 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
+import android.view.WindowManager
 import com.spotify.sdk.android.auth.AuthorizationClient
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
@@ -20,6 +22,20 @@ class MainActivity : FlutterActivity() {
     }
 
     private var pendingSpotifyResult: MethodChannel.Result? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // showWhenLocked/turnScreenOn in AndroidManifest.xml cover API 27+;
+        // pre-27 devices need the equivalent window flags set here so the
+        // Meetup Safety check-in alert still launches over the lock screen.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

@@ -11,6 +11,14 @@
     <!-- Required to read the phone number of a contact picked from the device
          address book when adding a Safety Center trusted contact -->
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <!-- Required so the Meetup Safety check-in alert can launch full-screen
+         over the lock screen (see checkin_alert_screen.dart) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- Required so the Meetup Safety check-in deadline fires via AlarmManager
+         even if Android kills the app process between check-ins -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <!-- Required to wake the screen for the full-screen check-in alert -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -23,6 +31,8 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:windowSoftInputMode="adjustResize">
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user

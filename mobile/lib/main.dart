@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -13,6 +12,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/navigation/app_router.dart';
+import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/background_prekey_task.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -42,8 +42,6 @@ Future<void> main() async {
     );
     return true;
   };
-
-
 
   // Set global HTTP overrides to handle custom connection timeout
   HttpOverrides.global = MyHttpOverrides();
@@ -84,10 +82,18 @@ Future<void> main() async {
         pkceAsyncStorage: SecureGotrueAsyncStorage(),
       ),
     ),
+    MeetupSafetySession.instance.init(),
   ]);
 
   // Must be registered before runApp() so the background isolate can find it.
   NotificationService.registerBackgroundHandler();
+
+  // Handles a cold launch caused by tapping (or Android auto-launching over
+  // the lock screen) the Meetup Safety check-in-due notification. Needs a
+  // frame to have rendered so ErrorHandler.navigatorKey is attached.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(MeetupSafetySession.instance.handleAppLaunchFromNotification());
+  });
 
   // Keeps the one-time-prekey pool topped up even when the app is fully
   // closed (see background_prekey_task.dart doc comment). Fire-and-forget:

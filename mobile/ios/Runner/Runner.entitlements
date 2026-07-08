@@ -7,5 +7,11 @@
 		<string>applinks:nexus.devakesu.com</string>
 		<string>applinks:nexus-mec.devakesu.com</string>
 	</array>
+	<!-- Lets the Meetup Safety check-in-due alert use
+	     InterruptionLevel.timeSensitive so it breaks through Focus/Do Not
+	     Disturb. Unlike Critical Alerts, this capability is self-declarable
+	     and needs no special Apple approval. -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
 </dict>
 </plist>
