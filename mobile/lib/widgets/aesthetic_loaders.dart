@@ -117,7 +117,7 @@ class _OrbitPainter extends CustomPainter {
     final r3 = maxRadius * 0.95;
     final p3 =
         center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
-    _drawGlowingParticle(canvas, p3, const Color(0xFF00F5D4), p3r);
+    _drawGlowingParticle(canvas, p3, const Color(0xFF007E6D), p3r);
   }
 
   void _drawGlowingParticle(

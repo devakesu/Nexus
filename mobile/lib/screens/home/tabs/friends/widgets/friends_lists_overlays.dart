@@ -60,7 +60,7 @@ class _WavesOverlayState extends State<WavesOverlay> {
                           children: [
                             Icon(
                               LucideIcons.hand,
-                              color: Color(0xFFFF9F1C),
+                              color: Color(0xFFA45E00),
                               size: 24,
                             ),
                             SizedBox(width: 8),
@@ -80,13 +80,13 @@ class _WavesOverlayState extends State<WavesOverlay> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF9F1C).withAlpha(38),
+                            color: const Color(0xFFA45E00).withAlpha(38),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             '${widget.waves.length} waves',
                             style: const TextStyle(
-                              color: Color(0xFFFF9F1C),
+                              color: Color(0xFFA45E00),
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),

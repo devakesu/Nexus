@@ -572,6 +572,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -984,7 +985,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
           style: GoogleFonts.manrope(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF94A3B8),
+            color: const Color(0xFF475569),
             letterSpacing: 1,
           ),
         ),
@@ -995,7 +996,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
             hintText: 'e.g. Coffee with Jordan at Bloom Cafe',
             hintStyle: GoogleFonts.inter(
               fontSize: 13,
-              color: const Color(0xFFCBD5E1),
+              color: const Color(0xFF475569),
             ),
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
@@ -1020,7 +1021,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
           style: GoogleFonts.manrope(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF94A3B8),
+            color: const Color(0xFF475569),
             letterSpacing: 1,
           ),
         ),
@@ -1036,6 +1037,8 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
             return ScalePressable(
               onTap: () => setState(() => _checkInSelectedDuration = d),
               child: Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 9,
@@ -1405,7 +1408,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: const Color(0xFF94A3B8),
+                          color: const Color(0xFF475569),
                         ),
                       ),
                     ],
@@ -1474,6 +1477,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
                               color: Color(0xFF94A3B8),
                               size: 18,
                             ),
+                            tooltip: 'Remove ${c.name}',
                             onPressed: () => _deleteContact(index),
                           ),
                         ],

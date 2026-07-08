@@ -26,7 +26,6 @@ class NeonSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     const primaryColor = Color(0xFF0891B2);
     const pulsarPink = Color(0xFFFF7597);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +38,7 @@ class NeonSlider extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -80,15 +79,15 @@ class NeonSlider extends StatelessWidget {
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            inactiveTrackColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+            inactiveTrackColor: Colors.black.withValues(alpha: 0.08),
             trackHeight: 4,
             thumbColor: primaryColor,
             thumbShape: const _NeonSliderThumbShape(thumbRadius: 9),
             trackShape: const _NeonGradientSliderTrackShape(),
             overlayColor: primaryColor.withValues(alpha: 0.2),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
-            activeTickMarkColor: isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black.withValues(alpha: 0.8),
-            inactiveTickMarkColor: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2),
+            activeTickMarkColor: Colors.black.withValues(alpha: 0.8),
+            inactiveTickMarkColor: Colors.black.withValues(alpha: 0.2),
             tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2),
           ),
           child: Slider(
@@ -140,11 +139,22 @@ class _NeonGradientSliderTrackShape extends RectangularSliderTrackShape {
       ..style = PaintingStyle.fill;
 
     final inactivePaint = Paint()
-      ..color = sliderTheme.inactiveTrackColor ?? Colors.white.withValues(alpha: 0.08)
+      ..color =
+          sliderTheme.inactiveTrackColor ?? Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
-    final activeRect = Rect.fromLTRB(trackRect.left, trackRect.top, thumbCenter.dx, trackRect.bottom);
-    final inactiveRect = Rect.fromLTRB(thumbCenter.dx, trackRect.top, trackRect.right, trackRect.bottom);
+    final activeRect = Rect.fromLTRB(
+      trackRect.left,
+      trackRect.top,
+      thumbCenter.dx,
+      trackRect.bottom,
+    );
+    final inactiveRect = Rect.fromLTRB(
+      thumbCenter.dx,
+      trackRect.top,
+      trackRect.right,
+      trackRect.bottom,
+    );
 
     final activeRRect = RRect.fromRectAndCorners(
       activeRect,

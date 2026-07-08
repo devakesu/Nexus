@@ -19,30 +19,33 @@ class CommonHeader extends StatelessWidget {
     Color tabThemeColorSecondary;
     String? tabLabel;
 
+    // Each tab's color matches its Mode Signal accent in custom_bottom_nav_bar.dart
+    // exactly (DESIGN.md's Mode Signal Rule); the secondary is a lightened tint of
+    // that same primary, used only as the gradient's far stop.
     switch (currentTab) {
       case 0:
-        tabThemeColor = const Color(0xFFFF2A54);
-        tabThemeColorSecondary = const Color(0xFFFF6B8B);
+        tabThemeColor = const Color(0xFFFF4F81);
+        tabThemeColorSecondary = const Color(0xFFFF8DAD);
         tabLabel = 'Dating';
       case 1:
-        tabThemeColor = const Color(0xFFD32F2F);
-        tabThemeColorSecondary = const Color(0xFFF57C00);
+        tabThemeColor = const Color(0xFFA45E00);
+        tabThemeColorSecondary = const Color(0xFFC49659);
         tabLabel = 'Friends';
       case 2:
-        tabThemeColor = const Color(0xFF6366F1);
-        tabThemeColorSecondary = const Color(0xFFA855F7);
+        tabThemeColor = const Color(0xFF0891B2);
+        tabThemeColorSecondary = const Color(0xFF5EB8CD);
         tabLabel = null; // Profile tab - no tag
       case 3:
-        tabThemeColor = const Color(0xFF00796B);
-        tabThemeColorSecondary = const Color(0xFF0097A7);
+        tabThemeColor = const Color(0xFF007E6D);
+        tabThemeColorSecondary = const Color(0xFF59ABA0);
         tabLabel = 'Professional';
       case 4:
-        tabThemeColor = const Color(0xFF0284C7);
-        tabThemeColorSecondary = const Color(0xFF3B82F6);
+        tabThemeColor = const Color(0xFF4EA8DE);
+        tabThemeColorSecondary = const Color(0xFF8CC6EA);
         tabLabel = null; // Settings tab - no tag
       default:
-        tabThemeColor = const Color(0xFFFF2A54);
-        tabThemeColorSecondary = const Color(0xFFFF6B8B);
+        tabThemeColor = const Color(0xFFFF4F81);
+        tabThemeColorSecondary = const Color(0xFFFF8DAD);
         tabLabel = null;
     }
 

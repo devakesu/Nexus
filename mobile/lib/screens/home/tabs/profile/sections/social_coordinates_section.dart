@@ -88,14 +88,12 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return UniverseSection(
       icon: LucideIcons.globe,
       title: 'Social & Campus Info',
       description: 'Your campus and hometown background',
-      cardColor: isDark ? const Color(0xFF0B1D16) : const Color(0xFFF0FDF4),
-      borderColor: const Color(0xFF10B981).withValues(alpha: isDark ? 0.35 : 0.4),
+      cardColor: const Color(0xFFF0FDF4),
+      borderColor: const Color(0xFF10B981).withValues(alpha: 0.4),
       accentColor: const Color(0xFF10B981),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,17 +175,17 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       LucideIcons.graduationCap,
-                      color: isDark ? Colors.white38 : Colors.black45,
+                      color: Colors.black45,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
@@ -195,7 +193,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       child: Text(
                         'Currently Studying here?',
                         style: GoogleFonts.plusJakartaSans(
-                          color: isDark ? Colors.white70 : const Color(0xFF0F172A),
+                          color: const Color(0xFF0F172A),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -220,7 +218,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                   Text(
                     'CAMPUS YEAR',
                     style: TextStyle(
-                      color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -254,15 +252,15 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            color: isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6),
+                            color: const Color(0xFFF3F4F6),
                             border: Border.all(
-                              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Text(
                             label,
                             style: GoogleFonts.plusJakartaSans(
-                              color: isDark ? Colors.white60 : Colors.black87,
+                              color: Colors.black87,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -287,10 +285,10 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(
@@ -303,7 +301,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           Text(
                             'Current Student Status',
                             style: GoogleFonts.plusJakartaSans(
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: const Color(0xFF0F172A),
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -312,7 +310,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           Text(
                             'Turn off to disable student status',
                             style: GoogleFonts.plusJakartaSans(
-                              color: isDark ? Colors.white38 : Colors.black45,
+                              color: Colors.black45,
                               fontSize: 12,
                             ),
                           ),
@@ -363,7 +361,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                     Text(
                       'CAMPUS YEAR',
                       style: TextStyle(
-                        color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -415,17 +413,17 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           borderRadius: BorderRadius.circular(14),
                           color: isSelected
                               ? primaryColor
-                              : (isDark ? const Color(0xFF141822) : const Color(0xFFF3F4F6)),
+                              : const Color(0xFFF3F4F6),
                           border: Border.all(
                             color: isSelected
-                                ? (isDark ? Colors.white.withValues(alpha: 0.35) : Colors.transparent)
-                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08)),
+                                ? Colors.transparent
+                                : Colors.black.withValues(alpha: 0.08),
                           ),
                         ),
                         child: Text(
                           label,
                           style: GoogleFonts.plusJakartaSans(
-                            color: isSelected ? Colors.white : (isDark ? Colors.white60 : Colors.black87),
+                            color: isSelected ? Colors.white : Colors.black87,
                             fontSize: 12,
                             fontWeight: isSelected
                                 ? FontWeight.bold

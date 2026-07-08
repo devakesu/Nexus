@@ -412,7 +412,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00F5D4),
+                backgroundColor: const Color(0xFF007E6D),
                 foregroundColor: Colors.black87,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -984,7 +984,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF00F5D4);
+    const themeColor = Color(0xFF007E6D);
     final activeHandshakesCount = _unseenCount;
 
     if (_isLoading) {
@@ -1020,7 +1020,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFF00F5D4),
+                            Color(0xFF007E6D),
                             Color(0xFF0EA5E9),
                           ],
                           begin: Alignment.topLeft,
@@ -1029,7 +1029,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00F5D4).withAlpha(76),
+                            color: const Color(0xFF007E6D).withAlpha(76),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -1039,7 +1039,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                         onTap: () {
                           widget.onOpenOrbit(
                             'Professional',
-                            const Color(0xFF00F5D4),
+                            const Color(0xFF007E6D),
                           );
                         },
                         borderRadius: BorderRadius.circular(24),

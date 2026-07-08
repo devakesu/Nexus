@@ -23,7 +23,6 @@ class UniverseSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     const defaultCardColor = Color(0xFF111420);
     const defaultAccentColor = Color(0xFFFF7597); // pulsarPink
     final effectiveCardColor = cardColor ?? defaultCardColor;
@@ -86,9 +85,7 @@ class UniverseSection extends StatelessWidget {
                       Text(
                         title,
                         style: GoogleFonts.plusJakartaSans(
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
+                          color: const Color(0xFF0F172A),
                           fontSize: 16,
                           letterSpacing: 0.3,
                           fontWeight: FontWeight.w700,
@@ -98,9 +95,7 @@ class UniverseSection extends StatelessWidget {
                       Text(
                         description,
                         style: GoogleFonts.plusJakartaSans(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.45)
-                              : Colors.black.withValues(alpha: 0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),

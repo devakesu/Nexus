@@ -9,10 +9,15 @@ class ChatTabTheme {
   final Color secondary;
 }
 
+// Primaries match each mode's Mode Signal color from the bottom nav
+// (custom_bottom_nav_bar.dart) exactly — DESIGN.md's Mode Signal Rule
+// requires one consistent accent per mode across nav, chat, and filters.
+// Secondaries are a lightened tint of that same primary, used only as the
+// gradient's far stop.
 const Map<String, ChatTabTheme> kChatTabThemes = {
-  'Dating': ChatTabTheme(Color(0xFFFF2A54), Color(0xFFFF6B8B)),
-  'Friends': ChatTabTheme(Color(0xFFD32F2F), Color(0xFFF57C00)),
-  'Professional': ChatTabTheme(Color(0xFF00796B), Color(0xFF0097A7)),
+  'Dating': ChatTabTheme(Color(0xFFFF4F81), Color(0xFFFF8DAD)),
+  'Friends': ChatTabTheme(Color(0xFFA45E00), Color(0xFFC49659)),
+  'Professional': ChatTabTheme(Color(0xFF007E6D), Color(0xFF59ABA0)),
 };
 
 ChatTabTheme chatTabTheme(String tab) =>

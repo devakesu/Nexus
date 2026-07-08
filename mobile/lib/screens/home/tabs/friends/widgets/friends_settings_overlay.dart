@@ -91,7 +91,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   children: [
                     Icon(
                       LucideIcons.settings,
-                      color: Color(0xFFFF9F1C),
+                      color: Color(0xFFA45E00),
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -107,10 +107,10 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF9F1C),
+                    backgroundColor: const Color(0xFFA45E00),
                     foregroundColor: Colors.white,
                     elevation: 4,
-                    shadowColor: const Color(0xFFFF9F1C).withValues(alpha: 0.4),
+                    shadowColor: const Color(0xFFA45E00).withValues(alpha: 0.4),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 10,
@@ -183,7 +183,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     return FilterChip(
                       label: Text(item['label']!),
                       selected: isSelected,
-                      selectedColor: const Color(0xFFFF9F1C),
+                      selectedColor: const Color(0xFFA45E00),
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
@@ -264,9 +264,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                       final label = val.contains(': ') ? val.split(': ').last : val;
                       return Chip(
                         label: Text(label),
-                        backgroundColor: const Color(0xFFFF9F1C).withValues(alpha: 0.1),
+                        backgroundColor: const Color(0xFFA45E00).withValues(alpha: 0.1),
                         labelStyle: const TextStyle(
-                          color: Color(0xFFFF9F1C),
+                          color: Color(0xFFA45E00),
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
                         ),
@@ -301,9 +301,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF9F1C),
+                      foregroundColor: const Color(0xFFA45E00),
                       side: const BorderSide(
-                        color: Color(0xFFFF9F1C),
+                        color: Color(0xFFA45E00),
                         width: 1.5,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 13),
@@ -394,16 +394,16 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     children: localCauses.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(0xFFFF9F1C).withValues(alpha: 0.1),
+                        backgroundColor: const Color(0xFFA45E00).withValues(alpha: 0.1),
                         labelStyle: const TextStyle(
-                          color: Color(0xFFFF9F1C),
+                          color: Color(0xFFA45E00),
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                         deleteIcon: const Icon(
                           LucideIcons.x,
                           size: 14,
-                          color: Color(0xFFFF9F1C),
+                          color: Color(0xFFA45E00),
                         ),
                         side: BorderSide.none,
                         shape: RoundedRectangleBorder(

@@ -493,10 +493,11 @@ class _TabBadge extends StatelessWidget {
 
   final String tab;
 
+  // Matches each mode's Mode Signal color in custom_bottom_nav_bar.dart.
   static const _tabColors = {
-    'Dating': Color(0xFFFF2A54),
-    'Friends': Color(0xFFD32F2F),
-    'Professional': Color(0xFF00796B),
+    'Dating': Color(0xFFFF4F81),
+    'Friends': Color(0xFFA45E00),
+    'Professional': Color(0xFF007E6D),
   };
 
   @override

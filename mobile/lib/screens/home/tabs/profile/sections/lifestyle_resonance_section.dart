@@ -57,7 +57,8 @@ class LifestyleResonanceSection extends StatelessWidget {
     required List<String> options,
     required String currentValue,
     required ValueChanged<String> onSelected,
-  }) openBottomSelectionSheet;
+  })
+  openBottomSelectionSheet;
 
   final ValueChanged<String> onDrinkingSaved;
   final ValueChanged<String> onSmokingSaved;
@@ -70,14 +71,12 @@ class LifestyleResonanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return UniverseSection(
       icon: LucideIcons.heart,
       title: 'Lifestyle & Preferences',
       description: 'Your daily habits, values and background',
-      cardColor: isDark ? const Color(0xFF22150D) : const Color(0xFFFFF7ED),
-      borderColor: const Color(0xFFFF9500).withValues(alpha: isDark ? 0.35 : 0.4),
+      cardColor: const Color(0xFFFFF7ED),
+      borderColor: const Color(0xFFFF9500).withValues(alpha: 0.4),
       accentColor: const Color(0xFFFF9500),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

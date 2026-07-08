@@ -42,7 +42,8 @@ extension FeedbackQueryTypeX on FeedbackQueryType {
   String get messageHint => switch (this) {
     FeedbackQueryType.help =>
       'Tell us what you were trying to do and where you got stuck.',
-    FeedbackQueryType.feedback => "Share what's on your mind — we read every word.",
+    FeedbackQueryType.feedback =>
+      "Share what's on your mind — we read every word.",
     FeedbackQueryType.bugReport =>
       'What did you expect to happen, and what happened instead? '
           'Steps to reproduce help a lot.',
@@ -81,7 +82,7 @@ extension FeedbackStatusX on FeedbackStatus {
   Color get color => switch (this) {
     FeedbackStatus.open => const Color(0xFF0284C7),
     FeedbackStatus.inProgress => const Color(0xFFD97706),
-    FeedbackStatus.resolved => const Color(0xFF16A34A),
+    FeedbackStatus.resolved => const Color(0xFF10B981),
     FeedbackStatus.closed => const Color(0xFF64748B),
   };
 
@@ -106,7 +107,11 @@ FeedbackStatus feedbackStatusFromApiValue(String value) {
 }
 
 class FeedbackStatusBadge extends StatelessWidget {
-  const FeedbackStatusBadge({required this.status, super.key, this.compact = false});
+  const FeedbackStatusBadge({
+    required this.status,
+    super.key,
+    this.compact = false,
+  });
 
   final FeedbackStatus status;
   final bool compact;
@@ -257,7 +262,10 @@ class FeedbackTicketDetail {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       statusHistory: (json['status_history'] as List<dynamic>? ?? [])
-          .map((e) => FeedbackStatusHistoryEntry.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) =>
+                FeedbackStatusHistoryEntry.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
       comments: (json['comments'] as List<dynamic>? ?? [])
           .map((e) => FeedbackCommentEntry.fromJson(e as Map<String, dynamic>))

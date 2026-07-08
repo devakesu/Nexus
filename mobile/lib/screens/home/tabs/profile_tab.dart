@@ -1272,7 +1272,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   void _showImageSlotPicker(int slotIndex) {
     final imagePath = _imagePaths[slotIndex];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -1281,17 +1280,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           return Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF161B26).withValues(alpha: 0.98)
-                  : Colors.white,
+              color: Colors.white,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(30),
                 topRight: Radius.circular(30),
               ),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.08),
+                color: Colors.black.withValues(alpha: 0.08),
               ),
             ),
             child: Column(
@@ -1309,8 +1304,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       slotIndex == 0
                           ? 'Profile Avatar'
                           : 'Gallery - Slot $slotIndex',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'Outfit',
@@ -1323,8 +1318,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                   slotIndex == 0
                       ? 'Select your cosmic profile avatar...'
                       : 'Choose your gallery showcase photo...',
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black54,
+                  style: const TextStyle(
+                    color: Colors.black54,
                     fontSize: 13,
                   ),
                 ),
@@ -1344,16 +1339,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                   Material(
                     color: Colors.transparent,
                     child: ListTile(
-                      leading: Icon(
+                      leading: const Icon(
                         LucideIcons.refreshCw,
-                        color: isDark ? Colors.white70 : Colors.black87,
+                        color: Colors.black87,
                       ),
-                      title: Text(
+                      title: const Text(
                         'Replace Image',
                         style: TextStyle(
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF0F172A),
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                       onTap: () {
@@ -1380,10 +1373,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                     ),
                   ),
                 ] else ...[
-                  Text(
+                  const Text(
                     'Upload an image from your device gallery to represent you in this slot.',
                     style: TextStyle(
-                      color: isDark ? Colors.white54 : Colors.black54,
+                      color: Colors.black54,
                       fontSize: 13,
                     ),
                   ),
@@ -1465,13 +1458,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     required String currentValue,
     required ValueChanged<String> onSelected,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     unawaited(
       showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        barrierColor: Colors.black.withValues(alpha: isDark ? 0.8 : 0.4),
+        barrierColor: Colors.black.withValues(alpha: 0.4),
         builder: (context) {
           final searchController = TextEditingController();
           return StatefulBuilder(
@@ -1493,17 +1485,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                   bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
                 ),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF131722).withValues(alpha: 0.98)
-                      : Colors.white,
+                  color: Colors.white,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                   ),
                 ),
                 child: SafeArea(
@@ -1517,9 +1505,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 18),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.15)
-                                : Colors.black.withValues(alpha: 0.15),
+                            color: Colors.black.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -1529,10 +1515,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         children: [
                           Text(
                             title,
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF0F172A),
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Outfit',
@@ -1542,9 +1526,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           Text(
                             '${filteredOptions.length} options',
                             style: TextStyle(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.35)
-                                  : Colors.black.withValues(alpha: 0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                               fontSize: 11,
                               fontFamily: 'Outfit',
                             ),
@@ -1557,42 +1539,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           height: 44,
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.02)
-                                : Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Colors.black.withValues(alpha: 0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 LucideIcons.search,
-                                color: isDark ? Colors.white38 : Colors.black45,
+                                color: Colors.black45,
                                 size: 16,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: TextField(
                                   controller: searchController,
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF0F172A),
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
                                     fontSize: 13,
                                     fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Search signals...',
                                     hintStyle: TextStyle(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.25)
-                                          : Colors.black.withValues(
-                                              alpha: 0.35,
-                                            ),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -1610,11 +1584,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                     searchController.clear();
                                     setModalState(() {});
                                   },
-                                  child: Icon(
+                                  child: const Icon(
                                     LucideIcons.xCircle,
-                                    color: isDark
-                                        ? Colors.white38
-                                        : Colors.black45,
+                                    color: Colors.black45,
                                     size: 16,
                                   ),
                                 ),
@@ -1667,26 +1639,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                         ? const Color(
                                             0xFFFF7597,
                                           ).withValues(alpha: 0.08)
-                                        : (isDark
-                                              ? Colors.white.withValues(
-                                                  alpha: 0.01,
-                                                )
-                                              : Colors.black.withValues(
-                                                  alpha: 0.02,
-                                                )),
+                                        : Colors.black.withValues(alpha: 0.02),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
                                           ? const Color(
                                               0xFFFF7597,
                                             ).withValues(alpha: 0.45)
-                                          : (isDark
-                                                ? Colors.white.withValues(
-                                                    alpha: 0.05,
-                                                  )
-                                                : Colors.black.withValues(
-                                                    alpha: 0.06,
-                                                  )),
+                                          : Colors.black.withValues(
+                                              alpha: 0.06,
+                                            ),
                                     ),
                                   ),
                                   child: Row(
@@ -1716,9 +1678,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                           size: 14,
                                           color: isSelected
                                               ? const Color(0xFFFF7597)
-                                              : (isDark
-                                                    ? Colors.white24
-                                                    : Colors.black26),
+                                              : Colors.black26,
                                         ),
                                         const SizedBox(width: 12),
                                       ],
@@ -1727,12 +1687,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                           option,
                                           style: TextStyle(
                                             color: isSelected
-                                                ? (isDark
-                                                      ? Colors.white
-                                                      : const Color(0xFFFF7597))
-                                                : (isDark
-                                                      ? Colors.white70
-                                                      : Colors.black87),
+                                                ? const Color(0xFFFF7597)
+                                                : Colors.black87,
                                             fontFamily: 'Outfit',
                                             fontSize: 14,
                                             fontWeight: isSelected
@@ -1808,11 +1764,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             child: Container(color: Theme.of(context).scaffoldBackgroundColor),
           ),
           // Futuristic Grid Pattern Overlay
-          Positioned.fill(
+          const Positioned.fill(
             child: CustomPaint(
-              painter: FuturisticBackgroundPainter(
-                isDark: Theme.of(context).brightness == Brightness.dark,
-              ),
+              painter: FuturisticBackgroundPainter(),
             ),
           ),
           // Layered Ambient Glows

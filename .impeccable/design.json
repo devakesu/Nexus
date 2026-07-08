@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-08T00:00:00Z",
+  "title": "Design System: Nexus",
+  "extensions": {
+    "colorMeta": {
+      "primary-teal": { "role": "primary", "displayName": "Signal Teal", "canonical": "#0891B2", "tonalRamp": ["#000000", "#022933", "#055366", "#077C99", "#2BA1BD", "#72C0D3", "#B8E0E9", "#FFFFFF"] },
+      "pulsar-pink": { "role": "primary", "displayName": "Pulsar Pink", "canonical": "#FF7597", "tonalRamp": ["#000000", "#49212B", "#924356", "#DB6481", "#FF89A6", "#FFB0C4", "#FFD8E1", "#FFFFFF"] },
+      "mode-dating": { "role": "secondary", "displayName": "Dating Signal", "canonical": "#FF4F81", "tonalRamp": ["#000000", "#491725", "#922D4A", "#DB446F", "#FF6893", "#FF9AB7", "#FFCDDB", "#FFFFFF"] },
+      "mode-friends": { "role": "secondary", "displayName": "Friends Signal", "canonical": "#A45E00", "tonalRamp": ["#000000", "#2F1B00", "#5E3600", "#8D5100", "#B17524", "#CBA36D", "#E5D1B6", "#FFFFFF"] },
+      "mode-professional": { "role": "secondary", "displayName": "Professional Signal", "canonical": "#007E6D", "tonalRamp": ["#000000", "#00241F", "#00483E", "#006C5D", "#249082", "#6DB5AC", "#B6DAD5", "#FFFFFF"] },
+      "mode-settings": { "role": "secondary", "displayName": "Settings Signal", "canonical": "#4EA8DE", "tonalRamp": ["#000000", "#16303F", "#2D607F", "#4390BE", "#67B4E3", "#9ACDEC", "#CCE6F6", "#FFFFFF"] },
+      "safety-blue": { "role": "tertiary", "displayName": "Safety Blue", "canonical": "#0284C7", "tonalRamp": ["#000000", "#012639", "#014B72", "#0271AB", "#2696CF", "#6EB9DF", "#B7DCEF", "#FFFFFF"] },
+      "safety-teal": { "role": "tertiary", "displayName": "Safety Teal", "canonical": "#0D9488", "tonalRamp": ["#000000", "#042A27", "#07554E", "#0B7F75", "#30A399", "#75C2BB", "#BAE0DD", "#FFFFFF"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#0F172A", "tonalRamp": ["#000000", "#04070C", "#090D18", "#0D1424", "#313848", "#767A85", "#BABDC2", "#FFFFFF"] },
+      "ink-muted": { "role": "neutral", "displayName": "Ink Muted", "canonical": "#64748B" },
+      "ink-faint": { "role": "neutral", "displayName": "Ink Faint", "canonical": "#94A3B8" },
+      "border-neutral": { "role": "neutral", "displayName": "Border Neutral", "canonical": "#E2E8F0" },
+      "surface": { "role": "neutral", "displayName": "Surface White", "canonical": "#FFFFFF" },
+      "bg": { "role": "neutral", "displayName": "Canvas", "canonical": "#F4F6FA", "tonalRamp": ["#000000", "#464647", "#8B8D8F", "#D1D3D6", "#F6F7FB", "#F9FAFC", "#FCFCFE", "#FFFFFF"] },
+      "success": { "role": "status", "displayName": "Success Green", "canonical": "#10B981" },
+      "error": { "role": "status", "displayName": "Error Red", "canonical": "#EF4444" },
+      "warning": { "role": "status", "displayName": "Warning Amber", "canonical": "#F59E0B" },
+      "info": { "role": "status", "displayName": "Info Blue", "canonical": "#60A5FA" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "One futuristic flourish per screen, max (Orbitron)." },
+      "headline": { "displayName": "Headline", "purpose": "Section and sheet titles (Manrope)." },
+      "title": { "displayName": "Title", "purpose": "Card titles, list-item primary text (Manrope)." },
+      "body": { "displayName": "Body", "purpose": "Standard copy and chat bubbles (Inter)." },
+      "label": { "displayName": "Label", "purpose": "Nav labels, chip labels, micro-copy (Inter)." },
+      "mono": { "displayName": "Mono", "purpose": "OTP entry and login/splash terminal sequences only (JetBrains Mono)." }
+    },
+    "shadows": [
+      { "name": "ambient-card", "value": "0 2px 8px rgba(0,0,0,0.03)", "purpose": "Resting elevation for every white card and container." },
+      { "name": "nav-float", "value": "0 4px 16px rgba(0,0,0,0.06)", "purpose": "Floating pill bottom nav's constant lift, light mode (use rgba(0,0,0,0.2) in dark mode)." },
+      { "name": "signal-glow", "value": "0 4px 12px rgba(255,117,151,0.3)", "purpose": "Focused input / active primary button glow, recolor to the owning signal family." },
+      { "name": "toast-glow", "value": "0 6px 24px rgba(16,185,129,0.12), 0 2px 8px rgba(0,0,0,0.55)", "purpose": "Stacked ambient + status-color glow specific to toast notifications." }
+    ],
+    "motion": [
+      { "name": "nav-select", "value": "250ms ease", "purpose": "Bottom nav tab selection color/fill transition." },
+      { "name": "constellation-rings", "value": "3.2s / 5.8s / 9.0s linear loops + 4s radar sweep + 2s pulse", "purpose": "Orbit discovery loading sequence; needs a reduced-motion crossfade fallback." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary CTA: Pulsar Pink gradient fill, glows on active state.",
+      "html": "<button class=\"ds-btn-primary\">Continue</button>",
+      "css": ".ds-btn-primary { height: 52px; padding: 16px 24px; border-radius: 16px; border: none; background: linear-gradient(135deg, #FF7597, #E04B76); color: #FFFFFF; font-family: Manrope, sans-serif; font-weight: 700; font-size: 15px; transition: box-shadow 0.2s, transform 0.2s; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { box-shadow: 0 4px 12px rgba(255,117,151,0.3); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); box-shadow: none; }"
+    },
+    {
+      "name": "Mode Chip (selected)",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "Filter chip in its selected state, tinted to the screen's owning signal color (example: Dating pink).",
+      "html": "<button class=\"ds-chip-selected\"><svg class=\"ds-chip-check\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M20 6L9 17l-5-5\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Nearby</button>",
+      "css": ".ds-chip-selected { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: none; background: rgba(255,79,129,0.15); color: #FF4F81; font-family: Inter, sans-serif; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; } .ds-chip-check { color: #FF4F81; }"
+    },
+    {
+      "name": "Glass Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Focused-state glass input: gradient border ring around an inner surface field.",
+      "html": "<div class=\"ds-input-glass\"><input class=\"ds-input-glass-field\" placeholder=\"Add a bio\" /></div>",
+      "css": ".ds-input-glass { padding: 1.2px; border-radius: 16px; background: linear-gradient(135deg, #00E5FF, #FF7597); } .ds-input-glass-field { width: 100%; box-sizing: border-box; border: none; outline: none; border-radius: 15px; padding: 12px 16px; background: rgba(15,23,42,0.9); color: #FFFFFF; font-family: Inter, sans-serif; font-size: 14px; } .ds-input-glass-field::placeholder { color: #94A3B8; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard ambient-elevation card used across settings, safety, and feed surfaces.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-title\">Safety Center</p><p class=\"ds-card-body\">Review your meetup safety settings.</p></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); } .ds-card-title { margin: 0 0 4px; font-family: Manrope, sans-serif; font-weight: 700; font-size: 16px; color: #0F172A; } .ds-card-body { margin: 0; font-family: Inter, sans-serif; font-size: 14px; color: #64748B; }"
+    },
+    {
+      "name": "Bottom Nav Item (selected)",
+      "kind": "nav",
+      "refersTo": "nav-item-selected",
+      "description": "Selected tab in the floating pill bottom nav, tinted to that tab's Mode Signal color (example: Dating).",
+      "html": "<button class=\"ds-nav-item ds-nav-item--selected\"><span class=\"ds-nav-label\">Dating</span></button>",
+      "css": ".ds-nav-item--selected { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 16px; border: none; background: rgba(255,79,129,0.15); transition: background 0.25s ease; } .ds-nav-label { font-family: Inter, sans-serif; font-weight: 800; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: #FF4F81; }"
+    },
+    {
+      "name": "Safety Score Ring",
+      "kind": "custom",
+      "refersTo": "safety-score-ring",
+      "description": "Circular progress gauge using the Safety Duo sweep gradient; also used for check-in countdowns.",
+      "html": "<svg class=\"ds-safety-ring\" width=\"96\" height=\"96\" viewBox=\"0 0 96 96\"><circle cx=\"48\" cy=\"48\" r=\"42\" fill=\"none\" stroke=\"#E2E8F0\" stroke-width=\"6\"/><circle cx=\"48\" cy=\"48\" r=\"42\" fill=\"none\" stroke=\"url(#ds-safety-gradient)\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-dasharray=\"264\" stroke-dashoffset=\"66\" transform=\"rotate(-90 48 48)\"/><defs><linearGradient id=\"ds-safety-gradient\"><stop offset=\"0%\" stop-color=\"#0284C7\"/><stop offset=\"100%\" stop-color=\"#0D9488\"/></linearGradient></defs></svg>",
+      "css": ".ds-safety-ring { display: block; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Constellation Social",
+    "overview": "Nexus already speaks this language in its own code before any design system named it: an \"Orbit\" discovery screen with a hand-painted starfield and HUD-style coordinate grid, a \"Constellation\" loader with concentric rotating dot-rings and a radar sweep, a brand pink literally named pulsarPink in the source. Constellation Social treats every person on the app as a point of light, and the product's job is to help two isolated points resolve into a recognizable pattern - a match, a friendship, a connection worth following. Discovery is navigation: you scan the sky, not swipe a deck.\n\nThis is a product register surface: the design serves the workflows (discover, like, chat, stay safe), it doesn't sell them. The energy is playful and energetic, closer to BeReal's in-the-moment authenticity than to a curated dating-app gloss - Nexus explicitly rejects the generic Tinder stacked swipe-card cliche, even though liking and passing exist as interactions. Safety is a first-class citizen of this system, not a settings-page afterthought: the Safety Center, meetup-safety guidance, and crisis helplines borrow the same calm blue-teal signal color and soft elevation as the rest of the app, so they read as considered product, not a compliance bolt-on.",
+    "keyCharacteristics": [
+      "A cosmic/signal vocabulary (orbit, constellation, pulsar, pulse) that's already load-bearing in the codebase, not decorative",
+      "One deliberate rule broken into four colors: every relationship mode (Dating, Friends, Professional, Profile) carries its own accent that follows the user across nav, chat, and filters",
+      "Ambient soft depth throughout - nothing is stark-flat, nothing is heavy Material elevation",
+      "Tactile, glowing interaction states: focus and press are announced with color and glow, not just a ripple",
+      "Safety surfaces get the same craft budget as growth surfaces"
+    ],
+    "rules": [
+      { "name": "The Mode Signal Rule", "body": "Every relationship mode owns one color, everywhere. That color is not decorative - it is the mode's identity, and it must be the same accent in the bottom nav, the chat header gradient, the home header, and the filter panel for that mode. Friends and Professional were deepened from earlier, brighter tones (#FF9F1C, #00F5D4) that measured 1.4-2.1:1 contrast as flat text/icon color or white-on-fill; #A45E00 and #007E6D clear 4.5:1+ in both directions.", "section": "colors" },
+      { "name": "The One Signal Rule", "body": "A screen shows exactly one accent identity at a time: its mode color, Pulsar Pink, or the Safety Duo. Never mix two of these families on one screen.", "section": "colors" },
+      { "name": "The One Display Moment Rule", "body": "Orbitron appears at most once per screen. It's a signature flourish, not a heading family.", "section": "typography" },
+      { "name": "The Ambient-Plus-One Rule", "body": "Every surface gets its ambient card shadow at rest. At most one additional glow layer is added for state (focus/active/toast) - never stack two colored glows on the same element.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do give every relationship mode (Dating, Friends, Professional) its own consistent signal color across nav, chat, and filters - the Mode Signal Rule.",
+      "Do keep the Safety Duo (#0284C7 / #0D9488) exclusive to Safety Center, meetup-safety, and crisis-helpline surfaces so it stays recognizable as \"you're safe here.\"",
+      "Do treat glow shadows as a response to focus/press/active state, never a resting default (the Ambient-Plus-One Rule).",
+      "Do use JetBrains Mono only for OTP entry and the login/splash terminal sequence - it's a deliberate outlier, not a body font.",
+      "Do keep the canvas a cool off-white (#F4F6FA) - never drift toward a warm cream/sand background."
+    ],
+    "donts": [
+      "Don't build a stacked swipe-deck card UI for discovery, even where like/pass actions exist - Nexus's own anti-reference is the generic Tinder card cliche, and the Orbit screen's radar/starfield metaphor is the intended alternative.",
+      "Don't let chat-tab gradients, the home header, or any other surface diverge from the nav's Mode Signal hex values - this drifted before (older, brighter tones per mode) and was reconciled; don't reintroduce a second set of \"close enough\" mode colors.",
+      "Don't reach for Material's default elevation: prop for depth; use the Ambient Card / Signal Glow shadow vocabulary instead.",
+      "Don't mix two colored glow shadows on one element, or mix two signal families (e.g. a mode color and Pulsar Pink) on one screen.",
+      "Don't default to the default Material ElevatedButton/BottomNavigationBar look - the hand-built, tactile-and-glowing components are the system, not a placeholder for \"real\" Material components.",
+      "Don't skip the reduced-motion alternative on the Orbit/Constellation animations (twinkle, radar sweep, ring rotation) - these are the system's most elaborate motion and the most likely to be missed when adding prefers-reduced-motion support."
+    ]
+  }
+}

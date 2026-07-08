@@ -59,7 +59,7 @@ class _ProfessionalActivationOverlayState
 
   @override
   Widget build(BuildContext context) {
-    const brandColor = Color(0xFF00F5D4);
+    const brandColor = Color(0xFF007E6D);
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(

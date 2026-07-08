@@ -31,8 +31,6 @@ class ProfileHeader extends StatelessWidget {
     const pulsarPink = Color(0xFFFF7597);
     const deepCyan = Color(0xFF00E5FF);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Center(
       child: Column(
         children: [
@@ -83,16 +81,11 @@ class ProfileHeader extends StatelessWidget {
                   height: 104,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: isDark
-                          ? [
-                              const Color(0xFF161B26),
-                              const Color(0xFF0F0F23),
-                            ]
-                          : [
-                              Colors.white,
-                              const Color(0xFFF3F4F6),
-                            ],
+                    gradient: const LinearGradient(
+                      colors: [
+                        Colors.white,
+                        Color(0xFFF3F4F6),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -123,8 +116,8 @@ class ProfileHeader extends StatelessWidget {
                                           strokeWidth: 2,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                            pulsarPink,
-                                          ),
+                                                pulsarPink,
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -132,14 +125,14 @@ class ProfileHeader extends StatelessWidget {
                               ],
                             ),
                           )
-                        : Icon(
+                        : const Icon(
                             LucideIcons.user,
-                            color: isDark ? Colors.white24 : Colors.black38,
+                            color: Colors.black38,
                             size: 44,
                           ),
                   ),
                 ),
-          // Edit Badge
+                // Edit Badge
                 Positioned(
                   right: 4,
                   bottom: 4,
@@ -156,7 +149,7 @@ class ProfileHeader extends StatelessWidget {
                       ),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isDark ? const Color(0xFF0B0D13) : Colors.white,
+                        color: Colors.white,
                         width: 2.5,
                       ),
                       boxShadow: [
@@ -184,17 +177,9 @@ class ProfileHeader extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              color: const Color(0xFF0F172A),
               letterSpacing: -0.5,
-              shadows: isDark
-                  ? [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        offset: const Offset(0, 2),
-                        blurRadius: 6,
-                      ),
-                    ]
-                  : [],
+              shadows: [],
             ),
           ),
           const SizedBox(height: 10),
@@ -202,26 +187,21 @@ class ProfileHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: isDark
-                    ? [
-                        Colors.white.withValues(alpha: 0.08),
-                        Colors.white.withValues(alpha: 0.03),
-                      ]
-                    : [
-                        Colors.black.withValues(alpha: 0.04),
-                        Colors.black.withValues(alpha: 0.01),
-                      ],
+                colors: [
+                  Colors.black.withValues(alpha: 0.04),
+                  Colors.black.withValues(alpha: 0.01),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: deepCyan.withValues(alpha: isDark ? 0.3 : 0.45),
+                color: deepCyan.withValues(alpha: 0.45),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: deepCyan.withValues(alpha: isDark ? 0.08 : 0.05),
+                  color: deepCyan.withValues(alpha: 0.05),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),
@@ -259,7 +239,7 @@ class ProfileHeader extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white.withValues(alpha: 0.95) : const Color(0xFF0F172A).withValues(alpha: 0.9),
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.9),
                     letterSpacing: 0.2,
                   ),
                 ),

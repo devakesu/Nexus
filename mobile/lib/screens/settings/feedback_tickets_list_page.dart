@@ -16,7 +16,8 @@ class FeedbackTicketsListPage extends StatefulWidget {
   const FeedbackTicketsListPage({super.key});
 
   @override
-  State<FeedbackTicketsListPage> createState() => _FeedbackTicketsListPageState();
+  State<FeedbackTicketsListPage> createState() =>
+      _FeedbackTicketsListPageState();
 }
 
 class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
@@ -91,6 +92,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -113,7 +115,10 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
     }
     if (_error != null) {
       return Center(
-        child: Text(_error!, style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+        child: Text(
+          _error!,
+          style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+        ),
       );
     }
     if (_tickets.isEmpty) {
@@ -195,7 +200,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
                     '#${feedbackTicketRef(ticket.id)} · ${feedbackRelativeTime(ticket.createdAt)}',
                     style: GoogleFonts.inter(
                       fontSize: 11.5,
-                      color: const Color(0xFF94A3B8),
+                      color: const Color(0xFF475569),
                     ),
                   ),
                 ],

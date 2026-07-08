@@ -125,12 +125,18 @@ class _FeedbackPageState extends State<FeedbackPage> {
           children: [
             ListTile(
               leading: const Icon(LucideIcons.camera, color: _gradientEnd),
-              title: Text('Camera', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              title: Text(
+                'Camera',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(LucideIcons.image, color: _gradientEnd),
-              title: Text('Gallery', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              title: Text(
+                'Gallery',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
           ],
@@ -139,7 +145,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
     );
     if (source == null || !mounted) return;
 
-    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 85,
+    );
     if (picked == null || !mounted) return;
 
     final file = File(picked.path);
@@ -299,24 +308,22 @@ class _FeedbackPageState extends State<FeedbackPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFECFDF5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      LucideIcons.checkCheck,
-                      color: Color(0xFF0D9488),
-                      size: 36,
-                    ),
-                  )
-                  .animate()
-                  .scale(
-                    begin: const Offset(0.6, 0.6),
-                    end: const Offset(1, 1),
-                    duration: 350.ms,
-                    curve: Curves.easeOutBack,
-                  ),
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  LucideIcons.checkCheck,
+                  color: Color(0xFF0D9488),
+                  size: 36,
+                ),
+              ).animate().scale(
+                begin: const Offset(0.6, 0.6),
+                end: const Offset(1, 1),
+                duration: 350.ms,
+                curve: Curves.easeOutBack,
+              ),
               const SizedBox(height: 18),
               Text(
                 'Thanks — we got it!',
@@ -422,6 +429,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -468,7 +476,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    name != null ? "We're here for you, $name" : "We're here to help",
+                    name != null
+                        ? "We're here for you, $name"
+                        : "We're here to help",
                     style: GoogleFonts.manrope(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -583,7 +593,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
         .slideY(begin: 0.04, end: 0, duration: 300.ms);
   }
 
-  Widget _buildTicketRow(FeedbackTicketSummary ticket, {required bool showDivider}) {
+  Widget _buildTicketRow(
+    FeedbackTicketSummary ticket, {
+    required bool showDivider,
+  }) {
     return Column(
       children: [
         ScalePressable(
@@ -592,7 +605,11 @@ class _FeedbackPageState extends State<FeedbackPage> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(ticket.queryType.icon, size: 16, color: const Color(0xFF94A3B8)),
+                Icon(
+                  ticket.queryType.icon,
+                  size: 16,
+                  color: const Color(0xFF94A3B8),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -613,7 +630,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         feedbackRelativeTime(ticket.createdAt),
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: const Color(0xFF94A3B8),
+                          color: const Color(0xFF475569),
                         ),
                       ),
                     ],
@@ -648,9 +665,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
               onTap: () => setState(() => _queryType = type),
               child: AnimatedContainer(
                 duration: 200.ms,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: selected ? _gradientEnd.withValues(alpha: 0.08) : Colors.white,
+                  color: selected
+                      ? _gradientEnd.withValues(alpha: 0.08)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: selected ? _gradientEnd : const Color(0xFFE2E8F0),
@@ -671,7 +693,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: selected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                        color: selected
+                            ? const Color(0xFF0F172A)
+                            : const Color(0xFF64748B),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -682,7 +706,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 10,
-                        color: const Color(0xFF94A3B8),
+                        color: const Color(0xFF475569),
                       ),
                     ),
                   ],
@@ -722,7 +746,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 maxLength: 150,
                 validator: (v) {
                   final value = v?.trim() ?? '';
-                  if (value.length < 3) return 'Subject must be at least 3 characters.';
+                  if (value.length < 3) {
+                    return 'Subject must be at least 3 characters.';
+                  }
                   return null;
                 },
               ),
@@ -737,7 +763,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 maxLength: 5000,
                 validator: (v) {
                   final value = v?.trim() ?? '';
-                  if (value.length < 10) return 'Please share a few more details.';
+                  if (value.length < 10) {
+                    return 'Please share a few more details.';
+                  }
                   return null;
                 },
               ),
@@ -814,13 +842,19 @@ class _FeedbackPageState extends State<FeedbackPage> {
       style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF0F172A)),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+        hintStyle: GoogleFonts.inter(
+          fontSize: 13,
+          color: const Color(0xFF475569),
+        ),
         prefixIcon: maxLines == 1
             ? Icon(icon, size: 18, color: const Color(0xFF94A3B8))
             : null,
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
-        counterStyle: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFFCBD5E1)),
+        counterStyle: GoogleFonts.inter(
+          fontSize: 10.5,
+          color: const Color(0xFF475569),
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -837,7 +871,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFEF4444)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -869,7 +906,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: attachment.failed ? const Color(0xFFEF4444) : const Color(0xFFE2E8F0),
+              color: attachment.failed
+                  ? const Color(0xFFEF4444)
+                  : const Color(0xFFE2E8F0),
             ),
             image: DecorationImage(
               image: FileImage(attachment.file),
@@ -926,7 +965,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             SizedBox(height: 4),
             Text(
               'Add',
-              style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+              style: TextStyle(fontSize: 10, color: Color(0xFF475569)),
             ),
           ],
         ),
@@ -976,7 +1015,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
       textAlign: TextAlign.center,
       style: GoogleFonts.inter(
         fontSize: 11,
-        color: const Color(0xFF94A3B8),
+        color: const Color(0xFF475569),
         height: 1.4,
       ),
     );

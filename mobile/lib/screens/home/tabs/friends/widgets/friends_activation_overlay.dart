@@ -58,7 +58,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
 
   @override
   Widget build(BuildContext context) {
-    const brandColor = Color(0xFFFF9F1C);
+    const brandColor = Color(0xFFA45E00);
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(

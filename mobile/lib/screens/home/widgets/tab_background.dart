@@ -16,8 +16,6 @@ class TabBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Stack(
       children: [
         Positioned.fill(
@@ -25,10 +23,7 @@ class TabBackground extends StatelessWidget {
         ),
         Positioned.fill(
           child: CustomPaint(
-            painter: FuturisticBackgroundPainter(
-              isDark: isDark,
-              accentColor: accentColor,
-            ),
+            painter: FuturisticBackgroundPainter(accentColor: accentColor),
           ),
         ),
         Positioned.fill(
@@ -38,7 +33,7 @@ class TabBackground extends StatelessWidget {
                 center: const Alignment(-0.8, -0.7),
                 radius: 1.2,
                 colors: [
-                  accentColor.withAlpha(isDark ? 31 : 26),
+                  accentColor.withAlpha(26),
                   Colors.transparent,
                 ],
               ),
@@ -52,7 +47,7 @@ class TabBackground extends StatelessWidget {
                 center: const Alignment(0.9, 0.9),
                 radius: 1.3,
                 colors: [
-                  accentColor.withAlpha(isDark ? 20 : 15),
+                  accentColor.withAlpha(15),
                   Colors.transparent,
                 ],
               ),

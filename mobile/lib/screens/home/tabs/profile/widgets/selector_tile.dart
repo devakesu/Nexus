@@ -25,17 +25,14 @@ class SelectorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
     final emoji = getEmojiForTag(value);
     final displayText = isEmpty
         ? 'Select...'
         : (emoji.isNotEmpty ? '$emoji  $value' : value);
     final textColor = isEmpty
-        ? (isDark
-              ? Colors.white.withValues(alpha: 0.3)
-              : Colors.black.withValues(alpha: 0.3))
-        : (isDark ? Colors.white : const Color(0xFF0F172A));
+        ? Colors.black.withValues(alpha: 0.3)
+        : const Color(0xFF0F172A);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,9 +40,7 @@ class SelectorTile extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.5)
-                : Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.2,
@@ -57,13 +52,9 @@ class SelectorTile extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.02)
-                  : const Color(0xFFF3F4F6),
+              color: const Color(0xFFF3F4F6),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.08),
+                color: Colors.black.withValues(alpha: 0.08),
               ),
             ),
             child: ClipRRect(
@@ -113,18 +104,14 @@ class SelectorTile extends StatelessWidget {
                             child: Icon(
                               LucideIcons.x,
                               size: 13,
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.45)
-                                  : Colors.black.withValues(alpha: 0.35),
+                              color: Colors.black.withValues(alpha: 0.35),
                             ),
                           ),
                         )
                       else
                         Icon(
                           LucideIcons.chevronRight,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.35)
-                              : Colors.black.withValues(alpha: 0.35),
+                          color: Colors.black.withValues(alpha: 0.35),
                           size: 14,
                         ),
                       const SizedBox(width: 12),

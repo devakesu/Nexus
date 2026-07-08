@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,6 +14,7 @@ import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _ChecklistItem {
@@ -195,9 +195,14 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   bool _guidelinesReviewed = false;
   bool _privacySettingsReviewed = false;
 
-  // Section anchors for scroll-to-section navigation from the safety score card
-  final GlobalKey _quizKey = GlobalKey();
-  final GlobalKey _guidelinesKey = GlobalKey();
+  // Section anchors for scroll-to-section navigation from the safety score
+  // card. Indices into the body's item list (see _buildSection) — driving
+  // ScrollablePositionedList.scrollTo instead of a GlobalKey/ensureVisible
+  // lets the list jump to a section that hasn't been built yet without
+  // disabling virtualization for the rest of the page.
+  final ItemScrollController _itemScrollController = ItemScrollController();
+  static const _guidelinesSectionIndex = 2;
+  static const _quizSectionIndex = 4;
 
   // One controller per guideline accordion so a "Next" button can collapse
   // the current tile and expand the next one in sequence.
@@ -295,34 +300,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     await prefs.setBool('safety_privacy_reviewed', true);
   }
 
-  void _scrollToKey(GlobalKey key) {
-    final ctx = key.currentContext;
-    if (ctx != null) {
-      unawaited(
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          alignment: 0.08,
-        ),
-      );
-    } else {
-      // The section may not have been laid out yet on this frame; retry
-      // once its RenderObject exists.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final retryCtx = key.currentContext;
-        if (retryCtx != null) {
-          unawaited(
-            Scrollable.ensureVisible(
-              retryCtx,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-              alignment: 0.08,
-            ),
-          );
-        }
-      });
-    }
+  void _scrollToSection(int index) {
+    unawaited(
+      _itemScrollController.scrollTo(
+        index: index,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.08,
+      ),
+    );
   }
 
   void _openPrivacySettings() {
@@ -414,63 +400,76 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     });
   }
 
+  // Item count and order must stay in sync with _guidelinesSectionIndex and
+  // _quizSectionIndex above.
+  static const _sectionCount = 7;
+
+  Widget _buildSection(int index) {
+    switch (index) {
+      case 0:
+        return _buildSafetyHeroBanner();
+      case 1:
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildNavCard(
+                  icon: LucideIcons.shieldAlert,
+                  iconColor: _red,
+                  iconBg: const Color(0xFFFEE2E2),
+                  title: 'Meetup Safety Alert',
+                  subtitle: 'Check-ins, SOS & trusted contacts.',
+                  onTap: _openMeetupSafetyPage,
+                  animateDelay: 50,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildNavCard(
+                  icon: LucideIcons.phoneCall,
+                  iconColor: const Color(0xFFEA580C),
+                  iconBg: const Color(0xFFFFF7ED),
+                  title: 'Crisis Helplines',
+                  subtitle: 'Confidential support hotlines.',
+                  onTap: _openCrisisHelplinesPage,
+                  animateDelay: 80,
+                ),
+              ),
+            ],
+          ),
+        );
+      case 2:
+        return _buildSafetyEducationSection();
+      case 3:
+        return _buildVerifiedProtectedSection();
+      case 4:
+        return _buildInteractiveQuizSection();
+      case 5:
+        return _buildShortcutsSection();
+      case 6:
+        return _buildFooterNote();
+      default:
+        throw StateError('Unknown Safety Center section index: $index');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(),
-      body: ListView(
+      // A plain virtualized ScrollablePositionedList — unlike ListView, its
+      // ItemScrollController can jump straight to a section by index even
+      // before that section has ever been built, so the checklist's
+      // "scroll to quiz/guidelines" taps work without forcing the whole
+      // page to lay out up front.
+      body: ScrollablePositionedList.builder(
         padding: const EdgeInsets.only(bottom: 60),
-        // Large cache extent so every section is laid out up front —
-        // otherwise the Sliver viewport only builds content near the
-        // current scroll position and GlobalKey-based "scroll to
-        // section" taps on far-below-the-fold items silently no-op.
-        scrollCacheExtent: const ScrollCacheExtent.pixels(20000),
-        children: [
-          _buildSafetyHeroBanner(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildNavCard(
-                    icon: LucideIcons.shieldAlert,
-                    iconColor: _red,
-                    iconBg: const Color(0xFFFEE2E2),
-                    title: 'Meetup Safety Alert',
-                    subtitle: 'Check-ins, SOS & trusted contacts.',
-                    onTap: _openMeetupSafetyPage,
-                    animateDelay: 50,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildNavCard(
-                    icon: LucideIcons.phoneCall,
-                    iconColor: const Color(0xFFEA580C),
-                    iconBg: const Color(0xFFFFF7ED),
-                    title: 'Crisis Helplines',
-                    subtitle: 'Confidential support hotlines.',
-                    onTap: _openCrisisHelplinesPage,
-                    animateDelay: 80,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          KeyedSubtree(
-            key: _guidelinesKey,
-            child: _buildSafetyEducationSection(),
-          ),
-          _buildVerifiedProtectedSection(),
-          KeyedSubtree(
-            key: _quizKey,
-            child: _buildInteractiveQuizSection(),
-          ),
-          _buildShortcutsSection(),
-          _buildFooterNote(),
-        ],
+        itemScrollController: _itemScrollController,
+        itemCount: _sectionCount,
+        itemBuilder: (context, index) => _buildSection(index),
       ),
     );
   }
@@ -575,6 +574,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -612,13 +612,13 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         label: 'Take the safety quiz',
         done: _quizCompletedOnce,
         icon: LucideIcons.sparkle,
-        onTap: () => _scrollToKey(_quizKey),
+        onTap: () => _scrollToSection(_quizSectionIndex),
       ),
       _ChecklistItem(
         label: 'Review safety guidelines',
         done: _guidelinesReviewed,
         icon: LucideIcons.bookOpen,
-        onTap: () => _scrollToKey(_guidelinesKey),
+        onTap: () => _scrollToSection(_guidelinesSectionIndex),
       ),
     ];
 
@@ -794,12 +794,12 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: item.done
-                                  ? const Color(0xFF94A3B8)
+                                  ? const Color(0xFF475569)
                                   : const Color(0xFF334155),
                               decoration: item.done
                                   ? TextDecoration.lineThrough
                                   : null,
-                              decorationColor: const Color(0xFF94A3B8),
+                              decorationColor: const Color(0xFF475569),
                             ),
                           ),
                         ),
@@ -1877,7 +1877,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             style: GoogleFonts.manrope(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF94A3B8),
+              color: const Color(0xFF475569),
             ),
           ),
           const SizedBox(height: 4),
@@ -1886,7 +1886,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11,
-              color: const Color(0xFFCBD5E1),
+              color: const Color(0xFF475569),
             ),
           ),
         ],

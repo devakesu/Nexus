@@ -30,7 +30,7 @@ class HandshakesOverlay extends StatefulWidget {
 class _HandshakesOverlayState extends State<HandshakesOverlay> {
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF00F5D4);
+    const themeColor = Color(0xFF007E6D);
     return Container(
               height: MediaQuery.of(context).size.height * 0.75,
               decoration: const BoxDecoration(
@@ -274,7 +274,7 @@ class _ConnectionsOverlayState extends State<ConnectionsOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF00F5D4);
+    const themeColor = Color(0xFF007E6D);
     final session = Supabase.instance.client.auth.currentSession;
     return Container(
               height: MediaQuery.of(context).size.height * 0.78,

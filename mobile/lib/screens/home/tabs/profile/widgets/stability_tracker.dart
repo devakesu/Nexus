@@ -113,7 +113,7 @@ class StabilityTracker extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                                Expanded(
+                Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Builder(
@@ -122,7 +122,9 @@ class StabilityTracker extends StatelessWidget {
                           _CriteriaItem(
                             icon: LucideIcons.image,
                             label: 'Profile Picture',
-                            complete: imagePaths[0] != null && imagePaths[0]!.isNotEmpty,
+                            complete:
+                                imagePaths[0] != null &&
+                                imagePaths[0]!.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.user,
@@ -147,37 +149,51 @@ class StabilityTracker extends StatelessWidget {
                           _CriteriaItem(
                             icon: LucideIcons.userCheck,
                             label: 'Gender',
-                            complete: displayGender.isNotEmpty && displayGender != 'Prefer not to say',
+                            complete:
+                                displayGender.isNotEmpty &&
+                                displayGender != 'Prefer not to say',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.heart,
                             label: 'Sexuality',
-                            complete: displaySexuality.isNotEmpty && displaySexuality != 'Prefer not to say',
+                            complete:
+                                displaySexuality.isNotEmpty &&
+                                displaySexuality != 'Prefer not to say',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.smile,
                             label: 'Pronouns',
-                            complete: pronouns.isNotEmpty && pronouns != 'Prefer not to say',
+                            complete:
+                                pronouns.isNotEmpty &&
+                                pronouns != 'Prefer not to say',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.image,
                             label: 'Gallery Slot 1',
-                            complete: imagePaths[1] != null && imagePaths[1]!.isNotEmpty,
+                            complete:
+                                imagePaths[1] != null &&
+                                imagePaths[1]!.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.image,
                             label: 'Gallery Slot 2',
-                            complete: imagePaths[2] != null && imagePaths[2]!.isNotEmpty,
+                            complete:
+                                imagePaths[2] != null &&
+                                imagePaths[2]!.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.image,
                             label: 'Gallery Slot 3',
-                            complete: imagePaths[3] != null && imagePaths[3]!.isNotEmpty,
+                            complete:
+                                imagePaths[3] != null &&
+                                imagePaths[3]!.isNotEmpty,
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.image,
                             label: 'Gallery Slot 4',
-                            complete: imagePaths[4] != null && imagePaths[4]!.isNotEmpty,
+                            complete:
+                                imagePaths[4] != null &&
+                                imagePaths[4]!.isNotEmpty,
                           ),
                         ];
 
@@ -223,22 +239,30 @@ class StabilityTracker extends StatelessWidget {
                           _CriteriaItem(
                             icon: LucideIcons.glassWater,
                             label: 'Drinking',
-                            complete: drinking.isNotEmpty && drinking != 'Not specified',
+                            complete:
+                                drinking.isNotEmpty &&
+                                drinking != 'Not specified',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.cigarette,
                             label: 'Smoking',
-                            complete: smoking.isNotEmpty && smoking != 'Not specified',
+                            complete:
+                                smoking.isNotEmpty &&
+                                smoking != 'Not specified',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.baby,
                             label: 'Children Plans',
-                            complete: childrenPlans.isNotEmpty && childrenPlans != 'Not specified',
+                            complete:
+                                childrenPlans.isNotEmpty &&
+                                childrenPlans != 'Not specified',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.sparkles,
                             label: 'Religious Beliefs',
-                            complete: religiousBeliefs.isNotEmpty && religiousBeliefs != 'Not specified',
+                            complete:
+                                religiousBeliefs.isNotEmpty &&
+                                religiousBeliefs != 'Not specified',
                           ),
                           _CriteriaItem(
                             icon: LucideIcons.pawPrint,
@@ -265,10 +289,18 @@ class StabilityTracker extends StatelessWidget {
                           ),
                         ];
 
-                        final incompleteCore = coreDetails.where((item) => !item.complete).toList();
-                        final incompleteSocial = socialCampus.where((item) => !item.complete).toList();
-                        final incompleteLifestyle = lifestylePref.where((item) => !item.complete).toList();
-                        final incompleteInterests = interestsHobbies.where((item) => !item.complete).toList();
+                        final incompleteCore = coreDetails
+                            .where((item) => !item.complete)
+                            .toList();
+                        final incompleteSocial = socialCampus
+                            .where((item) => !item.complete)
+                            .toList();
+                        final incompleteLifestyle = lifestylePref
+                            .where((item) => !item.complete)
+                            .toList();
+                        final incompleteInterests = interestsHobbies
+                            .where((item) => !item.complete)
+                            .toList();
 
                         if (incompleteCore.isEmpty &&
                             incompleteSocial.isEmpty &&
@@ -313,42 +345,56 @@ class StabilityTracker extends StatelessWidget {
                           children: [
                             if (incompleteCore.isNotEmpty) ...[
                               _buildStabilityCategoryHeader('Core Details'),
-                              ...incompleteCore.map((item) => _buildStabilityCriteriaRow(
-                                    icon: item.icon,
-                                    label: item.label,
-                                    complete: item.complete,
-                                    context: context,
-                                  )),
+                              ...incompleteCore.map(
+                                (item) => _buildStabilityCriteriaRow(
+                                  icon: item.icon,
+                                  label: item.label,
+                                  complete: item.complete,
+                                  context: context,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                             ],
                             if (incompleteSocial.isNotEmpty) ...[
-                              _buildStabilityCategoryHeader('Social & Campus Info'),
-                              ...incompleteSocial.map((item) => _buildStabilityCriteriaRow(
-                                    icon: item.icon,
-                                    label: item.label,
-                                    complete: item.complete,
-                                    context: context,
-                                  )),
+                              _buildStabilityCategoryHeader(
+                                'Social & Campus Info',
+                              ),
+                              ...incompleteSocial.map(
+                                (item) => _buildStabilityCriteriaRow(
+                                  icon: item.icon,
+                                  label: item.label,
+                                  complete: item.complete,
+                                  context: context,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                             ],
                             if (incompleteLifestyle.isNotEmpty) ...[
-                              _buildStabilityCategoryHeader('Lifestyle & Preferences'),
-                              ...incompleteLifestyle.map((item) => _buildStabilityCriteriaRow(
-                                    icon: item.icon,
-                                    label: item.label,
-                                    complete: item.complete,
-                                    context: context,
-                                  )),
+                              _buildStabilityCategoryHeader(
+                                'Lifestyle & Preferences',
+                              ),
+                              ...incompleteLifestyle.map(
+                                (item) => _buildStabilityCriteriaRow(
+                                  icon: item.icon,
+                                  label: item.label,
+                                  complete: item.complete,
+                                  context: context,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                             ],
                             if (incompleteInterests.isNotEmpty) ...[
-                              _buildStabilityCategoryHeader('Interests & Hobbies'),
-                              ...incompleteInterests.map((item) => _buildStabilityCriteriaRow(
-                                    icon: item.icon,
-                                    label: item.label,
-                                    complete: item.complete,
-                                    context: context,
-                                  )),
+                              _buildStabilityCategoryHeader(
+                                'Interests & Hobbies',
+                              ),
+                              ...incompleteInterests.map(
+                                (item) => _buildStabilityCriteriaRow(
+                                  icon: item.icon,
+                                  label: item.label,
+                                  complete: item.complete,
+                                  context: context,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                             ],
                           ],
@@ -373,7 +419,9 @@ class StabilityTracker extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF7597).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFFF7597,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -431,7 +479,9 @@ class StabilityTracker extends StatelessWidget {
     required bool complete,
     required BuildContext context,
   }) {
-    const actionColor = Color(0xFFFF7597); // pulsarPink accent for call to action
+    const actionColor = Color(
+      0xFFFF7597,
+    ); // pulsarPink accent for call to action
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: GestureDetector(
@@ -509,7 +559,6 @@ class StabilityTracker extends StatelessWidget {
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
     final stabilityFraction = stabilityPercentage / 100;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: () => _showStabilityDetails(context),
@@ -517,15 +566,15 @@ class StabilityTracker extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111420) : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFFF7597).withValues(alpha: isDark ? 0.2 : 0.35),
+            color: const Color(0xFFFF7597).withValues(alpha: 0.35),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 16,
               spreadRadius: 1,
               offset: const Offset(0, 8),
@@ -549,7 +598,7 @@ class StabilityTracker extends StatelessWidget {
                     Text(
                       'Profile Completion',
                       style: TextStyle(
-                        color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
@@ -628,13 +677,9 @@ class StabilityTracker extends StatelessWidget {
                       ];
                     } else {
                       // Inactive segment gets a tiny hint of sweep light
-                      displayColor = isDark
-                          ? Colors.white.withValues(
-                              alpha: 0.04 + (sweepHighlight * 0.08),
-                            )
-                          : Colors.black.withValues(
-                              alpha: 0.06 + (sweepHighlight * 0.08),
-                            );
+                      displayColor = Colors.black.withValues(
+                        alpha: 0.06 + (sweepHighlight * 0.08),
+                      );
                       boxShadows = sweepHighlight > 0.5
                           ? [
                               BoxShadow(
@@ -721,7 +766,7 @@ class StabilityTracker extends StatelessWidget {
                     Text(
                       'STABILITY INDEX: $percentage/100',
                       style: TextStyle(
-                        color: isDark ? Colors.white.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.45),
+                        color: Colors.black.withValues(alpha: 0.45),
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,

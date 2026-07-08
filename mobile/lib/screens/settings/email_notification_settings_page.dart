@@ -122,7 +122,8 @@ class _EmailNotificationSettingsPageState
         final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
             ?.toString();
         setState(
-          () => _error = detail ?? 'Failed to load email notification settings.',
+          () =>
+              _error = detail ?? 'Failed to load email notification settings.',
         );
       }
     } on Exception catch (_) {
@@ -310,6 +311,7 @@ class _EmailNotificationSettingsPageState
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -431,7 +433,7 @@ class _MandatoryTile extends StatelessWidget {
                   subtitle,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF94A3B8),
+                    color: const Color(0xFF475569),
                     height: 1.3,
                   ),
                 ),
@@ -442,7 +444,7 @@ class _MandatoryTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -451,7 +453,7 @@ class _MandatoryTile extends StatelessWidget {
                 const Icon(
                   LucideIcons.lock,
                   size: 11,
-                  color: Color(0xFF16A34A),
+                  color: Color(0xFF10B981),
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -459,7 +461,7 @@ class _MandatoryTile extends StatelessWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF16A34A),
+                    color: const Color(0xFF10B981),
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -540,7 +542,7 @@ class _ToggleTile extends StatelessWidget {
                       subtitle,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF94A3B8),
+                        color: const Color(0xFF475569),
                         height: 1.3,
                       ),
                     ),
@@ -559,7 +561,6 @@ class _ToggleTile extends StatelessWidget {
                   value: value,
                   onChanged: onChanged,
                   activeThumbColor: accentColor,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
             ],
           ),

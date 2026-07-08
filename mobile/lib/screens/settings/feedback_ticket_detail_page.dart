@@ -18,7 +18,8 @@ class FeedbackTicketDetailPage extends StatefulWidget {
   final String reportId;
 
   @override
-  State<FeedbackTicketDetailPage> createState() => _FeedbackTicketDetailPageState();
+  State<FeedbackTicketDetailPage> createState() =>
+      _FeedbackTicketDetailPageState();
 }
 
 class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
@@ -100,7 +101,11 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       }
     } on Exception {
       if (mounted) {
-        NexusToast.show(context, 'Failed to send comment.', type: NexusToastType.error);
+        NexusToast.show(
+          context,
+          'Failed to send comment.',
+          type: NexusToastType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _sendingComment = false);
@@ -123,7 +128,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           children: [
             Text(
               "Let us know why you're closing it — resolved, no longer relevant, etc.",
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -132,7 +140,9 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: 'Reason for closing',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ],
@@ -146,7 +156,9 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               final value = reasonController.text.trim();
@@ -184,7 +196,11 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       }
     } on Exception {
       if (mounted) {
-        NexusToast.show(context, 'Failed to close ticket.', type: NexusToastType.error);
+        NexusToast.show(
+          context,
+          'Failed to close ticket.',
+          type: NexusToastType.error,
+        );
       }
     }
     if (mounted) setState(() => _closing = false);
@@ -215,6 +231,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: Text(
@@ -242,7 +259,11 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.circleAlert, size: 32, color: Color(0xFFCBD5E1)),
+              const Icon(
+                LucideIcons.circleAlert,
+                size: 32,
+                color: Color(0xFFCBD5E1),
+              ),
               const SizedBox(height: 12),
               Text(
                 _error ?? 'Ticket not found.',
@@ -353,7 +374,11 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(LucideIcons.image, size: 14, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      LucideIcons.image,
+                      size: 14,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '${ticket.attachmentPaths.length} attachment'
@@ -369,7 +394,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
               const SizedBox(height: 10),
               Text(
                 'Opened ${feedbackRelativeTime(ticket.createdAt)}',
-                style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFCBD5E1)),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: const Color(0xFF475569),
+                ),
               ),
             ],
           ),
@@ -410,7 +438,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
     );
   }
 
-  Widget _buildTimelineEntry(FeedbackStatusHistoryEntry entry, {required bool isLast}) {
+  Widget _buildTimelineEntry(
+    FeedbackStatusHistoryEntry entry, {
+    required bool isLast,
+  }) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,7 +491,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                   const SizedBox(height: 2),
                   Text(
                     feedbackRelativeTime(entry.createdAt),
-                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFCBD5E1)),
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: const Color(0xFF475569),
+                    ),
                   ),
                 ],
               ),
@@ -495,7 +529,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           if (ticket.comments.isEmpty)
             Text(
               'No replies yet.',
-              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: const Color(0xFF475569),
+              ),
             )
           else
             for (final comment in ticket.comments)
@@ -507,7 +544,10 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                       : Alignment.centerLeft,
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 280),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: comment.isOwn
                           ? _gradientEnd.withValues(alpha: 0.1)
@@ -530,7 +570,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                           feedbackRelativeTime(comment.createdAt),
                           style: GoogleFonts.inter(
                             fontSize: 10,
-                            color: const Color(0xFF94A3B8),
+                            color: const Color(0xFF475569),
                           ),
                         ),
                       ],
@@ -565,10 +605,16 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
               style: GoogleFonts.inter(fontSize: 13.5),
               decoration: InputDecoration(
                 hintText: 'Add a comment…',
-                hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                hintStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF475569),
+                ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,

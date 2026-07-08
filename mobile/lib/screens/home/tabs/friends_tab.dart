@@ -418,7 +418,7 @@ class _FriendsTabState extends State<FriendsTab>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF9F1C),
+                backgroundColor: const Color(0xFFA45E00),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -452,7 +452,7 @@ class _FriendsTabState extends State<FriendsTab>
         valueListenable: loadingNotifier,
         builder: (context, isLoading, _) {
           if (isLoading) {
-            return const SettingsLoadingSkeleton(themeColor: Color(0xFFFF9F1C));
+            return const SettingsLoadingSkeleton(themeColor: Color(0xFFA45E00));
           }
           return FriendsSettingsOverlay(
             friendsTargetBuckets: _friendsTargetBuckets,
@@ -841,7 +841,7 @@ class _FriendsTabState extends State<FriendsTab>
     required String name,
     required void Function(String actorId) onActioned,
   }) async {
-    const themeColor = Color(0xFFFF9F1C);
+    const themeColor = Color(0xFFA45E00);
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
 
@@ -994,7 +994,7 @@ class _FriendsTabState extends State<FriendsTab>
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFFFF9F1C);
+    const themeColor = Color(0xFFA45E00);
     final activeWavesCount = _unseenCount;
 
     if (_isLoading) {
@@ -1030,7 +1030,7 @@ class _FriendsTabState extends State<FriendsTab>
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFFFF9F1C),
+                            Color(0xFFA45E00),
                             Color(0xFFFF6B35),
                           ],
                           begin: Alignment.topLeft,
@@ -1039,7 +1039,7 @@ class _FriendsTabState extends State<FriendsTab>
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF9F1C).withAlpha(76),
+                            color: const Color(0xFFA45E00).withAlpha(76),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -1049,7 +1049,7 @@ class _FriendsTabState extends State<FriendsTab>
                         onTap: () {
                           widget.onOpenOrbit(
                             'Friends',
-                            const Color(0xFFFF9F1C),
+                            const Color(0xFFA45E00),
                           );
                         },
                         borderRadius: BorderRadius.circular(24),
@@ -1436,7 +1436,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
 
   @override
   Widget build(BuildContext context) {
-    const brandColor = Color(0xFFFF9F1C);
+    const brandColor = Color(0xFFA45E00);
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(

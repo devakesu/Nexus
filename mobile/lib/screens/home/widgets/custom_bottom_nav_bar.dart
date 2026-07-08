@@ -17,11 +17,11 @@ class CustomBottomNavBar extends StatelessWidget {
       case 0:
         return const Color(0xFFFF4F81); // Dating
       case 1:
-        return const Color(0xFFFF9F1C); // Friends
+        return const Color(0xFFA45E00); // Friends
       case 2:
         return const Color(0xFF0891B2); // Profile
       case 3:
-        return const Color(0xFF00F5D4); // Professional
+        return const Color(0xFF007E6D); // Professional
       case 4:
         return const Color(0xFF4EA8DE); // Settings
       default:
@@ -29,30 +29,20 @@ class CustomBottomNavBar extends StatelessWidget {
     }
   }
 
-  Color _getUnselectedColor(bool isDark) {
-    return isDark ? const Color(0x9994A3B8) : const Color(0xFF64748B);
-  }
+  static const _unselectedColor = Color(0xFF64748B);
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       height: 72,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF161B26) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(36),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withAlpha(20)
-              : Colors.black.withAlpha(15),
-        ),
+        border: Border.all(color: Colors.black.withAlpha(15)),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withAlpha(50)
-                : Colors.black.withAlpha(15),
+            color: Colors.black.withAlpha(15),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -63,22 +53,20 @@ class CustomBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(context, 0, Icons.favorite_rounded, 'dating', isDark),
+            _buildNavItem(context, 0, Icons.favorite_rounded, 'dating'),
             _buildNavItem(
               context,
               1,
               Icons.all_inclusive_rounded,
               'friends',
-              isDark,
             ),
-            _buildCenterNavItem(context, isDark),
-            _buildNavItem(context, 3, Icons.work_rounded, 'work', isDark),
+            _buildCenterNavItem(context),
+            _buildNavItem(context, 3, Icons.work_rounded, 'work'),
             _buildNavItem(
               context,
               4,
               Icons.blur_circular_rounded,
               'settings',
-              isDark,
             ),
           ],
         ),
@@ -91,11 +79,9 @@ class CustomBottomNavBar extends StatelessWidget {
     int index,
     IconData icon,
     String label,
-    bool isDark,
   ) {
     final isSelected = currentIndex == index;
     final selectedColor = _getSelectedColor(index);
-    final unselectedColor = _getUnselectedColor(isDark);
 
     return GestureDetector(
       onTap: () {
@@ -118,8 +104,8 @@ class CustomBottomNavBar extends StatelessWidget {
             child: TweenAnimationBuilder<Color?>(
               duration: const Duration(milliseconds: 250),
               tween: ColorTween(
-                begin: unselectedColor,
-                end: isSelected ? selectedColor : unselectedColor,
+                begin: _unselectedColor,
+                end: isSelected ? selectedColor : _unselectedColor,
               ),
               builder: (context, color, child) {
                 return Icon(
@@ -139,7 +125,7 @@ class CustomBottomNavBar extends StatelessWidget {
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
               color: isSelected
                   ? selectedColor
-                  : unselectedColor.withAlpha(120),
+                  : _unselectedColor.withAlpha(120),
             ),
           ),
         ],
@@ -147,10 +133,9 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildCenterNavItem(BuildContext context, bool isDark) {
+  Widget _buildCenterNavItem(BuildContext context) {
     final isSelected = currentIndex == 2;
     final selectedColor = _getSelectedColor(2); // Pulsar Pink
-    final unselectedColor = _getUnselectedColor(isDark);
 
     return GestureDetector(
       onTap: () {
@@ -179,8 +164,8 @@ class CustomBottomNavBar extends StatelessWidget {
             child: TweenAnimationBuilder<Color?>(
               duration: const Duration(milliseconds: 250),
               tween: ColorTween(
-                begin: unselectedColor,
-                end: isSelected ? selectedColor : unselectedColor,
+                begin: _unselectedColor,
+                end: isSelected ? selectedColor : _unselectedColor,
               ),
               builder: (context, color, child) {
                 return Icon(
@@ -200,7 +185,7 @@ class CustomBottomNavBar extends StatelessWidget {
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
               color: isSelected
                   ? selectedColor
-                  : unselectedColor.withAlpha(120),
+                  : _unselectedColor.withAlpha(120),
             ),
           ),
         ],

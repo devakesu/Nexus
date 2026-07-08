@@ -28,14 +28,12 @@ class AffinityInterestsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return UniverseSection(
       icon: LucideIcons.tags,
       title: 'Interests & Hobbies',
       description: 'Your hobbies and causes',
-      cardColor: isDark ? const Color(0xFF0B1B20) : const Color(0xFFECFEFF),
-      borderColor: const Color(0xFF00E5FF).withValues(alpha: isDark ? 0.35 : 0.4),
+      cardColor: const Color(0xFFECFEFF),
+      borderColor: const Color(0xFF00E5FF).withValues(alpha: 0.4),
       accentColor: const Color(0xFF00E5FF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

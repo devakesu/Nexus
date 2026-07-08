@@ -84,7 +84,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
   Widget _buildNotifTrailing() {
     return switch (_notifPermission) {
       AuthorizationStatus.authorized || AuthorizationStatus.provisional =>
-        const _StatusDot(label: 'Enabled', color: Color(0xFF16A34A)),
+        const _StatusDot(label: 'Enabled', color: Color(0xFF10B981)),
       AuthorizationStatus.denied => const _StatusDot(
         label: 'Disabled',
         color: Color(0xFFEF4444),
@@ -239,15 +239,15 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             const SizedBox(height: 10),
             const _OrbitBullet(
               label: 'Dating',
-              color: Color(0xFFFF2A54),
+              color: Color(0xFFFF4F81),
             ),
             const _OrbitBullet(
               label: 'Friends',
-              color: Color(0xFFD32F2F),
+              color: Color(0xFFA45E00),
             ),
             const _OrbitBullet(
               label: 'Professional',
-              color: Color(0xFF00796B),
+              color: Color(0xFF007E6D),
             ),
             const SizedBox(height: 12),
             Text(
@@ -293,7 +293,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
       _PauseStatus.loading => const NexusOrbitLoader(size: 20, lightMode: true),
       _PauseStatus.active => const _StatusDot(
         label: 'Active',
-        color: Color(0xFF16A34A),
+        color: Color(0xFF10B981),
       ),
       _PauseStatus.paused => const _StatusDot(
         label: 'Paused',
@@ -341,7 +341,8 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
               _TileSpec(
                 icon: LucideIcons.mail,
                 label: 'Email Notifications',
-                onTap: () => context.push<void>('/settings/email-notifications'),
+                onTap: () =>
+                    context.push<void>('/settings/email-notifications'),
               ),
             ],
           ),

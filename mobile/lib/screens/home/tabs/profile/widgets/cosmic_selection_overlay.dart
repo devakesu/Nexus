@@ -43,10 +43,9 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.65),
+      backgroundColor: Colors.white.withValues(alpha: 0.65),
       body: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: SafeArea(
@@ -63,25 +62,25 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                       children: [
                         Text(
                           widget.title,
-                          style: TextStyle(
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Outfit',
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        const Text(
                           'Select your dimensional coordinates',
                           style: TextStyle(
-                            color: isDark ? Colors.white70 : Colors.black54,
+                            color: Colors.black54,
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.x, color: isDark ? Colors.white70 : Colors.black54),
+                      icon: const Icon(LucideIcons.x, color: Colors.black54),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -128,18 +127,18 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? pulsarPink.withValues(alpha: 0.18)
-                              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.7)),
+                              : Colors.white.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
                                 ? pulsarPink.withValues(alpha: 0.8)
-                                : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.12)),
+                                : Colors.black.withValues(alpha: 0.12),
                             width: isSelected ? 1.5 : 1,
                           ),
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: pulsarPink.withValues(alpha: isDark ? 0.15 : 0.08),
+                                    color: pulsarPink.withValues(alpha: 0.08),
                                     blurRadius: 10,
                                     spreadRadius: 1,
                                   ),
@@ -161,8 +160,8 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                   option,
                                   style: TextStyle(
                                     color: isSelected
-                                        ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                                        : (isDark ? Colors.white70 : Colors.black87),
+                                        ? const Color(0xFF0F172A)
+                                        : Colors.black87,
                                     fontSize: 14,
                                     fontWeight: isSelected
                                         ? FontWeight.bold

@@ -2,9 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class FuturisticBackgroundPainter extends CustomPainter {
-  const FuturisticBackgroundPainter({required this.isDark, this.accentColor});
-
-  final bool isDark;
+  const FuturisticBackgroundPainter({this.accentColor});
 
   /// When provided, the orbit/star palette is derived from this color
   /// instead of the default cyan/pink/indigo triad, so each tab can carry
@@ -13,8 +11,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Colors based on theme brightness (higher contrast for light mode)
-    final gridAlpha = isDark ? 0.04 : 0.08;
+    const gridAlpha = 0.08;
 
     final Color primaryOrbitColor;
     final Color secondaryOrbitColor;
@@ -23,40 +20,32 @@ class FuturisticBackgroundPainter extends CustomPainter {
     if (accent != null) {
       final hsl = HSLColor.fromColor(accent);
       primaryOrbitColor = hsl
-          .withSaturation((isDark ? 0.85 : 0.75).clamp(0.0, 1.0))
-          .withLightness((isDark ? 0.65 : 0.42).clamp(0.0, 1.0))
+          .withSaturation(0.75)
+          .withLightness(0.42)
           .toColor();
       secondaryOrbitColor = hsl
           .withHue((hsl.hue + 40) % 360)
-          .withSaturation((isDark ? 0.80 : 0.70).clamp(0.0, 1.0))
-          .withLightness((isDark ? 0.72 : 0.48).clamp(0.0, 1.0))
+          .withSaturation(0.70)
+          .withLightness(0.48)
           .toColor();
       tertiaryOrbitColor = hsl
           .withHue((hsl.hue - 40 + 360) % 360)
-          .withSaturation((isDark ? 0.75 : 0.65).clamp(0.0, 1.0))
-          .withLightness((isDark ? 0.68 : 0.45).clamp(0.0, 1.0))
+          .withSaturation(0.65)
+          .withLightness(0.45)
           .toColor();
     } else {
-      primaryOrbitColor = isDark
-          ? const Color(0xFF00E5FF)
-          : const Color(0xFF0891B2);
-      secondaryOrbitColor = isDark
-          ? const Color(0xFFFF7597)
-          : const Color(0xFFE91E63);
-      tertiaryOrbitColor = isDark
-          ? const Color(0xFF6366F1)
-          : const Color(0xFF4F46E5);
+      primaryOrbitColor = const Color(0xFF0891B2);
+      secondaryOrbitColor = const Color(0xFFE91E63);
+      tertiaryOrbitColor = const Color(0xFF4F46E5);
     }
 
-    final lineAlpha = isDark ? 0.08 : 0.16;
-    final glowAlpha = isDark ? 0.06 : 0.12;
-    final starAlpha = isDark ? 0.25 : 0.40;
+    const lineAlpha = 0.16;
+    const glowAlpha = 0.12;
+    const starAlpha = 0.40;
 
     // 1. Grid/Matrix Coordinate Dots
     final dotPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: gridAlpha)
-          : Colors.black.withValues(alpha: gridAlpha * 0.8)
+      ..color = Colors.black.withValues(alpha: gridAlpha * 0.8)
       ..style = PaintingStyle.fill;
 
     const spacing = 45.0;
@@ -70,9 +59,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
     // 2. Radial Telemetry Rays (Faint rays from center coordinate)
     final rayPaint = Paint()
-      ..color = isDark
-          ? Colors.white.withValues(alpha: isDark ? 0.015 : 0.035)
-          : Colors.black.withValues(alpha: 0.02)
+      ..color = Colors.black.withValues(alpha: 0.02)
       ..strokeWidth = 0.8;
     const rayCount = 12;
     const angleStep = (2 * 3.1415926535) / rayCount;
@@ -201,8 +188,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     if (oldDelegate is FuturisticBackgroundPainter) {
-      return oldDelegate.isDark != isDark ||
-          oldDelegate.accentColor != accentColor;
+      return oldDelegate.accentColor != accentColor;
     }
     return true;
   }

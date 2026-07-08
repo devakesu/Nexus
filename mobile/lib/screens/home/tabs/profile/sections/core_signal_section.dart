@@ -96,7 +96,6 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
     required IconData icon,
   }) {
     final isSelected = widget.searchBucket == value;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Expanded(
       child: GestureDetector(
@@ -111,18 +110,14 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             color: isSelected
                 ? const Color(
                     0xFF0891B2,
-                  ).withValues(alpha: isDark ? 0.25 : 0.15)
-                : (isDark
-                      ? Colors.white.withValues(alpha: 0.02)
-                      : Colors.black.withValues(alpha: 0.04)),
+                  ).withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: 0.04),
             border: Border.all(
               color: isSelected
                   ? const Color(
                       0xFF00E5FF,
-                    ).withValues(alpha: isDark ? 0.5 : 0.7)
-                  : (isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.08)),
+                    ).withValues(alpha: 0.7)
+                  : Colors.black.withValues(alpha: 0.08),
               width: isSelected ? 1.5 : 1.0,
             ),
             boxShadow: isSelected
@@ -130,7 +125,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                     BoxShadow(
                       color: const Color(
                         0xFF00E5FF,
-                      ).withValues(alpha: isDark ? 0.25 : 0.12),
+                      ).withValues(alpha: 0.12),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -143,19 +138,13 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Icon(
                 icon,
                 size: 13,
-                color: isSelected
-                    ? (isDark
-                          ? const Color(0xFF00E5FF)
-                          : const Color(0xFF0891B2))
-                    : (isDark ? Colors.white38 : Colors.black38),
+                color: isSelected ? const Color(0xFF0891B2) : Colors.black38,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected
-                      ? (isDark ? Colors.white : const Color(0xFF0891B2))
-                      : (isDark ? Colors.white70 : Colors.black87),
+                  color: isSelected ? const Color(0xFF0891B2) : Colors.black87,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontFamily: 'Outfit',
@@ -171,18 +160,15 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
   @override
   Widget build(BuildContext context) {
     const pulsarPink = Color(0xFFFF7597);
-    const mistLavender = Color(0xFFE2D9F3);
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return UniverseSection(
       icon: LucideIcons.user,
       title: 'Core Details',
       description: 'Essential profile details',
-      cardColor: isDark ? const Color(0xFF0D1424) : const Color(0xFFF0F9FF),
+      cardColor: const Color(0xFFF0F9FF),
       borderColor: const Color(
         0xFF2D8CFF,
-      ).withValues(alpha: isDark ? 0.35 : 0.4),
+      ).withValues(alpha: 0.4),
       accentColor: const Color(0xFF2D8CFF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,9 +250,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   Text(
                     'DEMOGRAPHIC BUCKETS',
                     style: TextStyle(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.5)
-                          : Colors.black.withValues(alpha: 0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -289,9 +273,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Text(
                 'Which bucket do you primarily identify as?',
                 style: TextStyle(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.3)
-                      : Colors.black.withValues(alpha: 0.45),
+                  color: Colors.black.withValues(alpha: 0.45),
                   fontSize: 10,
                 ),
               ),
@@ -357,9 +339,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           Text(
             'Images',
             style: TextStyle(
-              color: isDark
-                  ? mistLavender.withValues(alpha: 0.6)
-                  : Colors.black.withValues(alpha: 0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -403,17 +383,14 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(18.5),
                     child: ColoredBox(
-                      color: isDark
-                          ? const Color(0xFF141822)
-                          : const Color(0xFFE2E8F0),
+                      color: const Color(0xFFE2E8F0),
                       child: Stack(
                         children: [
                           if (imagePath != null) ...[
                             Positioned.fill(
                               child: StorageImage(imagePath: imagePath),
                             ),
-                            if ((widget.isProcessingAI ||
-                                    widget.isSaving) &&
+                            if ((widget.isProcessingAI || widget.isSaving) &&
                                 widget.pendingUploads.containsKey(
                                   slotIndex,
                                 ))
@@ -438,17 +415,13 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                           ] else
                             CustomPaint(
                               painter: _DashedBorderPainter(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.18)
-                                    : Colors.black.withValues(alpha: 0.15),
+                                color: Colors.black.withValues(alpha: 0.15),
                                 radius: 18.5,
                               ),
                               child: Center(
                                 child: Icon(
                                   LucideIcons.plus,
-                                  color: isDark
-                                      ? Colors.white30
-                                      : Colors.black.withValues(alpha: 0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   size: 20,
                                 ),
                               ),
@@ -464,57 +437,56 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: DragTarget<int>(
-                  onWillAcceptWithDetails: (details) => details.data != slotIndex,
-                  onAcceptWithDetails: (details) {
-                    widget.onSwapImages(details.data, slotIndex);
-                  },
-                  builder: (context, candidateData, rejectedData) {
-                    final isHovered = candidateData.isNotEmpty;
-                    return LongPressDraggable<int>(
-                      data: slotIndex,
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: Opacity(
-                          opacity: 0.8,
-                          child: SizedBox(
-                            width: 72,
-                            height: 72,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: imagePath != null
-                                  ? StorageImage(imagePath: imagePath)
-                                  : Container(
-                                      color: isDark
-                                          ? const Color(0xFF141822)
-                                          : const Color(0xFFE2E8F0),
-                                    ),
+                    onWillAcceptWithDetails: (details) =>
+                        details.data != slotIndex,
+                    onAcceptWithDetails: (details) {
+                      widget.onSwapImages(details.data, slotIndex);
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      final isHovered = candidateData.isNotEmpty;
+                      return LongPressDraggable<int>(
+                        data: slotIndex,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Opacity(
+                            opacity: 0.8,
+                            child: SizedBox(
+                              width: 72,
+                              height: 72,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: imagePath != null
+                                    ? StorageImage(imagePath: imagePath)
+                                    : Container(
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: itemWidget,
-                      ),
-                      child: GestureDetector(
-                        onTap: () => widget.onImageSlotTap(slotIndex),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            border: isHovered
-                                ? Border.all(
-                                    color: const Color(0xFFFF2D55),
-                                    width: 2,
-                                  )
-                                : null,
-                          ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.3,
                           child: itemWidget,
                         ),
-                      ),
-                    );
-                  },
-                ),
+                        child: GestureDetector(
+                          onTap: () => widget.onImageSlotTap(slotIndex),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: isHovered
+                                  ? Border.all(
+                                      color: const Color(0xFFFF2D55),
+                                      width: 2,
+                                    )
+                                  : null,
+                            ),
+                            child: itemWidget,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               );
             }),

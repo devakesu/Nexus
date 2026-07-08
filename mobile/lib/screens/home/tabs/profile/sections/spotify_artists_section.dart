@@ -22,14 +22,12 @@ class SpotifyArtistsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return UniverseSection(
       icon: LucideIcons.music2,
       title: 'Top Artists',
       description: 'Fetched from your Spotify listening history',
-      cardColor: isDark ? const Color(0xFF0A1A0F) : const Color(0xFFEFFAF3),
-      borderColor: _spotifyGreen.withValues(alpha: isDark ? 0.30 : 0.40),
+      cardColor: const Color(0xFFEFFAF3),
+      borderColor: _spotifyGreen.withValues(alpha: 0.40),
       accentColor: _spotifyGreen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,9 +38,7 @@ class SpotifyArtistsSection extends StatelessWidget {
                 Text(
                   'TOP ARTISTS',
                   style: TextStyle(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.45)
-                        : Colors.black.withValues(alpha: 0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -68,29 +64,25 @@ class SpotifyArtistsSection extends StatelessWidget {
               children: topArtists.map((artist) {
                 return _ArtistChip(
                   name: artist,
-                  isDark: isDark,
                   onRemove: () => onArtistRemoved(artist),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
           ] else ...[
-            _EmptyState(isDark: isDark),
+            const _EmptyState(),
             const SizedBox(height: 16),
           ],
           _ConnectButton(
             hasArtists: topArtists.isNotEmpty,
             isConnecting: isConnecting,
-            isDark: isDark,
             onTap: onSpotifyConnect,
           ),
           const SizedBox(height: 8),
           Text(
             'Authorizes read-only access to your listening history. No playback control.',
             style: TextStyle(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.28)
-                  : Colors.black.withValues(alpha: 0.38),
+              color: Colors.black.withValues(alpha: 0.38),
               fontSize: 10,
               height: 1.5,
             ),
@@ -104,12 +96,10 @@ class SpotifyArtistsSection extends StatelessWidget {
 class _ArtistChip extends StatelessWidget {
   const _ArtistChip({
     required this.name,
-    required this.isDark,
     required this.onRemove,
   });
 
   final String name;
-  final bool isDark;
   final VoidCallback onRemove;
 
   @override
@@ -117,10 +107,10 @@ class _ArtistChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1DB954).withValues(alpha: isDark ? 0.12 : 0.10),
+        color: const Color(0xFF1DB954).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF1DB954).withValues(alpha: isDark ? 0.35 : 0.30),
+          color: const Color(0xFF1DB954).withValues(alpha: 0.30),
           width: 0.8,
         ),
       ),
@@ -135,8 +125,8 @@ class _ArtistChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             name,
-            style: TextStyle(
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -144,10 +134,10 @@ class _ArtistChip extends StatelessWidget {
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,
-            child: Icon(
+            child: const Icon(
               LucideIcons.x,
               size: 12,
-              color: isDark ? Colors.white54 : Colors.black45,
+              color: Colors.black45,
             ),
           ),
         ],
@@ -157,9 +147,7 @@ class _ArtistChip extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.isDark});
-
-  final bool isDark;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -170,17 +158,13 @@ class _EmptyState extends StatelessWidget {
           Icon(
             LucideIcons.music2,
             size: 32,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.15)
-                : Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withValues(alpha: 0.15),
           ),
           const SizedBox(height: 10),
           Text(
             'No top artists yet',
             style: TextStyle(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.45)
-                  : Colors.black.withValues(alpha: 0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -190,9 +174,7 @@ class _EmptyState extends StatelessWidget {
             'Connect Spotify to auto-fill from your listening history',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.28)
-                  : Colors.black.withValues(alpha: 0.38),
+              color: Colors.black.withValues(alpha: 0.38),
               fontSize: 11,
               height: 1.4,
             ),
@@ -207,13 +189,11 @@ class _ConnectButton extends StatelessWidget {
   const _ConnectButton({
     required this.hasArtists,
     required this.isConnecting,
-    required this.isDark,
     required this.onTap,
   });
 
   final bool hasArtists;
   final bool isConnecting;
-  final bool isDark;
   final VoidCallback onTap;
 
   static const _spotifyGreen = Color(0xFF1DB954);
@@ -246,7 +226,11 @@ class _ConnectButton extends StatelessWidget {
                   ),
                 )
               else
-                const Icon(LucideIcons.refreshCw, size: 14, color: _spotifyGreen),
+                const Icon(
+                  LucideIcons.refreshCw,
+                  size: 14,
+                  color: _spotifyGreen,
+                ),
               const SizedBox(width: 8),
               Text(
                 isConnecting ? 'Connecting...' : 'Sync from Spotify',
