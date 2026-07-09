@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:battery_plus/battery_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:nexus/screens/settings/checkin_alert_screen.dart';
+import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -21,6 +24,7 @@ const _kPrefActive = 'meetup_safety_active';
 const _kPrefIntervalSeconds = 'meetup_safety_interval_seconds';
 const _kPrefNextCheckInEpochMs = 'meetup_safety_next_checkin_epoch_ms';
 const _kPrefLabel = 'meetup_safety_label';
+const _kPrefServerSessionId = 'meetup_safety_server_session_id';
 
 /// Notification action ids, shared between the ongoing ambient notification
 /// and the check-in-due full-screen notification.
@@ -47,6 +51,8 @@ class MeetupSafetySession extends ChangeNotifier {
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  final Battery _battery = Battery();
+  final Connectivity _connectivity = Connectivity();
 
   bool _initialized = false;
   bool _alertScreenShowing = false;
@@ -56,6 +62,18 @@ class MeetupSafetySession extends ChangeNotifier {
   Duration checkInInterval = const Duration(hours: 1);
   DateTime? nextCheckInAt;
   String checkInLabel = '';
+
+  /// Server-side mirror of this session (app/db/safety.py's safety_sessions
+  /// table), used by the dead-man's-switch escalation job. Null if the
+  /// mirror call failed — the local exact-alarm loop is unaffected either
+  /// way, this is purely an additional safety net.
+  String? _serverSessionId;
+
+  /// Exposed so SOS/inform alerts can be tagged with the session they
+  /// happened during (see SafetyAlertApi.sendAlert's sessionId param) — that
+  /// link is what lets the Milestone E trusted-contact portal show a
+  /// session's location/evidence.
+  String? get serverSessionId => _serverSessionId;
 
   /// Sets up notification channels and restores any session that was active
   /// before the app was last closed. Call once from main() after Firebase/
@@ -161,6 +179,7 @@ class MeetupSafetySession extends ChangeNotifier {
     checkInInterval = Duration(seconds: intervalSeconds);
     nextCheckInAt = DateTime.fromMillisecondsSinceEpoch(nextEpochMs);
     checkInLabel = prefs.getString(_kPrefLabel) ?? '';
+    _serverSessionId = prefs.getString(_kPrefServerSessionId);
     _armDueTimer();
     notifyListeners();
   }
@@ -172,6 +191,7 @@ class MeetupSafetySession extends ChangeNotifier {
       await prefs.remove(_kPrefIntervalSeconds);
       await prefs.remove(_kPrefNextCheckInEpochMs);
       await prefs.remove(_kPrefLabel);
+      await prefs.remove(_kPrefServerSessionId);
       return;
     }
     await prefs.setInt(_kPrefIntervalSeconds, checkInInterval.inSeconds);
@@ -180,6 +200,81 @@ class MeetupSafetySession extends ChangeNotifier {
       nextCheckInAt!.millisecondsSinceEpoch,
     );
     await prefs.setString(_kPrefLabel, checkInLabel);
+  }
+
+  /// Best-effort battery percentage + connection type, for the heartbeat
+  /// payload that lets the server-side dead-man's-switch tell "phone likely
+  /// died" from "something happened while the phone was fine". Either half
+  /// can come back null if the platform call fails - the session mirror
+  /// calls tolerate missing values.
+  Future<(int?, String?)> _gatherDeviceState() async {
+    int? batteryPercent;
+    try {
+      batteryPercent = await _battery.batteryLevel;
+    } on Exception {
+      batteryPercent = null;
+    }
+
+    String? connectionType;
+    try {
+      final results = await _connectivity.checkConnectivity();
+      if (results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet)) {
+        connectionType = 'wifi';
+      } else if (results.contains(ConnectivityResult.mobile)) {
+        connectionType = 'cellular';
+      } else {
+        connectionType = 'offline';
+      }
+    } on Exception {
+      connectionType = null;
+    }
+
+    return (batteryPercent, connectionType);
+  }
+
+  /// Mirrors a freshly-started session server-side. Fire-and-forget from
+  /// start() — the local exact-alarm loop is what actually keeps the check-in
+  /// loop working, this just widens the safety net to cover the device going
+  /// unreachable entirely.
+  Future<void> _mirrorStart() async {
+    final at = nextCheckInAt;
+    if (at == null) return;
+    final (batteryPercent, connectionType) = await _gatherDeviceState();
+    final sessionId = await SafetyAlertApi.startSession(
+      intervalSeconds: checkInInterval.inSeconds,
+      label: checkInLabel,
+      nextCheckInAt: at,
+      batteryPercent: batteryPercent,
+      connectionType: connectionType,
+    );
+    if (sessionId == null || !isActive) return;
+    _serverSessionId = sessionId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPrefServerSessionId, sessionId);
+  }
+
+  /// Heartbeats the server mirror on a successful check-in (or an extend,
+  /// which is really just a reschedule) — resets its escalation counter the
+  /// same way the local reschedule resets the exact alarm.
+  Future<void> _mirrorCheckin() async {
+    final sessionId = _serverSessionId;
+    final at = nextCheckInAt;
+    if (sessionId == null || at == null) return;
+    final (batteryPercent, connectionType) = await _gatherDeviceState();
+    await SafetyAlertApi.checkinSession(
+      sessionId: sessionId,
+      nextCheckInAt: at,
+      batteryPercent: batteryPercent,
+      connectionType: connectionType,
+    );
+  }
+
+  Future<void> _mirrorEnd() async {
+    final sessionId = _serverSessionId;
+    _serverSessionId = null;
+    if (sessionId == null) return;
+    await SafetyAlertApi.endSession(sessionId);
   }
 
   /// Requests the two Android 14+ settings-gated permissions this feature
@@ -210,6 +305,7 @@ class MeetupSafetySession extends ChangeNotifier {
     await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
+    unawaited(_mirrorStart());
   }
 
   Future<void> checkInSafely() async {
@@ -220,6 +316,7 @@ class MeetupSafetySession extends ChangeNotifier {
     await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
+    unawaited(_mirrorCheckin());
   }
 
   Future<void> extend(Duration extra) async {
@@ -231,6 +328,7 @@ class MeetupSafetySession extends ChangeNotifier {
     await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
+    unawaited(_mirrorCheckin());
   }
 
   Future<void> end() async {
@@ -243,6 +341,7 @@ class MeetupSafetySession extends ChangeNotifier {
     await _plugin.cancel(id: _kOngoingNotificationId);
     await _plugin.cancel(id: _kDueNotificationId);
     notifyListeners();
+    unawaited(_mirrorEnd());
   }
 
   void _armDueTimer() {

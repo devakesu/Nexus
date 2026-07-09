@@ -456,6 +456,8 @@ async def create_chat_event(
             payload.location_lat,
             payload.location_lng,
             payload.location_label,
+            payload.safety_enabled,
+            payload.safety_interval_seconds,
         )
         message_row = result["message"]
         event_row = result["event"]
@@ -480,6 +482,8 @@ async def create_chat_event(
             location_label=event_row.get("location_label"),
             status=event_row["status"],
             created_at=message_row["created_at"],
+            safety_enabled=bool(event_row.get("safety_enabled") or False),
+            safety_interval_seconds=event_row.get("safety_interval_seconds"),
         )
     except DatabaseAccessError as err:
         logger.exception(

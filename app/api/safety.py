@@ -1,17 +1,28 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.core.sms import compose_inform_message, compose_sos_message, send_sms
+from app.core.sms import (
+    compose_inform_message,
+    compose_sos_message,
+    send_sms,
+    verify_escalation_cancel_token,
+)
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
+    cancel_safety_escalation,
+    end_safety_session,
     fetch_safety_contacts,
+    fetch_safety_session,
+    heartbeat_safety_session,
     record_safety_alert,
     register_safety_evidence,
+    start_safety_session,
     sync_safety_contacts,
     update_alert_contacts_notified,
 )
@@ -21,6 +32,10 @@ from app.models import (
     SafetyContactsSyncRequest,
     SafetyEvidenceRegisterRequest,
     SafetyEvidenceRegisterResponse,
+    SafetySessionCheckinRequest,
+    SafetySessionEndRequest,
+    SafetySessionStartRequest,
+    SafetySessionStartResponse,
 )
 
 router = APIRouter()
@@ -125,6 +140,7 @@ async def send_safety_alert(
             user_id,
             payload.alert_type,
             location,
+            payload.session_id,
         )
         await asyncio.to_thread(
             update_alert_contacts_notified,
@@ -194,3 +210,196 @@ async def register_evidence(
         ) from err
 
     return SafetyEvidenceRegisterResponse(id=str(row["id"]))
+
+
+# ---------------------------------------------------------------------------
+# Recurring check-in session mirror (Milestone D: dead-man's-switch)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/api/v1/safety/session/start",
+    response_model=SafetySessionStartResponse,
+)
+@limiter.limit(settings.rate_limit_safety)
+async def start_session(
+    request: Request,
+    payload: SafetySessionStartRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> SafetySessionStartResponse:
+    """Mirrors a freshly-started check-in loop server-side so the dead-man's
+    -switch scheduler has something to poll. The event label (if any) is
+    stashed in event_context so an escalation SMS sent hours later can still
+    say which meetup this was.
+    """
+    _ = request
+
+    event_context = {"label": payload.event_label} if payload.event_label else None
+
+    try:
+        row = await asyncio.to_thread(
+            start_safety_session,
+            user_id,
+            payload.label,
+            payload.interval_seconds,
+            payload.next_checkin_at.isoformat(),
+            event_context,
+            payload.battery_percent,
+            payload.connection_type,
+        )
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database error starting safety session",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+
+    return SafetySessionStartResponse(id=str(row["id"]))
+
+
+@router.post("/api/v1/safety/session/checkin")
+@limiter.limit(settings.rate_limit_safety)
+async def checkin_session(
+    request: Request,
+    payload: SafetySessionCheckinRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    """A successful "I'm Safe" check-in - proves the device is fine and
+    resets the escalation counter, exactly like the local exact-alarm
+    reschedule this mirrors.
+    """
+    _ = request
+
+    try:
+        row = await asyncio.to_thread(
+            heartbeat_safety_session,
+            user_id,
+            payload.session_id,
+            payload.next_checkin_at.isoformat(),
+            payload.battery_percent,
+            payload.connection_type,
+        )
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database error checking in safety session",
+            extra={"user_id": user_id, "session_id": payload.session_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No active safety session with that id.",
+        )
+    return {"ok": True}
+
+
+@router.post("/api/v1/safety/session/end")
+@limiter.limit(settings.rate_limit_safety)
+async def end_session(
+    request: Request,
+    payload: SafetySessionEndRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    _ = request
+    try:
+        await asyncio.to_thread(end_safety_session, user_id, payload.session_id)
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database error ending safety session",
+            extra={"user_id": user_id, "session_id": payload.session_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+    return {"ok": True}
+
+
+@router.get("/api/v1/safety/escalation/{session_id}/cancel")
+async def cancel_escalation(
+    session_id: str,
+    token: str = Query(...),
+    reason: str = Query(...),
+    note: str | None = Query(default=None),
+) -> HTMLResponse:
+    """Lets a trusted contact stop further "device unreachable" alerts from
+    a plain link in the SMS - they have no Nexus account, so a signed token
+    in the URL stands in for auth instead of the usual dependency stack.
+    """
+    if reason not in ("safe", "other"):
+        return HTMLResponse(
+            _escalation_page("That link looks malformed."),
+            status_code=400,
+        )
+
+    if not verify_escalation_cancel_token(session_id, token):
+        return HTMLResponse(
+            _escalation_page("That link is invalid or has expired."),
+            status_code=403,
+        )
+
+    try:
+        session = await asyncio.to_thread(fetch_safety_session, session_id)
+        if session is None:
+            return HTMLResponse(
+                _escalation_page("This safety session no longer exists."),
+                status_code=404,
+            )
+        await asyncio.to_thread(cancel_safety_escalation, session_id, reason, note)
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database error cancelling safety escalation",
+            extra={"session_id": session_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+
+    return HTMLResponse(
+        _escalation_page(
+            "Thanks for letting us know. You won't get any more alerts for "
+            "this check-in."
+            if reason == "safe"
+            else "Got it - further alerts for this check-in are now stopped.",
+        ),
+    )
+
+
+def _escalation_page(message: str) -> str:
+    """A minimal, dependency-free confirmation page - the recipient is a
+    trusted contact with no app or account, just a browser tab from an SMS
+    link, so this intentionally skips any frontend build step.
+    """
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus Meetup Safety</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0F172A; color: #F1F5F9; display: flex; align-items: center;
+    justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }}
+  .card {{ max-width: 420px; text-align: center; }}
+  h1 {{ font-size: 20px; margin-bottom: 12px; }}
+  p {{ color: #CBD5E1; line-height: 1.5; }}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Nexus Meetup Safety</h1>
+    <p>{message}</p>
+  </div>
+</body>
+</html>"""

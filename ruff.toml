@@ -36,3 +36,9 @@ select = [
 [lint.mccabe]
 # Strict complexity limit threshold. Functions with score > 8 will fail validation.
 max-complexity = 8
+
+[lint.per-file-ignores]
+# Embeds the Meetup Safety trusted-contact portal's HTML/CSS/JS as a raw
+# string literal (no frontend build step, per that milestone's design) -
+# 88-col wrapping would only hurt the embedded JS/HTML's own readability.
+"app/api/safety_portal.py" = ["E501"]

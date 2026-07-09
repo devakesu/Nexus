@@ -114,6 +114,7 @@ class ChatEventInfo {
     required this.locationLng,
     required this.locationLabel,
     required this.status,
+    this.safetyEnabled = false,
   });
 
   factory ChatEventInfo.fromRow(Map<String, dynamic> row) => ChatEventInfo(
@@ -123,6 +124,7 @@ class ChatEventInfo {
     locationLng: (row['location_lng'] as num?)?.toDouble(),
     locationLabel: row['location_label'] as String?,
     status: row['status'] as String? ?? 'proposed',
+    safetyEnabled: row['safety_enabled'] as bool? ?? false,
   );
 
   final String eventId;
@@ -131,6 +133,10 @@ class ChatEventInfo {
   final double? locationLng;
   final String? locationLabel;
   final String status;
+
+  /// Whether the creator auto-configured Meetup Safety for this plan at
+  /// creation time - personal to them, not shared conversation state.
+  final bool safetyEnabled;
 }
 
 class ChatMessageView {
@@ -756,6 +762,8 @@ class ChatConversationController extends _$ChatConversationController {
     double? locationLng,
     String? locationLabel,
     String? notes,
+    bool safetyEnabled = false,
+    int? safetyIntervalSeconds,
   }) async {
     final current = state.value;
     final store = _store;
@@ -785,6 +793,8 @@ class ChatConversationController extends _$ChatConversationController {
           'ciphertext_metadata': {
             'signal_message_type': envelope.signalMessageType,
           },
+          'safety_enabled': safetyEnabled,
+          'safety_interval_seconds': ?safetyIntervalSeconds,
         },
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );

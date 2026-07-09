@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "5/minute"
     rate_limit_feedback: str = "5/hour"
     rate_limit_safety: str = "20/hour"
+    # Trusted-contact portal (Milestone E): unauthenticated by design (no
+    # Nexus account, no App Check token available from a plain browser), so
+    # this is the primary throttle against OTP brute-forcing/spam - on top of
+    # the per-code attempt cap enforced in app/api/safety_portal.py.
+    rate_limit_safety_portal: str = "10/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # --- Infrastructure / crypto ---
@@ -70,6 +75,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
+    # Public scheme+host this API is reachable at, e.g. https://api.yourdomain.com.
+    # Needed to build the trusted-contact escalation-cancel link sent by the
+    # dead-man's-switch scheduler job, which has no incoming Request to derive
+    # a base URL from (see app/services/reminder_scheduler.py).
+    backend_public_url: str = ""
     app_name: str = "Nexus Orbit"
     debug: bool = False
 

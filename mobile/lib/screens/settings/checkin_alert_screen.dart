@@ -120,6 +120,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
     final position = await _tryGetLocation();
     final result = await SafetyAlertApi.sendAlert(
       alertType: silent ? 'sos_silent' : 'sos_loud',
+      sessionId: session.serverSessionId,
       sessionLabel: session.checkInLabel,
       latitude: position?.latitude,
       longitude: position?.longitude,
@@ -283,6 +284,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
     unawaited(
       SafetyAlertApi.sendAlert(
         alertType: 'inform',
+        sessionId: MeetupSafetySession.instance.serverSessionId,
         sessionLabel: MeetupSafetySession.instance.checkInLabel,
       ),
     );

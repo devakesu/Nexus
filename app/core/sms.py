@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import hmac
 import logging
 from typing import Literal
 
@@ -161,3 +163,63 @@ def compose_inform_message(
         lines.append(f"\U0001f4c5 Meetup: {event_label}")
     lines.append(f"Please check in with {name} when you can.")
     return "\n".join(lines)
+
+
+def compose_unreachable_message(
+    *,
+    name: str,
+    escalation_number: int,
+    battery_percent: int | None,
+    connection_type: str | None,
+    event_label: str | None,
+    cancel_link: str,
+) -> str:
+    """The dead-man's-switch tier - the device missed a scheduled check-in
+    and repeated attempts to reach it have failed. Includes the last known
+    battery/connection reading so a trusted contact can tell "phone
+    probably died" from "something happened while the phone was fine" -
+    meaningfully reduces false-alarm panic.
+    """
+    lines = [
+        f"\U0001f4f5 {name}'s phone hasn't checked in via Nexus Meetup "
+        f"Safety (attempt {escalation_number} of 3).",
+    ]
+    context_bits: list[str] = []
+    if battery_percent is not None:
+        context_bits.append(f"last known battery: {battery_percent}%")
+    if connection_type:
+        context_bits.append(f"was on {connection_type}")
+    if context_bits:
+        lines.append(f"Last update: {', '.join(context_bits)}.")
+    if event_label:
+        lines.append(f"\U0001f4c5 Meetup: {event_label}")
+    lines.append(f"Please try to check on {name} if you can.")
+    lines.append(
+        f"If {name} is safe (or you'd rather not get further alerts for "
+        f"this): {cancel_link}",
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Escalation cancel-link signing
+#
+# A trusted contact isn't a Nexus user and has no account to authenticate
+# with, so the cancel link is authorized by a signed token rather than a
+# login - HMAC-SHA256 over the session id, domain-separated from the app's
+# other uses of blind_index_key (see app/core/config.py) by a fixed prefix,
+# same principle as an HKDF context string.
+# ---------------------------------------------------------------------------
+
+_ESCALATION_TOKEN_CONTEXT = "safety_escalation_cancel"  # noqa: S105 - not a secret, a domain-separation label
+
+
+def make_escalation_cancel_token(session_id: str) -> str:
+    key = settings.blind_index_key.encode()
+    message = f"{_ESCALATION_TOKEN_CONTEXT}:{session_id}".encode()
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def verify_escalation_cancel_token(session_id: str, token: str) -> bool:
+    expected = make_escalation_cancel_token(session_id)
+    return hmac.compare_digest(expected, token)

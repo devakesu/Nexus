@@ -1,17 +1,34 @@
 import asyncio
 import logging
-from typing import Any
+from datetime import timedelta
+from typing import Any, cast
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.core.config import settings
+from app.core.sms import (
+    compose_unreachable_message,
+    make_escalation_cancel_token,
+    send_sms,
+)
 from app.db.chat import (
     fetch_conversation_participants,
     fetch_due_event_reminders,
+    fetch_due_safety_reminders,
     mark_reminder_sent,
+    mark_safety_reminder_sent,
 )
-from app.db.client import DatabaseAccessError
-from app.services.fcm_sender import send_chat_event_reminder_notification
+from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
+from app.db.safety import (
+    fetch_overdue_safety_sessions,
+    fetch_safety_contacts,
+    record_safety_escalation_sent,
+)
+from app.services.fcm_sender import (
+    send_chat_event_reminder_notification,
+    send_meetup_safety_reminder_notification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +78,153 @@ async def _check_due_reminders() -> None:
             )
 
 
+# Meetup Safety auto-configure (Milestone F): lookahead/poll for the
+# creator-only "turns on soon" push. Tighter window than the general event
+# reminder above since the copy promises "~30 minutes", not "sometime soon".
+_SAFETY_EVENT_REMINDER_WINDOW_MINUTES = 35
+_SAFETY_EVENT_REMINDER_POLL_MINUTES = 10
+
+
+async def _check_upcoming_safety_reminders() -> None:
+    try:
+        due_events = await asyncio.to_thread(
+            fetch_due_safety_reminders, _SAFETY_EVENT_REMINDER_WINDOW_MINUTES,
+        )
+    except DatabaseAccessError:
+        logger.exception("Failed to fetch due meetup safety reminders")
+        return
+
+    for event in due_events:
+        event_id = str(event.get("id") or "")
+        conversation_id = str(event.get("conversation_id") or "")
+        created_by = str(event.get("created_by") or "")
+        try:
+            conversation = await asyncio.to_thread(
+                fetch_conversation_participants, conversation_id,
+            )
+            if conversation is None:
+                continue
+            user_a_id = str(conversation.get("user_a_id") or "")
+            user_b_id = str(conversation.get("user_b_id") or "")
+            peer_id = user_b_id if created_by == user_a_id else user_a_id
+            await send_meetup_safety_reminder_notification(
+                user_id=created_by,
+                peer_id=peer_id,
+                conversation_id=conversation_id,
+                tab=str(conversation.get("tab") or "Dating"),
+            )
+            await asyncio.to_thread(mark_safety_reminder_sent, event_id)
+        except DatabaseAccessError:
+            logger.exception(
+                "Failed to process meetup safety reminder",
+                extra={"event_id": event_id},
+            )
+
+
+# Meetup Safety dead-man's-switch: how overdue a check-in must be (past its
+# deadline) before the first escalation fires, and how often this job polls
+# for overdue sessions. Subsequent escalations (2nd, 3rd) are spaced by each
+# session's own interval_seconds instead of this poll interval - see the
+# per-session cadence check in _check_overdue_safety_sessions.
+_SAFETY_ESCALATION_GRACE_SECONDS = 5 * 60
+_SAFETY_POLL_INTERVAL_MINUTES = 5
+
+
+def _next_escalation_due(session: dict[str, Any], now: Any) -> bool:
+    """A session is only fetched here once it's past next_checkin_at by the
+    grace window, so escalations_sent==0 is always due. Later escalations are
+    spaced by the session's own interval_seconds instead - "once per check-in
+    interval", per the Meetup Safety plan.
+    """
+    escalations_sent = int(session.get("escalations_sent") or 0)
+    if escalations_sent == 0:
+        return True
+    last_escalated_raw = session.get("last_escalated_at")
+    if not last_escalated_raw:
+        return False
+    interval_seconds = int(session.get("interval_seconds") or 0)
+    last_escalated = parse_utc_datetime(last_escalated_raw)
+    return now >= last_escalated + timedelta(seconds=interval_seconds)
+
+
+async def _escalate_safety_session(session: dict[str, Any]) -> None:
+    session_id = str(session.get("id") or "")
+    escalations_sent = int(session.get("escalations_sent") or 0)
+
+    try:
+        contacts = await asyncio.to_thread(
+            fetch_safety_contacts, str(session.get("user_id") or ""),
+        )
+    except DatabaseAccessError:
+        logger.exception(
+            "Failed to fetch contacts for overdue safety session",
+            extra={"session_id": session_id},
+        )
+        return
+
+    if not contacts:
+        return
+
+    event_context = session.get("event_context")
+    event_label = (
+        cast(dict[str, Any], event_context).get("label")
+        if isinstance(event_context, dict)
+        else None
+    )
+    escalation_number = escalations_sent + 1
+    token = make_escalation_cancel_token(session_id)
+    cancel_link = (
+        f"{settings.backend_public_url}/api/v1/safety/escalation/"
+        f"{session_id}/cancel?token={token}&reason=safe"
+    )
+
+    body = compose_unreachable_message(
+        name=session.get("label") or "A Nexus user",
+        escalation_number=escalation_number,
+        battery_percent=session.get("battery_percent"),
+        connection_type=session.get("connection_type"),
+        event_label=event_label,
+        cancel_link=cancel_link,
+    )
+
+    notified = False
+    for contact in contacts:
+        result = await send_sms(contact["phone"], body)
+        notified = notified or result.success
+
+    if not notified:
+        logger.warning(
+            "Failed to reach any trusted contact for an overdue safety session",
+            extra={"session_id": session_id},
+        )
+        return
+
+    try:
+        await asyncio.to_thread(
+            record_safety_escalation_sent, session_id, escalation_number,
+        )
+    except DatabaseAccessError:
+        logger.exception(
+            "Failed to record safety escalation",
+            extra={"session_id": session_id},
+        )
+
+
+async def _check_overdue_safety_sessions() -> None:
+    try:
+        overdue = await asyncio.to_thread(
+            fetch_overdue_safety_sessions, _SAFETY_ESCALATION_GRACE_SECONDS,
+        )
+    except DatabaseAccessError:
+        logger.exception("Failed to fetch overdue safety sessions")
+        return
+
+    now = utcnow()
+    for session in overdue:
+        if _next_escalation_due(session, now):
+            await _escalate_safety_session(session)
+
+
 def start_reminder_scheduler() -> AsyncIOScheduler:
     global _scheduler
     if _scheduler is not None:
@@ -73,6 +237,18 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
         _check_due_reminders,
         trigger=IntervalTrigger(minutes=_POLL_INTERVAL_MINUTES),
         id="chat_event_reminders",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _check_upcoming_safety_reminders,
+        trigger=IntervalTrigger(minutes=_SAFETY_EVENT_REMINDER_POLL_MINUTES),
+        id="chat_event_safety_reminders",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _check_overdue_safety_sessions,
+        trigger=IntervalTrigger(minutes=_SAFETY_POLL_INTERVAL_MINUTES),
+        id="meetup_safety_escalations",
         max_instances=1,
     )
     scheduler.start()

@@ -375,6 +375,8 @@ def create_event_with_message(
     location_lat: float | None,
     location_lng: float | None,
     location_label: str | None,
+    safety_enabled: bool = False,
+    safety_interval_seconds: int | None = None,
 ) -> dict[str, Any]:
     """
     Creates the linked chat_messages (type=event) + chat_events rows.
@@ -411,6 +413,8 @@ def create_event_with_message(
                         if location_label is not None
                         else None
                     ),
+                    "safety_enabled": safety_enabled,
+                    "safety_interval_seconds": safety_interval_seconds,
                 },
             )
             .execute()
@@ -518,3 +522,54 @@ def mark_reminder_sent(event_id: str) -> None:
             "Failed to mark reminder sent", extra={"event_id": event_id},
         )
         raise DatabaseAccessError("Failed to mark reminder sent") from e
+
+
+def fetch_due_safety_reminders(window_minutes: int = 35) -> list[dict[str, Any]]:
+    """Events with Meetup Safety auto-configured, starting within
+    window_minutes, that haven't had their pre-event safety push sent yet.
+    Tracked independently of fetch_due_event_reminders since this one is
+    creator-only and has a tighter/different lead time.
+    """
+    try:
+        res = (
+            supabase_client.table("chat_events")
+            .select(
+                "id, conversation_id, created_by, event_time, "
+                "safety_interval_seconds",
+            )
+            .eq("safety_enabled", True)
+            .is_("safety_reminder_sent_at", "null")
+            .neq("status", "cancelled")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        due_events: list[dict[str, Any]] = []
+        now = utcnow()
+        window_end = now + timedelta(minutes=window_minutes)
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            decrypted_row = _decrypt_event_row(cast(dict[str, Any], row))
+            if decrypted_row and decrypted_row.get("event_time"):
+                e_time = decrypted_row["event_time"]
+                if now <= e_time <= window_end:
+                    due_events.append(decrypted_row)
+        return due_events
+    except APIError as e:
+        logger.exception("Failed to fetch due meetup safety reminders")
+        raise DatabaseAccessError("Failed to fetch due meetup safety reminders") from e
+
+
+def mark_safety_reminder_sent(event_id: str) -> None:
+    try:
+        supabase_client.table("chat_events").update(
+            {"safety_reminder_sent_at": utcnow().isoformat()},
+        ).eq("id", event_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to mark meetup safety reminder sent",
+            extra={"event_id": event_id},
+        )
+        raise DatabaseAccessError(
+            "Failed to mark meetup safety reminder sent",
+        ) from e

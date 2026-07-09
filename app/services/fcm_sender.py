@@ -266,3 +266,57 @@ async def send_chat_event_reminder_notification(
             "Failed to send event reminder notification",
             extra={"conversation_id": conversation_id},
         )
+
+
+_SAFETY_REMINDER_NOUN_BY_TAB = {
+    "Friends": "meetup",
+    "Professional": "meeting",
+}
+
+
+async def send_meetup_safety_reminder_notification(
+    user_id: str,
+    peer_id: str,
+    conversation_id: str,
+    tab: str,
+) -> None:
+    """
+    Fire-and-forget: nudges the event's creator that the Meetup Safety
+    check-in they configured at creation time is about to start.
+
+    Sent only to the creator (user_id), never both participants - Meetup
+    Safety is personal (their own trusted contacts, their own device), not
+    shared conversation state, unlike send_chat_event_reminder_notification.
+    Tapping deep-links into the conversation (same as a chat_message tap) so
+    the client lands on the event card and its existing "Set up a safety
+    check-in" shortcut, rather than trying to prefill a screen from a title
+    the server never has plaintext access to. peer_id (the *other*
+    participant) is included because the client's chat-conversation route
+    requires it to open the thread, same as chat_message's actor_id.
+    """
+    if not _is_firebase_initialized():
+        return
+    try:
+        tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
+        if not tokens:
+            return
+        noun = _SAFETY_REMINDER_NOUN_BY_TAB.get(tab, "date")
+        await asyncio.to_thread(
+            _send_to_tokens,
+            tokens,
+            "Meetup Safety turns on soon",
+            f"Your {noun} starts in about 30 minutes - open the chat to "
+            "start your check-in.",
+            {
+                "type": "meetup_safety_reminder",
+                "conversation_id": conversation_id,
+                "peer_id": peer_id,
+                "tab": tab,
+            },
+            "meetup_safety_reminder",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send meetup safety reminder notification",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )

@@ -51,6 +51,7 @@ class SafetyAlertApi {
   /// confirmation, per the Meetup Safety plan's mock-action scoping.
   static Future<SafetyAlertResult?> sendAlert({
     required String alertType,
+    String? sessionId,
     String? sessionLabel,
     String? eventLabel,
     double? latitude,
@@ -62,6 +63,8 @@ class SafetyAlertApi {
         '${AppConfig.current.backendUrl}/api/v1/safety/alert',
         data: {
           'alert_type': alertType,
+          if (sessionId != null && sessionId.isNotEmpty)
+            'session_id': sessionId,
           if (sessionLabel != null && sessionLabel.isNotEmpty)
             'session_label': sessionLabel,
           if (eventLabel != null && eventLabel.isNotEmpty)
@@ -103,6 +106,76 @@ class SafetyAlertApi {
           'content_type': contentType,
           'duration_seconds': ?durationSeconds,
         },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+
+  /// Mirrors a freshly-started check-in loop server-side so the dead-man's
+  /// -switch scheduler (app/services/reminder_scheduler.py) has something to
+  /// poll. Returns null if the request failed — the local exact-alarm loop
+  /// still runs either way, this just widens the safety net.
+  static Future<String?> startSession({
+    required int intervalSeconds,
+    required String label,
+    required DateTime nextCheckInAt,
+    int? batteryPercent,
+    String? connectionType,
+  }) async {
+    try {
+      final token = await NetworkUtils.requireAccessToken();
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/safety/session/start',
+        data: {
+          'interval_seconds': intervalSeconds,
+          if (label.isNotEmpty) 'label': label,
+          'next_checkin_at': nextCheckInAt.toUtc().toIso8601String(),
+          'battery_percent': ?batteryPercent,
+          'connection_type': ?connectionType,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.data?['id'] as String?;
+    } on Exception {
+      return null;
+    }
+  }
+
+  /// Heartbeats a successful "I'm Safe" check-in — proves the device is fine
+  /// and resets the server-side escalation counter back to zero.
+  static Future<bool> checkinSession({
+    required String sessionId,
+    required DateTime nextCheckInAt,
+    int? batteryPercent,
+    String? connectionType,
+  }) async {
+    try {
+      final token = await NetworkUtils.requireAccessToken();
+      await _dio.post<void>(
+        '${AppConfig.current.backendUrl}/api/v1/safety/session/checkin',
+        data: {
+          'session_id': sessionId,
+          'next_checkin_at': nextCheckInAt.toUtc().toIso8601String(),
+          'battery_percent': ?batteryPercent,
+          'connection_type': ?connectionType,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+
+  static Future<bool> endSession(String sessionId) async {
+    try {
+      final token = await NetworkUtils.requireAccessToken();
+      await _dio.post<void>(
+        '${AppConfig.current.backendUrl}/api/v1/safety/session/end',
+        data: {'session_id': sessionId},
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;

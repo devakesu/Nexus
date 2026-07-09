@@ -943,6 +943,10 @@ class CreateEventRequest(BaseModel):
     location_label: str | None = Field(default=None, max_length=200)
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
     ciphertext_metadata: dict[str, Any] = Field(default_factory=dict)
+    # Meetup Safety auto-configure (Milestone F) - personal to whichever
+    # participant creates the event, not shared conversation state.
+    safety_enabled: bool = False
+    safety_interval_seconds: int | None = Field(default=None, gt=0, le=86400)
 
     @field_validator("ciphertext")
     @classmethod
@@ -955,6 +959,14 @@ class CreateEventRequest(BaseModel):
             raise ValueError("ciphertext must be valid base64") from e
         return v
 
+    @model_validator(mode="after")
+    def validate_safety_interval(self) -> "CreateEventRequest":
+        if self.safety_enabled and self.safety_interval_seconds is None:
+            raise ValueError(
+                "safety_interval_seconds is required when safety_enabled is set",
+            )
+        return self
+
 
 class EventResponse(BaseModel):
     event_id: str
@@ -966,6 +978,8 @@ class EventResponse(BaseModel):
     location_label: str | None = None
     status: Literal["proposed", "confirmed", "cancelled"]
     created_at: datetime
+    safety_enabled: bool = False
+    safety_interval_seconds: int | None = None
 
 
 class UpdateEventStatusRequest(BaseModel):
@@ -1504,6 +1518,7 @@ class SafetyLocation(BaseModel):
 
 class SafetyAlertRequest(BaseModel):
     alert_type: Literal["sos_silent", "sos_loud", "inform"]
+    session_id: str | None = None
     session_label: str | None = Field(default=None, max_length=200)
     event_label: str | None = Field(default=None, max_length=200)
     current_location: SafetyLocation | None = None
@@ -1525,3 +1540,86 @@ class SafetyEvidenceRegisterRequest(BaseModel):
 
 class SafetyEvidenceRegisterResponse(BaseModel):
     id: str
+
+
+# ---------------------------------------------------------------------------
+# Meetup Safety - recurring session mirror (Milestone D: dead-man's-switch)
+# ---------------------------------------------------------------------------
+
+
+class SafetySessionStartRequest(BaseModel):
+    interval_seconds: int = Field(..., gt=0, le=86400)
+    label: str | None = Field(default=None, max_length=200)
+    event_label: str | None = Field(default=None, max_length=200)
+    next_checkin_at: datetime
+    battery_percent: int | None = Field(default=None, ge=0, le=100)
+    connection_type: Literal["wifi", "cellular", "offline"] | None = None
+
+
+class SafetySessionStartResponse(BaseModel):
+    id: str
+
+
+class SafetySessionCheckinRequest(BaseModel):
+    session_id: str
+    next_checkin_at: datetime
+    battery_percent: int | None = Field(default=None, ge=0, le=100)
+    connection_type: Literal["wifi", "cellular", "offline"] | None = None
+
+
+class SafetySessionEndRequest(BaseModel):
+    session_id: str
+
+
+# ---------------------------------------------------------------------------
+# Meetup Safety - OTP-gated trusted-contact web portal (Milestone E)
+# ---------------------------------------------------------------------------
+
+
+class SafetyPortalOtpRequestRequest(BaseModel):
+    phone: str = Field(..., min_length=6, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class SafetyPortalOtpRequestResponse(BaseModel):
+    """Always {"sent": true} regardless of whether the phone actually
+    matched a trusted contact - the portal deliberately doesn't reveal
+    that, same anti-enumeration principle as a password-reset endpoint.
+    """
+
+    sent: bool = True
+
+
+class SafetyPortalOtpVerifyRequest(BaseModel):
+    phone: str = Field(..., min_length=6, max_length=20)
+    code: str = Field(..., min_length=4, max_length=8)
+
+
+class SafetyPortalOtpVerifyResponse(BaseModel):
+    token: str
+    expires_in: int
+
+
+class SafetyPortalEvidenceItem(BaseModel):
+    id: str
+    content_type: Literal["video", "audio"]
+    duration_seconds: float | None = None
+    download_url: str
+    media_key_base64: str
+    created_at: datetime
+
+
+class SafetyPortalDetailsResponse(BaseModel):
+    label: str | None = None
+    event_label: str | None = None
+    status: Literal["active", "ended"]
+    last_location: SafetyLocation | None = None
+    last_location_at: datetime | None = None
+    evidence: list[SafetyPortalEvidenceItem] = []

@@ -176,6 +176,27 @@ class EventCard extends ConsumerWidget {
               ),
             ),
           ],
+          if (eventInfo.safetyEnabled) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(
+                  LucideIcons.shieldCheck,
+                  size: 13,
+                  color: Color(0xFF0D9488),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Meetup Safety on',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF0D9488),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (notes != null && notes.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(

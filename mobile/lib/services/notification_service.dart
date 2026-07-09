@@ -238,6 +238,29 @@ class NotificationService {
           },
         ),
       );
+      return;
+    }
+
+    if (type == 'meetup_safety_reminder') {
+      // The event's title is E2E encrypted and this push never carried it -
+      // land in the conversation itself, where the event card (already
+      // decrypted client-side) has the "Set up a safety check-in" shortcut.
+      final conversationId = data['conversation_id'] as String?;
+      final peerId = data['peer_id'] as String?;
+      if (conversationId == null || peerId == null) return;
+
+      unawaited(
+        goRouter.push(
+          '/chat-conversation',
+          extra: {
+            'conversationId': conversationId,
+            'matchedUserId': peerId,
+            'tab': (data['tab'] as String?) ?? 'Dating',
+            'name': 'Nexus user',
+            'profilePic': null,
+          },
+        ),
+      );
     }
   }
 
