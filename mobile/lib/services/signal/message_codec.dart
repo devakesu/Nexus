@@ -42,8 +42,8 @@ class MessageCodec {
     final message = await _withIdentityRepin(
       store: store,
       address: address,
-      action: () => SessionCipher(store, store, store, store, address)
-          .encrypt(plaintext),
+      action: () =>
+          SessionCipher(store, store, store, store, address).encrypt(plaintext),
     );
     final type = message.getType() == CiphertextMessage.prekeyType
         ? 'prekey'
@@ -84,7 +84,8 @@ class MessageCodec {
         e,
         stackTrace: st,
         level: ErrorLevel.warning,
-        customMessage: 'Signal decryptText failed for $address (${e.runtimeType})',
+        customMessage:
+            'Signal decryptText failed for $address (${e.runtimeType})',
         showUi: false,
       );
       return null;

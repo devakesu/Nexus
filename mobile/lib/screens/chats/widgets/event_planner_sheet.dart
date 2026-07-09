@@ -287,7 +287,9 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         decoration: const BoxDecoration(
@@ -336,7 +338,9 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
                     child: OutlinedButton.icon(
                       onPressed: () => unawaited(_pickTime()),
                       icon: const Icon(LucideIcons.clock, size: 16),
-                      label: Text(_time == null ? 'Time' : _time!.format(context)),
+                      label: Text(
+                        _time == null ? 'Time' : _time!.format(context),
+                      ),
                     ),
                   ),
                 ],
@@ -358,7 +362,9 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
               TextField(
                 controller: _notesController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                ),
               ),
               const SizedBox(height: 16),
               _buildSafetySection(),
@@ -386,7 +392,9 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
                         )
                       : Text(
                           'Send plan',
-                          style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               ),

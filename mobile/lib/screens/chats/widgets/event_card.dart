@@ -29,8 +29,18 @@ class EventCard extends ConsumerWidget {
   final Color themeColor;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _formatDateTime(DateTime dt) {
@@ -45,13 +55,24 @@ class EventCard extends ConsumerWidget {
     final lat = eventInfo.locationLat;
     final lng = eventInfo.locationLng;
     if (lat == null || lng == null) return;
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
-  Future<void> _updateStatus(BuildContext context, WidgetRef ref, String status) async {
-    final provider = chatConversationControllerProvider(conversationId, peerUserId);
-    final ok = await ref.read(provider.notifier).updateEventStatus(eventInfo.eventId, status);
+  Future<void> _updateStatus(
+    BuildContext context,
+    WidgetRef ref,
+    String status,
+  ) async {
+    final provider = chatConversationControllerProvider(
+      conversationId,
+      peerUserId,
+    );
+    final ok = await ref
+        .read(provider.notifier)
+        .updateEventStatus(eventInfo.eventId, status);
     if (!ok && context.mounted) {
       NexusToast.show(
         context,
@@ -65,7 +86,9 @@ class EventCard extends ConsumerWidget {
     final untilEvent = eventInfo.eventTime.difference(DateTime.now());
     final clamped = untilEvent.isNegative
         ? null
-        : (untilEvent > const Duration(hours: 3) ? const Duration(hours: 3) : untilEvent);
+        : (untilEvent > const Duration(hours: 3)
+              ? const Duration(hours: 3)
+              : untilEvent);
     unawaited(
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -85,7 +108,8 @@ class EventCard extends ConsumerWidget {
       'cancelled' => (const Color(0xFF94A3B8), 'Cancelled'),
       _ => (themeColor, 'Proposed'),
     };
-    final hasLocation = eventInfo.locationLabel != null ||
+    final hasLocation =
+        eventInfo.locationLabel != null ||
         (eventInfo.locationLat != null && eventInfo.locationLng != null);
     final notes = payload.notes;
 
@@ -149,7 +173,10 @@ class EventCard extends ConsumerWidget {
               const SizedBox(width: 6),
               Text(
                 _formatDateTime(eventInfo.eventTime),
-                style: GoogleFonts.inter(fontSize: 12.5, color: const Color(0xFF475569)),
+                style: GoogleFonts.inter(
+                  fontSize: 12.5,
+                  color: const Color(0xFF475569),
+                ),
               ),
             ],
           ),
@@ -159,7 +186,11 @@ class EventCard extends ConsumerWidget {
               onTap: () => unawaited(_openInMaps()),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.mapPin, size: 13, color: Color(0xFF64748B)),
+                  const Icon(
+                    LucideIcons.mapPin,
+                    size: 13,
+                    color: Color(0xFF64748B),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -214,14 +245,16 @@ class EventCard extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => unawaited(_updateStatus(context, ref, 'cancelled')),
+                    onPressed: () =>
+                        unawaited(_updateStatus(context, ref, 'cancelled')),
                     child: const Text('Decline'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => unawaited(_updateStatus(context, ref, 'confirmed')),
+                    onPressed: () =>
+                        unawaited(_updateStatus(context, ref, 'confirmed')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: themeColor,
                       foregroundColor: Colors.white,
@@ -235,7 +268,8 @@ class EventCard extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => unawaited(_updateStatus(context, ref, 'cancelled')),
+                onPressed: () =>
+                    unawaited(_updateStatus(context, ref, 'cancelled')),
                 child: const Text('Cancel plan'),
               ),
             ),

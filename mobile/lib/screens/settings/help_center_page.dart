@@ -50,7 +50,8 @@ const List<_HelpCategory> _kHelpCategories = [
             "During onboarding you'll add your bio, core details like age, your interests and lifestyle, your general location, and can even link a few favorite artists from Spotify. You can revisit and edit any of it later from the Profile tab.",
       ),
       (
-        question: 'Can Dating, Friends, and Professional all be active at once?',
+        question:
+            'Can Dating, Friends, and Professional all be active at once?',
         answer:
             'Yes. Each context has its own activation toggle, so you can be discoverable for Dating and Professional networking at the same time, or focus on just one — entirely up to you.',
       ),
@@ -235,7 +236,8 @@ const List<_RoadmapItem> _kRoadmapItems = [
   (
     icon: LucideIcons.sparkles,
     title: 'Nexus+',
-    desc: 'Advanced filters, unlimited resets, and priority placement in Orbit.',
+    desc:
+        'Advanced filters, unlimited resets, and priority placement in Orbit.',
   ),
   (
     icon: LucideIcons.link,
@@ -1351,7 +1353,10 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           Text(
             'Nexus Help Center',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFCBD5E1)),
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: const Color(0xFFCBD5E1),
+            ),
           ),
         ],
       ),

@@ -68,7 +68,11 @@ class MessageBubble extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(LucideIcons.shieldAlert, size: 14, color: Color(0xFFEF4444)),
+          const Icon(
+            LucideIcons.shieldAlert,
+            size: 14,
+            color: Color(0xFFEF4444),
+          ),
           const SizedBox(width: 6),
           Text(
             'Could not decrypt this message',
@@ -129,11 +133,16 @@ class MessageBubble extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(LucideIcons.lock, size: 14, color: Color(0xFFB45309)),
+                const Icon(
+                  LucideIcons.lock,
+                  size: 14,
+                  color: Color(0xFFB45309),
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    message.plaintext ?? 'Security code changed. Tap to verify.',
+                    message.plaintext ??
+                        'Security code changed. Tap to verify.',
                     style: GoogleFonts.inter(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,

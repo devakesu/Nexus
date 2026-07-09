@@ -27,56 +27,56 @@ class OrbitAnimationOverlay extends StatelessWidget {
               children: [
                 // Outer rotating ring
                 Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: orbitColor.withAlpha(51),
-                      width: 3,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                )
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: orbitColor.withAlpha(51),
+                          width: 3,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    )
                     .animate(onPlay: (controller) => controller.repeat())
                     .rotate(duration: 8.seconds),
 
                 // Mid rotating ring
                 Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: orbitColor.withAlpha(102),
-                      width: 2,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                )
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: orbitColor.withAlpha(102),
+                          width: 2,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    )
                     .animate(onPlay: (controller) => controller.repeat())
                     .rotate(duration: 5.seconds, begin: 1, end: 0),
 
                 // Pulsing central node
                 Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: orbitColor.withAlpha(26),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: orbitColor, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: orbitColor.withAlpha(127),
-                        blurRadius: 30,
-                        spreadRadius: 5,
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: orbitColor.withAlpha(26),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: orbitColor, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: orbitColor.withAlpha(127),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Icon(
-                    LucideIcons.globe,
-                    color: orbitColor,
-                    size: 36,
-                  ),
-                )
+                      child: Icon(
+                        LucideIcons.globe,
+                        color: orbitColor,
+                        size: 36,
+                      ),
+                    )
                     .animate(
                       onPlay: (controller) => controller.repeat(reverse: true),
                     )
@@ -89,16 +89,16 @@ class OrbitAnimationOverlay extends StatelessWidget {
 
                 // Orbiting satellites
                 Positioned(
-                  top: 30,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: orbitColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                )
+                      top: 30,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: orbitColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
                     .animate(onPlay: (controller) => controller.repeat())
                     .rotate(duration: 3.seconds),
               ],

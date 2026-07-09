@@ -57,7 +57,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       await NetworkUtils.requireAccessToken();
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/${widget.reportId}',
-        );
+      );
       if (mounted && response.data != null) {
         setState(() => _ticket = FeedbackTicketDetail.fromJson(response.data!));
       }
@@ -85,7 +85,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/${widget.reportId}/comments',
         data: {'body': body},
-        );
+      );
       _commentController.clear();
       await _load();
     } on DioException catch (e) {
@@ -176,7 +176,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/${widget.reportId}/close',
         data: {'reason': reason},
-        );
+      );
       if (response.data != null && mounted) {
         NexusToast.show(context, 'Ticket closed.');
         Navigator.of(context).pop();

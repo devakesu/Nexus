@@ -47,9 +47,11 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
       ),
     );
 
-    unawaited(_controller.forward().then((_) {
-      widget.onFinished();
-    }));
+    unawaited(
+      _controller.forward().then((_) {
+        widget.onFinished();
+      }),
+    );
   }
 
   @override

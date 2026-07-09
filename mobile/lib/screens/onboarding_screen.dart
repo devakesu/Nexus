@@ -243,14 +243,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _openImportDialog() {
-    unawaited(showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ImportCodeDialog(
-        termsVersion: widget.termsVersion,
-        onImportSuccess: widget.onComplete,
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ImportCodeDialog(
+          termsVersion: widget.termsVersion,
+          onImportSuccess: widget.onComplete,
+        ),
       ),
-    ));
+    );
   }
 
   bool get _canSubmit {

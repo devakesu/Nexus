@@ -4,7 +4,10 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
 class EncryptedMedia {
-  const EncryptedMedia({required this.ciphertext, required this.mediaKeyBase64});
+  const EncryptedMedia({
+    required this.ciphertext,
+    required this.mediaKeyBase64,
+  });
 
   /// nonce + ciphertext + MAC, concatenated - what actually gets uploaded
   /// to the `chat_media` Storage bucket.

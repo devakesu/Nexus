@@ -385,8 +385,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/details',
         options: Options(
-          headers: {
-            },
+          headers: {},
         ),
       );
 
@@ -699,8 +698,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             '${config.backendUrl}/api/v1/profile/details',
             data: payload,
             options: Options(
-              headers: {
-                },
+              headers: {},
             ),
           );
 
@@ -952,7 +950,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           'code': code,
           'redirect_uri': config.spotifyNativeRedirectUri,
         },
-        );
+      );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final raw = response.data!['artists'];
         final artists = (raw is List)
@@ -1005,7 +1003,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       final config = AppConfig.current;
       final response = await _dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/spotify/connect',
-        );
+      );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final authUrl = response.data!['auth_url'] as String?;
         if (authUrl != null) {

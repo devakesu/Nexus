@@ -142,7 +142,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       if (token == null) throw Exception('Not signed in');
       final resp = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
-        );
+      );
       if (resp.statusCode == 200 && resp.data != null && mounted) {
         final hidden = (resp.data!['hidden_fields'] as List<dynamic>? ?? [])
             .map((e) => e.toString())
@@ -185,7 +185,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         data: {'hidden_fields': hidden},
-        );
+      );
     } on DioException catch (e) {
       // Roll back.
       if (mounted) {
@@ -212,11 +212,17 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
   }
 
-  Future<void> _toggleActiveStatus(bool value) =>
-      _togglePrivacyFlag('share_active_status', value, ({required value}) => _activeStatus = value);
+  Future<void> _toggleActiveStatus(bool value) => _togglePrivacyFlag(
+    'share_active_status',
+    value,
+    ({required value}) => _activeStatus = value,
+  );
 
-  Future<void> _toggleReadReceipts(bool value) =>
-      _togglePrivacyFlag('share_read_receipts', value, ({required value}) => _readReceipts = value);
+  Future<void> _toggleReadReceipts(bool value) => _togglePrivacyFlag(
+    'share_read_receipts',
+    value,
+    ({required value}) => _readReceipts = value,
+  );
 
   Future<void> _togglePrivacyFlag(
     String field,
@@ -224,7 +230,9 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     void Function({required bool value}) apply,
   ) async {
     if (_saving.contains(field)) return;
-    final previous = field == 'share_active_status' ? _activeStatus : _readReceipts;
+    final previous = field == 'share_active_status'
+        ? _activeStatus
+        : _readReceipts;
     setState(() {
       apply(value: value);
       _saving.add(field);
@@ -235,7 +243,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         data: {field: value},
-        );
+      );
     } on DioException catch (e) {
       if (mounted) {
         setState(() => apply(value: previous));

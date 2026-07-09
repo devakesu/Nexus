@@ -159,7 +159,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool get _isOtpValid {
     final code = _otpController.text.trim();
-    return code.length == AppConfig.otpLength && RegExp(r'^\d+$').hasMatch(code);
+    return code.length == AppConfig.otpLength &&
+        RegExp(r'^\d+$').hasMatch(code);
   }
 
   Future<void> _initAccelerometer() async {
@@ -495,7 +496,8 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (code.length != AppConfig.otpLength || !RegExp(r'^\d+$').hasMatch(code)) {
+    if (code.length != AppConfig.otpLength ||
+        !RegExp(r'^\d+$').hasMatch(code)) {
       NexusToast.show(
         context,
         'Please enter a valid ${AppConfig.otpLength}-digit OTP code (digits only).',
@@ -1088,7 +1090,9 @@ class _LoginScreenState extends State<LoginScreen>
           child: Text(
             label,
             style: GoogleFonts.inter(
-              color: isDisabled ? Colors.white.withValues(alpha: 0.3) : Colors.white,
+              color: isDisabled
+                  ? Colors.white.withValues(alpha: 0.3)
+                  : Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,

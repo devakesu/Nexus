@@ -72,7 +72,7 @@ Future<List<ChatConversationSummary>> chatConversations(
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats',
     queryParameters: {'tab': tab},
-    );
+  );
   final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
   return rawList
       .map(
@@ -88,7 +88,7 @@ Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats/new-chat-candidates',
     queryParameters: {'tab': tab},
-    );
+  );
   final rawList = response.data?['candidates'] as List<dynamic>? ?? [];
   return rawList
       .map((e) => ChatCandidate.fromJson(e as Map<String, dynamic>))

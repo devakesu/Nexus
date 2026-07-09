@@ -89,9 +89,13 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         actions: [
           IconButton(
             icon: Icon(
-              _mapType == MapType.normal ? LucideIcons.satellite : LucideIcons.map,
+              _mapType == MapType.normal
+                  ? LucideIcons.satellite
+                  : LucideIcons.map,
             ),
-            tooltip: _mapType == MapType.normal ? 'Satellite view' : 'Standard view',
+            tooltip: _mapType == MapType.normal
+                ? 'Satellite view'
+                : 'Standard view',
             onPressed: () => setState(
               () => _mapType = _mapType == MapType.normal
                   ? MapType.satellite

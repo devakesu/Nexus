@@ -125,7 +125,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
       final response = await _dio.post<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/users/moderation-subjects',
         data: {'target_ids': targetIds},
-        );
+      );
       final list = response.data ?? [];
       return {
         for (final item in list)
@@ -152,7 +152,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
               'action': 'unhide',
               'tab': entry.tab,
             },
-            ),
+          ),
         ),
       );
 

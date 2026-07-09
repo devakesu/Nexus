@@ -45,7 +45,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
       await NetworkUtils.requireAccessToken();
       final response = await _dio.get<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/mine',
-        );
+      );
       final tickets = (response.data ?? [])
           .map((e) => FeedbackTicketSummary.fromJson(e as Map<String, dynamic>))
           .toList();

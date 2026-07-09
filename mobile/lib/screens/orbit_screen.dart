@@ -392,7 +392,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         final response = await _dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
-          );
+        );
         return response.statusCode == 200;
       }
     } on Exception catch (e) {
@@ -981,13 +981,13 @@ class _OrbitScreenState extends State<OrbitScreen>
       final discoverFuture = _dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover',
         data: payload,
-        );
+      );
 
       final profileFuture = skipProfileFetch
           ? Future<Response<Map<String, dynamic>>?>.value()
           : _dio.get<Map<String, dynamic>>(
               '${config.backendUrl}/api/v1/profile/details',
-              );
+            );
 
       final results = await Future.wait([discoverFuture, profileFuture]);
       final discoverResponse = results[0]!;
@@ -1093,7 +1093,7 @@ class _OrbitScreenState extends State<OrbitScreen>
           'center_y': centerY,
           'radius': radius,
         },
-        );
+      );
 
       if (response.statusCode == 200 && response.data != null && mounted) {
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
@@ -1152,7 +1152,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       await _dio.post<dynamic>(
         '${config.backendUrl}/api/v1/discover/action',
         data: {'target_id': candidateId, 'action': 'pass', 'tab': widget.tab},
-        );
+      );
     } on Exception catch (_) {}
   }
 
@@ -1190,7 +1190,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       final response = await _dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover/action',
         data: payload,
-        );
+      );
 
       if (response.statusCode == 200) {
         if (mounted) {
@@ -1616,8 +1616,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     }
 
     final config = AppConfig.current;
-    final headers = Options(
-      );
+    final headers = Options();
 
     var response = await _dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/discover/node-detail',

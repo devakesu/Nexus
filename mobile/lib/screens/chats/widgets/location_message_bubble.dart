@@ -29,8 +29,11 @@ class LocationMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = isMine ? Colors.white : const Color(0xFF0F172A);
-    final subColor = isMine ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF64748B);
-    final tileColor = (isMine ? Colors.white : const Color(0xFF0F172A)).withValues(alpha: 0.12);
+    final subColor = isMine
+        ? Colors.white.withValues(alpha: 0.85)
+        : const Color(0xFF64748B);
+    final tileColor = (isMine ? Colors.white : const Color(0xFF0F172A))
+        .withValues(alpha: 0.12);
 
     return GestureDetector(
       onTap: () => unawaited(_openInMaps()),

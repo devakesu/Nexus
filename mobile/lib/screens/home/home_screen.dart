@@ -55,41 +55,42 @@ class _MyHomePageState extends State<MyHomePage> {
                   top: false,
                   child: IndexedStack(
                     index: _currentTab,
-                    children: [
-                      DatingTab(
-                        onOpenOrbit: _triggerOpenOrbit,
-                        onNavigateToTab: (index) {
-                          setState(() {
-                            _currentTab = index;
-                          });
-                        },
-                      ),
-                      FriendsTab(
-                        onOpenOrbit: _triggerOpenOrbit,
-                        onNavigateToTab: (index) {
-                          setState(() {
-                            _currentTab = index;
-                          });
-                        },
-                      ),
-                      ProfileTab(onOpenOrbit: _triggerOpenOrbit),
-                      ProfessionalTab(
-                        onOpenOrbit: _triggerOpenOrbit,
-                        onNavigateToTab: (index) {
-                          setState(() {
-                            _currentTab = index;
-                          });
-                        },
-                      ),
-                      SettingsTab(onOpenOrbit: _triggerOpenOrbit),
-                    ].asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final widgetItem = entry.value;
-                      return TickerMode(
-                        enabled: _currentTab == index,
-                        child: widgetItem,
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          DatingTab(
+                            onOpenOrbit: _triggerOpenOrbit,
+                            onNavigateToTab: (index) {
+                              setState(() {
+                                _currentTab = index;
+                              });
+                            },
+                          ),
+                          FriendsTab(
+                            onOpenOrbit: _triggerOpenOrbit,
+                            onNavigateToTab: (index) {
+                              setState(() {
+                                _currentTab = index;
+                              });
+                            },
+                          ),
+                          ProfileTab(onOpenOrbit: _triggerOpenOrbit),
+                          ProfessionalTab(
+                            onOpenOrbit: _triggerOpenOrbit,
+                            onNavigateToTab: (index) {
+                              setState(() {
+                                _currentTab = index;
+                              });
+                            },
+                          ),
+                          SettingsTab(onOpenOrbit: _triggerOpenOrbit),
+                        ].asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final widgetItem = entry.value;
+                          return TickerMode(
+                            enabled: _currentTab == index,
+                            child: widgetItem,
+                          );
+                        }).toList(),
                   ),
                 ),
               ),
@@ -110,7 +111,6 @@ class _MyHomePageState extends State<MyHomePage> {
               },
             ),
           ),
-
         ],
       ),
     );

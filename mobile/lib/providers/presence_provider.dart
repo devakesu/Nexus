@@ -44,16 +44,19 @@ class PeerPresence extends _$PeerPresence {
 
   Future<PresenceInfo> _fetch() async {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null) return const PresenceInfo(isOnline: null, lastActiveAt: null);
+    if (token == null)
+      return const PresenceInfo(isOnline: null, lastActiveAt: null);
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/$peerUserId',
-        );
+      );
       final data = response.data;
       final rawLastActive = data?['last_active_at'] as String?;
       return PresenceInfo(
         isOnline: data?['is_online'] as bool?,
-        lastActiveAt: rawLastActive != null ? DateTime.parse(rawLastActive) : null,
+        lastActiveAt: rawLastActive != null
+            ? DateTime.parse(rawLastActive)
+            : null,
       );
     } on Exception {
       return const PresenceInfo(isOnline: null, lastActiveAt: null);
@@ -78,7 +81,7 @@ mixin PresenceHeartbeat {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/heartbeat',
         data: {'is_online': isOnline},
-        );
+      );
     } on Exception {
       // Best-effort - a missed heartbeat just means presence looks stale
       // for up to 90s, not a user-visible failure.

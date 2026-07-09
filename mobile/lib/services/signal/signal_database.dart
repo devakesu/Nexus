@@ -70,7 +70,8 @@ class LocalMessages extends Table {
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get messageType => text()();
   BlobColumn get plaintextEnc => blob().nullable()();
-  BoolColumn get decryptFailed => boolean().withDefault(const Constant(false))();
+  BoolColumn get decryptFailed =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

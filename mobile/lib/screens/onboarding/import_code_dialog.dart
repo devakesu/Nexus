@@ -52,7 +52,8 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
 
     try {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) throw Exception('Session expired. Please sign in again.');
+      if (session == null)
+        throw Exception('Session expired. Please sign in again.');
 
       final config = AppConfig.current;
       final dio = createDio();
@@ -70,13 +71,17 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
 
       if (response.statusCode == 200) {
         setState(() => _success = true);
-        await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+        await Future<void>.delayed(
+          const Duration(seconds: 1, milliseconds: 200),
+        );
         if (mounted) {
           Navigator.of(context).pop();
           widget.onImportSuccess();
         }
       } else {
-        final detail = response.data?['detail'] ?? 'Import failed. Check the code and try again.';
+        final detail =
+            response.data?['detail'] ??
+            'Import failed. Check the code and try again.';
         setState(() => _errorMessage = detail.toString());
       }
     } on Object catch (e) {
@@ -107,7 +112,11 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                     color: const Color(0x1AFF7597),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.download_rounded, color: _teal, size: 20),
+                  child: const Icon(
+                    Icons.download_rounded,
+                    color: _teal,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -134,7 +143,11 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                 ),
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
-                  child: const Icon(Icons.close_rounded, color: Color(0x66FFFFFF), size: 20),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0x66FFFFFF),
+                    size: 20,
+                  ),
                 ),
               ],
             ).animate().fade(),
@@ -202,7 +215,10 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFF0B0D13),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0x1FFF7597)),
@@ -230,59 +246,63 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                       ),
                     )
                   : _success
-                      ? Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0x26FF7597),
-                            borderRadius: BorderRadius.circular(14),
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0x26FF7597),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: _teal,
+                            size: 20,
                           ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_circle_rounded, color: _teal, size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                'Import Successful!',
-                                style: TextStyle(
-                                  color: _teal,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Import Successful!',
+                            style: TextStyle(
+                              color: _teal,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _submitCode,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF7597), Color(0xFFE04B76)],
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x26FF7597),
+                                blurRadius: 12,
+                                spreadRadius: 1,
                               ),
                             ],
                           ),
-                        )
-                      : Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _submitCode,
-                            borderRadius: BorderRadius.circular(14),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFF7597), Color(0xFFE04B76)],
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x26FF7597),
-                                    blurRadius: 12,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'Import Now',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                          child: const Center(
+                            child: Text(
+                              'Import Now',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                         ),
+                      ),
+                    ),
             ).animate().fade(delay: 160.ms),
           ],
         ),

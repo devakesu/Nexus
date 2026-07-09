@@ -14,7 +14,11 @@ import 'package:nexus/services/signal/signal_database.dart';
 class DriftSignalProtocolStore extends IdentityKeyStore
     with PreKeyStore, SessionStore, SignedPreKeyStore
     implements SignalProtocolStore {
-  DriftSignalProtocolStore(this._db, this._identityKeyPair, this._registrationId);
+  DriftSignalProtocolStore(
+    this._db,
+    this._identityKeyPair,
+    this._registrationId,
+  );
 
   final SignalDatabase _db;
   final IdentityKeyPair _identityKeyPair;
@@ -38,7 +42,8 @@ class DriftSignalProtocolStore extends IdentityKeyStore
 
     final existing = await getIdentity(address);
     final changed =
-        existing == null || !_bytesEqual(existing.serialize(), identityKey.serialize());
+        existing == null ||
+        !_bytesEqual(existing.serialize(), identityKey.serialize());
 
     final encrypted = await _vault.encryptBytes(identityKey.serialize());
     await _db
@@ -62,7 +67,8 @@ class DriftSignalProtocolStore extends IdentityKeyStore
     // Trust-on-first-use: an address we've never seen before is trusted;
     // once pinned, the identity key must match on every future session.
     final existing = await getIdentity(address);
-    return existing == null || _bytesEqual(existing.serialize(), identityKey.serialize());
+    return existing == null ||
+        _bytesEqual(existing.serialize(), identityKey.serialize());
   }
 
   @override

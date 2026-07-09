@@ -89,7 +89,9 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: const Color(0xFFFF7597).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFFFF7597,
+                            ).withValues(alpha: 0.15),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),

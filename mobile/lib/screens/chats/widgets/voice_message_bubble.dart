@@ -162,7 +162,8 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble> {
                     stream: _player.positionStream,
                     builder: (context, snapshot) {
                       final position = snapshot.data ?? Duration.zero;
-                      final total = _player.duration ??
+                      final total =
+                          _player.duration ??
                           Duration(
                             milliseconds: widget.pointer.durationMs ?? 0,
                           );
@@ -174,13 +175,15 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble> {
                             height: 4,
                             child: LinearProgressIndicator(
                               value: total.inMilliseconds > 0
-                                  ? (position.inMilliseconds / total.inMilliseconds)
+                                  ? (position.inMilliseconds /
+                                            total.inMilliseconds)
                                         .clamp(0.0, 1.0)
                                   : 0,
-                              backgroundColor: (isMine
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A))
-                                  .withValues(alpha: 0.12),
+                              backgroundColor:
+                                  (isMine
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A))
+                                      .withValues(alpha: 0.12),
                               valueColor: AlwaysStoppedAnimation(
                                 isMine ? Colors.white : const Color(0xFF0F172A),
                               ),
@@ -189,7 +192,10 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble> {
                           const SizedBox(height: 4),
                           Text(
                             _formatDuration(_ready ? position : total),
-                            style: GoogleFonts.inter(fontSize: 11, color: subColor),
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: subColor,
+                            ),
                           ),
                         ],
                       );

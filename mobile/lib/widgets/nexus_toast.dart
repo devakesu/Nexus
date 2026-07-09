@@ -61,8 +61,10 @@ class _NexusToastEntryState extends State<_NexusToastEntry>
       reverseDuration: const Duration(milliseconds: 220),
     );
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.35),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
 
     unawaited(
       _ctrl.forward().then((_) {
@@ -89,10 +91,16 @@ class _NexusToastEntryState extends State<_NexusToastEntry>
     final bottom = MediaQuery.of(context).viewPadding.bottom + 104;
 
     final (Color accent, IconData icon) = switch (widget.type) {
-      NexusToastType.success => (const Color(0xFF10B981), LucideIcons.circleCheck),
-      NexusToastType.error   => (const Color(0xFFEF4444), LucideIcons.circleX),
-      NexusToastType.warning => (const Color(0xFFF59E0B), LucideIcons.triangleAlert),
-      NexusToastType.info    => (const Color(0xFF60A5FA), LucideIcons.info),
+      NexusToastType.success => (
+        const Color(0xFF10B981),
+        LucideIcons.circleCheck,
+      ),
+      NexusToastType.error => (const Color(0xFFEF4444), LucideIcons.circleX),
+      NexusToastType.warning => (
+        const Color(0xFFF59E0B),
+        LucideIcons.triangleAlert,
+      ),
+      NexusToastType.info => (const Color(0xFF60A5FA), LucideIcons.info),
     };
 
     return Positioned(

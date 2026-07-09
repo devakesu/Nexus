@@ -149,7 +149,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           'is_friends_active': false,
           'is_professional_active': false,
         },
-        );
+      );
       if (mounted) setState(() => _pauseStatus = _PauseStatus.paused);
       OrbitRefreshNotifier.notifyDeactivated();
     } on Exception catch (e, stackTrace) {

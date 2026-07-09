@@ -37,7 +37,7 @@ class SafetyAlertApi {
               .map((c) => {'name': c.name, 'phone': c.phone})
               .toList(),
         },
-        );
+      );
       return true;
     } on Object catch (_) {
       return false;
@@ -71,7 +71,7 @@ class SafetyAlertApi {
           if (latitude != null && longitude != null)
             'current_location': {'lat': latitude, 'lng': longitude},
         },
-        );
+      );
       final data = response.data;
       if (data == null) return null;
       return SafetyAlertResult(
@@ -104,7 +104,7 @@ class SafetyAlertApi {
           'content_type': contentType,
           'duration_seconds': ?durationSeconds,
         },
-        );
+      );
       return true;
     } on Object catch (_) {
       return false;
@@ -133,7 +133,7 @@ class SafetyAlertApi {
           'battery_percent': ?batteryPercent,
           'connection_type': ?connectionType,
         },
-        );
+      );
       return response.data?['id'] as String?;
     } on Object catch (_) {
       return null;
@@ -158,7 +158,7 @@ class SafetyAlertApi {
           'battery_percent': ?batteryPercent,
           'connection_type': ?connectionType,
         },
-        );
+      );
       return true;
     } on Object catch (_) {
       return false;
@@ -171,7 +171,7 @@ class SafetyAlertApi {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/safety/session/end',
         data: {'session_id': sessionId},
-        );
+      );
       return true;
     } on Object catch (_) {
       return false;

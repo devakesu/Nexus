@@ -116,6 +116,7 @@ class NetworkUtils {
     if (token == null) throw Exception('Not signed in');
     return token;
   }
+
   /// Validates that the hostname of the untrusted certificate is a local/development host.
   static bool validateCertificateHostname(
     X509Certificate cert,

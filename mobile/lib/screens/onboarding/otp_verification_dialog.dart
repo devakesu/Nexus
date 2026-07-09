@@ -69,7 +69,9 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
   @override
   void dispose() {
-    _otpController..removeListener(_updateOtpState)..dispose();
+    _otpController
+      ..removeListener(_updateOtpState)
+      ..dispose();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -179,7 +181,11 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                     color: const Color(0x1AFF7597),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.phone_android_rounded, color: _teal, size: 20),
+                  child: const Icon(
+                    Icons.phone_android_rounded,
+                    color: _teal,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -206,7 +212,11 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                 ),
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
-                  child: const Icon(Icons.close_rounded, color: Color(0x66FFFFFF), size: 20),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0x66FFFFFF),
+                    size: 20,
+                  ),
                 ),
               ],
             ).animate().fade(),
@@ -275,7 +285,10 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFF0B0D13),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0x1FFF7597)),
@@ -297,7 +310,10 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               child: _resendCountdown > 0
                   ? Text(
                       'Resend code in $_resendCountdown s',
-                      style: const TextStyle(color: Color(0x66FFFFFF), fontSize: 13),
+                      style: const TextStyle(
+                        color: Color(0x66FFFFFF),
+                        fontSize: 13,
+                      ),
                     )
                   : GestureDetector(
                       onTap: _resendOtp,
@@ -325,64 +341,75 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                       ),
                     )
                   : _success
-                      ? Container(
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0x26FF7597),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: _teal,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Verification Successful!',
+                            style: TextStyle(
+                              color: _teal,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isOtpValid ? _submitOtp : null,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Ink(
                           decoration: BoxDecoration(
-                            color: const Color(0x26FF7597),
                             borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_circle_rounded, color: _teal, size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                'Verification Successful!',
-                                style: TextStyle(
-                                  color: _teal,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _isOtpValid ? _submitOtp : null,
-                            borderRadius: BorderRadius.circular(14),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                gradient: !_isOtpValid
-                                    ? null
-                                    : const LinearGradient(
-                                        colors: [Color(0xFFFF7597), Color(0xFFE04B76)],
-                                      ),
-                                color: !_isOtpValid ? Colors.white.withValues(alpha: 0.08) : null,
-                                boxShadow: !_isOtpValid
-                                    ? null
-                                    : const [
-                                        BoxShadow(
-                                          color: Color(0x26FF7597),
-                                          blurRadius: 12,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Verify',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: !_isOtpValid ? Colors.white.withValues(alpha: 0.3) : Colors.white,
+                            gradient: !_isOtpValid
+                                ? null
+                                : const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFF7597),
+                                      Color(0xFFE04B76),
+                                    ],
                                   ),
-                                ),
+                            color: !_isOtpValid
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : null,
+                            boxShadow: !_isOtpValid
+                                ? null
+                                : const [
+                                    BoxShadow(
+                                      color: Color(0x26FF7597),
+                                      blurRadius: 12,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Verify',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: !_isOtpValid
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : Colors.white,
                               ),
                             ),
                           ),
                         ),
+                      ),
+                    ),
             ).animate().fade(delay: 160.ms),
           ],
         ),

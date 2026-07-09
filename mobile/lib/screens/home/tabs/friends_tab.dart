@@ -117,7 +117,7 @@ class _FriendsTabState extends State<FriendsTab>
 
         final response = await dio.get<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
-          );
+        );
 
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
@@ -170,7 +170,7 @@ class _FriendsTabState extends State<FriendsTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
-          );
+        );
         return response.statusCode == 200;
       }
     } on Exception catch (e, st) {
@@ -226,7 +226,7 @@ class _FriendsTabState extends State<FriendsTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: {'is_friends_active': active},
-          );
+        );
 
         if (response.statusCode == 200 && mounted) {
           if (active) {
@@ -314,117 +314,118 @@ class _FriendsTabState extends State<FriendsTab>
       showDialog<void>(
         context: context,
         builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Row(
-            children: [
-              Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'Profile Incomplete',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(LucideIcons.alertTriangle, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Profile Incomplete',
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Please complete your core profile before setting up Friends features:',
-                style: TextStyle(color: Color(0xFF475569), fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              ..._missingFields
-                  .where(
-                    (f) => !const {
-                      'friends_target_buckets',
-                      'sub_interests',
-                      'causes_supported',
-                    }.contains(f.toString()),
-                  )
-                  .map((field) {
-                    final fieldStr = field.toString();
-                    String label;
-                    if (fieldStr == 'name') {
-                      label = 'Display Name is missing';
-                    } else if (fieldStr == 'age') {
-                      label = 'Age is missing';
-                    } else if (fieldStr == 'interests') {
-                      label = 'At least 3 interests required';
-                    } else if (fieldStr == 'profile_pic') {
-                      label = 'Profile avatar image is missing';
-                    } else if (fieldStr == 'normal_pics') {
-                      label = 'At least 2 images required in profile gallery';
-                    } else {
-                      label = fieldStr.replaceAll('_', ' ');
-                      label = label[0].toUpperCase() + label.substring(1);
-                    }
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Please complete your core profile before setting up Friends features:',
+                  style: TextStyle(color: Color(0xFF475569), fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                ..._missingFields
+                    .where(
+                      (f) => !const {
+                        'friends_target_buckets',
+                        'sub_interests',
+                        'causes_supported',
+                      }.contains(f.toString()),
+                    )
+                    .map((field) {
+                      final fieldStr = field.toString();
+                      String label;
+                      if (fieldStr == 'name') {
+                        label = 'Display Name is missing';
+                      } else if (fieldStr == 'age') {
+                        label = 'Age is missing';
+                      } else if (fieldStr == 'interests') {
+                        label = 'At least 3 interests required';
+                      } else if (fieldStr == 'profile_pic') {
+                        label = 'Profile avatar image is missing';
+                      } else if (fieldStr == 'normal_pics') {
+                        label = 'At least 2 images required in profile gallery';
+                      } else {
+                        label = fieldStr.replaceAll('_', ' ');
+                        label = label[0].toUpperCase() + label.substring(1);
+                      }
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(
-                              LucideIcons.xCircle,
-                              color: Colors.redAccent,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                color: Color(0xFF334155),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                LucideIcons.xCircle,
+                                color: Colors.redAccent,
+                                size: 16,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-            ],
-          ),
-          actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF64748B),
-              ),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Color(0xFF334155),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+              ],
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFA45E00),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            actions: [
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF64748B),
                 ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onNavigateToTab?.call(2);
-              },
-              child: const Text('Go to Profile Tab'),
-            ),
-          ],
-        );
-      },
-    ));
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFA45E00),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onNavigateToTab?.call(2);
+                },
+                child: const Text('Go to Profile Tab'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _showFriendsSettingsOverlay({bool isActivating = false}) async {
@@ -475,7 +476,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes',
         queryParameters: {'tab': 'Friends'},
-        );
+      );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final data = response.data!;
         final likes = data['likes'];
@@ -509,7 +510,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/matches',
         queryParameters: {'tab': 'Friends'},
-        );
+      );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final raw = response.data!['matches'];
         final list = raw is List
@@ -560,7 +561,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.post<void>(
         '${config.backendUrl}/api/v1/matches/action',
         data: body,
-        );
+      );
       return response.statusCode == 200;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
@@ -583,7 +584,7 @@ class _FriendsTabState extends State<FriendsTab>
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
         data: {'mark_all': true},
-        );
+      );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
@@ -604,7 +605,7 @@ class _FriendsTabState extends State<FriendsTab>
     final response = await dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/profile/peer',
       data: {'target_id': actorId, 'tab': 'Friends'},
-      );
+    );
     if (response.statusCode == 200 && response.data != null) {
       return response.data!;
     }
@@ -631,7 +632,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes/action',
         data: body,
-        );
+      );
       if (response.statusCode == 200) return response.data;
       return null;
     } on Exception catch (e, st) {

@@ -31,7 +31,8 @@ class ChatComposer extends StatefulWidget {
   final Future<void> Function(Uint8List bytes, String mimeType) onSendImage;
   final Future<void> Function(Uint8List bytes, String mimeType, int durationMs)
   onSendVoice;
-  final Future<void> Function(double lat, double lng, String? label) onSendLocation;
+  final Future<void> Function(double lat, double lng, String? label)
+  onSendLocation;
   final VoidCallback onPlanEvent;
 
   @override
@@ -142,7 +143,10 @@ class _ChatComposerState extends State<ChatComposer> {
     );
     if (source == null || !mounted) return;
 
-    final picked = await ImagePicker().pickImage(source: source, imageQuality: 82);
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 82,
+    );
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();

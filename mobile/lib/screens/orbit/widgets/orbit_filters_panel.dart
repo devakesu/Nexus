@@ -56,9 +56,21 @@ class OrbitFiltersPanel extends StatefulWidget {
 
   final ValueChanged<RangeValues> onAgeRangeChanged;
   final ValueChanged<RangeValues> onAgeRangeChangeEnd;
-  final Future<void> Function(String field, dynamic value, StateSetter setModalState) onSaveDatingField;
-  final void Function(String title, List<String> options, List<String> selected, StateSetter setModalState) onOpenTagSelectionPane;
-  final void Function(StateSetter setModalState, List<String> predefinedValues) onOpenPartnerValuesSelectionPane;
+  final Future<void> Function(
+    String field,
+    dynamic value,
+    StateSetter setModalState,
+  )
+  onSaveDatingField;
+  final void Function(
+    String title,
+    List<String> options,
+    List<String> selected,
+    StateSetter setModalState,
+  )
+  onOpenTagSelectionPane;
+  final void Function(StateSetter setModalState, List<String> predefinedValues)
+  onOpenPartnerValuesSelectionPane;
   final bool isRefreshing;
   final Future<void> Function() onFetchOrbitNodes;
   final ScrollController scrollController;
@@ -409,7 +421,10 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: widget.isRefreshing
-                    ? _SyncingBadge(key: const ValueKey('syncing'), themeColor: theme)
+                    ? _SyncingBadge(
+                        key: const ValueKey('syncing'),
+                        themeColor: theme,
+                      )
                     : const SizedBox.shrink(key: ValueKey('idle')),
               ),
             ],
@@ -715,7 +730,8 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
             // Show Who
             filterSection(
               label: 'Who are you interested in meeting?',
-              subtitle: 'Select the gender identities you would like to see in your Orbit.',
+              subtitle:
+                  'Select the gender identities you would like to see in your Orbit.',
               action: widget.savingFields.contains('dating_target_buckets')
                   ? const SizedBox(
                       width: 12,
@@ -731,49 +747,56 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: [
-                  {'code': 'M', 'label': 'Men'},
-                  {'code': 'F', 'label': 'Women'},
-                  {'code': 'NB', 'label': 'Non-binary'},
-                  {'code': 'Open', 'label': 'Open to all'},
-                ].map((item) {
-                  final code = item['code']!;
-                  final isSelected = widget.selectedShowBuckets.contains(code);
-                  return FilterChip(
-                    label: Text(item['label']!),
-                    selected: isSelected,
-                    selectedColor: theme.withValues(alpha: 0.15),
-                    backgroundColor: Colors.white.withValues(alpha: 0.05),
-                    checkmarkColor: theme,
-                    side: BorderSide(
-                      color: isSelected ? theme : Colors.white.withValues(alpha: 0.2),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    labelStyle: TextStyle(
-                      color: isSelected ? theme : Colors.white60,
-                      fontSize: 12,
-                    ),
-                    onSelected: (selected) async {
-                      if (widget.savingFields.contains('dating_target_buckets')) {
-                        return;
-                      }
-                      setState(() {
-                        if (selected) {
-                          widget.selectedShowBuckets.add(code);
-                        } else {
-                          widget.selectedShowBuckets.remove(code);
-                        }
-                      });
-                      await widget.onSaveDatingField(
-                        'dating_target_buckets',
-                        widget.selectedShowBuckets,
-                        setState,
+                children:
+                    [
+                      {'code': 'M', 'label': 'Men'},
+                      {'code': 'F', 'label': 'Women'},
+                      {'code': 'NB', 'label': 'Non-binary'},
+                      {'code': 'Open', 'label': 'Open to all'},
+                    ].map((item) {
+                      final code = item['code']!;
+                      final isSelected = widget.selectedShowBuckets.contains(
+                        code,
                       );
-                    },
-                  );
-                }).toList(),
+                      return FilterChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: theme.withValues(alpha: 0.15),
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        checkmarkColor: theme,
+                        side: BorderSide(
+                          color: isSelected
+                              ? theme
+                              : Colors.white.withValues(alpha: 0.2),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        labelStyle: TextStyle(
+                          color: isSelected ? theme : Colors.white60,
+                          fontSize: 12,
+                        ),
+                        onSelected: (selected) async {
+                          if (widget.savingFields.contains(
+                            'dating_target_buckets',
+                          )) {
+                            return;
+                          }
+                          setState(() {
+                            if (selected) {
+                              widget.selectedShowBuckets.add(code);
+                            } else {
+                              widget.selectedShowBuckets.remove(code);
+                            }
+                          });
+                          await widget.onSaveDatingField(
+                            'dating_target_buckets',
+                            widget.selectedShowBuckets,
+                            setState,
+                          );
+                        },
+                      );
+                    }).toList(),
               ),
             ),
 
@@ -800,7 +823,9 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                   Text(
                     'Dealbreaker',
                     style: TextStyle(
-                      color: widget.dealbreakerFields.contains('dating_for') ? theme : Colors.white38,
+                      color: widget.dealbreakerFields.contains('dating_for')
+                          ? theme
+                          : Colors.white38,
                       fontSize: 11,
                     ),
                   ),
@@ -823,64 +848,70 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               child: Wrap(
                 spacing: 8,
                 runSpacing: 4,
-                children: [
-                  {'code': 'short', 'label': 'Short-term'},
-                  {'code': 'long', 'label': 'Long-term'},
-                  {'code': 'casual', 'label': 'Casual Dating'},
-                  {'code': 'fling', 'label': 'Fling'},
-                  {'code': 'hookups', 'label': 'Hookups'},
-                  {'code': 'fwb', 'label': 'Friends with Benefits'},
-                  {'code': 'monogamous', 'label': 'Monogamous'},
-                  {'code': 'polyamorous', 'label': 'Polyamorous'},
-                  {'code': 'open_rel', 'label': 'Open Relationship'},
-                  {'code': 'marriage', 'label': 'Marriage / Life Partner'},
-                  {'code': 'platonic', 'label': 'Platonic Dating'},
-                  {'code': 'unsure', 'label': 'Figuring it out'},
-                ].map((item) {
-                  final code = item['code']!;
-                  final isSelected = widget.selectedDatingFor.contains(code);
-                  return FilterChip(
-                    label: Text(item['label']!),
-                    selected: isSelected,
-                    selectedColor: theme.withValues(alpha: 0.15),
-                    backgroundColor: Colors.white.withValues(alpha: 0.05),
-                    checkmarkColor: theme,
-                    side: BorderSide(
-                      color: isSelected ? theme : Colors.white.withValues(alpha: 0.2),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    labelStyle: TextStyle(
-                      color: isSelected ? theme : Colors.white60,
-                      fontSize: 12,
-                    ),
-                    onSelected: (selected) async {
-                      if (widget.savingFields.contains('dating_for')) {
-                        return;
-                      }
-                      setState(() {
-                        if (selected) {
-                          widget.selectedDatingFor.add(code);
-                        } else {
-                          widget.selectedDatingFor.remove(code);
-                        }
-                      });
-                      await widget.onSaveDatingField(
-                        'dating_for',
-                        widget.selectedDatingFor,
-                        setState,
+                children:
+                    [
+                      {'code': 'short', 'label': 'Short-term'},
+                      {'code': 'long', 'label': 'Long-term'},
+                      {'code': 'casual', 'label': 'Casual Dating'},
+                      {'code': 'fling', 'label': 'Fling'},
+                      {'code': 'hookups', 'label': 'Hookups'},
+                      {'code': 'fwb', 'label': 'Friends with Benefits'},
+                      {'code': 'monogamous', 'label': 'Monogamous'},
+                      {'code': 'polyamorous', 'label': 'Polyamorous'},
+                      {'code': 'open_rel', 'label': 'Open Relationship'},
+                      {'code': 'marriage', 'label': 'Marriage / Life Partner'},
+                      {'code': 'platonic', 'label': 'Platonic Dating'},
+                      {'code': 'unsure', 'label': 'Figuring it out'},
+                    ].map((item) {
+                      final code = item['code']!;
+                      final isSelected = widget.selectedDatingFor.contains(
+                        code,
                       );
-                    },
-                  );
-                }).toList(),
+                      return FilterChip(
+                        label: Text(item['label']!),
+                        selected: isSelected,
+                        selectedColor: theme.withValues(alpha: 0.15),
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        checkmarkColor: theme,
+                        side: BorderSide(
+                          color: isSelected
+                              ? theme
+                              : Colors.white.withValues(alpha: 0.2),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        labelStyle: TextStyle(
+                          color: isSelected ? theme : Colors.white60,
+                          fontSize: 12,
+                        ),
+                        onSelected: (selected) async {
+                          if (widget.savingFields.contains('dating_for')) {
+                            return;
+                          }
+                          setState(() {
+                            if (selected) {
+                              widget.selectedDatingFor.add(code);
+                            } else {
+                              widget.selectedDatingFor.remove(code);
+                            }
+                          });
+                          await widget.onSaveDatingField(
+                            'dating_for',
+                            widget.selectedDatingFor,
+                            setState,
+                          );
+                        },
+                      );
+                    }).toList(),
               ),
             ),
 
             // Partner Values
             filterSection(
               label: 'Partner Values',
-              subtitle: 'Choose the qualities and shared principles you value most.',
+              subtitle:
+                  'Choose the qualities and shared principles you value most.',
               action: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -900,7 +931,9 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                   Text(
                     'Dealbreaker',
                     style: TextStyle(
-                      color: widget.dealbreakerFields.contains('partner_values') ? theme : Colors.white38,
+                      color: widget.dealbreakerFields.contains('partner_values')
+                          ? theme
+                          : Colors.white38,
                       fontSize: 11,
                     ),
                   ),
@@ -957,7 +990,9 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           onDeleted: () async {
-                            if (widget.savingFields.contains('partner_values')) {
+                            if (widget.savingFields.contains(
+                              'partner_values',
+                            )) {
                               return;
                             }
                             setState(() {
@@ -1017,36 +1052,36 @@ class _SyncingBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: themeColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 8,
-            height: 8,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: themeColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: themeColor.withValues(alpha: 0.3)),
           ),
-          const SizedBox(width: 6),
-          Text(
-            'Syncing orbit',
-            style: TextStyle(
-              color: themeColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 8,
+                height: 8,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Syncing orbit',
+                style: TextStyle(
+                  color: themeColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    )
+        )
         .animate(onPlay: (c) => c.repeat(reverse: true))
         .fade(begin: 0.6, end: 1, duration: 900.ms, curve: Curves.easeInOut);
   }

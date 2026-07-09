@@ -67,7 +67,7 @@ class SessionManager {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/keys/bundle/$peerUserId',
-        );
+      );
       final data = response.data;
       if (data == null) return null;
 
@@ -113,13 +113,12 @@ class SessionManager {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/sessions/establish',
         data: {'conversation_id': conversationId},
-        );
+      );
     } on Exception {
       // Diagnostics-only column; the local session is already usable
       // regardless of whether this notification succeeds.
     }
   }
-
 }
 
 class UntrustedIdentityRegistry {
@@ -139,11 +138,15 @@ class UntrustedIdentityRegistry {
     pendingUntrustedKeys.remove(peerUserId);
   }
 
-  static Future<String> computeSafetyNumber(IdentityKeyPair local, IdentityKey peer) async {
+  static Future<String> computeSafetyNumber(
+    IdentityKeyPair local,
+    IdentityKey peer,
+  ) async {
     final localBytes = local.getPublicKey().serialize();
     final peerBytes = peer.serialize();
 
-    final sorted = [localBytes, peerBytes]..sort((a, b) {
+    final sorted = [localBytes, peerBytes]
+      ..sort((a, b) {
         for (var i = 0; i < a.length && i < b.length; i++) {
           if (a[i] != b[i]) return a[i].compareTo(b[i]);
         }
@@ -156,10 +159,11 @@ class UntrustedIdentityRegistry {
 
     final buffer = StringBuffer();
     for (var i = 0; i < 6; i++) {
-      final chunk = (hash[i * 4] << 24) |
-                    (hash[i * 4 + 1] << 16) |
-                    (hash[i * 4 + 2] << 8) |
-                    hash[i * 4 + 3];
+      final chunk =
+          (hash[i * 4] << 24) |
+          (hash[i * 4 + 1] << 16) |
+          (hash[i * 4 + 2] << 8) |
+          hash[i * 4 + 3];
       final group = (chunk.abs() % 100000).toString().padLeft(5, '0');
       buffer.write(group);
       if (i < 5) buffer.write(' ');

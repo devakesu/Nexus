@@ -84,8 +84,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
           currentPlace: info?['current_place'] as String?,
           profilePic: info?['profile_pic'] as String?,
         );
-      }).toList()
-        ..sort((a, b) => b.blockedAt.compareTo(a.blockedAt));
+      }).toList()..sort((a, b) => b.blockedAt.compareTo(a.blockedAt));
       if (mounted) {
         setState(() {
           _users = built;
@@ -111,7 +110,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       final response = await _dio.post<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/users/moderation-subjects',
         data: {'target_ids': targetIds},
-        );
+      );
       final list = response.data ?? [];
       return {
         for (final item in list)
@@ -130,7 +129,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/discover/action',
         data: {'target_id': user.targetId, 'action': 'unblock'},
-        );
+      );
       if (!mounted) return;
       setState(() => _users.removeWhere((u) => u.targetId == user.targetId));
       NexusToast.show(
@@ -223,7 +222,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
             context: context,
             builder: (ctx) => _ConfirmDialog(
               name: user.name,
-              message: '${user.name} will be able to find and interact with you again.',
+              message:
+                  '${user.name} will be able to find and interact with you again.',
               confirmLabel: 'Unblock',
             ),
           );
@@ -412,8 +412,18 @@ class _UserCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -611,7 +621,11 @@ class _EmptyView extends StatelessWidget {
                 color: accentColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(icon, size: 28, color: accentColor.withValues(alpha: 0.5)),
+              child: Icon(
+                icon,
+                size: 28,
+                color: accentColor.withValues(alpha: 0.5),
+              ),
             ),
             const SizedBox(height: 16),
             Text(

@@ -273,8 +273,13 @@ class ClientAIImageManager extends _$ClientAIImageManager {
         '${config.backendUrl}/api/v1/profile/media',
         data: {
           'profile_pic': finalOrderedPaths[0],
-          'normal_pics': finalOrderedPaths.sublist(1).where((p) => p.isNotEmpty).toList(),
-          'ai_vibe_tags': unifiedUniqueTags.isNotEmpty ? unifiedUniqueTags.toList() : ['ambient-vibe'],
+          'normal_pics': finalOrderedPaths
+              .sublist(1)
+              .where((p) => p.isNotEmpty)
+              .toList(),
+          'ai_vibe_tags': unifiedUniqueTags.isNotEmpty
+              ? unifiedUniqueTags.toList()
+              : ['ambient-vibe'],
         },
       );
 
@@ -286,7 +291,9 @@ class ClientAIImageManager extends _$ClientAIImageManager {
           await storage.remove(state.pendingDeletions);
         } on Object catch (e) {
           // Non-fatal: log storage removal error but proceed with transaction
-          debugPrint('[ClientAIImageManager] Failed to remove old media files: $e');
+          debugPrint(
+            '[ClientAIImageManager] Failed to remove old media files: $e',
+          );
         }
       }
 
@@ -303,7 +310,9 @@ class ClientAIImageManager extends _$ClientAIImageManager {
         try {
           await storage.remove(uploadedPaths);
         } on Object catch (err) {
-          debugPrint('[ClientAIImageManager] Failed to roll back uploaded media files on failure: $err');
+          debugPrint(
+            '[ClientAIImageManager] Failed to roll back uploaded media files on failure: $err',
+          );
         }
       }
       if (ref.mounted) {
@@ -543,12 +552,13 @@ class RefinedEdgeVisionBroker {
       // Cap at 5 highly specific tags to enforce tight Pydantic payload tracking boundaries
       return uniquePayloadFeed.take(5).toList();
     } on Object catch (e) {
-      debugPrint('[VisionBroker Critical] On-device labeling execution aborted: $e');
+      debugPrint(
+        '[VisionBroker Critical] On-device labeling execution aborted: $e',
+      );
       return ['cosmic-dreamer'];
     } finally {
       await imageLabeler.close(); // Hard memory-leak prevention lock
-      if (optimizedFile.path != imageFile.path &&
-          optimizedFile.existsSync()) {
+      if (optimizedFile.path != imageFile.path && optimizedFile.existsSync()) {
         optimizedFile
             .deleteSync(); // Delete localized temporary downscaled frames
       }
@@ -572,7 +582,9 @@ class RefinedEdgeVisionBroker {
       final scaledBytes = byteData.buffer.asUint8List();
 
       final tempDir = Directory.systemTemp;
-      final tempFile = File('${tempDir.path}/scaled_${DateTime.now().microsecondsSinceEpoch}.png');
+      final tempFile = File(
+        '${tempDir.path}/scaled_${DateTime.now().microsecondsSinceEpoch}.png',
+      );
       await tempFile.writeAsBytes(scaledBytes);
       return tempFile;
     } on Object catch (_) {

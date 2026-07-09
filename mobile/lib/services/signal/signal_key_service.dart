@@ -59,7 +59,11 @@ class SignalKeyService {
     if (cached != null) return cached;
 
     final (identityKeyPair, registrationId) = await _loadOrCreateIdentity();
-    final store = DriftSignalProtocolStore(_db, identityKeyPair, registrationId);
+    final store = DriftSignalProtocolStore(
+      _db,
+      identityKeyPair,
+      registrationId,
+    );
     _store = store;
 
     await _ensureSignedPreKey(store);
@@ -111,20 +115,22 @@ class SignalKeyService {
         ),
         'registration_id': registrationId,
       },
-      );
+    );
   }
 
   Future<void> _ensureSignedPreKey(DriftSignalProtocolStore store) async {
     final existing = await store.loadSignedPreKeys();
-    
+
     // Rotate the signed prekey periodically (weekly/7 days) to enforce forward secrecy
     // and prevent stale keys.
     var needsRotation = true;
     if (existing.isNotEmpty) {
       final latest = existing.reduce(
-        (curr, next) => curr.timestamp.toInt() > next.timestamp.toInt() ? curr : next,
+        (curr, next) =>
+            curr.timestamp.toInt() > next.timestamp.toInt() ? curr : next,
       );
-      final age = DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
+      final age =
+          DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
       if (age < const Duration(days: 7).inMilliseconds) {
         needsRotation = false;
       }
@@ -154,7 +160,7 @@ class SignalKeyService {
         'public_key': base64Encode(publicKey.serialize()),
         'signature': base64Encode(signedPreKey.signature),
       },
-      );
+    );
   }
 
   /// Tops up the server-side one-time prekey pool when it runs low. Safe to
@@ -166,12 +172,14 @@ class SignalKeyService {
 
     final countResponse = await _dio.get<Map<String, dynamic>>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/one-time-prekeys/count',
-      );
+    );
     final count = countResponse.data?['count'] as int? ?? 0;
     if (count >= _oneTimePrekeyLowWaterMark) return;
 
     final startId =
-        int.tryParse(await _secureStorage.read(key: _prefsNextPreKeyId) ?? '') ??
+        int.tryParse(
+          await _secureStorage.read(key: _prefsNextPreKeyId) ?? '',
+        ) ??
         1;
     final newKeys = generatePreKeys(startId, _oneTimePrekeyBatchSize);
     for (final key in newKeys) {
@@ -189,12 +197,14 @@ class SignalKeyService {
             .map(
               (key) => {
                 'key_id': key.id,
-                'public_key': base64Encode(key.getKeyPair().publicKey.serialize()),
+                'public_key': base64Encode(
+                  key.getKeyPair().publicKey.serialize(),
+                ),
               },
             )
             .toList(),
       },
-      );
+    );
   }
 
   Future<void> wipeLocalData() async {

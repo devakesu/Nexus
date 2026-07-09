@@ -41,7 +41,8 @@ class ChatConversationPage extends ConsumerStatefulWidget {
   final String? profilePic;
 
   @override
-  ConsumerState<ChatConversationPage> createState() => _ChatConversationPageState();
+  ConsumerState<ChatConversationPage> createState() =>
+      _ChatConversationPageState();
 }
 
 class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
@@ -152,7 +153,11 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  Future<void> _handleSendLocation(double lat, double lng, String? label) async {
+  Future<void> _handleSendLocation(
+    double lat,
+    double lng,
+    String? label,
+  ) async {
     final provider = chatConversationControllerProvider(
       widget.conversationId,
       widget.matchedUserId,
@@ -198,7 +203,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         ),
         content: Text(
           "You won't see each other for some time.",
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: 14,
+          ),
         ),
         actions: [
           TextButton(
@@ -212,7 +220,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             onPressed: () => Navigator.pop(d, true),
             child: Text(
               'Unmatch',
-              style: TextStyle(color: theme.primary, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: theme.primary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -267,7 +278,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   Widget build(BuildContext context) {
     final theme = chatTabTheme(widget.tab);
     final asyncState = ref.watch(
-      chatConversationControllerProvider(widget.conversationId, widget.matchedUserId),
+      chatConversationControllerProvider(
+        widget.conversationId,
+        widget.matchedUserId,
+      ),
     );
 
     return Scaffold(
@@ -285,13 +299,17 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ),
           data: (chatState) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-            final showNewDeviceBanner = chatState.isNewLocalIdentity &&
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _scrollToBottom(),
+            );
+            final showNewDeviceBanner =
+                chatState.isNewLocalIdentity &&
                 chatState.messages.any((m) => m.decryptFailed);
             return Column(
               children: [
                 if (showNewDeviceBanner) _newDeviceBanner(theme),
-                if (chatState.conversationClosed) _conversationClosedBanner(theme),
+                if (chatState.conversationClosed)
+                  _conversationClosedBanner(theme),
                 Expanded(
                   child: chatState.messages.isEmpty
                       ? Center(
@@ -317,7 +335,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                   _waitingBanner(theme),
                 ChatComposer(
                   themeColor: theme.primary,
-                  enabled: chatState.sessionReady && !chatState.conversationClosed,
+                  enabled:
+                      chatState.sessionReady && !chatState.conversationClosed,
                   sending: chatState.sending,
                   onSend: _handleSend,
                   onSendImage: _handleSendImage,
@@ -465,7 +484,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 child: SizedBox(
                   width: 34,
                   height: 34,
-                  child: widget.profilePic != null && widget.profilePic!.isNotEmpty
+                  child:
+                      widget.profilePic != null && widget.profilePic!.isNotEmpty
                       ? StorageImage(imagePath: widget.profilePic!)
                       : ColoredBox(
                           color: Colors.white.withValues(alpha: 0.2),
@@ -523,7 +543,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       ),
     );
   }
-
 
   Future<void> _showSafetyNumberDialog() async {
     final theme = chatTabTheme(widget.tab);

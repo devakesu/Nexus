@@ -21,7 +21,8 @@ class FriendsSettingsOverlay extends StatefulWidget {
   final List<String> flatInterests;
   final List<String> causesSupported;
   final Set<String> savingFields;
-  final Future<void> Function(String field, dynamic value, StateSetter setState) onSaveFriendsField;
+  final Future<void> Function(String field, dynamic value, StateSetter setState)
+  onSaveFriendsField;
   final Future<void> Function() onLoadFriendsProfileStatusSilent;
   final bool isActivating;
   final Future<void> Function({required bool active})? onToggleOrbitState;
@@ -121,7 +122,8 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   ),
                   onPressed: () async {
                     Navigator.pop(context);
-                    if (widget.isActivating && widget.onToggleOrbitState != null) {
+                    if (widget.isActivating &&
+                        widget.onToggleOrbitState != null) {
                       await widget.onToggleOrbitState!(active: true);
                     }
                   },
@@ -172,58 +174,65 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
-                  children: [
-                    {'code': 'M', 'label': 'Men'},
-                    {'code': 'F', 'label': 'Women'},
-                    {'code': 'NB', 'label': 'Non-binary'},
-                    {'code': 'Open', 'label': 'Open to all'},
-                  ].map((item) {
-                    final code = item['code']!;
-                    final isSelected = localBuckets.contains(code);
-                    return FilterChip(
-                      label: Text(item['label']!),
-                      selected: isSelected,
-                      selectedColor: const Color(0xFFA45E00),
-                      backgroundColor: Colors.black.withValues(alpha: 0.04),
-                      checkmarkColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (selected) async {
-                        if (widget.savingFields.contains('friends_target_buckets')) {
-                          return;
-                        }
-                        setState(() {
-                          if (code == 'Open') {
-                            if (selected) {
-                              localBuckets
-                                ..clear()
-                                ..add('Open');
-                            } else {
-                              localBuckets.remove('Open');
+                  children:
+                      [
+                        {'code': 'M', 'label': 'Men'},
+                        {'code': 'F', 'label': 'Women'},
+                        {'code': 'NB', 'label': 'Non-binary'},
+                        {'code': 'Open', 'label': 'Open to all'},
+                      ].map((item) {
+                        final code = item['code']!;
+                        final isSelected = localBuckets.contains(code);
+                        return FilterChip(
+                          label: Text(item['label']!),
+                          selected: isSelected,
+                          selectedColor: const Color(0xFFA45E00),
+                          backgroundColor: Colors.black.withValues(alpha: 0.04),
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onSelected: (selected) async {
+                            if (widget.savingFields.contains(
+                              'friends_target_buckets',
+                            )) {
+                              return;
                             }
-                          } else {
-                            if (selected) {
-                              localBuckets
-                                ..remove('Open')
-                                ..add(code);
-                            } else {
-                              localBuckets.remove(code);
-                            }
-                          }
-                        });
-                        await widget.onSaveFriendsField(
-                          'friends_target_buckets',
-                          localBuckets,
-                          setState,
+                            setState(() {
+                              if (code == 'Open') {
+                                if (selected) {
+                                  localBuckets
+                                    ..clear()
+                                    ..add('Open');
+                                } else {
+                                  localBuckets.remove('Open');
+                                }
+                              } else {
+                                if (selected) {
+                                  localBuckets
+                                    ..remove('Open')
+                                    ..add(code);
+                                } else {
+                                  localBuckets.remove(code);
+                                }
+                              }
+                            });
+                            await widget.onSaveFriendsField(
+                              'friends_target_buckets',
+                              localBuckets,
+                              setState,
+                            );
+                          },
                         );
-                      },
-                    );
-                  }).toList(),
+                      }).toList(),
                 ),
                 const SizedBox(height: 32),
 
@@ -260,40 +269,48 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: localInterests.take(6).map((val) {
-                      final label = val.contains(': ') ? val.split(': ').last : val;
-                      return Chip(
-                        label: Text(label),
-                        backgroundColor: const Color(0xFFA45E00).withValues(alpha: 0.1),
-                        labelStyle: const TextStyle(
-                          color: Color(0xFFA45E00),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      );
-                    }).toList()
-                      ..addAll(
-                        localInterests.length > 6
-                            ? [
-                                Chip(
-                                  label: Text('+${localInterests.length - 6} more'),
-                                  backgroundColor: Colors.black.withValues(alpha: 0.05),
-                                  labelStyle: const TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12,
+                    children:
+                        localInterests.take(6).map((val) {
+                          final label = val.contains(': ')
+                              ? val.split(': ').last
+                              : val;
+                          return Chip(
+                            label: Text(label),
+                            backgroundColor: const Color(
+                              0xFFA45E00,
+                            ).withValues(alpha: 0.1),
+                            labelStyle: const TextStyle(
+                              color: Color(0xFFA45E00),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                            side: BorderSide.none,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          );
+                        }).toList()..addAll(
+                          localInterests.length > 6
+                              ? [
+                                  Chip(
+                                    label: Text(
+                                      '+${localInterests.length - 6} more',
+                                    ),
+                                    backgroundColor: Colors.black.withValues(
+                                      alpha: 0.05,
+                                    ),
+                                    labelStyle: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
+                                    side: BorderSide.none,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  side: BorderSide.none,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ]
-                            : [],
-                      ),
+                                ]
+                              : [],
+                        ),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -394,7 +411,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     children: localCauses.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(0xFFA45E00).withValues(alpha: 0.1),
+                        backgroundColor: const Color(
+                          0xFFA45E00,
+                        ).withValues(alpha: 0.1),
                         labelStyle: const TextStyle(
                           color: Color(0xFFA45E00),
                           fontWeight: FontWeight.bold,
@@ -410,7 +429,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onDeleted: () async {
-                          if (widget.savingFields.contains('causes_supported')) {
+                          if (widget.savingFields.contains(
+                            'causes_supported',
+                          )) {
                             return;
                           }
                           setState(() => localCauses.remove(val));
@@ -438,31 +459,36 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children: causesPresets.where((preset) => !localCauses.contains(preset)).map((val) {
-                    return ActionChip(
-                      label: Text(val),
-                      backgroundColor: Colors.black.withValues(alpha: 0.04),
-                      labelStyle: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide.none,
-                      onPressed: () async {
-                        if (widget.savingFields.contains('causes_supported')) {
-                          return;
-                        }
-                        setState(() => localCauses.add(val));
-                        await widget.onSaveFriendsField(
-                          'causes_supported',
-                          localCauses,
-                          setState,
+                  children: causesPresets
+                      .where((preset) => !localCauses.contains(preset))
+                      .map((val) {
+                        return ActionChip(
+                          label: Text(val),
+                          backgroundColor: Colors.black.withValues(alpha: 0.04),
+                          labelStyle: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide.none,
+                          onPressed: () async {
+                            if (widget.savingFields.contains(
+                              'causes_supported',
+                            )) {
+                              return;
+                            }
+                            setState(() => localCauses.add(val));
+                            await widget.onSaveFriendsField(
+                              'causes_supported',
+                              localCauses,
+                              setState,
+                            );
+                          },
                         );
-                      },
-                    );
-                  }).toList(),
+                      })
+                      .toList(),
                 ),
                 const SizedBox(height: 40),
               ],

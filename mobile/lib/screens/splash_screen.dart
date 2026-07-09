@@ -19,7 +19,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -118,7 +119,9 @@ class CoordinatePainter extends CustomPainter {
 
     // Frame 10 (The Anchor): Glowing point coordinates vector drops directly in the mathematical center
     if (progress >= 0.1) {
-      final anchorProgress = math.min((progress - 0.1) / 0.2, 1.0).clamp(0.0, 1.0);
+      final anchorProgress = math
+          .min((progress - 0.1) / 0.2, 1.0)
+          .clamp(0.0, 1.0);
       final pointRadius = 2.5 * anchorProgress;
 
       // Inner sharp point
@@ -164,7 +167,9 @@ class CoordinatePainter extends CustomPainter {
 
     // Frame 30 (The Radius Sweep): Thin, single-pixel vector ring path shoots out
     if (progress >= 0.3) {
-      final sweepProgress = math.min((progress - 0.3) / 0.4, 1.0).clamp(0.0, 1.0);
+      final sweepProgress = math
+          .min((progress - 0.3) / 0.4, 1.0)
+          .clamp(0.0, 1.0);
       final currentSweepRadius = sweepProgress * (maxRadius * 0.75);
 
       // Draw Orbit Tiers (threshold boundaries)
@@ -181,7 +186,9 @@ class CoordinatePainter extends CustomPainter {
 
           // Draw orbital labels on first two tiers
           if (tier == 120) {
-            final tierProgress = math.min((currentSweepRadius - tier) / 40, 1.0).clamp(0.0, 1.0);
+            final tierProgress = math
+                .min((currentSweepRadius - tier) / 40, 1.0)
+                .clamp(0.0, 1.0);
             final textSpan = TextSpan(
               text: '◉ ORBIT_TIER_02: BOUND_OK',
               style: GoogleFonts.jetBrainsMono(
@@ -208,7 +215,9 @@ class CoordinatePainter extends CustomPainter {
 
       // Fade-in text when sweep completes a decent path
       if (progress >= 0.5) {
-        final textFadeProgress = math.min((progress - 0.5) / 0.25, 1.0).clamp(0.0, 1.0);
+        final textFadeProgress = math
+            .min((progress - 0.5) / 0.25, 1.0)
+            .clamp(0.0, 1.0);
         final textSpan = TextSpan(
           text: '[NEXUS_ENGINE_INITIALIZED]',
           style: GoogleFonts.jetBrainsMono(

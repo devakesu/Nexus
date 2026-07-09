@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:nexus/screens/orbit_screen.dart';
 
-
 class CelestialBackgroundPainter extends CustomPainter {
   CelestialBackgroundPainter({
     required this.themeColor,

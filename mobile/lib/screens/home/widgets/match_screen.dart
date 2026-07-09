@@ -49,15 +49,16 @@ class _MatchScreenState extends State<MatchScreen>
       parent: _ctrl,
       curve: const Interval(0.4, 1, curve: Curves.easeOut),
     );
-    _contentSlide = Tween<Offset>(
-      begin: const Offset(0, 0.18),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const Interval(0.4, 1, curve: Curves.easeOut),
-      ),
-    );
+    _contentSlide =
+        Tween<Offset>(
+          begin: const Offset(0, 0.18),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _ctrl,
+            curve: const Interval(0.4, 1, curve: Curves.easeOut),
+          ),
+        );
     unawaited(_ctrl.forward());
   }
 
@@ -206,8 +207,9 @@ class _MatchScreenState extends State<MatchScreen>
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
                                   foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 17),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 17,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(18),
                                   ),

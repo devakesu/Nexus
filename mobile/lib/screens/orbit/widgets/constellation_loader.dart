@@ -31,13 +31,34 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
   @override
   void initState() {
     super.initState();
-    _ring1 = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
-    _ring2 = AnimationController(vsync: this, duration: const Duration(milliseconds: 5800));
-    _ring3 = AnimationController(vsync: this, duration: const Duration(milliseconds: 9000));
-    _sweep = AnimationController(vsync: this, duration: const Duration(milliseconds: 4000));
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
-    _twinkle = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-    _dots = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _ring1 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    );
+    _ring2 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5800),
+    );
+    _ring3 = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 9000),
+    );
+    _sweep = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4000),
+    );
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _twinkle = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _dots = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     unawaited(_ring1.repeat());
     unawaited(_ring2.repeat());
     unawaited(_ring3.repeat());
@@ -68,7 +89,14 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
           width: 210,
           height: 210,
           child: AnimatedBuilder(
-            animation: Listenable.merge([_ring1, _ring2, _ring3, _sweep, _pulse, _twinkle]),
+            animation: Listenable.merge([
+              _ring1,
+              _ring2,
+              _ring3,
+              _sweep,
+              _pulse,
+              _twinkle,
+            ]),
             builder: (context, _) => CustomPaint(
               painter: _ConstellationPainter(
                 themeColor: widget.themeColor,
@@ -80,26 +108,31 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
                 twinkleValue: _twinkle.value,
               ),
               child: Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: widget.themeColor,
-                  size: 26,
-                )
-                    .animate(
-                      onPlay: (c) => c.repeat(reverse: true),
-                    )
-                    .scale(
-                      begin: const Offset(0.88, 0.88),
-                      end: const Offset(1.16, 1.16),
-                      duration: 2.seconds,
-                      curve: Curves.easeInOut,
-                    ),
+                child:
+                    Icon(
+                          Icons.auto_awesome_rounded,
+                          color: widget.themeColor,
+                          size: 26,
+                        )
+                        .animate(
+                          onPlay: (c) => c.repeat(reverse: true),
+                        )
+                        .scale(
+                          begin: const Offset(0.88, 0.88),
+                          end: const Offset(1.16, 1.16),
+                          duration: 2.seconds,
+                          curve: Curves.easeInOut,
+                        ),
               ),
             ),
           ),
         ),
         const SizedBox(height: 28),
-        _AligningText(themeColor: widget.themeColor, dotsController: _dots, label: widget.label),
+        _AligningText(
+          themeColor: widget.themeColor,
+          dotsController: _dots,
+          label: widget.label,
+        ),
       ],
     );
   }
@@ -108,7 +141,11 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
 // ─── Animated "ALIGNING CONSTELLATIONS" + cycling dots ────────────────────────
 
 class _AligningText extends StatelessWidget {
-  const _AligningText({required this.themeColor, required this.dotsController, required this.label});
+  const _AligningText({
+    required this.themeColor,
+    required this.dotsController,
+    required this.label,
+  });
 
   final Color themeColor;
   final AnimationController dotsController;
@@ -125,14 +162,14 @@ class _AligningText extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.88),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 2.8,
-              ),
-            )
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2.8,
+                  ),
+                )
                 .animate(onPlay: (c) => c.repeat(reverse: true))
                 .fade(
                   begin: 0.45,
@@ -234,9 +271,30 @@ class _ConstellationPainter extends CustomPainter {
     _drawRadarSweep(canvas, center, _r3 + 12, paint);
 
     // ── Dashed orbit rings ────────────────────────────────────────────────
-    _drawDashedRing(canvas, center, _r1, themeColor.withValues(alpha: 0.22), dashLen: 5, gapLen: 9);
-    _drawDashedRing(canvas, center, _r2, themeColor.withValues(alpha: 0.15), dashLen: 7, gapLen: 13);
-    _drawDashedRing(canvas, center, _r3, themeColor.withValues(alpha: 0.10), dashLen: 9, gapLen: 17);
+    _drawDashedRing(
+      canvas,
+      center,
+      _r1,
+      themeColor.withValues(alpha: 0.22),
+      dashLen: 5,
+      gapLen: 9,
+    );
+    _drawDashedRing(
+      canvas,
+      center,
+      _r2,
+      themeColor.withValues(alpha: 0.15),
+      dashLen: 7,
+      gapLen: 13,
+    );
+    _drawDashedRing(
+      canvas,
+      center,
+      _r3,
+      themeColor.withValues(alpha: 0.10),
+      dashLen: 9,
+      gapLen: 17,
+    );
 
     // ── Compute orbiting dot positions ────────────────────────────────────
     final r1Dots = List.generate(3, (i) => ring1Angle + i * 2 * math.pi / 3);
@@ -248,7 +306,13 @@ class _ConstellationPainter extends CustomPainter {
     final r3Positions = r3Dots.map((a) => _dotPos(center, _r3, a)).toList();
 
     // ── Constellation lines ───────────────────────────────────────────────
-    _drawConstellationLines(canvas, r1Positions, r2Positions, r3Positions, paint);
+    _drawConstellationLines(
+      canvas,
+      r1Positions,
+      r2Positions,
+      r3Positions,
+      paint,
+    );
 
     // ── Comet tails + dots ────────────────────────────────────────────────
     for (var i = 0; i < r1Dots.length; i++) {
@@ -303,7 +367,9 @@ class _ConstellationPainter extends CustomPainter {
       sweepAngle - sweepSpan / 2,
       sweepSpan,
       false,
-      paint..style = PaintingStyle.stroke..strokeWidth = 1.5,
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
     );
     paint
       ..maskFilter = null
@@ -347,9 +413,9 @@ class _ConstellationPainter extends CustomPainter {
 
   // ── Single dot position ───────────────────────────────────────────────────
   Offset _dotPos(Offset center, double radius, double angle) => Offset(
-        center.dx + radius * math.cos(angle),
-        center.dy + radius * math.sin(angle),
-      );
+    center.dx + radius * math.cos(angle),
+    center.dy + radius * math.sin(angle),
+  );
 
   // ── Orbiting dot with comet tail ──────────────────────────────────────────
   void _drawCometDot(
@@ -405,12 +471,16 @@ class _ConstellationPainter extends CustomPainter {
 
     // r1 → nearest r2
     for (final p1 in r1) {
-      final nearest = r2.reduce((a, b) => (a - p1).distance < (b - p1).distance ? a : b);
+      final nearest = r2.reduce(
+        (a, b) => (a - p1).distance < (b - p1).distance ? a : b,
+      );
       canvas.drawLine(p1, nearest, linePaint);
     }
     // r2 → nearest r3
     for (final p3 in r3) {
-      final nearest = r2.reduce((a, b) => (a - p3).distance < (b - p3).distance ? a : b);
+      final nearest = r2.reduce(
+        (a, b) => (a - p3).distance < (b - p3).distance ? a : b,
+      );
       canvas.drawLine(p3, nearest, linePaint);
     }
   }

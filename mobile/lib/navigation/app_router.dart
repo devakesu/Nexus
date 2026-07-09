@@ -31,7 +31,9 @@ final goRouter = GoRouter(
       path: '/orbit',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        if (extra == null || extra['tab'] == null || extra['themeColor'] == null) {
+        if (extra == null ||
+            extra['tab'] == null ||
+            extra['themeColor'] == null) {
           const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
           const isMec = flavor == 'mec';
           const appName = isMec ? 'Nexus MEC' : 'Nexus';
@@ -40,7 +42,8 @@ final goRouter = GoRouter(
         return OrbitScreen(
           tab: extra['tab']! as String,
           themeColor: extra['themeColor']! as Color,
-          prefetchFuture: extra['prefetchFuture'] as Future<OrbitPrefetchResult?>?,
+          prefetchFuture:
+              extra['prefetchFuture'] as Future<OrbitPrefetchResult?>?,
         );
       },
     ),

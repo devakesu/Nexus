@@ -67,11 +67,12 @@ class MediaPointer {
 class LocationPointer {
   const LocationPointer({required this.lat, required this.lng, this.label});
 
-  factory LocationPointer.fromJson(Map<String, dynamic> json) => LocationPointer(
-    lat: (json['lat'] as num).toDouble(),
-    lng: (json['lng'] as num).toDouble(),
-    label: json['label'] as String?,
-  );
+  factory LocationPointer.fromJson(Map<String, dynamic> json) =>
+      LocationPointer(
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+        label: json['label'] as String?,
+      );
 
   final double lat;
   final double lng;
@@ -99,7 +100,10 @@ class EventPayload {
   final String title;
   final String? notes;
 
-  Map<String, dynamic> toJson() => {'title': title, if (notes != null) 'notes': notes};
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    if (notes != null) 'notes': notes,
+  };
 }
 
 /// Balanced-storage half of an event: time/location/status live in
@@ -250,10 +254,11 @@ class ChatConversationController extends _$ChatConversationController {
     final address = SignalProtocolAddress(peerUserId, kSignalDeviceId);
     _peerAddress = address;
 
-    final sessionReady = await SessionManager.instance.ensureSessionForConversation(
-      conversationId: conversationId,
-      peerUserId: peerUserId,
-    );
+    final sessionReady = await SessionManager.instance
+        .ensureSessionForConversation(
+          conversationId: conversationId,
+          peerUserId: peerUserId,
+        );
 
     final conversationRow = await Supabase.instance.client
         .from('chat_conversations')
@@ -274,7 +279,8 @@ class ChatConversationController extends _$ChatConversationController {
       messages.add(await _resolveMessage(row, store, address));
     }
 
-    final timestamps = UntrustedIdentityRegistry.keyChangeTimestamps[peerUserId] ?? [];
+    final timestamps =
+        UntrustedIdentityRegistry.keyChangeTimestamps[peerUserId] ?? [];
     for (final ts in timestamps) {
       messages.add(
         ChatMessageView(
@@ -331,7 +337,8 @@ class ChatConversationController extends _$ChatConversationController {
             column: 'conversation_id',
             value: conversationId,
           ),
-          callback: (payload) => unawaited(_handleIncoming(payload.newRecord, store, address)),
+          callback: (payload) =>
+              unawaited(_handleIncoming(payload.newRecord, store, address)),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
@@ -453,7 +460,7 @@ class ChatConversationController extends _$ChatConversationController {
     try {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages/read',
-        );
+      );
     } on Exception {
       // Best-effort - failing to mark read is not user-visible.
     }
@@ -512,8 +519,10 @@ class ChatConversationController extends _$ChatConversationController {
       decryptFailed = true;
     } else {
       final ciphertext = row['ciphertext'] as String;
-      final metadata = row['ciphertext_metadata'] as Map<String, dynamic>? ?? {};
-      final signalType = metadata['signal_message_type'] as String? ?? 'whisper';
+      final metadata =
+          row['ciphertext_metadata'] as Map<String, dynamic>? ?? {};
+      final signalType =
+          metadata['signal_message_type'] as String? ?? 'whisper';
       plaintext = await MessageCodec.instance.decryptText(
         store: store,
         address: address,
@@ -618,7 +627,9 @@ class ChatConversationController extends _$ChatConversationController {
           .uploadBinary(
             storagePath,
             encrypted.ciphertext,
-            fileOptions: const FileOptions(contentType: 'application/octet-stream'),
+            fileOptions: const FileOptions(
+              contentType: 'application/octet-stream',
+            ),
           );
 
       final pointer = MediaPointer(
@@ -681,7 +692,7 @@ class ChatConversationController extends _$ChatConversationController {
             'signal_message_type': envelope.signalMessageType,
           },
         },
-        );
+      );
 
       final messageId = response.data?['message_id'] as String?;
       final createdAtRaw = response.data?['created_at'] as String?;
@@ -757,7 +768,9 @@ class ChatConversationController extends _$ChatConversationController {
     required double lng,
     String? label,
   }) {
-    final pointerJson = jsonEncode(LocationPointer(lat: lat, lng: lng, label: label).toJson());
+    final pointerJson = jsonEncode(
+      LocationPointer(lat: lat, lng: lng, label: label).toJson(),
+    );
     return _sendEnvelopeText(
       text: pointerJson,
       messageType: 'location',
@@ -786,7 +799,9 @@ class ChatConversationController extends _$ChatConversationController {
 
     state = AsyncData(current.copyWith(sending: true));
     try {
-      final payloadJson = jsonEncode(EventPayload(title: title, notes: notes).toJson());
+      final payloadJson = jsonEncode(
+        EventPayload(title: title, notes: notes).toJson(),
+      );
       final envelope = await MessageCodec.instance.encryptText(
         store: store,
         address: address,
@@ -810,7 +825,7 @@ class ChatConversationController extends _$ChatConversationController {
           'safety_enabled': safetyEnabled,
           'safety_interval_seconds': ?safetyIntervalSeconds,
         },
-        );
+      );
 
       final data = response.data;
       final messageId = data?['message_id'] as String?;
@@ -854,7 +869,7 @@ class ChatConversationController extends _$ChatConversationController {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events/$eventId',
         data: {'status': status},
-        );
+      );
       return true;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(

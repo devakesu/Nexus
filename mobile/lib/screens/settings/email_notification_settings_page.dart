@@ -108,7 +108,7 @@ class _EmailNotificationSettingsPageState
       if (token == null) throw Exception('Not signed in');
       final resp = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/profile/email-notification-settings',
-        );
+      );
       if (resp.statusCode == 200 && resp.data != null && mounted) {
         setState(() {
           for (final c in _kEmailCategories) {
@@ -147,7 +147,7 @@ class _EmailNotificationSettingsPageState
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/profile/email-notification-settings',
         data: {key: value},
-        );
+      );
     } on DioException catch (e) {
       if (mounted) {
         setState(() => _prefs[key] = previous);

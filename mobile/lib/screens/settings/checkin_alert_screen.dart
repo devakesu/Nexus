@@ -651,10 +651,10 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
               Text(
                 _alertSent
                     ? 'Recording video and audio as evidence, in the open — this '
-                        'is visible on your screen the whole time, never hidden. '
-                        'Trusted contacts have been notified.'
+                          'is visible on your screen the whole time, never hidden. '
+                          'Trusted contacts have been notified.'
                     : 'Recording video and audio as evidence. ALERT SENDING FAILED — '
-                        'trusted contacts have not been notified. Please call 112 directly.',
+                          'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: _alertSent ? Colors.white60 : _red,
@@ -755,7 +755,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                 _alertSent
                     ? 'Alarm sounding at full volume. Trusted contacts have been notified.'
                     : 'Alarm sounding at full volume. ALERT SENDING FAILED — '
-                        'trusted contacts have not been notified. Please call 112 directly.',
+                          'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: _alertSent ? Colors.white60 : _red,

@@ -75,9 +75,9 @@ class GravityFieldPainter extends CustomPainter {
         ),
       );
       TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      )
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        )
         ..layout()
         ..paint(canvas, Offset(center.dx + radius + 4, center.dy - 10));
     }
@@ -205,9 +205,9 @@ class GravityFieldPainter extends CustomPainter {
       ),
     );
     TextPainter(
-      text: youLabelSpan,
-      textDirection: TextDirection.ltr,
-    )
+        text: youLabelSpan,
+        textDirection: TextDirection.ltr,
+      )
       ..layout()
       ..paint(canvas, Offset(youPixel.dx - 18, youPixel.dy - 20));
 

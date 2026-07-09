@@ -59,14 +59,16 @@ class _AuthGateState extends State<AuthGate> {
       },
       onError: (Object error, StackTrace stackTrace) {
         final errorStr = error.toString();
-        if ((error is AuthException && error.code == 'refresh_token_not_found') ||
+        if ((error is AuthException &&
+                error.code == 'refresh_token_not_found') ||
             errorStr.contains('refresh_token_not_found') ||
             errorStr.contains('Invalid Refresh Token')) {
           ErrorHandler.handleError(
             error,
             stackTrace: stackTrace,
             level: ErrorLevel.info,
-            customMessage: '[AuthGate] Refresh token invalid or not found. Force signing out.',
+            customMessage:
+                '[AuthGate] Refresh token invalid or not found. Force signing out.',
             showUi: false,
           );
           unawaited(Supabase.instance.client.auth.signOut());
@@ -143,13 +145,15 @@ class _AuthGateState extends State<AuthGate> {
           customMessage: '[AuthGate] Session expired. Refreshing token...',
           showUi: false,
         );
-        final refreshResponse = await Supabase.instance.client.auth.refreshSession();
+        final refreshResponse = await Supabase.instance.client.auth
+            .refreshSession();
         final refreshed = refreshResponse.session;
         if (refreshed == null) {
           ErrorHandler.handleError(
             null,
             level: ErrorLevel.info,
-            customMessage: '[AuthGate] Session refresh returned null session. Signing out.',
+            customMessage:
+                '[AuthGate] Session refresh returned null session. Signing out.',
             showUi: false,
           );
           await Supabase.instance.client.auth.signOut();
@@ -168,7 +172,8 @@ class _AuthGateState extends State<AuthGate> {
         ErrorHandler.handleError(
           e,
           stackTrace: stackTrace,
-          customMessage: 'Session refresh failed: ${ErrorHandler.getFriendlyMessage(e)}',
+          customMessage:
+              'Session refresh failed: ${ErrorHandler.getFriendlyMessage(e)}',
           showUi: mounted,
         );
         if (mounted) {
@@ -189,8 +194,7 @@ class _AuthGateState extends State<AuthGate> {
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/bootstrap',
         options: Options(
-          headers: {
-            },
+          headers: {},
           validateStatus: (status) => status != null && status < 500,
         ),
       );
@@ -238,7 +242,8 @@ class _AuthGateState extends State<AuthGate> {
         e,
         stackTrace: stackTrace,
         level: ErrorLevel.warning,
-        customMessage: 'Bootstrap connection error: ${ErrorHandler.getFriendlyMessage(e)}',
+        customMessage:
+            'Bootstrap connection error: ${ErrorHandler.getFriendlyMessage(e)}',
         showUi: mounted,
       );
     } on Object catch (e, stackTrace) {
@@ -253,8 +258,7 @@ class _AuthGateState extends State<AuthGate> {
         ErrorHandler.handleError(
           e,
           stackTrace: stackTrace,
-          customMessage:
-              'Access denied: ${ErrorHandler.getFriendlyMessage(e)}',
+          customMessage: 'Access denied: ${ErrorHandler.getFriendlyMessage(e)}',
         );
       }
     }
@@ -305,8 +309,7 @@ class _AuthGateState extends State<AuthGate> {
       );
     } else {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session != null &&
-          _lastBootstrappedUserId == session.user.id) {
+      if (session != null && _lastBootstrappedUserId == session.user.id) {
         final termsVersion = _termsVersion;
         if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(

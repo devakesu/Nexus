@@ -36,13 +36,16 @@ class PresenceBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncPresence = ref.watch(peerPresenceProvider(peerUserId));
-    final text = asyncPresence.value != null ? _describe(asyncPresence.value!) : null;
+    final text = asyncPresence.value != null
+        ? _describe(asyncPresence.value!)
+        : null;
     if (text == null) return fallback ?? const SizedBox.shrink();
 
     return Text(
       text,
       overflow: TextOverflow.ellipsis,
-      style: style ??
+      style:
+          style ??
           GoogleFonts.inter(
             fontSize: 11.5,
             color: Colors.white.withValues(alpha: 0.8),
