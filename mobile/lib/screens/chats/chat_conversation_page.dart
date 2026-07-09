@@ -240,8 +240,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   }
 
   Future<void> _handleReport() async {
+    final theme = chatTabTheme(widget.tab);
     await showProfileReportDialog(
       context,
+      themeColor: theme.primary,
       onConfirmed: (reason, detail) => _runMatchAction(
         action: 'report',
         reason: reason,

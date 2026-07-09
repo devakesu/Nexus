@@ -8,6 +8,7 @@ import 'package:nexus/screens/onboarding/import_code_dialog.dart';
 import 'package:nexus/screens/onboarding/mec_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/nexus_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/otp_verification_dialog.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -280,9 +281,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         color: const Color(0xFF090D0F),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _acceptedTerms
-              ? const Color(0xFF0D9488)
-              : const Color(0x1AFFFFFF),
+          color: _acceptedTerms ? _accent : const Color(0x1AFFFFFF),
         ),
       ),
       child: Row(
@@ -294,7 +293,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             child: Checkbox(
               value: _acceptedTerms,
-              activeColor: const Color(0xFF0D9488),
+              activeColor: _accent,
               checkColor: Colors.white,
               onChanged: (val) {
                 setState(() {
@@ -322,7 +321,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     TextSpan(
                       text: 'Terms of Service',
                       style: TextStyle(
-                        color: Color(0xFF0D9488),
+                        color: _accent,
                         fontWeight: FontWeight.w700,
                         decoration: TextDecoration.underline,
                       ),
@@ -331,7 +330,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     TextSpan(
                       text: 'Privacy Policy',
                       style: TextStyle(
-                        color: Color(0xFF0D9488),
+                        color: _accent,
                         fontWeight: FontWeight.w700,
                         decoration: TextDecoration.underline,
                       ),
@@ -349,7 +348,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ── Build helpers ─────────────────────────────────────────────────────────
 
-  static const _teal = Color(0xFFFF7597);
+  // Pulsar Pink — onboarding's brand accent per DESIGN.md. This constant was
+  // previously misnamed "_teal" despite already holding pink; meanwhile
+  // Safety Teal (#0D9488) was separately hardcoded throughout this file,
+  // which was the actual One Signal Rule violation, fixed below.
+  static const Color _accent = AppColors.pulsarPink;
   static const _cardBg = Color(0xFF161B26);
   static const _pageBg = Color(0xFF0B0D13);
   static const _labelStyle = TextStyle(
@@ -365,7 +368,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           decoration: BoxDecoration(
             color: _cardBg,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0x1F0D9488)),
+            border: Border.all(color: _accent.withAlpha(0x1F)),
           ),
           child: child,
         )
@@ -387,7 +390,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: _teal,
+                color: _accent,
               ),
             ),
           ],
@@ -395,11 +398,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 6),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: _teal,
+            activeTrackColor: _accent,
             inactiveTrackColor: const Color(0x1AFFFFFF),
             thumbColor: Colors.white,
-            overlayColor: const Color(0x260D9488),
-            valueIndicatorColor: _teal,
+            overlayColor: _accent.withAlpha(0x26),
+            valueIndicatorColor: _accent,
             valueIndicatorTextStyle: const TextStyle(color: Colors.white),
           ),
           child: Slider(
@@ -444,11 +447,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                borderSide: BorderSide(color: _accent.withAlpha(0x1F)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: _teal),
+                borderSide: const BorderSide(color: _accent),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -485,13 +488,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+                color: _accent.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x1F0D9488)),
+                border: Border.all(color: _accent.withAlpha(0x1F)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_rounded, color: _teal, size: 16),
+                  const Icon(Icons.verified_rounded, color: _accent, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -527,11 +530,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                  borderSide: BorderSide(color: _accent.withAlpha(0x1F)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _teal),
+                  borderSide: const BorderSide(color: _accent),
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -592,13 +595,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+              color: _accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x1F0D9488)),
+              border: Border.all(color: _accent.withAlpha(0x1F)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.verified_rounded, color: _teal, size: 16),
+                const Icon(Icons.verified_rounded, color: _accent, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -627,13 +630,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+                color: _accent.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0x1F0D9488)),
+                border: Border.all(color: _accent.withAlpha(0x1F)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.verified_rounded, color: _teal, size: 16),
+                  const Icon(Icons.verified_rounded, color: _accent, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -668,11 +671,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0x1F0D9488)),
+                  borderSide: BorderSide(color: _accent.withAlpha(0x1F)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _teal),
+                  borderSide: const BorderSide(color: _accent),
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -740,7 +743,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 4,
-                      color: _teal,
+                      color: _accent,
                     ),
                   ).animate().fade().scale(duration: 400.ms),
                   const SizedBox(height: 8),
@@ -768,7 +771,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   if (_isLoading)
                     const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_teal),
+                        valueColor: AlwaysStoppedAnimation<Color>(_accent),
                       ),
                     )
                   else
@@ -829,17 +832,18 @@ class _SubmitButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: isDisabled
                 ? null
-                : const [
+                : [
                     BoxShadow(
-                      color: Color(0x260D9488),
+                      color: AppColors.pulsarPink.withAlpha(0x26),
                       blurRadius: 18,
                       spreadRadius: 2,
                     ),
                   ],
+            // Pulsar Pink -> deep-rose, per DESIGN.md's button-primary spec.
             gradient: isDisabled
                 ? null
                 : const LinearGradient(
-                    colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                    colors: [AppColors.pulsarPink, Color(0xFFE04B76)],
                   ),
             color: isDisabled ? const Color(0x1AFFFFFF) : null,
           ),

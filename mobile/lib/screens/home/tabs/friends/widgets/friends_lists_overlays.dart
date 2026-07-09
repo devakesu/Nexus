@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WavesOverlay extends StatefulWidget {
@@ -38,7 +39,9 @@ class WavesOverlay extends StatefulWidget {
 class _WavesOverlayState extends State<WavesOverlay> {
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF3B82F6);
+    // Friends Signal — was previously a generic blue (#3B82F6), a
+    // Mode Signal Rule violation.
+    const themeColor = AppColors.modeFriends;
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
@@ -285,7 +288,9 @@ class _FriendsListOverlayState extends State<FriendsListOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF3B82F6);
+    // Friends Signal — was previously a generic blue (#3B82F6), a
+    // Mode Signal Rule violation.
+    const themeColor = AppColors.modeFriends;
     final session = Supabase.instance.client.auth.currentSession;
     return Container(
       height: MediaQuery.of(context).size.height * 0.78,
@@ -593,6 +598,7 @@ class _FriendsListOverlayState extends State<FriendsListOverlay> {
                                       unawaited(
                                         showProfileReportDialog(
                                           context,
+                                          themeColor: themeColor,
                                           onConfirmed: (reason, detail) async {
                                             if (session == null) {
                                               return;

@@ -945,6 +945,7 @@ class _DatingTabState extends State<DatingTab>
                   },
                   onReportTap: (c) => showProfileReportDialog(
                     c,
+                    themeColor: themeColor,
                     onConfirmed: (reason, detail) async {
                       Navigator.pop(c);
                       await _recordLikeAction(

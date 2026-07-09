@@ -595,6 +595,7 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
                                       unawaited(
                                         showProfileReportDialog(
                                           context,
+                                          themeColor: themeColor,
                                           onConfirmed: (reason, detail) async {
                                             if (session == null) {
                                               return;

@@ -28,6 +28,10 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
   late final AnimationController _twinkle; // bg stars  1.4 s
   late final AnimationController _dots; // ellipsis   0.9 s
 
+  // Null until the first didChangeDependencies pass resolves the platform's
+  // reduced-motion preference; see _applyMotionPreference.
+  bool? _reduceMotion;
+
   @override
   void initState() {
     super.initState();
@@ -59,13 +63,45 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
-    unawaited(_ring1.repeat());
-    unawaited(_ring2.repeat());
-    unawaited(_ring3.repeat());
-    unawaited(_sweep.repeat());
-    unawaited(_pulse.repeat(reverse: true));
-    unawaited(_twinkle.repeat(reverse: true));
-    unawaited(_dots.repeat());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (reduceMotion == _reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _ring1
+        ..stop()
+        ..value = 0;
+      _ring2
+        ..stop()
+        ..value = 0;
+      _ring3
+        ..stop()
+        ..value = 0;
+      _sweep
+        ..stop()
+        ..value = 0;
+      _pulse
+        ..stop()
+        ..value = 0.5;
+      _twinkle
+        ..stop()
+        ..value = 0.5;
+      _dots
+        ..stop()
+        ..value = 0;
+    } else {
+      unawaited(_ring1.repeat());
+      unawaited(_ring2.repeat());
+      unawaited(_ring3.repeat());
+      unawaited(_sweep.repeat());
+      unawaited(_pulse.repeat(reverse: true));
+      unawaited(_twinkle.repeat(reverse: true));
+      unawaited(_dots.repeat());
+    }
   }
 
   @override
@@ -82,6 +118,7 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = _reduceMotion ?? false;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -108,21 +145,22 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
                 twinkleValue: _twinkle.value,
               ),
               child: Center(
-                child:
-                    Icon(
-                          Icons.auto_awesome_rounded,
-                          color: widget.themeColor,
-                          size: 26,
-                        )
-                        .animate(
-                          onPlay: (c) => c.repeat(reverse: true),
-                        )
-                        .scale(
-                          begin: const Offset(0.88, 0.88),
-                          end: const Offset(1.16, 1.16),
-                          duration: 2.seconds,
-                          curve: Curves.easeInOut,
-                        ),
+                child: () {
+                  final icon = Icon(
+                    Icons.auto_awesome_rounded,
+                    color: widget.themeColor,
+                    size: 26,
+                  );
+                  if (reduceMotion) return icon;
+                  return icon
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .scale(
+                        begin: const Offset(0.88, 0.88),
+                        end: const Offset(1.16, 1.16),
+                        duration: 2.seconds,
+                        curve: Curves.easeInOut,
+                      );
+                }(),
               ),
             ),
           ),
@@ -132,6 +170,7 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
           themeColor: widget.themeColor,
           dotsController: _dots,
           label: widget.label,
+          reduceMotion: reduceMotion,
         ),
       ],
     );
@@ -145,14 +184,55 @@ class _AligningText extends StatelessWidget {
     required this.themeColor,
     required this.dotsController,
     required this.label,
+    required this.reduceMotion,
   });
 
   final Color themeColor;
   final AnimationController dotsController;
   final String label;
+  final bool reduceMotion;
 
   @override
   Widget build(BuildContext context) {
+    final labelText = Text(
+      label,
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.88),
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 2.8,
+      ),
+    );
+    final animatedLabel = reduceMotion
+        ? labelText
+        : labelText
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .fade(
+                begin: 0.45,
+                end: 1,
+                duration: 1600.ms,
+                curve: Curves.easeInOut,
+              );
+
+    if (reduceMotion) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          animatedLabel,
+          const SizedBox(width: 6),
+          Text(
+            '...',
+            style: TextStyle(
+              color: themeColor.withValues(alpha: 0.9),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+            ),
+          ),
+        ],
+      );
+    }
+
     return AnimatedBuilder(
       animation: dotsController,
       builder: (context, _) {
@@ -161,22 +241,7 @@ class _AligningText extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.88),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2.8,
-                  ),
-                )
-                .animate(onPlay: (c) => c.repeat(reverse: true))
-                .fade(
-                  begin: 0.45,
-                  end: 1,
-                  duration: 1600.ms,
-                  curve: Curves.easeInOut,
-                ),
+            animatedLabel,
             const SizedBox(width: 6),
             Text(
               dots,

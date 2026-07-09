@@ -587,6 +587,7 @@ class _ConnectionsOverlayState extends State<ConnectionsOverlay> {
                                       unawaited(
                                         showProfileReportDialog(
                                           context,
+                                          themeColor: themeColor,
                                           onConfirmed: (reason, detail) async {
                                             if (session == null) {
                                               return;

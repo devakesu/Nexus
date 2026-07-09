@@ -1295,6 +1295,7 @@ Future<bool?> showProfileBlockDialog(BuildContext context, String name) {
 Future<void> showProfileReportDialog(
   BuildContext context, {
   required Future<void> Function(String reason, String? detail) onConfirmed,
+  required Color themeColor,
 }) async {
   String? selectedReason;
   final otherCtrl = TextEditingController();
@@ -1340,7 +1341,7 @@ Future<void> showProfileReportDialog(
                     selected: selected,
                     onSelected: (_) =>
                         setDialogState(() => selectedReason = r.$1),
-                    selectedColor: const Color(0xFFFF4F81),
+                    selectedColor: themeColor,
                     backgroundColor: const Color(0xFF1E293B),
                     side: BorderSide(
                       color: selected
@@ -1408,7 +1409,7 @@ Future<void> showProfileReportDialog(
                 ? null
                 : () => Navigator.pop(dialogCtx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF4F81),
+              backgroundColor: themeColor,
               disabledBackgroundColor: Colors.white12,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(

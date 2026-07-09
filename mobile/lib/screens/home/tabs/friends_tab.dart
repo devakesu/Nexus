@@ -908,6 +908,7 @@ class _FriendsTabState extends State<FriendsTab>
                   },
                   onReportTap: (c) => showProfileReportDialog(
                     c,
+                    themeColor: themeColor,
                     onConfirmed: (reason, detail) async {
                       Navigator.pop(c);
                       await _recordWaveAction(

@@ -267,6 +267,12 @@ class _OrbitScreenState extends State<OrbitScreen>
   bool _isReloading = false;
   Timer? _fetchDebounceTimer;
 
+  // Tracks the platform's reduced-motion preference so the starfield twinkle,
+  // radar sweep, and node breathing loops can freeze on a static frame
+  // instead of animating indefinitely. Null until the first
+  // didChangeDependencies pass resolves it.
+  bool? _reduceMotion;
+
   @override
   void initState() {
     super.initState();
@@ -274,12 +280,26 @@ class _OrbitScreenState extends State<OrbitScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    unawaited(_pulseController.repeat(reverse: true));
 
     if (widget.prefetchFuture != null) {
       unawaited(_applyPrefetchData());
     } else {
       unawaited(_initData());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (reduceMotion == _reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _pulseController
+        ..stop()
+        ..value = 0.5;
+    } else {
+      unawaited(_pulseController.repeat(reverse: true));
     }
   }
 
@@ -1330,6 +1350,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                   },
                   onReportTap: (ctx) => showProfileReportDialog(
                     ctx,
+                    themeColor: widget.themeColor,
                     onConfirmed: (reason, detail) async {
                       Navigator.pop(ctx);
                       await _performAction(
@@ -1834,59 +1855,15 @@ class _OrbitScreenState extends State<OrbitScreen>
 
                       // Pulsing Center Node (Viewer)
                       Center(
-                        child: GestureDetector(
+                        child: Semantics(
+                          button: true,
+                          label: 'Your profile',
+                          excludeSemantics: true,
                           onTap: _showSelfDetails,
-                          child:
-                              Container(
-                                    width: 76,
-                                    height: 76,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: widget.themeColor.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      border: Border.all(
-                                        color: widget.themeColor,
-                                        width: 2.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: widget.themeColor.withValues(
-                                            alpha: 0.35,
-                                          ),
-                                          blurRadius: 40,
-                                          spreadRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                    child:
-                                        _currentUserProfilePic != null &&
-                                            _currentUserProfilePic!.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              38,
-                                            ),
-                                            child: StorageImage(
-                                              imagePath:
-                                                  _currentUserProfilePic!,
-                                            ),
-                                          )
-                                        : Icon(
-                                            LucideIcons.globe,
-                                            color: widget.themeColor,
-                                            size: 32,
-                                          ),
-                                  )
-                                  .animate(
-                                    onPlay: (controller) =>
-                                        controller.repeat(reverse: true),
-                                  )
-                                  .scale(
-                                    begin: const Offset(0.9, 0.9),
-                                    end: const Offset(1.15, 1.15),
-                                    duration: 2.seconds,
-                                    curve: Curves.easeInOut,
-                                  ),
+                          child: GestureDetector(
+                            onTap: _showSelfDetails,
+                            child: _buildSelfAvatar(),
+                          ),
                         ),
                       ),
                       // Floating Nodes
@@ -2054,6 +2031,50 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
   }
 
+  Widget _buildSelfAvatar() {
+    final avatar = Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: widget.themeColor.withValues(alpha: 0.15),
+        border: Border.all(
+          color: widget.themeColor,
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: widget.themeColor.withValues(alpha: 0.35),
+            blurRadius: 40,
+            spreadRadius: 8,
+          ),
+        ],
+      ),
+      child:
+          _currentUserProfilePic != null && _currentUserProfilePic!.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(38),
+              child: StorageImage(imagePath: _currentUserProfilePic!),
+            )
+          : Icon(
+              LucideIcons.globe,
+              color: widget.themeColor,
+              size: 32,
+            ),
+    );
+
+    if (_reduceMotion == true) return avatar;
+
+    return avatar
+        .animate(onPlay: (controller) => controller.repeat(reverse: true))
+        .scale(
+          begin: const Offset(0.9, 0.9),
+          end: const Offset(1.15, 1.15),
+          duration: 2.seconds,
+          curve: Curves.easeInOut,
+        );
+  }
+
   Widget _buildOrbitRing(double radius, String label, Color ringColor) {
     return Center(
       child: Container(
@@ -2068,6 +2089,56 @@ class _OrbitScreenState extends State<OrbitScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildNodeAvatar({
+    required String? profilePic,
+    required double score,
+  }) {
+    final avatar = Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: widget.themeColor.withValues(
+            alpha: (score / 100).clamp(0.2, 1.0),
+          ),
+          width: 2.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: widget.themeColor.withValues(alpha: 0.15),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(29),
+        child: profilePic != null && profilePic.isNotEmpty
+            ? StorageImage(imagePath: profilePic)
+            : const ColoredBox(
+                color: Color(0xFF1E293B),
+                child: Icon(
+                  LucideIcons.user,
+                  color: Colors.white54,
+                  size: 24,
+                ),
+              ),
+      ),
+    );
+
+    if (_reduceMotion == true) return avatar;
+
+    return avatar
+        .animate(onPlay: (controller) => controller.repeat(reverse: true))
+        .scale(
+          begin: const Offset(0.96, 0.96),
+          end: const Offset(1.04, 1.04),
+          duration: (1.5 + (score % 5) * 0.1).seconds,
+          curve: Curves.easeInOut,
+        );
   }
 
   List<Widget> _buildConstellationNodes() {
@@ -2094,51 +2165,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Avatar with compatibility score border
-                      Container(
-                            width: 58,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: widget.themeColor.withValues(
-                                  alpha: (score / 100).clamp(0.2, 1.0),
-                                ),
-                                width: 2.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: widget.themeColor.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(29),
-                              child: profilePic != null && profilePic.isNotEmpty
-                                  ? StorageImage(imagePath: profilePic)
-                                  : const ColoredBox(
-                                      color: Color(0xFF1E293B),
-                                      child: Icon(
-                                        LucideIcons.user,
-                                        color: Colors.white54,
-                                        size: 24,
-                                      ),
-                                    ),
-                            ),
-                          )
-                          .animate(
-                            onPlay: (controller) =>
-                                controller.repeat(reverse: true),
-                          )
-                          .scale(
-                            begin: const Offset(0.96, 0.96),
-                            end: const Offset(1.04, 1.04),
-                            duration: (1.5 + (score % 5) * 0.1).seconds,
-                            curve: Curves.easeInOut,
-                          ),
+                      _buildNodeAvatar(profilePic: profilePic, score: score),
                       const SizedBox(height: 6),
                       // Name Card
                       Container(

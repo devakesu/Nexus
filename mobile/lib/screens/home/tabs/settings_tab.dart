@@ -10,6 +10,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
@@ -35,7 +36,10 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
-  static const _accent = Color(0xFF0284C7);
+  // Settings Signal — matches the Settings tab's own nav color. Was
+  // previously Safety Blue (#0284C7), which broke the Mode Signal Rule and
+  // leaked the Safety Duo onto a non-safety surface.
+  static const Color _accent = AppColors.modeSettings;
 
   _PauseStatus _pauseStatus = _PauseStatus.loading;
   AuthorizationStatus? _notifPermission;

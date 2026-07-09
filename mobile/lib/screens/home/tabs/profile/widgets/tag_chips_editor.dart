@@ -176,15 +176,24 @@ class TagChipsEditor extends StatelessWidget {
                                 ),
                               ),
                               if (searchController.text.isNotEmpty)
-                                GestureDetector(
+                                Semantics(
+                                  button: true,
+                                  label: 'Clear search',
+                                  excludeSemantics: true,
                                   onTap: () {
                                     searchController.clear();
                                     setModalState(() {});
                                   },
-                                  child: const Icon(
-                                    LucideIcons.xCircle,
-                                    color: Colors.black38,
-                                    size: 16,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      searchController.clear();
+                                      setModalState(() {});
+                                    },
+                                    child: const Icon(
+                                      LucideIcons.xCircle,
+                                      color: Colors.black38,
+                                      size: 16,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -218,106 +227,118 @@ class TagChipsEditor extends StatelessWidget {
                               final isSelected = localSelected.contains(option);
                               final emoji = getEmojiForTag(option);
 
-                              return GestureDetector(
-                                onTap: () {
-                                  setModalState(() {
-                                    if (isSelected) {
-                                      localSelected.remove(option);
-                                    } else if (exclusiveOptions.contains(
-                                      option,
-                                    )) {
-                                      localSelected
-                                        ..clear()
-                                        ..add(option);
-                                    } else {
-                                      localSelected
-                                        ..removeWhere(
-                                          exclusiveOptions.contains,
-                                        )
-                                        ..add(option);
-                                    }
-                                  });
-                                  onChanged(localSelected);
-                                  if (!isSelected &&
-                                      exclusiveOptions.contains(option)) {
-                                    Navigator.pop(context);
+                              void handleTap() {
+                                setModalState(() {
+                                  if (isSelected) {
+                                    localSelected.remove(option);
+                                  } else if (exclusiveOptions.contains(
+                                    option,
+                                  )) {
+                                    localSelected
+                                      ..clear()
+                                      ..add(option);
+                                  } else {
+                                    localSelected
+                                      ..removeWhere(
+                                        exclusiveOptions.contains,
+                                      )
+                                      ..add(option);
                                   }
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(
-                                            0xFFFF7597,
-                                          ).withValues(alpha: 0.08)
-                                        : const Color(0xFFF9FAFB),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
+                                });
+                                onChanged(localSelected);
+                                if (!isSelected &&
+                                    exclusiveOptions.contains(option)) {
+                                  Navigator.pop(context);
+                                }
+                              }
+
+                              return Semantics(
+                                selected: isSelected,
+                                button: true,
+                                label: option,
+                                excludeSemantics: true,
+                                onTap: handleTap,
+                                child: GestureDetector(
+                                  onTap: handleTap,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: isSelected
                                           ? const Color(
                                               0xFFFF7597,
-                                            ).withValues(alpha: 0.45)
-                                          : Colors.black.withValues(
-                                              alpha: 0.05,
-                                            ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      if (isSelected) ...[
-                                        Container(
-                                          width: 3,
-                                          height: 14,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFF7597),
-                                            borderRadius: BorderRadius.circular(
-                                              1.5,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                      ],
-                                      if (emoji.isNotEmpty) ...[
-                                        Text(
-                                          emoji,
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
-                                        const SizedBox(width: 12),
-                                      ] else ...[
-                                        Icon(
-                                          LucideIcons.sparkles,
-                                          size: 14,
-                                          color: isSelected
-                                              ? const Color(0xFFFF7597)
-                                              : Colors.black38,
-                                        ),
-                                        const SizedBox(width: 12),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          option,
-                                          style: TextStyle(
-                                            color: isSelected
-                                                ? const Color(0xFF0F172A)
-                                                : const Color(0xFF475569),
-                                            fontSize: 14,
-                                            fontWeight: isSelected
-                                                ? FontWeight.bold
-                                                : FontWeight.w500,
-                                          ),
-                                        ),
+                                            ).withValues(alpha: 0.08)
+                                          : const Color(0xFFF9FAFB),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(
+                                                0xFFFF7597,
+                                              ).withValues(alpha: 0.45)
+                                            : Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
                                       ),
-                                      if (isSelected)
-                                        const Icon(
-                                          LucideIcons.checkCircle,
-                                          color: Color(0xFFFF7597),
-                                          size: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        if (isSelected) ...[
+                                          Container(
+                                            width: 3,
+                                            height: 14,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFF7597),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    1.5,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                        ],
+                                        if (emoji.isNotEmpty) ...[
+                                          Text(
+                                            emoji,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                        ] else ...[
+                                          Icon(
+                                            LucideIcons.sparkles,
+                                            size: 14,
+                                            color: isSelected
+                                                ? const Color(0xFFFF7597)
+                                                : Colors.black38,
+                                          ),
+                                          const SizedBox(width: 12),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            option,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? const Color(0xFF0F172A)
+                                                  : const Color(0xFF475569),
+                                              fontSize: 14,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                            ),
+                                          ),
                                         ),
-                                    ],
+                                        if (isSelected)
+                                          const Icon(
+                                            LucideIcons.checkCircle,
+                                            color: Color(0xFFFF7597),
+                                            size: 16,
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );
@@ -373,7 +394,10 @@ class TagChipsEditor extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              GestureDetector(
+                              Semantics(
+                                button: true,
+                                label: 'Add tag',
+                                excludeSemantics: true,
                                 onTap: () {
                                   final trimmed = textController.text.trim();
                                   if (trimmed.isNotEmpty &&
@@ -386,10 +410,24 @@ class TagChipsEditor extends StatelessWidget {
                                     textController.clear();
                                   }
                                 },
-                                child: const Icon(
-                                  LucideIcons.plusCircle,
-                                  color: Color(0xFFFF7597),
-                                  size: 20,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    final trimmed = textController.text.trim();
+                                    if (trimmed.isNotEmpty &&
+                                        !localPresets.contains(trimmed)) {
+                                      setModalState(() {
+                                        localPresets.add(trimmed);
+                                        localSelected.add(trimmed);
+                                      });
+                                      onChanged(localSelected);
+                                      textController.clear();
+                                    }
+                                  },
+                                  child: const Icon(
+                                    LucideIcons.plusCircle,
+                                    color: Color(0xFFFF7597),
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                             ],
@@ -571,8 +609,10 @@ class TagChipsEditor extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
+                        Semantics(
+                          button: true,
+                          label: 'Remove $val',
+                          excludeSemantics: true,
                           onTap: () {
                             final List<String> newValues;
                             if (label.toLowerCase() == 'interests' &&
@@ -588,10 +628,28 @@ class TagChipsEditor extends StatelessWidget {
                             }
                             onChanged(newValues);
                           },
-                          child: Icon(
-                            LucideIcons.x,
-                            size: 11,
-                            color: iconColor.withValues(alpha: 0.65),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final List<String> newValues;
+                              if (label.toLowerCase() == 'interests' &&
+                                  val.contains(': ')) {
+                                final parent = val.split(': ')[0];
+                                newValues = currentValues
+                                    .where((v) => !v.startsWith('$parent: '))
+                                    .toList();
+                              } else {
+                                newValues = currentValues
+                                    .where((v) => v != val)
+                                    .toList();
+                              }
+                              onChanged(newValues);
+                            },
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 11,
+                              color: iconColor.withValues(alpha: 0.65),
+                            ),
                           ),
                         ),
                       ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -75,7 +76,10 @@ class EmailNotificationSettingsPage extends StatefulWidget {
 
 class _EmailNotificationSettingsPageState
     extends State<EmailNotificationSettingsPage> {
-  static const _accent = Color(0xFF0284C7);
+  // Settings Signal — matches this page's parent Settings tab. Was
+  // previously Safety Blue (#0284C7); Email Notifications isn't a safety
+  // surface.
+  static const Color _accent = AppColors.modeSettings;
 
   late final Dio _dio;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -290,17 +294,20 @@ class _EmailNotificationSettingsPageState
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0284C7), Color(0xFF3B82F6)],
+            colors: [
+              AppColors.modeSettings,
+              AppColors.tint(AppColors.modeSettings),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Color(0x330284C7),
+              color: AppColors.modeSettings.withAlpha(0x33),
               blurRadius: 12,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),

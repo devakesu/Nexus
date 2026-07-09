@@ -238,6 +238,7 @@ class _ChatComposerState extends State<ChatComposer> {
       children: [
         IconButton(
           icon: const Icon(LucideIcons.trash2, color: Color(0xFF94A3B8)),
+          tooltip: 'Discard recording',
           onPressed: () => unawaited(_stopRecording(send: false)),
         ),
         const SizedBox(width: 4),
@@ -260,6 +261,7 @@ class _ChatComposerState extends State<ChatComposer> {
           backgroundColor: widget.themeColor,
           child: IconButton(
             icon: const Icon(LucideIcons.send, color: Colors.white, size: 18),
+            tooltip: 'Send voice message',
             onPressed: () => unawaited(_stopRecording(send: true)),
           ),
         ),
@@ -277,6 +279,7 @@ class _ChatComposerState extends State<ChatComposer> {
             _emojiVisible ? LucideIcons.keyboard : LucideIcons.smile,
             color: const Color(0xFF94A3B8),
           ),
+          tooltip: _emojiVisible ? 'Show keyboard' : 'Show emoji picker',
           onPressed: widget.enabled ? _toggleEmoji : null,
         ),
         Expanded(
@@ -311,6 +314,7 @@ class _ChatComposerState extends State<ChatComposer> {
         ),
         IconButton(
           icon: const Icon(LucideIcons.paperclip, color: Color(0xFF94A3B8)),
+          tooltip: 'Attach',
           onPressed: widget.enabled ? () => unawaited(_showAttachMenu()) : null,
         ),
         CircleAvatar(
@@ -333,6 +337,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     color: Colors.white,
                     size: 18,
                   ),
+                  tooltip: hasText ? 'Send message' : 'Record voice message',
                   onPressed: !widget.enabled
                       ? null
                       : hasText

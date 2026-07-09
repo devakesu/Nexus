@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -19,7 +20,9 @@ class HiddenUsersPage extends StatefulWidget {
 }
 
 class _HiddenUsersPageState extends State<HiddenUsersPage> {
-  static const _accentBlue = Color(0xFF0284C7);
+  // Settings Signal — matches this page's parent Settings tab. Was
+  // previously Safety Blue (#0284C7); Hidden Users isn't a safety surface.
+  static const Color _accentBlue = AppColors.modeSettings;
 
   late final Dio _dio;
   final SupabaseClient _client = Supabase.instance.client;
@@ -188,17 +191,20 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0284C7), Color(0xFF3B82F6)],
+            colors: [
+              AppColors.modeSettings,
+              AppColors.tint(AppColors.modeSettings),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: Color(0x330284C7),
+              color: AppColors.modeSettings.withAlpha(0x33),
               blurRadius: 12,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -424,8 +430,8 @@ class _UserCard extends StatelessWidget {
                     )
                   : OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0284C7),
-                        side: const BorderSide(color: Color(0xFF0284C7)),
+                        foregroundColor: AppColors.modeSettings,
+                        side: const BorderSide(color: AppColors.modeSettings),
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -543,7 +549,7 @@ class _Avatar extends StatelessWidget {
       width: 50,
       height: 50,
       decoration: BoxDecoration(
-        color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+        color: AppColors.modeSettings.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Center(
@@ -552,7 +558,7 @@ class _Avatar extends StatelessWidget {
           style: GoogleFonts.manrope(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF0284C7),
+            color: AppColors.modeSettings,
           ),
         ),
       ),
@@ -599,8 +605,8 @@ class _ErrorView extends StatelessWidget {
             OutlinedButton(
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0284C7),
-                side: const BorderSide(color: Color(0xFF0284C7)),
+                foregroundColor: AppColors.modeSettings,
+                side: const BorderSide(color: AppColors.modeSettings),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -665,7 +671,7 @@ class _ConfirmDialog extends StatelessWidget {
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF0284C7),
+            backgroundColor: AppColors.modeSettings,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

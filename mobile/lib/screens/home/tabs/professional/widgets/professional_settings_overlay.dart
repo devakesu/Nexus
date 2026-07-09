@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class ProfessionalSettingsOverlay extends StatefulWidget {
@@ -155,7 +156,7 @@ class _ProfessionalSettingsOverlayState
                   children: [
                     Icon(
                       LucideIcons.settings,
-                      color: Color(0xFF00C4AB),
+                      color: AppColors.modeProfessional,
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -171,10 +172,12 @@ class _ProfessionalSettingsOverlayState
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C4AB),
+                    backgroundColor: AppColors.modeProfessional,
                     foregroundColor: Colors.white,
                     elevation: 4,
-                    shadowColor: const Color(0xFF00C4AB).withValues(alpha: 0.4),
+                    shadowColor: AppColors.modeProfessional.withValues(
+                      alpha: 0.4,
+                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 10,
@@ -262,7 +265,7 @@ class _ProfessionalSettingsOverlayState
                         return FilterChip(
                           label: Text(item['label']!),
                           selected: isSelected,
-                          selectedColor: const Color(0xFF00C4AB),
+                          selectedColor: AppColors.modeProfessional,
                           backgroundColor: Colors.black.withValues(alpha: 0.04),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
@@ -349,7 +352,7 @@ class _ProfessionalSettingsOverlayState
                     return FilterChip(
                       label: Text(item),
                       selected: isSelected,
-                      selectedColor: const Color(0xFF00C4AB),
+                      selectedColor: AppColors.modeProfessional,
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
@@ -429,7 +432,7 @@ class _ProfessionalSettingsOverlayState
                     prefixIcon: const Icon(
                       LucideIcons.briefcase,
                       size: 18,
-                      color: Color(0xFF00C4AB),
+                      color: AppColors.modeProfessional,
                     ),
                     filled: true,
                     fillColor: Colors.black.withValues(alpha: 0.04),
@@ -440,7 +443,7 @@ class _ProfessionalSettingsOverlayState
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: const BorderSide(
-                        color: Color(0xFF00C4AB),
+                        color: AppColors.modeProfessional,
                         width: 1.5,
                       ),
                     ),
@@ -519,7 +522,7 @@ class _ProfessionalSettingsOverlayState
                     return FilterChip(
                       label: Text(item),
                       selected: isSelected,
-                      selectedColor: const Color(0xFF00C4AB),
+                      selectedColor: AppColors.modeProfessional,
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
@@ -602,18 +605,18 @@ class _ProfessionalSettingsOverlayState
                     children: localTechSkills.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(
-                          0xFF00C4AB,
-                        ).withValues(alpha: 0.1),
+                        backgroundColor: AppColors.modeProfessional.withValues(
+                          alpha: 0.1,
+                        ),
                         labelStyle: const TextStyle(
-                          color: Color(0xFF00C4AB),
+                          color: AppColors.modeProfessional,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                         deleteIcon: const Icon(
                           LucideIcons.x,
                           size: 14,
-                          color: Color(0xFF00C4AB),
+                          color: AppColors.modeProfessional,
                         ),
                         side: BorderSide.none,
                         shape: RoundedRectangleBorder(
@@ -684,7 +687,7 @@ class _ProfessionalSettingsOverlayState
                           color: Colors.white,
                         ),
                         label: Text('Add "${skillsSearchQuery.trim()}"'),
-                        backgroundColor: const Color(0xFF00C4AB),
+                        backgroundColor: AppColors.modeProfessional,
                         labelStyle: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

@@ -74,6 +74,11 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
+  void _handleTabTap(int index) {
+    unawaited(HapticFeedback.lightImpact());
+    onTabSelected(index);
+  }
+
   Widget _buildNavItem(
     BuildContext context,
     int index,
@@ -83,52 +88,59 @@ class CustomBottomNavBar extends StatelessWidget {
     final isSelected = currentIndex == index;
     final selectedColor = _getSelectedColor(index);
 
-    return GestureDetector(
-      onTap: () {
-        unawaited(HapticFeedback.lightImpact());
-        onTabSelected(index);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? selectedColor.withAlpha(38)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: TweenAnimationBuilder<Color?>(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label tab',
+      excludeSemantics: true,
+      onTap: () => _handleTabTap(index),
+      child: GestureDetector(
+        onTap: () => _handleTabTap(index),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              tween: ColorTween(
-                begin: _unselectedColor,
-                end: isSelected ? selectedColor : _unselectedColor,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
               ),
-              builder: (context, color, child) {
-                return Icon(
-                  icon,
-                  color: color,
-                  size: 22,
-                );
-              },
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? selectedColor.withAlpha(38)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: TweenAnimationBuilder<Color?>(
+                duration: const Duration(milliseconds: 250),
+                tween: ColorTween(
+                  begin: _unselectedColor,
+                  end: isSelected ? selectedColor : _unselectedColor,
+                ),
+                builder: (context, color, child) {
+                  return Icon(
+                    icon,
+                    color: color,
+                    size: 22,
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label.toLowerCase(),
-            style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 1.2,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
-              color: isSelected
-                  ? selectedColor
-                  : _unselectedColor.withAlpha(120),
+            const SizedBox(height: 3),
+            Text(
+              label.toLowerCase(),
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.2,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
+                color: isSelected
+                    ? selectedColor
+                    : _unselectedColor.withAlpha(120),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -137,58 +149,62 @@ class CustomBottomNavBar extends StatelessWidget {
     final isSelected = currentIndex == 2;
     final selectedColor = _getSelectedColor(2); // Pulsar Pink
 
-    return GestureDetector(
-      onTap: () {
-        unawaited(HapticFeedback.lightImpact());
-        onTabSelected(2);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? selectedColor.withAlpha(51)
-                  : Colors.transparent,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected
-                    ? selectedColor.withAlpha(102)
-                    : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            child: TweenAnimationBuilder<Color?>(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: 'Profile tab',
+      excludeSemantics: true,
+      onTap: () => _handleTabTap(2),
+      child: GestureDetector(
+        onTap: () => _handleTabTap(2),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              tween: ColorTween(
-                begin: _unselectedColor,
-                end: isSelected ? selectedColor : _unselectedColor,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? selectedColor.withAlpha(51)
+                    : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? selectedColor.withAlpha(102)
+                      : Colors.transparent,
+                  width: 1.5,
+                ),
               ),
-              builder: (context, color, child) {
-                return Icon(
-                  Icons.fingerprint_rounded,
-                  color: color,
-                  size: 24,
-                );
-              },
+              child: TweenAnimationBuilder<Color?>(
+                duration: const Duration(milliseconds: 250),
+                tween: ColorTween(
+                  begin: _unselectedColor,
+                  end: isSelected ? selectedColor : _unselectedColor,
+                ),
+                builder: (context, color, child) {
+                  return Icon(
+                    Icons.fingerprint_rounded,
+                    color: color,
+                    size: 24,
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'profile',
-            style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 1.2,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
-              color: isSelected
-                  ? selectedColor
-                  : _unselectedColor.withAlpha(120),
+            const SizedBox(height: 3),
+            Text(
+              'profile',
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.2,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w400,
+                color: isSelected
+                    ? selectedColor
+                    : _unselectedColor.withAlpha(120),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

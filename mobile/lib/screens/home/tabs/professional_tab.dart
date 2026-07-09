@@ -11,6 +11,7 @@ import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
@@ -403,7 +404,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007E6D),
+                  backgroundColor: AppColors.modeProfessional,
                   foregroundColor: Colors.black87,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -440,7 +441,9 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         valueListenable: loadingNotifier,
         builder: (context, isLoading, _) {
           if (isLoading) {
-            return const SettingsLoadingSkeleton(themeColor: Color(0xFF00C4AB));
+            return const SettingsLoadingSkeleton(
+              themeColor: AppColors.modeProfessional,
+            );
           }
           return ProfessionalSettingsOverlay(
             professionalTargetBuckets: _professionalTargetBuckets,
@@ -819,7 +822,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     required String name,
     required void Function(String actorId) onActioned,
   }) async {
-    const themeColor = Color(0xFF00C4AB);
+    const themeColor = AppColors.modeProfessional;
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
 
@@ -906,6 +909,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                   },
                   onReportTap: (c) => showProfileReportDialog(
                     c,
+                    themeColor: themeColor,
                     onConfirmed: (reason, detail) async {
                       Navigator.pop(c);
                       await _recordHandshakeAction(
@@ -968,7 +972,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF007E6D);
+    const themeColor = AppColors.modeProfessional;
     final activeHandshakesCount = _unseenCount;
 
     if (_isLoading) {
@@ -1004,7 +1008,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFF007E6D),
+                            AppColors.modeProfessional,
                             Color(0xFF0EA5E9),
                           ],
                           begin: Alignment.topLeft,
@@ -1013,7 +1017,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF007E6D).withAlpha(76),
+                            color: AppColors.modeProfessional.withAlpha(76),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -1023,7 +1027,7 @@ class _ProfessionalTabState extends State<ProfessionalTab>
                         onTap: () {
                           widget.onOpenOrbit(
                             'Professional',
-                            const Color(0xFF007E6D),
+                            AppColors.modeProfessional,
                           );
                         },
                         borderRadius: BorderRadius.circular(24),

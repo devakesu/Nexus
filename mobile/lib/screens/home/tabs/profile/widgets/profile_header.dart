@@ -35,140 +35,148 @@ class ProfileHeader extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 10),
-          GestureDetector(
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            excludeSemantics: true,
             onTap: onAvatarTap,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Rotating Dashed Orbit Ring
-                AnimatedBuilder(
-                  animation: rotationController,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      size: const Size(136, 136),
-                      painter: OrbitPainter(
-                        color: deepCyan,
-                        progress: rotationController.value,
-                      ),
-                    );
-                  },
-                ),
-                // Inner Pulsing Glow
-                AnimatedBuilder(
-                  animation: pulseController,
-                  builder: (context, child) {
-                    return Container(
-                      width: 108,
-                      height: 108,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: pulsarPink.withValues(
-                              alpha: 0.3 * pulseController.value,
-                            ),
-                            blurRadius: 15 + 10 * pulseController.value,
-                            spreadRadius: 1 + 3 * pulseController.value,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                // Main Avatar Circle
-                Container(
-                  width: 104,
-                  height: 104,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [
-                        Colors.white,
-                        Color(0xFFF3F4F6),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(
-                      color: pulsarPink.withValues(alpha: 0.6),
-                      width: 2,
-                    ),
+            child: GestureDetector(
+              onTap: onAvatarTap,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Rotating Dashed Orbit Ring
+                  AnimatedBuilder(
+                    animation: rotationController,
+                    builder: (context, child) {
+                      return CustomPaint(
+                        size: const Size(136, 136),
+                        painter: OrbitPainter(
+                          color: deepCyan,
+                          progress: rotationController.value,
+                        ),
+                      );
+                    },
                   ),
-                  child: Center(
-                    child: avatarPath != null
-                        ? ClipOval(
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: StorageImage(
-                                    imagePath: avatarPath!,
-                                    width: 100,
-                                    height: 100,
-                                  ),
-                                ),
-                                if ((isProcessingAI || isSaving) &&
-                                    hasPendingUpload)
-                                  const Positioned.fill(
-                                    child: ColoredBox(
-                                      color: Colors.black54,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                pulsarPink,
-                                              ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                  // Inner Pulsing Glow
+                  AnimatedBuilder(
+                    animation: pulseController,
+                    builder: (context, child) {
+                      return Container(
+                        width: 108,
+                        height: 108,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: pulsarPink.withValues(
+                                alpha: 0.3 * pulseController.value,
+                              ),
+                              blurRadius: 15 + 10 * pulseController.value,
+                              spreadRadius: 1 + 3 * pulseController.value,
                             ),
-                          )
-                        : const Icon(
-                            LucideIcons.user,
-                            color: Colors.black38,
-                            size: 44,
-                          ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                ),
-                // Edit Badge
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(9),
+                  // Main Avatar Circle
+                  Container(
+                    width: 104,
+                    height: 104,
                     decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       gradient: const LinearGradient(
                         colors: [
-                          Color(0xFFFF7597),
-                          Color(0xFFFF4D7E),
+                          Colors.white,
+                          Color(0xFFF3F4F6),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white,
-                        width: 2.5,
+                        color: pulsarPink.withValues(alpha: 0.6),
+                        width: 2,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFF7597).withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
-                    child: const Icon(
-                      LucideIcons.camera,
-                      size: 15,
-                      color: Colors.white,
+                    child: Center(
+                      child: avatarPath != null
+                          ? ClipOval(
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: StorageImage(
+                                      imagePath: avatarPath!,
+                                      width: 100,
+                                      height: 100,
+                                    ),
+                                  ),
+                                  if ((isProcessingAI || isSaving) &&
+                                      hasPendingUpload)
+                                    const Positioned.fill(
+                                      child: ColoredBox(
+                                        color: Colors.black54,
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  pulsarPink,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : const Icon(
+                              LucideIcons.user,
+                              color: Colors.black38,
+                              size: 44,
+                            ),
                     ),
                   ),
-                ),
-              ],
+                  // Edit Badge
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFF7597),
+                            Color(0xFFFF4D7E),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFFF7597,
+                            ).withValues(alpha: 0.5),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        LucideIcons.camera,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
