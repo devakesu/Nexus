@@ -71,12 +71,24 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startRecording" -> {
-                        startForegroundService(Intent(this, SafetyRecordingService::class.java))
-                        result.success(null)
+                        // A native crash right as Silent SOS activates would be the
+                        // one moment this app can least afford to fail silently -
+                        // e.g. ForegroundServiceStartNotAllowedException on API 31+
+                        // if the OS decides the app isn't eligible to start one.
+                        try {
+                            startForegroundService(Intent(this, SafetyRecordingService::class.java))
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("FOREGROUND_SERVICE_START_FAILED", e.message, null)
+                        }
                     }
                     "stopRecording" -> {
-                        stopService(Intent(this, SafetyRecordingService::class.java))
-                        result.success(null)
+                        try {
+                            stopService(Intent(this, SafetyRecordingService::class.java))
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("FOREGROUND_SERVICE_STOP_FAILED", e.message, null)
+                        }
                     }
                     "callDirect" -> {
                         val number = call.argument<String>("number").orEmpty()
@@ -104,6 +116,12 @@ class MainActivity : FlutterActivity() {
             return
         }
 
+        // If a previous request is still pending (e.g. a rapid double-tap
+        // before the system permission dialog appeared), resolve it now
+        // instead of silently dropping its Result and leaving that caller's
+        // Dart Future to hang forever - MethodChannel.Result must be
+        // completed exactly once.
+        pendingCallResult?.success(false)
         pendingCallResult = result
         pendingCallNumber = number
         ActivityCompat.requestPermissions(

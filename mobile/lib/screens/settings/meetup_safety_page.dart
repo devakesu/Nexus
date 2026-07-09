@@ -105,11 +105,24 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
     }
   }
 
+  String _digitsOnly(String phone) => phone.replaceAll(RegExp(r'[^\d]'), '');
+
   void _addContact(String name, String phone) {
     if (_contacts.length >= 3) {
       NexusToast.show(
         context,
         'You can add a maximum of 3 trusted contacts.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+    final alreadyAdded = _contacts.any(
+      (c) => _digitsOnly(c.phone) == _digitsOnly(phone),
+    );
+    if (alreadyAdded) {
+      NexusToast.show(
+        context,
+        'That contact is already on your trusted list.',
         type: NexusToastType.error,
       );
       return;
@@ -956,7 +969,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Add up to 3 trusted contacts who should receive simulated location updates when the SOS trigger fires.',
+                "Add up to 3 trusted contacts who'll be texted your location if the SOS trigger fires.",
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF64748B),

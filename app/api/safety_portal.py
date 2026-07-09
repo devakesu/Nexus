@@ -17,6 +17,7 @@ from app.core.portal_auth import (
     verify_portal_access_token,
 )
 from app.core.sms import send_sms
+from app.core.tasks import safe_create_task
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     create_evidence_download_url,
@@ -122,10 +123,16 @@ async def request_portal_otp(
             _OTP_TTL_SECONDS,
             hash_otp(session_id, phone_norm, code),
         )
-        await send_sms(
-            matched_phone,
-            f"Your Nexus Meetup Safety verification code is {code}. It "
-            "expires in 10 minutes. Do not share this code.",
+        # Not awaited: awaiting the Twilio round-trip here would make a
+        # match take measurably longer than a non-match, undermining the
+        # anti-enumeration goal above (the response should look the same
+        # either way, not just say the same thing).
+        safe_create_task(
+            send_sms(
+                matched_phone,
+                f"Your Nexus Meetup Safety verification code is {code}. It "
+                "expires in 10 minutes. Do not share this code.",
+            ),
         )
 
     return SafetyPortalOtpRequestResponse(sent=True)

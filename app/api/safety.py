@@ -17,6 +17,7 @@ from app.db.client import DatabaseAccessError
 from app.db.safety import (
     cancel_safety_escalation,
     end_safety_session,
+    fetch_safety_alert,
     fetch_safety_contacts,
     fetch_safety_session,
     heartbeat_safety_session,
@@ -187,6 +188,23 @@ async def register_evidence(
         raise HTTPException(
             status_code=422,
             detail="storage_path may only reference your own uploads.",
+        )
+
+    try:
+        alert = await asyncio.to_thread(fetch_safety_alert, payload.alert_id)
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database error looking up safety alert for evidence registration",
+            extra={"user_id": user_id, "alert_id": payload.alert_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+    if alert is None or str(alert.get("user_id")) != user_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No matching alert found for this account.",
         )
 
     try:

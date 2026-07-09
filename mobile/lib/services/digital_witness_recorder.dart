@@ -17,10 +17,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// than covert surveillance).
 ///
 /// Platform reality, not a bug:
-/// - Android: recording continues even if the screen locks/app backgrounds,
-///   via a lightweight foreground service (SafetyRecordingService.kt) that
-///   keeps the process alive — the camera plugin itself keeps running in
-///   the Flutter engine the whole time.
+/// - Android: SafetyRecordingService.kt's foreground service keeps this
+///   app's *process* alive while backgrounded/locked, which is necessary
+///   but not by itself a guarantee that the `camera` plugin's capture
+///   session survives — Android has restricted background camera access
+///   since API 28, and whether a foreground service is enough to avoid
+///   that in practice is unverified on a real device. To be safe either
+///   way, this class runs the same pause/resume segment handling on
+///   Android as iOS (below): if backgrounding does interrupt the camera,
+///   the segment gets finalized cleanly instead of corrupted; if it
+///   doesn't, this just means slightly shorter segments, which is harmless.
 /// - iOS: the instant the app leaves the foreground, iOS suspends the
 ///   camera session for every third-party app, no exception. This class
 ///   finalizes the current segment cleanly when that happens (rather than
@@ -39,7 +45,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
   CameraController? controller;
   bool isRecording = false;
   DateTime? _segmentStartedAt;
-  final List<File> _segments = [];
+  final List<(File file, double durationSeconds)> _segments = [];
   String? _alertId;
 
   Duration get elapsed => _segmentStartedAt == null
@@ -125,10 +131,14 @@ class DigitalWitnessRecorder extends ChangeNotifier
 
   Future<void> _finalizeCurrentSegment() async {
     final c = controller;
+    final startedAt = _segmentStartedAt;
     if (c == null || !c.value.isRecordingVideo) return;
     try {
       final file = await c.stopVideoRecording();
-      _segments.add(File(file.path));
+      final durationSeconds = startedAt == null
+          ? 0.0
+          : DateTime.now().difference(startedAt).inMilliseconds / 1000.0;
+      _segments.add((File(file.path), durationSeconds));
     } on CameraException {
       // Best-effort — a failed segment shouldn't crash the SOS flow.
     }
@@ -137,13 +147,26 @@ class DigitalWitnessRecorder extends ChangeNotifier
   Future<void> _uploadSegments() async {
     final alertId = _alertId;
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    final segments = List<File>.from(_segments);
+    final segments = List<(File, double)>.from(_segments);
     _segments.clear();
     _alertId = null;
-    if (alertId == null || userId == null) return;
+
+    if (alertId == null || userId == null) {
+      // No alert to register against (e.g. the SMS alert send failed) -
+      // still clean up the local files rather than leaking them on disk
+      // forever, even though the evidence itself can't be preserved.
+      for (final (file, _) in segments) {
+        try {
+          await file.delete();
+        } on Exception {
+          // Best-effort cleanup.
+        }
+      }
+      return;
+    }
 
     final storage = Supabase.instance.client.storage.from('safety_evidence');
-    for (final segment in segments) {
+    for (final (segment, durationSeconds) in segments) {
       try {
         final bytes = await segment.readAsBytes();
         final encrypted = await MediaCrypto.instance.encrypt(bytes);
@@ -154,6 +177,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
           storagePath: path,
           mediaKeyBase64: encrypted.mediaKeyBase64,
           contentType: 'video',
+          durationSeconds: durationSeconds,
         );
       } on Exception {
         // Best-effort — ciphertext is never left half-uploaded in a
@@ -171,7 +195,11 @@ class DigitalWitnessRecorder extends ChangeNotifier
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!isRecording || !Platform.isIOS) return;
+    // Applied on both platforms, not just iOS - see the class doc comment
+    // on why Android's foreground service isn't assumed to guarantee the
+    // camera session survives backgrounding either. Harmless if it does
+    // (just an extra segment boundary); a real safety net if it doesn't.
+    if (!isRecording) return;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       unawaited(_finalizeCurrentSegment());

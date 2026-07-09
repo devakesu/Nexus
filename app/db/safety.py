@@ -86,6 +86,23 @@ def record_safety_alert(
         raise DatabaseAccessError("Failed to insert safety alert") from e
 
 
+def fetch_safety_alert(alert_id: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("safety_alerts")
+            .select("id, user_id")
+            .eq("id", alert_id)
+            .maybe_single()
+            .execute()
+        )
+        if res and res.data:
+            return cast(dict[str, Any], res.data)
+        return None
+    except APIError as e:
+        logger.exception("Failed to fetch safety alert", extra={"alert_id": alert_id})
+        raise DatabaseAccessError("Failed to fetch safety alert") from e
+
+
 def update_alert_contacts_notified(alert_id: str, count: int) -> None:
     try:
         supabase_client.table("safety_alerts").update(
@@ -197,7 +214,11 @@ def heartbeat_safety_session(
     connection_type: str | None,
 ) -> dict[str, Any] | None:
     """A successful check-in (or a fresh start) proves the device is fine,
-    so this always resets escalations_sent back to 0.
+    so this always resets escalations_sent back to 0. It also clears any
+    earlier escalation_cancelled_at from a *previous* missed-checkin streak
+    - that cancellation was scoped to the incident a trusted contact
+    dismissed, not a permanent opt-out, so a fresh miss later in the same
+    session must still be able to escalate again.
     """
     try:
         res = (
@@ -210,6 +231,9 @@ def heartbeat_safety_session(
                     "connection_type": connection_type,
                     "escalations_sent": 0,
                     "last_escalated_at": None,
+                    "escalation_cancelled_at": None,
+                    "escalation_cancel_reason": None,
+                    "escalation_cancel_note": None,
                 },
             )
             .eq("id", session_id)

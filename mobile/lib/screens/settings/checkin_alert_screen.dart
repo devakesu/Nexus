@@ -137,7 +137,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         // Camera/mic unavailable or denied - the SMS alert already went
         // out; fall back to the mock confirmation so the screen doesn't
         // just sit there looking broken.
-        await showMockSosAlertDialog(context, contacts: _contacts);
+        await showSosFallbackDialog(context, contacts: _contacts);
         if (mounted) setState(() => _phase = _SosPhase.idle);
       }
     } else {
@@ -288,7 +288,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         sessionLabel: MeetupSafetySession.instance.checkInLabel,
       ),
     );
-    showMockInformContactsToast(context, _contacts);
+    showInformContactsToast(context, _contacts);
   }
 
   Widget _buildHeader(String label) {

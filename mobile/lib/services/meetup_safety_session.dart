@@ -75,6 +75,13 @@ class MeetupSafetySession extends ChangeNotifier {
   /// session's location/evidence.
   String? get serverSessionId => _serverSessionId;
 
+  /// Bumped on every start()/end() so a slow-to-resolve _mirrorStart() from
+  /// an earlier start() can tell it's been superseded (e.g. the user tapped
+  /// End almost immediately after Start) and clean up the server-side row it
+  /// just created instead of leaving (or writing over current state with)
+  /// an orphaned "active" session the dead-man's-switch would later escalate.
+  int _sessionGeneration = 0;
+
   /// Sets up notification channels and restores any session that was active
   /// before the app was last closed. Call once from main() after Firebase/
   /// Supabase init, before the app's first frame.
@@ -180,6 +187,12 @@ class MeetupSafetySession extends ChangeNotifier {
     nextCheckInAt = DateTime.fromMillisecondsSinceEpoch(nextEpochMs);
     checkInLabel = prefs.getString(_kPrefLabel) ?? '';
     _serverSessionId = prefs.getString(_kPrefServerSessionId);
+    // Defensively re-post rather than assume the previous ongoing
+    // notification / scheduled alarm survived whatever caused this restart
+    // (idempotent either way - this is the same call every checkInSafely()/
+    // extend() already makes).
+    await _showOngoingNotification();
+    await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
   }
@@ -237,7 +250,7 @@ class MeetupSafetySession extends ChangeNotifier {
   /// start() — the local exact-alarm loop is what actually keeps the check-in
   /// loop working, this just widens the safety net to cover the device going
   /// unreachable entirely.
-  Future<void> _mirrorStart() async {
+  Future<void> _mirrorStart(int generation) async {
     final at = nextCheckInAt;
     if (at == null) return;
     final (batteryPercent, connectionType) = await _gatherDeviceState();
@@ -248,7 +261,14 @@ class MeetupSafetySession extends ChangeNotifier {
       batteryPercent: batteryPercent,
       connectionType: connectionType,
     );
-    if (sessionId == null || !isActive) return;
+    if (sessionId == null) return;
+    if (generation != _sessionGeneration) {
+      // Superseded by a later start()/end() while this request was in
+      // flight - the server already created a row for it, so clean that up
+      // rather than leaving an orphaned active session behind.
+      unawaited(SafetyAlertApi.endSession(sessionId));
+      return;
+    }
     _serverSessionId = sessionId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kPrefServerSessionId, sessionId);
@@ -296,6 +316,7 @@ class MeetupSafetySession extends ChangeNotifier {
     required String label,
   }) async {
     await _ensureAndroidPermissions();
+    final generation = ++_sessionGeneration;
     isActive = true;
     checkInInterval = interval;
     checkInLabel = label;
@@ -305,7 +326,7 @@ class MeetupSafetySession extends ChangeNotifier {
     await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
-    unawaited(_mirrorStart());
+    unawaited(_mirrorStart(generation));
   }
 
   Future<void> checkInSafely() async {
@@ -332,6 +353,7 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   Future<void> end() async {
+    ++_sessionGeneration;
     isActive = false;
     nextCheckInAt = null;
     checkInLabel = '';

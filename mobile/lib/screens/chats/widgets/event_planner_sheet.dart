@@ -106,7 +106,16 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
       );
       if (!mounted) return;
       contacts = await loadSafetyContacts();
-      if (contacts.isEmpty) return;
+      if (contacts.isEmpty) {
+        if (mounted) {
+          NexusToast.show(
+            context,
+            'Add a trusted contact to turn on Meetup Safety.',
+            type: NexusToastType.error,
+          );
+        }
+        return;
+      }
     }
     if (mounted) setState(() => _safetyEnabled = true);
   }

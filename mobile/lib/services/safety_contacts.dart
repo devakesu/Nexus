@@ -66,21 +66,25 @@ Future<void> saveSafetyContacts(List<SafetyContact> contacts) async {
 }
 
 // ---------------------------------------------------------------------------
-// Mock action handlers (real SOS/call/inform side effects land in a later
-// phase — see the Meetup Safety plan). These give consistent UI feedback
-// wherever they're triggered from (MeetupSafetyPage, CheckInAlertScreen).
+// Confirmation UI shown after the real SOS/inform SMS has already been sent
+// (SafetyAlertApi.sendAlert) — these just give the user consistent visual
+// feedback that it went out, wherever they're triggered from (MeetupSafetyPage,
+// CheckInAlertScreen). They don't send anything themselves.
 // ---------------------------------------------------------------------------
 
-/// Shows the "Emergency Triggered" confirmation dialog used after an SOS
-/// countdown resolves.
-Future<void> showMockSosAlertDialog(
+/// Shown when Silent SOS's Digital Witness recording couldn't start (camera/
+/// mic permission denied, no camera available) — the SOS alert itself was
+/// already sent for real, so this confirms that rather than implying nothing
+/// happened.
+Future<void> showSosFallbackDialog(
   BuildContext context, {
   required List<SafetyContact> contacts,
 }) async {
   final contactNames = contacts.map((c) => c.name).join(', ');
   final message = contacts.isEmpty
-      ? 'Emergency SOS Activated! Mocking broadcast alert...'
-      : 'Emergency SOS Activated! Mock alert and GPS location sent to: $contactNames';
+      ? 'Emergency SOS activated! Your alert is on its way.'
+      : 'Emergency SOS activated! Your alert and last known location were '
+            'sent to: $contactNames. Evidence recording could not start.';
 
   await showDialog<void>(
     context: context,
@@ -147,9 +151,10 @@ Future<void> launchSafetyTel(BuildContext context, String number) async {
   }
 }
 
-/// Lighter-weight than a full SOS: nudges trusted contacts without a
-/// countdown or confirmation dialog.
-void showMockInformContactsToast(
+/// Lighter-weight than a full SOS: confirms the real "inform" SMS
+/// (SafetyAlertApi.sendAlert, already fired by the caller) went out, without
+/// a countdown or confirmation dialog.
+void showInformContactsToast(
   BuildContext context,
   List<SafetyContact> contacts,
 ) {
@@ -164,7 +169,7 @@ void showMockInformContactsToast(
   final contactNames = contacts.map((c) => c.name).join(', ');
   NexusToast.show(
     context,
-    'Mock alert sent to $contactNames with your live check-in status.',
+    'Alert sent to $contactNames with your check-in status.',
     type: NexusToastType.success,
   );
 }

@@ -1599,7 +1599,18 @@ class SafetyPortalOtpRequestResponse(BaseModel):
 
 class SafetyPortalOtpVerifyRequest(BaseModel):
     phone: str = Field(..., min_length=6, max_length=20)
-    code: str = Field(..., min_length=4, max_length=8)
+    # Exactly 6 digits, matching generate_otp_code() - rejecting malformed
+    # input here (a 422) rather than letting it consume one of the 5
+    # precious verify attempts against a code that could never have matched.
+    code: str = Field(..., pattern=r"^\d{6}$")
+
+    @field_validator("phone")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
 
 
 class SafetyPortalOtpVerifyResponse(BaseModel):
