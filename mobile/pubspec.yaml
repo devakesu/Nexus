@@ -30,6 +30,7 @@ environment:
 dependencies:
   app_settings: ^6.1.1
   cached_network_image: ^3.4.1
+  camera: ^0.12.0+1
   cryptography: ^2.9.0
   cupertino_icons: ^1.0.8
   dio: ^5.9.2
@@ -61,6 +62,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.14+1
   package_info_plus: ^10.2.0
   path_provider: ^2.1.6
+  permission_handler: ^12.0.3
   record: ^7.1.1
   riverpod_annotation: ^4.0.2
   scrollable_positioned_list: ^0.3.8
@@ -99,6 +101,7 @@ flutter:
   assets:
     - assets/nexus.png
     - assets/nexus-mec.png
+    - assets/sounds/emergency_alarm.wav
     - assets/google_logo.png
 
   # To add assets to your application, add an assets section, like this:

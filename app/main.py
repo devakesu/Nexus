@@ -16,6 +16,7 @@ from app.api.devices import router as devices_router
 from app.api.discovery import router as discovery_router
 from app.api.feedback import router as feedback_router
 from app.api.likes import router as likes_router
+from app.api.safety import router as safety_router
 from app.api.spotify import router as spotify_router
 from app.api.status import router as status_router
 from app.api.sync import router as sync_router
@@ -131,6 +132,7 @@ app.include_router(devices_router)
 app.include_router(discovery_router)
 app.include_router(feedback_router)
 app.include_router(likes_router)
+app.include_router(safety_router)
 app.include_router(spotify_router)
 app.include_router(user_router)
 app.include_router(sync_router)

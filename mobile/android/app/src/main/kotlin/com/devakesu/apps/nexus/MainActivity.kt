@@ -1,12 +1,17 @@
 package com.devakesu.apps.nexus
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.spotify.sdk.android.auth.AuthorizationClient
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
@@ -19,9 +24,18 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val CHANNEL = "com.devakesu.apps.nexus/spotify_auth"
         const val SPOTIFY_REQUEST_CODE = 0x5B01
+
+        const val SAFETY_CHANNEL = "com.devakesu.apps.nexus/safety"
+        const val CALL_PERMISSION_REQUEST_CODE = 0x5B02
     }
 
     private var pendingSpotifyResult: MethodChannel.Result? = null
+
+    // Meetup Safety direct-dial: a CALL_PHONE permission request has to round
+    // -trip through onRequestPermissionsResult, so the pending MethodChannel
+    // result and the number to dial are held here in the meantime.
+    private var pendingCallResult: MethodChannel.Result? = null
+    private var pendingCallNumber: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +66,82 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SAFETY_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startRecording" -> {
+                        startForegroundService(Intent(this, SafetyRecordingService::class.java))
+                        result.success(null)
+                    }
+                    "stopRecording" -> {
+                        stopService(Intent(this, SafetyRecordingService::class.java))
+                        result.success(null)
+                    }
+                    "callDirect" -> {
+                        val number = call.argument<String>("number").orEmpty()
+                        if (number.isEmpty()) {
+                            result.error("INVALID_NUMBER", "number is missing", null)
+                        } else {
+                            callDirect(number, result)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    // --- Meetup Safety direct-dial (Android only - iOS never allows any
+    // third-party app to place a call without its own system confirmation
+    // prompt, so there's no equivalent on that platform) ---
+
+    private fun callDirect(number: String, result: MethodChannel.Result) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            placeCall(number)
+            result.success(true)
+            return
+        }
+
+        pendingCallResult = result
+        pendingCallNumber = number
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.CALL_PHONE),
+            CALL_PERMISSION_REQUEST_CODE,
+        )
+    }
+
+    private fun placeCall(number: String) {
+        startActivity(
+            Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != CALL_PERMISSION_REQUEST_CODE) return
+
+        val result = pendingCallResult
+        val number = pendingCallNumber
+        pendingCallResult = null
+        pendingCallNumber = null
+
+        val granted = grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        if (granted && number != null) {
+            placeCall(number)
+        }
+        // A false result tells the Dart side to fall back to the
+        // dialer-prefill flow (e.g. permission denied).
+        result?.success(granted)
     }
 
     private fun createNotificationChannels() {

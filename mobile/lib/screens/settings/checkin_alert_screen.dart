@@ -1,13 +1,21 @@
 import 'dart:async';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
+import 'package:nexus/services/digital_witness_recorder.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
+import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
+import 'package:nexus/services/safety_dialer.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
+
+enum _SosPhase { idle, countdown, silentActive, loudActive }
 
 /// Full-screen, animated Meetup Safety check-in alert. Pushed by
 /// [MeetupSafetySession] whenever a check-in comes due — whether the app was
@@ -29,10 +37,13 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   static const _teal = Color(0xFF0D9488);
   static const _red = Color(0xFFEF4444);
 
-  bool _sosActive = false;
+  _SosPhase _phase = _SosPhase.idle;
+  bool _pendingSilent = false;
   int _sosCountdown = 5;
   Timer? _sosTimer;
   List<SafetyContact> _contacts = [];
+  AudioPlayer? _alarmPlayer;
+  String? _lastAlertId;
 
   @override
   void initState() {
@@ -43,6 +54,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   @override
   void dispose() {
     _sosTimer?.cancel();
+    unawaited(_alarmPlayer?.dispose());
     super.dispose();
   }
 
@@ -57,13 +69,17 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   }
 
   Future<void> _turnOffMeetupSafety() async {
+    await _stopSos();
     await MeetupSafetySession.instance.end();
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _startSos() {
+  // --- SOS: countdown, then split into Silent / Loud ---
+
+  void _startSosCountdown({required bool silent}) {
     setState(() {
-      _sosActive = true;
+      _phase = _SosPhase.countdown;
+      _pendingSilent = silent;
       _sosCountdown = 5;
     });
     _sosTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -71,19 +87,102 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         setState(() => _sosCountdown--);
       } else {
         _sosTimer?.cancel();
-        unawaited(_triggerSosAlert());
+        unawaited(_activateSos());
       }
     });
   }
 
-  void _cancelSos() {
+  void _cancelSosCountdown() {
     _sosTimer?.cancel();
-    setState(() => _sosActive = false);
+    setState(() => _phase = _SosPhase.idle);
   }
 
-  Future<void> _triggerSosAlert() async {
-    setState(() => _sosActive = false);
-    await showMockSosAlertDialog(context, contacts: _contacts);
+  Future<Position?> _tryGetLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      return await Geolocator.getCurrentPosition();
+    } on Exception {
+      return null;
+    }
+  }
+
+  Future<void> _activateSos() async {
+    final silent = _pendingSilent;
+    final session = MeetupSafetySession.instance;
+    final position = await _tryGetLocation();
+    final result = await SafetyAlertApi.sendAlert(
+      alertType: silent ? 'sos_silent' : 'sos_loud',
+      sessionLabel: session.checkInLabel,
+      latitude: position?.latitude,
+      longitude: position?.longitude,
+    );
+    _lastAlertId = result?.alertId;
+    if (!mounted) return;
+
+    if (silent) {
+      setState(() => _phase = _SosPhase.silentActive);
+      final started = await DigitalWitnessRecorder.instance.start(
+        alertId: _lastAlertId,
+      );
+      if (!started && mounted) {
+        // Camera/mic unavailable or denied - the SMS alert already went
+        // out; fall back to the mock confirmation so the screen doesn't
+        // just sit there looking broken.
+        await showMockSosAlertDialog(context, contacts: _contacts);
+        if (mounted) setState(() => _phase = _SosPhase.idle);
+      }
+    } else {
+      setState(() => _phase = _SosPhase.loudActive);
+      await _startAlarm();
+    }
+  }
+
+  Future<void> _startAlarm() async {
+    final player = AudioPlayer();
+    _alarmPlayer = player;
+    try {
+      await player.setAsset('assets/sounds/emergency_alarm.wav');
+      await player.setLoopMode(LoopMode.all);
+      await player.setVolume(1);
+      await player.play();
+    } on Exception {
+      // Non-fatal - the SMS alert already went out even if the alarm sound
+      // fails to load/play.
+    }
+  }
+
+  Future<void> _stopAlarm() async {
+    final player = _alarmPlayer;
+    _alarmPlayer = null;
+    if (player != null) {
+      await player.stop();
+      await player.dispose();
+    }
+  }
+
+  /// Stops everything (alarm and/or recording) without calling anyone.
+  Future<void> _stopSos() async {
+    await _stopAlarm();
+    if (DigitalWitnessRecorder.instance.isRecording) {
+      await DigitalWitnessRecorder.instance.stop();
+    }
+    if (mounted) setState(() => _phase = _SosPhase.idle);
+  }
+
+  /// Loud SOS's "Call 112": the alarm and a live call can't sensibly run at
+  /// once, so this stops the alarm first, then places the call.
+  Future<void> _callFromLoudAlarm() async {
+    await _stopAlarm();
+    if (mounted) setState(() => _phase = _SosPhase.idle);
+    if (mounted) await callEmergencyNumber(context, '112');
   }
 
   @override
@@ -110,8 +209,28 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                     _buildHeader(session.checkInLabel),
                     const Spacer(),
                     _buildImSafeButton(),
-                    const SizedBox(height: 28),
-                    _buildSosButton(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSosModeButton(
+                            label: 'Silent SOS',
+                            icon: LucideIcons.video,
+                            filled: false,
+                            onTap: () => _startSosCountdown(silent: true),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildSosModeButton(
+                            label: 'Loud SOS',
+                            icon: LucideIcons.siren,
+                            filled: true,
+                            onTap: () => _startSosCountdown(silent: false),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -119,7 +238,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                           child: _buildSecondaryTile(
                             icon: LucideIcons.phoneCall,
                             label: 'Call 112',
-                            onTap: () => launchSafetyTel(context, 'tel:112'),
+                            onTap: () => callEmergencyNumber(context, '112'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -127,8 +246,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                           child: _buildSecondaryTile(
                             icon: LucideIcons.users,
                             label: 'Inform Contacts',
-                            onTap: () =>
-                                showMockInformContactsToast(context, _contacts),
+                            onTap: _informContacts,
                           ),
                         ),
                       ],
@@ -151,11 +269,24 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                 ),
               ),
             ),
-            if (_sosActive) _buildSosOverlay(),
+            if (_phase == _SosPhase.countdown) _buildCountdownOverlay(),
+            if (_phase == _SosPhase.silentActive)
+              _buildSilentRecordingOverlay(),
+            if (_phase == _SosPhase.loudActive) _buildLoudAlarmOverlay(),
           ],
         ),
       ),
     );
+  }
+
+  void _informContacts() {
+    unawaited(
+      SafetyAlertApi.sendAlert(
+        alertType: 'inform',
+        sessionLabel: MeetupSafetySession.instance.checkInLabel,
+      ),
+    );
+    showMockInformContactsToast(context, _contacts);
   }
 
   Widget _buildHeader(String label) {
@@ -240,88 +371,49 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         .slideY(begin: 0.08, end: 0);
   }
 
-  Widget _buildSosButton() {
-    return SizedBox(
-      width: 150,
-      height: 150,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          ..._buildRadarRings(),
-          ScalePressable(
-                onTap: _startSos,
-                child: Container(
-                  width: 104,
-                  height: 104,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _red,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _red.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        spreadRadius: 2,
-                      ),
-                    ],
+  Widget _buildSosModeButton({
+    required String label,
+    required IconData icon,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    return ScalePressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: filled ? _red : _red.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: filled ? _red : _red.withValues(alpha: 0.4),
+            width: filled ? 0 : 1.5,
+          ),
+          boxShadow: filled
+              ? [
+                  BoxShadow(
+                    color: _red.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          LucideIcons.shieldAlert,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'SOS',
-                          style: GoogleFonts.manrope(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(
-                begin: const Offset(0.97, 0.97),
-                end: const Offset(1.03, 1.03),
-                duration: 1300.ms,
-                curve: Curves.easeInOut,
-              ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 250.ms, duration: 350.ms);
-  }
-
-  List<Widget> _buildRadarRings() {
-    return List.generate(3, (i) {
-      return Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: _red.withValues(alpha: 0.3),
-                width: 1.5,
+                ]
+              : null,
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: filled ? Colors.white : _red, size: 22),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: filled ? Colors.white : _red,
               ),
             ),
-          )
-          .animate(onPlay: (c) => c.repeat(), delay: (i * 700).ms)
-          .scale(
-            begin: const Offset(1, 1),
-            end: const Offset(1.4, 1.4),
-            duration: 2000.ms,
-            curve: Curves.easeOut,
-          )
-          .fadeOut(duration: 2000.ms, curve: Curves.easeOut);
-    });
+          ],
+        ),
+      ),
+    ).animate().fadeIn(delay: 250.ms, duration: 350.ms);
   }
 
   Widget _buildSecondaryTile({
@@ -356,7 +448,32 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
     ).animate().fadeIn(delay: 300.ms, duration: 350.ms);
   }
 
-  Widget _buildSosOverlay() {
+  List<Widget> _buildRadarRings(Color color, double size) {
+    return List.generate(3, (i) {
+      return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+          )
+          .animate(onPlay: (c) => c.repeat(), delay: (i * 700).ms)
+          .scale(
+            begin: const Offset(1, 1),
+            end: const Offset(1.4, 1.4),
+            duration: 2000.ms,
+            curve: Curves.easeOut,
+          )
+          .fadeOut(duration: 2000.ms, curve: Curves.easeOut);
+    });
+  }
+
+  Widget _buildCountdownOverlay() {
+    final silent = _pendingSilent;
     return Container(
       color: Colors.black.withValues(alpha: 0.9),
       width: double.infinity,
@@ -394,7 +511,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                 .shake(duration: 500.ms, hz: 3),
             const SizedBox(height: 28),
             Text(
-              'ACTIVATING SOS ALERT',
+              silent ? 'ACTIVATING SILENT SOS' : 'ACTIVATING LOUD SOS',
               style: GoogleFonts.manrope(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
@@ -404,7 +521,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
             ),
             const SizedBox(height: 40),
             ScalePressable(
-              onTap: _cancelSos,
+              onTap: _cancelSosCountdown,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 36,
@@ -421,6 +538,226 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                     fontWeight: FontWeight.w900,
                     color: _red,
                     letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Silent SOS's "Digital Witness" viewfinder — an explicit, visible
+  // recording, never covert. See DigitalWitnessRecorder's doc comment.
+  Widget _buildSilentRecordingOverlay() {
+    return Container(
+      color: const Color(0xFF0B0F1A),
+      width: double.infinity,
+      height: double.infinity,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: _red,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .fadeOut(duration: 600.ms, curve: Curves.easeInOut),
+                  const SizedBox(width: 8),
+                  Text(
+                    'RECORDING EVIDENCE',
+                    style: GoogleFonts.manrope(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedBuilder(
+                    animation: DigitalWitnessRecorder.instance,
+                    builder: (context, _) {
+                      final controller =
+                          DigitalWitnessRecorder.instance.controller;
+                      if (controller == null ||
+                          !controller.value.isInitialized) {
+                        return const ColoredBox(
+                          color: Color(0xFF141822),
+                          child: Center(
+                            child: CircularProgressIndicator(color: _accent),
+                          ),
+                        );
+                      }
+                      return CameraPreview(controller);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Recording video and audio as evidence, in the open — this '
+                'is visible on your screen the whole time, never hidden. '
+                'It stops the moment you tap Stop SOS.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: Colors.white60,
+                  fontSize: 12.5,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ScalePressable(
+                onTap: _stopSos,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Stop SOS',
+                      style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoudAlarmOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.92),
+      width: double.infinity,
+      height: double.infinity,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 180,
+              height: 180,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  ..._buildRadarRings(_red, 130),
+                  Container(
+                        width: 130,
+                        height: 130,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _red,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _red.withValues(alpha: 0.5),
+                              blurRadius: 24,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          LucideIcons.siren,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .scale(
+                        begin: const Offset(0.95, 0.95),
+                        end: const Offset(1.08, 1.08),
+                        duration: 600.ms,
+                        curve: Curves.easeInOut,
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            Text(
+              'LOUD SOS ACTIVE',
+              style: GoogleFonts.manrope(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Alarm sounding at full volume. Trusted contacts have been '
+                'notified.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 40),
+            ScalePressable(
+              onTap: _callFromLoudAlarm,
+              child: Container(
+                width: 240,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Center(
+                  child: Text(
+                    'STOP ALARM & CALL 112',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: _red,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            ScalePressable(
+              onTap: _stopSos,
+              child: Container(
+                width: 240,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white38),
+                ),
+                child: Center(
+                  child: Text(
+                    'STOP SOS',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white70,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ),

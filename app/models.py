@@ -1468,3 +1468,60 @@ class FeedbackCloseRequest(BaseModel):
         if not v:
             raise ValueError("must not be blank")
         return v
+
+
+# ---------------------------------------------------------------------------
+# Meetup Safety
+# ---------------------------------------------------------------------------
+
+
+class SafetyContactIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=6, max_length=20)
+
+    @field_validator("name", "phone")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class SafetyContactsSyncRequest(BaseModel):
+    """Replaces the caller's full trusted-contact list. The list is always
+    small (device caps it at 3), so a replace-all sync is simpler than
+    per-contact add/remove endpoints and can't drift out of order.
+    """
+
+    contacts: list[SafetyContactIn] = Field(..., max_length=3)
+
+
+class SafetyLocation(BaseModel):
+    lat: float
+    lng: float
+
+
+class SafetyAlertRequest(BaseModel):
+    alert_type: Literal["sos_silent", "sos_loud", "inform"]
+    session_label: str | None = Field(default=None, max_length=200)
+    event_label: str | None = Field(default=None, max_length=200)
+    current_location: SafetyLocation | None = None
+
+
+class SafetyAlertResponse(BaseModel):
+    id: str
+    contacts_notified: int
+    contacts_total: int
+
+
+class SafetyEvidenceRegisterRequest(BaseModel):
+    alert_id: str
+    storage_path: str = Field(..., max_length=500)
+    media_key_base64: str = Field(..., max_length=500)
+    content_type: Literal["video", "audio"]
+    duration_seconds: float | None = None
+
+
+class SafetyEvidenceRegisterResponse(BaseModel):
+    id: str

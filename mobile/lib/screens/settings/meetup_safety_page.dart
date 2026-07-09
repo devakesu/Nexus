@@ -8,6 +8,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
+import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -117,6 +118,9 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
       _contacts.add(SafetyContact(name: name, phone: phone));
     });
     unawaited(saveSafetyContacts(_contacts));
+    // Best-effort server mirror so SOS/inform alerts can be sent without
+    // the device online — failures here don't block the local save above.
+    unawaited(SafetyAlertApi.syncContacts(_contacts));
     NexusToast.show(
       context,
       'Contact added successfully',
@@ -129,6 +133,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
       _contacts.removeAt(index);
     });
     unawaited(saveSafetyContacts(_contacts));
+    unawaited(SafetyAlertApi.syncContacts(_contacts));
     NexusToast.show(context, 'Contact removed');
   }
 
@@ -390,10 +395,10 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
 
   Widget _buildCheckInForm() {
     final durationOptions = <Duration>[
+      const Duration(minutes: 15),
       const Duration(minutes: 30),
       const Duration(hours: 1),
       const Duration(hours: 2),
-      const Duration(hours: 3),
     ];
 
     return Column(
@@ -446,41 +451,24 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: durationOptions.map((d) {
-            final selected = d == _checkInSelectedDuration;
-            final label = d.inMinutes < 60
-                ? '${d.inMinutes}m'
-                : '${d.inHours}h';
-            return ScalePressable(
-              onTap: () => setState(() => _checkInSelectedDuration = d),
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: selected ? _accent : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: selected ? _accent : const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: Text(
-                  label,
-                  style: GoogleFonts.manrope(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: selected ? Colors.white : const Color(0xFF475569),
-                  ),
-                ),
+        Column(
+          children: [
+            for (var row = 0; row < 2; row++) ...[
+              if (row > 0) const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var col = 0; col < 2; col++) ...[
+                    if (col > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildDurationOption(
+                        durationOptions[row * 2 + col],
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            );
-          }).toList(),
+            ],
+          ],
         ),
         const SizedBox(height: 18),
         _buildNotificationExplainerCard(),
@@ -548,6 +536,34 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildDurationOption(Duration d) {
+    final selected = d == _checkInSelectedDuration;
+    final label = d.inMinutes < 60 ? '${d.inMinutes}m' : '${d.inHours}h';
+    return ScalePressable(
+      onTap: () => setState(() => _checkInSelectedDuration = d),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? _accent : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? _accent : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
     );
   }
 

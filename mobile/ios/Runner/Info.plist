@@ -41,11 +41,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Nexus needs microphone access to record voice messages in chat.</string>
+	<string>Nexus needs microphone access to record voice messages in chat, and to record evidence during a Meetup Safety Silent SOS.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Nexus needs camera access to take photos to send in chat.</string>
+	<string>Nexus needs camera access to take photos to send in chat, and to record video evidence during a Meetup Safety Silent SOS.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Nexus needs your location to share it in chat.</string>
+	<string>Nexus needs your location to share it in chat and to include with a Meetup Safety alert.</string>
 	<!-- Required by workmanager for the periodic one-time-prekey top-up
 	     background task (see lib/services/signal/background_prekey_task.dart
 	     and AppDelegate.swift). The identifier must exactly match

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     rate_limit_discover: str = "10/minute"
     rate_limit_auth: str = "5/minute"
     rate_limit_feedback: str = "5/hour"
+    rate_limit_safety: str = "20/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # --- Infrastructure / crypto ---
@@ -64,6 +65,11 @@ class Settings(BaseSettings):
     sendpulse_client_id: str | None = None
     sendpulse_client_secret: str | None = None
     app_domain: str
+
+    # -- SMS / Twilio (Meetup Safety SOS + inform alerts) --
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from_number: str | None = None
     app_name: str = "Nexus Orbit"
     debug: bool = False
 
