@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
-import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 
 /// Fixed device id used everywhere in this app - single-device-per-user for
@@ -51,18 +51,9 @@ class SessionManager {
     try {
       await sessionBuilder.processPreKeyBundle(bundle);
     } on UntrustedIdentityException catch (e) {
-      // See `MessageCodec._withIdentityRepin` for why this app auto-accepts
-      // a changed identity instead of permanently refusing to (re-)session
-      // with this peer: there's no safety-number verification UI, so a
-      // mismatch here almost always just means the peer reinstalled.
       final newKey = e.key;
       if (newKey == null) rethrow;
-      ErrorHandler.handleError(
-        e,
-        level: ErrorLevel.warning,
-        customMessage: 'Auto-repinning changed identity key for $address',
-        showUi: false,
-      );
+      UntrustedIdentityRegistry.register(peerUserId, newKey);
       await store.saveIdentity(address, newKey);
       await sessionBuilder.processPreKeyBundle(bundle);
     }
@@ -131,4 +122,50 @@ class SessionManager {
     }
   }
 
+}
+
+class UntrustedIdentityRegistry {
+  static final Map<String, IdentityKey> pendingUntrustedKeys = {};
+  static final Map<String, List<DateTime>> keyChangeTimestamps = {};
+
+  static bool hasUntrustedIdentity(String peerUserId) {
+    return pendingUntrustedKeys.containsKey(peerUserId);
+  }
+
+  static void register(String peerUserId, IdentityKey key) {
+    pendingUntrustedKeys[peerUserId] = key;
+    keyChangeTimestamps.putIfAbsent(peerUserId, () => []).add(DateTime.now());
+  }
+
+  static void resolve(String peerUserId) {
+    pendingUntrustedKeys.remove(peerUserId);
+  }
+
+  static Future<String> computeSafetyNumber(IdentityKeyPair local, IdentityKey peer) async {
+    final localBytes = local.getPublicKey().serialize();
+    final peerBytes = peer.serialize();
+
+    final sorted = [localBytes, peerBytes]..sort((a, b) {
+        for (var i = 0; i < a.length && i < b.length; i++) {
+          if (a[i] != b[i]) return a[i].compareTo(b[i]);
+        }
+        return a.length.compareTo(b.length);
+      });
+
+    final sha256 = Sha256();
+    final hashObj = await sha256.hash([...sorted[0], ...sorted[1]]);
+    final hash = hashObj.bytes;
+
+    final buffer = StringBuffer();
+    for (var i = 0; i < 6; i++) {
+      final chunk = (hash[i * 4] << 24) |
+                    (hash[i * 4 + 1] << 16) |
+                    (hash[i * 4 + 2] << 8) |
+                    hash[i * 4 + 3];
+      final group = (chunk.abs() % 100000).toString().padLeft(5, '0');
+      buffer.write(group);
+      if (i < 5) buffer.write(' ');
+    }
+    return buffer.toString();
+  }
 }

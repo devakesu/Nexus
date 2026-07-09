@@ -630,9 +630,20 @@ class MarkLikesSeenRequest(BaseModel):
     Otherwise supply a list of actor_ids to mark selectively.
     """
 
-    actor_ids: list[str] = Field(default_factory=list)
+    actor_ids: list[str] = Field(default_factory=list, max_length=1000)
     mark_all: bool = False
     tab: DiscoveryTab | None = None
+
+    @field_validator("actor_ids")
+    @classmethod
+    def validate_uuids(cls, v: list[str]) -> list[str]:
+        import uuid
+        for x in v:
+            try:
+                uuid.UUID(x)
+            except ValueError as e:
+                raise ValueError(f"Invalid UUID: {x}") from e
+        return v
 
 
 class PeerProfileRequest(BaseModel):

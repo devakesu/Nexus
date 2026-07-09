@@ -62,6 +62,7 @@ def fetch_matches_for_user(user_id: str, tab: str = "Dating") -> list[dict[str, 
             .eq("tab", tab)
             .is_("unmatched_at", "null")
             .order("created_at", desc=True)
+            .limit(1000)
             .execute()
         )
         rows = cast(list[Any], res.data or [])

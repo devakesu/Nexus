@@ -40,7 +40,7 @@ class SafetyAlertApi {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } on Exception {
+    } catch (_) {
       return false;
     }
   }
@@ -81,7 +81,7 @@ class SafetyAlertApi {
         contactsNotified: data['contacts_notified'] as int,
         contactsTotal: data['contacts_total'] as int,
       );
-    } on Exception {
+    } catch (_) {
       return null;
     }
   }
@@ -109,7 +109,7 @@ class SafetyAlertApi {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } on Exception {
+    } catch (_) {
       return false;
     }
   }
@@ -139,7 +139,7 @@ class SafetyAlertApi {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return response.data?['id'] as String?;
-    } on Exception {
+    } catch (_) {
       return null;
     }
   }
@@ -165,7 +165,7 @@ class SafetyAlertApi {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } on Exception {
+    } catch (_) {
       return false;
     }
   }
@@ -179,7 +179,7 @@ class SafetyAlertApi {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } on Exception {
+    } catch (_) {
       return false;
     }
   }

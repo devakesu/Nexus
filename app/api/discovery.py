@@ -275,8 +275,33 @@ async def handle_discovery_action(
     user_id: str = Depends(get_authenticated_user_id),
 ):
     _ = request
-    if payload.action == "report":
-        from app.db.sessions import is_candidate_in_active_session
+    from app.db.exclusions import has_active_discovery_action
+    from app.db.sessions import is_candidate_in_active_session
+
+    is_reversal = payload.action.startswith("un")
+    base_action = payload.action[2:] if is_reversal else payload.action
+
+    if is_reversal:
+        # Reversal actions (unblock, unhide, unlike, unsuperlike) must be
+        # validated against an existing active action of the base type.
+        is_valid = await asyncio.to_thread(
+            has_active_discovery_action,
+            user_id,
+            payload.target_id,
+            base_action,
+            payload.tab,
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"No active '{base_action}' action found "
+                    "targeting this user to reverse."
+                ),
+            )
+    else:
+        # Forward actions (report, like, superlike, block, pass, hide) must be validated
+        # against active session membership.
         is_valid = await asyncio.to_thread(
             is_candidate_in_active_session,
             user_id,
@@ -288,6 +313,7 @@ async def handle_discovery_action(
                 detail="Target user is not in any active discovery session.",
             )
 
+    if payload.action == "report":
         await asyncio.to_thread(
             record_user_report,
             reporter_id=user_id,

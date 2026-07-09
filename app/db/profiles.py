@@ -318,7 +318,7 @@ def _build_candidate_query(
         # PostgREST GET request can exceed URL length limits.
         # Consider chunking or migrating this to a DB-side RPC function /
         # exclusion view if this list grows large.
-        query = query.not_.in_("id", list(excluded_ids))
+        query = query.not_.in_("id", list(excluded_ids)[:1000])
 
     return query
 
@@ -714,7 +714,16 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
     try:
         res = (
             supabase_client.table("profiles")
-            .select("*")
+            .select(
+                "id, name, age, campus_year, display_gender, display_sexuality, "
+                "pronouns, bio, campus_branch, campus_name, hometown, current_place, "
+                "children_plans, religious_beliefs, lifestyle, drinking, smoking, "
+                "role_at, profile_pic, looking_for, activities, causes_supported, "
+                "top_artists, tech_skills, role_type, languages, ai_vibe_tags, "
+                "pets, normal_pics, partner_values, interests, sub_interests, "
+                "value_dimensions, ordered_images, created_at, updated_at, "
+                "is_deactivated",
+            )
             .eq("id", target_id)
             .eq("is_deactivated", False)
             .limit(1)

@@ -40,6 +40,7 @@ Dio _createDioInstance() {
 
   dio
     ..addSentry()
+    ..interceptors.add(AuthInterceptor())
     ..interceptors.add(AppCheckInterceptor());
 
   return dio;
@@ -47,6 +48,24 @@ Dio _createDioInstance() {
 
 /// Returns a shared [Dio] instance configured for the current environment.
 Dio createDio() => _globalDio;
+
+class AuthInterceptor extends Interceptor {
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) {
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      if (token != null && !options.headers.containsKey('Authorization')) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+    } catch (_) {
+      // Supabase instance not initialized or auth state inaccessible.
+    }
+    super.onRequest(options, handler);
+  }
+}
 
 class AppCheckInterceptor extends Interceptor {
   static const _replayProtectedPaths = {
@@ -97,18 +116,20 @@ class NetworkUtils {
     if (token == null) throw Exception('Not signed in');
     return token;
   }
-  /// Validates that the hostname of the untrusted certificate matches the expected backend host.
+  /// Validates that the hostname of the untrusted certificate is a local/development host.
   static bool validateCertificateHostname(
     X509Certificate cert,
     String host,
     int port,
   ) {
     try {
-      final backendUri = Uri.parse(AppConfig.current.backendUrl);
-      final expectedHost = backendUri.host;
-
-      // Allow if it matches the configured backend hostname, or common dev hosts.
-      return host == expectedHost;
+      // Only allow local development bypasses for loopback/emulator/local IPs.
+      return host == 'localhost' ||
+          host == '127.0.0.1' ||
+          host == '10.0.2.2' ||
+          host.startsWith('192.168.') ||
+          host.startsWith('10.') ||
+          host.startsWith('172.');
     } on Exception catch (_) {
       return false;
     }

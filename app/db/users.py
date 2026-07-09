@@ -10,7 +10,7 @@ from supabase_auth import User, UserResponse
 
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.crypto import compute_blind_index, encrypt_to_hex
+from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
 from app.core.email import redact_email
 from app.db.client import parse_utc_datetime, supabase_client
 
@@ -98,13 +98,14 @@ def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
 
 
 def fetch_public_user(user_id: str) -> dict[str, Any] | None:
+    from app.core.crypto import decrypt_pii
     try:
         result = (
             supabase_client.table("users")
             .select(
-                "id, email, app_variant, is_active, is_suspended, suspended_until, "
-                "moderation_status, moderation_reason_code, accepted_terms_version, "
-                "terms_accepted_at",
+                "id, email, mobile, app_variant, is_active, is_suspended, "
+                "suspended_until, moderation_status, moderation_reason_code, "
+                "accepted_terms_version, terms_accepted_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -126,7 +127,13 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
     if not isinstance(row, dict):
         return None
 
-    return cast(dict[str, Any], row)
+    row_copy = dict(row)
+    if row_copy.get("email"):
+        row_copy["email"] = decrypt_pii(row_copy["email"])
+    if row_copy.get("mobile"):
+        row_copy["mobile"] = decrypt_pii(row_copy["mobile"])
+
+    return cast(dict[str, Any], row_copy)
 
 
 def upsert_public_user(
@@ -139,9 +146,9 @@ def upsert_public_user(
         "id": user_id,
     }
     if email is not None:
-        payload["email"] = email.strip().lower()
+        payload["email"] = encrypt_to_hex(email.strip().lower())
     if mobile is not None:
-        payload["mobile"] = mobile.strip()
+        payload["mobile"] = encrypt_to_hex(mobile.strip())
     if app_variant is not None:
         payload["app_variant"] = app_variant
 
@@ -153,9 +160,9 @@ def upsert_public_user(
                 on_conflict="id",
             )
             .select(
-                "id, email, app_variant, is_active, is_suspended, suspended_until, "
-                "moderation_status, moderation_reason_code, accepted_terms_version, "
-                "terms_accepted_at, xmax",
+                "id, email, mobile, app_variant, is_active, is_suspended, "
+                "suspended_until, moderation_status, moderation_reason_code, "
+                "accepted_terms_version, terms_accepted_at, xmax",
             )
             .execute()
         )
@@ -194,6 +201,11 @@ def upsert_public_user(
 
     row_copy = dict(row)
     row_copy.pop("xmax", None)
+
+    if row_copy.get("email"):
+        row_copy["email"] = decrypt_pii(row_copy["email"])
+    if row_copy.get("mobile"):
+        row_copy["mobile"] = decrypt_pii(row_copy["mobile"])
 
     return cast(dict[str, Any], row_copy), newly_created
 

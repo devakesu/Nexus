@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
+import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_store.dart';
 import 'package:nexus/utils/error_handler.dart';
 
@@ -115,12 +116,7 @@ class MessageCodec {
     } on UntrustedIdentityException catch (e) {
       final newKey = e.key;
       if (newKey == null) rethrow;
-      ErrorHandler.handleError(
-        e,
-        level: ErrorLevel.warning,
-        customMessage: 'Auto-repinning changed identity key for $address',
-        showUi: false,
-      );
+      UntrustedIdentityRegistry.register(address.getName(), newKey);
       await store.saveIdentity(address, newKey);
       return action();
     }

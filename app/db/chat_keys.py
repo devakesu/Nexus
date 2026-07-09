@@ -5,7 +5,7 @@ from typing import Any, cast
 import sentry_sdk
 from postgrest.exceptions import APIError
 
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import DatabaseAccessError, normalize_uuid, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -199,12 +199,13 @@ def fetch_key_bundle(user_id: str) -> dict[str, Any] | None:
 def mark_session_established(user_id: str, conversation_id: str) -> None:
     """Record that user_id completed X3DH toward the conversation's peer."""
     now = utcnow()
+    valid_user_id = normalize_uuid(user_id)
     try:
         (
             supabase_client.table("chat_conversations")
             .update({"session_established_at": now.isoformat()})
             .eq("id", conversation_id)
-            .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+            .or_(f"user_a_id.eq.{valid_user_id},user_b_id.eq.{valid_user_id}")
             .execute()
         )
     except APIError as e:

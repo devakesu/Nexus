@@ -44,12 +44,7 @@ def _decode_jwt(
     secret: str | dict[str, Any],
     public_key: Any,
 ) -> dict[str, Any]:
-    is_jwks = isinstance(secret, dict) or (
-        secret.strip().startswith("{")
-        and "keys" in secret
-    )
-
-    if is_jwks:
+    if settings.is_jwks:
         return jwt.decode(
             token,
             public_key,
@@ -74,12 +69,7 @@ async def get_authenticated_user_payload(
     try:
         secret = settings.supabase_jwt_secret
         public_key = None
-        is_jwks = isinstance(secret, dict) or (
-            secret.strip().startswith("{")
-            and "keys" in secret
-        )
-
-        if is_jwks:
+        if settings.is_jwks:
             public_key = await get_live_supabase_public_key(token)
 
         payload = _decode_jwt(token, secret, public_key)

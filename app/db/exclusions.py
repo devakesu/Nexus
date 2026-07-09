@@ -201,6 +201,46 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
         raise DatabaseAccessError("Unexpected block id fetch failure") from e
 
 
+def has_active_discovery_action(
+    actor_id: str,
+    target_id: str,
+    action: str,
+    tab: DiscoveryTab | None = None,
+) -> bool:
+    """
+    Check if there is an active, un-revoked discovery action of a specific type
+    from actor_id targeting target_id.
+    """
+    try:
+        actor_id = str(uuid.UUID(actor_id)).lower()
+        target_id = str(uuid.UUID(target_id)).lower()
+
+        q = (
+            supabase_client.table("profile_discovery_actions")
+            .select("id")
+            .eq("actor_id", actor_id)
+            .eq("target_id", target_id)
+            .eq("action", action)
+            .is_("revoked_at", "null")
+        )
+        if tab is not None:
+            q = q.eq("tab", tab)
+
+        res = q.limit(1).execute()
+        return bool(res.data)
+    except Exception:
+        logger.exception(
+            "Error checking active discovery action status",
+            extra={
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "action": action,
+                "tab": tab,
+            },
+        )
+        return False
+
+
 def record_discovery_action(
     actor_id: str,
     target_id: str,
@@ -394,6 +434,7 @@ def fetch_likes_for_user(
             .in_("action", ["like", "superlike"])
             .is_("revoked_at", "null")
             .order("created_at", desc=True)
+            .limit(1000)
             .execute()
         )
         rows = cast(list[Any], res.data or [])

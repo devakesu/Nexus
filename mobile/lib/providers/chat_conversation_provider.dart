@@ -274,6 +274,22 @@ class ChatConversationController extends _$ChatConversationController {
       messages.add(await _resolveMessage(row, store, address));
     }
 
+    final timestamps = UntrustedIdentityRegistry.keyChangeTimestamps[peerUserId] ?? [];
+    for (final ts in timestamps) {
+      messages.add(
+        ChatMessageView(
+          id: 'security_alert_${ts.millisecondsSinceEpoch}',
+          senderId: '',
+          isMine: false,
+          createdAt: ts,
+          plaintext: 'Security code changed. Tap to verify.',
+          messageType: 'security_alert',
+          decryptFailed: false,
+        ),
+      );
+    }
+    messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
     if (!conversationClosed) _subscribeRealtime(store, address);
 
     if (messages.any((m) => !m.isMine && m.readAt == null)) {

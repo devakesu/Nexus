@@ -55,3 +55,11 @@ def parse_utc_datetime(raw: "str | datetime") -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def normalize_uuid(val: str | None) -> str:
+    """Validate and return a normalized UUID string, raising ValueError if invalid."""
+    import uuid
+    if not val:
+        raise ValueError("Invalid UUID: value is empty or None")
+    return str(uuid.UUID(str(val).strip()))

@@ -245,6 +245,10 @@ async def get_portal_details(
                 content_type=row["content_type"],
                 duration_seconds=row.get("duration_seconds"),
                 download_url=download_url,
+                # SECURITY NOTE: Storing and returning media_key_base64 here escrows the per-file
+                # AES-GCM key server-side in plaintext. This allows trusted contacts to decrypt
+                # without the app, but deviates from a pure E2E posture as DB compromises, service-role
+                # access, or portal auth bugs can expose the media keys.
                 media_key_base64=row["media_key_base64"],
                 created_at=row["created_at"],
             ),

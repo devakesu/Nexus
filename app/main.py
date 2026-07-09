@@ -82,15 +82,15 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Nexus MEC Matchmaking Engine",
     version="1.4.0",
-    docs_url="/api/v1/docs",
+    docs_url="/api/v1/docs" if settings.debug else None,
     redoc_url=None,
     lifespan=lifespan,
 )
 
 origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
-if "*" in origins and len(origins) > 1:
+if "*" in origins:
     raise RuntimeError(
-        "CRITICAL: Wildcard origin cannot be mixed with specific origins.",
+        "CRITICAL: Wildcard origin '*' is not allowed when allow_credentials is True.",
     )
 
 app.add_middleware(

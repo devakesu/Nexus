@@ -343,7 +343,6 @@ class MeetupSafetySession extends ChangeNotifier {
   Future<void> extend(Duration extra) async {
     if (!isActive || nextCheckInAt == null) return;
     nextCheckInAt = nextCheckInAt!.add(extra);
-    checkInInterval += extra;
     await _persist();
     await _showOngoingNotification();
     await _scheduleDueNotification();

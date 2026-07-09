@@ -51,13 +51,26 @@ def _assemble_ticket_detail(
 ) -> FeedbackTicketDetail:
     history = fetch_ticket_status_history(report["id"])
     comments = fetch_ticket_comments(report["id"])
+
+    masked_history: list[FeedbackStatusHistoryEntry] = []
+    for h in history:
+        h_copy = dict(h)
+        if h_copy.get("changed_by") and h_copy["changed_by"] != user_id:
+            h_copy["changed_by"] = "staff"
+        masked_history.append(FeedbackStatusHistoryEntry(**h_copy))
+
+    masked_comments: list[FeedbackCommentEntry] = []
+    for c in comments:
+        c_copy = dict(c)
+        is_own = c_copy.get("author_id") == user_id
+        if not is_own:
+            c_copy["author_id"] = "staff"
+        masked_comments.append(FeedbackCommentEntry(**c_copy, is_own=is_own))
+
     return FeedbackTicketDetail(
         **report,
-        status_history=[FeedbackStatusHistoryEntry(**h) for h in history],
-        comments=[
-            FeedbackCommentEntry(**c, is_own=c.get("author_id") == user_id)
-            for c in comments
-        ],
+        status_history=masked_history,
+        comments=masked_comments,
     )
 
 

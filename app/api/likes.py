@@ -171,7 +171,7 @@ async def _verify_peer_access_and_infer_tab(
             f"and(liker_id.eq.{target_id},"
             f"liked_back_id.eq.{user_id_normalized}),"
             f"and(liker_id.eq.{user_id_normalized},"
-            f"liked_back_id.eq.{target_id}),",
+            f"liked_back_id.eq.{target_id})",
         )
         query_match = query_match.is_("unmatched_at", "null")
         match_check_res = await asyncio.to_thread(query_match.execute)

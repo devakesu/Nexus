@@ -14,6 +14,7 @@ import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/services/safety_dialer.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 
 enum _SosPhase { idle, countdown, silentActive, loudActive }
 
@@ -44,6 +45,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   List<SafetyContact> _contacts = [];
   AudioPlayer? _alarmPlayer;
   String? _lastAlertId;
+  bool _alertSent = false;
 
   @override
   void initState() {
@@ -117,32 +119,67 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   Future<void> _activateSos() async {
     final silent = _pendingSilent;
     final session = MeetupSafetySession.instance;
-    final position = await _tryGetLocation();
-    final result = await SafetyAlertApi.sendAlert(
-      alertType: silent ? 'sos_silent' : 'sos_loud',
-      sessionId: session.serverSessionId,
-      sessionLabel: session.checkInLabel,
-      latitude: position?.latitude,
-      longitude: position?.longitude,
-    );
-    _lastAlertId = result?.alertId;
+    SafetyAlertResult? result;
+
+    try {
+      final position = await _tryGetLocation();
+      result = await SafetyAlertApi.sendAlert(
+        alertType: silent ? 'sos_silent' : 'sos_loud',
+        sessionId: session.serverSessionId,
+        sessionLabel: session.checkInLabel,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+      );
+      _lastAlertId = result?.alertId;
+      _alertSent = (result != null);
+    } catch (e) {
+      _lastAlertId = null;
+      _alertSent = false;
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'SOS alert failed to send over network, starting local safety protocols.',
+          type: NexusToastType.error,
+        );
+      }
+    }
+
     if (!mounted) return;
+
+    if (result == null && _lastAlertId == null) {
+      _alertSent = false;
+      NexusToast.show(
+        context,
+        'SOS alert failed to send over network, starting local safety protocols.',
+        type: NexusToastType.error,
+      );
+    }
 
     if (silent) {
       setState(() => _phase = _SosPhase.silentActive);
-      final started = await DigitalWitnessRecorder.instance.start(
-        alertId: _lastAlertId,
-      );
-      if (!started && mounted) {
-        // Camera/mic unavailable or denied - the SMS alert already went
-        // out; fall back to the mock confirmation so the screen doesn't
-        // just sit there looking broken.
-        await showSosFallbackDialog(context, contacts: _contacts);
-        if (mounted) setState(() => _phase = _SosPhase.idle);
+      try {
+        final started = await DigitalWitnessRecorder.instance.start(
+          alertId: _lastAlertId,
+        );
+        if (!started && mounted) {
+          // Camera/mic unavailable or denied - fall back to the mock confirmation
+          // so the screen doesn't just sit there looking broken.
+          await showSosFallbackDialog(context, contacts: _contacts);
+          if (mounted) setState(() => _phase = _SosPhase.idle);
+        }
+      } catch (e) {
+        if (mounted) {
+          await showSosFallbackDialog(context, contacts: _contacts);
+          setState(() => _phase = _SosPhase.idle);
+        }
       }
     } else {
       setState(() => _phase = _SosPhase.loudActive);
-      await _startAlarm();
+      try {
+        await _startAlarm();
+      } catch (e) {
+        // Non-fatal, alarm failed to start
+      }
     }
   }
 
@@ -612,12 +649,15 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Recording video and audio as evidence, in the open — this '
-                'is visible on your screen the whole time, never hidden. '
-                'It stops the moment you tap Stop SOS.',
+                _alertSent
+                    ? 'Recording video and audio as evidence, in the open — this '
+                        'is visible on your screen the whole time, never hidden. '
+                        'Trusted contacts have been notified.'
+                    : 'Recording video and audio as evidence. ALERT SENDING FAILED — '
+                        'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                  color: Colors.white60,
+                  color: _alertSent ? Colors.white60 : _red,
                   fontSize: 12.5,
                   height: 1.45,
                 ),
@@ -712,10 +752,15 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Alarm sounding at full volume. Trusted contacts have been '
-                'notified.',
+                _alertSent
+                    ? 'Alarm sounding at full volume. Trusted contacts have been notified.'
+                    : 'Alarm sounding at full volume. ALERT SENDING FAILED — '
+                        'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
+                style: GoogleFonts.inter(
+                  color: _alertSent ? Colors.white60 : _red,
+                  fontSize: 13,
+                ),
               ),
             ),
             const SizedBox(height: 40),

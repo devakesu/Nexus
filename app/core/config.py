@@ -91,6 +91,14 @@ class Settings(BaseSettings):
     # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
     dev_allowed_email: str | None = None
 
+    @property
+    def is_jwks(self) -> bool:
+        secret = self.supabase_jwt_secret
+        return isinstance(secret, dict) or (
+            secret.strip().startswith("{")
+            and "keys" in secret
+        )
+
     model_config = SettingsConfigDict(
         env_file=None,
         extra="ignore",

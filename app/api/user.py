@@ -433,6 +433,8 @@ def get_profile_details(
                 profile.get("is_professional_active", False),
             ),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Failed to get profile details")
         raise HTTPException(

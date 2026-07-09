@@ -15,6 +15,7 @@ import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -308,6 +309,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                             themeColor: theme.primary,
                             conversationId: widget.conversationId,
                             peerUserId: widget.matchedUserId,
+                            onSecurityAlertTapped: _showSafetyNumberDialog,
                           ),
                         ),
                 ),
@@ -518,6 +520,97 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+
+  Future<void> _showSafetyNumberDialog() async {
+    final theme = chatTabTheme(widget.tab);
+    final peerUserId = widget.matchedUserId;
+    final newKey = UntrustedIdentityRegistry.pendingUntrustedKeys[peerUserId];
+    if (newKey == null) return;
+
+    final store = await SignalKeyService.instance.ensureBootstrapped();
+    final localKeyPair = await store.getIdentityKeyPair();
+
+    final safetyNumber = await UntrustedIdentityRegistry.computeSafetyNumber(
+      localKeyPair,
+      newKey,
+    );
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Verify Safety Number',
+          style: GoogleFonts.manrope(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            fontSize: 18,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'To verify the security of your end-to-end encryption with ${widget.name}, '
+              'confirm that the safety number below matches the number on their screen.',
+              style: GoogleFonts.inter(
+                fontSize: 13.5,
+                color: Colors.white70,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black38,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: SelectableText(
+                safetyNumber,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.spaceMono(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: theme.primary,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'If the numbers match, the session is secure. If they do not match, '
+              'the connection may have been intercepted.',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                color: Colors.white60,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'OK',
+              style: GoogleFonts.manrope(
+                color: theme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -15,6 +15,7 @@ class MessageBubble extends StatelessWidget {
     required this.themeColor,
     required this.conversationId,
     required this.peerUserId,
+    this.onSecurityAlertTapped,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class MessageBubble extends StatelessWidget {
   final Color themeColor;
   final String conversationId;
   final String peerUserId;
+  final VoidCallback? onSecurityAlertTapped;
 
   String _formatTime(DateTime at) {
     final local = at.toLocal();
@@ -112,6 +114,40 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (message.messageType == 'security_alert') {
+      return Center(
+        child: GestureDetector(
+          onTap: onSecurityAlertTapped,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.lock, size: 14, color: Color(0xFFB45309)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    message.plaintext ?? 'Security code changed. Tap to verify.',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final isMine = message.isMine;
     final failed = message.decryptFailed;
 

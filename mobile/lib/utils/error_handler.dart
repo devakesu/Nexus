@@ -39,7 +39,7 @@ class ErrorHandler {
 
     // 2. Sanitize authorization/bearer tokens and keys
     final tokenRegex = RegExp(
-      r'(bearer|auth|token|authorization|key|password|secret|jwt)[=\s:]+([A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*)',
+      r'(bearer|auth|token|authorization|key|password|secret|jwt|access_token|refresh_token)[=\s:]+([A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*|[A-Za-z0-9-_.+/=]{8,})',
       caseSensitive: false,
     );
     sanitized = sanitized.replaceAllMapped(tokenRegex, (match) {
@@ -49,7 +49,7 @@ class ErrorHandler {
 
     // 3. Sanitize typical JSON fields or raw query parameters with passwords/secrets
     final fieldRegex = RegExp(
-      r'("password"|"secret"|"token"|"key"|"jwt")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
+      r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
       caseSensitive: false,
     );
     return sanitized.replaceAllMapped(fieldRegex, (match) {

@@ -1,3 +1,5 @@
+import contextlib
+import json
 import logging
 from datetime import timedelta
 from typing import Any, cast
@@ -5,6 +7,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 from storage3.utils import StorageException
 
+from app.core.crypto import decrypt_pii, encrypt_to_hex
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
@@ -19,20 +22,18 @@ _SESSION_COLS = (
 
 
 def sync_safety_contacts(user_id: str, contacts: list[dict[str, Any]]) -> None:
-    """Replaces the caller's full trusted-contact mirror.
-
-    Delete-then-insert rather than a diff, since the list is always small
-    (device caps it at 3) and this can never drift out of order with the
-    device's copy.
-    """
+    """Replaces the caller's full trusted-contact mirror atomically using an RPC."""
+    encrypted: list[dict[str, Any]] = []
+    for c in contacts:
+        encrypted.append({
+            "name": encrypt_to_hex(c.get("name")),
+            "phone": encrypt_to_hex(c.get("phone")),
+        })
     try:
-        supabase_client.table("safety_contacts").delete().eq(
-            "user_id",
-            user_id,
+        supabase_client.rpc(
+            "sync_safety_contacts",
+            {"p_user_id": user_id, "p_contacts": encrypted},
         ).execute()
-        if contacts:
-            rows = [{**c, "user_id": user_id} for c in contacts]
-            supabase_client.table("safety_contacts").insert(rows).execute()
     except APIError as e:
         logger.exception("Failed to sync safety contacts", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to sync safety contacts") from e
@@ -46,7 +47,11 @@ def fetch_safety_contacts(user_id: str) -> list[dict[str, Any]]:
             .eq("user_id", user_id)
             .execute()
         )
-        return cast(list[dict[str, Any]], res.data or [])
+        data = cast(list[dict[str, Any]], res.data or [])
+        for row in data:
+            row["name"] = decrypt_pii(row.get("name"))
+            row["phone"] = decrypt_pii(row.get("phone"))
+        return data
     except APIError as e:
         logger.exception(
             "Failed to fetch safety contacts",
@@ -63,7 +68,7 @@ def record_safety_alert(
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"user_id": user_id, "alert_type": alert_type}
     if current_location is not None:
-        payload["current_location"] = current_location
+        payload["current_location"] = encrypt_to_hex(json.dumps(current_location))
     if session_id is not None:
         payload["session_id"] = session_id
 
@@ -126,6 +131,11 @@ def register_safety_evidence(
     content_type: str,
     duration_seconds: float | None,
 ) -> dict[str, Any]:
+    # SECURITY NOTE: Storing media_key_base64 in safety_evidence escrows
+    # the per-file AES-GCM decryption key server-side in plaintext. This
+    # facilitates trusted contact decryption without needing the client app
+    # active, but introduces a risk where database compromises, backups,
+    # or service-role level leaks can expose the keys to decrypt the media.
     payload: dict[str, Any] = {
         "user_id": user_id,
         "alert_id": alert_id,
@@ -386,7 +396,14 @@ def fetch_alerts_for_session(session_id: str) -> list[dict[str, Any]]:
             .order("created_at", desc=True)
             .execute()
         )
-        return cast(list[dict[str, Any]], res.data or [])
+        alerts = cast(list[dict[str, Any]], res.data or [])
+        for a in alerts:
+            loc = a.get("current_location")
+            if loc:
+                with contextlib.suppress(Exception):
+                    dec = decrypt_pii(loc)
+                    a["current_location"] = json.loads(dec) if dec else None
+        return alerts
     except APIError as e:
         logger.exception(
             "Failed to fetch alerts for safety session",

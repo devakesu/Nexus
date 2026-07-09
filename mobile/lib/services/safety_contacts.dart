@@ -37,27 +37,35 @@ const _kSecureStorageOptions = FlutterSecureStorage(
 /// secure storage on first read (mirrors the migration `MeetupSafetyPage`
 /// used to do inline).
 Future<List<SafetyContact>> loadSafetyContacts() async {
-  final val = await _kSecureStorageOptions.read(key: _kSecureStorageKey);
-  if (val != null) {
-    final list = jsonDecode(val) as List<dynamic>;
-    return list
-        .map((item) => SafetyContact.fromJson(item as Map<String, dynamic>))
-        .toList();
+  try {
+    final val = await _kSecureStorageOptions.read(key: _kSecureStorageKey);
+    if (val != null) {
+      final list = jsonDecode(val) as List<dynamic>;
+      return list
+          .map((item) => SafetyContact.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+  } catch (_) {
+    // Gracefully fallback to legacy storage or empty list on corruption/decryption error.
   }
 
-  final prefs = await SharedPreferences.getInstance();
-  final legacyList = prefs.getStringList(_kSecureStorageKey);
-  if (legacyList == null || legacyList.isEmpty) return [];
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final legacyList = prefs.getStringList(_kSecureStorageKey);
+    if (legacyList == null || legacyList.isEmpty) return [];
 
-  final migrated = legacyList
-      .map(
-        (item) =>
-            SafetyContact.fromJson(jsonDecode(item) as Map<String, dynamic>),
-      )
-      .toList();
-  await saveSafetyContacts(migrated);
-  await prefs.remove(_kSecureStorageKey);
-  return migrated;
+    final migrated = legacyList
+        .map(
+          (item) =>
+              SafetyContact.fromJson(jsonDecode(item) as Map<String, dynamic>),
+        )
+        .toList();
+    await saveSafetyContacts(migrated);
+    await prefs.remove(_kSecureStorageKey);
+    return migrated;
+  } catch (_) {
+    return [];
+  }
 }
 
 Future<void> saveSafetyContacts(List<SafetyContact> contacts) async {
