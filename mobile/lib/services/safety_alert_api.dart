@@ -29,7 +29,7 @@ class SafetyAlertApi {
   /// sent without the device online. Fire-and-forget from callers.
   static Future<bool> syncContacts(List<SafetyContact> contacts) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       await _dio.put<void>(
         '${AppConfig.current.backendUrl}/api/v1/safety/contacts',
         data: {
@@ -37,10 +37,9 @@ class SafetyAlertApi {
               .map((c) => {'name': c.name, 'phone': c.phone})
               .toList(),
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return true;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
@@ -58,7 +57,7 @@ class SafetyAlertApi {
     double? longitude,
   }) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/safety/alert',
         data: {
@@ -72,8 +71,7 @@ class SafetyAlertApi {
           if (latitude != null && longitude != null)
             'current_location': {'lat': latitude, 'lng': longitude},
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       final data = response.data;
       if (data == null) return null;
       return SafetyAlertResult(
@@ -81,7 +79,7 @@ class SafetyAlertApi {
         contactsNotified: data['contacts_notified'] as int,
         contactsTotal: data['contacts_total'] as int,
       );
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
@@ -96,7 +94,7 @@ class SafetyAlertApi {
     double? durationSeconds,
   }) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/safety/evidence',
         data: {
@@ -106,10 +104,9 @@ class SafetyAlertApi {
           'content_type': contentType,
           'duration_seconds': ?durationSeconds,
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return true;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
@@ -126,7 +123,7 @@ class SafetyAlertApi {
     String? connectionType,
   }) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/safety/session/start',
         data: {
@@ -136,10 +133,9 @@ class SafetyAlertApi {
           'battery_percent': ?batteryPercent,
           'connection_type': ?connectionType,
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return response.data?['id'] as String?;
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
@@ -153,7 +149,7 @@ class SafetyAlertApi {
     String? connectionType,
   }) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/safety/session/checkin',
         data: {
@@ -162,24 +158,22 @@ class SafetyAlertApi {
           'battery_percent': ?batteryPercent,
           'connection_type': ?connectionType,
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return true;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
 
   static Future<bool> endSession(String sessionId) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/safety/session/end',
         data: {'session_id': sessionId},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return true;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }

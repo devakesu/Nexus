@@ -111,10 +111,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       final response = await _dio.post<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/users/moderation-subjects',
         data: {'target_ids': targetIds},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       final list = response.data ?? [];
       return {
         for (final item in list)
@@ -133,10 +130,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/discover/action',
         data: {'target_id': user.targetId, 'action': 'unblock'},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       if (!mounted) return;
       setState(() => _users.removeWhere((u) => u.targetId == user.targetId));
       NexusToast.show(

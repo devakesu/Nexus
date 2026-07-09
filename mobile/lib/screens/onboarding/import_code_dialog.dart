@@ -62,7 +62,6 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
         data: {'sync_code': code},
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
             'X-App-Variant': config.variantString,
           },
           validateStatus: (status) => status != null && status < 600,

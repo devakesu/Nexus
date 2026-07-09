@@ -117,10 +117,7 @@ class _FriendsTabState extends State<FriendsTab>
 
         final response = await dio.get<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
 
         if (response.statusCode == 200 && response.data != null && mounted) {
           final data = response.data!;
@@ -173,10 +170,7 @@ class _FriendsTabState extends State<FriendsTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
         return response.statusCode == 200;
       }
     } on Exception catch (e, st) {
@@ -232,10 +226,7 @@ class _FriendsTabState extends State<FriendsTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: {'is_friends_active': active},
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
 
         if (response.statusCode == 200 && mounted) {
           if (active) {
@@ -484,10 +475,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes',
         queryParameters: {'tab': 'Friends'},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final data = response.data!;
         final likes = data['likes'];
@@ -521,10 +509,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/matches',
         queryParameters: {'tab': 'Friends'},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final raw = response.data!['matches'];
         final list = raw is List
@@ -575,8 +560,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.post<void>(
         '${config.backendUrl}/api/v1/matches/action',
         data: body,
-        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-      );
+        );
       return response.statusCode == 200;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
@@ -599,10 +583,7 @@ class _FriendsTabState extends State<FriendsTab>
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
         data: {'mark_all': true},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
@@ -623,8 +604,7 @@ class _FriendsTabState extends State<FriendsTab>
     final response = await dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/profile/peer',
       data: {'target_id': actorId, 'tab': 'Friends'},
-      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-    );
+      );
     if (response.statusCode == 200 && response.data != null) {
       return response.data!;
     }
@@ -651,8 +631,7 @@ class _FriendsTabState extends State<FriendsTab>
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes/action',
         data: body,
-        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-      );
+        );
       if (response.statusCode == 200) return response.data;
       return null;
     } on Exception catch (e, st) {

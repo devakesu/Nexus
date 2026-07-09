@@ -69,7 +69,6 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
         '${config.backendUrl}/api/v1/profiles/export-code',
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
             'X-App-Variant': config.variantString,
           },
           validateStatus: (s) => s != null && s < 600,

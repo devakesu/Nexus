@@ -42,11 +42,10 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
       _error = null;
     });
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       final response = await _dio.get<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/mine',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       final tickets = (response.data ?? [])
           .map((e) => FeedbackTicketSummary.fromJson(e as Map<String, dynamic>))
           .toList();

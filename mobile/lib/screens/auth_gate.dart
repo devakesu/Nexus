@@ -190,8 +190,7 @@ class _AuthGateState extends State<AuthGate> {
         '${config.backendUrl}/api/v1/auth/bootstrap',
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${activeSession.accessToken}',
-          },
+            },
           validateStatus: (status) => status != null && status < 500,
         ),
       );

@@ -178,10 +178,7 @@ class _DatingTabState extends State<DatingTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
         return response.statusCode == 200;
       }
     } on Exception catch (e, st) {
@@ -241,10 +238,7 @@ class _DatingTabState extends State<DatingTab>
         final response = await dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: {'is_dating_active': active},
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
 
         if (response.statusCode == 200 && mounted) {
           if (active) {
@@ -522,10 +516,7 @@ class _DatingTabState extends State<DatingTab>
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes',
         queryParameters: {'tab': 'Dating'},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final data = response.data!;
         final likes = data['likes'];
@@ -558,10 +549,7 @@ class _DatingTabState extends State<DatingTab>
       final dio = _dio;
       final response = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/matches',
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
       if (response.statusCode == 200 && response.data != null && mounted) {
         final raw = response.data!['matches'];
         final list = raw is List
@@ -613,8 +601,7 @@ class _DatingTabState extends State<DatingTab>
       final response = await dio.post<void>(
         '${config.backendUrl}/api/v1/matches/action',
         data: body,
-        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-      );
+        );
       return response.statusCode == 200;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
@@ -637,10 +624,7 @@ class _DatingTabState extends State<DatingTab>
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
         data: {'mark_all': true},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
@@ -661,8 +645,7 @@ class _DatingTabState extends State<DatingTab>
     final response = await dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/profile/peer',
       data: {'target_id': actorId, 'tab': 'Dating'},
-      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-    );
+      );
     if (response.statusCode == 200 && response.data != null) {
       return response.data!;
     }
@@ -689,8 +672,7 @@ class _DatingTabState extends State<DatingTab>
       final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/likes/action',
         data: body,
-        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
-      );
+        );
       if (response.statusCode == 200) return response.data;
       return null;
     } on Exception catch (e, st) {

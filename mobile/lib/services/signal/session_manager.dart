@@ -63,12 +63,11 @@ class SessionManager {
   }
 
   Future<PreKeyBundle?> _fetchPeerBundle(String peerUserId) async {
-    final token = await NetworkUtils.requireAccessToken();
+    await NetworkUtils.requireAccessToken();
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/keys/bundle/$peerUserId',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       final data = response.data;
       if (data == null) return null;
 
@@ -110,12 +109,11 @@ class SessionManager {
 
   Future<void> _notifyBackendSessionEstablished(String conversationId) async {
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/sessions/establish',
         data: {'conversation_id': conversationId},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
     } on Exception {
       // Diagnostics-only column; the local session is already usable
       // regardless of whether this notification succeeds.

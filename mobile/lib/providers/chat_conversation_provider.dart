@@ -453,8 +453,7 @@ class ChatConversationController extends _$ChatConversationController {
     try {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages/read',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
     } on Exception {
       // Best-effort - failing to mark read is not user-visible.
     }
@@ -682,8 +681,7 @@ class ChatConversationController extends _$ChatConversationController {
             'signal_message_type': envelope.signalMessageType,
           },
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
 
       final messageId = response.data?['message_id'] as String?;
       final createdAtRaw = response.data?['created_at'] as String?;
@@ -812,8 +810,7 @@ class ChatConversationController extends _$ChatConversationController {
           'safety_enabled': safetyEnabled,
           'safety_interval_seconds': ?safetyIntervalSeconds,
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
 
       final data = response.data;
       final messageId = data?['message_id'] as String?;
@@ -857,8 +854,7 @@ class ChatConversationController extends _$ChatConversationController {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events/$eventId',
         data: {'status': status},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       return true;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(

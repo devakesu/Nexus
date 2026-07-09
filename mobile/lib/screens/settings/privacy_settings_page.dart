@@ -142,8 +142,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       if (token == null) throw Exception('Not signed in');
       final resp = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       if (resp.statusCode == 200 && resp.data != null && mounted) {
         final hidden = (resp.data!['hidden_fields'] as List<dynamic>? ?? [])
             .map((e) => e.toString())
@@ -186,8 +185,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         data: {'hidden_fields': hidden},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
     } on DioException catch (e) {
       // Roll back.
       if (mounted) {
@@ -237,8 +235,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.patch<void>(
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         data: {field: value},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
     } on DioException catch (e) {
       if (mounted) {
         setState(() => apply(value: previous));

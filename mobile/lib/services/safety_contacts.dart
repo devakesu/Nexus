@@ -45,7 +45,7 @@ Future<List<SafetyContact>> loadSafetyContacts() async {
           .map((item) => SafetyContact.fromJson(item as Map<String, dynamic>))
           .toList();
     }
-  } catch (_) {
+  } on Object catch (_) {
     // Gracefully fallback to legacy storage or empty list on corruption/decryption error.
   }
 
@@ -63,7 +63,7 @@ Future<List<SafetyContact>> loadSafetyContacts() async {
     await saveSafetyContacts(migrated);
     await prefs.remove(_kSecureStorageKey);
     return migrated;
-  } catch (_) {
+  } on Object catch (_) {
     return [];
   }
 }

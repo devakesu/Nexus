@@ -211,7 +211,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         data: payload,
         options: Options(
           headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
             'X-App-Variant': _config.variantString,
           },
           validateStatus: (status) => status != null && status < 500,

@@ -60,7 +60,7 @@ class AuthInterceptor extends Interceptor {
       if (token != null && !options.headers.containsKey('Authorization')) {
         options.headers['Authorization'] = 'Bearer $token';
       }
-    } catch (_) {
+    } on Object catch (_) {
       // Supabase instance not initialized or auth state inaccessible.
     }
     super.onRequest(options, handler);

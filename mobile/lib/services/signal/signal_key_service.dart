@@ -102,7 +102,7 @@ class SignalKeyService {
     IdentityKeyPair identityKeyPair,
     int registrationId,
   ) async {
-    final token = await NetworkUtils.requireAccessToken();
+    await NetworkUtils.requireAccessToken();
     await _dio.put<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/identity',
       data: {
@@ -111,8 +111,7 @@ class SignalKeyService {
         ),
         'registration_id': registrationId,
       },
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      );
   }
 
   Future<void> _ensureSignedPreKey(DriftSignalProtocolStore store) async {
@@ -146,7 +145,7 @@ class SignalKeyService {
       value: '${keyId + 1}',
     );
 
-    final token = await NetworkUtils.requireAccessToken();
+    await NetworkUtils.requireAccessToken();
     final publicKey = signedPreKey.getKeyPair().publicKey;
     await _dio.put<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/signed-prekey',
@@ -155,8 +154,7 @@ class SignalKeyService {
         'public_key': base64Encode(publicKey.serialize()),
         'signature': base64Encode(signedPreKey.signature),
       },
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      );
   }
 
   /// Tops up the server-side one-time prekey pool when it runs low. Safe to
@@ -164,12 +162,11 @@ class SignalKeyService {
   /// pool is already healthy.
   Future<void> replenishOneTimePrekeysIfNeeded() async {
     final store = await ensureBootstrapped();
-    final token = await NetworkUtils.requireAccessToken();
+    await NetworkUtils.requireAccessToken();
 
     final countResponse = await _dio.get<Map<String, dynamic>>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/one-time-prekeys/count',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      );
     final count = countResponse.data?['count'] as int? ?? 0;
     if (count >= _oneTimePrekeyLowWaterMark) return;
 
@@ -197,8 +194,7 @@ class SignalKeyService {
             )
             .toList(),
       },
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      );
   }
 
   Future<void> wipeLocalData() async {

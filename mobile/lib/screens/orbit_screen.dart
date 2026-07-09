@@ -148,8 +148,6 @@ class OrbitScreen extends StatefulWidget {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return null;
       final config = AppConfig.current;
-      final headers = {'Authorization': 'Bearer ${session.accessToken}'};
-
       var showBuckets = <String>[];
       var datingFor = <String>[];
       var partnerValues = <String>[];
@@ -157,7 +155,6 @@ class OrbitScreen extends StatefulWidget {
 
       final profileResp = await dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/details',
-        options: Options(headers: headers),
       );
 
       if (profileResp.statusCode == 200 && profileResp.data != null) {
@@ -199,7 +196,6 @@ class OrbitScreen extends StatefulWidget {
       final discoverResp = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover',
         data: payload,
-        options: Options(headers: headers),
       );
 
       if (discoverResp.statusCode == 200 && discoverResp.data != null) {
@@ -396,10 +392,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         final response = await _dio.patch<Map<String, dynamic>>(
           '${config.backendUrl}/api/v1/profile/details',
           data: payload,
-          options: Options(
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
-          ),
-        );
+          );
         return response.statusCode == 200;
       }
     } on Exception catch (e) {
@@ -988,19 +981,13 @@ class _OrbitScreenState extends State<OrbitScreen>
       final discoverFuture = _dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover',
         data: payload,
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
 
       final profileFuture = skipProfileFetch
           ? Future<Response<Map<String, dynamic>>?>.value()
           : _dio.get<Map<String, dynamic>>(
               '${config.backendUrl}/api/v1/profile/details',
-              options: Options(
-                headers: {'Authorization': 'Bearer ${session.accessToken}'},
-              ),
-            );
+              );
 
       final results = await Future.wait([discoverFuture, profileFuture]);
       final discoverResponse = results[0]!;
@@ -1106,10 +1093,7 @@ class _OrbitScreenState extends State<OrbitScreen>
           'center_y': centerY,
           'radius': radius,
         },
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
 
       if (response.statusCode == 200 && response.data != null && mounted) {
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
@@ -1168,10 +1152,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       await _dio.post<dynamic>(
         '${config.backendUrl}/api/v1/discover/action',
         data: {'target_id': candidateId, 'action': 'pass', 'tab': widget.tab},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
     } on Exception catch (_) {}
   }
 
@@ -1209,10 +1190,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       final response = await _dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover/action',
         data: payload,
-        options: Options(
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        ),
-      );
+        );
 
       if (response.statusCode == 200) {
         if (mounted) {
@@ -1500,18 +1478,13 @@ class _OrbitScreenState extends State<OrbitScreen>
     if (session == null) throw Exception('Not authenticated.');
 
     final config = AppConfig.current;
-    final authHeader = {'Authorization': 'Bearer ${session.accessToken}'};
-    final opts = Options(headers: authHeader);
-
     // Fetch profile data and privacy settings concurrently.
     final results = await Future.wait<dynamic>([
       _dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/details',
-        options: opts,
       ),
       _dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/privacy-settings',
-        options: opts,
       ),
     ]);
 
@@ -1644,8 +1617,7 @@ class _OrbitScreenState extends State<OrbitScreen>
 
     final config = AppConfig.current;
     final headers = Options(
-      headers: {'Authorization': 'Bearer ${session.accessToken}'},
-    );
+      );
 
     var response = await _dio.post<Map<String, dynamic>>(
       '${config.backendUrl}/api/v1/discover/node-detail',

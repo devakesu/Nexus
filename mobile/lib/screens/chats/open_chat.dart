@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus/config/app_config.dart';
@@ -33,10 +32,7 @@ Future<void> openOrCreateChat(
     final response = await dio.post<Map<String, dynamic>>(
       '${AppConfig.current.backendUrl}/api/v1/chats',
       data: {'match_id': matchId},
-      options: Options(
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-      ),
-    );
+      );
     final data = response.data;
     if (data == null) throw Exception('Empty response');
     if (!context.mounted) return;
@@ -87,10 +83,7 @@ Future<bool> recordMatchAction({
     final response = await dio.post<void>(
       '${AppConfig.current.backendUrl}/api/v1/matches/action',
       data: body,
-      options: Options(
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-      ),
-    );
+      );
     return response.statusCode == 200;
   } on Exception {
     return false;

@@ -75,11 +75,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
   Future<void> _loadRecentTickets() async {
     setState(() => _loadingTickets = true);
     try {
-      final token = await NetworkUtils.requireAccessToken();
+      await NetworkUtils.requireAccessToken();
       final response = await _dio.get<List<dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/feedback/mine',
         queryParameters: {'limit': 3},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final tickets = (response.data ?? [])
           .map((e) => FeedbackTicketSummary.fromJson(e as Map<String, dynamic>))
@@ -243,7 +242,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
         .toList();
 
     try {
-      final token = session.accessToken;
       final appVersion = _packageInfo != null
           ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}'
           : null;
@@ -260,10 +258,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
           if (_queryType == FeedbackQueryType.bugReport && githubUrl.isNotEmpty)
             'github_issue_url': githubUrl,
           'attachment_paths': attachmentPaths,
-          'app_version': ?appVersion,
+          'app_version': appVersion,
           'platform': platform,
         },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (!mounted) return;

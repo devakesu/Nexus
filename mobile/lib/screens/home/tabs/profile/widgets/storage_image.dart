@@ -52,8 +52,7 @@ class StorageImage extends StatelessWidget {
       // Stable cache key - doesn't change when the auth token rotates.
       cacheKey: imagePath,
       httpHeaders: {
-        if (token != null) 'Authorization': 'Bearer $token',
-        'apikey': apikey,
+        if (token != null) 'apikey': apikey,
       },
       width: width,
       height: height,

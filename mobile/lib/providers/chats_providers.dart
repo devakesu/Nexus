@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -69,12 +68,11 @@ Future<List<ChatConversationSummary>> chatConversations(
   String tab,
 ) async {
   final dio = createDio();
-  final token = await NetworkUtils.requireAccessToken();
+  await NetworkUtils.requireAccessToken();
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats',
     queryParameters: {'tab': tab},
-    options: Options(headers: {'Authorization': 'Bearer $token'}),
-  );
+    );
   final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
   return rawList
       .map(
@@ -86,12 +84,11 @@ Future<List<ChatConversationSummary>> chatConversations(
 @riverpod
 Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
   final dio = createDio();
-  final token = await NetworkUtils.requireAccessToken();
+  await NetworkUtils.requireAccessToken();
   final response = await dio.get<Map<String, dynamic>>(
     '${AppConfig.current.backendUrl}/api/v1/chats/new-chat-candidates',
     queryParameters: {'tab': tab},
-    options: Options(headers: {'Authorization': 'Bearer $token'}),
-  );
+    );
   final rawList = response.data?['candidates'] as List<dynamic>? ?? [];
   return rawList
       .map((e) => ChatCandidate.fromJson(e as Map<String, dynamic>))

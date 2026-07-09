@@ -13,8 +13,8 @@ import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/services/safety_dialer.dart';
-import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/scale_pressable.dart';
 
 enum _SosPhase { idle, countdown, silentActive, loudActive }
 
@@ -132,7 +132,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
       );
       _lastAlertId = result?.alertId;
       _alertSent = (result != null);
-    } catch (e) {
+    } on Object catch (_) {
       _lastAlertId = null;
       _alertSent = false;
       if (mounted) {
@@ -167,7 +167,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
           await showSosFallbackDialog(context, contacts: _contacts);
           if (mounted) setState(() => _phase = _SosPhase.idle);
         }
-      } catch (e) {
+      } on Object catch (_) {
         if (mounted) {
           await showSosFallbackDialog(context, contacts: _contacts);
           setState(() => _phase = _SosPhase.idle);
@@ -177,7 +177,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
       setState(() => _phase = _SosPhase.loudActive);
       try {
         await _startAlarm();
-      } catch (e) {
+      } on Object catch (_) {
         // Non-fatal, alarm failed to start
       }
     }

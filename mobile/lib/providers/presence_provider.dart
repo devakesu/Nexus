@@ -48,8 +48,7 @@ class PeerPresence extends _$PeerPresence {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/$peerUserId',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
       final data = response.data;
       final rawLastActive = data?['last_active_at'] as String?;
       return PresenceInfo(
@@ -79,8 +78,7 @@ mixin PresenceHeartbeat {
       await _dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/heartbeat',
         data: {'is_online': isOnline},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+        );
     } on Exception {
       // Best-effort - a missed heartbeat just means presence looks stale
       // for up to 90s, not a user-visible failure.

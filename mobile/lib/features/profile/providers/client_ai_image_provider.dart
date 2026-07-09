@@ -268,8 +268,6 @@ class ClientAIImageManager extends _$ClientAIImageManager {
 
       // 3. Dispatch unified payload containing storage URLs and tags to FastAPI
       final config = AppConfig.current;
-      final session = Supabase.instance.client.auth.currentSession;
-      final token = session?.accessToken;
 
       await dioClient.post<dynamic>(
         '${config.backendUrl}/api/v1/profile/media',
@@ -278,11 +276,6 @@ class ClientAIImageManager extends _$ClientAIImageManager {
           'normal_pics': finalOrderedPaths.sublist(1).where((p) => p.isNotEmpty).toList(),
           'ai_vibe_tags': unifiedUniqueTags.isNotEmpty ? unifiedUniqueTags.toList() : ['ambient-vibe'],
         },
-        options: Options(
-          headers: {
-            if (token != null) 'Authorization': 'Bearer $token',
-          },
-        ),
       );
 
       if (!ref.mounted) return;
