@@ -4,6 +4,7 @@
 
 import 'package:flutter/widgets.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/services/pending_evidence_upload_queue.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/utils/secure_session_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,15 +17,19 @@ const String kPrekeyReplenishTaskName = 'com.devakesu.nexus.prekeyReplenish';
 const String _kPrekeyReplenishUniqueName = 'prekey-replenish-periodic';
 
 /// Entry point Android/iOS invokes, in a fresh background isolate, whenever
-/// the periodic task fires - including when the app is fully closed, which
-/// is the gap `SignalKeyService.replenishOneTimePrekeysIfNeeded`'s
-/// foreground/app-resume trigger can't cover. This isolate shares no state
-/// with the main app isolate, so every dependency (Supabase session,
-/// Signal identity/session store) has to be bootstrapped from scratch here.
+/// any registered background task fires - including when the app is fully
+/// closed. This isolate shares no state with the main app isolate, so every
+/// dependency (Supabase session, Signal identity/session store) has to be
+/// bootstrapped from scratch here.
+///
+/// This is the single Workmanager callback dispatcher for the whole app
+/// (native only holds one global entry point, set via the one
+/// `Workmanager().initialize()` call in [schedulePrekeyReplenishment]) - it
+/// routes on the fired task's name to whichever background job actually ran,
+/// rather than each job registering its own dispatcher.
 @pragma('vm:entry-point')
 void prekeyReplenishCallbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task != kPrekeyReplenishTaskName) return true;
     try {
       WidgetsFlutterBinding.ensureInitialized();
       final config = AppConfig.current;
@@ -36,6 +41,15 @@ void prekeyReplenishCallbackDispatcher() {
           pkceAsyncStorage: SecureGotrueAsyncStorage(),
         ),
       );
+
+      if (task == kEvidenceUploadRetryTaskName) {
+        // No signed-in check here - PendingEvidenceUploadQueue.drain()
+        // already treats "not signed in" as "nothing to do yet" and leaves
+        // the queue in place for a later attempt.
+        return await PendingEvidenceUploadQueue.drain();
+      }
+
+      if (task != kPrekeyReplenishTaskName) return true;
       if (Supabase.instance.client.auth.currentSession == null) {
         // Not signed in on this device - nothing to replenish.
         return true;
@@ -44,8 +58,8 @@ void prekeyReplenishCallbackDispatcher() {
       return true;
     } on Exception {
       // No UI to surface this to. Returning false lets the OS retry with
-      // its own backoff; persistent exhaustion is already visible via the
-      // Sentry alert in app/db/chat_keys.py's fetch_key_bundle.
+      // its own backoff; persistent prekey exhaustion is also visible via
+      // the Sentry alert in app/db/chat_keys.py's fetch_key_bundle.
       return false;
     }
   });

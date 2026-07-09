@@ -20,7 +20,7 @@ Future<void> callEmergencyNumber(BuildContext context, String number) async {
         'number': number,
       });
       if (placed ?? false) return;
-    } on PlatformException {
+    } on Object catch (_) {
       // Falls through to the dialer-prefill path below (e.g. permission
       // denied, or the platform call itself failed).
     }

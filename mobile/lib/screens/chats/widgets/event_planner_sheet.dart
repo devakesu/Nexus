@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
+import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
@@ -117,7 +118,19 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
         return;
       }
     }
-    if (mounted) setState(() => _safetyEnabled = true);
+    final permissionStatus = await MeetupSafetySession.instance
+        .ensureAndroidPermissions();
+    if (!mounted) return;
+    if (!permissionStatus.allGranted) {
+      NexusToast.show(
+        context,
+        'Check-in alerts may not fire reliably — enable notifications, '
+        'alarms & full-screen alerts for Nexus in Settings.',
+        type: NexusToastType.warning,
+        duration: const Duration(seconds: 5),
+      );
+    }
+    setState(() => _safetyEnabled = true);
   }
 
   String _formatSafetyInterval(Duration d) =>

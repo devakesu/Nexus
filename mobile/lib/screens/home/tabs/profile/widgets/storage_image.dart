@@ -36,6 +36,29 @@ class StorageImage extends StatelessWidget {
       );
     }
 
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      // Other users' photos: the user_media bucket's SELECT policy is
+      // owner-only, so these arrive as a ready-to-use, already-authorized
+      // signed URL from the backend rather than a raw storage path - use it
+      // directly instead of re-deriving a (would-be-403) bucket URL below.
+      return CachedNetworkImage(
+        imageUrl: imagePath,
+        // Stable cache key across token refreshes - the signed URL's query
+        // string rotates but the underlying storage path doesn't.
+        cacheKey: Uri.tryParse(imagePath)?.path ?? imagePath,
+        width: width,
+        height: height,
+        fit: fit,
+        placeholder: (context, url) => _StorageImageShimmer(
+          width: width,
+          height: height,
+        ),
+        errorWidget: (context, url, error) => _buildError(),
+      );
+    }
+
+    // Own storage path: the requester is the owner, so a direct
+    // owner-scoped read against the bucket is still allowed.
     final publicUrl = Supabase.instance.client.storage
         .from('user_media')
         .getPublicUrl(imagePath);

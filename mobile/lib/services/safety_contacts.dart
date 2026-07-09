@@ -87,6 +87,7 @@ Future<void> saveSafetyContacts(List<SafetyContact> contacts) async {
 Future<void> showSosFallbackDialog(
   BuildContext context, {
   required List<SafetyContact> contacts,
+  VoidCallback? onRetryRecording,
 }) async {
   final contactNames = contacts.map((c) => c.name).join(', ');
   final message = contacts.isEmpty
@@ -117,25 +118,56 @@ Future<void> showSosFallbackDialog(
       ),
       actions: [
         Center(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onRetryRecording != null) ...[
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEF4444),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onRetryRecording();
+                  },
+                  child: Text(
+                    'Retry Recording',
+                    style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(
+                  'Dismiss',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Dismiss',
-              style: GoogleFonts.manrope(
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+            ],
           ),
         ),
       ],
@@ -143,19 +175,26 @@ Future<void> showSosFallbackDialog(
   );
 }
 
-/// Launches the dialer pre-filled with [number] (e.g. `tel:112`).
+/// Launches the dialer pre-filled with [number] (e.g. `tel:112`). Never
+/// throws - an emergency call action failing silently with no feedback
+/// (and no chance to retry) is worse than a caught error toast, since the
+/// button otherwise looks like it did nothing.
 Future<void> launchSafetyTel(BuildContext context, String number) async {
-  final uri = Uri.parse(number);
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri);
-  } else {
-    if (context.mounted) {
-      NexusToast.show(
-        context,
-        'Could not launch helpline dialer',
-        type: NexusToastType.error,
-      );
+  try {
+    final uri = Uri.parse(number);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+      return;
     }
+  } on Object catch (_) {
+    // Falls through to the error toast below.
+  }
+  if (context.mounted) {
+    NexusToast.show(
+      context,
+      'Could not launch helpline dialer',
+      type: NexusToastType.error,
+    );
   }
 }
 

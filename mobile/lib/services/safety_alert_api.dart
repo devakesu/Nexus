@@ -44,10 +44,12 @@ class SafetyAlertApi {
     }
   }
 
-  /// Sends the SOS/inform SMS fan-out. Returns null if the request itself
-  /// failed (no network, not signed in, etc.) — the in-app SOS flow treats
-  /// null the same as "couldn't reach the server" and still shows its own
-  /// confirmation, per the Meetup Safety plan's mock-action scoping.
+  /// Sends the SOS/inform SMS fan-out, retrying transient failures (a
+  /// dropped connection mid-emergency is exactly when a flaky network is
+  /// most likely) up to twice more with a short backoff before giving up.
+  /// Returns null only once every attempt has failed — the in-app SOS flow
+  /// treats null the same as "couldn't reach the server" and still shows
+  /// its own confirmation, per the Meetup Safety plan's mock-action scoping.
   static Future<SafetyAlertResult?> sendAlert({
     required String alertType,
     String? sessionId,
@@ -56,32 +58,40 @@ class SafetyAlertApi {
     double? latitude,
     double? longitude,
   }) async {
-    try {
-      await NetworkUtils.requireAccessToken();
-      final response = await _dio.post<Map<String, dynamic>>(
-        '${AppConfig.current.backendUrl}/api/v1/safety/alert',
-        data: {
-          'alert_type': alertType,
-          if (sessionId != null && sessionId.isNotEmpty)
-            'session_id': sessionId,
-          if (sessionLabel != null && sessionLabel.isNotEmpty)
-            'session_label': sessionLabel,
-          if (eventLabel != null && eventLabel.isNotEmpty)
-            'event_label': eventLabel,
-          if (latitude != null && longitude != null)
-            'current_location': {'lat': latitude, 'lng': longitude},
-        },
-      );
-      final data = response.data;
-      if (data == null) return null;
-      return SafetyAlertResult(
-        alertId: data['id'] as String,
-        contactsNotified: data['contacts_notified'] as int,
-        contactsTotal: data['contacts_total'] as int,
-      );
-    } on Object catch (_) {
-      return null;
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+      }
+      try {
+        await NetworkUtils.requireAccessToken();
+        final response = await _dio.post<Map<String, dynamic>>(
+          '${AppConfig.current.backendUrl}/api/v1/safety/alert',
+          data: {
+            'alert_type': alertType,
+            if (sessionId != null && sessionId.isNotEmpty)
+              'session_id': sessionId,
+            if (sessionLabel != null && sessionLabel.isNotEmpty)
+              'session_label': sessionLabel,
+            if (eventLabel != null && eventLabel.isNotEmpty)
+              'event_label': eventLabel,
+            if (latitude != null && longitude != null)
+              'current_location': {'lat': latitude, 'lng': longitude},
+          },
+        );
+        final data = response.data;
+        if (data == null) continue;
+        return SafetyAlertResult(
+          alertId: data['id'] as String,
+          contactsNotified: data['contacts_notified'] as int,
+          contactsTotal: data['contacts_total'] as int,
+        );
+      } on Object catch (_) {
+        // Retry (if attempts remain) rather than giving up on the first
+        // transient failure.
+      }
     }
+    return null;
   }
 
   /// Registers an encrypted Digital Witness evidence segment already

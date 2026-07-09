@@ -4,8 +4,7 @@ import 'dart:io' show File, Platform;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nexus/services/safety_alert_api.dart';
-import 'package:nexus/services/signal/media_crypto.dart';
+import 'package:nexus/services/pending_evidence_upload_queue.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -105,8 +104,8 @@ class DigitalWitnessRecorder extends ChangeNotifier
     return true;
   }
 
-  /// Stops recording, tears down the camera, and kicks off (fire-and-forget)
-  /// encrypting and uploading whatever segments were captured.
+  /// Stops recording, tears down the camera, and durably queues whatever
+  /// segments were captured for upload (see [PendingEvidenceUploadQueue]).
   Future<void> stop() async {
     if (!isRecording) return;
     WidgetsBinding.instance.removeObserver(this);
@@ -126,7 +125,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
     controller = null;
     notifyListeners();
 
-    unawaited(_uploadSegments());
+    await _handoffSegments();
   }
 
   Future<void> _finalizeCurrentSegment() async {
@@ -144,7 +143,14 @@ class DigitalWitnessRecorder extends ChangeNotifier
     }
   }
 
-  Future<void> _uploadSegments() async {
+  /// Hands captured segments off to the durable upload queue, then attempts
+  /// an immediate upload. The handoff itself is awaited (it's just a local
+  /// disk write) so a process kill right after stop() returns can't drop
+  /// evidence that was never recorded anywhere; the actual encrypt+upload
+  /// network work stays fire-and-forget, backed up by a background retry
+  /// task in case the immediate attempt can't finish (no connectivity, app
+  /// killed mid-upload, etc).
+  Future<void> _handoffSegments() async {
     final alertId = _alertId;
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final segments = List<(File, double)>.from(_segments);
@@ -165,32 +171,12 @@ class DigitalWitnessRecorder extends ChangeNotifier
       return;
     }
 
-    final storage = Supabase.instance.client.storage.from('safety_evidence');
-    for (final (segment, durationSeconds) in segments) {
-      try {
-        final bytes = await segment.readAsBytes();
-        final encrypted = await MediaCrypto.instance.encrypt(bytes);
-        final path = '$userId/${DateTime.now().microsecondsSinceEpoch}.enc';
-        await storage.uploadBinary(path, encrypted.ciphertext);
-        await SafetyAlertApi.registerEvidence(
-          alertId: alertId,
-          storagePath: path,
-          mediaKeyBase64: encrypted.mediaKeyBase64,
-          contentType: 'video',
-          durationSeconds: durationSeconds,
-        );
-      } on Exception {
-        // Best-effort — ciphertext is never left half-uploaded in a
-        // readable state, so a failed segment just has no server-side
-        // evidence rather than a corrupt one.
-      } finally {
-        try {
-          await segment.delete();
-        } on Exception {
-          // Local temp file cleanup is best-effort too.
-        }
-      }
-    }
+    await PendingEvidenceUploadQueue.enqueueAll(
+      alertId: alertId,
+      segments: segments,
+    );
+    unawaited(PendingEvidenceUploadQueue.drain());
+    unawaited(PendingEvidenceUploadQueue.scheduleBackgroundRetry());
   }
 
   @override

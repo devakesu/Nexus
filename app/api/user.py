@@ -29,6 +29,7 @@ from app.db.client import supabase_client
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,
+    sign_profile_media_bulk,
     update_profile_images_and_metadata,
 )
 from app.db.users import (
@@ -507,6 +508,7 @@ def get_moderation_subjects(
                     "profile_pic": decrypted.get("profile_pic"),
                 },
             )
+        sign_profile_media_bulk(results)
         return results
     except Exception as e:
         logger.exception("Failed to fetch moderation subjects")

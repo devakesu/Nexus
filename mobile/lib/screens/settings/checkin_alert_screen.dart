@@ -157,28 +157,44 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
 
     if (silent) {
       setState(() => _phase = _SosPhase.silentActive);
-      try {
-        final started = await DigitalWitnessRecorder.instance.start(
-          alertId: _lastAlertId,
-        );
-        if (!started && mounted) {
-          // Camera/mic unavailable or denied - fall back to the mock confirmation
-          // so the screen doesn't just sit there looking broken.
-          await showSosFallbackDialog(context, contacts: _contacts);
-          if (mounted) setState(() => _phase = _SosPhase.idle);
-        }
-      } on Object catch (_) {
-        if (mounted) {
-          await showSosFallbackDialog(context, contacts: _contacts);
-          setState(() => _phase = _SosPhase.idle);
-        }
-      }
+      await _attemptRecording();
     } else {
       setState(() => _phase = _SosPhase.loudActive);
       try {
         await _startAlarm();
       } on Object catch (_) {
         // Non-fatal, alarm failed to start
+      }
+    }
+  }
+
+  /// Attempts to start Digital Witness recording, offering an explicit
+  /// "Retry Recording" action (rather than auto-retrying silently, since a
+  /// denied camera/mic permission needs the user to act, not just another
+  /// attempt) if it fails. Re-invoked directly from that retry button.
+  Future<void> _attemptRecording() async {
+    try {
+      final started = await DigitalWitnessRecorder.instance.start(
+        alertId: _lastAlertId,
+      );
+      if (!started && mounted) {
+        // Camera/mic unavailable or denied - fall back to the mock confirmation
+        // so the screen doesn't just sit there looking broken.
+        await showSosFallbackDialog(
+          context,
+          contacts: _contacts,
+          onRetryRecording: _attemptRecording,
+        );
+        if (mounted) setState(() => _phase = _SosPhase.idle);
+      }
+    } on Object catch (_) {
+      if (mounted) {
+        await showSosFallbackDialog(
+          context,
+          contacts: _contacts,
+          onRetryRecording: _attemptRecording,
+        );
+        setState(() => _phase = _SosPhase.idle);
       }
     }
   }

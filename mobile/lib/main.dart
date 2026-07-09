@@ -14,6 +14,7 @@ import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
 import 'package:nexus/navigation/app_router.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/notification_service.dart';
+import 'package:nexus/services/pending_evidence_upload_queue.dart';
 import 'package:nexus/services/signal/background_prekey_task.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/secure_session_storage.dart';
@@ -99,6 +100,12 @@ Future<void> main() async {
   // closed (see background_prekey_task.dart doc comment). Fire-and-forget:
   // scheduling failures shouldn't block app startup.
   unawaited(schedulePrekeyReplenishment());
+
+  // Retries any Digital Witness evidence segments left over from a prior
+  // session that couldn't finish uploading (flaky network, app killed
+  // mid-upload) - a no-op if the queue is empty. Fire-and-forget: this is a
+  // background catch-up, not something app startup should wait on.
+  unawaited(PendingEvidenceUploadQueue.drain());
 
   await SentryFlutter.init(
     (options) {

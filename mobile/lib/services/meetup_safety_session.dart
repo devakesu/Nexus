@@ -39,6 +39,35 @@ abstract final class MeetupSafetyNotificationActions {
   static const imSafe = 'meetup_safety_im_safe';
 }
 
+/// Result of [MeetupSafetySession.ensureAndroidPermissions] — which of the
+/// Android settings-gated permissions the check-in-due alert depends on are
+/// actually granted. `false` doesn't necessarily mean the user just denied
+/// it: `requestExactAlarmsPermission`/`requestFullScreenIntentPermission`
+/// open a system Settings screen and don't wait for the user to come back,
+/// so it can also mean "not yet granted, user was just sent to Settings".
+/// Either way, callers should warn rather than block on an incomplete
+/// result — the ongoing notification and local exact-alarm loop still work
+/// best-effort regardless.
+class MeetupSafetyPermissionStatus {
+  const MeetupSafetyPermissionStatus({
+    required this.notificationsGranted,
+    required this.exactAlarmsGranted,
+    required this.fullScreenIntentGranted,
+  });
+
+  const MeetupSafetyPermissionStatus.allGranted()
+    : notificationsGranted = true,
+      exactAlarmsGranted = true,
+      fullScreenIntentGranted = true;
+
+  final bool notificationsGranted;
+  final bool exactAlarmsGranted;
+  final bool fullScreenIntentGranted;
+
+  bool get allGranted =>
+      notificationsGranted && exactAlarmsGranted && fullScreenIntentGranted;
+}
+
 /// Owns the recurring Meetup Safety check-in loop: start once, check in
 /// repeatedly at a fixed interval, until stopped. State is persisted so a
 /// relaunch mid-session restores correctly, and the check-in deadline is
@@ -298,24 +327,39 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   /// Requests the two Android 14+ settings-gated permissions this feature
-  /// needs. Both open a system settings screen rather than an in-app dialog,
-  /// so this is only called once, right as the user starts a session.
-  Future<void> _ensureAndroidPermissions() async {
-    if (!Platform.isAndroid) return;
+  /// needs, plus the Android 13+ notification permission, and reports which
+  /// were actually granted (see [MeetupSafetyPermissionStatus] for caveats
+  /// on what a `false` here means). Call this explicitly wherever the user
+  /// opts into check-ins (Safety Center's "Start Check-In" via [start], and
+  /// the in-chat event planner's check-in toggle) so a denial can be
+  /// surfaced right away rather than failing silently later when the alert
+  /// is actually due.
+  Future<MeetupSafetyPermissionStatus> ensureAndroidPermissions() async {
+    if (!Platform.isAndroid) {
+      return const MeetupSafetyPermissionStatus.allGranted();
+    }
     final android = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    await android?.requestNotificationsPermission();
-    await android?.requestExactAlarmsPermission();
-    await android?.requestFullScreenIntentPermission();
+    final notificationsGranted =
+        await android?.requestNotificationsPermission() ?? false;
+    final exactAlarmsGranted =
+        await android?.requestExactAlarmsPermission() ?? false;
+    final fullScreenIntentGranted =
+        await android?.requestFullScreenIntentPermission() ?? false;
+    return MeetupSafetyPermissionStatus(
+      notificationsGranted: notificationsGranted,
+      exactAlarmsGranted: exactAlarmsGranted,
+      fullScreenIntentGranted: fullScreenIntentGranted,
+    );
   }
 
-  Future<void> start({
+  Future<MeetupSafetyPermissionStatus> start({
     required Duration interval,
     required String label,
   }) async {
-    await _ensureAndroidPermissions();
+    final permissionStatus = await ensureAndroidPermissions();
     final generation = ++_sessionGeneration;
     isActive = true;
     checkInInterval = interval;
@@ -327,6 +371,7 @@ class MeetupSafetySession extends ChangeNotifier {
     _armDueTimer();
     notifyListeners();
     unawaited(_mirrorStart(generation));
+    return permissionStatus;
   }
 
   Future<void> checkInSafely() async {

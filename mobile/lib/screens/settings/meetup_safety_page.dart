@@ -247,17 +247,26 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
   // --- Date Check-In Logic ---
   Future<void> _startCheckIn() async {
     final label = _checkInLabelController.text.trim();
-    await _session.start(
+    final permissionStatus = await _session.start(
       interval: _checkInSelectedDuration,
       label: label.isEmpty ? '' : label,
     );
-    if (mounted) {
+    if (!mounted) return;
+    if (!permissionStatus.allGranted) {
       NexusToast.show(
         context,
-        'Check-in scheduled. Stay safe out there!',
-        type: NexusToastType.success,
+        'Check-in alerts may not fire reliably — enable notifications, '
+        'alarms & full-screen alerts for Nexus in Settings.',
+        type: NexusToastType.warning,
+        duration: const Duration(seconds: 5),
       );
+      return;
     }
+    NexusToast.show(
+      context,
+      'Check-in scheduled. Stay safe out there!',
+      type: NexusToastType.success,
+    );
   }
 
   Future<void> _extendCheckIn(Duration extra) async {
