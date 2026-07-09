@@ -23,6 +23,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_pa
 import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
@@ -1569,15 +1570,31 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                 ),
                               ),
                               if (searchController.text.isNotEmpty)
-                                GestureDetector(
+                                Semantics(
+                                  button: true,
+                                  label: 'Clear search',
+                                  excludeSemantics: true,
                                   onTap: () {
                                     searchController.clear();
                                     setModalState(() {});
                                   },
-                                  child: const Icon(
-                                    LucideIcons.xCircle,
-                                    color: Colors.black45,
-                                    size: 16,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      searchController.clear();
+                                      setModalState(() {});
+                                    },
+                                    child: const SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Center(
+                                        child: Icon(
+                                          LucideIcons.xCircle,
+                                          color: Colors.black45,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                             ],
@@ -1810,7 +1827,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 child: ListView(
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(0, 12, 0, 110),
+                  padding: const EdgeInsets.fromLTRB(
+                    0,
+                    12,
+                    0,
+                    CustomBottomNavBar.clearance,
+                  ),
                   children: [
                     // 🪐 1. Pulsing & Rotating Profile Header
                     _buildStaggeredEntrance(

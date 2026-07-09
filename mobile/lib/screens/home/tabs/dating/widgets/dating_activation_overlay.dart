@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 
 class DatingActivationOverlay extends StatefulWidget {
   const DatingActivationOverlay({required this.onFinished, super.key});
@@ -141,7 +142,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
               ),
               // Overlay text description
               Positioned(
-                bottom: 120,
+                bottom: CustomBottomNavBar.clearance,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

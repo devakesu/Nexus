@@ -93,18 +93,26 @@ class SelectorTile extends StatelessWidget {
                         ),
                       ),
                       if (!isEmpty && onClear != null)
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
+                        Semantics(
+                          button: true,
+                          label: 'Clear $label',
+                          excludeSemantics: true,
                           onTap: onClear,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 18,
-                            ),
-                            child: Icon(
-                              LucideIcons.x,
-                              size: 13,
-                              color: Colors.black.withValues(alpha: 0.35),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onClear,
+                            // 44px minimum touch target; the icon itself
+                            // stays 13px, centered within.
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: Icon(
+                                  LucideIcons.x,
+                                  size: 13,
+                                  color: Color(0x59000000),
+                                ),
+                              ),
                             ),
                           ),
                         )

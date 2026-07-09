@@ -189,6 +189,15 @@ class MyApp extends StatelessWidget {
       routerConfig: goRouter,
       title: appName,
       debugShowCheckedModeBanner: false,
+      // Several fixed-height rows (bottom nav, dialog buttons) weren't built
+      // to grow with the OS text-size setting. Clamp system text scaling to
+      // a range those layouts can absorb without overflowing, while still
+      // giving low-vision users real enlargement.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 0.8,
+        maxScaleFactor: 1.3,
+        child: child!,
+      ),
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFF4F6FA),

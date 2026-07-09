@@ -521,12 +521,25 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                   ),
                 ),
                 if (_searchQuery.isNotEmpty)
-                  GestureDetector(
+                  Semantics(
+                    button: true,
+                    label: 'Clear search',
+                    excludeSemantics: true,
                     onTap: _searchController.clear,
-                    child: const Icon(
-                      LucideIcons.x,
-                      color: Colors.white70,
-                      size: 16,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _searchController.clear,
+                      child: const SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Icon(
+                            LucideIcons.x,
+                            color: Colors.white70,
+                            size: 16,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],

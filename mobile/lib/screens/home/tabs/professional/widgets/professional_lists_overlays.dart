@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HandshakesOverlay extends StatefulWidget {
@@ -118,123 +119,129 @@ class _HandshakesOverlayState extends State<HandshakesOverlay> {
                       ],
                     ),
                   )
-                : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.82,
+                : LayoutBuilder(
+                    builder: (context, constraints) => GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridColumnsForWidth(
+                          constraints.maxWidth,
                         ),
-                    itemCount: widget.handshakes.length,
-                    itemBuilder: (ctx, index) {
-                      final item =
-                          widget.handshakes[index] as Map<String, dynamic>;
-                      final actorId = item['actor_id'] as String? ?? '';
-                      final name = item['name'] as String? ?? 'Unknown';
-                      final age = item['age'];
-                      final profilePic = item['profile_pic'] as String? ?? '';
-                      final isSuperConnect = item['action'] == 'superlike';
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 0.82,
+                      ),
+                      itemCount: widget.handshakes.length,
+                      itemBuilder: (ctx, index) {
+                        final item =
+                            widget.handshakes[index] as Map<String, dynamic>;
+                        final actorId = item['actor_id'] as String? ?? '';
+                        final name = item['name'] as String? ?? 'Unknown';
+                        final age = item['age'];
+                        final profilePic = item['profile_pic'] as String? ?? '';
+                        final isSuperConnect = item['action'] == 'superlike';
 
-                      return GestureDetector(
-                        onTap: () => widget.onShowHandshakeProfile(
-                          ctx: ctx,
-                          actorId: actorId,
-                          name: name,
-                          onActioned: (id) {
-                            setState(() {
-                              widget.handshakes.removeWhere(
-                                (dynamic i) =>
-                                    (i as Map<String, dynamic>)['actor_id'] ==
-                                    id,
-                              );
-                            });
-                            setState(() {});
-                          },
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withAlpha(20),
+                        return GestureDetector(
+                          onTap: () => widget.onShowHandshakeProfile(
+                            ctx: ctx,
+                            actorId: actorId,
+                            name: name,
+                            onActioned: (id) {
+                              setState(() {
+                                widget.handshakes.removeWhere(
+                                  (dynamic i) =>
+                                      (i as Map<String, dynamic>)['actor_id'] ==
+                                      id,
+                                );
+                              });
+                              setState(() {});
+                            },
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withAlpha(20),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(20),
+                                    ),
+                                    child: profilePic.isNotEmpty
+                                        ? StorageImage(
+                                            imagePath: profilePic,
+                                          )
+                                        : ColoredBox(
+                                            color: themeColor.withAlpha(
+                                              40,
+                                            ),
+                                            child: const Center(
+                                              child: Icon(
+                                                LucideIcons.user,
+                                                color: Colors.white38,
+                                                size: 36,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              age != null
+                                                  ? '$name, $age'
+                                                  : name,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isSuperConnect)
+                                            const Icon(
+                                              LucideIcons.star,
+                                              color: Color(0xFFF59E0B),
+                                              size: 13,
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        isSuperConnect
+                                            ? 'Super Connected you ⭐'
+                                            : 'Handshaked you 🤝',
+                                        style: TextStyle(
+                                          color: Colors.white.withAlpha(
+                                            140,
+                                          ),
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(20),
-                                  ),
-                                  child: profilePic.isNotEmpty
-                                      ? StorageImage(
-                                          imagePath: profilePic,
-                                        )
-                                      : ColoredBox(
-                                          color: themeColor.withAlpha(
-                                            40,
-                                          ),
-                                          child: const Center(
-                                            child: Icon(
-                                              LucideIcons.user,
-                                              color: Colors.white38,
-                                              size: 36,
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            age != null ? '$name, $age' : name,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (isSuperConnect)
-                                          const Icon(
-                                            LucideIcons.star,
-                                            color: Color(0xFFF59E0B),
-                                            size: 13,
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      isSuperConnect
-                                          ? 'Super Connected you ⭐'
-                                          : 'Handshaked you 🤝',
-                                      style: TextStyle(
-                                        color: Colors.white.withAlpha(
-                                          140,
-                                        ),
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
@@ -481,6 +488,10 @@ class _ConnectionsOverlayState extends State<ConnectionsOverlay> {
                                   ),
                                   color: Colors.white54,
                                   visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
                                   tooltip: 'Message',
                                   onPressed: () => openOrCreateChat(
                                     context,
@@ -497,6 +508,10 @@ class _ConnectionsOverlayState extends State<ConnectionsOverlay> {
                                   ),
                                   color: Colors.white38,
                                   visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
+                                  ),
                                   tooltip: 'Disconnect',
                                   onPressed: () async {
                                     final ok = await showDialog<bool>(

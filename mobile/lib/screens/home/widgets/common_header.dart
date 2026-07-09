@@ -50,7 +50,9 @@ class CommonHeader extends StatelessWidget {
     }
 
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    const iconSize = 40.0;
+    // 44px meets the minimum touch-target size; the balancing spacer below
+    // uses the same constant so the title stays centered.
+    const iconSize = 44.0;
 
     return Container(
       padding: EdgeInsets.fromLTRB(20, 14 + statusBarHeight, 20, 14),
@@ -132,13 +134,13 @@ class CommonHeader extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onChatTap,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
                 splashColor: Colors.white.withValues(alpha: 0.2),
                 highlightColor: Colors.white.withValues(alpha: 0.1),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.25),
                     ),

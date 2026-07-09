@@ -7,6 +7,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/friends/widgets/friends_lists_overlays.dart';
 import 'package:nexus/screens/home/tabs/friends/widgets/friends_settings_overlay.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
@@ -1481,7 +1482,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
                 ),
               ),
               Positioned(
-                bottom: 120,
+                bottom: CustomBottomNavBar.clearance,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

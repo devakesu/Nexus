@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/utils/responsive.dart';
 
 /// Onboarding fields shown only for the Nexus-MEC (college) flavor.
 ///
@@ -59,56 +60,60 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
           ),
         ),
         const SizedBox(height: 8),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 2.2,
-          children: _branches.map((b) {
-            final isSelected = _selectedBranch == b;
-            return GestureDetector(
-              onTap: () {
-                setState(() => _selectedBranch = b);
-                _notify();
-              },
-              child: AnimatedContainer(
-                duration: 200.ms,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
+        LayoutBuilder(
+          builder: (context, constraints) => GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: gridColumnsForWidth(constraints.maxWidth, base: 3),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.2,
+            children: _branches.map((b) {
+              final isSelected = _selectedBranch == b;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedBranch = b);
+                  _notify();
+                },
+                child: AnimatedContainer(
+                  duration: 200.ms,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFFFF7597)
+                          : const Color(0x1AFFFFFF),
+                    ),
                     color: isSelected
-                        ? const Color(0xFFFF7597)
-                        : const Color(0x1AFFFFFF),
+                        ? const Color(0x26FF7597)
+                        : const Color(0xFF0B0D13),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFF7597,
+                              ).withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
-                  color: isSelected
-                      ? const Color(0x26FF7597)
-                      : const Color(0xFF0B0D13),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFFF7597,
-                            ).withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  b,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : const Color(0x99FFFFFF),
+                  child: Text(
+                    b,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0x99FFFFFF),
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
         const SizedBox(height: 20),
 

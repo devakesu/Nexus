@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 
 class FriendsActivationOverlay extends StatefulWidget {
   const FriendsActivationOverlay({required this.onFinished, super.key});
@@ -122,7 +123,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
                 ),
               ),
               Positioned(
-                bottom: 120,
+                bottom: CustomBottomNavBar.clearance,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

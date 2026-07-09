@@ -331,85 +331,89 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
             const SizedBox(height: 20),
 
             // Action button
+            // minHeight (not a fixed height) so this can grow instead of
+            // overflowing if the OS text-scale setting enlarges the label.
             SizedBox(
               width: double.infinity,
-              height: 50,
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_teal),
-                      ),
-                    )
-                  : _success
-                  ? Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0x26FF7597),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.check_circle_rounded,
-                            color: _teal,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Verification Successful!',
-                            style: TextStyle(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 50),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(_teal),
+                        ),
+                      )
+                    : _success
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0x26FF7597),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.check_circle_rounded,
                               color: _teal,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
+                              size: 20,
                             ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isOtpValid ? _submitOtp : null,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: !_isOtpValid
-                                ? null
-                                : const LinearGradient(
-                                    colors: [
-                                      Color(0xFFFF7597),
-                                      Color(0xFFE04B76),
-                                    ],
-                                  ),
-                            color: !_isOtpValid
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : null,
-                            boxShadow: !_isOtpValid
-                                ? null
-                                : const [
-                                    BoxShadow(
-                                      color: Color(0x26FF7597),
-                                      blurRadius: 12,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Verify',
+                            SizedBox(width: 8),
+                            Text(
+                              'Verification Successful!',
                               style: TextStyle(
-                                fontSize: 15,
+                                color: _teal,
                                 fontWeight: FontWeight.w700,
-                                color: !_isOtpValid
-                                    ? Colors.white.withValues(alpha: 0.3)
-                                    : Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isOtpValid ? _submitOtp : null,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              gradient: !_isOtpValid
+                                  ? null
+                                  : const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFF7597),
+                                        Color(0xFFE04B76),
+                                      ],
+                                    ),
+                              color: !_isOtpValid
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : null,
+                              boxShadow: !_isOtpValid
+                                  ? null
+                                  : const [
+                                      BoxShadow(
+                                        color: Color(0x26FF7597),
+                                        blurRadius: 12,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Verify',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: !_isOtpValid
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+              ),
             ).animate().fade(delay: 160.ms),
           ],
         ),

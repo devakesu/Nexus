@@ -12,6 +12,20 @@ class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
 
+  /// The nav's own height, in logical pixels.
+  static const double navHeight = 72;
+
+  /// The nav's bottom margin off the screen edge.
+  static const double bottomMargin = 20;
+
+  /// Total space scrollable or positioned content should reserve above the
+  /// screen bottom so it isn't obscured by the floating nav: [navHeight] +
+  /// [bottomMargin] + a comfortable breathing gap. Screens should reference
+  /// this instead of a hardcoded bottom-padding literal — that's exactly how
+  /// this drifted before (some screens reserved 110px, others 120px, with no
+  /// shared source of truth).
+  static const double clearance = navHeight + bottomMargin + 18;
+
   Color _getSelectedColor(int index) {
     switch (index) {
       case 0:
@@ -130,6 +144,8 @@ class CustomBottomNavBar extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               label.toLowerCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9,
                 letterSpacing: 1.2,
@@ -194,6 +210,8 @@ class CustomBottomNavBar extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               'profile',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9,
                 letterSpacing: 1.2,

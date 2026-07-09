@@ -185,14 +185,21 @@ class TagChipsEditor extends StatelessWidget {
                                     setModalState(() {});
                                   },
                                   child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
                                     onTap: () {
                                       searchController.clear();
                                       setModalState(() {});
                                     },
-                                    child: const Icon(
-                                      LucideIcons.xCircle,
-                                      color: Colors.black38,
-                                      size: 16,
+                                    child: const SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Center(
+                                        child: Icon(
+                                          LucideIcons.xCircle,
+                                          color: Colors.black38,
+                                          size: 16,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),

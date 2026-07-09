@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
 
 class TabScaffold extends StatelessWidget {
@@ -36,7 +37,12 @@ class TabScaffold extends StatelessWidget {
           // Scrollable content area
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 110),
+              padding: const EdgeInsets.fromLTRB(
+                24,
+                12,
+                24,
+                CustomBottomNavBar.clearance,
+              ),
               children: [
                 // Open Orbit action card
                 Container(

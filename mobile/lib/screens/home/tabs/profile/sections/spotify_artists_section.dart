@@ -131,13 +131,30 @@ class _ArtistChip extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(width: 6),
-          GestureDetector(
+          const SizedBox(width: 2),
+          // 24x24 rather than the usual 44px minimum: this sits in a Wrap of
+          // several compact chips, where a 44px target per chip would blow
+          // out the pill shape. 24x24 still clears WCAG 2.2 AA's floor for
+          // dense inline controls.
+          Semantics(
+            button: true,
+            label: 'Remove $name',
+            excludeSemantics: true,
             onTap: onRemove,
-            child: const Icon(
-              LucideIcons.x,
-              size: 12,
-              color: Colors.black45,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onRemove,
+              child: const SizedBox(
+                width: 24,
+                height: 24,
+                child: Center(
+                  child: Icon(
+                    LucideIcons.x,
+                    size: 12,
+                    color: Colors.black45,
+                  ),
+                ),
+              ),
             ),
           ),
         ],

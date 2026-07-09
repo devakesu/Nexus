@@ -438,13 +438,25 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                     letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(width: 4),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: 'About field visibility',
+                  excludeSemantics: true,
                   onTap: _showVisibilityInfo,
-                  child: const Icon(
-                    LucideIcons.info,
-                    size: 13,
-                    color: Color(0xFF94A3B8),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _showVisibilityInfo,
+                    child: const SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: Icon(
+                          LucideIcons.info,
+                          size: 13,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],

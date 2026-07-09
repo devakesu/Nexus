@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
@@ -313,7 +314,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
     return TabBackground(
       accentColor: _accent,
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 120),
+        padding: const EdgeInsets.only(bottom: CustomBottomNavBar.clearance),
         children: [
           const _NexusBranding(),
           const SizedBox(height: 4),
