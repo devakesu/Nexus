@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/local_key_vault.dart';
@@ -20,6 +20,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 part 'chat_conversation_provider.g.dart';
+
+/// Intermediate result of resolving a single `chat_messages` row, before
+/// its [ChatEventInfo] (if any) is attached in a second, batched pass.
+typedef _ResolvedMessageDraft = ({
+  String id,
+  String senderId,
+  bool isMine,
+  DateTime createdAt,
+  String? plaintext,
+  String messageType,
+  bool decryptFailed,
+  DateTime? readAt,
+});
 
 /// The decrypted "message" for image/voice types is this JSON pointer,
 /// not the media itself - the actual bytes live in the `chat_media`
@@ -194,6 +207,9 @@ class ChatConversationState {
     required this.sending,
     this.isNewLocalIdentity = false,
     this.conversationClosed = false,
+    this.hasMoreHistory = true,
+    this.loadingOlder = false,
+    this.isRevalidating = false,
   });
 
   final List<ChatMessageView> messages;
@@ -211,12 +227,27 @@ class ChatConversationState {
   /// message/event realtime subscriptions once set.
   final bool conversationClosed;
 
+  /// False once a paginated fetch comes back short of a full page - there's
+  /// nothing older left to load.
+  final bool hasMoreHistory;
+
+  /// True while `loadOlderMessages()` has a page fetch in flight.
+  final bool loadingOlder;
+
+  /// True while [messages] is a locally-cached snapshot being reconciled
+  /// with a fresh network fetch in the background (see `build()`'s
+  /// local-first path) - never blocks the UI, just signals "still syncing".
+  final bool isRevalidating;
+
   ChatConversationState copyWith({
     List<ChatMessageView>? messages,
     bool? sessionReady,
     bool? sending,
     bool? isNewLocalIdentity,
     bool? conversationClosed,
+    bool? hasMoreHistory,
+    bool? loadingOlder,
+    bool? isRevalidating,
   }) {
     return ChatConversationState(
       messages: messages ?? this.messages,
@@ -224,9 +255,16 @@ class ChatConversationState {
       sending: sending ?? this.sending,
       isNewLocalIdentity: isNewLocalIdentity ?? this.isNewLocalIdentity,
       conversationClosed: conversationClosed ?? this.conversationClosed,
+      hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
+      loadingOlder: loadingOlder ?? this.loadingOlder,
+      isRevalidating: isRevalidating ?? this.isRevalidating,
     );
   }
 }
+
+/// Number of messages fetched per page, both for the initial load and for
+/// `loadOlderMessages()`.
+const _pageSize = 40;
 
 @riverpod
 class ChatConversationController extends _$ChatConversationController {
@@ -236,18 +274,92 @@ class ChatConversationController extends _$ChatConversationController {
   SignalProtocolAddress? _peerAddress;
   RealtimeChannel? _channel;
 
+  /// Set once this provider is torn down (user navigated away) - guards
+  /// against a background `_bootstrap()` future landing after that and
+  /// writing to `state` on a disposed autoDispose provider.
+  bool _disposed = false;
+
   @override
   Future<ChatConversationState> build(
     String conversationId,
     String peerUserId,
   ) async {
     ref.onDispose(() {
+      _disposed = true;
       final channel = _channel;
       if (channel != null) {
         unawaited(Supabase.instance.client.removeChannel(channel));
       }
     });
 
+    // Local-first: cached messages are already plaintext (vault-encrypted
+    // at rest only, no ratchet decryption needed - see LocalMessages' doc
+    // comment), so they can render instantly with no network round trip at
+    // all. If any exist, show them immediately and reconcile with the
+    // server in the background instead of blocking behind a spinner.
+    final localRows =
+        await (_db.select(_db.localMessages)
+              ..where((t) => t.conversationId.equals(conversationId))
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+              ..limit(_pageSize))
+            .get();
+
+    if (localRows.isNotEmpty) {
+      final initialMessages = await Future.wait(
+        localRows.reversed.map(_viewFromCachedRow),
+      );
+      unawaited(
+        _bootstrap(conversationId, peerUserId).then((fresh) {
+          if (_disposed) return;
+          state = AsyncData(fresh);
+        }),
+      );
+      return ChatConversationState(
+        messages: initialMessages,
+        // Conservative: composer stays disabled and no realtime channel is
+        // subscribed until _bootstrap() actually confirms the session and
+        // conversation state - sendText()/etc. already no-op safely while
+        // _store/_peerAddress are unset.
+        sessionReady: false,
+        sending: false,
+        isRevalidating: true,
+      );
+    }
+
+    // True first-ever open of this conversation - nothing to show yet
+    // anyway, so fall back to the original blocking behavior.
+    return _bootstrap(conversationId, peerUserId);
+  }
+
+  Future<ChatMessageView> _viewFromCachedRow(LocalMessage row) async {
+    final plaintextEnc = row.plaintextEnc;
+    final plaintext = plaintextEnc != null
+        ? utf8.decode(
+            await LocalKeyVault.instance.decryptBytes(
+              Uint8List.fromList(plaintextEnc),
+            ),
+          )
+        : null;
+    return ChatMessageView(
+      id: row.id,
+      senderId: row.senderId,
+      isMine: row.isMine,
+      createdAt: row.createdAt,
+      plaintext: plaintext,
+      messageType: row.messageType,
+      decryptFailed: row.decryptFailed,
+    );
+  }
+
+  /// Establishes the Signal session, subscribes realtime, and fetches the
+  /// latest page of messages from the network - the full "real" state.
+  /// Called directly on a true first-ever open, or in the background to
+  /// reconcile after the local-first snapshot in `build()` already
+  /// rendered.
+  Future<ChatConversationState> _bootstrap(
+    String conversationId,
+    String peerUserId,
+  ) async {
     final store = await SignalKeyService.instance.ensureBootstrapped();
     _store = store;
     final isNewLocalIdentity = SignalKeyService.instance.isNewLocalIdentity;
@@ -271,13 +383,13 @@ class ChatConversationController extends _$ChatConversationController {
         .from('chat_messages')
         .select()
         .eq('conversation_id', conversationId)
-        .order('created_at');
-    final rows = List<Map<String, dynamic>>.from(rawRows as List);
+        .order('created_at', ascending: false)
+        .limit(_pageSize);
+    final rows = List<Map<String, dynamic>>.from(
+      rawRows as List,
+    ).reversed.toList();
 
-    final messages = <ChatMessageView>[];
-    for (final row in rows) {
-      messages.add(await _resolveMessage(row, store, address));
-    }
+    final messages = await _resolveMessages(rows, store, address);
 
     final timestamps =
         UntrustedIdentityRegistry.keyChangeTimestamps[peerUserId] ?? [];
@@ -296,7 +408,9 @@ class ChatConversationController extends _$ChatConversationController {
     }
     messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    if (!conversationClosed) _subscribeRealtime(store, address);
+    if (!_disposed && !conversationClosed) {
+      _subscribeRealtime(store, address);
+    }
 
     if (messages.any((m) => !m.isMine && m.readAt == null)) {
       unawaited(markAsRead());
@@ -308,7 +422,52 @@ class ChatConversationController extends _$ChatConversationController {
       sending: false,
       isNewLocalIdentity: isNewLocalIdentity,
       conversationClosed: conversationClosed,
+      hasMoreHistory: rows.length == _pageSize,
     );
+  }
+
+  /// Fetches the next page of older messages, prepending them to the
+  /// currently-loaded list. No-ops if a fetch is already in flight or the
+  /// oldest loaded page was already short of a full page (nothing left).
+  Future<void> loadOlderMessages() async {
+    final current = state.value;
+    if (current == null ||
+        current.messages.isEmpty ||
+        !current.hasMoreHistory ||
+        current.loadingOlder) {
+      return;
+    }
+    final store = _store;
+    final address = _peerAddress;
+    if (store == null || address == null) return;
+
+    state = AsyncData(current.copyWith(loadingOlder: true));
+    try {
+      final cursor = current.messages.first.createdAt;
+      final rawRows = await Supabase.instance.client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .lt('created_at', cursor.toIso8601String())
+          .order('created_at', ascending: false)
+          .limit(_pageSize);
+      final rows = List<Map<String, dynamic>>.from(
+        rawRows as List,
+      ).reversed.toList();
+
+      final older = await _resolveMessages(rows, store, address);
+      final latest = state.value ?? current;
+      state = AsyncData(
+        latest.copyWith(
+          messages: [...older, ...latest.messages],
+          hasMoreHistory: rows.length == _pageSize,
+          loadingOlder: false,
+        ),
+      );
+    } on Exception {
+      final latest = state.value ?? current;
+      state = AsyncData(latest.copyWith(loadingOlder: false));
+    }
   }
 
   void _subscribeRealtime(
@@ -400,20 +559,6 @@ class ChatConversationController extends _$ChatConversationController {
     state = AsyncData(current.copyWith(messages: updated));
   }
 
-  Future<ChatEventInfo?> _fetchEventForMessage(String messageId) async {
-    try {
-      final row = await Supabase.instance.client
-          .from('chat_events')
-          .select()
-          .eq('message_id', messageId)
-          .maybeSingle();
-      if (row == null) return null;
-      return ChatEventInfo.fromRow(row);
-    } on Exception {
-      return null;
-    }
-  }
-
   Future<void> _handleIncoming(
     Map<String, dynamic> row,
     DriftSignalProtocolStore store,
@@ -424,7 +569,7 @@ class ChatConversationController extends _$ChatConversationController {
     final id = row['id'] as String;
     if (current.messages.any((m) => m.id == id)) return;
 
-    final view = await _resolveMessage(row, store, address);
+    final view = (await _resolveMessages([row], store, address)).first;
     final latest = state.value ?? current;
     state = AsyncData(
       latest.copyWith(
@@ -466,98 +611,140 @@ class ChatConversationController extends _$ChatConversationController {
     }
   }
 
-  /// Resolves a raw `chat_messages` row to a view, decrypting/encrypting at
-  /// most once ever per message id (see `LocalMessages` table doc comment).
-  Future<ChatMessageView> _resolveMessage(
-    Map<String, dynamic> row,
+  /// Resolves a batch of raw `chat_messages` rows to views in one shot:
+  /// one Drift query covering every row's local-cache lookup, and (for
+  /// rows without a cache hit) one Supabase query covering every
+  /// event-type message's [ChatEventInfo] - instead of a query per row.
+  /// Decrypts/encrypts at most once ever per message id (see
+  /// `LocalMessages` table doc comment).
+  Future<List<ChatMessageView>> _resolveMessages(
+    List<Map<String, dynamic>> rows,
     DriftSignalProtocolStore store,
     SignalProtocolAddress address,
   ) async {
-    final id = row['id'] as String;
-    final rawReadAt = row['read_at'] as String?;
-    final readAt = rawReadAt != null ? DateTime.parse(rawReadAt) : null;
+    if (rows.isEmpty) return [];
 
-    final cached = await (_db.select(
+    final ids = [for (final row in rows) row['id'] as String];
+    final cachedRows = await (_db.select(
       _db.localMessages,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (cached != null) {
-      final plaintextEnc = cached.plaintextEnc;
-      final plaintext = plaintextEnc != null
-          ? utf8.decode(
-              await LocalKeyVault.instance.decryptBytes(
-                Uint8List.fromList(plaintextEnc),
-              ),
-            )
-          : null;
-      final eventInfo = cached.messageType == 'event'
-          ? await _fetchEventForMessage(id)
-          : null;
-      return ChatMessageView(
-        id: id,
-        senderId: cached.senderId,
-        isMine: cached.isMine,
-        createdAt: cached.createdAt,
-        plaintext: plaintext,
-        messageType: cached.messageType,
-        decryptFailed: cached.decryptFailed,
-        readAt: readAt,
-        eventInfo: eventInfo,
-      );
-    }
-
-    final senderId = row['sender_id'] as String;
+    )..where((t) => t.id.isIn(ids))).get();
+    final cachedById = {for (final c in cachedRows) c.id: c};
     final myUserId = Supabase.instance.client.auth.currentUser?.id;
-    final isMine = senderId == myUserId;
-    final createdAt = DateTime.parse(row['created_at'] as String);
-    final messageType = row['message_type'] as String? ?? 'text';
 
-    String? plaintext;
-    var decryptFailed = false;
-    if (isMine) {
-      // Our own historical message with no local cache entry (e.g. sent
-      // from a different device) - its plaintext cannot be recovered here.
-      decryptFailed = true;
-    } else {
-      final ciphertext = row['ciphertext'] as String;
-      final metadata =
-          row['ciphertext_metadata'] as Map<String, dynamic>? ?? {};
-      final signalType =
-          metadata['signal_message_type'] as String? ?? 'whisper';
-      plaintext = await MessageCodec.instance.decryptText(
-        store: store,
-        address: address,
-        ciphertextBase64: ciphertext,
-        signalMessageType: signalType,
+    final drafts = <_ResolvedMessageDraft>[];
+    for (final row in rows) {
+      final id = row['id'] as String;
+      final rawReadAt = row['read_at'] as String?;
+      final readAt = rawReadAt != null ? DateTime.parse(rawReadAt) : null;
+      final cached = cachedById[id];
+
+      if (cached != null) {
+        final plaintextEnc = cached.plaintextEnc;
+        final plaintext = plaintextEnc != null
+            ? utf8.decode(
+                await LocalKeyVault.instance.decryptBytes(
+                  Uint8List.fromList(plaintextEnc),
+                ),
+              )
+            : null;
+        drafts.add((
+          id: id,
+          senderId: cached.senderId,
+          isMine: cached.isMine,
+          createdAt: cached.createdAt,
+          plaintext: plaintext,
+          messageType: cached.messageType,
+          decryptFailed: cached.decryptFailed,
+          readAt: readAt,
+        ));
+        continue;
+      }
+
+      final senderId = row['sender_id'] as String;
+      final isMine = senderId == myUserId;
+      final createdAt = DateTime.parse(row['created_at'] as String);
+      final messageType = row['message_type'] as String? ?? 'text';
+
+      String? plaintext;
+      var decryptFailed = false;
+      if (isMine) {
+        // Our own historical message with no local cache entry (e.g. sent
+        // from a different device) - its plaintext cannot be recovered here.
+        decryptFailed = true;
+      } else {
+        final ciphertext = row['ciphertext'] as String;
+        final metadata =
+            row['ciphertext_metadata'] as Map<String, dynamic>? ?? {};
+        final signalType =
+            metadata['signal_message_type'] as String? ?? 'whisper';
+        plaintext = await MessageCodec.instance.decryptText(
+          store: store,
+          address: address,
+          ciphertextBase64: ciphertext,
+          signalMessageType: signalType,
+        );
+        decryptFailed = plaintext == null;
+      }
+
+      await _cacheMessage(
+        id: id,
+        conversationId: row['conversation_id'] as String,
+        senderId: senderId,
+        isMine: isMine,
+        createdAt: createdAt,
+        messageType: messageType,
+        plaintext: plaintext,
+        decryptFailed: decryptFailed,
       );
-      decryptFailed = plaintext == null;
+
+      drafts.add((
+        id: id,
+        senderId: senderId,
+        isMine: isMine,
+        createdAt: createdAt,
+        plaintext: plaintext,
+        messageType: messageType,
+        decryptFailed: decryptFailed,
+        readAt: readAt,
+      ));
     }
 
-    await _cacheMessage(
-      id: id,
-      conversationId: row['conversation_id'] as String,
-      senderId: senderId,
-      isMine: isMine,
-      createdAt: createdAt,
-      messageType: messageType,
-      plaintext: plaintext,
-      decryptFailed: decryptFailed,
-    );
+    final eventMessageIds = [
+      for (final d in drafts)
+        if (d.messageType == 'event') d.id,
+    ];
+    var eventsByMessageId = <String, ChatEventInfo>{};
+    if (eventMessageIds.isNotEmpty) {
+      try {
+        final eventRows = await Supabase.instance.client
+            .from('chat_events')
+            .select()
+            .inFilter('message_id', eventMessageIds);
+        eventsByMessageId = {
+          for (final row in List<Map<String, dynamic>>.from(
+            eventRows as List,
+          ))
+            row['message_id'] as String: ChatEventInfo.fromRow(row),
+        };
+      } on Exception {
+        // Best-effort, same swallow-and-continue as the old per-message fetch.
+      }
+    }
 
-    final eventInfo = messageType == 'event'
-        ? await _fetchEventForMessage(id)
-        : null;
-
-    return ChatMessageView(
-      id: id,
-      senderId: senderId,
-      isMine: isMine,
-      createdAt: createdAt,
-      plaintext: plaintext,
-      messageType: messageType,
-      decryptFailed: decryptFailed,
-      readAt: readAt,
-      eventInfo: eventInfo,
-    );
+    return [
+      for (final d in drafts)
+        ChatMessageView(
+          id: d.id,
+          senderId: d.senderId,
+          isMine: d.isMine,
+          createdAt: d.createdAt,
+          plaintext: d.plaintext,
+          messageType: d.messageType,
+          decryptFailed: d.decryptFailed,
+          readAt: d.readAt,
+          eventInfo: eventsByMessageId[d.id],
+        ),
+    ];
   }
 
   Future<void> _cacheMessage({

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class SpotifyArtistsSection extends StatelessWidget {
   const SpotifyArtistsSection({
@@ -46,14 +47,7 @@ class SpotifyArtistsSection extends StatelessWidget {
                 ),
                 if (isSaving) ...[
                   const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(_spotifyGreen),
-                    ),
-                  ),
+                  const NexusOrbitLoader(size: 20),
                 ],
               ],
             ),

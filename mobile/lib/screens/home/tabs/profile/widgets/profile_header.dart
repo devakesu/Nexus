@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/orbit_painter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -118,13 +119,7 @@ class ProfileHeader extends StatelessWidget {
                                       child: ColoredBox(
                                         color: Colors.black54,
                                         child: Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  pulsarPink,
-                                                ),
-                                          ),
+                                          child: NexusOrbitLoader(size: 40),
                                         ),
                                       ),
                                     ),

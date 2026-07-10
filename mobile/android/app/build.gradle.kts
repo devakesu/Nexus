@@ -25,6 +25,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -101,6 +102,7 @@ configurations.all {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Spotify Android Auth Library - provides native SSO when the Spotify app is installed,
     // falls back to Chrome Custom Tabs otherwise. Register your SHA-1 fingerprints and
     // both redirect URIs in the Spotify Developer Dashboard.

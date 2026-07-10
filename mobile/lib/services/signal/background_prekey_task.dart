@@ -1,6 +1,5 @@
 // The background task isolate entry point causes the analyzer to
 // misidentify this file as an executable entry point.
-// ignore_for_file: unreachable_from_main
 
 import 'package:flutter/widgets.dart';
 import 'package:nexus/config/app_config.dart';

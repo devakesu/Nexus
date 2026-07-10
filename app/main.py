@@ -88,15 +88,20 @@ app = FastAPI(
 )
 
 origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
+allow_credentials = True
 if "*" in origins:
-    raise RuntimeError(
-        "CRITICAL: Wildcard origin '*' is not allowed when allow_credentials is True.",
-    )
+    if settings.debug:
+        allow_credentials = False
+    else:
+        raise RuntimeError(
+            "CRITICAL: Wildcard origin '*' is not allowed "
+            "when allow_credentials is True.",
+        )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
     allow_headers=[
         "Authorization",
@@ -143,6 +148,7 @@ app.include_router(status_router)
 if settings.debug:
     try:
         from app.api.dev_temp import router as dev_router
+
         app.include_router(dev_router)
     except ImportError:
         pass

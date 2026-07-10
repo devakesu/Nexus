@@ -9,6 +9,7 @@ import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -49,6 +50,9 @@ class _AuthGateState extends State<AuthGate> {
         if (data.event == AuthChangeEvent.signedOut) {
           unawaited(NotificationService.unregisterToken());
           unawaited(NotificationService.dispose());
+          // Central sign-out hook so no cached profile snapshot from this
+          // account can leak into a subsequent login on the same device.
+          unawaited(SecureProfileCache.clear());
         }
         if (mounted) {
           setState(() {});

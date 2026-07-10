@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class NeonSlider extends StatelessWidget {
   const NeonSlider({
@@ -26,7 +27,6 @@ class NeonSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const primaryColor = AppColors.primaryTeal;
-    const pulsarPink = AppColors.pulsarPink;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,14 +47,7 @@ class NeonSlider extends StatelessWidget {
                 ),
                 if (isSaving) ...[
                   const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-                    ),
-                  ),
+                  const NexusOrbitLoader(size: 20),
                 ],
               ],
             ),

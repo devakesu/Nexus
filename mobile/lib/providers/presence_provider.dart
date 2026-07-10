@@ -44,8 +44,9 @@ class PeerPresence extends _$PeerPresence {
 
   Future<PresenceInfo> _fetch() async {
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null)
+    if (token == null) {
       return const PresenceInfo(isOnline: null, lastActiveAt: null);
+    }
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chat/presence/$peerUserId',

@@ -161,34 +161,56 @@ class MeetupSafetySession extends ChangeNotifier {
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
 
-    if (Platform.isAndroid) {
-      final android = _plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          _kOngoingChannelId,
-          'Meetup Safety (active)',
-          description:
-              'The persistent alert panel shown while a Meetup Safety '
-              'check-in is active.',
-          importance: Importance.low,
-          playSound: false,
-        ),
-      );
-      await android?.createNotificationChannel(
-        const AndroidNotificationChannel(
-          _kDueChannelId,
-          'Meetup Safety check-in',
-          description:
-              "Alerts you when it's time to check in during Meetup Safety.",
-          importance: Importance.max,
-        ),
-      );
+    // Peek at whether a check-in was left active from a prior session -
+    // `_restore()` below reads the same pref, so this doesn't add a real
+    // extra read (SharedPreferences caches in memory after first access).
+    final prefs = await SharedPreferences.getInstance();
+    final hasActiveSession = prefs.getBool(_kPrefActive) ?? false;
+
+    if (Platform.isAndroid && hasActiveSession) {
+      // A check-in is already active, so `_restore()` below is about to
+      // (re)post its notifications - the channels must exist before that
+      // happens, so this stays on the blocking startup path.
+      await _createAndroidChannels();
     }
 
     await _restore();
+
+    if (Platform.isAndroid && !hasActiveSession) {
+      // Common case: no active check-in, so nothing needs these channels
+      // yet. Defer past first frame, same pattern as
+      // handleAppLaunchFromNotification() in main.dart.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_createAndroidChannels());
+      });
+    }
+  }
+
+  Future<void> _createAndroidChannels() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _kOngoingChannelId,
+        'Meetup Safety (active)',
+        description:
+            'The persistent alert panel shown while a Meetup Safety '
+            'check-in is active.',
+        importance: Importance.low,
+        playSound: false,
+      ),
+    );
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _kDueChannelId,
+        'Meetup Safety check-in',
+        description:
+            "Alerts you when it's time to check in during Meetup Safety.",
+        importance: Importance.max,
+      ),
+    );
   }
 
   /// Call once at startup, after the navigator is ready, to handle a cold

@@ -56,6 +56,35 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
+    _scrollController.addListener(_maybeLoadOlder);
+  }
+
+  void _maybeLoadOlder() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels <= 200) {
+      unawaited(_loadOlderPreservingScroll());
+    }
+  }
+
+  /// Fetches the next page of older messages while keeping the viewport
+  /// anchored to what the user was already looking at - without this, the
+  /// list jumping to account for newly-prepended content would yank the
+  /// screen out from under them mid-scroll.
+  Future<void> _loadOlderPreservingScroll() async {
+    if (!_scrollController.hasClients) return;
+    final oldExtent = _scrollController.position.maxScrollExtent;
+    final notifier = ref.read(
+      chatConversationControllerProvider(
+        widget.conversationId,
+        widget.matchedUserId,
+      ).notifier,
+    );
+    await notifier.loadOlderMessages();
+    if (!mounted || !_scrollController.hasClients) return;
+    final delta = _scrollController.position.maxScrollExtent - oldExtent;
+    if (delta > 0) {
+      _scrollController.jumpTo(_scrollController.position.pixels + delta);
+    }
   }
 
   @override
@@ -313,6 +342,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 if (showNewDeviceBanner) _newDeviceBanner(theme),
                 if (chatState.conversationClosed)
                   _conversationClosedBanner(theme),
+                if (chatState.isRevalidating) _syncingIndicator(theme),
                 Expanded(
                   child: chatState.messages.isEmpty
                       ? Center(
@@ -324,14 +354,29 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
-                          itemCount: chatState.messages.length,
-                          itemBuilder: (_, i) => MessageBubble(
-                            message: chatState.messages[i],
-                            themeColor: theme.primary,
-                            conversationId: widget.conversationId,
-                            peerUserId: widget.matchedUserId,
-                            onSecurityAlertTapped: _showSafetyNumberDialog,
-                          ),
+                          itemCount:
+                              chatState.messages.length +
+                              (chatState.loadingOlder ? 1 : 0),
+                          itemBuilder: (_, i) {
+                            if (chatState.loadingOlder && i == 0) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: NexusOrbitLoader(size: 24),
+                                ),
+                              );
+                            }
+                            final messageIndex = chatState.loadingOlder
+                                ? i - 1
+                                : i;
+                            return MessageBubble(
+                              message: chatState.messages[messageIndex],
+                              themeColor: theme.primary,
+                              conversationId: widget.conversationId,
+                              peerUserId: widget.matchedUserId,
+                              onSecurityAlertTapped: _showSafetyNumberDialog,
+                            );
+                          },
                         ),
                 ),
                 if (!chatState.sessionReady && !chatState.conversationClosed)
@@ -384,6 +429,19 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// Thin, non-blocking signal that a locally-cached snapshot is being
+  /// reconciled with the server in the background - never replaces the
+  /// message list the way the old always-network-first spinner did.
+  Widget _syncingIndicator(ChatTabTheme theme) {
+    return SizedBox(
+      height: 2,
+      child: LinearProgressIndicator(
+        backgroundColor: theme.primary.withValues(alpha: 0.08),
+        valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
       ),
     );
   }

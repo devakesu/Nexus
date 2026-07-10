@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class TagChipsEditor extends StatelessWidget {
   const TagChipsEditor({
@@ -480,14 +481,7 @@ class TagChipsEditor extends StatelessWidget {
                 ),
                 if (isSaving) ...[
                   const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-                    ),
-                  ),
+                  const NexusOrbitLoader(size: 20),
                 ],
               ],
             ),

@@ -22,6 +22,20 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _currentTab = 2; // Default to My Profile (Center Tab)
 
+  // Profile (index 2) is the default landing tab, so it's pre-visited and
+  // builds eagerly. The other 4 tabs only build (and fire their initState
+  // network calls) the first time the user actually navigates to them -
+  // once visited, they stay in this set forever so their state/animations
+  // survive future tab switches exactly like an always-built IndexedStack.
+  final Set<int> _visitedTabs = {2};
+
+  void _selectTab(int index) {
+    setState(() {
+      _currentTab = index;
+      _visitedTabs.add(index);
+    });
+  }
+
   void _triggerOpenOrbit(String sectionName, Color themeColor) {
     final prefetch = OrbitScreen.prefetch(sectionName);
     unawaited(
@@ -57,32 +71,32 @@ class _MyHomePageState extends State<MyHomePage> {
                     index: _currentTab,
                     children:
                         [
-                          DatingTab(
-                            onOpenOrbit: _triggerOpenOrbit,
-                            onNavigateToTab: (index) {
-                              setState(() {
-                                _currentTab = index;
-                              });
-                            },
-                          ),
-                          FriendsTab(
-                            onOpenOrbit: _triggerOpenOrbit,
-                            onNavigateToTab: (index) {
-                              setState(() {
-                                _currentTab = index;
-                              });
-                            },
-                          ),
+                          if (_visitedTabs.contains(0))
+                            DatingTab(
+                              onOpenOrbit: _triggerOpenOrbit,
+                              onNavigateToTab: _selectTab,
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          if (_visitedTabs.contains(1))
+                            FriendsTab(
+                              onOpenOrbit: _triggerOpenOrbit,
+                              onNavigateToTab: _selectTab,
+                            )
+                          else
+                            const SizedBox.shrink(),
                           ProfileTab(onOpenOrbit: _triggerOpenOrbit),
-                          ProfessionalTab(
-                            onOpenOrbit: _triggerOpenOrbit,
-                            onNavigateToTab: (index) {
-                              setState(() {
-                                _currentTab = index;
-                              });
-                            },
-                          ),
-                          SettingsTab(onOpenOrbit: _triggerOpenOrbit),
+                          if (_visitedTabs.contains(3))
+                            ProfessionalTab(
+                              onOpenOrbit: _triggerOpenOrbit,
+                              onNavigateToTab: _selectTab,
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          if (_visitedTabs.contains(4))
+                            SettingsTab(onOpenOrbit: _triggerOpenOrbit)
+                          else
+                            const SizedBox.shrink(),
                         ].asMap().entries.map((entry) {
                           final index = entry.key;
                           final widgetItem = entry.value;
@@ -104,11 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
             bottom: 0,
             child: CustomBottomNavBar(
               currentIndex: _currentTab,
-              onTabSelected: (index) {
-                setState(() {
-                  _currentTab = index;
-                });
-              },
+              onTabSelected: _selectTab,
             ),
           ),
         ],

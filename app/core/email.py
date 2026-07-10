@@ -244,6 +244,7 @@ def should_use_sendpulse(email: str | None = None) -> bool:
     if has_brevo and has_sendpulse:
         if email:
             import hashlib
+
             encoded_email = email.lower().encode("utf-8")
             hash_val = int(hashlib.sha256(encoded_email).hexdigest(), 16)
             return hash_val % 2 == 0
@@ -346,7 +347,7 @@ def render_email_template(
     footer_html: str | None = None,
 ) -> str:
     """
-    Renders a unified premium HTML wrapper using standard Nexus branding guidelines.
+    Renders a unified HTML wrapper using standard Nexus branding.
 
     This enables reusing styling, fonts, layouts, and footer information
     across all transactional emails.
@@ -607,9 +608,7 @@ async def send_bootstrap_welcome_email(
     """
 
     domain = (
-        "nexus-mec.devakesu.com"
-        if app_variant == "nexus_mec"
-        else "nexus.devakesu.com"
+        "nexus-mec.devakesu.com" if app_variant == "nexus_mec" else "nexus.devakesu.com"
     )
     button_row = render_cta_button_row(
         cta_text="Initialize Alignment",

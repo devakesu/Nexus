@@ -7,6 +7,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/place_autocomplete_field
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class SocialCoordinatesSection extends StatefulWidget {
   const SocialCoordinatesSection({
@@ -370,16 +371,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                     ),
                     if (widget.isSavingCampusYear) ...[
                       const SizedBox(width: 8),
-                      const SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.pulsarPink,
-                          ),
-                        ),
-                      ),
+                      const NexusOrbitLoader(size: 20),
                     ],
                   ],
                 ),

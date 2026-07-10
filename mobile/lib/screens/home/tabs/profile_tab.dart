@@ -25,9 +25,12 @@ import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
+import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/secure_profile_cache.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -51,6 +54,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   // Loading state
   bool _isLoading = true;
+  // True while a background network reconciliation is in flight after
+  // instantly rendering a cached snapshot - never blocks the page.
+  bool _isRevalidating = false;
 
   // Core profile state loaded from DB/Onboarding
   String _name = '';
@@ -345,7 +351,25 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     );
 
     _pageController = PageController();
-    unawaited(_loadProfileData());
+    unawaited(_bootstrapProfileData());
+  }
+
+  /// Renders instantly from the last cached snapshot (if any) while
+  /// reconciling with the network in the background, instead of blocking
+  /// the whole page behind a spinner on every mount.
+  Future<void> _bootstrapProfileData() async {
+    final cached = await SecureProfileCache.read();
+    if (cached != null && mounted) {
+      setState(() {
+        _applyProfileData(cached);
+        _isLoading = false;
+        _isRevalidating = true;
+      });
+      if (_entryController != null) {
+        unawaited(_entryController!.forward(from: 0));
+      }
+    }
+    await _loadProfileData(silent: cached != null);
   }
 
   @override
@@ -374,8 +398,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return list;
   }
 
-  Future<void> _loadProfileData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadProfileData({bool silent = false}) async {
+    setState(() {
+      if (silent) {
+        _isRevalidating = true;
+      } else {
+        _isLoading = true;
+      }
+    });
     try {
       final session = _client.auth.currentSession;
       if (session == null) {
@@ -393,162 +423,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
       if (response.statusCode == 200 && response.data != null && mounted) {
         final data = response.data!;
-        setState(() {
-          _name = data['name']?.toString() ?? _name;
-          _savedName = _name;
-
-          _age = (data['age'] as num?)?.toInt() ?? _age;
-          _savedAge = _age;
-
-          if (data['campus_year'] != null) {
-            _year = (data['campus_year'] as num).toInt();
-            _isStudying = _year > 0;
-          } else {
-            _isStudying = false;
-          }
-          _savedYear = _year;
-          _savedIsStudying = _isStudying;
-
-          String cleanVal(dynamic val) {
-            if (val == null) return '';
-            final s = val.toString().trim();
-            if (s.toLowerCase() == 'not specified') return '';
-            return s;
-          }
-
-          String cleanSingle(dynamic val) {
-            if (val == null) {
-              return '';
-            }
-            final s = val.toString().trim();
-            if (s.isEmpty ||
-                s.toLowerCase() == 'not specified' ||
-                s.toLowerCase() == 'prefer not to say') {
-              return '';
-            }
-            return s;
-          }
-
-          _major = cleanVal(data['campus_branch']);
-          _savedMajor = _major;
-
-          _campusName = cleanVal(data['campus_name']);
-          _savedCampusName = _campusName;
-
-          _displayGender = cleanSingle(data['display_gender']);
-          _savedDisplayGender = _displayGender;
-
-          _displaySexuality = cleanSingle(data['display_sexuality']);
-          _savedDisplaySexuality = _displaySexuality;
-
-          _pronouns = cleanSingle(data['pronouns']);
-          _savedPronouns = _pronouns;
-
-          _bio = data['bio']?.toString() ?? '';
-          _savedBio = _bio;
-
-          _hometown = cleanVal(data['hometown']);
-          _savedHometown = _hometown;
-
-          _currentPlace = cleanVal(data['current_place']);
-          _savedCurrentPlace = _currentPlace;
-
-          _childrenPlans = cleanSingle(data['children_plans']);
-          _savedChildrenPlans = _childrenPlans;
-
-          _religiousBeliefs = cleanSingle(data['religious_beliefs']);
-          _savedReligiousBeliefs = _religiousBeliefs;
-
-          _lifestyle = data['lifestyle']?.toString() ?? '';
-          _savedLifestyle = _lifestyle;
-
-          _drinking = cleanSingle(data['drinking']);
-          _savedDrinking = _drinking;
-
-          _smoking = cleanSingle(data['smoking']);
-          _savedSmoking = _smoking;
-
-          final rawBucket = data['search_bucket'];
-          _searchBucket = rawBucket?.toString() ?? 'NB';
-          _savedSearchBucket = _searchBucket;
-
-          final rawCauses = data['causes_supported'];
-          if (rawCauses is List) {
-            _causesSupported = rawCauses.map((e) => e.toString()).toList();
-          } else {
-            _causesSupported = [];
-          }
-          _savedCausesSupported = List<String>.from(_causesSupported);
-
-          final rawArtists = data['top_artists'];
-          if (rawArtists is List) {
-            _topArtists = rawArtists.map((e) => e.toString()).toList();
-          } else {
-            _topArtists = [];
-          }
-          _savedTopArtists = List<String>.from(_topArtists);
-
-          final rawLanguages = data['languages'];
-          if (rawLanguages is List) {
-            _languages = rawLanguages.map((e) => e.toString()).toList();
-          } else {
-            _languages = [];
-          }
-          _savedLanguages = List<String>.from(_languages);
-
-          final rawPets = data['pets'];
-          if (rawPets is List) {
-            _pets = rawPets.map((e) => e.toString()).toList();
-          } else {
-            _pets = [];
-          }
-          _savedPets = List<String>.from(_pets);
-
-          final rawSubInterests = data['sub_interests'];
-          if (rawSubInterests is Map) {
-            _subInterests = Map<String, List<String>>.from(
-              rawSubInterests.map((k, v) {
-                final list = v as List? ?? [];
-                return MapEntry(
-                  k.toString(),
-                  list.map((e) => e.toString()).toList(),
-                );
-              }),
-            );
-          } else {
-            _subInterests = {};
-          }
-          _savedSubInterests = Map<String, List<String>>.from(_subInterests);
-
-          final rawImages = data['ordered_images'];
-          if (rawImages is List) {
-            final loadedImages = List<String>.generate(5, (i) {
-              if (i < rawImages.length &&
-                  rawImages[i] != null &&
-                  rawImages[i].toString().isNotEmpty) {
-                _imagePaths[i] = rawImages[i].toString();
-                return rawImages[i].toString();
-              } else {
-                _imagePaths[i] = null;
-                return '';
-              }
-            });
-            ref
-                .read(clientAIImageManagerProvider.notifier)
-                .setRemotePaths(loadedImages);
-            _savedImagePaths = List<String?>.from(_imagePaths);
-          }
-        });
+        setState(() => _applyProfileData(data));
+        unawaited(SecureProfileCache.write(data));
       }
     } on Object catch (e) {
       debugPrint('[ProfileTab] Error loading profile details: $e');
       if (mounted) {
-        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        NexusToast.show(
-          context,
-          'Failed to load profile: $friendlyMsg',
-          type: NexusToastType.error,
-        );
+        if (!silent) {
+          final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
+          NexusToast.show(
+            context,
+            'Failed to load profile: $friendlyMsg',
+            type: NexusToastType.error,
+          );
+        }
 
         // Handle session/auth failure specifically
         if (e is DioException) {
@@ -561,12 +449,199 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isRevalidating = false;
+        });
         if (_entryController != null) {
           unawaited(_entryController!.forward(from: 0));
         }
       }
     }
+  }
+
+  /// Populates all profile [State] fields from a `/api/v1/profile/details`
+  /// JSON payload - shared by both the cache-read path (instant render) and
+  /// the network-fetch path (initial load / background revalidation), so
+  /// the ~25-field mapping logic only lives in one place. Callers are
+  /// responsible for wrapping this in `setState`.
+  void _applyProfileData(Map<String, dynamic> data) {
+    _name = data['name']?.toString() ?? _name;
+    _savedName = _name;
+
+    _age = (data['age'] as num?)?.toInt() ?? _age;
+    _savedAge = _age;
+
+    if (data['campus_year'] != null) {
+      _year = (data['campus_year'] as num).toInt();
+      _isStudying = _year > 0;
+    } else {
+      _isStudying = false;
+    }
+    _savedYear = _year;
+    _savedIsStudying = _isStudying;
+
+    String cleanVal(dynamic val) {
+      if (val == null) return '';
+      final s = val.toString().trim();
+      if (s.toLowerCase() == 'not specified') return '';
+      return s;
+    }
+
+    String cleanSingle(dynamic val) {
+      if (val == null) {
+        return '';
+      }
+      final s = val.toString().trim();
+      if (s.isEmpty ||
+          s.toLowerCase() == 'not specified' ||
+          s.toLowerCase() == 'prefer not to say') {
+        return '';
+      }
+      return s;
+    }
+
+    _major = cleanVal(data['campus_branch']);
+    _savedMajor = _major;
+
+    _campusName = cleanVal(data['campus_name']);
+    _savedCampusName = _campusName;
+
+    _displayGender = cleanSingle(data['display_gender']);
+    _savedDisplayGender = _displayGender;
+
+    _displaySexuality = cleanSingle(data['display_sexuality']);
+    _savedDisplaySexuality = _displaySexuality;
+
+    _pronouns = cleanSingle(data['pronouns']);
+    _savedPronouns = _pronouns;
+
+    _bio = data['bio']?.toString() ?? '';
+    _savedBio = _bio;
+
+    _hometown = cleanVal(data['hometown']);
+    _savedHometown = _hometown;
+
+    _currentPlace = cleanVal(data['current_place']);
+    _savedCurrentPlace = _currentPlace;
+
+    _childrenPlans = cleanSingle(data['children_plans']);
+    _savedChildrenPlans = _childrenPlans;
+
+    _religiousBeliefs = cleanSingle(data['religious_beliefs']);
+    _savedReligiousBeliefs = _religiousBeliefs;
+
+    _lifestyle = data['lifestyle']?.toString() ?? '';
+    _savedLifestyle = _lifestyle;
+
+    _drinking = cleanSingle(data['drinking']);
+    _savedDrinking = _drinking;
+
+    _smoking = cleanSingle(data['smoking']);
+    _savedSmoking = _smoking;
+
+    final rawBucket = data['search_bucket'];
+    _searchBucket = rawBucket?.toString() ?? 'NB';
+    _savedSearchBucket = _searchBucket;
+
+    final rawCauses = data['causes_supported'];
+    if (rawCauses is List) {
+      _causesSupported = rawCauses.map((e) => e.toString()).toList();
+    } else {
+      _causesSupported = [];
+    }
+    _savedCausesSupported = List<String>.from(_causesSupported);
+
+    final rawArtists = data['top_artists'];
+    if (rawArtists is List) {
+      _topArtists = rawArtists.map((e) => e.toString()).toList();
+    } else {
+      _topArtists = [];
+    }
+    _savedTopArtists = List<String>.from(_topArtists);
+
+    final rawLanguages = data['languages'];
+    if (rawLanguages is List) {
+      _languages = rawLanguages.map((e) => e.toString()).toList();
+    } else {
+      _languages = [];
+    }
+    _savedLanguages = List<String>.from(_languages);
+
+    final rawPets = data['pets'];
+    if (rawPets is List) {
+      _pets = rawPets.map((e) => e.toString()).toList();
+    } else {
+      _pets = [];
+    }
+    _savedPets = List<String>.from(_pets);
+
+    final rawSubInterests = data['sub_interests'];
+    if (rawSubInterests is Map) {
+      _subInterests = Map<String, List<String>>.from(
+        rawSubInterests.map((k, v) {
+          final list = v as List? ?? [];
+          return MapEntry(
+            k.toString(),
+            list.map((e) => e.toString()).toList(),
+          );
+        }),
+      );
+    } else {
+      _subInterests = {};
+    }
+    _savedSubInterests = Map<String, List<String>>.from(_subInterests);
+
+    final rawImages = data['ordered_images'];
+    if (rawImages is List) {
+      final loadedImages = List<String>.generate(5, (i) {
+        if (i < rawImages.length &&
+            rawImages[i] != null &&
+            rawImages[i].toString().isNotEmpty) {
+          _imagePaths[i] = rawImages[i].toString();
+          return rawImages[i].toString();
+        } else {
+          _imagePaths[i] = null;
+          return '';
+        }
+      });
+      ref
+          .read(clientAIImageManagerProvider.notifier)
+          .setRemotePaths(loadedImages);
+      _savedImagePaths = List<String?>.from(_imagePaths);
+    }
+  }
+
+  /// Rebuilds the same JSON shape `/api/v1/profile/details` returns from
+  /// the currently-committed (`_saved*`) state fields, so a successful save
+  /// can write-through to the cache immediately instead of waiting on the
+  /// next full reload to reflect the edit.
+  Map<String, dynamic> _currentProfileSnapshot() {
+    return {
+      'name': _savedName,
+      'age': _savedAge,
+      'campus_year': _savedIsStudying ? _savedYear : null,
+      'campus_branch': _savedMajor,
+      'campus_name': _savedCampusName,
+      'display_gender': _savedDisplayGender,
+      'display_sexuality': _savedDisplaySexuality,
+      'pronouns': _savedPronouns,
+      'bio': _savedBio,
+      'hometown': _savedHometown,
+      'current_place': _savedCurrentPlace,
+      'children_plans': _savedChildrenPlans,
+      'religious_beliefs': _savedReligiousBeliefs,
+      'lifestyle': _savedLifestyle,
+      'drinking': _savedDrinking,
+      'smoking': _savedSmoking,
+      'search_bucket': _savedSearchBucket,
+      'causes_supported': _savedCausesSupported,
+      'top_artists': _savedTopArtists,
+      'languages': _savedLanguages,
+      'pets': _savedPets,
+      'sub_interests': _savedSubInterests,
+      'ordered_images': _savedImagePaths,
+    };
   }
 
   Future<void> _saveProfileChanges({
@@ -800,6 +875,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 );
               }
             });
+            unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
           } else {
             throw Exception(
               'API responded with status code: ${response.statusCode}',
@@ -1106,6 +1182,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             }
             _savedImagePaths = List<String?>.from(_imagePaths);
           });
+          unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
         } on Object catch (e) {
           if (!mounted) return;
           // Restore from last known good state
@@ -1735,7 +1812,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = AppColors.pulsarPink;
     final config = AppConfig.current;
     // .select() instead of watching the whole 6-field provider state: this
     // build method only reads these three fields, so unrelated state
@@ -1755,11 +1831,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     final rotationController = _rotationController;
 
     if (_isLoading || pulseController == null || rotationController == null) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-        ),
-      );
+      // Only reached on a true first-ever load with no cached snapshot to
+      // render instantly - matches the shape used by the Dating/Friends/
+      // Professional settings overlays instead of a generic spinner.
+      return const SettingsLoadingSkeleton(themeColor: AppColors.primaryTeal);
     }
 
     return GestureDetector(
@@ -2184,6 +2259,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
               ),
             ],
           ),
+          // Subtle, non-blocking signal that a cached snapshot is being
+          // reconciled with the network - never covers page content.
+          if (_isRevalidating)
+            const Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: NexusOrbitLoader(size: 20, lightMode: true),
+                ),
+              ),
+            ),
         ],
       ),
     );

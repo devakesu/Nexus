@@ -31,6 +31,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
   String? _error;
   List<_HiddenUser> _users = [];
   final Set<String> _unhiding = {};
+  String _selectedTabFilter = 'All';
 
   @override
   void initState() {
@@ -229,6 +230,74 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
     );
   }
 
+  Widget _buildFilterBar() {
+    final filters = ['All', 'Dating', 'Friends', 'Professional'];
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.only(top: 16, bottom: 4),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: filters.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = _selectedTabFilter == filter;
+
+          Color activeColor = _accentBlue;
+          if (filter == 'Dating') activeColor = AppColors.modeDating;
+          if (filter == 'Friends') activeColor = AppColors.modeFriends;
+          if (filter == 'Professional') {
+            activeColor = AppColors.modeProfessional;
+          }
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedTabFilter = filter;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? activeColor.withValues(alpha: 0.12)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? activeColor.withValues(alpha: 0.4)
+                      : const Color(0xFFE2E8F0),
+                  width: isSelected ? 1.5 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withValues(alpha: 0.08),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                filter,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? activeColor : const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildBody() {
     if (_loading) return const _LoadingView();
     if (_error != null) {
@@ -242,25 +311,53 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
         accentColor: _accentBlue,
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-      itemCount: _users.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) => _UserCard(
-        user: _users[i],
-        isUnhiding: _unhiding.contains(_users[i].targetId),
-        onUnhide: (user) async {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => _ConfirmDialog(
-              name: user.name,
-              message: '${user.name} will reappear in your discovery feeds.',
-              confirmLabel: 'Unhide',
-            ),
-          );
-          if (confirmed == true) await _unhide(user);
-        },
-      ),
+
+    final filteredUsers = _selectedTabFilter == 'All'
+        ? _users
+        : _users
+            .where((u) => u.entries.any((e) => e.tab == _selectedTabFilter))
+            .toList();
+
+    return Column(
+      children: [
+        _buildFilterBar(),
+        Expanded(
+          child: filteredUsers.isEmpty
+              ? _EmptyView(
+                  icon: LucideIcons.eyeOff,
+                  title: 'No hidden users',
+                  subtitle: 'No users hidden in $_selectedTabFilter mode.',
+                  accentColor: _selectedTabFilter == 'Dating'
+                      ? AppColors.modeDating
+                      : _selectedTabFilter == 'Friends'
+                          ? AppColors.modeFriends
+                          : _selectedTabFilter == 'Professional'
+                              ? AppColors.modeProfessional
+                              : _accentBlue,
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                  itemCount: filteredUsers.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) => _UserCard(
+                    user: filteredUsers[i],
+                    isUnhiding: _unhiding.contains(filteredUsers[i].targetId),
+                    onUnhide: (user) async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => _ConfirmDialog(
+                          name: user.name,
+                          message:
+                              '${user.name} will reappear in your discovery feeds.',
+                          confirmLabel: 'Unhide',
+                        ),
+                      );
+                      if (confirmed == true) await _unhide(user);
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

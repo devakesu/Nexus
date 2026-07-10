@@ -6,6 +6,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class CoreSignalSection extends StatefulWidget {
   const CoreSignalSection({
@@ -157,8 +158,6 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = AppColors.pulsarPink;
-
     return UniverseSection(
       icon: LucideIcons.user,
       title: 'Core Details',
@@ -255,14 +254,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   ),
                   if (widget.isSavingBuckets) ...[
                     const SizedBox(width: 8),
-                    const SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-                      ),
-                    ),
+                    const NexusOrbitLoader(size: 20),
                   ],
                 ],
               ),
@@ -395,17 +387,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                                 child: ColoredBox(
                                   color: Colors.black54,
                                   child: Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              pulsarPink,
-                                            ),
-                                      ),
-                                    ),
+                                    child: NexusOrbitLoader(size: 20),
                                   ),
                                 ),
                               ),

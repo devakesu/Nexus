@@ -53,8 +53,9 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
 
     try {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session == null)
+      if (session == null) {
         throw Exception('Session expired. Please sign in again.');
+      }
 
       final config = AppConfig.current;
       final dio = createDio();

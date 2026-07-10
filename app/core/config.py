@@ -17,11 +17,6 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: str
     supabase_jwt_secret: str | dict[str, Any]
-    """
-    Supabase JWT secret used for decoding access tokens.
-    Can be a symmetric secret key string (for HS256/HS384/HS512) or
-    a JWKS (JSON Web Key Set) dictionary containing public key specs (for ES256).
-    """
 
     # --- Firebase / App Check ---
     firebase_service_account_path: str | None = None
@@ -31,9 +26,7 @@ class Settings(BaseSettings):
     # --- Spotify OAuth ---
     spotify_client_id: str | None = None
     spotify_client_secret: str | None = None
-    # Must be registered in the Spotify Developer Dashboard.
-    # Example: https://api.yourdomain.com/api/v1/spotify/callback
-    spotify_redirect_uri: str = ""
+    spotify_redirect_uri: str
 
     # --- Rate limiting / network policy ---
     enable_rate_limiting: bool = True
@@ -42,10 +35,6 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "5/minute"
     rate_limit_feedback: str = "5/hour"
     rate_limit_safety: str = "20/hour"
-    # Trusted-contact portal (Milestone E): unauthenticated by design (no
-    # Nexus account, no App Check token available from a plain browser), so
-    # this is the primary throttle against OTP brute-forcing/spam - on top of
-    # the per-code attempt cap enforced in app/api/safety_portal.py.
     rate_limit_safety_portal: str = "10/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
@@ -57,7 +46,7 @@ class Settings(BaseSettings):
     # -- Auth --
     # Per-variant email domain allowlist (JSON object in the env var).
     # Each key is a variant name, value is the required email domain.
-    # Example env: ALLOWED_EMAIL_DOMAINS={"nexus_mec":"mec.edu.in"}
+    # Example env: ALLOWED_EMAIL_DOMAINS={"nexus_mec":"mec.ac.in"}
     # Variants absent from this dict have no domain restriction.
     # The main 'nexus' variant should NOT be listed here.
     allowed_email_domains: dict[str, str] = {}
@@ -71,7 +60,7 @@ class Settings(BaseSettings):
     sendpulse_client_secret: str | None = None
     app_domain: str
 
-    # -- SMS / Twilio (Meetup Safety SOS + inform alerts) --
+    # -- SMS / Twilio --
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from_number: str | None = None
@@ -84,7 +73,6 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # -- Support / feedback routing --
-    # Where "Help, Feedback & Bug Report" admin notifications are sent.
     # Falls back to admin@{app_domain} when unset (see app/core/email.py).
     feedback_notify_email: str | None = None
 
@@ -95,8 +83,7 @@ class Settings(BaseSettings):
     def is_jwks(self) -> bool:
         secret = self.supabase_jwt_secret
         return isinstance(secret, dict) or (
-            secret.strip().startswith("{")
-            and "keys" in secret
+            secret.strip().startswith("{") and "keys" in secret
         )
 
     model_config = SettingsConfigDict(
