@@ -1885,8 +1885,8 @@ class _OrbitScreenState extends State<OrbitScreen>
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
-                  padding: const EdgeInsets.only(
-                    top: 55,
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 8,
                     bottom: 8,
                     left: 16,
                     right: 16,

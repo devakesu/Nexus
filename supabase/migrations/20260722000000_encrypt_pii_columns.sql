@@ -7,10 +7,16 @@ BEGIN;
 
 -- Drop unique constraint on users.email
 ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_email_key CASCADE;
+DROP INDEX IF EXISTS public.users_email_unique_idx;
+
 
 -- Alter users columns to BYTEA
 ALTER TABLE public.users ALTER COLUMN email TYPE BYTEA USING email::bytea;
 ALTER TABLE public.users ALTER COLUMN mobile TYPE BYTEA USING mobile::bytea;
+
+-- Drop check constraints on safety_contacts before altering type
+ALTER TABLE public.safety_contacts DROP CONSTRAINT IF EXISTS safety_contacts_name_length_check;
+ALTER TABLE public.safety_contacts DROP CONSTRAINT IF EXISTS safety_contacts_phone_length_check;
 
 -- Alter safety_contacts columns to BYTEA
 ALTER TABLE public.safety_contacts ALTER COLUMN name TYPE BYTEA USING name::bytea;
