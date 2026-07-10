@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
   const CustomBottomNavBar({
@@ -29,17 +30,17 @@ class CustomBottomNavBar extends StatelessWidget {
   Color _getSelectedColor(int index) {
     switch (index) {
       case 0:
-        return const Color(0xFFFF4F81); // Dating
+        return AppColors.modeDating; // Dating
       case 1:
-        return const Color(0xFFA45E00); // Friends
+        return AppColors.modeFriends; // Friends
       case 2:
-        return const Color(0xFF0891B2); // Profile
+        return AppColors.primaryTeal; // Profile
       case 3:
-        return const Color(0xFF007E6D); // Professional
+        return AppColors.modeProfessional; // Professional
       case 4:
-        return const Color(0xFF4EA8DE); // Settings
+        return AppColors.modeSettings; // Settings
       default:
-        return const Color(0xFF0891B2);
+        return AppColors.primaryTeal;
     }
   }
 

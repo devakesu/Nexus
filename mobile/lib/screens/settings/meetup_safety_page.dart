@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
@@ -33,8 +34,8 @@ class MeetupSafetyPage extends StatefulWidget {
 }
 
 class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
-  static const _accent = Color(0xFF0284C7);
-  static const _teal = Color(0xFF0D9488);
+  static const Color _accent = AppColors.safetyBlue;
+  static const Color _teal = AppColors.safetyTeal;
 
   // Emergency Contacts state
   List<SafetyContact> _contacts = [];
@@ -307,7 +308,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
       child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0284C7), Color(0xFF0D9488)],
+            colors: [AppColors.safetyBlue, AppColors.safetyTeal],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -371,7 +372,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
                     ),
                     child: const Icon(
                       LucideIcons.shieldAlert,
-                      color: Color(0xFFEF4444),
+                      color: AppColors.error,
                       size: 18,
                     ),
                   ),

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class SpaceNode {
   SpaceNode({
@@ -44,7 +45,7 @@ class GravityFieldPainter extends CustomPainter {
         0.45; // scale factor mapping relative coordinates to pixels
 
     // Define colors
-    const accentColor = Color(0xFFFF7597);
+    const accentColor = AppColors.pulsarPink;
     const whiteColor = Color(0xFFFFFFFF);
     const greyColor = Color(0xFF6B7280);
 
@@ -298,7 +299,15 @@ class GravityFieldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant GravityFieldPainter oldDelegate) {
-    return true; // continuously repainting for 60fps physics tick updates
+    // simulatedTime advances every physics tick, so this still repaints on
+    // essentially every real animation frame — but unlike a blanket `true`,
+    // it skips repainting if this painter is reconstructed with identical
+    // field values for an unrelated rebuild.
+    return oldDelegate.simulatedTime != simulatedTime ||
+        oldDelegate.touchPosition != touchPosition ||
+        oldDelegate.tiltOffset != tiltOffset ||
+        oldDelegate.matrixIndex != matrixIndex ||
+        oldDelegate.nodes != nodes;
   }
 }
 

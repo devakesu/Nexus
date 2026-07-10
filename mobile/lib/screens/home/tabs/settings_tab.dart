@@ -89,10 +89,10 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
   Widget _buildNotifTrailing() {
     return switch (_notifPermission) {
       AuthorizationStatus.authorized || AuthorizationStatus.provisional =>
-        const _StatusDot(label: 'Enabled', color: Color(0xFF10B981)),
+        const _StatusDot(label: 'Enabled', color: AppColors.success),
       AuthorizationStatus.denied => const _StatusDot(
         label: 'Disabled',
-        color: Color(0xFFEF4444),
+        color: AppColors.error,
       ),
       _ => const Icon(
         LucideIcons.chevronRight,
@@ -241,15 +241,15 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             const SizedBox(height: 10),
             const _OrbitBullet(
               label: 'Dating',
-              color: Color(0xFFFF4F81),
+              color: AppColors.modeDating,
             ),
             const _OrbitBullet(
               label: 'Friends',
-              color: Color(0xFFA45E00),
+              color: AppColors.modeFriends,
             ),
             const _OrbitBullet(
               label: 'Professional',
-              color: Color(0xFF007E6D),
+              color: AppColors.modeProfessional,
             ),
             const SizedBox(height: 12),
             Text(
@@ -270,7 +270,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
+              backgroundColor: AppColors.warning,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -295,15 +295,15 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
       _PauseStatus.loading => const NexusOrbitLoader(size: 20, lightMode: true),
       _PauseStatus.active => const _StatusDot(
         label: 'Active',
-        color: Color(0xFF10B981),
+        color: AppColors.success,
       ),
       _PauseStatus.paused => const _StatusDot(
         label: 'Paused',
-        color: Color(0xFFF59E0B),
+        color: AppColors.warning,
       ),
       _PauseStatus.error => const Icon(
         LucideIcons.alertCircle,
-        color: Color(0xFFEF4444),
+        color: AppColors.error,
         size: 18,
       ),
     };
@@ -855,8 +855,8 @@ class _AccountActionsSection extends StatelessWidget {
                   _ActionRow(
                     icon: LucideIcons.trash2,
                     label: 'Delete Account',
-                    iconColor: const Color(0xFFEF4444),
-                    labelColor: const Color(0xFFEF4444),
+                    iconColor: AppColors.error,
+                    labelColor: AppColors.error,
                     showDivider: false,
                     onTap: () => _warnDeleteAccount(context),
                   ),

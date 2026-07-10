@@ -12,6 +12,7 @@ import 'package:nexus/screens/settings/feedback_page.dart';
 import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -108,7 +109,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
                           ),
                           child: Icon(
                             flag.icon,
-                            color: const Color(0xFFEF4444),
+                            color: AppColors.error,
                             size: 18,
                           ),
                         ),
@@ -153,9 +154,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
                 width: active ? 16 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: active
-                      ? const Color(0xFFEF4444)
-                      : const Color(0xFFFECACA),
+                  color: active ? AppColors.error : const Color(0xFFFECACA),
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
@@ -175,9 +174,9 @@ class SafetyCenterPage extends StatefulWidget {
 }
 
 class _SafetyCenterPageState extends State<SafetyCenterPage> {
-  static const _accent = Color(0xFF0284C7);
-  static const _teal = Color(0xFF0D9488);
-  static const _red = Color(0xFFEF4444);
+  static const Color _accent = AppColors.safetyBlue;
+  static const Color _teal = AppColors.safetyTeal;
+  static const Color _red = AppColors.error;
 
   // Whether at least one trusted contact exists — read independently here
   // just to drive the safety score checklist ring; the Meetup Safety page
@@ -557,7 +556,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
       child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0284C7), Color(0xFF0D9488)],
+            colors: [AppColors.safetyBlue, AppColors.safetyTeal],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -17,7 +18,7 @@ class ExportCodeCard extends StatefulWidget {
 }
 
 class _ExportCodeCardState extends State<ExportCodeCard> {
-  static const Color _teal = Color(0xFFFF7597);
+  static const Color _teal = AppColors.pulsarPink;
   static const int _ttlSeconds = 15 * 60; // 15 minutes
 
   bool _isLoading = false;
@@ -123,7 +124,7 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
         color: const Color(0xFF111420),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFFF7597).withValues(alpha: 0.15),
+          color: AppColors.pulsarPink.withValues(alpha: 0.15),
         ),
         boxShadow: [
           BoxShadow(

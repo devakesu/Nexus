@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -43,7 +44,7 @@ class LikesOverlay extends StatefulWidget {
 class _LikesOverlayState extends State<LikesOverlay> {
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFFFF4F81);
+    const themeColor = AppColors.modeDating;
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
@@ -71,7 +72,7 @@ class _LikesOverlayState extends State<LikesOverlay> {
                   children: [
                     Icon(
                       LucideIcons.heart,
-                      color: Color(0xFFFF4F81),
+                      color: AppColors.modeDating,
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -91,13 +92,13 @@ class _LikesOverlayState extends State<LikesOverlay> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF4F81).withAlpha(38),
+                    color: AppColors.modeDating.withAlpha(38),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${widget.likes.length} likes',
                     style: const TextStyle(
-                      color: Color(0xFFFF4F81),
+                      color: AppColors.modeDating,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -225,7 +226,7 @@ class _LikesOverlayState extends State<LikesOverlay> {
                                           if (isSuperlike)
                                             const Icon(
                                               LucideIcons.star,
-                                              color: Color(0xFFF59E0B),
+                                              color: AppColors.warning,
                                               size: 13,
                                             ),
                                         ],
@@ -295,7 +296,7 @@ class _MatchesOverlayState extends State<MatchesOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFFFF4F81);
+    const themeColor = AppColors.modeDating;
     final session = Supabase.instance.client.auth.currentSession;
     return Container(
       height: MediaQuery.of(context).size.height * 0.78,

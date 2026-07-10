@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 // Full-screen match celebration pushed onto the root navigator.
 // Pop with true → "send a message", false → "keep browsing".
@@ -11,7 +12,7 @@ class MatchScreen extends StatefulWidget {
     this.matchedProfilePic,
     this.titleText = "It's a Match! 💘",
     this.subtitleText,
-    this.themeColor = const Color(0xFFFF4F81),
+    this.themeColor = AppColors.modeDating,
     this.badgeIcon = LucideIcons.heart,
     super.key,
   });

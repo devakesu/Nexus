@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class PlaceAutocompleteField extends StatefulWidget {
   const PlaceAutocompleteField({
@@ -122,7 +123,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),

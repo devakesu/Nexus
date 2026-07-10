@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chats_providers.dart';
 import 'package:nexus/screens/chats/chat_theme.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 /// Bottom sheet listing matches in [tab] with no conversation started yet.
@@ -67,7 +68,7 @@ class NewChatSheet extends ConsumerWidget {
               error: (error, stackTrace) => Center(
                 child: Text(
                   'Could not load matches',
-                  style: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
+                  style: GoogleFonts.inter(color: AppColors.inkMuted),
                 ),
               ),
               data: (candidates) => _CandidatesList(
@@ -108,7 +109,7 @@ class _CandidatesList extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 13.5,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                 ),
               ),
             ],
@@ -155,7 +156,9 @@ class _CandidatesList extends StatelessWidget {
             'Matched · say hi 👋',
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: const Color(0xFF94A3B8),
+              // ink-muted, not ink-faint: real match-status copy, not a
+              // placeholder/disabled state.
+              color: AppColors.inkMuted,
             ),
           ),
           onTap: () => Navigator.of(context).pop(candidate),

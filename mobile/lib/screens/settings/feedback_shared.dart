@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 // ---------------------------------------------------------------------------
 // Query type (help / feedback / bug report)
@@ -80,9 +81,9 @@ extension FeedbackStatusX on FeedbackStatus {
   };
 
   Color get color => switch (this) {
-    FeedbackStatus.open => const Color(0xFF0284C7),
+    FeedbackStatus.open => AppColors.safetyBlue,
     FeedbackStatus.inProgress => const Color(0xFFD97706),
-    FeedbackStatus.resolved => const Color(0xFF10B981),
+    FeedbackStatus.resolved => AppColors.success,
     FeedbackStatus.closed => const Color(0xFF64748B),
   };
 

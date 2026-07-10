@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class FriendsActivationOverlay extends StatefulWidget {
   const FriendsActivationOverlay({required this.onFinished, super.key});
@@ -59,7 +60,7 @@ class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
 
   @override
   Widget build(BuildContext context) {
-    const brandColor = Color(0xFFA45E00);
+    const brandColor = AppColors.modeFriends;
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(

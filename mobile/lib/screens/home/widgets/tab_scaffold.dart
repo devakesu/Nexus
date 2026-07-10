@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class TabScaffold extends StatelessWidget {
   const TabScaffold({
@@ -101,7 +102,7 @@ class TabScaffold extends StatelessWidget {
                                       height: 8,
                                       decoration: BoxDecoration(
                                         color: isOrbitActive
-                                            ? const Color(0xFF10B981)
+                                            ? AppColors.success
                                             : const Color(0xFF64748B),
                                         shape: BoxShape.circle,
                                       ),
@@ -112,7 +113,7 @@ class TabScaffold extends StatelessWidget {
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: isOrbitActive
-                                            ? const Color(0xFF10B981)
+                                            ? AppColors.success
                                             : const Color(0xFF64748B),
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -150,7 +151,7 @@ class TabScaffold extends StatelessWidget {
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: isOrbitActive
-                                ? const Color(0xFFEF4444)
+                                ? AppColors.error
                                 : themeColor,
                             foregroundColor: Colors.white,
                             elevation: 0,

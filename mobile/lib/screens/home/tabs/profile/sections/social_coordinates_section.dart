@@ -6,6 +6,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/place_autocomplete_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class SocialCoordinatesSection extends StatefulWidget {
   const SocialCoordinatesSection({
@@ -93,8 +94,8 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
       title: 'Social & Campus Info',
       description: 'Your campus and hometown background',
       cardColor: const Color(0xFFF0FDF4),
-      borderColor: const Color(0xFF10B981).withValues(alpha: 0.4),
-      accentColor: const Color(0xFF10B981),
+      borderColor: AppColors.success.withValues(alpha: 0.4),
+      accentColor: AppColors.success,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -203,7 +204,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       _isExpanded
                           ? LucideIcons.minusCircle
                           : LucideIcons.plusCircle,
-                      color: const Color(0xFFFF7597),
+                      color: AppColors.pulsarPink,
                       size: 18,
                     ),
                   ],
@@ -324,7 +325,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                       height: 24,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFF0891B2),
+                        color: AppColors.primaryTeal,
                       ),
                       child: Stack(
                         children: [
@@ -375,7 +376,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                         child: CircularProgressIndicator(
                           strokeWidth: 1.5,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFFFF7597),
+                            AppColors.pulsarPink,
                           ),
                         ),
                       ),
@@ -397,7 +398,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                             : yearOption == 3
                             ? "3rd"
                             : "${yearOption}th"} Year';
-                    const primaryColor = Color(0xFF0891B2);
+                    const primaryColor = AppColors.primaryTeal;
 
                     return GestureDetector(
                       onTap: () {

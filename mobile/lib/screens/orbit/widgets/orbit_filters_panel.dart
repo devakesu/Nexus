@@ -482,9 +482,11 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
                 ),
+                // No Material elevation shadow on the thumb — its solid
+                // fill already reads clearly against the track/panel.
                 rangeThumbShape: const RoundRangeSliderThumbShape(
                   enabledThumbRadius: 6,
-                  elevation: 2,
+                  elevation: 0,
                 ),
                 rangeTrackShape: const RoundedRectRangeSliderTrackShape(),
               ),

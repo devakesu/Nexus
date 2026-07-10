@@ -333,7 +333,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
           children: [
             const Icon(
               LucideIcons.alertCircle,
-              color: Color(0xFFEF4444),
+              color: AppColors.error,
               size: 40,
             ),
             const SizedBox(height: 16),

@@ -11,6 +11,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/settings/feedback_shared.dart';
 import 'package:nexus/screens/settings/feedback_ticket_detail_page.dart';
 import 'package:nexus/screens/settings/feedback_tickets_list_page.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -312,7 +313,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 ),
                 child: const Icon(
                   LucideIcons.checkCheck,
-                  color: Color(0xFF0D9488),
+                  color: AppColors.safetyTeal,
                   size: 36,
                 ),
               ).animate().scale(
@@ -866,7 +867,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -904,7 +905,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: attachment.failed
-                  ? const Color(0xFFEF4444)
+                  ? AppColors.error
                   : const Color(0xFFE2E8F0),
             ),
             image: DecorationImage(

@@ -16,6 +16,7 @@ import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/pending_evidence_upload_queue.dart';
 import 'package:nexus/services/signal/background_prekey_task.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/secure_session_storage.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -202,8 +203,8 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFF4F6FA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0891B2),
-          primary: const Color(0xFF0891B2),
+          seedColor: AppColors.primaryTeal,
+          primary: AppColors.primaryTeal,
           surface: Colors.white,
         ),
         textTheme: GoogleFonts.interTextTheme(

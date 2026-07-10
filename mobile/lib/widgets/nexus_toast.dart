@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 enum NexusToastType { success, error, info, warning }
 
@@ -92,15 +93,15 @@ class _NexusToastEntryState extends State<_NexusToastEntry>
 
     final (Color accent, IconData icon) = switch (widget.type) {
       NexusToastType.success => (
-        const Color(0xFF10B981),
+        AppColors.success,
         LucideIcons.circleCheck,
       ),
-      NexusToastType.error => (const Color(0xFFEF4444), LucideIcons.circleX),
+      NexusToastType.error => (AppColors.error, LucideIcons.circleX),
       NexusToastType.warning => (
-        const Color(0xFFF59E0B),
+        AppColors.warning,
         LucideIcons.triangleAlert,
       ),
-      NexusToastType.info => (const Color(0xFF60A5FA), LucideIcons.info),
+      NexusToastType.info => (AppColors.info, LucideIcons.info),
     };
 
     return Positioned(

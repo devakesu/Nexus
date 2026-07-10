@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class DatingSettingsOverlay extends StatefulWidget {
@@ -128,7 +129,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                   children: [
                     Icon(
                       LucideIcons.settings,
-                      color: Color(0xFFFF4F81),
+                      color: AppColors.modeDating,
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -142,34 +143,45 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF4F81),
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: const Color(
-                      0xFFFF4F81,
-                    ).withValues(alpha: 0.4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                // Signal Glow shadow via BoxDecoration, not Material's
+                // elevation: prop — DESIGN.md's shadow vocabulary.
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.modeDating.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    if (widget.isActivating &&
-                        widget.onToggleOrbitState != null) {
-                      await widget.onToggleOrbitState!(active: true);
-                    }
-                  },
-                  child: Text(
-                    widget.isActivating ? 'Turn On Orbit' : 'Done',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.modeDating,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      if (widget.isActivating &&
+                          widget.onToggleOrbitState != null) {
+                        await widget.onToggleOrbitState!(active: true);
+                      }
+                    },
+                    child: Text(
+                      widget.isActivating ? 'Turn On Orbit' : 'Done',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -225,7 +237,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                         return FilterChip(
                           label: Text(item['label']!),
                           selected: isSelected,
-                          selectedColor: const Color(0xFFFF4F81),
+                          selectedColor: AppColors.modeDating,
                           backgroundColor: Colors.black.withValues(
                             alpha: 0.04,
                           ),
@@ -343,7 +355,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                         return FilterChip(
                           label: Text(item['label']!),
                           selected: isSelected,
-                          selectedColor: const Color(0xFFFF4F81),
+                          selectedColor: AppColors.modeDating,
                           backgroundColor: Colors.black.withValues(
                             alpha: 0.04,
                           ),
@@ -429,18 +441,18 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                     children: localPartnerValues.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(
-                          0xFFFF4F81,
-                        ).withValues(alpha: 0.1),
+                        backgroundColor: AppColors.modeDating.withValues(
+                          alpha: 0.1,
+                        ),
                         labelStyle: const TextStyle(
-                          color: Color(0xFFFF4F81),
+                          color: AppColors.modeDating,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                         deleteIcon: const Icon(
                           LucideIcons.x,
                           size: 14,
-                          color: Color(0xFFFF4F81),
+                          color: AppColors.modeDating,
                         ),
                         side: BorderSide.none,
                         shape: RoundedRectangleBorder(
@@ -519,7 +531,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           color: Colors.white,
                         ),
                         label: Text('Add "${searchQuery.trim()}"'),
-                        backgroundColor: const Color(0xFFFF4F81),
+                        backgroundColor: AppColors.modeDating,
                         labelStyle: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

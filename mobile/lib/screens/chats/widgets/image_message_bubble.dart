@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 /// Decrypts and renders an image attachment, fetched lazily (not eagerly
@@ -89,7 +90,7 @@ class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble> {
         child: DecoratedBox(
           decoration: BoxDecoration(color: Color(0xFFFEF2F2)),
           child: Center(
-            child: Icon(LucideIcons.imageOff, color: Color(0xFFEF4444)),
+            child: Icon(LucideIcons.imageOff, color: AppColors.error),
           ),
         ),
       );

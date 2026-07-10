@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/login/widgets/login_painters.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -667,9 +668,8 @@ class _LoginScreenState extends State<LoginScreen>
                               fontSize: 18,
                               fontWeight: FontWeight.w400,
                               letterSpacing: 4,
-                              color: const Color(
-                                0xFFFF7597,
-                              ), // Pulsar Teal / Oracle Aqua accent
+                              color: AppColors
+                                  .pulsarPink, // Pulsar Teal / Oracle Aqua accent
                             ),
                           ),
                         ],
@@ -907,7 +907,7 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Text(
                       'Resend',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFFFF7597),
+                        color: AppColors.pulsarPink,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1043,7 +1043,7 @@ class _LoginScreenState extends State<LoginScreen>
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(
-            color: Color(0xFFFF7597),
+            color: AppColors.pulsarPink,
             width: 1.5,
           ),
         ),
@@ -1069,7 +1069,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ? null
                 : const LinearGradient(
                     colors: [
-                      Color(0xFFFF7597),
+                      AppColors.pulsarPink,
                       Color(0xFFE04B76),
                     ],
                     begin: Alignment.topLeft,
@@ -1080,7 +1080,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ? null
                 : [
                     BoxShadow(
-                      color: const Color(0xFFFF7597).withValues(alpha: 0.3),
+                      color: AppColors.pulsarPink.withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -1129,7 +1129,7 @@ class _LoginScreenState extends State<LoginScreen>
       style: GoogleFonts.jetBrainsMono(
         fontSize: 9,
         fontWeight: FontWeight.bold,
-        color: const Color(0xFFFF7597).withValues(alpha: 0.7),
+        color: AppColors.pulsarPink.withValues(alpha: 0.7),
         letterSpacing: 0.5,
       ),
     );
@@ -1137,7 +1137,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildMatrixRow(String label, String status, bool isActive) {
     final color = isActive
-        ? const Color(0xFFFF7597)
+        ? AppColors.pulsarPink
         : const Color(0xFF6B7280).withValues(alpha: 0.5);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),

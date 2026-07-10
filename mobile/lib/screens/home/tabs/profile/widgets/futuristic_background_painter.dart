@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class FuturisticBackgroundPainter extends CustomPainter {
   const FuturisticBackgroundPainter({this.accentColor});
@@ -34,7 +35,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
           .withLightness(0.45)
           .toColor();
     } else {
-      primaryOrbitColor = const Color(0xFF0891B2);
+      primaryOrbitColor = AppColors.primaryTeal;
       secondaryOrbitColor = const Color(0xFFE91E63);
       tertiaryOrbitColor = const Color(0xFF4F46E5);
     }

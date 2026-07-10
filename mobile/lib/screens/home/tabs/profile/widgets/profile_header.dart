@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/orbit_painter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -28,7 +29,7 @@ class ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     const deepCyan = Color(0xFF00E5FF);
 
     return Center(
@@ -146,7 +147,7 @@ class ProfileHeader extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFFFF7597),
+                            AppColors.pulsarPink,
                             Color(0xFFFF4D7E),
                           ],
                           begin: Alignment.topLeft,
@@ -159,9 +160,7 @@ class ProfileHeader extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(
-                              0xFFFF7597,
-                            ).withValues(alpha: 0.5),
+                            color: AppColors.pulsarPink.withValues(alpha: 0.5),
                             blurRadius: 10,
                             spreadRadius: 1,
                             offset: const Offset(0, 2),

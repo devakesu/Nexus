@@ -9,10 +9,11 @@ import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_contacts.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
-const _safetyBlue = Color(0xFF0284C7);
-const _safetyTeal = Color(0xFF0D9488);
+const Color _safetyBlue = AppColors.safetyBlue;
+const Color _safetyTeal = AppColors.safetyTeal;
 
 /// Bottom sheet for proposing a date/plan: title, date, time, optional
 /// location and notes. Submits via [ChatConversationController.createEvent].

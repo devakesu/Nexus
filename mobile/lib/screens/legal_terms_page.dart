@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class LegalTermsPage extends StatelessWidget {
   const LegalTermsPage({super.key});
@@ -38,7 +39,7 @@ class LegalTermsPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFFFF7597),
+                color: AppColors.pulsarPink,
                 letterSpacing: 0.5,
               ),
             ),
@@ -60,7 +61,7 @@ class LegalTermsPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFFFF7597),
+                color: AppColors.pulsarPink,
                 letterSpacing: 0.5,
               ),
             ),

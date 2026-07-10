@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class NeonSlider extends StatelessWidget {
   const NeonSlider({
@@ -24,8 +25,8 @@ class NeonSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF0891B2);
-    const pulsarPink = Color(0xFFFF7597);
+    const primaryColor = AppColors.primaryTeal;
+    const pulsarPink = AppColors.pulsarPink;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +71,6 @@ class NeonSlider extends StatelessWidget {
                   color: primaryColor,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Outfit',
                 ),
               ),
             ),
@@ -132,7 +132,7 @@ class _NeonGradientSliderTrackShape extends RectangularSliderTrackShape {
       isDiscrete: isDiscrete,
     );
 
-    const primaryColor = Color(0xFF0891B2);
+    const primaryColor = AppColors.primaryTeal;
 
     final activePaint = Paint()
       ..color = primaryColor
@@ -197,7 +197,7 @@ class _NeonSliderThumbShape extends SliderComponentShape {
     required double textScaleFactor,
     required Size sizeWithOverflow,
   }) {
-    const primaryColor = Color(0xFF0891B2);
+    const primaryColor = AppColors.primaryTeal;
     final canvas = context.canvas;
 
     final outerPaint = Paint()

@@ -6,6 +6,7 @@ import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class AffinityInterestsSection extends StatelessWidget {
   const AffinityInterestsSection({
@@ -43,7 +44,7 @@ class AffinityInterestsSection extends StatelessWidget {
             currentValues: flatSubInterests,
             presets: const [],
             icon: LucideIcons.sparkles,
-            iconColor: const Color(0xFFFF7597),
+            iconColor: AppColors.pulsarPink,
             onChanged: onInterestsSaved,
             hintText: 'Select interests...',
             allowCustom: false,

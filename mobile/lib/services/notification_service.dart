@@ -14,6 +14,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/navigation/app_router.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -288,8 +289,8 @@ class NotificationService {
 
     final (IconData icon, Color accent) = switch (type) {
       'superlike' => (Icons.star_rounded, const Color(0xFFFACC15)),
-      'match' => (Icons.favorite_rounded, const Color(0xFFFF7597)),
-      _ => (Icons.favorite_border_rounded, const Color(0xFF0891B2)),
+      'match' => (Icons.favorite_rounded, AppColors.pulsarPink),
+      _ => (Icons.favorite_border_rounded, AppColors.primaryTeal),
     };
 
     OverlayEntry? entry;
@@ -438,7 +439,7 @@ class _PermissionDeniedDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFF0891B2);
+    const accent = AppColors.primaryTeal;
 
     return Container(
           decoration: BoxDecoration(

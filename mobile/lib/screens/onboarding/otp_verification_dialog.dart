@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,7 +33,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
   Timer? _countdownTimer;
   int _resendCountdown = 60;
 
-  static const _teal = Color(0xFFFF7597);
+  static const Color _teal = AppColors.pulsarPink;
 
   @override
   void initState() {
@@ -269,7 +271,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(8),
               ],
-              style: const TextStyle(
+              style: GoogleFonts.jetBrainsMono(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -278,8 +280,8 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               decoration: InputDecoration(
                 counterText: '',
                 hintText: '• • • • • • • •',
-                hintStyle: const TextStyle(
-                  color: Color(0x33FFFFFF),
+                hintStyle: GoogleFonts.jetBrainsMono(
+                  color: const Color(0x33FFFFFF),
                   fontSize: 22,
                   letterSpacing: 6,
                 ),
@@ -381,7 +383,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                                   ? null
                                   : const LinearGradient(
                                       colors: [
-                                        Color(0xFFFF7597),
+                                        AppColors.pulsarPink,
                                         Color(0xFFE04B76),
                                       ],
                                     ),

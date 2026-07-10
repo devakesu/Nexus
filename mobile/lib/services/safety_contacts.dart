@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -101,14 +102,14 @@ Future<void> showSosFallbackDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       icon: const Icon(
         LucideIcons.shieldAlert,
-        color: Color(0xFFEF4444),
+        color: AppColors.error,
         size: 48,
       ).animate(onPlay: (c) => c.repeat()).shake(duration: 800.ms, hz: 4),
       title: Text(
         'Emergency Triggered',
         style: GoogleFonts.manrope(
           fontWeight: FontWeight.w800,
-          color: const Color(0xFFEF4444),
+          color: AppColors.error,
         ),
       ),
       content: Text(
@@ -124,7 +125,7 @@ Future<void> showSosFallbackDialog(
               if (onRetryRecording != null) ...[
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4444),
+                    backgroundColor: AppColors.error,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

@@ -221,7 +221,7 @@ class _EmailNotificationSettingsPageState
           children: [
             const Icon(
               LucideIcons.alertCircle,
-              color: Color(0xFFEF4444),
+              color: AppColors.error,
               size: 40,
             ),
             const SizedBox(height: 16),
@@ -449,7 +449,7 @@ class _MandatoryTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -458,7 +458,7 @@ class _MandatoryTile extends StatelessWidget {
                 const Icon(
                   LucideIcons.lock,
                   size: 11,
-                  color: Color(0xFF10B981),
+                  color: AppColors.success,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -466,7 +466,7 @@ class _MandatoryTile extends StatelessWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF10B981),
+                    color: AppColors.success,
                     letterSpacing: 0.2,
                   ),
                 ),

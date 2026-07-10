@@ -13,6 +13,7 @@ import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/services/safety_dialer.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 
@@ -34,9 +35,9 @@ class CheckInAlertScreen extends StatefulWidget {
 }
 
 class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
-  static const _accent = Color(0xFF0284C7);
-  static const _teal = Color(0xFF0D9488);
-  static const _red = Color(0xFFEF4444);
+  static const Color _accent = AppColors.safetyBlue;
+  static const Color _teal = AppColors.safetyTeal;
+  static const Color _red = AppColors.error;
 
   _SosPhase _phase = _SosPhase.idle;
   bool _pendingSilent = false;

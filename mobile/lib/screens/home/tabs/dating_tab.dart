@@ -12,6 +12,7 @@ import 'package:nexus/screens/home/widgets/match_screen.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/screens/home/widgets/tab_scaffold.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
@@ -446,7 +447,7 @@ class _DatingTabState extends State<DatingTab>
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF4F81),
+                  backgroundColor: AppColors.modeDating,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -484,7 +485,9 @@ class _DatingTabState extends State<DatingTab>
         valueListenable: loadingNotifier,
         builder: (context, isLoading, _) {
           if (isLoading) {
-            return const SettingsLoadingSkeleton(themeColor: Color(0xFFFF4F81));
+            return const SettingsLoadingSkeleton(
+              themeColor: AppColors.modeDating,
+            );
           }
           return DatingSettingsOverlay(
             datingTargetBuckets: _datingTargetBuckets,
@@ -778,12 +781,12 @@ class _DatingTabState extends State<DatingTab>
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+                  colors: [AppColors.warning, AppColors.error],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                    color: AppColors.warning.withValues(alpha: 0.35),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
@@ -858,7 +861,7 @@ class _DatingTabState extends State<DatingTab>
     required String name,
     required void Function(String actorId) onActioned,
   }) async {
-    const themeColor = Color(0xFFFF4F81);
+    const themeColor = AppColors.modeDating;
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
 
@@ -1019,7 +1022,7 @@ class _DatingTabState extends State<DatingTab>
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFFFF4F81);
+    const themeColor = AppColors.modeDating;
     final activeLikesCount = _unseenCount;
 
     if (_hasError) {
@@ -1098,7 +1101,7 @@ class _DatingTabState extends State<DatingTab>
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [
-                            Color(0xFFFF4F81),
+                            AppColors.modeDating,
                             Color(0xFF8B5CF6),
                           ],
                           begin: Alignment.topLeft,
@@ -1107,7 +1110,7 @@ class _DatingTabState extends State<DatingTab>
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF4F81).withAlpha(76),
+                            color: AppColors.modeDating.withAlpha(76),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -1115,7 +1118,7 @@ class _DatingTabState extends State<DatingTab>
                       ),
                       child: InkWell(
                         onTap: () {
-                          widget.onOpenOrbit('Dating', const Color(0xFFFF4F81));
+                          widget.onOpenOrbit('Dating', AppColors.modeDating);
                         },
                         borderRadius: BorderRadius.circular(24),
                         child: Padding(

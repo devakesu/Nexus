@@ -8,6 +8,7 @@ import 'package:nexus/screens/chats/widgets/event_card.dart';
 import 'package:nexus/screens/chats/widgets/image_message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/location_message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/voice_message_bubble.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -71,7 +72,7 @@ class MessageBubble extends StatelessWidget {
           const Icon(
             LucideIcons.shieldAlert,
             size: 14,
-            color: Color(0xFFEF4444),
+            color: AppColors.error,
           ),
           const SizedBox(width: 6),
           Text(
@@ -79,7 +80,7 @@ class MessageBubble extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 13,
               fontStyle: FontStyle.italic,
-              color: const Color(0xFFEF4444),
+              color: AppColors.error,
             ),
           ),
         ],

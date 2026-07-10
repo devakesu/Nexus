@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -36,7 +37,7 @@ const List<_HelpCategory> _kHelpCategories = [
   _HelpCategory(
     title: 'Getting Started',
     icon: LucideIcons.rocket,
-    color: Color(0xFF0284C7),
+    color: AppColors.safetyBlue,
     bgColor: Color(0xFFEFF6FF),
     faqs: [
       (
@@ -93,7 +94,7 @@ const List<_HelpCategory> _kHelpCategories = [
   _HelpCategory(
     title: 'Messaging & Chat',
     icon: LucideIcons.messageSquareLock,
-    color: Color(0xFF0D9488),
+    color: AppColors.safetyTeal,
     bgColor: Color(0xFFECFDF5),
     faqs: [
       (
@@ -149,7 +150,7 @@ const List<_HelpCategory> _kHelpCategories = [
   _HelpCategory(
     title: 'Privacy & Safety',
     icon: LucideIcons.shieldCheck,
-    color: Color(0xFF0891B2),
+    color: AppColors.primaryTeal,
     bgColor: Color(0xFFECFEFF),
     faqs: [
       (
@@ -558,9 +559,10 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF0F172A)),
         decoration: InputDecoration(
           hintText: 'Search FAQs, features, settings…',
+          // Placeholder text still needs 4.5:1, not the muted-gray default.
           hintStyle: GoogleFonts.inter(
             fontSize: 13.5,
-            color: const Color(0xFF94A3B8),
+            color: AppColors.inkMuted,
           ),
           prefixIcon: const Icon(
             LucideIcons.search,
@@ -613,7 +615,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 12.5,
-                color: const Color(0xFF94A3B8),
+                color: AppColors.inkMuted,
               ),
             ),
           ],
@@ -717,7 +719,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               Expanded(
                 child: _buildActionCard(
                   icon: LucideIcons.headphones,
-                  iconColor: const Color(0xFF0D9488),
+                  iconColor: AppColors.safetyTeal,
                   iconBg: const Color(0xFFECFDF5),
                   title: 'Contact Support',
                   subtitle: "We're here to help.",
@@ -745,7 +747,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               Expanded(
                 child: _buildActionCard(
                   icon: LucideIcons.shieldCheck,
-                  iconColor: const Color(0xFF0284C7),
+                  iconColor: AppColors.safetyBlue,
                   iconBg: const Color(0xFFEFF6FF),
                   title: 'Safety Center',
                   subtitle: 'Safety tools & guidelines.',
@@ -975,7 +977,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                     '${category.faqs.length} articles',
                     style: GoogleFonts.inter(
                       fontSize: 11,
-                      color: const Color(0xFF94A3B8),
+                      color: AppColors.inkMuted,
                     ),
                   ),
                 ],
@@ -1221,7 +1223,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                     ),
                     child: const Icon(
                       LucideIcons.headphones,
-                      color: Color(0xFF0D9488),
+                      color: AppColors.safetyTeal,
                       size: 18,
                     ),
                   ),
@@ -1282,10 +1284,10 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+              color: AppColors.safetyBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(icon, color: const Color(0xFF0284C7), size: 17),
+            child: Icon(icon, color: AppColors.safetyBlue, size: 17),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1346,7 +1348,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             style: GoogleFonts.manrope(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF94A3B8),
+              color: AppColors.inkMuted,
             ),
           ),
           const SizedBox(height: 4),

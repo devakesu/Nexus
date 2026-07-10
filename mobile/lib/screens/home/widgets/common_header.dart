@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class CommonHeader extends StatelessWidget {
   const CommonHeader({
@@ -24,27 +25,27 @@ class CommonHeader extends StatelessWidget {
     // that same primary, used only as the gradient's far stop.
     switch (currentTab) {
       case 0:
-        tabThemeColor = const Color(0xFFFF4F81);
+        tabThemeColor = AppColors.modeDating;
         tabThemeColorSecondary = const Color(0xFFFF8DAD);
         tabLabel = 'Dating';
       case 1:
-        tabThemeColor = const Color(0xFFA45E00);
+        tabThemeColor = AppColors.modeFriends;
         tabThemeColorSecondary = const Color(0xFFC49659);
         tabLabel = 'Friends';
       case 2:
-        tabThemeColor = const Color(0xFF0891B2);
+        tabThemeColor = AppColors.primaryTeal;
         tabThemeColorSecondary = const Color(0xFF5EB8CD);
         tabLabel = null; // Profile tab - no tag
       case 3:
-        tabThemeColor = const Color(0xFF007E6D);
+        tabThemeColor = AppColors.modeProfessional;
         tabThemeColorSecondary = const Color(0xFF59ABA0);
         tabLabel = 'Professional';
       case 4:
-        tabThemeColor = const Color(0xFF4EA8DE);
+        tabThemeColor = AppColors.modeSettings;
         tabThemeColorSecondary = const Color(0xFF8CC6EA);
         tabLabel = null; // Settings tab - no tag
       default:
-        tabThemeColor = const Color(0xFFFF4F81);
+        tabThemeColor = AppColors.modeDating;
         tabThemeColorSecondary = const Color(0xFFFF8DAD);
         tabLabel = null;
     }

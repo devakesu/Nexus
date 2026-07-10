@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/filter_options.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class SubInterest {
   const SubInterest(this.name);
@@ -412,7 +413,7 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     const deepPurple = Color(0xFF00E5FF);
     const bgDark = Color(0xFF0F131E);
 
@@ -473,7 +474,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Outfit',
                   letterSpacing: 0.5,
                 ),
               ),
@@ -505,7 +505,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                     controller: _searchController,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontFamily: 'Outfit',
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
@@ -647,7 +646,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.w500,
-                              fontFamily: 'Outfit',
                             ),
                           ),
                         ],
@@ -709,7 +707,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
-                      fontFamily: 'Outfit',
                     ),
                   ),
                 ],
@@ -762,7 +759,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                                     color: Colors.white,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    fontFamily: 'Outfit',
                                   ),
                                 ),
                                 if (selectedCount > 0) ...[
@@ -841,7 +837,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                                           ? Colors.white
                                           : Colors.white70,
                                       fontSize: 12,
-                                      fontFamily: 'Outfit',
                                     ),
                                   ),
                                 ],
@@ -901,7 +896,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Outfit',
                 ),
               ),
               const SizedBox(height: 2),
@@ -938,7 +932,6 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Outfit',
                       color: Colors.white,
                     ),
                   ),

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
@@ -74,7 +75,7 @@ class CoordinatePainter extends CustomPainter {
     final maxRadius = math.sqrt(center.dx * center.dx + center.dy * center.dy);
 
     // Define colors according to Aesthetic Philosophy
-    const accentColor = Color(0xFFFF7597); // Pulsar Pink
+    const accentColor = AppColors.pulsarPink; // Pulsar Pink
     const whiteColor = Color(0xFFFFFFFF);
     const greyColor = Color(0xFF6B7280); // Muted Slate Grey
 

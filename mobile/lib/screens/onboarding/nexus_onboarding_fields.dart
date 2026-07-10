@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 /// Onboarding fields shown only for the main Nexus flavor.
 ///
@@ -62,7 +63,7 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFFF7597),
+                color: AppColors.pulsarPink,
               ),
             ),
           ],
@@ -94,7 +95,7 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xFFFF7597)
+                        ? AppColors.pulsarPink
                         : const Color(0x1AFFFFFF),
                   ),
                   color: selected

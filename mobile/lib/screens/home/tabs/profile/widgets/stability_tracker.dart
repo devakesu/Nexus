@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class StabilityTracker extends StatelessWidget {
   const StabilityTracker({
@@ -85,7 +86,7 @@ class StabilityTracker extends StatelessWidget {
               children: [
                 const Row(
                   children: [
-                    Icon(LucideIcons.activity, color: Color(0xFFFF7597)),
+                    Icon(LucideIcons.activity, color: AppColors.pulsarPink),
                     SizedBox(width: 12),
                     Text(
                       'Profile Completion Report',
@@ -93,7 +94,6 @@ class StabilityTracker extends StatelessWidget {
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                   ],
@@ -313,7 +313,7 @@ class StabilityTracker extends StatelessWidget {
                                 children: [
                                   Icon(
                                     LucideIcons.checkCircle,
-                                    color: Color(0xFF10B981),
+                                    color: AppColors.success,
                                     size: 48,
                                   ),
                                   SizedBox(height: 16),
@@ -323,7 +323,6 @@ class StabilityTracker extends StatelessWidget {
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      fontFamily: 'Outfit',
                                     ),
                                   ),
                                   SizedBox(height: 8),
@@ -414,14 +413,12 @@ class StabilityTracker extends StatelessWidget {
                         gradient: const LinearGradient(
                           colors: [
                             Color(0xFF00E5FF),
-                            Color(0xFFFF7597),
+                            AppColors.pulsarPink,
                           ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(
-                              0xFFFF7597,
-                            ).withValues(alpha: 0.3),
+                            color: AppColors.pulsarPink.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -442,7 +439,6 @@ class StabilityTracker extends StatelessWidget {
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            fontFamily: 'Outfit',
                           ),
                         ),
                       ),
@@ -458,7 +454,7 @@ class StabilityTracker extends StatelessWidget {
   }
 
   Widget _buildStabilityCategoryHeader(String title) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 8),
       child: Text(
@@ -479,9 +475,8 @@ class StabilityTracker extends StatelessWidget {
     required bool complete,
     required BuildContext context,
   }) {
-    const actionColor = Color(
-      0xFFFF7597,
-    ); // pulsarPink accent for call to action
+    const actionColor =
+        AppColors.pulsarPink; // pulsarPink accent for call to action
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: GestureDetector(
@@ -513,7 +508,6 @@ class StabilityTracker extends StatelessWidget {
                     color: Colors.white70,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    fontFamily: 'Outfit',
                   ),
                 ),
               ),
@@ -542,7 +536,6 @@ class StabilityTracker extends StatelessWidget {
                         color: actionColor,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                   ],
@@ -557,7 +550,7 @@ class StabilityTracker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     final stabilityFraction = stabilityPercentage / 100;
 
     return GestureDetector(
@@ -569,7 +562,7 @@ class StabilityTracker extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFFF7597).withValues(alpha: 0.35),
+            color: AppColors.pulsarPink.withValues(alpha: 0.35),
             width: 1.2,
           ),
           boxShadow: [
@@ -632,7 +625,7 @@ class StabilityTracker extends StatelessWidget {
               builder: (context, child) {
                 const totalSegments = 24;
                 const activeColorStart = Color(0xFF00E5FF); // deepPurple
-                const activeColorEnd = Color(0xFFFF7597); // pulsarPink
+                const activeColorEnd = AppColors.pulsarPink; // pulsarPink
 
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -728,15 +721,15 @@ class StabilityTracker extends StatelessWidget {
 
                 if (percentage < 35) {
                   statusText = 'PROFILE INCOMPLETE';
-                  statusColor = const Color(0xFFEF4444);
+                  statusColor = AppColors.error;
                   statusIcon = LucideIcons.alertTriangle;
                 } else if (percentage < 75) {
                   statusText = 'SYNCHRONIZING';
-                  statusColor = const Color(0xFFF59E0B);
+                  statusColor = AppColors.warning;
                   statusIcon = LucideIcons.refreshCw;
                 } else {
                   statusText = 'PROFILE COMPLETE';
-                  statusColor = const Color(0xFF10B981);
+                  statusColor = AppColors.success;
                   statusIcon = LucideIcons.checkCircle;
                 }
 
@@ -758,7 +751,6 @@ class StabilityTracker extends StatelessWidget {
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
-                            fontFamily: 'Outfit',
                           ),
                         ),
                       ],
@@ -770,7 +762,6 @@ class StabilityTracker extends StatelessWidget {
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                   ],

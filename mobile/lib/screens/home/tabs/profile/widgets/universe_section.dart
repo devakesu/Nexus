@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class UniverseSection extends StatelessWidget {
   const UniverseSection({
@@ -24,7 +25,7 @@ class UniverseSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const defaultCardColor = Color(0xFF111420);
-    const defaultAccentColor = Color(0xFFFF7597); // pulsarPink
+    const defaultAccentColor = AppColors.pulsarPink; // pulsarPink
     final effectiveCardColor = cardColor ?? defaultCardColor;
     final effectiveBorderColor =
         borderColor ?? Colors.white.withValues(alpha: 0.08);

@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chats_providers.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class ChatListTile extends StatelessWidget {
   const ChatListTile({
@@ -87,13 +88,16 @@ class ChatListTile extends StatelessWidget {
                       peerUserId: conversation.matchedUserId,
                       style: GoogleFonts.inter(
                         fontSize: 12.5,
-                        color: const Color(0xFF94A3B8),
+                        // ink-muted, not ink-faint: this is real status
+                        // copy the user reads, not a placeholder/disabled
+                        // state, so it needs to clear 4.5:1 AA contrast.
+                        color: AppColors.inkMuted,
                       ),
                       fallback: Text(
                         'Say hi 👋',
                         style: GoogleFonts.inter(
                           fontSize: 12.5,
-                          color: const Color(0xFF94A3B8),
+                          color: AppColors.inkMuted,
                         ),
                       ),
                     ),

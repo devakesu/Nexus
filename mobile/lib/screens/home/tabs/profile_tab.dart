@@ -25,6 +25,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -1028,14 +1029,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                     'Spotify',
                     style: TextStyle(
                       color: Colors.white,
-                      fontFamily: 'Outfit',
                     ),
                   ),
                 ],
               ),
               content: const Text(
                 'After connecting on Spotify, tap "Sync" to load your top artists.',
-                style: TextStyle(color: Colors.white70, fontFamily: 'Outfit'),
+                style: TextStyle(color: Colors.white70),
               ),
               actions: [
                 TextButton(
@@ -1205,10 +1205,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           toolbarTitle: 'Crop Photo',
           toolbarColor: const Color(0xFF0B0D13),
           toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFFFF7597),
+          activeControlsWidgetColor: AppColors.pulsarPink,
           backgroundColor: const Color(0xFF0B0D13),
           dimmedLayerColor: Colors.black87,
-          cropFrameColor: const Color(0xFFFF7597),
+          cropFrameColor: AppColors.pulsarPink,
           cropGridColor: Colors.white24,
           lockAspectRatio: true,
           hideBottomControls: false,
@@ -1288,7 +1288,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                   children: [
                     Icon(
                       slotIndex == 0 ? LucideIcons.user : LucideIcons.image,
-                      color: const Color(0xFFFF7597),
+                      color: AppColors.pulsarPink,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -1299,7 +1299,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         color: Color(0xFF0F172A),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                   ],
@@ -1510,7 +1509,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                               color: Color(0xFF0F172A),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'Outfit',
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -1519,7 +1517,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             style: TextStyle(
                               color: Colors.black.withValues(alpha: 0.45),
                               fontSize: 11,
-                              fontFamily: 'Outfit',
                             ),
                           ),
                         ],
@@ -1550,7 +1547,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                   style: const TextStyle(
                                     color: Color(0xFF0F172A),
                                     fontSize: 13,
-                                    fontFamily: 'Outfit',
                                   ),
                                   decoration: InputDecoration(
                                     hintText: 'Search signals...',
@@ -1643,16 +1639,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                   ),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(
-                                            0xFFFF7597,
-                                          ).withValues(alpha: 0.08)
+                                        ? AppColors.pulsarPink.withValues(
+                                            alpha: 0.08,
+                                          )
                                         : Colors.black.withValues(alpha: 0.02),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(
-                                              0xFFFF7597,
-                                            ).withValues(alpha: 0.45)
+                                          ? AppColors.pulsarPink.withValues(
+                                              alpha: 0.45,
+                                            )
                                           : Colors.black.withValues(
                                               alpha: 0.06,
                                             ),
@@ -1665,7 +1661,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                           width: 3,
                                           height: 14,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFFF7597),
+                                            color: AppColors.pulsarPink,
                                             borderRadius: BorderRadius.circular(
                                               1.5,
                                             ),
@@ -1684,7 +1680,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                           LucideIcons.sparkles,
                                           size: 14,
                                           color: isSelected
-                                              ? const Color(0xFFFF7597)
+                                              ? AppColors.pulsarPink
                                               : Colors.black26,
                                         ),
                                         const SizedBox(width: 12),
@@ -1694,9 +1690,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                           option,
                                           style: TextStyle(
                                             color: isSelected
-                                                ? const Color(0xFFFF7597)
+                                                ? AppColors.pulsarPink
                                                 : Colors.black87,
-                                            fontFamily: 'Outfit',
                                             fontSize: 14,
                                             fontWeight: isSelected
                                                 ? FontWeight.bold
@@ -1707,7 +1702,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                       if (isSelected)
                                         const Icon(
                                           LucideIcons.checkCircle,
-                                          color: Color(0xFFFF7597),
+                                          color: AppColors.pulsarPink,
                                           size: 16,
                                         ),
                                     ],
@@ -1740,9 +1735,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     final config = AppConfig.current;
-    final providerState = ref.watch(clientAIImageManagerProvider);
+    // .select() instead of watching the whole 6-field provider state: this
+    // build method only reads these three fields, so unrelated state
+    // changes (remotePaths, slotSpecificVibeTags, pendingDeletions) no
+    // longer trigger a rebuild of this ~400-line widget tree.
+    final isProcessingAI = ref.watch(
+      clientAIImageManagerProvider.select((s) => s.isProcessingAI),
+    );
+    final isSaving = ref.watch(
+      clientAIImageManagerProvider.select((s) => s.isSaving),
+    );
+    final pendingUploads = ref.watch(
+      clientAIImageManagerProvider.select((s) => s.pendingUploads),
+    );
 
     final pulseController = _pulseController;
     final rotationController = _rotationController;
@@ -1842,10 +1849,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         name: _name,
                         rotationController: rotationController,
                         pulseController: pulseController,
-                        isProcessingAI: providerState.isProcessingAI,
-                        isSaving: providerState.isSaving,
-                        hasPendingUpload: providerState.pendingUploads
-                            .containsKey(0),
+                        isProcessingAI: isProcessingAI,
+                        isSaving: isSaving,
+                        hasPendingUpload: pendingUploads.containsKey(0),
                         onAvatarTap: () => _showImageSlotPicker(0),
                       ),
                     ),
@@ -1900,9 +1906,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         displaySexuality: _displaySexuality,
                         pronouns: _pronouns,
                         imagePaths: _imagePaths,
-                        isProcessingAI: providerState.isProcessingAI,
-                        isSaving: providerState.isSaving,
-                        pendingUploads: providerState.pendingUploads,
+                        isProcessingAI: isProcessingAI,
+                        isSaving: isSaving,
+                        pendingUploads: pendingUploads,
                         isSavingName: _savingFields.contains('name'),
                         isSavingGender: _savingFields.contains('displayGender'),
                         isSavingSexuality: _savingFields.contains(

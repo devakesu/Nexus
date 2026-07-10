@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 // Progress ring used for the safety score and for an active check-in's
 // remaining-time indicator.
@@ -10,8 +11,8 @@ class SafetyScoreRingPainter extends CustomPainter {
   final double progress;
 
   static const _track = Color(0xFFE2E8F0);
-  static const _teal = Color(0xFF0D9488);
-  static const _accent = Color(0xFF0284C7);
+  static const Color _teal = AppColors.safetyTeal;
+  static const Color _accent = AppColors.safetyBlue;
 
   @override
   void paint(Canvas canvas, Size size) {

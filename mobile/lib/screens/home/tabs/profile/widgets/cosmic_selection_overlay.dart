@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class CosmicSelectionOverlay extends StatefulWidget {
   const CosmicSelectionOverlay({
@@ -42,7 +43,7 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
 
     return Scaffold(
       backgroundColor: Colors.white.withValues(alpha: 0.65),
@@ -66,7 +67,6 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                             color: Color(0xFF0F172A),
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            fontFamily: 'Outfit',
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -166,7 +166,6 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                     fontWeight: isSelected
                                         ? FontWeight.bold
                                         : FontWeight.normal,
-                                    fontFamily: 'Outfit',
                                   ),
                                 ),
                               ],

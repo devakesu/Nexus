@@ -17,6 +17,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
@@ -297,7 +298,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               theme,
               text: 'Could not load this chat. Please try again.',
               icon: LucideIcons.circleAlert,
-              iconColor: const Color(0xFFEF4444),
+              iconColor: AppColors.error,
             ),
           ),
           data: (chatState) {
@@ -600,7 +601,9 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               child: SelectableText(
                 safetyNumber,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.spaceMono(
+                // JetBrains Mono, not Space Mono — DESIGN.md's one mono
+                // family, used everywhere else the app shows a code.
+                style: GoogleFonts.jetBrainsMono(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: theme.primary,

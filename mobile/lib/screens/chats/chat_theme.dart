@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 /// Gradient pair for a discovery tab, matching the colors already used in
 /// CommonHeader so the Chats page visually matches the rest of the app.
@@ -15,9 +16,9 @@ class ChatTabTheme {
 // Secondaries are a lightened tint of that same primary, used only as the
 // gradient's far stop.
 const Map<String, ChatTabTheme> kChatTabThemes = {
-  'Dating': ChatTabTheme(Color(0xFFFF4F81), Color(0xFFFF8DAD)),
-  'Friends': ChatTabTheme(Color(0xFFA45E00), Color(0xFFC49659)),
-  'Professional': ChatTabTheme(Color(0xFF007E6D), Color(0xFF59ABA0)),
+  'Dating': ChatTabTheme(AppColors.modeDating, Color(0xFFFF8DAD)),
+  'Friends': ChatTabTheme(AppColors.modeFriends, Color(0xFFC49659)),
+  'Professional': ChatTabTheme(AppColors.modeProfessional, Color(0xFF59ABA0)),
 };
 
 ChatTabTheme chatTabTheme(String tab) =>

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class FriendsSettingsOverlay extends StatefulWidget {
@@ -92,7 +93,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   children: [
                     Icon(
                       LucideIcons.settings,
-                      color: Color(0xFFA45E00),
+                      color: AppColors.modeFriends,
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -106,32 +107,45 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFA45E00),
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: const Color(0xFFA45E00).withValues(alpha: 0.4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                // Signal Glow shadow via BoxDecoration, not Material's
+                // elevation: prop — DESIGN.md's shadow vocabulary.
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.modeFriends.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    if (widget.isActivating &&
-                        widget.onToggleOrbitState != null) {
-                      await widget.onToggleOrbitState!(active: true);
-                    }
-                  },
-                  child: Text(
-                    widget.isActivating ? 'Turn On Orbit' : 'Done',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.modeFriends,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      if (widget.isActivating &&
+                          widget.onToggleOrbitState != null) {
+                        await widget.onToggleOrbitState!(active: true);
+                      }
+                    },
+                    child: Text(
+                      widget.isActivating ? 'Turn On Orbit' : 'Done',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -186,7 +200,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                         return FilterChip(
                           label: Text(item['label']!),
                           selected: isSelected,
-                          selectedColor: const Color(0xFFA45E00),
+                          selectedColor: AppColors.modeFriends,
                           backgroundColor: Colors.black.withValues(alpha: 0.04),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
@@ -276,11 +290,11 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                               : val;
                           return Chip(
                             label: Text(label),
-                            backgroundColor: const Color(
-                              0xFFA45E00,
-                            ).withValues(alpha: 0.1),
+                            backgroundColor: AppColors.modeFriends.withValues(
+                              alpha: 0.1,
+                            ),
                             labelStyle: const TextStyle(
-                              color: Color(0xFFA45E00),
+                              color: AppColors.modeFriends,
                               fontWeight: FontWeight.w600,
                               fontSize: 12,
                             ),
@@ -318,9 +332,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFA45E00),
+                      foregroundColor: AppColors.modeFriends,
                       side: const BorderSide(
-                        color: Color(0xFFA45E00),
+                        color: AppColors.modeFriends,
                         width: 1.5,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 13),
@@ -411,18 +425,18 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     children: localCauses.map((val) {
                       return Chip(
                         label: Text(val),
-                        backgroundColor: const Color(
-                          0xFFA45E00,
-                        ).withValues(alpha: 0.1),
+                        backgroundColor: AppColors.modeFriends.withValues(
+                          alpha: 0.1,
+                        ),
                         labelStyle: const TextStyle(
-                          color: Color(0xFFA45E00),
+                          color: AppColors.modeFriends,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
                         deleteIcon: const Icon(
                           LucideIcons.x,
                           size: 14,
-                          color: Color(0xFFA45E00),
+                          color: AppColors.modeFriends,
                         ),
                         side: BorderSide.none,
                         shape: RoundedRectangleBorder(

@@ -5,6 +5,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/neon_slider.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class CoreSignalSection extends StatefulWidget {
   const CoreSignalSection({
@@ -108,9 +109,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             color: isSelected
-                ? const Color(
-                    0xFF0891B2,
-                  ).withValues(alpha: 0.15)
+                ? AppColors.primaryTeal.withValues(alpha: 0.15)
                 : Colors.black.withValues(alpha: 0.04),
             border: Border.all(
               color: isSelected
@@ -138,16 +137,15 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
               Icon(
                 icon,
                 size: 13,
-                color: isSelected ? const Color(0xFF0891B2) : Colors.black38,
+                color: isSelected ? AppColors.primaryTeal : Colors.black38,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF0891B2) : Colors.black87,
+                  color: isSelected ? AppColors.primaryTeal : Colors.black87,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  fontFamily: 'Outfit',
                 ),
               ),
             ],
@@ -159,7 +157,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
 
     return UniverseSection(
       icon: LucideIcons.user,
@@ -210,7 +208,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0891B2),
+                      backgroundColor: AppColors.primaryTeal,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -231,7 +229,6 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                         letterSpacing: 0.5,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                   ),

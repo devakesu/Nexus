@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class TagChipsEditor extends StatelessWidget {
   const TagChipsEditor({
@@ -124,7 +125,7 @@ class TagChipsEditor extends StatelessWidget {
                             child: const Text(
                               'Done',
                               style: TextStyle(
-                                color: Color(0xFFFF7597),
+                                color: AppColors.pulsarPink,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -275,16 +276,16 @@ class TagChipsEditor extends StatelessWidget {
                                     ),
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? const Color(
-                                              0xFFFF7597,
-                                            ).withValues(alpha: 0.08)
+                                          ? AppColors.pulsarPink.withValues(
+                                              alpha: 0.08,
+                                            )
                                           : const Color(0xFFF9FAFB),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: isSelected
-                                            ? const Color(
-                                                0xFFFF7597,
-                                              ).withValues(alpha: 0.45)
+                                            ? AppColors.pulsarPink.withValues(
+                                                alpha: 0.45,
+                                              )
                                             : Colors.black.withValues(
                                                 alpha: 0.05,
                                               ),
@@ -297,7 +298,7 @@ class TagChipsEditor extends StatelessWidget {
                                             width: 3,
                                             height: 14,
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFFF7597),
+                                              color: AppColors.pulsarPink,
                                               borderRadius:
                                                   BorderRadius.circular(
                                                     1.5,
@@ -319,7 +320,7 @@ class TagChipsEditor extends StatelessWidget {
                                             LucideIcons.sparkles,
                                             size: 14,
                                             color: isSelected
-                                                ? const Color(0xFFFF7597)
+                                                ? AppColors.pulsarPink
                                                 : Colors.black38,
                                           ),
                                           const SizedBox(width: 12),
@@ -341,7 +342,7 @@ class TagChipsEditor extends StatelessWidget {
                                         if (isSelected)
                                           const Icon(
                                             LucideIcons.checkCircle,
-                                            color: Color(0xFFFF7597),
+                                            color: AppColors.pulsarPink,
                                             size: 16,
                                           ),
                                       ],
@@ -432,7 +433,7 @@ class TagChipsEditor extends StatelessWidget {
                                   },
                                   child: const Icon(
                                     LucideIcons.plusCircle,
-                                    color: Color(0xFFFF7597),
+                                    color: AppColors.pulsarPink,
                                     size: 20,
                                   ),
                                 ),
@@ -456,7 +457,7 @@ class TagChipsEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

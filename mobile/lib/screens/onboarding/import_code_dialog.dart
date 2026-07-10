@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,7 +31,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
   String? _errorMessage;
   bool _success = false;
 
-  static const _teal = Color(0xFFFF7597);
+  static const Color _teal = AppColors.pulsarPink;
 
   @override
   void dispose() {
@@ -280,7 +281,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
                             gradient: const LinearGradient(
-                              colors: [Color(0xFFFF7597), Color(0xFFE04B76)],
+                              colors: [AppColors.pulsarPink, Color(0xFFE04B76)],
                             ),
                             boxShadow: const [
                               BoxShadow(

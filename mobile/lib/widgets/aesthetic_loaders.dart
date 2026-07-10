@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 /// 1. Nexus Orbit Loader (Google Sign-In Loading Animation)
 /// Features a central core with three colorful nodes (Dating, Friends, Pro)
@@ -103,7 +104,7 @@ class _OrbitPainter extends CustomPainter {
     final angle1 = progress * 2 * math.pi;
     final r1 = maxRadius * 0.5;
     final p1 = center + Offset(math.cos(angle1) * r1, math.sin(angle1) * r1);
-    _drawGlowingParticle(canvas, p1, const Color(0xFFFF7597), p1r);
+    _drawGlowingParticle(canvas, p1, AppColors.pulsarPink, p1r);
 
     // Orbiting particle 2: Friends (Sunset Gold) - Middle orbit, counter-clockwise
     final angle2 = -progress * 2 * math.pi + (math.pi / 3);
@@ -117,7 +118,7 @@ class _OrbitPainter extends CustomPainter {
     final r3 = maxRadius * 0.95;
     final p3 =
         center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
-    _drawGlowingParticle(canvas, p3, const Color(0xFF007E6D), p3r);
+    _drawGlowingParticle(canvas, p3, AppColors.modeProfessional, p3r);
   }
 
   void _drawGlowingParticle(
@@ -140,7 +141,8 @@ class _OrbitPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _OrbitPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.lightMode != lightMode;
 }
 
 /// 2. Identity Scan Loader (Central Biometric Pulse + Background Face Grid + Laser Sweep)
@@ -197,15 +199,15 @@ class _IdentityScanLoaderState extends State<IdentityScanLoader>
             height: 120,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF7597).withValues(alpha: 0.05),
+              color: AppColors.pulsarPink.withValues(alpha: 0.05),
               border: Border.all(
-                color: const Color(0xFFFF7597).withValues(alpha: 0.2),
+                color: AppColors.pulsarPink.withValues(alpha: 0.2),
               ),
             ),
             child:
                 const Icon(
                       Icons.fingerprint_rounded,
-                      color: Color(0xFFFF7597),
+                      color: AppColors.pulsarPink,
                       size: 56,
                     )
                     .animate(
@@ -235,7 +237,7 @@ class _ScanBgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintGrid = Paint()
-      ..color = const Color(0xFFFF7597).withValues(alpha: 0.03)
+      ..color = AppColors.pulsarPink.withValues(alpha: 0.03)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
 
@@ -259,7 +261,7 @@ class _ScanBgPainter extends CustomPainter {
     // 2. Draw circular biometric scan target lines around the center
     final center = Offset(size.width / 2, size.height / 2);
     final paintCircles = Paint()
-      ..color = const Color(0xFFFF7597).withValues(alpha: 0.06)
+      ..color = AppColors.pulsarPink.withValues(alpha: 0.06)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -268,12 +270,12 @@ class _ScanBgPainter extends CustomPainter {
       ..drawCircle(
         center,
         160,
-        paintCircles..color = const Color(0xFFFF7597).withValues(alpha: 0.04),
+        paintCircles..color = AppColors.pulsarPink.withValues(alpha: 0.04),
       );
 
     // Draw tech angle ticks around circles
     final tickPaint = Paint()
-      ..color = const Color(0xFFFF7597).withValues(alpha: 0.2)
+      ..color = AppColors.pulsarPink.withValues(alpha: 0.2)
       ..strokeWidth = 2.0;
 
     for (var angleDeg = 0; angleDeg < 360; angleDeg += 45) {
@@ -293,9 +295,9 @@ class _ScanBgPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFFFF7597).withValues(alpha: 0),
-          const Color(0xFFFF7597).withValues(alpha: 0.15),
-          const Color(0xFFFF7597).withValues(alpha: 0.4),
+          AppColors.pulsarPink.withValues(alpha: 0),
+          AppColors.pulsarPink.withValues(alpha: 0.15),
+          AppColors.pulsarPink.withValues(alpha: 0.4),
         ],
       ).createShader(rect);
 
@@ -303,7 +305,7 @@ class _ScanBgPainter extends CustomPainter {
 
     // Solid laser core line
     final laserCore = Paint()
-      ..color = const Color(0xFFFF7597)
+      ..color = AppColors.pulsarPink
       ..strokeWidth = 1.5
       ..imageFilter = null;
 

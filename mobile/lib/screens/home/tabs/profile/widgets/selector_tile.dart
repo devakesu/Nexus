@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class SelectorTile extends StatelessWidget {
   const SelectorTile({
@@ -24,7 +25,7 @@ class SelectorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
     final emoji = getEmojiForTag(value);
     final displayText = isEmpty

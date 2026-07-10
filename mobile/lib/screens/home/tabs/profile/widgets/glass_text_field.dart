@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class GlassTextField extends StatefulWidget {
   const GlassTextField({
@@ -72,7 +73,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
 
   @override
   Widget build(BuildContext context) {
-    const pulsarPink = Color(0xFFFF7597);
+    const pulsarPink = AppColors.pulsarPink;
 
     final isMultiLine = widget.minLines != null && widget.minLines! > 1;
 

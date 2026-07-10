@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/responsive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -32,7 +33,7 @@ class HandshakesOverlay extends StatefulWidget {
 class _HandshakesOverlayState extends State<HandshakesOverlay> {
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF007E6D);
+    const themeColor = AppColors.modeProfessional;
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
@@ -214,7 +215,7 @@ class _HandshakesOverlayState extends State<HandshakesOverlay> {
                                           if (isSuperConnect)
                                             const Icon(
                                               LucideIcons.star,
-                                              color: Color(0xFFF59E0B),
+                                              color: AppColors.warning,
                                               size: 13,
                                             ),
                                         ],
@@ -284,7 +285,7 @@ class _ConnectionsOverlayState extends State<ConnectionsOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    const themeColor = Color(0xFF007E6D);
+    const themeColor = AppColors.modeProfessional;
     final session = Supabase.instance.client.auth.currentSession;
     return Container(
       height: MediaQuery.of(context).size.height * 0.78,

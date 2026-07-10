@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -246,7 +247,7 @@ class _ChatComposerState extends State<ChatComposer> {
           width: 8,
           height: 8,
           decoration: const BoxDecoration(
-            color: Color(0xFFEF4444),
+            color: AppColors.error,
             shape: BoxShape.circle,
           ),
         ),

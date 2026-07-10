@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -104,7 +105,7 @@ class EventCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (Color statusColor, String statusLabel) = switch (eventInfo.status) {
-      'confirmed' => (const Color(0xFF10B981), 'Confirmed'),
+      'confirmed' => (AppColors.success, 'Confirmed'),
       'cancelled' => (const Color(0xFF94A3B8), 'Cancelled'),
       _ => (themeColor, 'Proposed'),
     };
@@ -214,7 +215,7 @@ class EventCard extends ConsumerWidget {
                 const Icon(
                   LucideIcons.shieldCheck,
                   size: 13,
-                  color: Color(0xFF0D9488),
+                  color: AppColors.safetyTeal,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -222,7 +223,7 @@ class EventCard extends ConsumerWidget {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF0D9488),
+                    color: AppColors.safetyTeal,
                   ),
                 ),
               ],

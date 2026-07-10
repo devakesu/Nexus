@@ -7,6 +7,7 @@ import 'package:nexus/screens/chats/chat_theme.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/chats/widgets/chat_list_tile.dart';
 import 'package:nexus/screens/chats/widgets/new_chat_sheet.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 Future<void> _openNewChatSheet(BuildContext context, String tab) async {
@@ -190,7 +191,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(
               LucideIcons.circleAlert,
-              color: Color(0xFFEF4444),
+              color: AppColors.error,
               size: 36,
             ),
             const SizedBox(height: 12),

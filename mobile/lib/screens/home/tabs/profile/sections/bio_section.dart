@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class BioSection extends StatefulWidget {
   const BioSection({
@@ -30,7 +31,7 @@ class _BioSectionState extends State<BioSection> {
   late final FocusNode _focusNode;
   bool _isDirty = false;
 
-  static const _pulsarPink = Color(0xFFFF7597);
+  static const Color _pulsarPink = AppColors.pulsarPink;
   static const _deepPurple = Color(0xFF00E5FF);
 
   @override

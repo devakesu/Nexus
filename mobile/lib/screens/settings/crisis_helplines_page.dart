@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 class CrisisHelplinesPage extends StatelessWidget {
   const CrisisHelplinesPage({super.key});
 
-  static const _accent = Color(0xFF0284C7);
+  static const Color _accent = AppColors.safetyBlue;
 
   Future<void> _launchUrlHelper(BuildContext context, String url) async {
     final uri = Uri.parse(url);
@@ -161,7 +162,7 @@ class CrisisHelplinesPage extends StatelessWidget {
       child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF0284C7), Color(0xFF0D9488)],
+            colors: [AppColors.safetyBlue, AppColors.safetyTeal],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

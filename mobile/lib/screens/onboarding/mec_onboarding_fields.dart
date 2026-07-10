@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/responsive.dart';
 
 /// Onboarding fields shown only for the Nexus-MEC (college) flavor.
@@ -82,7 +83,7 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFFFF7597)
+                          ? AppColors.pulsarPink
                           : const Color(0x1AFFFFFF),
                     ),
                     color: isSelected
@@ -91,9 +92,9 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: const Color(
-                                0xFFFF7597,
-                              ).withValues(alpha: 0.15),
+                              color: AppColors.pulsarPink.withValues(
+                                alpha: 0.15,
+                              ),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -148,7 +149,7 @@ class _MECOnboardingFieldsState extends State<MECOnboardingFields> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _selectedYear == _years[i]
-                            ? const Color(0xFFFF7597)
+                            ? AppColors.pulsarPink
                             : const Color(0x1AFFFFFF),
                       ),
                       color: _selectedYear == _years[i]

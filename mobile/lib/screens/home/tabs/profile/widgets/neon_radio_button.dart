@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class NeonRadioButton<T> extends StatelessWidget {
   const NeonRadioButton({
@@ -19,7 +20,7 @@ class NeonRadioButton<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = value == groupValue;
-    const primaryColor = Color(0xFF0891B2);
+    const primaryColor = AppColors.primaryTeal;
 
     return Semantics(
       inMutuallyExclusiveGroup: true,
@@ -85,7 +86,6 @@ class NeonRadioButton<T> extends StatelessWidget {
                             ? FontWeight.bold
                             : FontWeight.normal,
                         fontSize: 13,
-                        fontFamily: 'Outfit',
                       ),
                     ),
                     const SizedBox(height: 2),

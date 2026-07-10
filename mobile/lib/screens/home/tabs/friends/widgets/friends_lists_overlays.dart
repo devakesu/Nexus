@@ -70,7 +70,7 @@ class _WavesOverlayState extends State<WavesOverlay> {
                   children: [
                     Icon(
                       LucideIcons.hand,
-                      color: Color(0xFFA45E00),
+                      color: AppColors.modeFriends,
                       size: 24,
                     ),
                     SizedBox(width: 8),
@@ -90,13 +90,13 @@ class _WavesOverlayState extends State<WavesOverlay> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFA45E00).withAlpha(38),
+                    color: AppColors.modeFriends.withAlpha(38),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${widget.waves.length} waves',
                     style: const TextStyle(
-                      color: Color(0xFFA45E00),
+                      color: AppColors.modeFriends,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -224,7 +224,7 @@ class _WavesOverlayState extends State<WavesOverlay> {
                                           if (isSuperwave)
                                             const Icon(
                                               LucideIcons.star,
-                                              color: Color(0xFFF59E0B),
+                                              color: AppColors.warning,
                                               size: 13,
                                             ),
                                         ],

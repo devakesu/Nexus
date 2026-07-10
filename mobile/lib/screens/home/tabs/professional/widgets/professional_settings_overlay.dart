@@ -170,45 +170,58 @@ class _ProfessionalSettingsOverlayState
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.modeProfessional,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: AppColors.modeProfessional.withValues(
-                      alpha: 0.4,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () async {
-                    companyDebounce?.cancel();
-                    final pendingCompany = companyController.text.trim();
-                    if (pendingCompany != widget.company) {
-                      unawaited(
-                        widget.onSaveProfessionalField(
-                          'role_at',
-                          pendingCompany,
-                          setState,
+                // Signal Glow shadow via BoxDecoration, not Material's
+                // elevation: prop — DESIGN.md's shadow vocabulary.
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.modeProfessional.withValues(
+                          alpha: 0.4,
                         ),
-                      );
-                    }
-                    Navigator.pop(context);
-                    if (widget.isActivating &&
-                        widget.onToggleOrbitState != null) {
-                      await widget.onToggleOrbitState!(active: true);
-                    }
-                  },
-                  child: Text(
-                    widget.isActivating ? 'Turn On Orbit' : 'Done',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.modeProfessional,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      companyDebounce?.cancel();
+                      final pendingCompany = companyController.text.trim();
+                      if (pendingCompany != widget.company) {
+                        unawaited(
+                          widget.onSaveProfessionalField(
+                            'role_at',
+                            pendingCompany,
+                            setState,
+                          ),
+                        );
+                      }
+                      Navigator.pop(context);
+                      if (widget.isActivating &&
+                          widget.onToggleOrbitState != null) {
+                        await widget.onToggleOrbitState!(active: true);
+                      }
+                    },
+                    child: Text(
+                      widget.isActivating ? 'Turn On Orbit' : 'Done',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),

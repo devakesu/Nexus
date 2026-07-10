@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class ProfessionalActivationOverlay extends StatefulWidget {
   const ProfessionalActivationOverlay({required this.onFinished, super.key});
@@ -60,7 +61,7 @@ class _ProfessionalActivationOverlayState
 
   @override
   Widget build(BuildContext context) {
-    const brandColor = Color(0xFF007E6D);
+    const brandColor = AppColors.modeProfessional;
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(

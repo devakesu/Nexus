@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -262,7 +263,7 @@ class ErrorHandler {
     final isWarning = level == ErrorLevel.warning;
     final accentColor = isWarning
         ? const Color(0xFFFFB300)
-        : const Color(0xFFFF7597);
+        : AppColors.pulsarPink;
     final icon = isWarning
         ? Icons.warning_amber_rounded
         : Icons.info_outline_rounded;
@@ -503,39 +504,53 @@ class ErrorHandler {
                                 Column(
                                   children: [
                                     if (isCritical) ...[
-                                      SizedBox(
-                                        width: double.infinity,
-                                        height: 48,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () {
-                                            // Action is left as a placeholder for now
-                                            debugPrint(
-                                              'Contact Support tapped.',
-                                            );
-                                          },
-                                          icon: const Icon(
-                                            Icons.support_agent_rounded,
-                                            color: Colors.white,
+                                      // Signal Glow shadow via
+                                      // BoxDecoration, not Material's
+                                      // elevation: prop.
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          label: const Text(
-                                            'Contact Support',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.pulsarPink
+                                                  .withValues(alpha: 0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          height: 48,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              // Action is left as a placeholder for now
+                                              debugPrint(
+                                                'Contact Support tapped.',
+                                              );
+                                            },
+                                            icon: const Icon(
+                                              Icons.support_agent_rounded,
                                               color: Colors.white,
                                             ),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(
-                                              0xFFFF7597,
+                                            label: const Text(
+                                              'Contact Support',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
-                                            shadowColor: const Color(
-                                              0xFFFF7597,
-                                            ).withValues(alpha: 0.3),
-                                            elevation: 4,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.pulsarPink,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
                                             ),
                                           ),
                                         ),
