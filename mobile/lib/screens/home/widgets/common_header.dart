@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/scale_pressable.dart';
 
 class CommonHeader extends StatelessWidget {
   const CommonHeader({
@@ -128,29 +130,33 @@ class CommonHeader extends StatelessWidget {
             ),
           ),
           // Chat icon button
-          SizedBox(
-            width: iconSize,
-            height: iconSize,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onChatTap,
-                borderRadius: BorderRadius.circular(22),
-                splashColor: Colors.white.withValues(alpha: 0.2),
-                highlightColor: Colors.white.withValues(alpha: 0.1),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.25),
-                    ),
+          ScalePressable(
+            onTap: onChatTap ?? () {},
+            enabled: onChatTap != null,
+            child: Container(
+              width: iconSize,
+              height: iconSize,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: tabThemeColor.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  child: Icon(
-                    Icons.chat_bubble_rounded,
-                    color: Colors.white.withValues(alpha: 0.95),
-                    size: 20,
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  LucideIcons.messageCircle,
+                  color: tabThemeColor,
+                  size: 21,
                 ),
               ),
             ),

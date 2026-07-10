@@ -17,6 +17,7 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -317,7 +318,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
         padding: const EdgeInsets.only(bottom: CustomBottomNavBar.clearance),
         children: [
           const _NexusBranding(),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const _SettingsSection(
             title: 'Account',
             accentColor: _accent,
@@ -435,7 +436,7 @@ class _NexusBranding extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+      padding: const EdgeInsets.fromLTRB(24, 38, 24, 20),
       child: Column(
         children: [
           GestureDetector(
@@ -487,14 +488,18 @@ class _NexusBranding extends StatelessWidget {
               _BrandingChip(
                 icon: LucideIcons.coffee,
                 label: 'Buy me a Coffee',
-                color: Colors.pinkAccent.shade700,
+                bgColor: const Color(0xFFFFDD00),
+                textColor: const Color(0xFF0F172A),
+                iconColor: const Color(0xFF0F172A),
                 onTap: () => _launch('https://buymeacoffee.com/devakesu'),
               ),
               const SizedBox(width: 8),
               _BrandingChip(
                 icon: LucideIcons.star,
                 label: 'Star on GitHub',
-                color: Colors.amber.shade700,
+                bgColor: const Color(0xFF24292F),
+                textColor: Colors.white,
+                iconColor: const Color(0xFFFCD34D),
                 onTap: () => _launch(_kGithubUrl),
               ),
             ],
@@ -520,38 +525,49 @@ class _BrandingChip extends StatelessWidget {
   const _BrandingChip({
     required this.icon,
     required this.label,
-    required this.color,
+    required this.bgColor,
+    required this.textColor,
+    required this.iconColor,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+  final Color bgColor;
+  final Color textColor;
+  final Color iconColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ScalePressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.18)),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: bgColor.withValues(alpha: 0.15)),
+          boxShadow: [
+            BoxShadow(
+              color: bgColor.withValues(alpha: 0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 6),
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 8),
             Text(
               label,
               style: GoogleFonts.manrope(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: color,
-                letterSpacing: 0.3,
+                color: textColor,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -600,15 +616,28 @@ class _SettingsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              title.toUpperCase(),
-              style: GoogleFonts.manrope(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF64748B),
-                letterSpacing: 1.5,
-              ),
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 3.5,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1E293B),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
           ),
           Container(

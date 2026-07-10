@@ -2142,13 +2142,52 @@ class _OrbitScreenState extends State<OrbitScreen>
         );
   }
 
+  static const TextStyle _nodeNameStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+  );
+
+  /// Truncates [name] to fit [maxTextWidth] without cutting a word in half.
+  ///
+  /// Flutter's own `TextOverflow.ellipsis` truncates by character, which can
+  /// land mid-word ("Claude Us…"). This instead finds the word that the
+  /// naive cutoff falls inside and keeps it whole ("Claude User"), dropping
+  /// anything after it, rather than stopping short at the word before.
+  static String _truncateNameAtWordBoundary(
+    String name,
+    double maxTextWidth,
+  ) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return trimmed;
+
+    double measure(String text) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _nodeNameStyle),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      return painter.width;
+    }
+
+    if (measure(trimmed) <= maxTextWidth) return trimmed;
+
+    final words = trimmed.split(RegExp(r'\s+'));
+    var result = '';
+    for (final word in words) {
+      result = result.isEmpty ? word : '$result $word';
+      if (measure(result) > maxTextWidth) break;
+    }
+    return result;
+  }
+
   List<Widget> _buildConstellationNodes() {
     final center = _canvasSize / 2;
     return _nodes.map((node) {
       final x = node.x;
       final y = node.y;
       final id = node.id;
-      final name = node.name;
+      final name = _truncateNameAtWordBoundary(node.name, 80);
       final profilePic = node.profilePic;
       final score = node.score;
 
@@ -2170,6 +2209,10 @@ class _OrbitScreenState extends State<OrbitScreen>
                       const SizedBox(height: 6),
                       // Name Card
                       Container(
+                        // 80px is the word-boundary target used above; this
+                        // is only a safety valve for a single unbroken token
+                        // (no spaces) too long to truncate at a word edge.
+                        constraints: const BoxConstraints(maxWidth: 160),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
@@ -2183,11 +2226,9 @@ class _OrbitScreenState extends State<OrbitScreen>
                         ),
                         child: Text(
                           name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: _nodeNameStyle,
                         ),
                       ),
                     ],

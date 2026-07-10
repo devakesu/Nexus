@@ -130,38 +130,41 @@ class _CandidatesList extends StatelessWidget {
             : (candidate.name ?? 'Nexus user');
         final profilePic = candidate.profilePic;
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 4),
-          leading: ClipOval(
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: profilePic != null && profilePic.isNotEmpty
-                  ? StorageImage(imagePath: profilePic)
-                  : ColoredBox(
-                      color: theme.primary.withValues(alpha: 0.12),
-                      child: Icon(LucideIcons.user, color: theme.primary),
-                    ),
+        return Material(
+          color: Colors.transparent,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+            leading: ClipOval(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: profilePic != null && profilePic.isNotEmpty
+                    ? StorageImage(imagePath: profilePic)
+                    : ColoredBox(
+                        color: theme.primary.withValues(alpha: 0.12),
+                        child: Icon(LucideIcons.user, color: theme.primary),
+                      ),
+              ),
             ),
-          ),
-          title: Text(
-            displayName,
-            style: GoogleFonts.manrope(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
+            title: Text(
+              displayName,
+              style: GoogleFonts.manrope(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
             ),
-          ),
-          subtitle: Text(
-            'Matched · say hi 👋',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              // ink-muted, not ink-faint: real match-status copy, not a
-              // placeholder/disabled state.
-              color: AppColors.inkMuted,
+            subtitle: Text(
+              'Matched · say hi 👋',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                // ink-muted, not ink-faint: real match-status copy, not a
+                // placeholder/disabled state.
+                color: AppColors.inkMuted,
+              ),
             ),
+            onTap: () => Navigator.of(context).pop(candidate),
           ),
-          onTap: () => Navigator.of(context).pop(candidate),
         );
       },
     );

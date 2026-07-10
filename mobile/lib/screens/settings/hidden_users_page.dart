@@ -244,7 +244,7 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
           final filter = filters[index];
           final isSelected = _selectedTabFilter == filter;
 
-          Color activeColor = _accentBlue;
+          var activeColor = _accentBlue;
           if (filter == 'Dating') activeColor = AppColors.modeDating;
           if (filter == 'Friends') activeColor = AppColors.modeFriends;
           if (filter == 'Professional') {

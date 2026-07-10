@@ -16,6 +16,7 @@ from app.db.exclusions import get_cached_active_block_ids
 from app.db.orbit import assign_orbit_positions, coerce_float, coerce_score
 from app.db.profiles import (
     decrypt_profile_record,
+    decrypt_profile_rows,
     sanitize_decrypted_profile,
     sign_profile_media,
 )
@@ -192,7 +193,8 @@ async def _filter_and_sort_viewport_items(
     # any new user blocks created since the session snapshot was frozen.
     hard_excluded = await get_cached_active_block_ids(viewer_id)
     radius_sq = radius**2
-    result: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
+    profiles_data: list[Any] = []
 
     for row_raw in rows:
         if not isinstance(row_raw, dict):
@@ -219,17 +221,25 @@ async def _filter_and_sort_viewport_items(
         dy = y - center_y
 
         if dx * dx + dy * dy <= radius_sq:
-            result.append(
-                {
-                    "id": cid,
-                    "name": None,
-                    "profile_pic": None,
-                    "score": coerce_score(row.get("score")),
-                    "orbit_tier": int(coerce_float(row.get("orbit_tier"), 3.0)),
-                    "x": x,
-                    "y": y,
-                },
-            )
+            candidates.append({"cid": cid, "row": row, "x": x, "y": y})
+            profiles_data.append(profile)
+
+    # Bulk-decrypt profile_pic and batch-sign media URLs in one network call
+    # for the whole viewport, rather than per-node (see _sign_media_paths).
+    profile_map = decrypt_profile_rows(profiles_data)
+
+    result: list[dict[str, Any]] = [
+        {
+            "id": item["cid"],
+            "name": profile_map.get(item["cid"], {}).get("name"),
+            "profile_pic": profile_map.get(item["cid"], {}).get("profile_pic"),
+            "score": coerce_score(item["row"].get("score")),
+            "orbit_tier": int(coerce_float(item["row"].get("orbit_tier"), 3.0)),
+            "x": item["x"],
+            "y": item["y"],
+        }
+        for item in candidates
+    ]
 
     result.sort(
         key=lambda r: (
@@ -292,6 +302,8 @@ async def fetch_spatial_viewport(
                 orbit_tier,
                 profiles:candidate_id (
                     id,
+                    name,
+                    profile_pic,
                     is_deactivated
                 ),
                 discovery_sessions!inner (

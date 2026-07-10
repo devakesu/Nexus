@@ -496,8 +496,8 @@ class OrbitNodeOut(BaseModel):
     """
     Lightweight node payload for rendering a profile on the orbit canvas.
 
-    Full profile details are intentionally excluded and should be fetched
-    only when the user taps a node.
+    Carries just enough to identify a node at a glance (name, thumbnail);
+    full profile details are still fetched only when the user taps a node.
     """
 
     id: str
