@@ -853,18 +853,6 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   Widget _buildVerifiedProtectedSection() {
     final items = [
       (
-        icon: LucideIcons.badgeCheck,
-        title: 'Photo Verification',
-        desc:
-            'The blue check confirms a profile’s photos were matched to a live selfie.',
-      ),
-      (
-        icon: LucideIcons.scanFace,
-        title: 'Duplicate & Deepfake Scans',
-        desc:
-            'Automated scans flag stolen, AI-generated, or duplicated profile photos.',
-      ),
-      (
         icon: LucideIcons.userRoundCheck,
         title: 'Identity Assurance',
         desc: 'Age and identity checks help keep the community authentic.',

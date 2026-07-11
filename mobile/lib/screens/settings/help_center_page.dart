@@ -61,6 +61,12 @@ const List<_HelpCategory> _kHelpCategories = [
         answer:
             'Nexus MEC is our campus-community flavor. It verifies you with a campus email and uses generated export/import codes to connect accounts, instead of typical direct account linking — built for closed university communities.',
       ),
+      (
+        question:
+            'How do I move my profile from Nexus MEC to the main Nexus app?',
+        answer:
+            "From your Nexus MEC profile, generate a 6-character export code (Home → Export Code) — it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.",
+      ),
     ],
   ),
   _HelpCategory(
@@ -88,6 +94,11 @@ const List<_HelpCategory> _kHelpCategories = [
         question: 'Why does my Orbit look empty?',
         answer:
             "Make sure the relevant Orbit is activated and matching isn't paused (Settings → Pause Matching), check your connection, and try pulling down to refresh — new profiles roll in continuously.",
+      ),
+      (
+        question: "Why is my Orbit's age filter capped at a different number?",
+        answer:
+            "It depends on which Nexus app you're using — the main Nexus app lets you filter ages up to 80, while Nexus MEC (our campus flavor) caps it at 27 to match its university-community focus.",
       ),
     ],
   ),
@@ -138,12 +149,22 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How does photo verification work?',
         answer:
-            'A quick live selfie scan is matched against your profile photos. Once confirmed, you get the blue verified badge — and we continuously run duplicate and deepfake scans to catch stolen or AI-generated images.',
+            "It's on our roadmap, not live yet — the plan is a quick live selfie scan matched against your profile photos, earning you a blue verified badge plus ongoing duplicate and deepfake scans once it ships. We'll let you know the moment it's live.",
       ),
       (
         question: 'Can I hide specific profile fields from others?',
         answer:
             'Yes — Privacy Settings let you toggle the visibility of individual fields, so you decide exactly what stays public.',
+      ),
+      (
+        question: 'How often can I change my age?',
+        answer:
+            "Age can only change once every rolling 365 days, and the age you set during onboarding counts as that first change. If you're locked out, your profile shows the exact date you're next eligible, along with a link to request an exception through support.",
+      ),
+      (
+        question: 'How often can I change my display name?',
+        answer:
+            'You get 2 name changes every rolling 365 days, and the name you set during onboarding counts as the first one. Once both are used, your profile shows the date you can change it again.',
       ),
     ],
   ),
@@ -172,6 +193,67 @@ const List<_HelpCategory> _kHelpCategories = [
         question: 'What happens after I report someone?',
         answer:
             "Our Trust & Safety team reviews every report, 24/7. It's completely confidential — the reported user is never told who reported them.",
+      ),
+      (
+        question: 'Why does my report need more detail when I choose "Other"?',
+        answer:
+            'When "Other" is selected, the details field needs at least 5 letters before Report & Block unlocks — just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.',
+      ),
+      (
+        question: 'Where do I find Safety Check-in and SOS/Emergency tools?',
+        answer:
+            'They live in their own section below — Safety Check-In & Emergency Alerts — covering meetup check-ins, trusted contacts, and exactly what SOS does. You can also open the same tools from Safety Center → Meetup Safety Alert.',
+      ),
+    ],
+  ),
+  _HelpCategory(
+    title: 'Safety Check-In & Emergency Alerts',
+    icon: LucideIcons.shieldAlert,
+    color: Color(0xFFDC2626),
+    bgColor: Color(0xFFFEF2F2),
+    faqs: [
+      (
+        question: 'What is a Safety Check-in, and when should I use it?',
+        answer:
+            "A Safety Check-in — called Meetup Safety Alert in the Safety Center — keeps you accountable during a date or meetup. Pick a check-in interval (15 / 30 / 60 / 120 minutes) and an optional label, like Coffee with Jordan at Bloom Cafe, so your trusted contacts have context if anything's ever sent to them. You'll need at least one trusted contact on file before you can start one.",
+      ),
+      (
+        question:
+            'How many trusted contacts can I add, and do they get notified right away?',
+        answer:
+            "You can add up to 3, typed in manually or picked from your address book — and adding someone doesn't notify them. They only hear from Nexus the moment a real alert actually fires, and that message includes a link where they can verify their own phone number to view your session's live status, last known location, and any evidence clips — no Nexus account needed on their end.",
+      ),
+      (
+        question: 'What happens if I miss a check-in?',
+        answer:
+            "If you don't check in within about 5 minutes of your scheduled time, Nexus texts your trusted contacts that you're unreachable — including your last known battery level, connection type, and the meetup label if you set one — plus a link they can tap to cancel the alert themselves, no account needed. This repeats up to 3 times, spaced by your check-in interval, until you check in or a contact cancels it.",
+      ),
+      (
+        question:
+            "What does SOS actually do, and what's the difference between Silent and Loud?",
+        answer:
+            "Both give you a 5-second window to cancel, then grab your location if it's available and text every trusted contact an emergency alert with a map link, the meetup label if any, and a nudge to consider contacting local authorities. Loud SOS plays a full-volume alarm with a one-tap Stop Alarm & Call 112 button; Silent SOS instead starts Digital Witness, a visible on-screen recording, with no sound at all. Either way, Nexus only texts your own trusted contacts — it doesn't call the police or alert a Nexus safety team for you, so Call 112 is always a separate, manual tap.",
+      ),
+      (
+        question: 'What is Digital Witness, and is that recording private?',
+        answer:
+            "Digital Witness is Silent SOS's camera-and-mic recording — always visible on your screen while it runs, by design, so it's never a secret recording. Segments are encrypted and access-controlled, but unlike your end-to-end encrypted chats, the decryption key isn't held solely on your device, so treat it as protected rather than as airtight-private as a message only you and your match can read. If your camera or mic isn't available, Silent SOS still sends the alert text — you'll just be missing the footage.",
+      ),
+      (
+        question:
+            'Does a Safety Check-in or SOS track my location the whole time?',
+        answer:
+            "No — Nexus doesn't run continuous background location tracking. The only moment it captures your location is if you trigger SOS, and even then it's best-effort: if location access isn't available at that moment, the alert still goes out to your trusted contacts, just without a map link.",
+      ),
+      (
+        question: 'Will the check-in alert always wake up my phone?',
+        answer:
+            "We do our best, but it isn't a guaranteed alarm, especially on iOS. On iPhone the reminder is a Time-Sensitive notification that can break through Focus and silent mode, but you'll still need to tap it open; on Android, make sure to grant the lock-screen and full-screen-alert permissions the app asks for, or you may only see it after you've already unlocked your phone.",
+      ),
+      (
+        question: 'How long does Nexus keep my check-in and SOS data?',
+        answer:
+            "There's no automatic expiry on Safety Check-in, SOS, or Digital Witness data right now — it's kept until your account itself is deleted. Self-serve deletion is on its way; until then, reach out through Contact Support below and we'll process the deletion for you.",
       ),
     ],
   ),
@@ -246,11 +328,6 @@ const List<_RoadmapItem> _kRoadmapItems = [
     desc: 'Connect Instagram and other platforms to enrich your profile.',
   ),
   (
-    icon: LucideIcons.mail,
-    title: 'Email Notifications',
-    desc: 'Stay in the loop even when push notifications are off.',
-  ),
-  (
     icon: LucideIcons.trash2,
     title: 'Self-Serve Account Deletion',
     desc: 'Delete your account instantly, with no need to contact support.',
@@ -259,6 +336,12 @@ const List<_RoadmapItem> _kRoadmapItems = [
     icon: LucideIcons.bookOpen,
     title: 'Community Guidelines Hub',
     desc: 'A dedicated, browsable home for our community standards.',
+  ),
+  (
+    icon: LucideIcons.badgeCheck,
+    title: 'Photo Verification',
+    desc:
+        "A live selfie scan and blue verified badge to confirm it's really you.",
   ),
 ];
 
