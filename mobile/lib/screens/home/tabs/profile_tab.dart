@@ -11,12 +11,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/features/profile/providers/client_ai_image_provider.dart';
+import 'package:nexus/features/spotify/providers/spotify_provider.dart';
+import 'package:nexus/features/spotify/services/spotify_service.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/affinity_interests_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/bio_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/core_signal_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/spotify_artists_section.dart';
+import 'package:nexus/screens/home/tabs/profile/sections/spotify_playlists_section.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
@@ -50,6 +53,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   AnimationController? _rotationController;
   late PageController _pageController;
   late final Dio _dio;
+  late final SpotifyService _spotifyService;
   final SupabaseClient _client = Supabase.instance.client;
 
   // Loading state
@@ -331,6 +335,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   void initState() {
     super.initState();
     _dio = createDio();
+    _spotifyService = SpotifyService(_dio);
     final pulse = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -1011,39 +1016,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
     setState(() => _isSpotifyConnecting = true);
     try {
-      final config = AppConfig.current;
-      const channel = MethodChannel('com.devakesu.apps.nexus/spotify_auth');
-      final code = await channel.invokeMethod<String>(
-        'connectSpotify',
-        {
-          'clientId': config.spotifyClientId,
-          'redirectUri': config.spotifyNativeRedirectUri,
-        },
-      );
+      final code = await _spotifyService.requestNativeAuthCode();
       if (code == null || code.isEmpty || !mounted) return;
 
-      final response = await _dio.post<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/spotify/native-exchange',
-        data: {
-          'code': code,
-          'redirect_uri': config.spotifyNativeRedirectUri,
-        },
+      final artists = await _spotifyService.exchangeNativeCode(code);
+      if (!mounted) return;
+      setState(() {
+        _topArtists = artists;
+        _savedTopArtists = List<String>.from(artists);
+      });
+      unawaited(ref.refresh(spotifyStatusProvider.future));
+      NexusToast.show(
+        context,
+        'Synced ${artists.length} top artists. Your playlists are syncing '
+        'in the background.',
+        type: NexusToastType.success,
       );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final raw = response.data!['artists'];
-        final artists = (raw is List)
-            ? raw.map((e) => e.toString()).toList()
-            : <String>[];
-        setState(() {
-          _topArtists = artists;
-          _savedTopArtists = List<String>.from(artists);
-        });
-        NexusToast.show(
-          context,
-          'Synced ${artists.length} top artists from Spotify!',
-          type: NexusToastType.success,
-        );
-      }
     } on PlatformException catch (e) {
       if (!mounted) return;
       if (e.code == 'SPOTIFY_AUTH_CANCELLED') return;
@@ -1078,12 +1066,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
     setState(() => _isSpotifyConnecting = true);
     try {
-      final config = AppConfig.current;
-      final response = await _dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/spotify/connect',
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final authUrl = response.data!['auth_url'] as String?;
+      final authUrl = await _spotifyService.fetchAuthUrl();
+      if (mounted) {
         if (authUrl != null) {
           await launchUrl(
             Uri.parse(authUrl),
@@ -1131,6 +1115,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                   onPressed: () {
                     Navigator.pop(ctx);
                     unawaited(_loadProfileData());
+                    unawaited(ref.refresh(spotifyStatusProvider.future));
                   },
                   child: const Text(
                     'Sync Artists',
@@ -1151,6 +1136,52 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       );
     } finally {
       if (mounted) setState(() => _isSpotifyConnecting = false);
+    }
+  }
+
+  Future<void> _disconnectSpotify() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1E2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Disconnect Spotify?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'This deletes your synced playlists and removes your top artists '
+          'from your public profile. You can reconnect at any time. You may '
+          'also want to revoke access from open.spotify.com/account/apps.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Disconnect', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _spotifyService.disconnect();
+      if (!mounted) return;
+      setState(() {
+        _topArtists = [];
+        _savedTopArtists = [];
+      });
+      ref.invalidate(spotifyStatusProvider);
+      NexusToast.show(context, 'Spotify disconnected.', type: NexusToastType.success);
+    } on Object catch (e) {
+      if (!mounted) return;
+      NexusToast.show(
+        context,
+        'Failed to disconnect Spotify: ${ErrorHandler.getFriendlyMessage(e)}',
+        type: NexusToastType.error,
+      );
     }
   }
 
@@ -2242,7 +2273,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           );
                         },
                         onSpotifyConnect: _connectSpotify,
+                        onSpotifyDisconnect: _disconnectSpotify,
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer F.1: Your Playlists (Spotify, private -
+                    // owner-only, never shown in ProfileDetailSheet)
+                    _buildStaggeredEntrance(
+                      index: 8,
+                      child: const SpotifyPlaylistsSection(),
                     ),
                     const SizedBox(height: 24),
 

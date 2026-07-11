@@ -8,6 +8,7 @@ class SpotifyArtistsSection extends StatelessWidget {
     required this.topArtists,
     required this.onArtistRemoved,
     required this.onSpotifyConnect,
+    this.onSpotifyDisconnect,
     this.isSaving = false,
     this.isConnecting = false,
     super.key,
@@ -16,6 +17,7 @@ class SpotifyArtistsSection extends StatelessWidget {
   final List<String> topArtists;
   final ValueChanged<String> onArtistRemoved;
   final VoidCallback onSpotifyConnect;
+  final VoidCallback? onSpotifyDisconnect;
   final bool isSaving;
   final bool isConnecting;
 
@@ -26,7 +28,7 @@ class SpotifyArtistsSection extends StatelessWidget {
     return UniverseSection(
       icon: LucideIcons.music2,
       title: 'Top Artists',
-      description: 'Fetched from your Spotify listening history',
+      description: 'Fetched from your Spotify listening history and playlists',
       cardColor: const Color(0xFFEFFAF3),
       borderColor: _spotifyGreen.withValues(alpha: 0.40),
       accentColor: _spotifyGreen,
@@ -74,13 +76,27 @@ class SpotifyArtistsSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Authorizes read-only access to your listening history. No playback control.',
+            'Authorizes read-only access to your listening history and playlists. No playback control.',
             style: TextStyle(
               color: Colors.black.withValues(alpha: 0.38),
               fontSize: 10,
               height: 1.5,
             ),
           ),
+          if (topArtists.isNotEmpty && onSpotifyDisconnect != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onSpotifyDisconnect,
+              child: Text(
+                'Disconnect Spotify',
+                style: TextStyle(
+                  color: Colors.red.withValues(alpha: 0.55),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

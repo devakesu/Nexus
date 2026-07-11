@@ -1,42 +1,73 @@
 """
-Spotify OAuth integration - server-side Authorization Code flow.
+Spotify OAuth integration - server-side Authorization Code flow, with a
+persistent (encrypted) refresh token so playlists/artists can be resynced
+on demand without the user re-authenticating every time.
 
 Security model:
-  - /connect requires a valid Supabase JWT (authenticated user).
+  - /connect and /native-exchange require a valid Supabase JWT (authenticated user).
   - /callback is public (called by Spotify's servers as an OAuth redirect),
     secured by a one-time state token stored in Redis with a 10-minute TTL.
+  - /status, /playlists, /resync, /connection all require a valid JWT and are
+    scoped to the caller's own user_id.
   - The Spotify client_secret never leaves the backend.
-  - Artist names are encrypted before persisting (same scheme as all PII).
+  - Artist names, playlist names, and track data are encrypted before
+    persisting (same scheme as all PII) - see app/db/spotify.py.
+
+Privacy boundary: this router populates profiles.artist_affinity (the
+matching-engine signal) and spotify_playlists (private playlist detail).
+Neither is ever returned from any endpoint other than the owner-scoped ones
+here - see app/db/profiles.py and app/db/sessions.py for the peer-facing
+query sites that must never select these fields.
 """
 
 import html
-import json
 import logging
 import secrets
 from typing import Any, cast
 from urllib.parse import urlencode
 
-import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.api.dependencies import get_authenticated_user_id
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.crypto import encrypt_to_hex
 from app.core.limiter import limiter
-from app.db.client import supabase_client
+from app.db.client import DatabaseAccessError
+from app.db.spotify import (
+    disconnect as disconnect_connection,
+)
+from app.db.spotify import (
+    fetch_playlists_for_owner,
+    get_connection,
+    get_decrypted_refresh_token,
+    persist_artist_signals,
+    upsert_connection,
+)
+from app.models import (
+    SpotifyPlaylistOut,
+    SpotifyPlaylistsResponse,
+    SpotifyStatusResponse,
+    SpotifyTrackOut,
+)
+from app.services.spotify_sync import (
+    blend_artist_affinity,
+    exchange_code,
+    fetch_spotify_user_id,
+    fetch_top_artists_ranked,
+    refresh_access_token,
+    run_full_sync,
+    top_display_names,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 _STATE_TTL_SECONDS = 600  # 10 minutes - enough for the user to complete auth
-_TOP_ARTISTS_LIMIT = 10
 _SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
-_SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"  # noqa: S105
-_SPOTIFY_TOP_ARTISTS_URL = "https://api.spotify.com/v1/me/top/artists"
+_SPOTIFY_SCOPES = "user-top-read playlist-read-private playlist-read-collaborative"
 
 
 def _state_redis_key(state: str) -> str:
@@ -49,9 +80,43 @@ async def _store_state(state: str, user_id: str) -> None:
 
 async def _consume_state(state: str) -> str | None:
     """Atomically retrieve and delete the state token. Returns the user_id or None."""
-    # decode_responses=True on the Redis client means values are always str.
     result: str | None = await redis_client.getdel(_state_redis_key(state))  # type: ignore[assignment]
     return result
+
+
+async def _seed_and_queue_sync(
+    background_tasks: BackgroundTasks,
+    user_id: str,
+    access_token: str,
+    refresh_token: str | None,
+    scope: str,
+) -> list[str]:
+    """Shared post-token-exchange flow for /native-exchange and /callback.
+
+    Persists the refresh token (if granted), fetches native top artists
+    inline so a fast public signal exists immediately, then queues the
+    slower playlist fetch+blend as a background task. Returns the seeded
+    display artist names for the caller's immediate response.
+    """
+    spotify_user_id = await fetch_spotify_user_id(access_token)
+
+    if refresh_token:
+        upsert_connection(user_id, spotify_user_id, refresh_token, scope)
+    else:
+        logger.warning(
+            "Spotify did not return a refresh_token on exchange; resync will "
+            "require full re-auth for this user",
+            extra={"user_id": user_id},
+        )
+
+    native_ranked = await fetch_top_artists_ranked(access_token)
+    blended, casing_map = blend_artist_affinity(native_ranked, {})
+    display_names = top_display_names(blended, casing_map)
+    if display_names:
+        persist_artist_signals(user_id, blended, display_names)
+
+    background_tasks.add_task(run_full_sync, user_id, access_token, spotify_user_id)
+    return display_names
 
 
 class _NativeExchangeRequest(BaseModel):
@@ -62,18 +127,20 @@ class _NativeExchangeRequest(BaseModel):
 
 
 @router.post("/api/v1/spotify/native-exchange")
-@limiter.limit("10/minute")
+@limiter.limit(settings.rate_limit_spotify)
 async def spotify_native_exchange(
     request: Request,
     body: _NativeExchangeRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, Any]:
     """
-    Exchange a native SDK authorization code for top artists and persist them.
+    Exchange a native SDK authorization code for artists + a persistent
+    connection, then queue a full playlist sync in the background.
 
-    Used by the Android native auth path (Spotify Auth Library) which returns an
-    Authorization Code instead of an access token - the backend holds the secret
-    and completes the exchange.
+    Used by the Android native auth path (Spotify Auth Library) which returns
+    an Authorization Code instead of an access token - the backend holds the
+    secret and completes the exchange.
     """
     _ = request
     allowed_redirect_uris = {
@@ -87,7 +154,7 @@ async def spotify_native_exchange(
         )
 
     try:
-        access_token = await _exchange_code(body.code, body.redirect_uri)
+        tokens = await exchange_code(body.code, body.redirect_uri)
     except Exception:
         logger.exception("Native code exchange failed for user %s", user_id)
         raise HTTPException(
@@ -95,48 +162,37 @@ async def spotify_native_exchange(
             detail="Failed to exchange Spotify authorization code.",
         ) from None
 
-    if not access_token:
+    if not tokens.access_token:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Spotify did not return a valid access token.",
         )
 
     try:
-        artist_names = await _fetch_top_artist_names(access_token)
+        display_names = await _seed_and_queue_sync(
+            background_tasks,
+            user_id,
+            tokens.access_token,
+            tokens.refresh_token,
+            tokens.scope,
+        )
     except Exception:
-        logger.exception("Spotify top-artists fetch failed for user %s", user_id)
+        logger.exception("Spotify sync setup failed for user %s", user_id)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch top artists from Spotify.",
-        ) from None
-
-    if not artist_names:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "No top artists found. Listen to more music on Spotify and try again."
-            ),
-        )
-
-    try:
-        _persist_artists(user_id, artist_names)
-    except Exception:
-        logger.exception("Failed to persist Spotify artists for user %s", user_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save artists.",
+            detail="Failed to fetch data from Spotify.",
         ) from None
 
     logger.info(
-        "Native exchange: %d Spotify top artists saved for user %s",
-        len(artist_names),
+        "Native exchange: %d Spotify top artists seeded for user %s, full sync queued",
+        len(display_names),
         user_id,
     )
-    return {"synced": len(artist_names), "artists": artist_names}
+    return {"synced": len(display_names), "artists": display_names, "syncing": True}
 
 
 @router.get("/api/v1/spotify/connect")
-@limiter.limit("10/minute")
+@limiter.limit(settings.rate_limit_spotify)
 async def spotify_connect(
     request: Request,
     user_id: str = Depends(get_authenticated_user_id),
@@ -155,7 +211,7 @@ async def spotify_connect(
     params = {
         "response_type": "code",
         "client_id": settings.spotify_client_id,
-        "scope": "user-top-read",
+        "scope": _SPOTIFY_SCOPES,
         "redirect_uri": settings.spotify_redirect_uri,
         "state": state,
         "show_dialog": "false",
@@ -163,60 +219,10 @@ async def spotify_connect(
     return {"auth_url": f"{_SPOTIFY_AUTH_URL}?{urlencode(params)}"}
 
 
-async def _exchange_code(code: str, redirect_uri: str | None = None) -> str:
-    """Exchange an OAuth code for a Spotify access token. Returns the token or ''."""
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.post(
-            _SPOTIFY_TOKEN_ENDPOINT,
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri or settings.spotify_redirect_uri,
-            },
-            auth=(
-                settings.spotify_client_id or "",
-                settings.spotify_client_secret or "",
-            ),
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        resp.raise_for_status()
-        data: dict[str, Any] = resp.json()
-    return data.get("access_token") or ""
-
-
-async def _fetch_top_artist_names(access_token: str) -> list[str]:
-    """Fetch the current user's top artist names from Spotify."""
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(
-            _SPOTIFY_TOP_ARTISTS_URL,
-            params={"limit": _TOP_ARTISTS_LIMIT, "time_range": "medium_term"},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        resp.raise_for_status()
-        data: dict[str, Any] = resp.json()
-
-    names: list[str] = []
-    raw_items: list[Any] = data.get("items") or []
-    for raw in raw_items:
-        if not isinstance(raw, dict):
-            continue
-        item = cast(dict[str, Any], raw)
-        name = item.get("name")
-        if isinstance(name, str) and name:
-            names.append(name)
-    return names
-
-
-def _persist_artists(user_id: str, artist_names: list[str]) -> None:
-    """Write encrypted artist names into the user's profile row."""
-    supabase_client.table("profiles").update(
-        {"top_artists": encrypt_to_hex(json.dumps(artist_names))},
-    ).eq("id", user_id).execute()
-
-
 @router.get("/api/v1/spotify/callback", response_class=HTMLResponse)
 async def spotify_callback(
     request: Request,
+    background_tasks: BackgroundTasks,
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -248,7 +254,7 @@ async def spotify_callback(
         )
 
     try:
-        access_token = await _exchange_code(code)
+        tokens = await exchange_code(code, settings.spotify_redirect_uri)
     except Exception:
         logger.exception("Spotify token exchange failed for user %s", user_id)
         return _html_result(
@@ -257,7 +263,7 @@ async def spotify_callback(
             message="Could not complete Spotify authorization. Please try again.",
         )
 
-    if not access_token:
+    if not tokens.access_token:
         return _html_result(
             title="Authorization error",
             success=False,
@@ -265,19 +271,25 @@ async def spotify_callback(
         )
 
     try:
-        artist_names = await _fetch_top_artist_names(access_token)
+        display_names = await _seed_and_queue_sync(
+            background_tasks,
+            user_id,
+            tokens.access_token,
+            tokens.refresh_token,
+            tokens.scope,
+        )
     except Exception:
-        logger.exception("Spotify top-artists fetch failed for user %s", user_id)
+        logger.exception("Spotify sync setup failed for user %s", user_id)
         return _html_result(
             title="Could not fetch artists",
             success=False,
             message=(
-                "Authorization succeeded but fetching your top artists failed. "
+                "Authorization succeeded but fetching your Spotify data failed. "
                 "Please try again."
             ),
         )
 
-    if not artist_names:
+    if not display_names:
         return _html_result(
             title="No top artists found",
             success=False,
@@ -287,27 +299,182 @@ async def spotify_callback(
             ),
         )
 
-    try:
-        _persist_artists(user_id, artist_names)
-    except Exception:
-        logger.exception("Failed to persist Spotify artists for user %s", user_id)
-        return _html_result(
-            title="Save failed",
-            success=False,
-            message=(
-                "Your artists were fetched but could not be saved. Please try again."
-            ),
-        )
-
-    logger.info("Synced %d Spotify top artists for user %s", len(artist_names), user_id)
+    logger.info(
+        "Synced %d Spotify top artists for user %s",
+        len(display_names),
+        user_id,
+    )
     return _html_result(
         title="Spotify Connected!",
         success=True,
         message=(
-            f"Synced {len(artist_names)} top artists. Return to the app to see them."
+            f"Synced {len(display_names)} top artists. Your playlists are "
+            "syncing in the background - check the app in a moment."
         ),
-        artists=artist_names,
+        artists=display_names,
     )
+
+
+@router.get("/api/v1/spotify/status")
+@limiter.limit(settings.rate_limit_spotify)
+async def spotify_status(
+    request: Request,
+    user_id: str = Depends(get_authenticated_user_id),
+) -> SpotifyStatusResponse:
+    """Cheap connected/last-synced/counts summary for the Profile tab's
+    initial render - avoids pulling the full playlist payload just to decide
+    whether to show a Connect or Manage button."""
+    _ = request
+    connection = get_connection(user_id)
+    if connection is None or connection.get("disconnected_at"):
+        return SpotifyStatusResponse(connected=False)
+
+    playlists = fetch_playlists_for_owner(user_id)
+    return SpotifyStatusResponse(
+        connected=True,
+        last_synced_at=connection.get("last_synced_at"),
+        playlist_count=len(playlists),
+    )
+
+
+def _track_out_from_row(raw: dict[str, Any]) -> SpotifyTrackOut:
+    raw_artists = raw.get("artists")
+    artists: list[Any] = (
+        cast(list[Any], raw_artists) if isinstance(raw_artists, list) else []
+    )
+    return SpotifyTrackOut(
+        spotify_track_id=raw.get("spotify_track_id"),
+        name=str(raw.get("name") or ""),
+        artists=[a for a in artists if isinstance(a, str)],
+    )
+
+
+def _playlist_out_from_row(raw: dict[str, Any]) -> SpotifyPlaylistOut:
+    raw_tracks = raw.get("tracks")
+    tracks: list[Any] = (
+        cast(list[Any], raw_tracks) if isinstance(raw_tracks, list) else []
+    )
+    spotify_playlist_id = str(raw.get("spotify_playlist_id") or "")
+    return SpotifyPlaylistOut(
+        id=str(raw.get("id") or ""),
+        spotify_playlist_id=spotify_playlist_id,
+        name=str(raw.get("name") or ""),
+        is_collaborative=bool(raw.get("is_collaborative", False)),
+        track_count=int(raw.get("track_count") or 0),
+        tracks=[
+            _track_out_from_row(cast(dict[str, Any], t))
+            for t in tracks
+            if isinstance(t, dict)
+        ],
+        synced_at=raw.get("synced_at"),
+        spotify_url=f"https://open.spotify.com/playlist/{spotify_playlist_id}",
+    )
+
+
+@router.get("/api/v1/spotify/playlists")
+@limiter.limit(settings.rate_limit_spotify)
+async def spotify_playlists(
+    request: Request,
+    user_id: str = Depends(get_authenticated_user_id),
+) -> SpotifyPlaylistsResponse:
+    """Owner-only: full decrypted playlist + track payload.
+
+    Never called for or on behalf of another user - there is no peer-facing
+    equivalent of this endpoint anywhere in the API.
+    """
+    _ = request
+    connection = get_connection(user_id)
+    try:
+        raw_playlists = fetch_playlists_for_owner(user_id)
+    except DatabaseAccessError:
+        logger.exception("Failed to fetch playlists for user %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch your Spotify playlists.",
+        ) from None
+
+    playlists = [_playlist_out_from_row(p) for p in raw_playlists]
+
+    return SpotifyPlaylistsResponse(
+        connected=connection is not None and not connection.get("disconnected_at"),
+        last_synced_at=connection.get("last_synced_at") if connection else None,
+        playlists=playlists,
+    )
+
+
+@router.post("/api/v1/spotify/resync")
+@limiter.limit(settings.rate_limit_spotify_resync)
+async def spotify_resync(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    """Resync playlists + artists using the stored refresh token - no
+    re-auth needed. Tightly rate-limited since it can trigger ~100+ Spotify
+    API calls per invocation."""
+    _ = request
+    refresh_token = get_decrypted_refresh_token(user_id)
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Spotify connection found. Please connect Spotify first.",
+        )
+
+    try:
+        tokens = await refresh_access_token(refresh_token)
+    except Exception:
+        logger.exception("Spotify token refresh failed for user %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to refresh Spotify access. Please reconnect Spotify.",
+        ) from None
+
+    if not tokens.access_token:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Spotify did not return a valid access token.",
+        )
+
+    connection = get_connection(user_id)
+    spotify_user_id = str((connection or {}).get("spotify_user_id") or "")
+    if not spotify_user_id:
+        spotify_user_id = await fetch_spotify_user_id(tokens.access_token)
+
+    # Spotify may rotate the refresh token on any refresh call - re-persist
+    # it if a new one came back, otherwise keep using the one already stored.
+    if tokens.refresh_token and tokens.refresh_token != refresh_token:
+        upsert_connection(user_id, spotify_user_id, tokens.refresh_token, tokens.scope)
+
+    background_tasks.add_task(
+        run_full_sync,
+        user_id,
+        tokens.access_token,
+        spotify_user_id,
+    )
+    return {"syncing": True}
+
+
+@router.delete("/api/v1/spotify/connection")
+@limiter.limit(settings.rate_limit_spotify)
+async def spotify_disconnect(
+    request: Request,
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    """Fully revoke a Spotify connection: deletes the stored refresh token
+    and all synced playlists, and clears artist_affinity/top_artists/
+    music_taste_synced_at from the profile. Spotify has no public revoke
+    endpoint, so the app should also point users to
+    open.spotify.com/account/apps to revoke access on Spotify's side."""
+    _ = request
+    try:
+        disconnect_connection(user_id)
+    except DatabaseAccessError:
+        logger.exception("Failed to disconnect spotify for user %s", user_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to disconnect Spotify.",
+        ) from None
+    return {"disconnected": True}
 
 
 def _html_result(

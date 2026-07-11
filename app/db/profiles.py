@@ -64,9 +64,7 @@ def sign_profile_media(row: dict[str, Any]) -> dict[str, Any]:
     normal_pics_list = (
         cast(list[Any], raw_normal_pics) if isinstance(raw_normal_pics, list) else []
     )
-    normal_pics: list[str] = [
-        p for p in normal_pics_list if isinstance(p, str) and p
-    ]
+    normal_pics: list[str] = [p for p in normal_pics_list if isinstance(p, str) and p]
     all_paths = cast(list[str], [pic, *normal_pics]) if pic else normal_pics
     signed = _sign_media_paths(all_paths)
     if pic:
@@ -100,10 +98,17 @@ _PROFILE_SELECT_COLUMNS = (
     "religious_beliefs, lifestyle, drinking, smoking, role_at, "
     "dating_target_buckets, dating_for, friends_target_buckets, "
     "professional_target_buckets, looking_for, activities, "
-    "causes_supported, top_artists, tech_skills, languages, "
+    "causes_supported, top_artists, artist_affinity, tech_skills, languages, "
     "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
     "role_type, normal_pics, profile_pic"
 )
+# artist_affinity is the matching-engine's weighted music-taste signal - it
+# is selected here (the scoring hot path, feeding viewer + candidate dicts
+# into Nexus_Engine.engine.calculate_directional_match) but must NEVER be
+# added to fetch_peer_profile_by_id's column list below, nor to
+# app/db/sessions.py's fetch_discovery_node_detail - those two back every
+# peer-facing profile view and only ever expose the bounded public
+# top_artists list.
 
 
 def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
@@ -224,7 +229,6 @@ def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
     row[field] = parsed
 
 
-
 def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     """
     Decrypt and normalize a single profile record in memory.
@@ -278,7 +282,7 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     for field in array_fields:
         _parse_encrypted_list(row, field)
 
-    json_fields = ["interests", "sub_interests", "value_dimensions"]
+    json_fields = ["interests", "sub_interests", "value_dimensions", "artist_affinity"]
     for field in json_fields:
         _parse_encrypted_dict(row, field)
 
@@ -576,7 +580,6 @@ def _execute_and_filter_candidates(
         raise DatabaseAccessError("Failed to fetch candidate profiles") from e
 
     target_bucket_column = _get_target_bucket_column(active_tab)
-
 
     try:
         return _filter_candidate_matches(

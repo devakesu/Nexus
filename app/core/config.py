@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     rate_limit_feedback: str = "5/hour"
     rate_limit_safety: str = "20/hour"
     rate_limit_safety_portal: str = "10/hour"
+    rate_limit_spotify: str = "10/minute"
+    rate_limit_spotify_resync: str = "3/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # --- Infrastructure / crypto ---
@@ -114,6 +116,13 @@ except Exception as e:
 # determines that cross-branch diversity should receive a small boost.
 CROSS_BRANCH_BONUS: float = 5.0
 
+# Blend weights for merging Spotify's algorithmic /me/top/artists ranking
+# with owned/collaborative-playlist track frequency into a single
+# artist_affinity signal (see app/services/spotify_sync.py:blend_artist_affinity).
+# Must sum to 1.0; tunable independently of the per-tab TAB_MASKS weight below.
+SPOTIFY_AFFINITY_NATIVE_WEIGHT: float = 0.55
+SPOTIFY_AFFINITY_PLAYLIST_WEIGHT: float = 0.45
+
 # Blend weights used by the ranking engine for anchor vs ambient scoring.
 TIER_WEIGHTS: dict[DiscoveryTab, dict[str, float]] = {
     "Dating": {"anchor": 0.80, "ambient": 0.20},
@@ -142,7 +151,7 @@ ORIENTATION_WEIGHT_MODIFIERS: dict[str, dict[str, float]] = {
     },
     "Demisexual": {
         "ai_vibe_tags": 0.5,
-        "top_artists": 0.8,
+        "artist_affinity": 0.8,
         "interests": 1.3,
         "value_dimensions": 1.2,
     },
@@ -165,7 +174,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "religious_beliefs": 3,
         "career_embedding": 2,
         "activities": 2,
-        "top_artists": 1,
+        "artist_affinity": 1,
         "hometown": 1,
         "current_place": 1,
         "pets": 1,
@@ -176,7 +185,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
     "Friends": {
         "activities": 5,
         "interests": 5,
-        "top_artists": 5,
+        "artist_affinity": 5,
         "ai_vibe_tags": 3,
         "bio_embedding": 3,
         "identity_embedding": 3,
@@ -215,7 +224,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "smoking": 0,
         "partner_values": 0,
         "value_dimensions": 1,
-        "top_artists": 0,
+        "artist_affinity": 0,
     },
 }
 

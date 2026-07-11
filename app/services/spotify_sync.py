@@ -1,0 +1,513 @@
+"""
+Spotify fetch/paginate/blend pipeline: OAuth token exchange + refresh,
+playlist and track pagination, and the artist_affinity blending logic that
+feeds the matching engine.
+
+Policy notes this module deliberately respects (see Spotify Developer
+Policy): only track/artist/playlist NAMES and Spotify IDs are ever fetched
+or stored - no album art, preview URLs, popularity, or audio-feature data
+(the kind of signal that would edge toward "training a model on Spotify
+content", which Spotify's terms prohibit). All blending below is a
+deterministic frequency/rank computation, not a trained model.
+"""
+
+import asyncio
+import logging
+import time
+from collections import Counter
+from dataclasses import dataclass
+from typing import Any, cast
+
+import httpx
+
+from app.core.config import (
+    SPOTIFY_AFFINITY_NATIVE_WEIGHT,
+    SPOTIFY_AFFINITY_PLAYLIST_WEIGHT,
+    settings,
+)
+from app.db.spotify import mark_sync_result, persist_artist_signals, replace_playlists
+
+logger = logging.getLogger(__name__)
+
+_SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"  # noqa: S105
+_SPOTIFY_ME_URL = "https://api.spotify.com/v1/me"
+_SPOTIFY_TOP_ARTISTS_URL = "https://api.spotify.com/v1/me/top/artists"
+_SPOTIFY_PLAYLISTS_URL = "https://api.spotify.com/v1/me/playlists"
+_SPOTIFY_PLAYLIST_ITEMS_URL_TEMPLATE = (
+    "https://api.spotify.com/v1/playlists/{playlist_id}/items"
+)
+
+_HTTP_TIMEOUT_SECONDS = 15.0
+_MAX_RETRIES_PER_REQUEST = 3
+_MAX_RETRY_AFTER_SECONDS = 10.0
+
+_NATIVE_TOP_ARTISTS_LIMIT = 50
+_TOP_ARTISTS_DISPLAY_LIMIT = 10  # unchanged from the pre-playlists integration
+_MAX_PLAYLIST_LIST_PAGES = 4  # 50/page -> up to 200 playlists scanned
+_MAX_PLAYLISTS_FOR_TRACKS = (
+    30  # only fetch tracks for the first N owned/collaborative playlists
+)
+_MAX_TRACK_PAGES_PER_PLAYLIST = 6  # 50/page -> up to 300 tracks per playlist
+_ARTIST_AFFINITY_MAX_ENTRIES = 50
+_ARTIST_AFFINITY_MIN_WEIGHT = 0.03
+_SYNC_TIME_BUDGET_SECONDS = 60.0
+
+
+@dataclass
+class SpotifyTokenBundle:
+    access_token: str
+    refresh_token: str | None
+    scope: str
+    expires_in: int
+
+
+def _auth_header(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+def _parse_retry_after(resp: httpx.Response) -> float:
+    try:
+        return min(
+            float(resp.headers.get("Retry-After", "1")),
+            _MAX_RETRY_AFTER_SECONDS,
+        )
+    except ValueError:
+        return 1.0
+
+
+async def _get_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    """GET with bounded retry-on-429, honoring Spotify's Retry-After header."""
+    attempt = 0
+    while True:
+        resp = await client.get(url, params=params, headers=headers)
+        if resp.status_code == 429 and attempt < _MAX_RETRIES_PER_REQUEST:
+            await asyncio.sleep(_parse_retry_after(resp))
+            attempt += 1
+            continue
+        resp.raise_for_status()
+        return resp
+
+
+# ---------------------------------------------------------------------------
+# Token exchange / refresh
+# ---------------------------------------------------------------------------
+
+
+async def exchange_code(code: str, redirect_uri: str) -> SpotifyTokenBundle:
+    """Exchange an OAuth authorization code for an access + refresh token."""
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        resp = await client.post(
+            _SPOTIFY_TOKEN_ENDPOINT,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+            },
+            auth=(
+                settings.spotify_client_id or "",
+                settings.spotify_client_secret or "",
+            ),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
+
+    return SpotifyTokenBundle(
+        access_token=data.get("access_token") or "",
+        refresh_token=data.get("refresh_token"),
+        scope=data.get("scope") or "",
+        expires_in=int(data.get("expires_in") or 0),
+    )
+
+
+async def refresh_access_token(refresh_token: str) -> SpotifyTokenBundle:
+    """Exchange a stored refresh token for a fresh access token.
+
+    Spotify may rotate the refresh token on any refresh call - if the
+    response includes a new one, callers must re-persist it; if omitted,
+    the caller should keep using the token it already has.
+    """
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        resp = await client.post(
+            _SPOTIFY_TOKEN_ENDPOINT,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            auth=(
+                settings.spotify_client_id or "",
+                settings.spotify_client_secret or "",
+            ),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
+
+    return SpotifyTokenBundle(
+        access_token=data.get("access_token") or "",
+        refresh_token=data.get("refresh_token"),
+        scope=data.get("scope") or "",
+        expires_in=int(data.get("expires_in") or 0),
+    )
+
+
+async def fetch_spotify_user_id(access_token: str) -> str:
+    """Fetch the connected Spotify account's own user id (needed to determine
+    playlist ownership - see fetch_owned_or_collaborative_playlists)."""
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        resp = await _get_with_retry(
+            client,
+            _SPOTIFY_ME_URL,
+            headers=_auth_header(access_token),
+        )
+        data: dict[str, Any] = resp.json()
+    return str(data.get("id") or "")
+
+
+# ---------------------------------------------------------------------------
+# Fetch: native top artists, playlists, playlist tracks
+# ---------------------------------------------------------------------------
+
+
+async def fetch_top_artists_ranked(
+    access_token: str,
+    limit: int = _NATIVE_TOP_ARTISTS_LIMIT,
+) -> dict[str, float]:
+    """Fetch Spotify's algorithmic top artists, weighted by rank.
+
+    Rank 0 (Spotify's #1 artist) gets weight 1.0, decaying linearly to the
+    last entry. Returns {original_case_name: weight}; the caller
+    (blend_artist_affinity) handles case-insensitive key normalization.
+    """
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        resp = await _get_with_retry(
+            client,
+            _SPOTIFY_TOP_ARTISTS_URL,
+            params={"limit": limit, "time_range": "medium_term"},
+            headers=_auth_header(access_token),
+        )
+        data: dict[str, Any] = resp.json()
+
+    items: list[Any] = data.get("items") or []
+    valid_names: list[str] = []
+    for raw in items:
+        if not isinstance(raw, dict):
+            continue
+        item = cast(dict[str, Any], raw)
+        name = item.get("name")
+        if isinstance(name, str) and name.strip():
+            valid_names.append(name)
+    if not valid_names:
+        return {}
+
+    total = len(valid_names)
+    return {name: (total - rank) / total for rank, name in enumerate(valid_names)}
+
+
+async def fetch_owned_or_collaborative_playlists(
+    client: httpx.AsyncClient,
+    access_token: str,
+    spotify_user_id: str,
+) -> list[dict[str, Any]]:
+    """Paginate GET /v1/me/playlists, filtered to playlists the caller owns
+    or collaborates on.
+
+    Get Playlist Items 403s for playlists the user only follows (per
+    Spotify's API policy), so those are excluded here rather than discovered
+    as failures later.
+    """
+    playlists: list[dict[str, Any]] = []
+    url: str | None = _SPOTIFY_PLAYLISTS_URL
+    params: dict[str, Any] | None = {"limit": 50}
+    headers = _auth_header(access_token)
+
+    for _ in range(_MAX_PLAYLIST_LIST_PAGES):
+        if url is None or len(playlists) >= _MAX_PLAYLISTS_FOR_TRACKS:
+            break
+        resp = await _get_with_retry(client, url, params=params, headers=headers)
+        data: dict[str, Any] = resp.json()
+
+        page_items: list[Any] = data.get("items") or []
+        for raw in page_items:
+            if not isinstance(raw, dict):
+                continue
+            item = cast(dict[str, Any], raw)
+
+            raw_owner = item.get("owner")
+            is_owned = (
+                isinstance(raw_owner, dict)
+                and cast(
+                    dict[str, Any],
+                    raw_owner,
+                ).get("id")
+                == spotify_user_id
+            )
+            is_collaborative = bool(item.get("collaborative"))
+            if not (is_owned or is_collaborative):
+                continue
+
+            playlist_id = item.get("id")
+            name = item.get("name")
+            if not isinstance(playlist_id, str) or not isinstance(name, str):
+                continue
+
+            tracks_meta = item.get("tracks")
+            track_count = 0
+            if isinstance(tracks_meta, dict):
+                track_count = int(cast(dict[str, Any], tracks_meta).get("total") or 0)
+
+            playlists.append(
+                {
+                    "spotify_playlist_id": playlist_id,
+                    "name": name,
+                    "is_collaborative": is_collaborative,
+                    "track_count": track_count,
+                },
+            )
+
+        url = data.get("next")
+        params = None  # `next` is a full URL with query params already included
+
+    return playlists[:_MAX_PLAYLISTS_FOR_TRACKS]
+
+
+async def fetch_playlist_tracks(
+    client: httpx.AsyncClient,
+    access_token: str,
+    playlist_id: str,
+) -> list[dict[str, Any]]:
+    """Paginate GET /v1/playlists/{id}/items.
+
+    Requests only track id/name/artist names via the `fields` filter - no
+    album art, preview URLs, or popularity/audio-feature data is ever
+    requested or stored.
+    """
+    tracks: list[dict[str, Any]] = []
+    url: str | None = _SPOTIFY_PLAYLIST_ITEMS_URL_TEMPLATE.format(
+        playlist_id=playlist_id,
+    )
+    params: dict[str, Any] | None = {
+        "limit": 50,
+        "fields": "items(track(id,name,artists(name))),next",
+    }
+    headers = _auth_header(access_token)
+
+    for _ in range(_MAX_TRACK_PAGES_PER_PLAYLIST):
+        if url is None:
+            break
+        try:
+            resp = await _get_with_retry(client, url, params=params, headers=headers)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                # Ownership/collaborator status can change between the
+                # /me/playlists listing and this call (e.g. removed as a
+                # collaborator mid-sync) - skip rather than fail the sync.
+                logger.warning(
+                    "Spotify playlist items 403, skipping playlist",
+                    extra={"playlist_id": playlist_id},
+                )
+                break
+            raise
+
+        data: dict[str, Any] = resp.json()
+        page_items: list[Any] = data.get("items") or []
+        for raw_item in page_items:
+            if not isinstance(raw_item, dict):
+                continue
+            item = cast(dict[str, Any], raw_item)
+            raw_track = item.get("track")
+            if not isinstance(raw_track, dict):
+                continue
+            track = cast(dict[str, Any], raw_track)
+            name = track.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+
+            raw_artists: list[Any] = track.get("artists") or []
+            artist_names: list[str] = []
+            for raw_artist in raw_artists:
+                if not isinstance(raw_artist, dict):
+                    continue
+                artist_name = cast(dict[str, Any], raw_artist).get("name")
+                if isinstance(artist_name, str):
+                    artist_names.append(artist_name)
+
+            tracks.append(
+                {
+                    "spotify_track_id": track.get("id"),
+                    "name": name,
+                    "artists": artist_names,
+                },
+            )
+
+        url = data.get("next")
+        params = None
+
+    return tracks
+
+
+# ---------------------------------------------------------------------------
+# Aggregate + blend
+# ---------------------------------------------------------------------------
+
+
+def compute_artist_frequency(tracks: list[dict[str, Any]]) -> dict[str, float]:
+    """Count artist occurrences across a flat track list (as produced by
+    fetch_playlist_tracks), normalized so the most frequent artist is 1.0.
+    """
+    counts: Counter[str] = Counter()
+    for track in tracks:
+        for artist_name in track.get("artists", []):
+            if isinstance(artist_name, str) and artist_name.strip():
+                counts[artist_name.strip()] += 1
+
+    if not counts:
+        return {}
+
+    max_count = max(counts.values())
+    return {name: count / max_count for name, count in counts.items()}
+
+
+def blend_artist_affinity(
+    native_ranked: dict[str, float],
+    playlist_freq: dict[str, float],
+) -> tuple[dict[str, float], dict[str, str]]:
+    """Blend native top-artists rank and playlist-derived frequency into one
+    weighted dict, keyed by lowercased artist name for case-insensitive
+    matching across users (see Nexus_Engine.engine.calculate_weighted_affinity_match).
+
+    Returns (blended_weights, casing_map): casing_map maps the lowercased
+    key back to a display-friendly original-case name, since top_display_names
+    and the UI need real casing, not the matching engine's normalized keys.
+    """
+    casing_map: dict[str, str] = {}
+    combined: dict[str, float] = {}
+
+    def _accumulate(source: dict[str, float], source_weight: float) -> None:
+        for name, weight in source.items():
+            key = name.strip().lower()
+            if not key:
+                continue
+            casing_map.setdefault(key, name.strip())
+            combined[key] = combined.get(key, 0.0) + source_weight * weight
+
+    _accumulate(native_ranked, SPOTIFY_AFFINITY_NATIVE_WEIGHT)
+    _accumulate(playlist_freq, SPOTIFY_AFFINITY_PLAYLIST_WEIGHT)
+
+    if not combined:
+        return {}, {}
+
+    ranked_items = sorted(combined.items(), key=lambda kv: kv[1], reverse=True)
+    top_weight = ranked_items[0][1]
+    if top_weight <= 0.0:
+        return {}, {}
+
+    bounded: dict[str, float] = {}
+    for key, weight in ranked_items[:_ARTIST_AFFINITY_MAX_ENTRIES]:
+        normalized = round(weight / top_weight, 4)
+        if normalized < _ARTIST_AFFINITY_MIN_WEIGHT:
+            break
+        bounded[key] = normalized
+
+    return bounded, casing_map
+
+
+def top_display_names(
+    blended: dict[str, float],
+    casing_map: dict[str, str],
+    n: int = _TOP_ARTISTS_DISPLAY_LIMIT,
+) -> list[str]:
+    """Top-N artist names in display-friendly original casing."""
+    ranked = sorted(blended.items(), key=lambda kv: kv[1], reverse=True)
+    return [casing_map.get(key, key) for key, _ in ranked[:n]]
+
+
+# ---------------------------------------------------------------------------
+# Orchestration
+# ---------------------------------------------------------------------------
+
+
+async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -> None:
+    """Full playlist + artist-affinity sync for one user.
+
+    Runs via FastAPI BackgroundTasks from the OAuth callback, native
+    exchange, and /resync endpoints, so the triggering HTTP response returns
+    immediately. Best-effort: partial results (e.g. some playlists synced
+    before the time budget is exceeded) are still persisted rather than
+    discarded, and a native-only signal is saved even if playlist fetching
+    fails entirely, so matching isn't left blank.
+    """
+    start = time.monotonic()
+
+    try:
+        native_ranked = await fetch_top_artists_ranked(access_token)
+    except Exception:
+        logger.exception(
+            "Native top-artists fetch failed during sync",
+            extra={"user_id": user_id},
+        )
+        native_ranked = {}
+
+    playlists_with_tracks: list[dict[str, Any]] = []
+    all_tracks: list[dict[str, Any]] = []
+
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            candidate_playlists = await fetch_owned_or_collaborative_playlists(
+                client,
+                access_token,
+                spotify_user_id,
+            )
+            for playlist in candidate_playlists:
+                if time.monotonic() - start > _SYNC_TIME_BUDGET_SECONDS:
+                    logger.warning(
+                        "Spotify sync time budget exceeded, persisting partial results",
+                        extra={"user_id": user_id},
+                    )
+                    break
+                try:
+                    tracks = await fetch_playlist_tracks(
+                        client,
+                        access_token,
+                        playlist["spotify_playlist_id"],
+                    )
+                except Exception:
+                    logger.exception(
+                        "Playlist track fetch failed, skipping playlist",
+                        extra={
+                            "user_id": user_id,
+                            "playlist_id": playlist["spotify_playlist_id"],
+                        },
+                    )
+                    continue
+                playlists_with_tracks.append({**playlist, "tracks": tracks})
+                all_tracks.extend(tracks)
+    except Exception as e:
+        logger.exception("Spotify playlist sync failed", extra={"user_id": user_id})
+        await asyncio.to_thread(mark_sync_result, user_id, "error", str(e)[:500])
+        if native_ranked:
+            # Still persist a native-only signal so matching isn't blank
+            # while the underlying playlist-fetch issue gets resolved.
+            blended, casing_map = blend_artist_affinity(native_ranked, {})
+            display_names = top_display_names(blended, casing_map)
+            await asyncio.to_thread(
+                persist_artist_signals,
+                user_id,
+                blended,
+                display_names,
+            )
+        return
+
+    playlist_freq = compute_artist_frequency(all_tracks)
+    blended, casing_map = blend_artist_affinity(native_ranked, playlist_freq)
+    display_names = top_display_names(blended, casing_map)
+
+    await asyncio.to_thread(persist_artist_signals, user_id, blended, display_names)
+    await asyncio.to_thread(replace_playlists, user_id, playlists_with_tracks)
+    await asyncio.to_thread(mark_sync_result, user_id, "ok")

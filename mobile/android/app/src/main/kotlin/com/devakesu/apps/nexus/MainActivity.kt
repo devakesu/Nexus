@@ -218,7 +218,13 @@ class MainActivity : FlutterActivity() {
 
         val request = AuthorizationRequest
             .Builder(clientId, AuthorizationResponse.Type.CODE, redirectUri)
-            .setScopes(arrayOf("user-top-read"))
+            .setScopes(
+                arrayOf(
+                    "user-top-read",
+                    "playlist-read-private",
+                    "playlist-read-collaborative",
+                ),
+            )
             .build()
 
         // If the Spotify app is installed, this opens a native one-tap approval overlay.

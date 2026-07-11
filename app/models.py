@@ -602,6 +602,44 @@ OrbitNodeDetailResponse = (
 
 
 # ---------------------------------------------------------------------------
+# Spotify - owner-only playlist detail. Never returned from any peer-facing
+# endpoint (Orbit, likes inbox, discovery) - only from the owner-scoped
+# routes in app/api/spotify.py. artist_affinity itself (the matching-engine
+# signal) has no Pydantic model at all - it's never serialized in an API
+# response, only read internally by app/db/profiles.py for scoring.
+# ---------------------------------------------------------------------------
+
+
+class SpotifyTrackOut(BaseModel):
+    spotify_track_id: str | None = None
+    name: str
+    artists: list[str] = Field(default_factory=list)
+
+
+class SpotifyPlaylistOut(BaseModel):
+    id: str
+    spotify_playlist_id: str
+    name: str
+    is_collaborative: bool
+    track_count: int
+    tracks: list[SpotifyTrackOut] = []
+    synced_at: datetime | None = None
+    spotify_url: str
+
+
+class SpotifyPlaylistsResponse(BaseModel):
+    connected: bool
+    last_synced_at: datetime | None = None
+    playlists: list[SpotifyPlaylistOut] = []
+
+
+class SpotifyStatusResponse(BaseModel):
+    connected: bool
+    last_synced_at: datetime | None = None
+    playlist_count: int = 0
+
+
+# ---------------------------------------------------------------------------
 # Likes inbox
 # ---------------------------------------------------------------------------
 
@@ -638,6 +676,7 @@ class MarkLikesSeenRequest(BaseModel):
     @classmethod
     def validate_uuids(cls, v: list[str]) -> list[str]:
         import uuid
+
         for x in v:
             try:
                 uuid.UUID(x)

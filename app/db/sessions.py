@@ -61,19 +61,16 @@ def create_discovery_session(
         )
 
     try:
-        res = (
-            supabase_client.rpc(
-                "create_discovery_session_with_items",
-                {
-                    "p_viewer_id": viewer_id,
-                    "p_tab": active_tab,
-                    "p_filters": filters or {},
-                    "p_expires_at": expires_at.isoformat(),
-                    "p_items": items_payload,
-                },
-            )
-            .execute()
-        )
+        res = supabase_client.rpc(
+            "create_discovery_session_with_items",
+            {
+                "p_viewer_id": viewer_id,
+                "p_tab": active_tab,
+                "p_filters": filters or {},
+                "p_expires_at": expires_at.isoformat(),
+                "p_items": items_payload,
+            },
+        ).execute()
         session_id = str(res.data)
         if not session_id or session_id == "None":
             raise DatabaseAccessError("Failed to create discovery session")
@@ -462,6 +459,13 @@ async def fetch_discovery_node_detail(
     """
     Return (session_tab, hydrated_profile_payload) for a clicked discovery node.
     Returns None when the session/item/profile is not available to the viewer.
+
+    PRIVACY BOUNDARY: this backs every peer-facing profile detail view
+    (ProfileDetailSheet on the client). The nested `profiles:candidate_id(...)`
+    column list below is an explicit allowlist - it must never include
+    artist_affinity (the matching engine's raw weighted signal, see
+    app/db/profiles.py's _PROFILE_SELECT_COLUMNS) or any spotify_playlists
+    data. Only the bounded public top_artists list is safe to expose here.
     """
     try:
         res = (
