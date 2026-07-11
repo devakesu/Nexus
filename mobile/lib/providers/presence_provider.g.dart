@@ -62,7 +62,7 @@ final class PeerPresenceProvider
   }
 }
 
-String _$peerPresenceHash() => r'948c2e6f4e085946c2797079204f9e8376a13836';
+String _$peerPresenceHash() => r'3d2da733d9526e2f9b12a4069e40ec7c1f778181';
 
 /// Polls a peer's presence every 30s while something is watching this
 /// provider (e.g. the chat conversation page's app bar). Polling rather

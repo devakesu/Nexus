@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/providers/discovery_hub_provider.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/friends/widgets/friends_lists_overlays.dart';
 import 'package:nexus/screens/home/tabs/friends/widgets/friends_settings_overlay.dart';
@@ -20,7 +22,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FriendsTab extends StatefulWidget {
+class FriendsTab extends ConsumerStatefulWidget {
   const FriendsTab({
     required this.onOpenOrbit,
     this.onNavigateToTab,
@@ -31,16 +33,19 @@ class FriendsTab extends StatefulWidget {
   final void Function(int)? onNavigateToTab;
 
   @override
-  State<FriendsTab> createState() => _FriendsTabState();
+  ConsumerState<FriendsTab> createState() => _FriendsTabState();
 }
 
-class _FriendsTabState extends State<FriendsTab>
+class _FriendsTabState extends ConsumerState<FriendsTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   StreamSubscription<bool>? _orbitSub;
+  ProviderSubscription<AsyncValue<DiscoveryHubState>>? _hubSub;
 
   bool _isLoading = true;
   bool _isOrbitActive = false;
+  bool _hasError = false;
+  String? _errorMsg;
 
   List<String> _friendsTargetBuckets = [];
   List<String> _flatInterests = [];
@@ -62,9 +67,35 @@ class _FriendsTabState extends State<FriendsTab>
       duration: const Duration(seconds: 2),
     );
     unawaited(_pulseController.repeat(reverse: true));
-    unawaited(_loadFriendsProfileStatus());
-    unawaited(_fetchWaves());
-    unawaited(_fetchFriends());
+    // Renders instantly from DiscoveryHubController's cached snapshot (if
+    // any) via this immediate callback, then again whenever it reconciles
+    // with the network in the background or is explicitly refreshed after
+    // a mutation - replacing this tab's own _loadFriendsProfileStatus/
+    // _fetchWaves/_fetchFriends calls on every mount.
+    _hubSub = ref.listenManual(
+      discoveryHubControllerProvider('friends'),
+      (previous, next) {
+        next.when(
+          data: (data) {
+            if (!mounted) return;
+            setState(() {
+              _applyHubState(data);
+              _isLoading = false;
+            });
+          },
+          loading: () {},
+          error: (error, stackTrace) {
+            if (!mounted) return;
+            setState(() {
+              _hasError = true;
+              _errorMsg = error.toString();
+              _isLoading = false;
+            });
+          },
+        );
+      },
+      fireImmediately: true,
+    );
     _orbitSub = OrbitRefreshNotifier.stream.listen((_) {
       unawaited(_loadFriendsProfileStatusSilent());
     });
@@ -72,9 +103,40 @@ class _FriendsTabState extends State<FriendsTab>
 
   @override
   void dispose() {
+    _hubSub?.close();
     unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
     super.dispose();
+  }
+
+  /// Applies a DiscoveryHubController snapshot to this tab's local fields
+  /// - shared field-parsing/business logic stays exactly as it was, just
+  /// fed from the shared controller's data instead of this tab's own
+  /// fetch. Callers are responsible for wrapping this in setState.
+  void _applyHubState(DiscoveryHubState data) {
+    if (data.profileError != null) {
+      _hasError = true;
+      _errorMsg = data.profileError;
+      return;
+    }
+    _hasError = false;
+    _errorMsg = null;
+    if (data.profileDetails != null) {
+      _parseProfileData(data.profileDetails!);
+    }
+    // Preserve is_new flags set by optimistic inserts this session (same
+    // merge _fetchFriends already did before this migration).
+    final newIds = _friends
+        .where((m) => m['is_new'] == true)
+        .map((m) => m['matched_user_id'] as String?)
+        .whereType<String>()
+        .toSet();
+    _friends = data.matches.map((m) {
+      final uid = m['matched_user_id'] as String?;
+      return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
+    }).toList();
+    _waveItems = data.likes;
+    _unseenCount = data.unseenCount;
   }
 
   void _parseProfileData(Map<String, dynamic> data) {
@@ -106,61 +168,23 @@ class _FriendsTabState extends State<FriendsTab>
     }
   }
 
-  Future<void> _fetchProfile({bool showLoading = false}) async {
-    if (showLoading) {
-      setState(() => _isLoading = true);
-    }
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
-          setState(() {
-            _parseProfileData(data);
-            if (showLoading) {
-              _isLoading = false;
-            }
-          });
-          return;
-        }
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: showLoading
-            ? '[FriendsTab] Error fetching friends status'
-            : '[FriendsTab] Error fetching friends status silently',
-        showUi: false,
-      );
-    }
-
-    if (showLoading && mounted) {
+  Future<void> _loadFriendsProfileStatus() async {
+    if (mounted) {
       setState(() {
-        if (_friendsTargetBuckets.isEmpty) {
-          _friendsTargetBuckets = ['M', 'F', 'NB'];
-        }
-        _isOrbitActive = false;
-        _isLoading = false;
+        _isLoading = true;
+        _hasError = false;
+        _errorMsg = null;
       });
     }
-  }
-
-  Future<void> _loadFriendsProfileStatus() async {
-    await _fetchProfile(showLoading: true);
+    await ref
+        .read(discoveryHubControllerProvider('friends').notifier)
+        .refresh();
   }
 
   Future<void> _loadFriendsProfileStatusSilent() async {
-    await _fetchProfile();
+    await ref
+        .read(discoveryHubControllerProvider('friends').notifier)
+        .refresh();
   }
 
   Future<bool> _saveFriendsProfileDetails(Map<String, dynamic> payload) async {
@@ -471,78 +495,21 @@ class _FriendsTabState extends State<FriendsTab>
     );
   }
 
+  // These now refresh the shared DiscoveryHubController (which fetches
+  // profile status + likes + matches together) rather than doing their own
+  // standalone fetch - callers (WavesOverlay/FriendsListOverlay's pull-to-
+  // refresh, the optimistic-match-insert follow-up fetch) keep the same
+  // Future<void> Function() shape they already expect.
   Future<void> _fetchWaves() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/likes',
-        queryParameters: {'tab': 'Friends'},
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final data = response.data!;
-        final likes = data['likes'];
-        final unseen = data['unseen_count'];
-        setState(() {
-          _waveItems = likes is List
-              ? List<Map<String, dynamic>>.from(
-                  likes.cast<Map<String, dynamic>>(),
-                )
-              : [];
-          _unseenCount = (unseen as num?)?.toInt() ?? 0;
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[FriendsTab] Error fetching waves',
-        showUi: false,
-      );
-    }
+    await ref
+        .read(discoveryHubControllerProvider('friends').notifier)
+        .refresh();
   }
 
   Future<void> _fetchFriends() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/matches',
-        queryParameters: {'tab': 'Friends'},
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final raw = response.data!['matches'];
-        final list = raw is List
-            ? raw.cast<Map<String, dynamic>>()
-            : <Map<String, dynamic>>[];
-        final newIds = _friends
-            .where((m) => m['is_new'] == true)
-            .map((m) => m['matched_user_id'] as String?)
-            .whereType<String>()
-            .toSet();
-        setState(() {
-          _friends = list.map((m) {
-            final uid = m['matched_user_id'] as String?;
-            return (uid != null && newIds.contains(uid))
-                ? {...m, 'is_new': true}
-                : m;
-          }).toList();
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[FriendsTab] Error fetching friends',
-        showUi: false,
-      );
-    }
+    await ref
+        .read(discoveryHubControllerProvider('friends').notifier)
+        .refresh();
   }
 
   Future<bool> _recordFriendAction(
@@ -981,6 +948,44 @@ class _FriendsTabState extends State<FriendsTab>
   Widget build(BuildContext context) {
     const themeColor = AppColors.modeFriends;
     final activeWavesCount = _unseenCount;
+
+    if (_hasError) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertCircle,
+                  color: themeColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading friends profile:\n${_errorMsg ?? "Unknown error"}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    unawaited(_loadFriendsProfileStatus());
+                  },
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     if (_isLoading) {
       return const Scaffold(

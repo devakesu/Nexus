@@ -66,7 +66,7 @@ final class ChatConversationsProvider
   }
 }
 
-String _$chatConversationsHash() => r'1ed413910a555daa70ad72d68ea75e5e3c8eeccb';
+String _$chatConversationsHash() => r'f4356979c768bf5bbbe962864f4c7af1e19acce7';
 
 final class ChatConversationsFamily extends $Family
     with
@@ -147,7 +147,7 @@ final class NewChatCandidatesProvider
   }
 }
 
-String _$newChatCandidatesHash() => r'900770a390cffd8ff2cf9c06c3f7a3612a996c0a';
+String _$newChatCandidatesHash() => r'693a3c04b96089ac0417207eb8f3ca3c97cb7e05';
 
 final class NewChatCandidatesFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ChatCandidate>>, String> {

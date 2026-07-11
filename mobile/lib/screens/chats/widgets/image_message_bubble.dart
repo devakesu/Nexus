@@ -26,9 +26,17 @@ class ImageMessageBubble extends ConsumerStatefulWidget {
   ConsumerState<ImageMessageBubble> createState() => _ImageMessageBubbleState();
 }
 
-class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble> {
+class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble>
+    with AutomaticKeepAliveClientMixin<ImageMessageBubble> {
   Uint8List? _bytes;
   bool _loading = true;
+
+  // The message list recycles off-screen bubbles by default, which would
+  // otherwise redo _load() (a disk read + vault-decrypt, now that
+  // fetchMediaBytes caches on-device) every time this bubble scrolls back
+  // into view. Keeping it alive avoids that redundant work.
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -71,6 +79,7 @@ class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     const size = 220.0;
     if (_loading) {
       return const SizedBox(

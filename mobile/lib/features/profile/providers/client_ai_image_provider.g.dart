@@ -42,7 +42,7 @@ final class ClientAIImageManagerProvider
 }
 
 String _$clientAIImageManagerHash() =>
-    r'7cb5ed7dd1dc4f18c8d9ad3222a056ff8989efdf';
+    r'97c1418fbed4f553216b4c2499492a30b5faf7c7';
 
 abstract class _$ClientAIImageManager extends $Notifier<ClientAIProfileState> {
   ClientAIProfileState build();

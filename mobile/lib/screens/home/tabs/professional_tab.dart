@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/providers/discovery_hub_provider.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/professional/widgets/professional_activation_overlay.dart';
 import 'package:nexus/screens/home/tabs/professional/widgets/professional_lists_overlays.dart';
@@ -19,7 +21,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProfessionalTab extends StatefulWidget {
+class ProfessionalTab extends ConsumerStatefulWidget {
   const ProfessionalTab({
     required this.onOpenOrbit,
     this.onNavigateToTab,
@@ -30,16 +32,19 @@ class ProfessionalTab extends StatefulWidget {
   final void Function(int)? onNavigateToTab;
 
   @override
-  State<ProfessionalTab> createState() => _ProfessionalTabState();
+  ConsumerState<ProfessionalTab> createState() => _ProfessionalTabState();
 }
 
-class _ProfessionalTabState extends State<ProfessionalTab>
+class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   StreamSubscription<bool>? _orbitSub;
+  ProviderSubscription<AsyncValue<DiscoveryHubState>>? _hubSub;
 
   bool _isLoading = true;
   bool _isOrbitActive = false;
+  bool _hasError = false;
+  String? _errorMsg;
 
   List<String> _professionalTargetBuckets = [];
   List<String> _lookingFor = [];
@@ -63,9 +68,35 @@ class _ProfessionalTabState extends State<ProfessionalTab>
       duration: const Duration(seconds: 2),
     );
     unawaited(_pulseController.repeat(reverse: true));
-    unawaited(_loadProfessionalProfileStatus());
-    unawaited(_fetchHandshakes());
-    unawaited(_fetchConnections());
+    // Renders instantly from DiscoveryHubController's cached snapshot (if
+    // any) via this immediate callback, then again whenever it reconciles
+    // with the network in the background or is explicitly refreshed after
+    // a mutation - replacing this tab's own _loadProfessionalProfileStatus/
+    // _fetchHandshakes/_fetchConnections calls on every mount.
+    _hubSub = ref.listenManual(
+      discoveryHubControllerProvider('professional'),
+      (previous, next) {
+        next.when(
+          data: (data) {
+            if (!mounted) return;
+            setState(() {
+              _applyHubState(data);
+              _isLoading = false;
+            });
+          },
+          loading: () {},
+          error: (error, stackTrace) {
+            if (!mounted) return;
+            setState(() {
+              _hasError = true;
+              _errorMsg = error.toString();
+              _isLoading = false;
+            });
+          },
+        );
+      },
+      fireImmediately: true,
+    );
     _orbitSub = OrbitRefreshNotifier.stream.listen((_) {
       unawaited(_loadProfessionalProfileStatusSilent());
     });
@@ -73,9 +104,40 @@ class _ProfessionalTabState extends State<ProfessionalTab>
 
   @override
   void dispose() {
+    _hubSub?.close();
     unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
     super.dispose();
+  }
+
+  /// Applies a DiscoveryHubController snapshot to this tab's local fields
+  /// - shared field-parsing/business logic stays exactly as it was, just
+  /// fed from the shared controller's data instead of this tab's own
+  /// fetch. Callers are responsible for wrapping this in setState.
+  void _applyHubState(DiscoveryHubState data) {
+    if (data.profileError != null) {
+      _hasError = true;
+      _errorMsg = data.profileError;
+      return;
+    }
+    _hasError = false;
+    _errorMsg = null;
+    if (data.profileDetails != null) {
+      _parseProfileData(data.profileDetails!);
+    }
+    // Preserve is_new flags set by optimistic inserts this session (same
+    // merge _fetchConnections already did before this migration).
+    final newIds = _connections
+        .where((m) => m['is_new'] == true)
+        .map((m) => m['matched_user_id'] as String?)
+        .whereType<String>()
+        .toSet();
+    _connections = data.matches.map((m) {
+      final uid = m['matched_user_id'] as String?;
+      return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
+    }).toList();
+    _handshakeItems = data.likes;
+    _unseenCount = data.unseenCount;
   }
 
   void _parseProfileData(Map<String, dynamic> data) {
@@ -100,61 +162,23 @@ class _ProfessionalTabState extends State<ProfessionalTab>
         : [];
   }
 
-  Future<void> _fetchProfile({bool showLoading = false}) async {
-    if (showLoading) {
-      setState(() => _isLoading = true);
-    }
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = createDio();
-
-        final response = await dio.get<Map<String, dynamic>>(
-          '${config.backendUrl}/api/v1/profile/details',
-        );
-
-        if (response.statusCode == 200 && response.data != null && mounted) {
-          final data = response.data!;
-          setState(() {
-            _parseProfileData(data);
-            if (showLoading) {
-              _isLoading = false;
-            }
-          });
-          return;
-        }
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: showLoading
-            ? '[ProfessionalTab] Error fetching professional status'
-            : '[ProfessionalTab] Error fetching professional status silently',
-        showUi: false,
-      );
-    }
-
-    if (showLoading && mounted) {
+  Future<void> _loadProfessionalProfileStatus() async {
+    if (mounted) {
       setState(() {
-        if (_professionalTargetBuckets.isEmpty) {
-          _professionalTargetBuckets = ['M', 'F', 'NB'];
-        }
-        _isOrbitActive = false;
-        _isLoading = false;
+        _isLoading = true;
+        _hasError = false;
+        _errorMsg = null;
       });
     }
-  }
-
-  Future<void> _loadProfessionalProfileStatus() async {
-    await _fetchProfile(showLoading: true);
+    await ref
+        .read(discoveryHubControllerProvider('professional').notifier)
+        .refresh();
   }
 
   Future<void> _loadProfessionalProfileStatusSilent() async {
-    await _fetchProfile();
+    await ref
+        .read(discoveryHubControllerProvider('professional').notifier)
+        .refresh();
   }
 
   Future<bool> _saveProfessionalProfileDetails(
@@ -468,78 +492,21 @@ class _ProfessionalTabState extends State<ProfessionalTab>
     );
   }
 
+  // These now refresh the shared DiscoveryHubController (which fetches
+  // profile status + likes + matches together) rather than doing their own
+  // standalone fetch - callers (HandshakesOverlay/ConnectionsOverlay's
+  // pull-to-refresh, the optimistic-match-insert follow-up fetch) keep the
+  // same Future<void> Function() shape they already expect.
   Future<void> _fetchHandshakes() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/likes',
-        queryParameters: {'tab': 'Professional'},
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final data = response.data!;
-        final likes = data['likes'];
-        final unseen = data['unseen_count'];
-        setState(() {
-          _handshakeItems = likes is List
-              ? List<Map<String, dynamic>>.from(
-                  likes.cast<Map<String, dynamic>>(),
-                )
-              : [];
-          _unseenCount = (unseen as num?)?.toInt() ?? 0;
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[ProfessionalTab] Error fetching handshakes',
-        showUi: false,
-      );
-    }
+    await ref
+        .read(discoveryHubControllerProvider('professional').notifier)
+        .refresh();
   }
 
   Future<void> _fetchConnections() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/matches',
-        queryParameters: {'tab': 'Professional'},
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final raw = response.data!['matches'];
-        final list = raw is List
-            ? raw.cast<Map<String, dynamic>>()
-            : <Map<String, dynamic>>[];
-        final newIds = _connections
-            .where((m) => m['is_new'] == true)
-            .map((m) => m['matched_user_id'] as String?)
-            .whereType<String>()
-            .toSet();
-        setState(() {
-          _connections = list.map((m) {
-            final uid = m['matched_user_id'] as String?;
-            return (uid != null && newIds.contains(uid))
-                ? {...m, 'is_new': true}
-                : m;
-          }).toList();
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[ProfessionalTab] Error fetching connections',
-        showUi: false,
-      );
-    }
+    await ref
+        .read(discoveryHubControllerProvider('professional').notifier)
+        .refresh();
   }
 
   Future<bool> _recordConnectionAction(
@@ -974,6 +941,44 @@ class _ProfessionalTabState extends State<ProfessionalTab>
   Widget build(BuildContext context) {
     const themeColor = AppColors.modeProfessional;
     final activeHandshakesCount = _unseenCount;
+
+    if (_hasError) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.alertCircle,
+                  color: themeColor,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading professional profile:\n${_errorMsg ?? "Unknown error"}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    unawaited(_loadProfessionalProfileStatus());
+                  },
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     if (_isLoading) {
       return const Scaffold(

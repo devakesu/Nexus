@@ -77,6 +77,23 @@ class LocalMessages extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Local disk cache of decrypted chat attachment bytes, keyed by the
+/// attachment's storage path (stable and globally unique per attachment -
+/// see `MediaPointer.storagePath` / `_sendMedia`'s `'$conversationId/$uuid.enc'`
+/// construction). Same at-rest protection as `LocalMessages.plaintextEnc`:
+/// vault-encrypted via `LocalKeyVault`, not just OS file sandboxing. Exists
+/// purely to avoid re-downloading from Storage and re-running `MediaCrypto`
+/// decryption every time an image/voice bubble scrolls back into view.
+class CachedMedia extends Table {
+  TextColumn get storagePath => text()();
+  BlobColumn get plaintextEnc => blob()();
+  TextColumn get mimeType => text()();
+  DateTimeColumn get cachedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {storagePath};
+}
+
 @DriftDatabase(
   tables: [
     LocalIdentities,
@@ -85,6 +102,7 @@ class LocalMessages extends Table {
     Sessions,
     TrustedIdentities,
     LocalMessages,
+    CachedMedia,
   ],
 )
 class SignalDatabase extends _$SignalDatabase {
@@ -95,7 +113,21 @@ class SignalDatabase extends _$SignalDatabase {
   static final SignalDatabase instance = SignalDatabase._();
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  // This database already holds live Signal session/identity keys and
+  // cached message plaintext in production, so schema bumps must never
+  // fall back to drift's default "wipe and recreate everything" upgrade -
+  // that would force every existing conversation into the "new device,
+  // undecryptable history" state. Only ever add tables here going forward.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(cachedMedia);
+      }
+    },
+  );
 
   Future<void> clearAllData() async {
     await transaction(() async {

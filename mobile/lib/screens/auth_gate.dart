@@ -7,6 +7,7 @@ import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
+import 'package:nexus/utils/discovery_hub_cache.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
@@ -50,9 +51,11 @@ class _AuthGateState extends State<AuthGate> {
         if (data.event == AuthChangeEvent.signedOut) {
           unawaited(NotificationService.unregisterToken());
           unawaited(NotificationService.dispose());
-          // Central sign-out hook so no cached profile snapshot from this
-          // account can leak into a subsequent login on the same device.
+          // Central sign-out hook so no cached profile/discovery-hub
+          // snapshot from this account can leak into a subsequent login on
+          // the same device.
           unawaited(SecureProfileCache.clear());
+          unawaited(DiscoveryHubCache.clearAll());
         }
         if (mounted) {
           setState(() {});
@@ -195,13 +198,24 @@ class _AuthGateState extends State<AuthGate> {
       final config = AppConfig.current;
       final dio = createDio();
 
-      final response = await dio.post<Map<String, dynamic>>(
+      final bootstrapFuture = dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/bootstrap',
         options: Options(
           headers: {},
           validateStatus: (status) => status != null && status < 500,
         ),
       );
+      // Independent of bootstrap's outcome - bootstrap only upserts
+      // `public.users`, it never creates/touches `profiles` (confirmed
+      // against the backend), so there's no read-after-write race to
+      // protect by sequencing this after bootstrap. Start it immediately.
+      final profileFuture = Supabase.instance.client
+          .from('profiles')
+          .select()
+          .maybeSingle();
+
+      final response = await bootstrapFuture;
+      final profileResponse = await profileFuture;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
@@ -209,12 +223,6 @@ class _AuthGateState extends State<AuthGate> {
         if (acceptedTerms != null) {
           _termsVersion = acceptedTerms;
         }
-
-        // Query Supabase directly to check if a profiles row exists
-        final profileResponse = await Supabase.instance.client
-            .from('profiles')
-            .select()
-            .maybeSingle();
 
         if (mounted) {
           setState(() {

@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/providers/discovery_hub_provider.dart';
 import 'package:nexus/screens/chats/open_chat.dart';
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_activation_overlay.dart';
 import 'package:nexus/screens/home/tabs/dating/widgets/dating_lists_overlays.dart';
@@ -20,7 +22,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class DatingTab extends StatefulWidget {
+class DatingTab extends ConsumerStatefulWidget {
   const DatingTab({
     required this.onOpenOrbit,
     this.onNavigateToTab,
@@ -31,14 +33,15 @@ class DatingTab extends StatefulWidget {
   final void Function(int)? onNavigateToTab;
 
   @override
-  State<DatingTab> createState() => _DatingTabState();
+  ConsumerState<DatingTab> createState() => _DatingTabState();
 }
 
-class _DatingTabState extends State<DatingTab>
+class _DatingTabState extends ConsumerState<DatingTab>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late final Dio _dio;
   StreamSubscription<bool>? _orbitSub;
+  ProviderSubscription<AsyncValue<DiscoveryHubState>>? _hubSub;
 
   // State variables for Orbit activation & profile details
   bool _isLoading = true;
@@ -71,9 +74,35 @@ class _DatingTabState extends State<DatingTab>
       duration: const Duration(seconds: 2),
     );
     unawaited(_pulseController.repeat(reverse: true));
-    unawaited(_loadDatingProfileStatus());
-    unawaited(_fetchLikes());
-    unawaited(_fetchMatches());
+    // Renders instantly from DiscoveryHubController's cached snapshot (if
+    // any) via this immediate callback, then again whenever it reconciles
+    // with the network in the background or is explicitly refreshed after
+    // a mutation - replacing this tab's own _loadDatingProfileStatus/
+    // _fetchLikes/_fetchMatches calls on every mount.
+    _hubSub = ref.listenManual(
+      discoveryHubControllerProvider('dating'),
+      (previous, next) {
+        next.when(
+          data: (data) {
+            if (!mounted) return;
+            setState(() {
+              _applyHubState(data);
+              _isLoading = false;
+            });
+          },
+          loading: () {},
+          error: (error, stackTrace) {
+            if (!mounted) return;
+            setState(() {
+              _hasError = true;
+              _errorMsg = error.toString();
+              _isLoading = false;
+            });
+          },
+        );
+      },
+      fireImmediately: true,
+    );
     _orbitSub = OrbitRefreshNotifier.stream.listen((_) {
       unawaited(_loadDatingProfileStatusSilent());
     });
@@ -81,9 +110,41 @@ class _DatingTabState extends State<DatingTab>
 
   @override
   void dispose() {
+    _hubSub?.close();
     unawaited(_orbitSub?.cancel());
     _pulseController.dispose();
     super.dispose();
+  }
+
+  /// Applies a DiscoveryHubController snapshot to this tab's local fields
+  /// - shared field-parsing/business logic (_parseProfileData, save/toggle/
+  /// record-action methods) stays exactly as it was, just fed from the
+  /// shared controller's data instead of this tab's own fetch. Callers are
+  /// responsible for wrapping this in setState.
+  void _applyHubState(DiscoveryHubState data) {
+    if (data.profileError != null) {
+      _hasError = true;
+      _errorMsg = data.profileError;
+      return;
+    }
+    _hasError = false;
+    _errorMsg = null;
+    if (data.profileDetails != null) {
+      _parseProfileData(data.profileDetails!);
+    }
+    // Preserve is_new flags set by optimistic inserts this session (same
+    // merge _fetchMatches already did before this migration).
+    final newIds = _matches
+        .where((m) => m['is_new'] == true)
+        .map((m) => m['matched_user_id'] as String?)
+        .whereType<String>()
+        .toSet();
+    _matches = data.matches.map((m) {
+      final uid = m['matched_user_id'] as String?;
+      return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
+    }).toList();
+    _likeItems = data.likes;
+    _unseenCount = data.unseenCount;
   }
 
   // Load current profile details from secure endpoint
@@ -104,69 +165,19 @@ class _DatingTabState extends State<DatingTab>
         : [];
   }
 
-  Future<void> _fetchProfile({bool showLoading = false}) async {
-    if (showLoading) {
+  Future<void> _loadDatingProfileStatus() async {
+    if (mounted) {
       setState(() {
         _isLoading = true;
         _hasError = false;
         _errorMsg = null;
       });
     }
-    try {
-      final supabaseClient = Supabase.instance.client;
-      final session = supabaseClient.auth.currentSession;
-      if (session != null) {
-        final dio = _dio;
-        final data = await NetworkUtils.fetchProfileDetails(
-          dio,
-          session.accessToken,
-        );
-
-        if (data != null && mounted) {
-          setState(() {
-            _parseProfileData(data);
-            if (showLoading) {
-              _isLoading = false;
-            }
-          });
-          return;
-        }
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: showLoading
-            ? '[DatingTab] Error fetching dating status'
-            : '[DatingTab] Error fetching dating status silently',
-        showUi: false,
-      );
-      if (showLoading && mounted) {
-        setState(() {
-          _hasError = true;
-          _errorMsg = e.toString();
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-
-    if (showLoading && mounted) {
-      setState(() {
-        _hasError = true;
-        _errorMsg = 'Failed to fetch dating profile status.';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadDatingProfileStatus() async {
-    await _fetchProfile(showLoading: true);
+    await ref.read(discoveryHubControllerProvider('dating').notifier).refresh();
   }
 
   Future<void> _loadDatingProfileStatusSilent() async {
-    await _fetchProfile();
+    await ref.read(discoveryHubControllerProvider('dating').notifier).refresh();
   }
 
   // Save profile updates to the details endpoint
@@ -510,78 +521,17 @@ class _DatingTabState extends State<DatingTab>
     );
   }
 
+  // These now refresh the shared DiscoveryHubController (which fetches
+  // profile status + likes + matches together) rather than doing their own
+  // standalone fetch - callers (LikesOverlay/MatchesOverlay's pull-to-
+  // refresh, the optimistic-match-insert follow-up fetch) keep the same
+  // Future<void> Function() shape they already expect.
   Future<void> _fetchLikes() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = _dio;
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/likes',
-        queryParameters: {'tab': 'Dating'},
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final data = response.data!;
-        final likes = data['likes'];
-        final unseen = data['unseen_count'];
-        setState(() {
-          _likeItems = likes is List
-              ? List<Map<String, dynamic>>.from(
-                  likes.cast<Map<String, dynamic>>(),
-                )
-              : [];
-          _unseenCount = (unseen as num?)?.toInt() ?? 0;
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[DatingTab] Error fetching likes',
-        showUi: false,
-      );
-    }
+    await ref.read(discoveryHubControllerProvider('dating').notifier).refresh();
   }
 
   Future<void> _fetchMatches() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    try {
-      final config = AppConfig.current;
-      final dio = _dio;
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/matches',
-      );
-      if (response.statusCode == 200 && response.data != null && mounted) {
-        final raw = response.data!['matches'];
-        final list = raw is List
-            ? raw.cast<Map<String, dynamic>>()
-            : <Map<String, dynamic>>[];
-        // Preserve is_new flags set by optimistic inserts this session
-        final newIds = _matches
-            .where((m) => m['is_new'] == true)
-            .map((m) => m['matched_user_id'] as String?)
-            .whereType<String>()
-            .toSet();
-        setState(() {
-          _matches = list.map((m) {
-            final uid = m['matched_user_id'] as String?;
-            return (uid != null && newIds.contains(uid))
-                ? {...m, 'is_new': true}
-                : m;
-          }).toList();
-        });
-      }
-    } on Exception catch (e, st) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage: '[DatingTab] Error fetching matches',
-        showUi: false,
-      );
-    }
+    await ref.read(discoveryHubControllerProvider('dating').notifier).refresh();
   }
 
   Future<bool> _recordMatchAction(

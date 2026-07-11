@@ -1072,11 +1072,67 @@ class ChatConversationController extends _$ChatConversationController {
 
   /// Fetches and decrypts an attachment's bytes given its pointer -
   /// called lazily by the image/voice bubbles when they're rendered,
-  /// rather than eagerly for the whole message list.
+  /// rather than eagerly for the whole message list. Checks the on-device
+  /// cache first so re-viewing the same attachment (e.g. scrolling a bubble
+  /// off-screen and back) doesn't re-download from Storage or re-run
+  /// MediaCrypto decryption every time.
   Future<Uint8List> fetchMediaBytes(MediaPointer pointer) async {
+    final cached =
+        await (_db.select(_db.cachedMedia)
+              ..where((t) => t.storagePath.equals(pointer.storagePath)))
+            .getSingleOrNull();
+    if (cached != null) {
+      return LocalKeyVault.instance.decryptBytes(
+        Uint8List.fromList(cached.plaintextEnc),
+      );
+    }
+
     final ciphertext = await Supabase.instance.client.storage
         .from('chat_media')
         .download(pointer.storagePath);
-    return MediaCrypto.instance.decrypt(ciphertext, pointer.mediaKeyBase64);
+    final plaintext = await MediaCrypto.instance.decrypt(
+      ciphertext,
+      pointer.mediaKeyBase64,
+    );
+    unawaited(_cacheMedia(pointer.storagePath, plaintext, pointer.mimeType));
+    return plaintext;
+  }
+
+  /// Vault-encrypts [plaintext] before writing it to disk - matches
+  /// `LocalMessages.plaintextEnc`'s at-rest protection exactly, so cached
+  /// media is never left decrypted on disk. Then prunes anything beyond
+  /// the most recently cached [_maxCachedMediaItems] so the cache doesn't
+  /// grow unbounded over a long chat history with lots of attachments.
+  Future<void> _cacheMedia(
+    String storagePath,
+    Uint8List plaintext,
+    String mimeType,
+  ) async {
+    final encrypted = await LocalKeyVault.instance.encryptBytes(plaintext);
+    await _db
+        .into(_db.cachedMedia)
+        .insertOnConflictUpdate(
+          CachedMediaCompanion.insert(
+            storagePath: storagePath,
+            plaintextEnc: encrypted,
+            mimeType: mimeType,
+            cachedAt: DateTime.now(),
+          ),
+        );
+
+    final staleRows =
+        await (_db.select(_db.cachedMedia)
+              ..orderBy([(t) => OrderingTerm.desc(t.cachedAt)])
+              ..limit(1 << 30, offset: _maxCachedMediaItems))
+            .get();
+    for (final row in staleRows) {
+      await (_db.delete(
+        _db.cachedMedia,
+      )..where((t) => t.storagePath.equals(row.storagePath))).go();
+    }
   }
 }
+
+/// Cap on how many decrypted attachments stay cached on disk at once -
+/// oldest-by-cachedAt evicted first once exceeded (see `_cacheMedia`).
+const _maxCachedMediaItems = 200;

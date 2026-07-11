@@ -336,6 +336,7 @@ class _OrbitScreenState extends State<OrbitScreen>
             }
           }
         });
+        _precacheNodeImages(result.nodes);
       } else {
         await _initData();
       }
@@ -1049,6 +1050,7 @@ class _OrbitScreenState extends State<OrbitScreen>
             _currentUserProfilePic = profilePicUrl;
           }
         });
+        _precacheNodeImages(mappedNodes);
       } else {
         throw Exception('Failed to fetch orbit constellation.');
       }
@@ -1118,6 +1120,7 @@ class _OrbitScreenState extends State<OrbitScreen>
 
       if (response.statusCode == 200 && response.data != null && mounted) {
         final newNodes = response.data!['nodes'] as List<dynamic>? ?? [];
+        final newlyMappedNodes = <OrbitNode>[];
         setState(() {
           final nodeMap = {for (final node in _nodes) node.id: node};
           for (final node in newNodes) {
@@ -1125,11 +1128,13 @@ class _OrbitScreenState extends State<OrbitScreen>
               final mapped = OrbitNode.fromJson(node);
               if (mapped.id.isNotEmpty) {
                 nodeMap[mapped.id] = mapped;
+                newlyMappedNodes.add(mapped);
               }
             }
           }
           _nodes = nodeMap.values.toList();
         });
+        _precacheNodeImages(newlyMappedNodes);
       }
     } on Exception catch (e) {
       debugPrint('[OrbitScreen] Error fetching viewport nodes: $e');
@@ -1139,6 +1144,19 @@ class _OrbitScreenState extends State<OrbitScreen>
           _isFetchingViewport = false;
         });
       }
+    }
+  }
+
+  /// Best-effort, fire-and-forget: warms the image cache for candidates
+  /// that just landed in [_nodes], so a subsequent pan/swipe to them
+  /// doesn't show a shimmer placeholder. Never awaited by callers - this
+  /// must not delay the setState that actually shows the new nodes.
+  void _precacheNodeImages(List<OrbitNode> nodes) {
+    if (!mounted) return;
+    for (final node in nodes) {
+      final provider = resolveStorageImageProvider(node.profilePic);
+      if (provider == null) continue;
+      unawaited(precacheImage(provider, context).catchError((_) {}));
     }
   }
 

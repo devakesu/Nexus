@@ -1651,6 +1651,342 @@ class LocalMessagesCompanion extends UpdateCompanion<LocalMessage> {
   }
 }
 
+class $CachedMediaTable extends CachedMedia
+    with TableInfo<$CachedMediaTable, CachedMediaData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedMediaTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _storagePathMeta = const VerificationMeta(
+    'storagePath',
+  );
+  @override
+  late final GeneratedColumn<String> storagePath = GeneratedColumn<String>(
+    'storage_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _plaintextEncMeta = const VerificationMeta(
+    'plaintextEnc',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> plaintextEnc =
+      GeneratedColumn<Uint8List>(
+        'plaintext_enc',
+        aliasedName,
+        false,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    storagePath,
+    plaintextEnc,
+    mimeType,
+    cachedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_media';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedMediaData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('storage_path')) {
+      context.handle(
+        _storagePathMeta,
+        storagePath.isAcceptableOrUnknown(
+          data['storage_path']!,
+          _storagePathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_storagePathMeta);
+    }
+    if (data.containsKey('plaintext_enc')) {
+      context.handle(
+        _plaintextEncMeta,
+        plaintextEnc.isAcceptableOrUnknown(
+          data['plaintext_enc']!,
+          _plaintextEncMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_plaintextEncMeta);
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mimeTypeMeta);
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cachedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {storagePath};
+  @override
+  CachedMediaData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedMediaData(
+      storagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}storage_path'],
+      )!,
+      plaintextEnc: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}plaintext_enc'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedMediaTable createAlias(String alias) {
+    return $CachedMediaTable(attachedDatabase, alias);
+  }
+}
+
+class CachedMediaData extends DataClass implements Insertable<CachedMediaData> {
+  final String storagePath;
+  final Uint8List plaintextEnc;
+  final String mimeType;
+  final DateTime cachedAt;
+  const CachedMediaData({
+    required this.storagePath,
+    required this.plaintextEnc,
+    required this.mimeType,
+    required this.cachedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['storage_path'] = Variable<String>(storagePath);
+    map['plaintext_enc'] = Variable<Uint8List>(plaintextEnc);
+    map['mime_type'] = Variable<String>(mimeType);
+    map['cached_at'] = Variable<DateTime>(cachedAt);
+    return map;
+  }
+
+  CachedMediaCompanion toCompanion(bool nullToAbsent) {
+    return CachedMediaCompanion(
+      storagePath: Value(storagePath),
+      plaintextEnc: Value(plaintextEnc),
+      mimeType: Value(mimeType),
+      cachedAt: Value(cachedAt),
+    );
+  }
+
+  factory CachedMediaData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedMediaData(
+      storagePath: serializer.fromJson<String>(json['storagePath']),
+      plaintextEnc: serializer.fromJson<Uint8List>(json['plaintextEnc']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      cachedAt: serializer.fromJson<DateTime>(json['cachedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'storagePath': serializer.toJson<String>(storagePath),
+      'plaintextEnc': serializer.toJson<Uint8List>(plaintextEnc),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'cachedAt': serializer.toJson<DateTime>(cachedAt),
+    };
+  }
+
+  CachedMediaData copyWith({
+    String? storagePath,
+    Uint8List? plaintextEnc,
+    String? mimeType,
+    DateTime? cachedAt,
+  }) => CachedMediaData(
+    storagePath: storagePath ?? this.storagePath,
+    plaintextEnc: plaintextEnc ?? this.plaintextEnc,
+    mimeType: mimeType ?? this.mimeType,
+    cachedAt: cachedAt ?? this.cachedAt,
+  );
+  CachedMediaData copyWithCompanion(CachedMediaCompanion data) {
+    return CachedMediaData(
+      storagePath: data.storagePath.present
+          ? data.storagePath.value
+          : this.storagePath,
+      plaintextEnc: data.plaintextEnc.present
+          ? data.plaintextEnc.value
+          : this.plaintextEnc,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedMediaData(')
+          ..write('storagePath: $storagePath, ')
+          ..write('plaintextEnc: $plaintextEnc, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('cachedAt: $cachedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    storagePath,
+    $driftBlobEquality.hash(plaintextEnc),
+    mimeType,
+    cachedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedMediaData &&
+          other.storagePath == this.storagePath &&
+          $driftBlobEquality.equals(other.plaintextEnc, this.plaintextEnc) &&
+          other.mimeType == this.mimeType &&
+          other.cachedAt == this.cachedAt);
+}
+
+class CachedMediaCompanion extends UpdateCompanion<CachedMediaData> {
+  final Value<String> storagePath;
+  final Value<Uint8List> plaintextEnc;
+  final Value<String> mimeType;
+  final Value<DateTime> cachedAt;
+  final Value<int> rowid;
+  const CachedMediaCompanion({
+    this.storagePath = const Value.absent(),
+    this.plaintextEnc = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedMediaCompanion.insert({
+    required String storagePath,
+    required Uint8List plaintextEnc,
+    required String mimeType,
+    required DateTime cachedAt,
+    this.rowid = const Value.absent(),
+  }) : storagePath = Value(storagePath),
+       plaintextEnc = Value(plaintextEnc),
+       mimeType = Value(mimeType),
+       cachedAt = Value(cachedAt);
+  static Insertable<CachedMediaData> custom({
+    Expression<String>? storagePath,
+    Expression<Uint8List>? plaintextEnc,
+    Expression<String>? mimeType,
+    Expression<DateTime>? cachedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (storagePath != null) 'storage_path': storagePath,
+      if (plaintextEnc != null) 'plaintext_enc': plaintextEnc,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedMediaCompanion copyWith({
+    Value<String>? storagePath,
+    Value<Uint8List>? plaintextEnc,
+    Value<String>? mimeType,
+    Value<DateTime>? cachedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedMediaCompanion(
+      storagePath: storagePath ?? this.storagePath,
+      plaintextEnc: plaintextEnc ?? this.plaintextEnc,
+      mimeType: mimeType ?? this.mimeType,
+      cachedAt: cachedAt ?? this.cachedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (storagePath.present) {
+      map['storage_path'] = Variable<String>(storagePath.value);
+    }
+    if (plaintextEnc.present) {
+      map['plaintext_enc'] = Variable<Uint8List>(plaintextEnc.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedMediaCompanion(')
+          ..write('storagePath: $storagePath, ')
+          ..write('plaintextEnc: $plaintextEnc, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$SignalDatabase extends GeneratedDatabase {
   _$SignalDatabase(QueryExecutor e) : super(e);
   $SignalDatabaseManager get managers => $SignalDatabaseManager(this);
@@ -1663,6 +1999,7 @@ abstract class _$SignalDatabase extends GeneratedDatabase {
   late final $TrustedIdentitiesTable trustedIdentities =
       $TrustedIdentitiesTable(this);
   late final $LocalMessagesTable localMessages = $LocalMessagesTable(this);
+  late final $CachedMediaTable cachedMedia = $CachedMediaTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1674,6 +2011,7 @@ abstract class _$SignalDatabase extends GeneratedDatabase {
     sessions,
     trustedIdentities,
     localMessages,
+    cachedMedia,
   ];
 }
 
@@ -2660,6 +2998,195 @@ typedef $$LocalMessagesTableProcessedTableManager =
       LocalMessage,
       PrefetchHooks Function()
     >;
+typedef $$CachedMediaTableCreateCompanionBuilder =
+    CachedMediaCompanion Function({
+      required String storagePath,
+      required Uint8List plaintextEnc,
+      required String mimeType,
+      required DateTime cachedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedMediaTableUpdateCompanionBuilder =
+    CachedMediaCompanion Function({
+      Value<String> storagePath,
+      Value<Uint8List> plaintextEnc,
+      Value<String> mimeType,
+      Value<DateTime> cachedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedMediaTableFilterComposer
+    extends Composer<_$SignalDatabase, $CachedMediaTable> {
+  $$CachedMediaTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedMediaTableOrderingComposer
+    extends Composer<_$SignalDatabase, $CachedMediaTable> {
+  $$CachedMediaTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedMediaTableAnnotationComposer
+    extends Composer<_$SignalDatabase, $CachedMediaTable> {
+  $$CachedMediaTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get storagePath => $composableBuilder(
+    column: $table.storagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get plaintextEnc => $composableBuilder(
+    column: $table.plaintextEnc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+}
+
+class $$CachedMediaTableTableManager
+    extends
+        RootTableManager<
+          _$SignalDatabase,
+          $CachedMediaTable,
+          CachedMediaData,
+          $$CachedMediaTableFilterComposer,
+          $$CachedMediaTableOrderingComposer,
+          $$CachedMediaTableAnnotationComposer,
+          $$CachedMediaTableCreateCompanionBuilder,
+          $$CachedMediaTableUpdateCompanionBuilder,
+          (
+            CachedMediaData,
+            BaseReferences<
+              _$SignalDatabase,
+              $CachedMediaTable,
+              CachedMediaData
+            >,
+          ),
+          CachedMediaData,
+          PrefetchHooks Function()
+        > {
+  $$CachedMediaTableTableManager(_$SignalDatabase db, $CachedMediaTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedMediaTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedMediaTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedMediaTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> storagePath = const Value.absent(),
+                Value<Uint8List> plaintextEnc = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<DateTime> cachedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedMediaCompanion(
+                storagePath: storagePath,
+                plaintextEnc: plaintextEnc,
+                mimeType: mimeType,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String storagePath,
+                required Uint8List plaintextEnc,
+                required String mimeType,
+                required DateTime cachedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedMediaCompanion.insert(
+                storagePath: storagePath,
+                plaintextEnc: plaintextEnc,
+                mimeType: mimeType,
+                cachedAt: cachedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedMediaTableProcessedTableManager =
+    ProcessedTableManager<
+      _$SignalDatabase,
+      $CachedMediaTable,
+      CachedMediaData,
+      $$CachedMediaTableFilterComposer,
+      $$CachedMediaTableOrderingComposer,
+      $$CachedMediaTableAnnotationComposer,
+      $$CachedMediaTableCreateCompanionBuilder,
+      $$CachedMediaTableUpdateCompanionBuilder,
+      (
+        CachedMediaData,
+        BaseReferences<_$SignalDatabase, $CachedMediaTable, CachedMediaData>,
+      ),
+      CachedMediaData,
+      PrefetchHooks Function()
+    >;
 
 class $SignalDatabaseManager {
   final _$SignalDatabase _db;
@@ -2676,4 +3203,6 @@ class $SignalDatabaseManager {
       $$TrustedIdentitiesTableTableManager(_db, _db.trustedIdentities);
   $$LocalMessagesTableTableManager get localMessages =>
       $$LocalMessagesTableTableManager(_db, _db.localMessages);
+  $$CachedMediaTableTableManager get cachedMedia =>
+      $$CachedMediaTableTableManager(_db, _db.cachedMedia);
 }

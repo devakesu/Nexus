@@ -6,6 +6,42 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Resolves the same [ImageProvider] + cache key [StorageImage] would use
+/// for a remote path, so callers can [precacheImage] ahead of the widget
+/// actually mounting (e.g. warming the cache for upcoming Orbit candidates).
+/// Returns null for local file paths (already instant, nothing to prefetch)
+/// or empty/invalid input.
+ImageProvider? resolveStorageImageProvider(String? imagePath) {
+  if (imagePath == null || imagePath.isEmpty) return null;
+  if (imagePath.startsWith('/') || imagePath.contains('/data/user/')) {
+    return null;
+  }
+
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return CachedNetworkImageProvider(
+      imagePath,
+      cacheKey: Uri.tryParse(imagePath)?.path ?? imagePath,
+    );
+  }
+
+  final publicUrl = Supabase.instance.client.storage
+      .from('user_media')
+      .getPublicUrl(imagePath);
+  final authenticatedUrl = publicUrl.replaceFirst(
+    '/public/',
+    '/authenticated/',
+  );
+  final session = Supabase.instance.client.auth.currentSession;
+  final token = session?.accessToken;
+  final apikey = AppConfig.current.supabasePublishableKey;
+
+  return CachedNetworkImageProvider(
+    authenticatedUrl,
+    cacheKey: imagePath,
+    headers: {if (token != null) 'apikey': apikey},
+  );
+}
+
 class StorageImage extends StatelessWidget {
   const StorageImage({
     required this.imagePath,

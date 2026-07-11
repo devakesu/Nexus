@@ -32,12 +32,19 @@ class VoiceMessageBubble extends ConsumerStatefulWidget {
   ConsumerState<VoiceMessageBubble> createState() => _VoiceMessageBubbleState();
 }
 
-class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble> {
+class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
+    with AutomaticKeepAliveClientMixin<VoiceMessageBubble> {
   final _player = AudioPlayer();
   File? _tempFile;
   bool _loading = false;
   bool _failed = false;
   bool _ready = false;
+
+  // Without this, scrolling a played bubble off-screen and back would tear
+  // down the AudioPlayer and temp file (see dispose()/_cleanupTempFile())
+  // and force _ensureLoaded() to redo everything from scratch next tap.
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -111,6 +118,7 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final isMine = widget.isMine;
     final iconColor = isMine ? Colors.white : const Color(0xFF0F172A);
     final subColor = isMine
