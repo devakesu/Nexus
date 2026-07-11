@@ -10,8 +10,7 @@ from supabase_auth import User, UserResponse
 
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
-from app.core.email import redact_email
+from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
@@ -98,12 +97,11 @@ def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
 
 
 def fetch_public_user(user_id: str) -> dict[str, Any] | None:
-    from app.core.crypto import decrypt_pii
     try:
         result = (
             supabase_client.table("users")
             .select(
-                "id, email, mobile, app_variant, is_active, is_suspended, "
+                "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at",
             )
@@ -127,28 +125,16 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
     if not isinstance(row, dict):
         return None
 
-    row_copy = dict(row)
-    if row_copy.get("email"):
-        row_copy["email"] = decrypt_pii(row_copy["email"])
-    if row_copy.get("mobile"):
-        row_copy["mobile"] = decrypt_pii(row_copy["mobile"])
-
-    return cast(dict[str, Any], row_copy)
+    return cast(dict[str, Any], row)
 
 
 def upsert_public_user(
     user_id: str,
-    email: str | None = None,
-    mobile: str | None = None,
     app_variant: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     payload: dict[str, Any] = {
         "id": user_id,
     }
-    if email is not None:
-        payload["email"] = encrypt_to_hex(email.strip().lower())
-    if mobile is not None:
-        payload["mobile"] = encrypt_to_hex(mobile.strip())
     if app_variant is not None:
         payload["app_variant"] = app_variant
 
@@ -160,25 +146,16 @@ def upsert_public_user(
                 on_conflict="id",
             )
             .select(
-                "id, email, mobile, app_variant, is_active, is_suspended, "
+                "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at, xmax",
             )
             .execute()
         )
     except APIError as e:
-        masked_mobile = (
-            f"******{mobile[-4:]}"
-            if mobile and len(mobile) >= 4
-            else (mobile or "")
-        )
         logger.exception(
             "Failed to upsert public user",
-            extra={
-                "user_id": user_id,
-                "email": redact_email(email) if email else None,
-                "mobile": masked_mobile if mobile else None,
-            },
+            extra={"user_id": user_id},
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -201,11 +178,6 @@ def upsert_public_user(
 
     row_copy = dict(row)
     row_copy.pop("xmax", None)
-
-    if row_copy.get("email"):
-        row_copy["email"] = decrypt_pii(row_copy["email"])
-    if row_copy.get("mobile"):
-        row_copy["mobile"] = decrypt_pii(row_copy["mobile"])
 
     return cast(dict[str, Any], row_copy), newly_created
 

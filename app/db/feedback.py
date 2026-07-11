@@ -95,25 +95,21 @@ def record_feedback_submission(
 
 
 def fetch_user_email(user_id: str) -> str | None:
-    """Look up the account email of record from public.users.
-
-    users.email is NOT NULL in the schema, so this should always resolve
-    for a real account; None only on lookup failure.
+    """Look up the account email of record from Supabase Auth (auth.users),
+    which is the single source of truth for account email.
     """
     try:
-        res = (
-            supabase_client.table("users")
-            .select("email")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
+        response = supabase_client.auth.admin.get_user_by_id(user_id)
+    except Exception:
+        logger.exception(
+            "Failed to fetch user email via admin API",
+            extra={"user_id": user_id},
         )
-        if res and res.data:
-            return cast(dict[str, Any], res.data).get("email")
         return None
-    except APIError:
-        logger.exception("Failed to fetch user email", extra={"user_id": user_id})
-        return None
+
+    user = getattr(response, "user", None)
+    email = getattr(user, "email", None) if user is not None else None
+    return email.strip().lower() if isinstance(email, str) and email else None
 
 
 def fetch_user_tickets(

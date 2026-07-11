@@ -137,8 +137,6 @@ async def auth_bootstrap(
     user_row, newly_created = await run_in_threadpool(
         upsert_public_user,
         user_id=user_id,
-        email=email if email else None,
-        mobile=phone if phone else None,
         app_variant=app_variant,
     )
 
@@ -154,11 +152,7 @@ async def auth_bootstrap(
 
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
-        email=(
-            str(user_row["email"]).strip().lower()
-            if user_row.get("email")
-            else (email if email else None)
-        ),
+        email=email if email else None,
         is_active=bool(user_row.get("is_active", True)),
         is_suspended=bool(user_row.get("is_suspended", False)),
         moderation_status=str(user_row.get("moderation_status") or "clear"),
@@ -236,11 +230,6 @@ def complete_onboarding(
         user_year = None
         user_campus_name = None
         user_lifestyle = payload.lifestyle
-
-    upsert_public_user(
-        user_id=user_id,
-        mobile=payload.phone,
-    )
 
     profile_row, profile_created = upsert_profile_variant(
         user_id=user_id,
