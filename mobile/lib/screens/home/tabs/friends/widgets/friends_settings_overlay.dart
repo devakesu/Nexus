@@ -64,6 +64,37 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
     localCauses = List<String>.from(widget.causesSupported);
   }
 
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: Colors.black.withValues(alpha: 0.06),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -157,6 +188,8 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
+                _buildSectionHeader('Discovery Preferences', LucideIcons.compass, AppColors.modeFriends),
+
                 // Target Buckets
                 Row(
                   children: [
@@ -248,7 +281,9 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                         );
                       }).toList(),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 12),
+
+                _buildSectionHeader('More About You', LucideIcons.user, AppColors.modeFriends),
 
                 // Interests
                 Row(

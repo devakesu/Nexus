@@ -702,6 +702,14 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x26FF4F81),
                           iconColor: Color(0xFFFF4F81),
                         ),
+                        _FeatureRow(
+                          icon: LucideIcons.badgeCheck,
+                          title: 'Verified Badge',
+                          description:
+                              'Display a verified checkmark on your profile showing authenticity (subject to ID verification).',
+                          iconBg: Color(0x2660A5FA),
+                          iconColor: Color(0xFF60A5FA),
+                        ),
                         SizedBox(height: 24),
                       ],
                     ),

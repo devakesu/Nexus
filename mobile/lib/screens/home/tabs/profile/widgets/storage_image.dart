@@ -38,7 +38,10 @@ ImageProvider? resolveStorageImageProvider(String? imagePath) {
   return CachedNetworkImageProvider(
     authenticatedUrl,
     cacheKey: imagePath,
-    headers: {if (token != null) 'apikey': apikey},
+    headers: {
+      'apikey': apikey,
+      if (token != null) 'Authorization': 'Bearer $token',
+    },
   );
 }
 
@@ -111,7 +114,8 @@ class StorageImage extends StatelessWidget {
       // Stable cache key - doesn't change when the auth token rotates.
       cacheKey: imagePath,
       httpHeaders: {
-        if (token != null) 'apikey': apikey,
+        'apikey': apikey,
+        if (token != null) 'Authorization': 'Bearer $token',
       },
       width: width,
       height: height,

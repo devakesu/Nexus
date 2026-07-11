@@ -89,15 +89,6 @@ class ClientAIImageManager extends _$ClientAIImageManager {
     String userBranch = '',
   }) async {
     backupState();
-    state = state.copyWith(isProcessingAI: true);
-
-    // 1. Run your Local Client-Side AI Inference Core directly on-device
-    final freshlyComputedTags = await _runOnDeviceVisionModel(
-      localFile,
-      userBranch: userBranch,
-    );
-
-    if (!ref.mounted) return;
 
     final updatedDeletions = List<String>.from(state.pendingDeletions);
     // If we are replacing an existing remote path, queue it for deletion
@@ -108,14 +99,29 @@ class ClientAIImageManager extends _$ClientAIImageManager {
 
     final updatedPending = Map<int, File>.from(state.pendingUploads)
       ..[slotIndex] = localFile;
+
+    // Mark this slot pending immediately so the UI can overlay a spinner on
+    // the freshly-picked image right away, instead of only once AI tagging
+    // (below) and the eventual network upload happen to be in flight.
+    state = state.copyWith(
+      pendingUploads: updatedPending,
+      pendingDeletions: updatedDeletions,
+      isProcessingAI: true,
+    );
+
+    // 1. Run your Local Client-Side AI Inference Core directly on-device
+    final freshlyComputedTags = await _runOnDeviceVisionModel(
+      localFile,
+      userBranch: userBranch,
+    );
+
+    if (!ref.mounted) return;
+
     final updatedTags = Map<int, List<String>>.from(state.slotSpecificVibeTags)
       ..[slotIndex] = freshlyComputedTags;
 
-    // Eagerly update UI state with the tags before the network upload even starts
     state = state.copyWith(
-      pendingUploads: updatedPending,
       slotSpecificVibeTags: updatedTags,
-      pendingDeletions: updatedDeletions,
       isProcessingAI: false,
     );
   }

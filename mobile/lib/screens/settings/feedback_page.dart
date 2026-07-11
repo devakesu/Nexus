@@ -651,69 +651,73 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 
   Widget _buildQueryTypeSelector() {
-    return Row(
-      children: FeedbackQueryType.values.map((type) {
-        final selected = _queryType == type;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: type == FeedbackQueryType.values.last ? 0 : 10,
-            ),
-            child: ScalePressable(
-              onTap: () => setState(() => _queryType = type),
-              child: AnimatedContainer(
-                duration: 200.ms,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? _gradientEnd.withValues(alpha: 0.08)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: selected ? _gradientEnd : const Color(0xFFE2E8F0),
-                    width: selected ? 1.5 : 1,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: FeedbackQueryType.values.map((type) {
+          final selected = _queryType == type;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: type == FeedbackQueryType.values.last ? 0 : 10,
+              ),
+              child: ScalePressable(
+                onTap: () => setState(() => _queryType = type),
+                child: AnimatedContainer(
+                  duration: 200.ms,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 8,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      type.icon,
-                      size: 20,
-                      color: selected ? _gradientEnd : const Color(0xFF94A3B8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? _gradientEnd.withValues(alpha: 0.08)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? _gradientEnd : const Color(0xFFE2E8F0),
+                      width: selected ? 1.5 : 1,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      type.label,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: selected
-                            ? const Color(0xFF0F172A)
-                            : const Color(0xFF64748B),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        type.icon,
+                        size: 20,
+                        color: selected ? _gradientEnd : const Color(0xFF94A3B8),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      type.description,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        color: const Color(0xFF475569),
+                      const SizedBox(height: 8),
+                      Text(
+                        type.label,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: selected
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF64748B),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        type.description,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          color: const Color(0xFF475569),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
     ).animate().fadeIn(delay: 60.ms, duration: 300.ms);
   }
 

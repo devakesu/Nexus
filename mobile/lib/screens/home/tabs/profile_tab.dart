@@ -1314,7 +1314,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           toolbarWidgetColor: Colors.white,
           activeControlsWidgetColor: AppColors.pulsarPink,
           backgroundColor: const Color(0xFF0B0D13),
-          dimmedLayerColor: Colors.black87,
+          dimmedLayerColor: Colors.black.withValues(alpha: 0.55),
           cropFrameColor: AppColors.pulsarPink,
           cropGridColor: Colors.white24,
           lockAspectRatio: true,
@@ -1844,15 +1844,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   Widget build(BuildContext context) {
     final config = AppConfig.current;
     // .select() instead of watching the whole 6-field provider state: this
-    // build method only reads these three fields, so unrelated state
-    // changes (remotePaths, slotSpecificVibeTags, pendingDeletions) no
-    // longer trigger a rebuild of this ~400-line widget tree.
-    final isProcessingAI = ref.watch(
-      clientAIImageManagerProvider.select((s) => s.isProcessingAI),
-    );
-    final isSaving = ref.watch(
-      clientAIImageManagerProvider.select((s) => s.isSaving),
-    );
+    // build method only reads this field, so unrelated state changes
+    // (remotePaths, isProcessingAI, isSaving, slotSpecificVibeTags,
+    // pendingDeletions) no longer trigger a rebuild of this ~400-line
+    // widget tree. A slot's spinner overlay is keyed off its presence in
+    // this map alone, which is populated the instant an image is staged and
+    // cleared only once the commit succeeds or fails - so it stays visible
+    // for the entire staged-but-not-yet-committed window.
     final pendingUploads = ref.watch(
       clientAIImageManagerProvider.select((s) => s.pendingUploads),
     );
@@ -1954,8 +1952,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         name: _name,
                         rotationController: rotationController,
                         pulseController: pulseController,
-                        isProcessingAI: isProcessingAI,
-                        isSaving: isSaving,
                         hasPendingUpload: pendingUploads.containsKey(0),
                         onAvatarTap: () => _showImageSlotPicker(0),
                       ),
@@ -2011,8 +2007,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         displaySexuality: _displaySexuality,
                         pronouns: _pronouns,
                         imagePaths: _imagePaths,
-                        isProcessingAI: isProcessingAI,
-                        isSaving: isSaving,
                         pendingUploads: pendingUploads,
                         isSavingName: _savingFields.contains('name'),
                         isSavingGender: _savingFields.contains('displayGender'),

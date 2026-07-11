@@ -18,8 +18,6 @@ class CoreSignalSection extends StatefulWidget {
     required this.displaySexuality,
     required this.pronouns,
     required this.imagePaths,
-    required this.isProcessingAI,
-    required this.isSaving,
     required this.pendingUploads,
     required this.onNameChanged,
     required this.onNameSubmitted,
@@ -52,8 +50,6 @@ class CoreSignalSection extends StatefulWidget {
   final String displaySexuality;
   final String pronouns;
   final List<String?> imagePaths;
-  final bool isProcessingAI;
-  final bool isSaving;
   final Map<int, dynamic> pendingUploads;
   final bool isSavingName;
   final bool isSavingGender;
@@ -379,10 +375,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                             Positioned.fill(
                               child: StorageImage(imagePath: imagePath),
                             ),
-                            if ((widget.isProcessingAI || widget.isSaving) &&
-                                widget.pendingUploads.containsKey(
-                                  slotIndex,
-                                ))
+                            if (widget.pendingUploads.containsKey(slotIndex))
                               const Positioned.fill(
                                 child: ColoredBox(
                                   color: Colors.black54,

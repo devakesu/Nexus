@@ -8,7 +8,7 @@ USER root
 # Copy pinned artifacts if available
 COPY pinned-artifacts.json /tmp/pinned-artifacts.json
 
-# 1. System Dependencies, Java 17, Python 3, and Bulletproof SSH Setup
+# 1. System Dependencies, Java 17, Python 3, and SSH Setup
 RUN apt-get update && apt-get install -y \
     openssh-server curl git unzip wget adb openjdk-17-jdk-headless apt-transport-https jq \
     python3 python3-pip python3-venv python-is-python3 \
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     && echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config \
     && echo "StrictModes no" >> /etc/ssh/sshd_config
 
-# 2. Node.js 24.14.1 + npm 11.11.0
+# 2. Node.js + npm
 ARG NPM_TARBALL_URL
 ARG NPM_SHASUM
 
@@ -144,7 +144,7 @@ RUN git clone https://github.com/flutter/flutter.git -b stable $FLUTTER_HOME \
     && $FLUTTER_HOME/bin/flutter precache \
     && flutter config --android-sdk $ANDROID_HOME
 
-# 8. Initialization Script (With Robust Diagnostics)
+# 8. Initialization Script
 USER root
 COPY --chown=vscode:vscode <<"EOF" /home/vscode/init_workspace.sh
 #!/bin/bash

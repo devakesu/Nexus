@@ -104,6 +104,37 @@ class _ProfessionalSettingsOverlayState
     companyController = TextEditingController(text: widget.company);
   }
 
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: Colors.black.withValues(alpha: 0.06),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     companyDebounce?.cancel();
@@ -233,6 +264,8 @@ class _ProfessionalSettingsOverlayState
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
+                _buildSectionHeader('Discovery Preferences', LucideIcons.compass, AppColors.modeProfessional),
+
                 // Target Buckets
                 Row(
                   children: [
@@ -327,6 +360,81 @@ class _ProfessionalSettingsOverlayState
                       }).toList(),
                 ),
                 const SizedBox(height: 32),
+
+                // Looking For
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'What are you looking for professionally?',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (widget.savingFields.contains('looking_for'))
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select your professional goals and intentions.',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: predefinedLookingFor.map((item) {
+                    final isSelected = localLookingFor.contains(item);
+                    return FilterChip(
+                      label: Text(item),
+                      selected: isSelected,
+                      selectedColor: AppColors.modeProfessional,
+                      backgroundColor: Colors.black.withValues(alpha: 0.04),
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onSelected: (selected) async {
+                        if (widget.savingFields.contains('looking_for')) {
+                          return;
+                        }
+                        setState(() {
+                          if (selected) {
+                            localLookingFor.add(item);
+                          } else {
+                            localLookingFor.remove(item);
+                          }
+                        });
+                        await widget.onSaveProfessionalField(
+                          'looking_for',
+                          localLookingFor,
+                          setState,
+                        );
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                _buildSectionHeader('More About You', LucideIcons.user, AppColors.modeProfessional),
 
                 // Role Type
                 Row(
@@ -495,79 +603,6 @@ class _ProfessionalSettingsOverlayState
                       );
                     }
                   },
-                ),
-                const SizedBox(height: 32),
-
-                // Looking For
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'What are you looking for professionally?',
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    if (widget.savingFields.contains('looking_for'))
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: NexusOrbitLoader(size: 16, lightMode: true),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Select your professional goals and intentions.',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: predefinedLookingFor.map((item) {
-                    final isSelected = localLookingFor.contains(item);
-                    return FilterChip(
-                      label: Text(item),
-                      selected: isSelected,
-                      selectedColor: AppColors.modeProfessional,
-                      backgroundColor: Colors.black.withValues(alpha: 0.04),
-                      checkmarkColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (selected) async {
-                        if (widget.savingFields.contains('looking_for')) {
-                          return;
-                        }
-                        setState(() {
-                          if (selected) {
-                            localLookingFor.add(item);
-                          } else {
-                            localLookingFor.remove(item);
-                          }
-                        });
-                        await widget.onSaveProfessionalField(
-                          'looking_for',
-                          localLookingFor,
-                          setState,
-                        );
-                      },
-                    );
-                  }).toList(),
                 ),
                 const SizedBox(height: 32),
 

@@ -12,8 +12,6 @@ class ProfileHeader extends StatelessWidget {
     required this.name,
     required this.rotationController,
     required this.pulseController,
-    required this.isProcessingAI,
-    required this.isSaving,
     required this.hasPendingUpload,
     required this.onAvatarTap,
     super.key,
@@ -23,8 +21,6 @@ class ProfileHeader extends StatelessWidget {
   final String name;
   final AnimationController rotationController;
   final AnimationController pulseController;
-  final bool isProcessingAI;
-  final bool isSaving;
   final bool hasPendingUpload;
   final VoidCallback onAvatarTap;
 
@@ -113,8 +109,7 @@ class ProfileHeader extends StatelessWidget {
                                       height: 100,
                                     ),
                                   ),
-                                  if ((isProcessingAI || isSaving) &&
-                                      hasPendingUpload)
+                                  if (hasPendingUpload)
                                     const Positioned.fill(
                                       child: ColoredBox(
                                         color: Colors.black54,
