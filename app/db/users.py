@@ -240,7 +240,7 @@ def fetch_profile(user_id: str) -> dict[str, Any] | None:
     return cast(dict[str, Any], row)
 
 
-def upsert_profile_variant(
+def upsert_profile_variant(  # noqa: C901
     user_id: str,
     name: str,
     campus_branch: str | None,
@@ -257,24 +257,29 @@ def upsert_profile_variant(
     encrypted_branch = encrypt_to_hex(campus_branch.strip()) if campus_branch else None
     branch_blind = compute_blind_index(campus_branch) if campus_branch else None
     encrypted_campus_name = encrypt_to_hex(campus_name.strip()) if campus_name else None
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    upsert_payload: dict[str, Any] = {
+        "id": user_id,
+        "name": name.strip(),
+        "campus_branch": encrypted_branch,
+        "campus_branch_blind_index": branch_blind,
+        "campus_year": campus_year,
+        "campus_name": encrypted_campus_name,
+        "age": age,
+        "lifestyle": encrypted_lifestyle,
+        "updated_at": now_iso,
+    }
+    if profile_created:
+        # Onboarding's initial name/age counts as "change #1" for the
+        # once-a-year (age) / twice-a-year (name) rate limits - see
+        # 20260728000000_profile_identity_change_limits.sql.
+        upsert_payload["age_updated_at"] = now_iso
 
     try:
         result = (
             supabase_client.table("profiles")
-            .upsert(
-                {
-                    "id": user_id,
-                    "name": name.strip(),
-                    "campus_branch": encrypted_branch,
-                    "campus_branch_blind_index": branch_blind,
-                    "campus_year": campus_year,
-                    "campus_name": encrypted_campus_name,
-                    "age": age,
-                    "lifestyle": encrypted_lifestyle,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
-                on_conflict="id",
-            )
+            .upsert(upsert_payload, on_conflict="id")
             .execute()
         )
     except APIError as e:
@@ -298,6 +303,17 @@ def upsert_profile_variant(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Profile save returned no row.",
         )
+
+    if profile_created:
+        try:
+            supabase_client.table("profile_name_change_log").insert(
+                {"user_id": user_id, "changed_at": now_iso},
+            ).execute()
+        except APIError:
+            logger.warning(
+                "Failed to seed initial name-change marker; onboarding proceeds",
+                extra={"user_id": user_id},
+            )
 
     return cast(dict[str, Any], row), profile_created
 

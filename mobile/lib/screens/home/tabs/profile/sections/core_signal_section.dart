@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
-import 'package:nexus/screens/home/tabs/profile/widgets/neon_slider.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
@@ -12,7 +11,6 @@ class CoreSignalSection extends StatefulWidget {
   const CoreSignalSection({
     required this.name,
     required this.age,
-    required this.savedAge,
     required this.searchBucket,
     required this.displayGender,
     required this.displaySexuality,
@@ -21,8 +19,7 @@ class CoreSignalSection extends StatefulWidget {
     required this.pendingUploads,
     required this.onNameChanged,
     required this.onNameSubmitted,
-    required this.onAgeChanged,
-    required this.onAgeConfirmed,
+    required this.onAgeTileTap,
     required this.onBucketChanged,
     required this.onSelectGender,
     required this.onSelectSexuality,
@@ -39,12 +36,14 @@ class CoreSignalSection extends StatefulWidget {
     this.isSavingAge = false,
     this.isSavingBuckets = false,
     this.nameFocusNode,
+    this.nameModerationError,
+    this.nameChangeStatusText,
+    this.nameChangeEligible = true,
     super.key,
   });
 
   final String name;
   final int age;
-  final int savedAge;
   final String searchBucket;
   final String displayGender;
   final String displaySexuality;
@@ -60,8 +59,7 @@ class CoreSignalSection extends StatefulWidget {
 
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onNameSubmitted;
-  final ValueChanged<int> onAgeChanged;
-  final ValueChanged<int> onAgeConfirmed;
+  final VoidCallback onAgeTileTap;
   final ValueChanged<String> onBucketChanged;
   final VoidCallback onSelectGender;
   final VoidCallback onSelectSexuality;
@@ -72,22 +70,21 @@ class CoreSignalSection extends StatefulWidget {
   final VoidCallback? onClearGender;
   final VoidCallback? onClearSexuality;
   final VoidCallback? onClearPronouns;
+  /// Client-side moderation error (profanity/title/digits) shown as
+  /// helper text under the Display Name field. The backend is
+  /// authoritative - this is instant UX feedback only.
+  final String? nameModerationError;
+  /// Precomputed caption describing the rolling 2x/year name-change
+  /// allowance (e.g. "1 name change left this year"), or the ineligible
+  /// message once both changes are used up.
+  final String? nameChangeStatusText;
+  final bool nameChangeEligible;
 
   @override
   State<CoreSignalSection> createState() => _CoreSignalSectionState();
 }
 
 class _CoreSignalSectionState extends State<CoreSignalSection> {
-  bool _ageChangedSinceInteract = false;
-
-  @override
-  void didUpdateWidget(covariant CoreSignalSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.age == widget.savedAge) {
-      _ageChangedSinceInteract = false;
-    }
-  }
-
   Widget _buildBucketChip({
     required String label,
     required String value,
@@ -177,60 +174,47 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             isSaving: widget.isSavingName,
             focusNode: widget.nameFocusNode,
           ),
-
-          // Age slider
-          NeonSlider(
-            value: widget.age.toDouble(),
-            min: 18,
-            max: 27,
-            divisions: 9,
-            label: 'Age',
-            isSaving: widget.isSavingAge,
-            onChanged: (val) {
-              final newAge = val.round();
-              widget.onAgeChanged(newAge);
-              setState(() {
-                _ageChangedSinceInteract = newAge != widget.savedAge;
-              });
-            },
-          ),
-          if (_ageChangedSinceInteract) ...[
-            const SizedBox(height: 8),
-            Center(
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryTeal,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _ageChangedSinceInteract = false;
-                      });
-                      widget.onAgeConfirmed(widget.age);
-                    },
-                    icon: const Icon(LucideIcons.checkCircle, size: 16),
-                    label: Text(
-                      'Confirm Age Update to ${widget.age}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
+          if (widget.nameModerationError != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 12),
+              child: Text(
+                widget.nameModerationError!,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ] else if (widget.nameChangeStatusText != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 12),
+              child: Text(
+                widget.nameChangeStatusText!,
+                style: TextStyle(
+                  color: widget.nameChangeEligible
+                      ? Colors.black.withValues(alpha: 0.45)
+                      : AppColors.error,
+                  fontSize: 11,
+                  fontWeight: widget.nameChangeEligible
+                      ? FontWeight.normal
+                      : FontWeight.w600,
                 ),
               ),
             ),
           ],
+
+          // Age tile - opens the age-change bottom sheet, which
+          // enforces the once-per-365-days rate limit.
+          SelectorTile(
+            label: 'AGE',
+            value: '${widget.age} yrs old',
+            icon: LucideIcons.calendar,
+            iconColor: const Color(0xFF2D8CFF),
+            trailingIcon: LucideIcons.info,
+            onTap: widget.onAgeTileTap,
+            isSaving: widget.isSavingAge,
+          ),
           const SizedBox(height: 16),
 
           // Demographic Buckets

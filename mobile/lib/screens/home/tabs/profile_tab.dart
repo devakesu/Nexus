@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
@@ -20,6 +21,8 @@ import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_sec
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/spotify_artists_section.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
+import 'package:nexus/screens/home/tabs/profile/utils/name_moderation.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/age_change_sheet.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
@@ -65,6 +68,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _name = '';
   int _age = 0;
   int _year = 0;
+
+  // Age/name change-rate-limit eligibility, refreshed from the profile
+  // details GET response - the backend is the single source of truth for
+  // this date math (see app/api/user.py::get_profile_details).
+  bool _ageChangeEligible = true;
+  DateTime? _ageNextEligibleAt;
+  int _nameChangesUsedInWindow = 0;
+  bool _nameChangeEligible = true;
+  DateTime? _nameNextEligibleAt;
+  String? _nameModerationError;
   String _pronouns = '';
   String _campusName = '';
   bool _isStudying = true;
@@ -476,6 +489,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _age = (data['age'] as num?)?.toInt() ?? _age;
     _savedAge = _age;
 
+    _ageChangeEligible = data['age_change_eligible'] as bool? ?? true;
+    _ageNextEligibleAt = DateTime.tryParse(
+      data['age_next_eligible_at']?.toString() ?? '',
+    );
+    _nameChangesUsedInWindow =
+        (data['name_changes_used_in_window'] as num?)?.toInt() ?? 0;
+    _nameChangeEligible = data['name_change_eligible'] as bool? ?? true;
+    _nameNextEligibleAt = DateTime.tryParse(
+      data['name_next_eligible_at']?.toString() ?? '',
+    );
+
     if (data['campus_year'] != null) {
       _year = (data['campus_year'] as num).toInt();
       _isStudying = _year > 0;
@@ -880,6 +904,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
               }
             });
             unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
+            if (age != null || name != null) {
+              // Refresh the rate-limit eligibility windows from the
+              // server rather than re-deriving the 365-day math here.
+              unawaited(_loadProfileData(silent: true));
+            }
           } else {
             throw Exception(
               'API responded with status code: ${response.statusCode}',
@@ -954,6 +983,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         });
       }
     }
+  }
+
+  /// Caption describing the rolling 2x/year name-change allowance, shown
+  /// under the Display Name field (see CoreSignalSection.nameChangeStatusText).
+  String _nameChangeStatusText() {
+    if (!_nameChangeEligible) {
+      final formatted = _nameNextEligibleAt != null
+          ? DateFormat('MMMM d, y').format(_nameNextEligibleAt!)
+          : 'a later date';
+      return "You've used both name changes for this year. You can change "
+          'your name again on $formatted, or contact support via Settings → '
+          'Help, Feedback & Bug Report.';
+    }
+    final remaining = 2 - _nameChangesUsedInWindow;
+    return '$remaining name change${remaining == 1 ? '' : 's'} left this year.';
   }
 
   int _calculateStability() {
@@ -2001,7 +2045,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         key: _coreSignalKey,
                         name: _name,
                         age: _age,
-                        savedAge: _savedAge,
                         searchBucket: _searchBucket,
                         displayGender: _displayGender,
                         displaySexuality: _displaySexuality,
@@ -2017,12 +2060,28 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingAge: _savingFields.contains('age'),
                         isSavingBuckets: _savingFields.contains('searchBucket'),
                         nameFocusNode: _nameFocusNode,
-                        onNameChanged: (val) => setState(() => _name = val),
+                        nameModerationError: _nameModerationError,
+                        nameChangeStatusText: _nameChangeStatusText(),
+                        nameChangeEligible: _nameChangeEligible,
+                        onNameChanged: (val) {
+                          setState(() {
+                            _name = val;
+                            _nameModerationError =
+                                validateDisplayNameClientSide(val).error;
+                          });
+                        },
                         onNameSubmitted: (val) =>
                             unawaited(_saveProfileChanges(name: val)),
-                        onAgeChanged: (val) => setState(() => _age = val),
-                        onAgeConfirmed: (val) =>
-                            unawaited(_saveProfileChanges(age: val)),
+                        onAgeTileTap: () => unawaited(
+                          showAgeChangeSheet(
+                            context,
+                            currentAge: _age,
+                            eligible: _ageChangeEligible,
+                            nextEligibleAt: _ageNextEligibleAt,
+                            onConfirmed: (newAge) =>
+                                unawaited(_saveProfileChanges(age: newAge)),
+                          ),
+                        ),
                         onBucketChanged: (val) {
                           setState(() => _searchBucket = val);
                           unawaited(_saveProfileChanges(searchBucket: val));

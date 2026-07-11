@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from fastapi import (
@@ -13,6 +13,7 @@ from fastapi import (
     Request,
     status,
 )
+from postgrest.exceptions import APIError
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
@@ -25,7 +26,8 @@ from app.core.config import settings
 from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.limiter import limiter
-from app.db.client import supabase_client
+from app.core.moderation import NameModerationError, validate_display_name
+from app.db.client import parse_utc_datetime, supabase_client
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,
@@ -72,6 +74,10 @@ _VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
         "lifestyle",
     },
 )
+
+_AGE_CHANGE_COOLDOWN_DAYS = 365
+_NAME_CHANGE_WINDOW_DAYS = 365
+_NAME_CHANGE_MAX_PER_WINDOW = 2
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +377,7 @@ def get_profile_details(
 ) -> dict[str, Any]:
     try:
         select_cols = (
-            "id, name, age, campus_year, campus_branch, campus_name, "
+            "id, name, age, age_updated_at, campus_year, campus_branch, campus_name, "
             "display_gender, display_sexuality, pronouns, bio, search_bucket, "
             "hometown, current_place, partner_values, children_plans, "
             "religious_beliefs, lifestyle, drinking, smoking, role_at, "
@@ -405,6 +411,46 @@ def get_profile_details(
         _assert_no_decryption_failures(profile)
 
         ordered_images = _build_ordered_images(profile)
+
+        age_updated_at = profile.get("age_updated_at")
+        age_next_eligible_dt = (
+            parse_utc_datetime(age_updated_at)
+            + timedelta(days=_AGE_CHANGE_COOLDOWN_DAYS)
+            if age_updated_at
+            else None
+        )
+        age_change_eligible = (
+            age_next_eligible_dt is None
+            or datetime.now(timezone.utc) >= age_next_eligible_dt
+        )
+
+        name_cutoff = datetime.now(timezone.utc) - timedelta(
+            days=_NAME_CHANGE_WINDOW_DAYS,
+        )
+        name_log_res = (
+            supabase_client.table("profile_name_change_log")
+            .select("changed_at")
+            .eq("user_id", user_id)
+            .gte("changed_at", name_cutoff.isoformat())
+            .order("changed_at")
+            .execute()
+        )
+        recent_name_changes = cast(
+            "list[dict[str, Any]]",
+            getattr(name_log_res, "data", None) or [],
+        )
+        name_changes_used_in_window = len(recent_name_changes)
+        name_change_eligible = (
+            name_changes_used_in_window < _NAME_CHANGE_MAX_PER_WINDOW
+        )
+        name_next_eligible_at = (
+            (
+                parse_utc_datetime(recent_name_changes[0]["changed_at"])
+                + timedelta(days=_NAME_CHANGE_WINDOW_DAYS)
+            ).isoformat()
+            if not name_change_eligible
+            else None
+        )
 
         return {
             "name": profile.get("name"),
@@ -449,6 +495,13 @@ def get_profile_details(
             "is_professional_active": bool(
                 profile.get("is_professional_active", False),
             ),
+            "age_change_eligible": age_change_eligible,
+            "age_next_eligible_at": (
+                age_next_eligible_dt.isoformat() if age_next_eligible_dt else None
+            ),
+            "name_changes_used_in_window": name_changes_used_in_window,
+            "name_change_eligible": name_change_eligible,
+            "name_next_eligible_at": name_next_eligible_at,
         }
     except HTTPException:
         raise
@@ -700,10 +753,90 @@ def update_profile_details(  # noqa: C901
 ) -> dict[str, Any]:
     update_data: dict[str, Any] = {}
 
+    new_name: str | None = None
     if payload.name is not None:
-        update_data["name"] = payload.name.strip()
+        new_name = payload.name.strip()
+        try:
+            validate_display_name(new_name)
+        except NameModerationError as e:
+            raise HTTPException(status_code=422, detail=e.detail) from e
+
+        name_cutoff = datetime.now(timezone.utc) - timedelta(
+            days=_NAME_CHANGE_WINDOW_DAYS,
+        )
+        try:
+            name_log_res = (
+                supabase_client.table("profile_name_change_log")
+                .select("changed_at")
+                .eq("user_id", user_id)
+                .gte("changed_at", name_cutoff.isoformat())
+                .order("changed_at")
+                .execute()
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to check name change eligibility",
+                extra={"user_id": user_id},
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error.",
+            ) from e
+
+        recent_name_changes = cast(
+            "list[dict[str, Any]]",
+            getattr(name_log_res, "data", None) or [],
+        )
+        if len(recent_name_changes) >= _NAME_CHANGE_MAX_PER_WINDOW:
+            oldest = parse_utc_datetime(recent_name_changes[0]["changed_at"])
+            next_eligible = oldest + timedelta(days=_NAME_CHANGE_WINDOW_DAYS)
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "You've used both name changes allowed this year. "
+                    f"You can change your name again on "
+                    f"{next_eligible:%B %d, %Y}."
+                ),
+            )
+
     if payload.age is not None:
-        update_data["age"] = payload.age
+        try:
+            age_res = (
+                supabase_client.table("profiles")
+                .select("age_updated_at")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to check age change eligibility",
+                extra={"user_id": user_id},
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error.",
+            ) from e
+
+        age_data = cast(
+            "dict[str, Any]",
+            getattr(age_res, "data", None) or {},
+        )
+        last_age_change = cast("str | None", age_data.get("age_updated_at"))
+        if last_age_change:
+            age_next_eligible = parse_utc_datetime(last_age_change) + timedelta(
+                days=_AGE_CHANGE_COOLDOWN_DAYS,
+            )
+            if datetime.now(timezone.utc) < age_next_eligible:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "You can only change your age once every 365 days. "
+                        f"You'll be able to change it again on "
+                        f"{age_next_eligible:%B %d, %Y}."
+                    ),
+                )
+
     if payload.campus_branch is not None:
         update_data["campus_branch"] = encrypt_to_hex(payload.campus_branch.strip())
         update_data["campus_branch_blind_index"] = compute_blind_index(
@@ -866,23 +999,89 @@ def update_profile_details(  # noqa: C901
         else:
             update_data["is_professional_active"] = False
 
-    if not update_data:
+    if not update_data and payload.age is None and new_name is None:
         return {"status": "success", "detail": "No fields to update."}
 
-    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    has_other_updates = bool(update_data)
+    if has_other_updates:
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     try:
-        res = (
-            supabase_client.table("profiles")
-            .update(update_data)
-            .eq("id", user_id)
-            .execute()
-        )
-        if not getattr(res, "data", None):
-            raise HTTPException(
-                status_code=404,
-                detail="Profile not found. Complete onboarding first.",
+        if payload.age is not None:
+            try:
+                supabase_client.rpc(
+                    "apply_age_change",
+                    {
+                        "p_user_id": user_id,
+                        "p_new_age": payload.age,
+                        "p_min_interval_days": _AGE_CHANGE_COOLDOWN_DAYS,
+                    },
+                ).execute()
+            except APIError as e:
+                if e.message == "age_change_too_soon":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="You can only change your age once every 365 days.",
+                    ) from e
+                if e.message == "profile_not_found":
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Profile not found. Complete onboarding first.",
+                    ) from e
+                logger.exception(
+                    "Unexpected apply_age_change failure",
+                    extra={"user_id": user_id},
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Internal server error.",
+                ) from e
+
+        if new_name is not None:
+            try:
+                supabase_client.rpc(
+                    "apply_name_change",
+                    {
+                        "p_user_id": user_id,
+                        "p_new_name": new_name,
+                        "p_min_interval_days": _NAME_CHANGE_WINDOW_DAYS,
+                        "p_max_changes": _NAME_CHANGE_MAX_PER_WINDOW,
+                    },
+                ).execute()
+            except APIError as e:
+                if e.message == "name_change_limit_reached":
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "You've used both name changes allowed this year."
+                        ),
+                    ) from e
+                if e.message == "profile_not_found":
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Profile not found. Complete onboarding first.",
+                    ) from e
+                logger.exception(
+                    "Unexpected apply_name_change failure",
+                    extra={"user_id": user_id},
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Internal server error.",
+                ) from e
+
+        if update_data:
+            res = (
+                supabase_client.table("profiles")
+                .update(update_data)
+                .eq("id", user_id)
+                .execute()
             )
+            if not getattr(res, "data", None):
+                raise HTTPException(
+                    status_code=404,
+                    detail="Profile not found. Complete onboarding first.",
+                )
 
         plaintext_bio = (payload.bio or "").strip()
         background_tasks.add_task(recompile_and_push_vectors, user_id, plaintext_bio)

@@ -1401,6 +1401,11 @@ class ProfileDetailsResponse(BaseModel):
     is_dating_active: bool = False
     is_friends_active: bool = False
     is_professional_active: bool = False
+    age_change_eligible: bool = True
+    age_next_eligible_at: str | None = None
+    name_changes_used_in_window: int = 0
+    name_change_eligible: bool = True
+    name_next_eligible_at: str | None = None
 
 
 class ProfileUpdateResponse(BaseModel):
