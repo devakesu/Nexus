@@ -20,6 +20,7 @@ import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/scale_pressable.dart';
 
 /// Individual chat screen: establishes the Signal Protocol session on open
 /// (see `session_manager.dart`), then shows the live, end-to-end encrypted
@@ -529,49 +530,62 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [theme.primary, theme.secondary],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
-              color: theme.primary.withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Color(0x08000000), // black @ ~3% matching Ambient Card
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
           ],
         ),
         child: AppBar(
           backgroundColor: Colors.transparent,
+          scrolledUnderElevation: 0,
           elevation: 0,
-          leadingWidth: 44,
-          leading: IconButton(
-            icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
-            onPressed: () => Navigator.of(context).maybePop(),
+          leadingWidth: 62,
+          leading: Center(
+            child: ScalePressable(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.canvas,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.borderNeutral,
+                  ),
+                ),
+                child: const Icon(
+                  LucideIcons.chevronLeft,
+                  color: AppColors.ink,
+                  size: 18,
+                ),
+              ),
+            ),
           ),
           titleSpacing: 0,
           title: Row(
             children: [
               ClipOval(
                 child: SizedBox(
-                  width: 34,
-                  height: 34,
-                  child:
-                      widget.profilePic != null && widget.profilePic!.isNotEmpty
+                  width: 40,
+                  height: 40,
+                  child: widget.profilePic != null && widget.profilePic!.isNotEmpty
                       ? StorageImage(imagePath: widget.profilePic!)
                       : ColoredBox(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          child: const Icon(
+                          color: theme.primary.withValues(alpha: 0.12),
+                          child: Icon(
                             LucideIcons.user,
-                            color: Colors.white,
-                            size: 18,
+                            color: theme.primary,
+                            size: 22,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,35 +596,221 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                       widget.name,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.manrope(
-                        color: Colors.white,
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontSize: 16.5,
                       ),
                     ),
-                    PresenceBadge(peerUserId: widget.matchedUserId),
+                    PresenceBadge(
+                      peerUserId: widget.matchedUserId,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppColors.inkMuted,
+                      ),
+                      fallback: Text(
+                        'Offline',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           actions: [
-            PopupMenuButton<String>(
-              icon: const Icon(LucideIcons.moreVertical, color: Colors.white),
-              onSelected: (value) {
-                switch (value) {
-                  case 'unmatch':
-                    unawaited(_confirmUnmatch(theme));
-                  case 'block':
-                    unawaited(_handleBlock());
-                  case 'report':
-                    unawaited(_handleReport());
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'unmatch', child: Text('Unmatch')),
-                PopupMenuItem(value: 'block', child: Text('Block')),
-                PopupMenuItem(value: 'report', child: Text('Report & Block')),
-              ],
+            Center(
+              child: ScalePressable(
+                onTap: () => _showChatActionsSheet(context, theme),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.borderNeutral,
+                    ),
+                  ),
+                  child: const Icon(
+                    LucideIcons.moreVertical,
+                    color: AppColors.ink,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showChatActionsSheet(BuildContext context, ChatTabTheme theme) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.borderNeutral,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    ClipOval(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: widget.profilePic != null && widget.profilePic!.isNotEmpty
+                            ? StorageImage(imagePath: widget.profilePic!)
+                            : ColoredBox(
+                                color: theme.primary.withValues(alpha: 0.12),
+                                child: Icon(
+                                  LucideIcons.user,
+                                  color: theme.primary,
+                                  size: 28,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.name,
+                      style: GoogleFonts.manrope(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage connection',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: AppColors.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSheetAction(
+                icon: LucideIcons.userMinus,
+                label: 'Unmatch',
+                description: 'Remove this connection and close the conversation',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  unawaited(_confirmUnmatch(theme));
+                },
+              ),
+              _buildSheetAction(
+                icon: LucideIcons.ban,
+                label: 'Block',
+                description: 'They will not be able to see or interact with you in all 3 orbits',
+                iconColor: AppColors.error,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  unawaited(_handleBlock());
+                },
+              ),
+              _buildSheetAction(
+                icon: LucideIcons.flag,
+                label: 'Report & Block',
+                description: 'Report safety concerns and block them in all 3 orbits',
+                iconColor: AppColors.error,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  unawaited(_handleReport());
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSheetAction({
+    required IconData icon,
+    required String label,
+    required String description,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    final effectiveColor = iconColor ?? AppColors.ink;
+    return ScalePressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderNeutral),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: effectiveColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: effectiveColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.manrope(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: effectiveColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              LucideIcons.chevronRight,
+              color: AppColors.inkFaint,
+              size: 16,
             ),
           ],
         ),

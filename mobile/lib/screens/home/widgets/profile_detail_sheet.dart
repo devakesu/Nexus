@@ -1427,14 +1427,17 @@ Future<void> showProfileReportDialog(
     ),
   );
 
+  final detail = (confirmed == true && selectedReason == 'other')
+      ? otherCtrl.text.trim()
+      : null;
+
+  // Delay disposal to allow the dialog fade-out transition to complete safely
+  Future.delayed(const Duration(milliseconds: 400), otherCtrl.dispose);
+
   if (confirmed ?? false) {
-    final detail = selectedReason == 'other' ? otherCtrl.text.trim() : null;
-    otherCtrl.dispose();
     await onConfirmed(
       selectedReason!,
       (detail?.isEmpty == true) ? null : detail,
     );
-  } else {
-    otherCtrl.dispose();
   }
 }

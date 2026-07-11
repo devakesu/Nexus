@@ -418,7 +418,7 @@ class _NexusPlusPromoCard extends StatelessWidget {
   final Color accentColor;
 
   void _showNexusPlusOverlay(BuildContext context) {
-    showGeneralDialog<void>(
+    unawaited(showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'NexusPlus',
@@ -437,7 +437,7 @@ class _NexusPlusPromoCard extends StatelessWidget {
           ),
         );
       },
-    );
+    ));
   }
 
   @override
@@ -657,12 +657,12 @@ class _NexusPlusOverlay extends StatelessWidget {
                 ),
                 const SizedBox(height: 36),
                 // Feature List
-                Expanded(
+                const Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: LucideIcons.magnet,
                           title: 'Gravity Pull',
                           description:
@@ -670,7 +670,7 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x26FF7597),
                           iconColor: Color(0xFFFF7597),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: LucideIcons.send,
                           title: 'Stardust Messages',
                           description:
@@ -678,7 +678,7 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x267C3AED),
                           iconColor: Color(0xFF7C3AED),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: LucideIcons.eyeOff,
                           title: 'Dark Nebula',
                           description:
@@ -686,7 +686,7 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x264EA8DE),
                           iconColor: Color(0xFF4EA8DE),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: LucideIcons.history,
                           title: 'Retrograde',
                           description:
@@ -694,7 +694,7 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x26007E6D),
                           iconColor: Color(0xFF007E6D),
                         ),
-                        const _FeatureRow(
+                        _FeatureRow(
                           icon: LucideIcons.palette,
                           title: 'Chroma Orbit',
                           description:
@@ -702,7 +702,7 @@ class _NexusPlusOverlay extends StatelessWidget {
                           iconBg: Color(0x26FF4F81),
                           iconColor: Color(0xFFFF4F81),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -715,7 +715,6 @@ class _NexusPlusOverlay extends StatelessWidget {
                     border: Border(
                       top: BorderSide(
                         color: Colors.white.withValues(alpha: 0.05),
-                        width: 1,
                       ),
                     ),
                   ),
@@ -801,7 +800,6 @@ class _FeatureRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: iconColor.withValues(alpha: 0.25),
-                width: 1,
               ),
             ),
             child: Icon(
