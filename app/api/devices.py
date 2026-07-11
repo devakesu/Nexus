@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.db.client import DatabaseAccessError, supabase_client
+from app.db.client import supabase_client
 from app.models import RegisterDeviceRequest
 
 router = APIRouter()
@@ -84,7 +84,7 @@ async def unregister_device(
             payload.fcm_token,
         )
         return {"success": True}
-    except DatabaseAccessError as err:
+    except Exception as err:
         logger.exception(
             "Database error deactivating device token",
             extra={"user_id": user_id},

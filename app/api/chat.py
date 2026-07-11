@@ -99,6 +99,8 @@ async def get_chats(
 
         return ChatsListResponse(conversations=items)
 
+    except HTTPException:
+        raise
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure fetching chats", extra={"user_id": user_id, "tab": tab},
@@ -165,6 +167,8 @@ async def get_new_chat_candidates(
 
         return ChatCandidatesResponse(candidates=items)
 
+    except HTTPException:
+        raise
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure fetching new chat candidates",

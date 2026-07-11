@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import Base64Bytes, BaseModel, Field, field_validator, model_validator
 
@@ -204,7 +204,7 @@ class CompleteOnboardingResponse(BaseModel):
     terms_recorded: bool
     accepted_terms_version: str
     terms_accepted_at: datetime
-    profile: dict[str, object]
+    profile: dict[str, object] = Field(exclude=True)
 
 
 # ---------------------------------------------------------------------------
@@ -539,6 +539,17 @@ class OrbitNodeDetailRequest(BaseModel):
         description="Profile id of the clicked orbit node.",
     )
 
+    @field_validator("session_id", "candidate_id")
+    @classmethod
+    def validate_uuids(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError(f"Value must be a valid UUID: {v}") from e
+        return v
+
 
 class OrbitNodeDetailBaseOut(BaseModel):
     tab: DiscoveryTab
@@ -564,8 +575,8 @@ class OrbitNodeDetailBaseOut(BaseModel):
     current_place: str | None = None
     languages: list[str] = Field(default_factory=list)
     causes_supported: list[str] = Field(default_factory=list)
-    interests: dict[str, Any] = Field(default_factory=dict)
-    sub_interests: dict[str, Any] = Field(default_factory=dict)
+    interests: dict[str, int] = Field(default_factory=dict)
+    sub_interests: dict[str, list[str]] = Field(default_factory=dict)
     ai_vibe_tags: list[str] = Field(default_factory=list)
 
 
@@ -728,7 +739,7 @@ class LikeActionRequest(BaseModel):
         return v
 
     action: Literal["like", "superlike", "pass", "hide", "block", "report"]
-    tab: DiscoveryTab = "Dating"
+    tab: DiscoveryTab
     reason: (
         Literal[
             "scam",
@@ -766,6 +777,12 @@ class LikeActionRequest(BaseModel):
         return self
 
 
+class LikeActionResponse(BaseModel):
+    success: bool = True
+    matched: bool = False
+    match_id: str | None = None
+
+
 # Matches
 # ---------------------------------------------------------------------------
 
@@ -800,7 +817,7 @@ class MatchActionRequest(BaseModel):
         return v
 
     action: Literal["unmatch", "block", "report"]
-    tab: DiscoveryTab = "Dating"
+    tab: DiscoveryTab
     reason: (
         Literal[
             "scam",
@@ -836,6 +853,10 @@ class MatchActionRequest(BaseModel):
                         "characters when reason is other",
                     )
         return self
+
+
+class MatchActionResponse(BaseModel):
+    success: bool = True
 
 
 # Chats
@@ -954,7 +975,11 @@ class SendMessageRequest(BaseModel):
 
     message_type: Literal["text", "image", "voice", "event", "location"] = "text"
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
-    ciphertext_metadata: dict[str, Any] = Field(default_factory=dict)
+    ciphertext_metadata: dict[str, str | int | bool | None] = Field(
+        default_factory=dict,
+        max_length=20,
+        description="Bounded Signal protocol metadata (string/int/bool values only).",
+    )
 
     @field_validator("ciphertext")
     @classmethod
@@ -1010,7 +1035,11 @@ class CreateEventRequest(BaseModel):
     location_lng: float | None = Field(default=None, ge=-180, le=180)
     location_label: str | None = Field(default=None, max_length=200)
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
-    ciphertext_metadata: dict[str, Any] = Field(default_factory=dict)
+    ciphertext_metadata: dict[str, str | int | bool | None] = Field(
+        default_factory=dict,
+        max_length=20,
+        description="Bounded Signal protocol metadata (string/int/bool values only).",
+    )
     # Meetup Safety auto-configure (Milestone F) - personal to whichever
     # participant creates the event, not shared conversation state.
     safety_enabled: bool = False
@@ -1059,6 +1088,17 @@ class DiscoveryViewportRequest(BaseModel):
     center_x: float
     center_y: float
     radius: float = Field(..., gt=0.0, le=2000.0)
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("session_id must be a valid UUID") from e
+        return v
 
 
 class DiscoveryViewportResponse(BaseModel):
@@ -1322,6 +1362,64 @@ class ProfileDetailsUpdate(BaseModel):
     is_professional_active: bool | None = None
 
 
+class ProfileDetailsResponse(BaseModel):
+    name: str | None = None
+    age: int | None = None
+    campus_year: int | None = None
+    campus_branch: str | None = None
+    campus_name: str | None = None
+    display_gender: str | None = None
+    display_sexuality: str | None = None
+    pronouns: str | None = None
+    bio: str = ""
+    search_bucket: str = "NB"
+    hometown: str | None = None
+    current_place: str | None = None
+    partner_values: list[str] = Field(default_factory=list)
+    children_plans: str | None = None
+    religious_beliefs: str | None = None
+    lifestyle: str | None = None
+    drinking: str | None = None
+    smoking: str | None = None
+    role_at: str | None = None
+    role_type: list[str] = Field(default_factory=list)
+    dating_target_buckets: list[str] = Field(default_factory=list)
+    dating_for: list[str] = Field(default_factory=list)
+    friends_target_buckets: list[str] = Field(default_factory=list)
+    professional_target_buckets: list[str] = Field(default_factory=list)
+    looking_for: list[str] = Field(default_factory=list)
+    activities: list[str] = Field(default_factory=list)
+    causes_supported: list[str] = Field(default_factory=list)
+    top_artists: list[str] = Field(default_factory=list)
+    tech_skills: list[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    pets: list[str] = Field(default_factory=list)
+    interests: dict[str, int] = Field(default_factory=dict)
+    sub_interests: dict[str, list[str]] = Field(default_factory=dict)
+    ordered_images: list[str] = Field(default_factory=list)
+    ai_vibe_tags: list[str] = Field(default_factory=list)
+    is_dating_active: bool = False
+    is_friends_active: bool = False
+    is_professional_active: bool = False
+
+
+class ProfileUpdateResponse(BaseModel):
+    status: str
+    detail: str
+
+
+class ModerationSubjectItem(BaseModel):
+    id: str
+    name: str | None = None
+    age: int | None = None
+    campus_year: int | None = None
+    campus_name: str | None = None
+    campus_branch: str | None = None
+    hometown: str | None = None
+    current_place: str | None = None
+    profile_pic: str | None = None
+
+
 class ModerationSubjectsRequest(BaseModel):
     target_ids: list[str] = Field(..., min_length=1, max_length=50)
 
@@ -1439,7 +1537,10 @@ class FeedbackSubmitRequest(BaseModel):
     )
     app_version: str | None = Field(default=None, max_length=32)
     platform: Literal["android", "ios"] | None = None
-    device_info: dict[str, Any] = Field(default_factory=dict)
+    device_info: dict[str, str | int | bool | None] = Field(
+        default_factory=dict,
+        max_length=30,
+    )
 
     @field_validator("subject", "message")
     @classmethod
@@ -1559,15 +1660,26 @@ class FeedbackCloseRequest(BaseModel):
 
 class SafetyContactIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    phone: str = Field(..., min_length=6, max_length=20)
+    phone: str = Field(..., min_length=8, max_length=20)
 
-    @field_validator("name", "phone")
+    @field_validator("name")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
         return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
+            )
+        return cleaned
 
 
 class SafetyContactsSyncRequest(BaseModel):
@@ -1587,6 +1699,20 @@ class SafetyLocation(BaseModel):
 class SafetyAlertRequest(BaseModel):
     alert_type: Literal["sos_silent", "sos_loud", "inform"]
     session_id: str | None = None
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id_uuid(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("session_id must be a valid UUID") from e
+        return v
+
     session_label: str | None = Field(default=None, max_length=200)
     event_label: str | None = Field(default=None, max_length=200)
     current_location: SafetyLocation | None = None
@@ -1629,14 +1755,37 @@ class SafetySessionStartResponse(BaseModel):
 
 
 class SafetySessionCheckinRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(..., min_length=1)
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("session_id must be a valid UUID") from e
+        return v
+
     next_checkin_at: datetime
     battery_percent: int | None = Field(default=None, ge=0, le=100)
     connection_type: Literal["wifi", "cellular", "offline"] | None = None
 
 
 class SafetySessionEndRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(..., min_length=1)
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id_uuid(cls, v: str) -> str:
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("session_id must be a valid UUID") from e
+        return v
 
 
 # ---------------------------------------------------------------------------

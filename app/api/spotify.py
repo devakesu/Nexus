@@ -29,7 +29,7 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.dependencies import get_authenticated_user_id
 from app.core.cache import redis_client
@@ -162,9 +162,9 @@ async def _seed_and_queue_sync(
 
 class _NativeExchangeRequest(BaseModel):
     # Authorization code from the Spotify Android Auth Library.
-    code: str
+    code: str = Field(..., min_length=1, max_length=512)
     # Must match the redirect_uri used when the auth request was made.
-    redirect_uri: str
+    redirect_uri: str = Field(..., min_length=1, max_length=512)
 
 
 @router.post("/api/v1/spotify/native-exchange")

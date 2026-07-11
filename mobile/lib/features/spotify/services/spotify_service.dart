@@ -45,8 +45,15 @@ class SpotifyService {
         'redirect_uri': config.spotifyNativeRedirectUri,
       },
     );
-    final raw = response.data?['artists'];
-    return (raw is List) ? raw.map((e) => e.toString()).toList() : <String>[];
+    final data = response.data;
+    if (data == null || !data.containsKey('artists')) {
+      throw const FormatException('Invalid or empty response from server.');
+    }
+    final raw = data['artists'];
+    if (raw is! List) {
+      throw const FormatException('Expected artists list in response.');
+    }
+    return raw.map((e) => e.toString()).toList();
   }
 
   /// Requests a browser OAuth authorization URL for the current user

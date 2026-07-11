@@ -469,7 +469,7 @@ class ChatConversationController extends _$ChatConversationController {
         .order('created_at', ascending: false)
         .limit(_pageSize);
     final rows = List<Map<String, dynamic>>.from(
-      rawRows as List,
+      rawRows.map((e) => Map<String, dynamic>.from(e as Map)),
     ).reversed.toList();
 
     final messages = await _resolveMessages(rows, store, address);
@@ -535,7 +535,7 @@ class ChatConversationController extends _$ChatConversationController {
           .order('created_at', ascending: false)
           .limit(_pageSize);
       final rows = List<Map<String, dynamic>>.from(
-        rawRows as List,
+        rawRows.map((e) => Map<String, dynamic>.from(e as Map)),
       ).reversed.toList();
 
       final older = await _resolveMessages(rows, store, address);

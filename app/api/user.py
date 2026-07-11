@@ -49,12 +49,15 @@ from app.models import (
     EmailNotificationSettingsResponse,
     EmailNotificationSettingsUpdate,
     MECOnboardingRequest,
+    ModerationSubjectItem,
     ModerationSubjectsRequest,
     OnboardingPayload,
     PrivacySettingsResponse,
     PrivacySettingsUpdate,
+    ProfileDetailsResponse,
     ProfileDetailsUpdate,
     ProfileImagesAndTagsUpdate,
+    ProfileUpdateResponse,
 )
 from app.services.profile import recompile_and_push_vectors
 from app.services.value_dimensions import recompile_value_dimensions
@@ -73,7 +76,6 @@ _VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
 
 
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
@@ -335,7 +337,35 @@ async def update_profile_media_and_tags(
         ) from e
 
 
-@router.get("/api/v1/profile/details")
+def _assert_no_decryption_failures(profile: dict[str, Any]) -> None:
+    for val in profile.values():
+        if (
+            val == "__DECRYPTION_FAILED__"
+            or val == ["__DECRYPTION_FAILED__"]
+            or val == {"__DECRYPTION_FAILED__": True}
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "Profile decryption failed due to data corruption or key mismatch."
+                ),
+            )
+
+
+def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
+    profile_pic = profile.get("profile_pic")
+    normal_pics = profile.get("normal_pics")
+    ordered_images: list[str] = []
+    if profile_pic and isinstance(profile_pic, str) and profile_pic.strip():
+        ordered_images.append(profile_pic)
+    if isinstance(normal_pics, list):
+        for p in cast(list[object], normal_pics):
+            if isinstance(p, str) and p.strip():
+                ordered_images.append(p)
+    return ordered_images
+
+
+@router.get("/api/v1/profile/details", response_model=ProfileDetailsResponse)
 def get_profile_details(
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, Any]:
@@ -372,19 +402,9 @@ def get_profile_details(
         profile = decrypt_profile_record(cast(dict[str, Any], data))
 
         # Check if any field failed decryption
-        for val in profile.values():
-            if (
-                val == "__DECRYPTION_FAILED__"
-                or val == ["__DECRYPTION_FAILED__"]
-                or val == {"__DECRYPTION_FAILED__": True}
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=(
-                        "Profile decryption failed due to data "
-                        "corruption or key mismatch."
-                    ),
-                )
+        _assert_no_decryption_failures(profile)
+
+        ordered_images = _build_ordered_images(profile)
 
         return {
             "name": profile.get("name"),
@@ -422,11 +442,7 @@ def get_profile_details(
             "pets": profile.get("pets") or [],
             "interests": profile.get("interests") or {},
             "sub_interests": profile.get("sub_interests") or {},
-            "ordered_images": (
-                [profile.get("profile_pic")] + (profile.get("normal_pics") or [])
-                if profile.get("profile_pic")
-                else (profile.get("normal_pics") or [])
-            ),
+            "ordered_images": ordered_images,
             "ai_vibe_tags": profile.get("ai_vibe_tags") or [],
             "is_dating_active": bool(profile.get("is_dating_active", False)),
             "is_friends_active": bool(profile.get("is_friends_active", False)),
@@ -444,7 +460,10 @@ def get_profile_details(
         ) from e
 
 
-@router.post("/api/v1/users/moderation-subjects")
+@router.post(
+    "/api/v1/users/moderation-subjects",
+    response_model=list[ModerationSubjectItem],
+)
 def get_moderation_subjects(
     payload: ModerationSubjectsRequest = Body(...),  # noqa: B008
     user_id: str = Depends(get_authenticated_user_id),
@@ -672,7 +691,7 @@ def _validate_tab_activation(
     return missing
 
 
-@router.patch("/api/v1/profile/details")
+@router.patch("/api/v1/profile/details", response_model=ProfileUpdateResponse)
 def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
@@ -860,7 +879,10 @@ def update_profile_details(  # noqa: C901
             .execute()
         )
         if not getattr(res, "data", None):
-            raise HTTPException(status_code=404, detail="Profile not found")
+            raise HTTPException(
+                status_code=404,
+                detail="Profile not found. Complete onboarding first.",
+            )
 
         plaintext_bio = (payload.bio or "").strip()
         background_tasks.add_task(recompile_and_push_vectors, user_id, plaintext_bio)
@@ -996,7 +1018,8 @@ def get_email_notification_settings(
         raise
     except Exception as e:
         logger.exception(
-            "Failed to fetch email notification settings for user %s", user_id,
+            "Failed to fetch email notification settings for user %s",
+            user_id,
         )
         raise HTTPException(status_code=500, detail="Internal server error.") from e
 
@@ -1029,6 +1052,7 @@ def update_email_notification_settings(
         raise
     except Exception as e:
         logger.exception(
-            "Failed to update email notification settings for user %s", user_id,
+            "Failed to update email notification settings for user %s",
+            user_id,
         )
         raise HTTPException(status_code=500, detail="Internal server error.") from e

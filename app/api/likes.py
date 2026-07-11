@@ -32,10 +32,12 @@ from app.db.profiles import decrypt_profile_rows as _decrypt_profiles
 from app.db.profiles import fetch_peer_profile_by_id
 from app.models import (
     LikeActionRequest,
+    LikeActionResponse,
     LikeListItem,
     LikesListResponse,
     MarkLikesSeenRequest,
     MatchActionRequest,
+    MatchActionResponse,
     MatchesListResponse,
     MatchItem,
     OrbitNodeDetailResponse,
@@ -75,11 +77,13 @@ async def get_likes_inbox(
         )
 
         profiles_res = await asyncio.to_thread(
-            lambda: supabase_client.table("profiles")
-            .select("id, name, age, profile_pic")
-            .in_("id", actor_ids)
-            .eq("is_deactivated", False)
-            .execute(),
+            lambda: (
+                supabase_client.table("profiles")
+                .select("id, name, age, profile_pic")
+                .in_("id", actor_ids)
+                .eq("is_deactivated", False)
+                .execute()
+            ),
         )
 
         profile_map = _decrypt_profiles(cast(list[Any], profiles_res.data or []))
@@ -103,9 +107,9 @@ async def get_likes_inbox(
         # Unseen first → superlikes before likes → newest first
         items.sort(
             key=lambda x: (
-                x.seen_at is not None,       # False(0) = unseen first
-                x.action != "superlike",     # False(0) = superlike first
-                -(x.created_at.timestamp()), # negative = newest first
+                x.seen_at is not None,  # False(0) = unseen first
+                x.action != "superlike",  # False(0) = superlike first
+                -(x.created_at.timestamp()),  # negative = newest first
             ),
         )
         unseen_count = sum(1 for item in items if item.seen_at is None)
@@ -216,7 +220,8 @@ async def get_peer_profile(
         )
 
         profile = await asyncio.to_thread(
-            fetch_peer_profile_by_id, target_id,
+            fetch_peer_profile_by_id,
+            target_id,
         )
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found.")
@@ -261,14 +266,14 @@ async def get_peer_profile(
 _LIKES_PASS_EXPIRY_DAYS = 14  # 2 weeks (same as orbit pass)
 
 
-@router.post("/api/v1/likes/action")
+@router.post("/api/v1/likes/action", response_model=LikeActionResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def record_like_back_action(
     request: Request,
     payload: LikeActionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
-) -> dict[str, Any]:
+) -> LikeActionResponse:
     _ = request
     try:
         if payload.action == "report":
@@ -302,7 +307,10 @@ async def record_like_back_action(
             try:
                 # payload.target_id is the original liker; user_id liked back
                 match_id = await asyncio.to_thread(
-                    record_match, payload.target_id, user_id, payload.tab,
+                    record_match,
+                    payload.target_id,
+                    user_id,
+                    payload.tab,
                 )
                 safe_create_task(
                     send_match_notification(
@@ -323,7 +331,7 @@ async def record_like_back_action(
         if payload.action in ("like", "superlike", "pass", "block"):
             await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
 
-        return {"success": True, "matched": matched, "match_id": match_id}
+        return LikeActionResponse(success=True, matched=matched, match_id=match_id)
 
     except DatabaseAccessError as err:
         logger.exception(
@@ -352,17 +360,17 @@ async def get_matches(
             return MatchesListResponse(matches=[])
 
         counterpart_ids = [
-            str(r["matched_user_id"])
-            for r in rows
-            if r.get("matched_user_id")
+            str(r["matched_user_id"]) for r in rows if r.get("matched_user_id")
         ]
 
         profiles_res = await asyncio.to_thread(
-            lambda: supabase_client.table("profiles")
-            .select("id, name, age, profile_pic")
-            .in_("id", counterpart_ids)
-            .eq("is_deactivated", False)
-            .execute(),
+            lambda: (
+                supabase_client.table("profiles")
+                .select("id, name, age, profile_pic")
+                .in_("id", counterpart_ids)
+                .eq("is_deactivated", False)
+                .execute()
+            ),
         )
 
         profile_map = _decrypt_profiles(cast(list[Any], profiles_res.data or []))
@@ -396,14 +404,14 @@ async def get_matches(
         ) from err
 
 
-@router.post("/api/v1/matches/action")
+@router.post("/api/v1/matches/action", response_model=MatchActionResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def record_match_action(
     request: Request,
     payload: MatchActionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
-) -> dict[str, bool]:
+) -> MatchActionResponse:
     _ = request
     try:
         if payload.action == "report":
@@ -452,7 +460,7 @@ async def record_match_action(
             payload.action,
         )
 
-        return {"success": True}
+        return MatchActionResponse()
 
     except DatabaseAccessError as err:
         logger.exception(

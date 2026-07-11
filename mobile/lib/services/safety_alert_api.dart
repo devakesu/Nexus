@@ -82,9 +82,9 @@ class SafetyAlertApi {
         final data = response.data;
         if (data == null) continue;
         return SafetyAlertResult(
-          alertId: data['id'] as String,
-          contactsNotified: data['contacts_notified'] as int,
-          contactsTotal: data['contacts_total'] as int,
+          alertId: data['id'] as String? ?? '',
+          contactsNotified: (data['contacts_notified'] as num?)?.toInt() ?? 0,
+          contactsTotal: (data['contacts_total'] as num?)?.toInt() ?? 0,
         );
       } on Object catch (_) {
         // Retry (if attempts remain) rather than giving up on the first

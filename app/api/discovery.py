@@ -266,15 +266,10 @@ async def get_discovery_viewport(
         ) from err
 
 
-@router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)
-@limiter.limit(settings.rate_limit_discover)
-async def handle_discovery_action(
-    request: Request,
-    payload: DiscoveryActionRequest = Body(...),  # noqa: B008
-    _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
-):
-    _ = request
+async def _validate_discovery_action(
+    user_id: str,
+    payload: DiscoveryActionRequest,
+) -> None:
     from app.db.exclusions import has_active_discovery_action
     from app.db.sessions import is_candidate_in_active_session
 
@@ -282,8 +277,7 @@ async def handle_discovery_action(
     base_action = payload.action[2:] if is_reversal else payload.action
 
     if is_reversal:
-        # Reversal actions (unblock, unhide, unlike, unsuperlike) must be
-        # validated against an existing active action of the base type.
+        # Reversal actions must be validated against an active action.
         is_valid = await asyncio.to_thread(
             has_active_discovery_action,
             user_id,
@@ -300,8 +294,7 @@ async def handle_discovery_action(
                 ),
             )
     else:
-        # Forward actions (report, like, superlike, block, pass, hide) must be validated
-        # against active session membership.
+        # Forward actions must be validated against active session.
         is_valid = await asyncio.to_thread(
             is_candidate_in_active_session,
             user_id,
@@ -313,32 +306,66 @@ async def handle_discovery_action(
                 detail="Target user is not in any active discovery session.",
             )
 
-    if payload.action == "report":
-        await asyncio.to_thread(
-            record_user_report,
-            reporter_id=user_id,
-            target_id=payload.target_id,
-            reason=payload.reason or "other",
-            reason_detail=payload.reason_detail,
-            tab=payload.tab,
-        )
-        await invalidate_block_cache(user_id, payload.target_id)
-    else:
-        await asyncio.to_thread(
-            record_discovery_action,
-            actor_id=user_id,
-            target_id=payload.target_id,
-            action=payload.action,
-            tab=payload.tab,
-        )
-        if payload.action in ("block", "unblock"):
-            await invalidate_block_cache(user_id, payload.target_id)
-        elif payload.action in ("like", "superlike"):
-            safe_create_task(
-                send_like_notification(
-                    actor_id=user_id,
-                    target_id=payload.target_id,
-                    is_superlike=payload.action == "superlike",
-                ),
+
+@router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)
+@limiter.limit(settings.rate_limit_discover)
+async def handle_discovery_action(
+    request: Request,
+    payload: DiscoveryActionRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_authenticated_user_id),
+):
+    _ = request
+    try:
+        await _validate_discovery_action(user_id, payload)
+
+        if payload.action == "report":
+            await asyncio.to_thread(
+                record_user_report,
+                reporter_id=user_id,
+                target_id=payload.target_id,
+                reason=payload.reason or "other",
+                reason_detail=payload.reason_detail,
+                tab=payload.tab,
             )
-    return DiscoveryActionResponse(success=True)
+            await invalidate_block_cache(user_id, payload.target_id)
+        else:
+            await asyncio.to_thread(
+                record_discovery_action,
+                actor_id=user_id,
+                target_id=payload.target_id,
+                action=payload.action,
+                tab=payload.tab,
+            )
+            if payload.action in ("block", "unblock"):
+                await invalidate_block_cache(user_id, payload.target_id)
+            elif payload.action in ("like", "superlike"):
+                safe_create_task(
+                    send_like_notification(
+                        actor_id=user_id,
+                        target_id=payload.target_id,
+                        is_superlike=payload.action == "superlike",
+                    ),
+                )
+        return DiscoveryActionResponse(success=True)
+
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database access failure during discovery action handling",
+            extra={"user_id": user_id, "target_id": payload.target_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Discovery action service temporarily unavailable.",
+        ) from err
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.exception(
+            "Unexpected failure handling discovery action",
+            extra={"user_id": user_id, "target_id": payload.target_id},
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Unexpected internal error.",
+        ) from err
