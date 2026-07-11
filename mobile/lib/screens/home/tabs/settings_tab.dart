@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -320,13 +321,6 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           const _NexusBranding(),
           const _NexusPlusPromoCard(accentColor: _accent),
           const SizedBox(height: 6),
-          const _SettingsSection(
-            title: 'Account',
-            accentColor: _accent,
-            tiles: [
-              _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
-            ],
-          ),
           _SettingsSection(
             title: 'Notifications',
             accentColor: _accent,
@@ -423,12 +417,35 @@ class _NexusPlusPromoCard extends StatelessWidget {
 
   final Color accentColor;
 
+  void _showNexusPlusOverlay(BuildContext context) {
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'NexusPlus',
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      transitionDuration: const Duration(milliseconds: 350),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _NexusPlusOverlay(accentColor: accentColor);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedValue = Curves.easeOutQuart.transform(animation.value);
+        return FadeTransition(
+          opacity: animation,
+          child: Transform.scale(
+            scale: 0.94 + 0.06 * curvedValue,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: ScalePressable(
-        onTap: () => NexusToast.show(context, 'Nexus+ - coming soon.'),
+        onTap: () => _showNexusPlusOverlay(context),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -496,7 +513,7 @@ class _NexusPlusPromoCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Unlock unlimited Orbits, premium filters, and advanced safety features.',
+                            'Unlock premium filters, advanced interactions, and profile aesthetics.',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.9),
@@ -532,6 +549,294 @@ class _NexusPlusPromoCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NexusPlusOverlay extends StatelessWidget {
+  const _NexusPlusOverlay({required this.accentColor});
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          // 1. Backdrop Blur
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                color: const Color(0xFF070B19).withValues(alpha: 0.88),
+              ),
+            ),
+          ),
+          // 2. Cosmic Ambient Gradients
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            right: -150,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFF7597).withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          // 3. Content Layout
+          SafeArea(
+            child: Column(
+              children: [
+                // Close button at top right
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 20, top: 10),
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                        child: const Icon(
+                          LucideIcons.x,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'NEXUS+',
+                  style: GoogleFonts.orbitron(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 6,
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xFFFF7597).withValues(alpha: 0.4),
+                        blurRadius: 15,
+                      ),
+                      Shadow(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                        blurRadius: 30,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'REDEFINE YOUR ORBIT',
+                  style: GoogleFonts.manrope(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF94A3B8),
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                // Feature List
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        const _FeatureRow(
+                          icon: LucideIcons.magnet,
+                          title: 'Gravity Pull',
+                          description:
+                              'Dynamically align your orbit based on shared music taste and Spotify compatibility.',
+                          iconBg: Color(0x26FF7597),
+                          iconColor: Color(0xFFFF7597),
+                        ),
+                        const _FeatureRow(
+                          icon: LucideIcons.send,
+                          title: 'Stardust Messages',
+                          description:
+                              'Attach a brief icebreaker note that shoots across their screen as a shooting star.',
+                          iconBg: Color(0x267C3AED),
+                          iconColor: Color(0xFF7C3AED),
+                        ),
+                        const _FeatureRow(
+                          icon: LucideIcons.eyeOff,
+                          title: 'Dark Nebula',
+                          description:
+                              'Explore orbits completely invisibly. You only appear to users you like or message.',
+                          iconBg: Color(0x264EA8DE),
+                          iconColor: Color(0xFF4EA8DE),
+                        ),
+                        const _FeatureRow(
+                          icon: LucideIcons.history,
+                          title: 'Retrograde',
+                          description:
+                              'Accidentally passed a star? Spin the coordinate grid back to undo your last action.',
+                          iconBg: Color(0x26007E6D),
+                          iconColor: Color(0xFF007E6D),
+                        ),
+                        const _FeatureRow(
+                          icon: LucideIcons.palette,
+                          title: 'Chroma Orbit',
+                          description:
+                              'Personalize your profile with custom cosmic gradients and dynamic star trails.',
+                          iconBg: Color(0x26FF4F81),
+                          iconColor: Color(0xFFFF4F81),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+                // Pinned Bottom Button
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF070B19).withValues(alpha: 0.9),
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: ScalePressable(
+                    onTap: () {
+                      NexusToast.show(
+                        context,
+                        'Nexus+ Subscriptions - coming soon.',
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFF7597),
+                            Color(0xFF7C3AED),
+                            Color(0xFF4EA8DE),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Coming Soon...',
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.iconBg,
+    required this.iconColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color iconBg;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: iconColor.withValues(alpha: 0.25),
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF94A3B8),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -986,6 +1291,17 @@ class _AccountActionsSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Column(
                 children: [
+                  _ActionRow(
+                    icon: LucideIcons.keyRound,
+                    label: 'Change Password',
+                    iconColor: const Color(0xFF64748B),
+                    labelColor: const Color(0xFF0F172A),
+                    showDivider: true,
+                    onTap: () => NexusToast.show(
+                      context,
+                      'Change Password - coming soon.',
+                    ),
+                  ),
                   _ActionRow(
                     icon: LucideIcons.logOut,
                     label: 'Sign Out',

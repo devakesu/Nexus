@@ -8,10 +8,8 @@ import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
-/// Bottom sheet listing matches in [tab] with no conversation started yet.
-/// Pops with the selected [ChatCandidate], or null if dismissed - the caller
-/// is responsible for actually creating/opening the chat, since by the time
-/// the sheet finishes closing its own BuildContext may no longer be usable.
+/// Bottom sheet listing matches/friends/connections in [tab] with no conversation started yet.
+/// Pops with the selected [ChatCandidate], or null if dismissed.
 class NewChatSheet extends ConsumerWidget {
   const NewChatSheet({required this.tab, super.key});
 
@@ -21,6 +19,15 @@ class NewChatSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = chatTabTheme(tab);
     final candidatesAsync = ref.watch(newChatCandidatesProvider(tab));
+
+    final String pluralNoun;
+    if (tab == 'Friends') {
+      pluralNoun = 'friends';
+    } else if (tab == 'Professional') {
+      pluralNoun = 'connections';
+    } else {
+      pluralNoun = 'matches';
+    }
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.72,
@@ -67,13 +74,14 @@ class NewChatSheet extends ConsumerWidget {
               loading: () => const Center(child: NexusOrbitLoader(size: 40)),
               error: (error, stackTrace) => Center(
                 child: Text(
-                  'Could not load matches',
+                  'Could not load $pluralNoun',
                   style: GoogleFonts.inter(color: AppColors.inkMuted),
                 ),
               ),
               data: (candidates) => _CandidatesList(
                 candidates: candidates,
                 theme: theme,
+                tab: tab,
               ),
             ),
           ),
@@ -84,13 +92,31 @@ class NewChatSheet extends ConsumerWidget {
 }
 
 class _CandidatesList extends StatelessWidget {
-  const _CandidatesList({required this.candidates, required this.theme});
+  const _CandidatesList({
+    required this.candidates,
+    required this.theme,
+    required this.tab,
+  });
 
   final List<ChatCandidate> candidates;
   final ChatTabTheme theme;
+  final String tab;
 
   @override
   Widget build(BuildContext context) {
+    final String pluralNoun;
+    final String statusText;
+    if (tab == 'Friends') {
+      pluralNoun = 'friends';
+      statusText = 'Connected';
+    } else if (tab == 'Professional') {
+      pluralNoun = 'connections';
+      statusText = 'Connected';
+    } else {
+      pluralNoun = 'matches';
+      statusText = 'Matched';
+    }
+
     if (candidates.isEmpty) {
       return Center(
         child: Padding(
@@ -105,7 +131,7 @@ class _CandidatesList extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'No new matches to chat with yet',
+                'No new $pluralNoun to chat with yet',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 13.5,
@@ -155,11 +181,9 @@ class _CandidatesList extends StatelessWidget {
               ),
             ),
             subtitle: Text(
-              'Matched · say hi 👋',
+              '$statusText · say hi 👋',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                // ink-muted, not ink-faint: real match-status copy, not a
-                // placeholder/disabled state.
                 color: AppColors.inkMuted,
               ),
             ),

@@ -9,6 +9,7 @@ import 'package:nexus/screens/chats/widgets/chat_list_tile.dart';
 import 'package:nexus/screens/chats/widgets/new_chat_sheet.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/scale_pressable.dart';
 
 Future<void> _openNewChatSheet(BuildContext context, String tab) async {
   final selected = await showModalBottomSheet<ChatCandidate>(
@@ -40,27 +41,27 @@ class ChatListTab extends ConsumerWidget {
     final theme = chatTabTheme(tab);
     final conversationsAsync = ref.watch(chatConversationsProvider(tab));
 
-    return Stack(
-      children: [
-        RefreshIndicator(
-          color: theme.primary,
-          onRefresh: () async {
-            ref.invalidate(chatConversationsProvider(tab));
-            await ref.read(chatConversationsProvider(tab).future);
-          },
-          child: conversationsAsync.when(
-            loading: () => const Center(child: NexusOrbitLoader(size: 48)),
-            error: (error, stackTrace) => _ErrorState(
-              themeColor: theme.primary,
-              onRetry: () => ref.invalidate(chatConversationsProvider(tab)),
-            ),
-            data: (conversations) => conversations.isEmpty
-                ? _EmptyState(
-                    tab: tab,
-                    themeColor: theme.primary,
-                    onNewChat: () => _openNewChatSheet(context, tab),
-                  )
-                : ListView.separated(
+    return RefreshIndicator(
+      color: theme.primary,
+      onRefresh: () async {
+        ref.invalidate(chatConversationsProvider(tab));
+        await ref.read(chatConversationsProvider(tab).future);
+      },
+      child: conversationsAsync.when(
+        loading: () => const Center(child: NexusOrbitLoader(size: 48)),
+        error: (error, stackTrace) => _ErrorState(
+          themeColor: theme.primary,
+          onRetry: () => ref.invalidate(chatConversationsProvider(tab)),
+        ),
+        data: (conversations) => conversations.isEmpty
+            ? _EmptyState(
+                tab: tab,
+                themeColor: theme.primary,
+                onNewChat: () => _openNewChatSheet(context, tab),
+              )
+            : Stack(
+                children: [
+                  ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
                     itemCount: conversations.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -70,17 +71,17 @@ class ChatListTab extends ConsumerWidget {
                       themeColor: theme.primary,
                     ),
                   ),
-          ),
-        ),
-        Positioned(
-          right: 20,
-          bottom: 24,
-          child: _NewChatButton(
-            themeColor: theme.primary,
-            onTap: () => _openNewChatSheet(context, tab),
-          ),
-        ),
-      ],
+                  Positioned(
+                    right: 20,
+                    bottom: 24,
+                    child: _NewChatButton(
+                      themeColor: theme.primary,
+                      onTap: () => _openNewChatSheet(context, tab),
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -93,14 +94,46 @@ class _NewChatButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      onPressed: onTap,
-      backgroundColor: themeColor,
-      foregroundColor: Colors.white,
-      icon: const Icon(LucideIcons.messageCirclePlus, size: 18),
-      label: Text(
-        'New Chat',
-        style: GoogleFonts.manrope(fontWeight: FontWeight.w800, fontSize: 13),
+    return ScalePressable(
+      onTap: onTap,
+      child: Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: themeColor,
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: themeColor.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.messageCirclePlus,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'New Chat',
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -119,6 +152,15 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String noun;
+    if (tab == 'Friends') {
+      noun = 'friends';
+    } else if (tab == 'Professional') {
+      noun = 'connections';
+    } else {
+      noun = '$tab matches';
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -141,7 +183,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Start a chat with one of your $tab matches.',
+              'Start a chat with one of your $noun.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 13,
@@ -149,23 +191,41 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onNewChat,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+            ScalePressable(
+              onTap: onNewChat,
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                decoration: BoxDecoration(
+                  color: themeColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: themeColor.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.messageCirclePlus,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'New Chat',
+                      style: GoogleFonts.manrope(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              icon: const Icon(LucideIcons.messageCirclePlus, size: 16),
-              label: Text(
-                'New Chat',
-                style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
               ),
             ),
           ],

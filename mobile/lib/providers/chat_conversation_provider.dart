@@ -279,6 +279,15 @@ class ChatConversationController extends _$ChatConversationController {
   /// writing to `state` on a disposed autoDispose provider.
   bool _disposed = false;
 
+  /// Retries the peer's key-bundle fetch every [_sessionPollInterval] while
+  /// `sessionReady` is false and the conversation is still open - the
+  /// backstop for a brand-new match where neither side has ever opened a
+  /// chat screen before, so the composer doesn't stay stuck on "Waiting for
+  /// a secure connection..." until the user manually leaves and re-enters.
+  Timer? _sessionPollTimer;
+  bool _pollInFlight = false;
+  static const _sessionPollInterval = Duration(seconds: 10);
+
   @override
   Future<ChatConversationState> build(
     String conversationId,
@@ -286,6 +295,7 @@ class ChatConversationController extends _$ChatConversationController {
   ) async {
     ref.onDispose(() {
       _disposed = true;
+      _sessionPollTimer?.cancel();
       final channel = _channel;
       if (channel != null) {
         unawaited(Supabase.instance.client.removeChannel(channel));
@@ -312,6 +322,7 @@ class ChatConversationController extends _$ChatConversationController {
         _bootstrap(conversationId, peerUserId).then((fresh) {
           if (_disposed) return;
           state = AsyncData(fresh);
+          _syncSessionPolling(fresh);
         }),
       );
       return ChatConversationState(
@@ -319,7 +330,10 @@ class ChatConversationController extends _$ChatConversationController {
         // Conservative: composer stays disabled and no realtime channel is
         // subscribed until _bootstrap() actually confirms the session and
         // conversation state - sendText()/etc. already no-op safely while
-        // _store/_peerAddress are unset.
+        // _store/_peerAddress are unset. Deliberately not starting the
+        // session-ready poller off this synchronous snapshot - _bootstrap()
+        // above is already in flight and will call _syncSessionPolling
+        // itself moments later with the real, network-confirmed value.
         sessionReady: false,
         sending: false,
         isRevalidating: true,
@@ -328,7 +342,76 @@ class ChatConversationController extends _$ChatConversationController {
 
     // True first-ever open of this conversation - nothing to show yet
     // anyway, so fall back to the original blocking behavior.
-    return _bootstrap(conversationId, peerUserId);
+    final result = await _bootstrap(conversationId, peerUserId);
+    _syncSessionPolling(result);
+    return result;
+  }
+
+  /// Starts or stops the session-ready poller to match the given state:
+  /// running only while the composer is actually blocked on the peer's key
+  /// bundle, and torn down the instant that resolves via any path (this
+  /// poller, a realtime message decrypting successfully, or the
+  /// conversation closing).
+  void _syncSessionPolling(ChatConversationState s) {
+    final shouldPoll = !s.sessionReady && !s.conversationClosed;
+    if (shouldPoll && _sessionPollTimer == null && !_disposed) {
+      _sessionPollTimer = Timer.periodic(
+        _sessionPollInterval,
+        (_) => unawaited(_pollSessionReady()),
+      );
+    } else if (!shouldPoll && _sessionPollTimer != null) {
+      _sessionPollTimer!.cancel();
+      _sessionPollTimer = null;
+    }
+  }
+
+  Future<void> _pollSessionReady() async {
+    if (_disposed || _pollInFlight) return;
+    final current = state.value;
+    if (current == null || current.sessionReady || current.conversationClosed) {
+      _sessionPollTimer?.cancel();
+      _sessionPollTimer = null;
+      return;
+    }
+
+    _pollInFlight = true;
+    try {
+      final ready = await SessionManager.instance.ensureSessionForConversation(
+        conversationId: conversationId,
+        peerUserId: peerUserId,
+      );
+      if (_disposed || !ready) return;
+      final latest = state.value ?? current;
+      state = AsyncData(latest.copyWith(sessionReady: true));
+      _sessionPollTimer?.cancel();
+      _sessionPollTimer = null;
+    } on Exception catch (e, stackTrace) {
+      // Transient (offline, peer still hasn't set up chat, 5xx) - the next
+      // tick retries. Info, not warning/error: this is an expected,
+      // self-healing retry loop, not something worth paging on-call for.
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.info,
+        showUi: false,
+        customMessage:
+            'Session-ready poll failed for $conversationId, will retry.',
+      );
+    } finally {
+      _pollInFlight = false;
+    }
+  }
+
+  /// Forces an immediate re-check instead of waiting for the next timer
+  /// tick - called from the chat screen's app-resume lifecycle callback so
+  /// foregrounding the app doesn't leave the user waiting out the interval.
+  Future<void> recheckSessionReadyNow() async {
+    if (_disposed) return;
+    final current = state.value;
+    if (current == null || current.sessionReady || current.conversationClosed) {
+      return;
+    }
+    await _pollSessionReady();
   }
 
   Future<ChatMessageView> _viewFromCachedRow(LocalMessage row) async {
@@ -536,7 +619,9 @@ class ChatConversationController extends _$ChatConversationController {
     final closedAt = payload.newRecord['closed_at'];
     if (closedAt == null) return;
 
-    state = AsyncData(current.copyWith(conversationClosed: true));
+    final updated = current.copyWith(conversationClosed: true);
+    state = AsyncData(updated);
+    _syncSessionPolling(updated);
     final channel = _channel;
     if (channel != null) {
       unawaited(Supabase.instance.client.removeChannel(channel));
@@ -571,12 +656,12 @@ class ChatConversationController extends _$ChatConversationController {
 
     final view = (await _resolveMessages([row], store, address)).first;
     final latest = state.value ?? current;
-    state = AsyncData(
-      latest.copyWith(
-        messages: [...latest.messages, view],
-        sessionReady: latest.sessionReady || !view.decryptFailed,
-      ),
+    final updated = latest.copyWith(
+      messages: [...latest.messages, view],
+      sessionReady: latest.sessionReady || !view.decryptFailed,
     );
+    state = AsyncData(updated);
+    _syncSessionPolling(updated);
     // A message just arrived while this conversation is open - mark it
     // (and anything else unread) read right away.
     if (!view.isMine) unawaited(markAsRead());

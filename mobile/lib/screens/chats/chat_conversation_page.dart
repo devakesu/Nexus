@@ -101,6 +101,19 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     if (state == AppLifecycleState.resumed) {
       _startHeartbeat();
       unawaited(SignalKeyService.instance.replenishOneTimePrekeysIfNeeded());
+      // No-ops cheaply if the session's already ready/closed, so it's safe
+      // to fire unconditionally on every resume rather than waiting out the
+      // poller's interval before it notices we're back in the foreground.
+      unawaited(
+        ref
+            .read(
+              chatConversationControllerProvider(
+                widget.conversationId,
+                widget.matchedUserId,
+              ).notifier,
+            )
+            .recheckSessionReadyNow(),
+      );
     } else {
       _heartbeatTimer?.cancel();
       unawaited(PresenceHeartbeat.beat(isOnline: false));

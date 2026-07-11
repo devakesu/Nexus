@@ -10,6 +10,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/signal/local_key_vault.dart';
 import 'package:nexus/services/signal/signal_database.dart';
 import 'package:nexus/services/signal/signal_store.dart';
+import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 
 /// Bootstraps this device's Signal Protocol identity: generates the
@@ -25,6 +26,10 @@ class SignalKeyService {
   static const _oneTimePrekeyLowWaterMark = 20;
   static const _prefsNextPreKeyId = 'signal_next_prekey_id';
   static const _prefsNextSignedPreKeyId = 'signal_next_signed_prekey_id';
+  static const _prefsIdentityUploadConfirmedRegId =
+      'signal_identity_upload_confirmed_reg_id';
+  static const _prefsSignedPreKeyConfirmedKeyId =
+      'signal_signed_prekey_confirmed_key_id';
 
   // Prekey ID counters live in secure storage rather than SharedPreferences:
   // on a rooted/jailbroken device an attacker who rewinds a plaintext
@@ -41,6 +46,7 @@ class SignalKeyService {
   // there's no shorter-lived scope to tie disposal to anyway.
   final Dio _dio = createDio();
   DriftSignalProtocolStore? _store;
+  Future<DriftSignalProtocolStore>? _inFlight;
   bool _isNewLocalIdentity = false;
 
   /// True if this device generated a brand-new Signal identity on this
@@ -53,23 +59,57 @@ class SignalKeyService {
   /// surfaced honestly rather than silently showing decrypt failures.
   bool get isNewLocalIdentity => _isNewLocalIdentity;
 
-  /// Idempotent: safe to call every time a chat screen opens.
-  Future<DriftSignalProtocolStore> ensureBootstrapped() async {
+  /// Idempotent: safe to call every time a chat screen opens. Concurrent
+  /// callers (e.g. the eager post-login call racing a chat screen opened via
+  /// a deep link) share one in-flight attempt instead of racing duplicate
+  /// identity-row inserts or duplicate uploads.
+  Future<DriftSignalProtocolStore> ensureBootstrapped() {
     final cached = _store;
-    if (cached != null) return cached;
+    if (cached != null) return Future.value(cached);
+    return _inFlight ??= _doEnsureBootstrapped();
+  }
 
-    final (identityKeyPair, registrationId) = await _loadOrCreateIdentity();
-    final store = DriftSignalProtocolStore(
-      _db,
-      identityKeyPair,
-      registrationId,
-    );
-    _store = store;
+  Future<DriftSignalProtocolStore> _doEnsureBootstrapped() async {
+    try {
+      final (identityKeyPair, registrationId) = await _loadOrCreateIdentity();
+      final store = DriftSignalProtocolStore(
+        _db,
+        identityKeyPair,
+        registrationId,
+      );
 
-    await _ensureSignedPreKey(store);
-    unawaited(replenishOneTimePrekeysIfNeeded());
+      await _ensureSignedPreKey(store);
+      // Only cache once the full sequence has actually succeeded - caching
+      // any earlier would mean a mid-sequence failure permanently skips
+      // retrying the rest on every subsequent call for the remainder of
+      // this process's lifetime.
+      _store = store;
+      unawaited(replenishOneTimePrekeysIfNeeded());
 
-    return store;
+      return store;
+    } finally {
+      _inFlight = null;
+    }
+  }
+
+  /// Fire-and-forget variant for callers (e.g. right after login) that must
+  /// not await and must not throw. Failures are logged, not surfaced to the
+  /// user, and simply left for the next opportunistic retry - a chat screen
+  /// open, an app foreground, or the 6h background task - all of which call
+  /// the now-retry-safe `ensureBootstrapped()` again.
+  Future<void> ensureBootstrappedInBackground() async {
+    try {
+      await ensureBootstrapped();
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage:
+            'Eager Signal key bootstrap failed post-login; will retry lazily.',
+      );
+    }
   }
 
   Future<(IdentityKeyPair, int)> _loadOrCreateIdentity() async {
@@ -79,7 +119,25 @@ class SignalKeyService {
       final decrypted = await LocalKeyVault.instance.decryptBytes(
         Uint8List.fromList(row.identityKeyPairEnc),
       );
-      return (IdentityKeyPair.fromSerialized(decrypted), row.registrationId);
+      final identityKeyPair = IdentityKeyPair.fromSerialized(decrypted);
+
+      // A previous run may have written this row but died/failed before
+      // confirming the upload (e.g. offline signup) - retry it here rather
+      // than assuming an existing local row means the server already has
+      // it. Storing the registration id itself (not a bare bool) makes this
+      // self-invalidating after wipeLocalData() generates a new identity.
+      final confirmed = await _secureStorage.read(
+        key: _prefsIdentityUploadConfirmedRegId,
+      );
+      if (confirmed != row.registrationId.toString()) {
+        await _uploadIdentityKey(identityKeyPair, row.registrationId);
+        await _secureStorage.write(
+          key: _prefsIdentityUploadConfirmedRegId,
+          value: row.registrationId.toString(),
+        );
+      }
+
+      return (identityKeyPair, row.registrationId);
     }
 
     _isNewLocalIdentity = true;
@@ -99,6 +157,10 @@ class SignalKeyService {
         );
 
     await _uploadIdentityKey(identityKeyPair, registrationId);
+    await _secureStorage.write(
+      key: _prefsIdentityUploadConfirmedRegId,
+      value: registrationId.toString(),
+    );
     return (identityKeyPair, registrationId);
   }
 
@@ -121,14 +183,30 @@ class SignalKeyService {
   Future<void> _ensureSignedPreKey(DriftSignalProtocolStore store) async {
     final existing = await store.loadSignedPreKeys();
 
-    // Rotate the signed prekey periodically (weekly/7 days) to enforce forward secrecy
-    // and prevent stale keys.
-    var needsRotation = true;
+    SignedPreKeyRecord? latest;
     if (existing.isNotEmpty) {
-      final latest = existing.reduce(
+      latest = existing.reduce(
         (curr, next) =>
             curr.timestamp.toInt() > next.timestamp.toInt() ? curr : next,
       );
+    }
+
+    final confirmedIdRaw = await _secureStorage.read(
+      key: _prefsSignedPreKeyConfirmedKeyId,
+    );
+    final confirmedId = int.tryParse(confirmedIdRaw ?? '');
+    final isLatestConfirmed = latest != null && confirmedId == latest.id;
+
+    // Rotate the signed prekey periodically (weekly/7 days) to enforce
+    // forward secrecy and prevent stale keys - or immediately, regardless of
+    // age, if the latest local key was never confirmed uploaded. A brand
+    // new key_id is minted below rather than retrying the unconfirmed one,
+    // since the backend enforces UNIQUE(user_id, key_id) with a plain
+    // INSERT (no ON CONFLICT) - resending the same key_id after an
+    // ambiguous failure (upload actually landed, response just got lost)
+    // would 503 instead of silently succeeding.
+    var needsRotation = true;
+    if (latest != null && isLatestConfirmed) {
       final age =
           DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
       if (age < const Duration(days: 7).inMilliseconds) {
@@ -160,6 +238,10 @@ class SignalKeyService {
         'public_key': base64Encode(publicKey.serialize()),
         'signature': base64Encode(signedPreKey.signature),
       },
+    );
+    await _secureStorage.write(
+      key: _prefsSignedPreKeyConfirmedKeyId,
+      value: '$keyId',
     );
   }
 
@@ -212,6 +294,8 @@ class SignalKeyService {
     await _db.clearAllData();
     await _secureStorage.delete(key: _prefsNextPreKeyId);
     await _secureStorage.delete(key: _prefsNextSignedPreKeyId);
+    await _secureStorage.delete(key: _prefsIdentityUploadConfirmedRegId);
+    await _secureStorage.delete(key: _prefsSignedPreKeyConfirmedKeyId);
     await LocalKeyVault.instance.wipeKeys();
   }
 }

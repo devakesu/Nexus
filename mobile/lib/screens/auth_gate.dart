@@ -7,6 +7,7 @@ import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
+import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/utils/discovery_hub_cache.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
@@ -231,6 +232,11 @@ class _AuthGateState extends State<AuthGate> {
             _isBootstrapping = false;
           });
           unawaited(NotificationService.initialize());
+          // Publish this device's Signal key bundle right after login so a
+          // brand-new match never has to wait on either side opening a chat
+          // screen first (see SignalKeyService.ensureBootstrappedInBackground
+          // doc comment for the retry-safe fallback chain).
+          unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
         }
       } else {
         // Server rejected registration (e.g. 403 Forbidden - non-college email)
