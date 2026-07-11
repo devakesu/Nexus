@@ -318,16 +318,12 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
         padding: const EdgeInsets.only(bottom: CustomBottomNavBar.clearance),
         children: [
           const _NexusBranding(),
+          const _NexusPlusPromoCard(accentColor: _accent),
           const SizedBox(height: 6),
           const _SettingsSection(
             title: 'Account',
             accentColor: _accent,
             tiles: [
-              _TileSpec(
-                icon: LucideIcons.sparkles,
-                label: 'Nexus+',
-                badge: 'UPGRADE',
-              ),
               _TileSpec(icon: LucideIcons.link, label: 'Linked Accounts'),
             ],
           ),
@@ -354,9 +350,20 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             accentColor: _accent,
             tiles: [
               _TileSpec(
+                icon: LucideIcons.pauseCircle,
+                label: 'Pause Matching',
+                trailing: _buildPauseIndicator(),
+                onTap: _handlePauseTap,
+              ),
+              _TileSpec(
                 icon: LucideIcons.shield,
                 label: 'Privacy Settings',
                 onTap: () => context.push<void>('/settings/privacy'),
+              ),
+              _TileSpec(
+                icon: LucideIcons.heartHandshake,
+                label: 'Safety Center',
+                onTap: () => context.push<void>('/settings/safety-center'),
               ),
               _TileSpec(
                 icon: LucideIcons.ban,
@@ -367,17 +374,6 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
                 icon: LucideIcons.eyeOff,
                 label: 'Hidden Users',
                 onTap: () => context.push<void>('/settings/hidden-users'),
-              ),
-              _TileSpec(
-                icon: LucideIcons.pauseCircle,
-                label: 'Pause Matching',
-                trailing: _buildPauseIndicator(),
-                onTap: _handlePauseTap,
-              ),
-              _TileSpec(
-                icon: LucideIcons.heartHandshake,
-                label: 'Safety Center',
-                onTap: () => context.push<void>('/settings/safety-center'),
               ),
             ],
           ),
@@ -413,6 +409,129 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           const _AccountActionsSection(),
           const SizedBox(height: 28),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Premium Nexus+ Promo Card
+// ---------------------------------------------------------------------------
+
+class _NexusPlusPromoCard extends StatelessWidget {
+  const _NexusPlusPromoCard({required this.accentColor});
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: ScalePressable(
+        onTap: () => NexusToast.show(context, 'Nexus+ - coming soon.'),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF4F46E5),
+                const Color(0xFF7C3AED),
+                accentColor,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                top: -20,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.sparkles,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Upgrade to Nexus+',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Unlock unlimited Orbits, premium filters, and advanced safety features.',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'UPGRADE',
+                        style: GoogleFonts.manrope(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF7C3AED),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -585,13 +704,11 @@ class _TileSpec {
   const _TileSpec({
     required this.icon,
     required this.label,
-    this.badge,
     this.trailing,
     this.onTap,
   });
   final IconData icon;
   final String label;
-  final String? badge;
   // Overrides the badge + chevron area when set.
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -635,6 +752,24 @@ class _SettingsSection extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF1E293B),
                     letterSpacing: 0.2,
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xFFF4F6FA),
+                        blurRadius: 8,
+                      ),
+                      Shadow(
+                        color: Color(0xFFF4F6FA),
+                        blurRadius: 4,
+                      ),
+                      Shadow(
+                        color: Color(0xFFF4F6FA),
+                        offset: Offset(1, 1),
+                      ),
+                      Shadow(
+                        color: Color(0xFFF4F6FA),
+                        offset: Offset(-1, -1),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -721,28 +856,6 @@ class _SettingsTile extends StatelessWidget {
                 if (spec.trailing != null)
                   spec.trailing!
                 else ...[
-                  if (spec.badge != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        spec.badge!,
-                        style: GoogleFonts.manrope(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
                   const Icon(
                     LucideIcons.chevronRight,
                     color: Color(0xFFCBD5E1),

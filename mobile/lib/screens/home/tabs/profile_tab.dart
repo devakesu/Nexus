@@ -19,7 +19,6 @@ import 'package:nexus/screens/home/tabs/profile/sections/core_signal_section.dar
 import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/spotify_artists_section.dart';
-import 'package:nexus/screens/home/tabs/profile/sections/spotify_playlists_section.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
@@ -2158,9 +2157,77 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                     ),
                     const SizedBox(height: 24),
 
-                    // Card Layer D: Lifestyle & Resonance
+                    // Card Layer D: Affinity & Interests
                     _buildStaggeredEntrance(
                       index: 5,
+                      child: AffinityInterestsSection(
+                        key: _affinityInterestsKey,
+                        flatSubInterests: _flatSubInterests,
+                        causesSupported: _causesSupported,
+                        isSavingInterests: _savingFields.contains('interests'),
+                        isSavingCauses: _savingFields.contains(
+                          'causesSupported',
+                        ),
+                        onInterestsSaved: (val) {
+                          final newSubInterests = <String, List<String>>{};
+                          for (final item in val) {
+                            final parts = item.split(': ');
+                            if (parts.length == 2) {
+                              newSubInterests
+                                  .putIfAbsent(parts[0], () => [])
+                                  .add(parts[1]);
+                            }
+                          }
+                          final newInterests = <String, int>{};
+                          newSubInterests.forEach((parent, subs) {
+                            var weight = 1;
+                            if (subs.length == 2) weight = 2;
+                            if (subs.length >= 3) weight = 3;
+                            newInterests[parent] = weight;
+                          });
+                          setState(() {
+                            _subInterests = newSubInterests;
+                          });
+                          unawaited(
+                            _saveProfileChanges(
+                              interests: newInterests,
+                              subInterests: newSubInterests,
+                            ),
+                          );
+                        },
+                        onCausesSupportedChanged: (val) {
+                          setState(() => _causesSupported = val);
+                          unawaited(_saveProfileChanges(causesSupported: val));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer E: Music (Spotify top artists + playlists)
+                    _buildStaggeredEntrance(
+                      index: 6,
+                      child: SpotifyMusicSection(
+                        key: _spotifyArtistsKey,
+                        topArtists: _topArtists,
+                        isSaving: _savingFields.contains('topArtists'),
+                        isConnecting: _isSpotifyConnecting,
+                        onArtistRemoved: (artist) {
+                          final updated = List<String>.from(_topArtists)
+                            ..remove(artist);
+                          setState(() => _topArtists = updated);
+                          unawaited(
+                            _saveProfileChanges(topArtists: updated),
+                          );
+                        },
+                        onSpotifyConnect: _connectSpotify,
+                        onSpotifyDisconnect: _disconnectSpotify,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Layer F: Lifestyle & Resonance
+                    _buildStaggeredEntrance(
+                      index: 7,
                       child: LifestyleResonanceSection(
                         key: _lifestyleResonanceKey,
                         lifestyle: _lifestyle,
@@ -2207,82 +2274,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           _saveProfileChanges(religiousBeliefs: ''),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Card Layer E: Affinity & Interests
-                    _buildStaggeredEntrance(
-                      index: 6,
-                      child: AffinityInterestsSection(
-                        key: _affinityInterestsKey,
-                        flatSubInterests: _flatSubInterests,
-                        causesSupported: _causesSupported,
-                        isSavingInterests: _savingFields.contains('interests'),
-                        isSavingCauses: _savingFields.contains(
-                          'causesSupported',
-                        ),
-                        onInterestsSaved: (val) {
-                          final newSubInterests = <String, List<String>>{};
-                          for (final item in val) {
-                            final parts = item.split(': ');
-                            if (parts.length == 2) {
-                              newSubInterests
-                                  .putIfAbsent(parts[0], () => [])
-                                  .add(parts[1]);
-                            }
-                          }
-                          final newInterests = <String, int>{};
-                          newSubInterests.forEach((parent, subs) {
-                            var weight = 1;
-                            if (subs.length == 2) weight = 2;
-                            if (subs.length >= 3) weight = 3;
-                            newInterests[parent] = weight;
-                          });
-                          setState(() {
-                            _subInterests = newSubInterests;
-                          });
-                          unawaited(
-                            _saveProfileChanges(
-                              interests: newInterests,
-                              subInterests: newSubInterests,
-                            ),
-                          );
-                        },
-                        onCausesSupportedChanged: (val) {
-                          setState(() => _causesSupported = val);
-                          unawaited(_saveProfileChanges(causesSupported: val));
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Card Layer F: Top Artists (Spotify)
-                    _buildStaggeredEntrance(
-                      index: 7,
-                      child: SpotifyArtistsSection(
-                        key: _spotifyArtistsKey,
-                        topArtists: _topArtists,
-                        isSaving: _savingFields.contains('topArtists'),
-                        isConnecting: _isSpotifyConnecting,
-                        onArtistRemoved: (artist) {
-                          final updated = List<String>.from(_topArtists)
-                            ..remove(artist);
-                          setState(() => _topArtists = updated);
-                          unawaited(
-                            _saveProfileChanges(topArtists: updated),
-                          );
-                        },
-                        onSpotifyConnect: _connectSpotify,
-                        onSpotifyDisconnect: _disconnectSpotify,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Card Layer F.1: Your Playlists (Spotify, private -
-                    // owner-only, never shown in ProfileDetailSheet)
-                    _buildStaggeredEntrance(
-                      index: 8,
-                      child: const SpotifyPlaylistsSection(),
                     ),
                     const SizedBox(height: 24),
 

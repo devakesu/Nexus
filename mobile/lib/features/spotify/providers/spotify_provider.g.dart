@@ -83,7 +83,7 @@ final class SpotifyStatusProvider
         argument: null,
         retry: null,
         name: r'spotifyStatusProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -103,7 +103,7 @@ final class SpotifyStatusProvider
   }
 }
 
-String _$spotifyStatusHash() => r'bfecc83fe55930b0d77b87e06f5bc084d6b1d851';
+String _$spotifyStatusHash() => r'e53c61eadd343a0d224671206d3cd6f25d749fc7';
 
 /// Full playlist + track payload. Deliberately NOT keepAlive and NOT
 /// disk-cached (unlike the rest of the profile's SecureProfileCache) - this
@@ -151,7 +151,7 @@ final class SpotifyPlaylistsControllerProvider
 }
 
 String _$spotifyPlaylistsControllerHash() =>
-    r'c979f2854d3b81d2946b03d9b5c26b557f4e6b51';
+    r'61cae37a46382311fe8aa75b9cc883c06bd02775';
 
 /// Full playlist + track payload. Deliberately NOT keepAlive and NOT
 /// disk-cached (unlike the rest of the profile's SecureProfileCache) - this

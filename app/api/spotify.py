@@ -26,6 +26,7 @@ import secrets
 from typing import Any, cast
 from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -53,7 +54,10 @@ from app.models import (
 )
 from app.services.spotify_sync import (
     blend_artist_affinity,
+    compute_artist_frequency,
     exchange_code,
+    fetch_owned_or_collaborative_playlists,
+    fetch_playlist_tracks,
     fetch_spotify_user_id,
     fetch_top_artists_ranked,
     refresh_access_token,
@@ -112,6 +116,43 @@ async def _seed_and_queue_sync(
     native_ranked = await fetch_top_artists_ranked(access_token)
     blended, casing_map = blend_artist_affinity(native_ranked, {})
     display_names = top_display_names(blended, casing_map)
+
+    # Fallback: if native listening history is too low/new, check playlists inline.
+    if not display_names:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                candidate_playlists = (
+                    await fetch_owned_or_collaborative_playlists(
+                        client,
+                        access_token,
+                        spotify_user_id,
+                    )
+                )
+                all_tracks: list[dict[str, Any]] = []
+                # Fetch tracks from up to 3 candidate playlists inline.
+                for playlist in candidate_playlists[:3]:
+                    playlist_id = cast(str, playlist.get("spotify_playlist_id") or "")
+                    if playlist_id:
+                        tracks = await fetch_playlist_tracks(
+                            client,
+                            access_token,
+                            playlist_id,
+                        )
+                        all_tracks.extend(tracks)
+
+                if all_tracks:
+                    playlist_freq = compute_artist_frequency(all_tracks)
+                    blended, casing_map = blend_artist_affinity(
+                        native_ranked,
+                        playlist_freq,
+                    )
+                    display_names = top_display_names(blended, casing_map)
+        except Exception:
+            logger.exception(
+                "Fallback playlist sync failed inline for user %s",
+                user_id,
+            )
+
     if display_names:
         persist_artist_signals(user_id, blended, display_names)
 

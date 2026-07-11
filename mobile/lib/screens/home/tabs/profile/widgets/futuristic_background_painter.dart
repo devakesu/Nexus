@@ -12,6 +12,7 @@ class FuturisticBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Offset.zero & size);
     const gridAlpha = 0.08;
 
     final Color primaryOrbitColor;

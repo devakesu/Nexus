@@ -1899,83 +1899,69 @@ class _OrbitScreenState extends State<OrbitScreen>
             top: 0,
             left: 0,
             right: 0,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    bottom: 8,
-                    left: 16,
-                    right: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        const Color(0xFF020408).withValues(alpha: 0.92),
-                        const Color(0xFF020408).withValues(alpha: 0.65),
-                        const Color(0xFF020408).withValues(alpha: 0),
+            child: Container(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 8,
+                bottom: 8,
+                left: 16,
+                right: 16,
+              ),
+              decoration: const BoxDecoration(
+                color: Color(0xFF020408),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            LucideIcons.arrowLeft,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            widget.tab == 'Professional'
+                                ? 'Pro Constellation'
+                                : '${widget.tab} Constellation',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
                       ],
-                      stops: const [0.0, 0.7, 1.0],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Flexible(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                LucideIcons.arrowLeft,
-                                color: Colors.white,
-                              ),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                widget.tab == 'Professional'
-                                    ? 'Pro Constellation'
-                                    : '${widget.tab} Constellation',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.slidersHorizontal,
+                          color: Colors.white,
                         ),
+                        onPressed: _showFiltersPanel,
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              LucideIcons.slidersHorizontal,
-                              color: Colors.white,
-                            ),
-                            onPressed: _showFiltersPanel,
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              LucideIcons.refreshCw,
-                              color: Colors.white,
-                            ),
-                            onPressed: () =>
-                                unawaited(_fetchOrbitNodes(immediate: true)),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.refreshCw,
+                          color: Colors.white,
+                        ),
+                        onPressed: () =>
+                            unawaited(_fetchOrbitNodes(immediate: true)),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
             ),
           ),

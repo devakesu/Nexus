@@ -257,7 +257,7 @@ async def fetch_owned_or_collaborative_playlists(
             if not isinstance(playlist_id, str) or not isinstance(name, str):
                 continue
 
-            tracks_meta = item.get("tracks")
+            tracks_meta = item.get("tracks") or item.get("items")
             track_count = 0
             if isinstance(tracks_meta, dict):
                 track_count = int(cast(dict[str, Any], tracks_meta).get("total") or 0)
@@ -277,7 +277,7 @@ async def fetch_owned_or_collaborative_playlists(
     return playlists[:_MAX_PLAYLISTS_FOR_TRACKS]
 
 
-async def fetch_playlist_tracks(
+async def fetch_playlist_tracks(  # noqa: C901
     client: httpx.AsyncClient,
     access_token: str,
     playlist_id: str,
@@ -294,7 +294,10 @@ async def fetch_playlist_tracks(
     )
     params: dict[str, Any] | None = {
         "limit": 50,
-        "fields": "items(track(id,name,artists(name))),next",
+        "fields": (
+            "items(track(id,name,artists(name)),"
+            "item(id,name,artists(name))),next"
+        ),
     }
     headers = _auth_header(access_token)
 
@@ -321,7 +324,7 @@ async def fetch_playlist_tracks(
             if not isinstance(raw_item, dict):
                 continue
             item = cast(dict[str, Any], raw_item)
-            raw_track = item.get("track")
+            raw_track = item.get("track") or item.get("item")
             if not isinstance(raw_track, dict):
                 continue
             track = cast(dict[str, Any], raw_track)

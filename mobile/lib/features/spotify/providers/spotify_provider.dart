@@ -12,7 +12,7 @@ SpotifyService spotifyService(Ref ref) => SpotifyService(createDio());
 /// Profile tab load to decide Connect-vs-Manage button state. Not keepAlive:
 /// it's fine for this to refetch each time it's watched, since it's a
 /// single-row status query.
-@riverpod
+@Riverpod(keepAlive: true)
 Future<SpotifyConnectionStatus> spotifyStatus(Ref ref) {
   return ref.watch(spotifyServiceProvider).fetchStatus();
 }

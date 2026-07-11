@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/features/spotify/models/spotify_playlist.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
-import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,136 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// peer-facing profile view), which has no code path that could render
 /// this even by accident since it only destructures fields it explicitly
 /// asks for from its data map.
-class SpotifyPlaylistsSection extends ConsumerWidget {
-  const SpotifyPlaylistsSection({super.key});
-
-  static const _spotifyGreen = Color(0xFF1DB954);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final statusAsync = ref.watch(spotifyStatusProvider);
-
-    return UniverseSection(
-      icon: LucideIcons.listMusic,
-      title: 'Your Playlists',
-      description: 'Detailed playlists synced from Spotify',
-      cardColor: const Color(0xFFEFFAF3),
-      borderColor: _spotifyGreen.withValues(alpha: 0.40),
-      accentColor: _spotifyGreen,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(LucideIcons.lock, size: 12, color: Colors.black45),
-              const SizedBox(width: 6),
-              Text(
-                'Only visible to you',
-                style: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          statusAsync.when(
-            data: (status) => _StatusBody(status: status),
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(child: NexusOrbitLoader(size: 24)),
-            ),
-            error: (_, _) => Text(
-              "Couldn't load your playlist status.",
-              style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.45),
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBody extends StatelessWidget {
-  const _StatusBody({required this.status});
-
-  final SpotifyConnectionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!status.connected) {
-      return Text(
-        'Connect Spotify above to sync your playlists here.',
-        style: TextStyle(
-          color: Colors.black.withValues(alpha: 0.45),
-          fontSize: 12,
-          height: 1.4,
-        ),
-      );
-    }
-
-    final lastSynced = status.lastSyncedAt;
-    final subtitle = status.playlistCount == 0
-        ? 'Syncing your playlists…'
-        : '${status.playlistCount} playlist${status.playlistCount == 1 ? '' : 's'}'
-              '${lastSynced != null ? ' · synced ${_relativeTime(lastSynced)}' : ''}';
-
-    return GestureDetector(
-      onTap: () => _openPlaylistsSheet(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: SpotifyPlaylistsSection._spotifyGreen.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: SpotifyPlaylistsSection._spotifyGreen.withValues(
-              alpha: 0.30,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              LucideIcons.listMusic,
-              size: 16,
-              color: SpotifyPlaylistsSection._spotifyGreen,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Icon(
-              LucideIcons.chevronRight,
-              size: 16,
-              color: Colors.black38,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _relativeTime(DateTime time) {
-  final diff = DateTime.now().toUtc().difference(time.toUtc());
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-  if (diff.inDays < 1) return '${diff.inHours}h ago';
-  return '${diff.inDays}d ago';
-}
-
-Future<void> _openPlaylistsSheet(BuildContext context) {
+Future<void> openPlaylistsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -175,7 +45,14 @@ class _SpotifyPlaylistsSheetContent extends ConsumerWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF090D1A),
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF0F172A),
+            Color(0xFF090D1A),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
@@ -281,112 +158,167 @@ class _PlaylistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
+      child: Material(
         color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          title: Text(
-            playlist.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          subtitle: Row(
-            children: [
-              Text(
-                '${playlist.trackCount} track${playlist.trackCount == 1 ? '' : 's'}',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 11,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _spotifyGreen.withValues(alpha: 0.20),
+                    Colors.white.withValues(alpha: 0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _spotifyGreen.withValues(alpha: 0.15),
+                  width: 0.8,
                 ),
               ),
-              if (playlist.isCollaborative) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
+              child: const Center(
+                child: Icon(
+                  LucideIcons.listMusic,
+                  size: 18,
+                  color: _spotifyGreen,
+                ),
+              ),
+            ),
+            title: Text(
+              playlist.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Row(
+              children: [
+                Text(
+                  '${playlist.trackCount} track${playlist.trackCount == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 11,
                   ),
-                  decoration: BoxDecoration(
-                    color: _spotifyGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Collaborative',
-                    style: TextStyle(
-                      color: _spotifyGreen,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
+                ),
+                if (playlist.isCollaborative) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _spotifyGreen.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Collaborative',
+                      style: TextStyle(
+                        color: _spotifyGreen,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
-          ),
-          trailing: IconButton(
-            icon: const Icon(
-              LucideIcons.externalLink,
-              size: 16,
-              color: Colors.white38,
             ),
-            tooltip: 'Open in Spotify',
-            onPressed: () => unawaited(_openInSpotify(playlist.spotifyUrl)),
-          ),
-          collapsedIconColor: Colors.white38,
-          iconColor: Colors.white70,
-          children: playlist.tracks
-              .map(
-                (track) => Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.music,
-                        size: 12,
-                        color: Colors.white24,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              track.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                            if (track.artistLine.isNotEmpty)
-                              Text(
-                                track.artistLine,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.4),
-                                  fontSize: 11,
-                                ),
-                              ),
-                          ],
+            trailing: IconButton(
+              icon: const Icon(
+                LucideIcons.externalLink,
+                size: 16,
+                color: Colors.white38,
+              ),
+              tooltip: 'Open in Spotify',
+              onPressed: () => unawaited(_openInSpotify(playlist.spotifyUrl)),
+            ),
+            collapsedIconColor: Colors.white38,
+            iconColor: Colors.white70,
+            children: playlist.tracks
+                .map(
+                  (track) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.02),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          width: 0.8,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                LucideIcons.music,
+                                size: 12,
+                                color: Colors.white38,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  track.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (track.artistLine.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    track.artistLine,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.4),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              )
-              .toList(),
+                )
+                .toList(),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _openInSpotify(String url) async {
     if (url.isEmpty) return;
