@@ -478,8 +478,14 @@ class DiscoveryActionRequest(BaseModel):
         if self.action == "report":
             if self.reason is None:
                 raise ValueError("reason is required for report")
-            if self.reason == "other" and not (self.reason_detail or "").strip():
-                raise ValueError("reason_detail is required when reason is other")
+            if self.reason == "other":
+                detail = self.reason_detail or ""
+                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
+                if len(alpha_chars) < 5:
+                    raise ValueError(
+                        "reason_detail must contain at least 5 alphabetic "
+                        "characters when reason is other",
+                    )
 
         return self
 
@@ -749,8 +755,14 @@ class LikeActionRequest(BaseModel):
         if self.action == "report":
             if self.reason is None:
                 raise ValueError("reason is required for report")
-            if self.reason == "other" and not (self.reason_detail or "").strip():
-                raise ValueError("reason_detail is required when reason is other")
+            if self.reason == "other":
+                detail = self.reason_detail or ""
+                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
+                if len(alpha_chars) < 5:
+                    raise ValueError(
+                        "reason_detail must contain at least 5 alphabetic "
+                        "characters when reason is other",
+                    )
         return self
 
 
@@ -815,8 +827,14 @@ class MatchActionRequest(BaseModel):
         if self.action == "report":
             if self.reason is None:
                 raise ValueError("reason is required for report")
-            if self.reason == "other" and not (self.reason_detail or "").strip():
-                raise ValueError("reason_detail is required when reason is other")
+            if self.reason == "other":
+                detail = self.reason_detail or ""
+                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
+                if len(alpha_chars) < 5:
+                    raise ValueError(
+                        "reason_detail must contain at least 5 alphabetic "
+                        "characters when reason is other",
+                    )
         return self
 
 

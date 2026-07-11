@@ -1299,6 +1299,7 @@ Future<void> showProfileReportDialog(
 }) async {
   String? selectedReason;
   final otherCtrl = TextEditingController();
+  final otherFocusNode = FocusNode();
 
   const reasons = [
     ('scam', 'Scam or Fraud'),
@@ -1309,6 +1310,13 @@ Future<void> showProfileReportDialog(
     ('underage', 'Underage User'),
     ('other', 'Other'),
   ];
+
+  bool isReportValid() {
+    if (selectedReason == null) return false;
+    if (selectedReason != 'other') return true;
+    final alphaChars = otherCtrl.text.replaceAll(RegExp('[^a-zA-Z]'), '');
+    return alphaChars.length >= 5;
+  }
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -1339,8 +1347,14 @@ Future<void> showProfileReportDialog(
                   return ChoiceChip(
                     label: Text(r.$2),
                     selected: selected,
-                    onSelected: (_) =>
-                        setDialogState(() => selectedReason = r.$1),
+                    onSelected: (_) => setDialogState(() {
+                      selectedReason = r.$1;
+                      if (selectedReason == 'other') {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          otherFocusNode.requestFocus();
+                        });
+                      }
+                    }),
                     selectedColor: themeColor,
                     backgroundColor: const Color(0xFF1E293B),
                     side: BorderSide(
@@ -1361,6 +1375,9 @@ Future<void> showProfileReportDialog(
                 const SizedBox(height: 14),
                 TextField(
                   controller: otherCtrl,
+                  focusNode: otherFocusNode,
+                  autofocus: true,
+                  onChanged: (_) => setDialogState(() {}),
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   maxLines: 3,
                   maxLength: 200,
@@ -1369,6 +1386,15 @@ Future<void> showProfileReportDialog(
                     hintStyle: const TextStyle(
                       color: Colors.white38,
                       fontSize: 13,
+                    ),
+                    helperText: isReportValid()
+                        ? 'Reason looks good!'
+                        : 'At least 5 letters required',
+                    helperStyle: TextStyle(
+                      color: isReportValid()
+                          ? Colors.greenAccent.withValues(alpha: 0.7)
+                          : Colors.white38,
+                      fontSize: 11,
                     ),
                     filled: true,
                     fillColor: const Color(0xFF1E293B),
@@ -1405,9 +1431,9 @@ Future<void> showProfileReportDialog(
             ),
           ),
           ElevatedButton(
-            onPressed: selectedReason == null
-                ? null
-                : () => Navigator.pop(dialogCtx, true),
+            onPressed: isReportValid()
+                ? () => Navigator.pop(dialogCtx, true)
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: themeColor,
               disabledBackgroundColor: Colors.white12,
@@ -1432,7 +1458,10 @@ Future<void> showProfileReportDialog(
       : null;
 
   // Delay disposal to allow the dialog fade-out transition to complete safely
-  Future.delayed(const Duration(milliseconds: 400), otherCtrl.dispose);
+  Future.delayed(const Duration(milliseconds: 400), () {
+    otherCtrl.dispose();
+    otherFocusNode.dispose();
+  });
 
   if (confirmed ?? false) {
     await onConfirmed(
