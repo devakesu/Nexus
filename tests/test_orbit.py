@@ -22,6 +22,7 @@ def _half_width(name: str) -> float:
 
 
 _HALF_HEIGHT = 45.0
+_SELF_AVATAR_RADIUS = 44.0  # mirrors app.db.orbit's center self-avatar clearance model
 
 
 def _make_items(
@@ -60,6 +61,25 @@ def _assert_no_overlap(result: list[dict[str, Any]]) -> None:
             assert not (overlap_x > 0 and overlap_y > 0), (
                 f"overlap between {name_a!r} and {name_b!r}"
             )
+
+
+def _assert_clears_self_avatar(result: list[dict[str, Any]]) -> None:
+    """No node's rendered box may reach the center self-avatar's circle.
+
+    Uses the exact point-to-AABB distance (not the conservative corner-distance
+    bound app.db.orbit derives _INNERMOST_RADIUS from), so this is a real
+    check of the geometry rather than a restatement of the same formula.
+    """
+    for item in result:
+        hw = _half_width(item["profile"]["name"])
+        cx, cy = abs(item["_x"]), abs(item["_y"])
+        dx = max(cx - hw, 0.0)
+        dy = max(cy - _HALF_HEIGHT, 0.0)
+        dist = math.hypot(dx, dy)
+        assert dist >= _SELF_AVATAR_RADIUS, (
+            f"node {item['profile']['name']!r} at ({item['_x']}, {item['_y']}) "
+            f"reaches the self-avatar (clearance {dist:.1f} < {_SELF_AVATAR_RADIUS})"
+        )
 
 
 def _assert_monotonic(result: list[dict[str, Any]]) -> None:
@@ -122,6 +142,13 @@ def test_no_overlap(name: str) -> None:
     items = SCENARIOS[name]()
     result = assign_orbit_positions("viewer1", "Friends", items)
     _assert_no_overlap(result)
+
+
+@pytest.mark.parametrize("name", SCENARIOS.keys())
+def test_clears_self_avatar(name: str) -> None:
+    items = SCENARIOS[name]()
+    result = assign_orbit_positions("viewer1", "Friends", items)
+    _assert_clears_self_avatar(result)
 
 
 @pytest.mark.parametrize("name", SCENARIOS.keys())

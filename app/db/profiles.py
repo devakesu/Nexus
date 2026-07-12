@@ -799,7 +799,7 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
                 "role_at, profile_pic, looking_for, activities, causes_supported, "
                 "top_artists, tech_skills, role_type, languages, ai_vibe_tags, "
                 "pets, normal_pics, partner_values, interests, sub_interests, "
-                "value_dimensions, ordered_images, created_at, updated_at, "
+                "value_dimensions, created_at, updated_at, "
                 "is_deactivated",
             )
             .eq("id", target_id)

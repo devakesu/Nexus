@@ -136,7 +136,8 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _handshakeItems = data.likes;
+    _handshakeItems.clear();
+    _handshakeItems.addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -543,7 +544,8 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     }
   }
 
-  Future<void> _markAllHandshakesSeen() async {
+
+  Future<void> _markHandshakeSeen(String actorId) async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
     try {
@@ -551,14 +553,17 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
       final dio = createDio();
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
-        data: {'mark_all': true},
+        data: {
+          'actor_ids': [actorId],
+          'tab': 'Professional',
+        },
       );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
         stackTrace: st,
         level: ErrorLevel.warning,
-        customMessage: '[ProfessionalTab] Error marking handshakes seen',
+        customMessage: '[ProfessionalTab] Error marking handshake seen',
         showUi: false,
       );
     }
@@ -720,20 +725,29 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                   ),
                 ],
               ),
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 onPressed: () => doAction('superlike'),
-                icon: const Icon(LucideIcons.star, size: 14),
-                label: const Text(
-                  'Super Connect',
+                child: const Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Icon(LucideIcons.star, size: 14, color: Colors.white),
+                      ),
+                      WidgetSpan(child: SizedBox(width: 4)),
+                      TextSpan(text: 'Super Connect'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
@@ -783,11 +797,32 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     );
   }
 
+  void _onHandshakeProfileLoaded(String actorId, void Function() onProfileLoaded) {
+    final index = _handshakeItems.indexWhere((i) => i['actor_id'] == actorId);
+    if (index != -1) {
+      final handshakeEntry = _handshakeItems[index];
+      final isUnseen = handshakeEntry['seen_at'] == null;
+      if (isUnseen) {
+        setState(() {
+          handshakeEntry['seen_at'] = DateTime.now().toIso8601String();
+          _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
+          _handshakeItems.removeAt(index);
+          _handshakeItems.add(handshakeEntry);
+        });
+        onProfileLoaded();
+        unawaited(_markHandshakeSeen(actorId).then((_) {
+          unawaited(ref.read(discoveryHubControllerProvider('professional').notifier).refresh());
+        }));
+      }
+    }
+  }
+
   Future<void> _showHandshakeProfile({
     required BuildContext ctx,
     required String actorId,
     required String name,
     required void Function(String actorId) onActioned,
+    required void Function() onProfileLoaded,
   }) async {
     const themeColor = AppColors.modeProfessional;
     final session = Supabase.instance.client.auth.currentSession;
@@ -799,13 +834,15 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     );
     final matchedProfilePic = handshakeEntry['profile_pic'] as String?;
 
+    final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
+
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
         return FutureBuilder<Map<String, dynamic>>(
-          future: _fetchPeerProfile(actorId, session.accessToken),
+          future: profileFuture,
           builder: (sheetCtx, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
@@ -834,6 +871,13 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                 ),
               );
             }
+
+            // Mark seen and re-sort only on successful load
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _onHandshakeProfileLoaded(actorId, onProfileLoaded);
+              }
+            });
             return DraggableScrollableSheet(
               initialChildSize: 0.92,
               minChildSize: 0.5,
@@ -899,8 +943,6 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
   }
 
   Future<void> _showHandshakesOverlay() async {
-    setState(() => _unseenCount = 0);
-    unawaited(_markAllHandshakesSeen());
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,

@@ -47,20 +47,48 @@ def coerce_float(value: Any, default: float = 0.0) -> float:
 
 
 # ── Layout tuning constants ────────────────────────────────────────────────
+# Rendered node footprint, mirroring the Flutter client (orbit_screen.dart):
+# a 58px avatar with a name card below it whose text is truncated to ~80px at
+# a word boundary (so effectively capped near _NAME_TEXT_MAX), plus 8px of
+# horizontal padding on each side. The overall node width is the wider of the
+# avatar and that card. Modelling the *truncated* card - not the full name -
+# is what keeps the packing tight; the old formula reserved ~1.6x too much
+# width for typical full names, pushing everyone needlessly far out.
+_AVATAR_WIDTH = 58.0
+_NAME_CHAR_WIDTH = 5.6  # px per char at the card's 10px bold font
+_NAME_TEXT_MAX = 90.0  # client truncates name text at ~80px + up to one whole word
+_CARD_H_PADDING = 8.0  # horizontal padding on each side of the name card
+_NODE_WIDTH_MARGIN = 4.0  # small clearance so touching cards read as separate
+_NODE_HALF_HEIGHT = 45.0  # avatar + name-card half height
+_MAX_NODE_HALF_WIDTH = (
+    max(_AVATAR_WIDTH, _NAME_TEXT_MAX + 2.0 * _CARD_H_PADDING) / 2.0 + _NODE_WIDTH_MARGIN
+)  # half-width at the name-card's truncation cap - the widest any node ever gets
+
 # Nodes are packed in a phyllotaxis ("sunflower") spiral: the k-th best match
 # (0-indexed by score rank) is placed at radius INNERMOST + SCALE*sqrt(k) and
 # angle k*GOLDEN_ANGLE. This fills the disc evenly from the center outward,
 # so radius grows as sqrt(k) (compact) rather than linearly with count, and
 # every node is at a distinct rank-ordered radius (higher score => nearer the
 # center, always).
-_INNERMOST_RADIUS = 80.0  # radius of the single best match; clears the center self-avatar
+#
+# The center self-avatar (orbit_screen.dart's _buildSelfAvatar) is a 76px
+# circle that pulses up to 1.15x scale, i.e. a hard radius of ~44px - not a
+# node the collision/repair logic below ever checks against, so the innermost
+# ring must clear it by construction. Using the same corner-distance
+# reasoning as node-to-node separation (a box's closest possible point to the
+# origin is bounded by center-distance minus its own half-diagonal), the
+# nearest node's center must be at least selfAvatarRadius +
+# sqrt(hw^2 + hh^2) from the origin for its box to never reach the avatar.
+_SELF_AVATAR_RADIUS = 44.0
+_INNERMOST_RADIUS = _SELF_AVATAR_RADIUS + math.sqrt(
+    _MAX_NODE_HALF_WIDTH**2 + _NODE_HALF_HEIGHT**2,
+)
 # Radial growth per unit sqrt(rank). Tuned to the smallest value that keeps
 # even the widest (name-cap-hitting) cards non-overlapping in the sunflower
 # spiral across batch sizes up to the 200-node cap; the local repair pass
 # below is a safety net for anything the packing misses.
 _SUNFLOWER_SCALE = 84.0
 _GOLDEN_ANGLE = math.pi * (3.0 - math.sqrt(5.0))  # ~137.5 degrees
-_NODE_HALF_HEIGHT = 45.0  # avatar + name-card half height
 _RADIUS_WARN_THRESHOLD = 1400.0  # nominal pannable-canvas edge; logged, not clamped
 _REPAIR_STEP = 8.0  # px pushed outward per iteration when clearing a residual overlap
 _REPAIR_MAX_STEPS = 60
@@ -184,20 +212,6 @@ def _item_name(item: dict[str, Any]) -> str:
     profile_raw = item.get("profile")
     profile: dict[str, Any] = cast(dict[str, Any], profile_raw) if isinstance(profile_raw, dict) else {}
     return str(item.get("name") or profile.get("name") or "Anonymous")
-
-
-# Rendered node footprint, mirroring the Flutter client (orbit_screen.dart):
-# a 58px avatar with a name card below it whose text is truncated to ~80px at
-# a word boundary (so effectively capped near _NAME_TEXT_MAX), plus 8px of
-# horizontal padding on each side. The overall node width is the wider of the
-# avatar and that card. Modelling the *truncated* card - not the full name -
-# is what keeps the packing tight; the old formula reserved ~1.6x too much
-# width for typical full names, pushing everyone needlessly far out.
-_AVATAR_WIDTH = 58.0
-_NAME_CHAR_WIDTH = 5.6  # px per char at the card's 10px bold font
-_NAME_TEXT_MAX = 90.0  # client truncates name text at ~80px + up to one whole word
-_CARD_H_PADDING = 8.0  # horizontal padding on each side of the name card
-_NODE_WIDTH_MARGIN = 4.0  # small clearance so touching cards read as separate
 
 
 def _node_half_width(name: str) -> float:

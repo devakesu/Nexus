@@ -143,7 +143,8 @@ class _DatingTabState extends ConsumerState<DatingTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _likeItems = data.likes;
+    _likeItems.clear();
+    _likeItems.addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -568,7 +569,8 @@ class _DatingTabState extends ConsumerState<DatingTab>
     }
   }
 
-  Future<void> _markAllLikesSeen() async {
+
+  Future<void> _markLikeSeen(String actorId) async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
     try {
@@ -576,14 +578,17 @@ class _DatingTabState extends ConsumerState<DatingTab>
       final dio = _dio;
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
-        data: {'mark_all': true},
+        data: {
+          'actor_ids': [actorId],
+          'tab': 'Dating',
+        },
       );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
         stackTrace: st,
         level: ErrorLevel.warning,
-        customMessage: '[DatingTab] Error marking likes seen',
+        customMessage: '[DatingTab] Error marking like seen',
         showUi: false,
       );
     }
@@ -742,20 +747,29 @@ class _DatingTabState extends ConsumerState<DatingTab>
                   ),
                 ],
               ),
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 onPressed: () => doAction('superlike'),
-                icon: const Icon(LucideIcons.star, size: 14),
-                label: const Text(
-                  'Super Back',
+                child: const Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Icon(LucideIcons.star, size: 14, color: Colors.white),
+                      ),
+                      WidgetSpan(child: SizedBox(width: 4)),
+                      TextSpan(text: 'Super Back'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
@@ -805,11 +819,32 @@ class _DatingTabState extends ConsumerState<DatingTab>
     );
   }
 
+  void _onLikeProfileLoaded(String actorId, void Function() onProfileLoaded) {
+    final index = _likeItems.indexWhere((i) => i['actor_id'] == actorId);
+    if (index != -1) {
+      final likeEntry = _likeItems[index];
+      final isUnseen = likeEntry['seen_at'] == null;
+      if (isUnseen) {
+        setState(() {
+          likeEntry['seen_at'] = DateTime.now().toIso8601String();
+          _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
+          _likeItems.removeAt(index);
+          _likeItems.add(likeEntry);
+        });
+        onProfileLoaded();
+        unawaited(_markLikeSeen(actorId).then((_) {
+          unawaited(ref.read(discoveryHubControllerProvider('dating').notifier).refresh());
+        }));
+      }
+    }
+  }
+
   Future<void> _showLikeProfile({
     required BuildContext ctx,
     required String actorId,
     required String name,
     required void Function(String actorId) onActioned,
+    required void Function() onProfileLoaded,
   }) async {
     const themeColor = AppColors.modeDating;
     final session = Supabase.instance.client.auth.currentSession;
@@ -821,13 +856,15 @@ class _DatingTabState extends ConsumerState<DatingTab>
     );
     final matchedProfilePic = likeEntry['profile_pic'] as String?;
 
+    final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
+
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
         return FutureBuilder<Map<String, dynamic>>(
-          future: _fetchPeerProfile(actorId, session.accessToken),
+          future: profileFuture,
           builder: (sheetCtx, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
@@ -856,6 +893,14 @@ class _DatingTabState extends ConsumerState<DatingTab>
                 ),
               );
             }
+
+            // Mark seen and re-sort only on successful load
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _onLikeProfileLoaded(actorId, onProfileLoaded);
+              }
+            });
+
             return DraggableScrollableSheet(
               initialChildSize: 0.92,
               minChildSize: 0.5,
@@ -921,8 +966,6 @@ class _DatingTabState extends ConsumerState<DatingTab>
   }
 
   Future<void> _showLikesOverlay() async {
-    setState(() => _unseenCount = 0);
-    unawaited(_markAllLikesSeen());
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,

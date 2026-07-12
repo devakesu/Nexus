@@ -28,6 +28,7 @@ class LikesOverlay extends StatefulWidget {
     required String actorId,
     required String name,
     required void Function(String actorId) onActioned,
+    required void Function() onProfileLoaded,
   })
   onOpenLikesDetailsDialog;
   final Future<void> Function(
@@ -165,6 +166,8 @@ class _LikesOverlayState extends State<LikesOverlay> {
                                       id,
                                 );
                               });
+                            },
+                            onProfileLoaded: () {
                               setState(() {});
                             },
                           ),
@@ -180,26 +183,67 @@ class _LikesOverlayState extends State<LikesOverlay> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(20),
-                                    ),
-                                    child: profilePic.isNotEmpty
-                                        ? StorageImage(
-                                            imagePath: profilePic,
-                                          )
-                                        : ColoredBox(
-                                            color: themeColor.withAlpha(
-                                              40,
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                top: Radius.circular(20),
+                                              ),
+                                          child: profilePic.isNotEmpty
+                                              ? StorageImage(
+                                                  imagePath: profilePic,
+                                                )
+                                              : ColoredBox(
+                                                  color: themeColor.withAlpha(
+                                                    40,
+                                                  ),
+                                                  child: const Center(
+                                                    child: Icon(
+                                                      LucideIcons.user,
+                                                      color: Colors.white38,
+                                                      size: 36,
+                                                    ),
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      if (item['seen_at'] == null)
+                                        Positioned(
+                                          top: 8,
+                                          left: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
                                             ),
-                                            child: const Center(
-                                              child: Icon(
-                                                LucideIcons.user,
-                                                color: Colors.white38,
-                                                size: 36,
+                                            decoration: BoxDecoration(
+                                              color: themeColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: themeColor.withAlpha(
+                                                    100,
+                                                  ),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Text(
+                                              'NEW',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
                                               ),
                                             ),
                                           ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 Padding(

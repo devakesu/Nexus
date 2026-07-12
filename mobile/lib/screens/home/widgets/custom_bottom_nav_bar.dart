@@ -1,4 +1,5 @@
 import 'dart:async';
+// Trigger analyzer refresh
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -7,11 +8,17 @@ class CustomBottomNavBar extends StatelessWidget {
   const CustomBottomNavBar({
     required this.currentIndex,
     required this.onTabSelected,
+    this.showDatingBadge = false,
+    this.showFriendsBadge = false,
+    this.showProfessionalBadge = false,
     super.key,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
+  final bool showDatingBadge;
+  final bool showFriendsBadge;
+  final bool showProfessionalBadge;
 
   /// The nav's own height, in logical pixels.
   static const double navHeight = 72;
@@ -68,15 +75,28 @@ class CustomBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(context, 0, Icons.favorite_rounded, 'dating'),
+            _buildNavItem(
+              context,
+              0,
+              Icons.favorite_rounded,
+              'dating',
+              showBadge: showDatingBadge,
+            ),
             _buildNavItem(
               context,
               1,
               Icons.all_inclusive_rounded,
               'friends',
+              showBadge: showFriendsBadge,
             ),
             _buildCenterNavItem(context),
-            _buildNavItem(context, 3, Icons.work_rounded, 'work'),
+            _buildNavItem(
+              context,
+              3,
+              Icons.work_rounded,
+              'work',
+              showBadge: showProfessionalBadge,
+            ),
             _buildNavItem(
               context,
               4,
@@ -98,8 +118,9 @@ class CustomBottomNavBar extends StatelessWidget {
     BuildContext context,
     int index,
     IconData icon,
-    String label,
-  ) {
+    String label, {
+    bool showBadge = false,
+  }) {
     final isSelected = currentIndex == index;
     final selectedColor = _getSelectedColor(index);
 
@@ -134,10 +155,32 @@ class CustomBottomNavBar extends StatelessWidget {
                   end: isSelected ? selectedColor : _unselectedColor,
                 ),
                 builder: (context, color, child) {
-                  return Icon(
-                    icon,
-                    color: color,
-                    size: 22,
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        icon,
+                        color: color,
+                        size: 22,
+                      ),
+                      if (showBadge)
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: selectedColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),

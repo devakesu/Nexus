@@ -1032,7 +1032,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
             ),
 
             filterSection(
-              label: 'Tech Skills',
+              label: 'What skills are you looking for?',
               child: filterChips(
                 FilterOptions.techSkills,
                 widget.selectedTechSkills,

@@ -197,7 +197,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'Why does my report need more detail when I choose "Other"?',
         answer:
-            'When "Other" is selected, the details field needs at least 5 letters before Report & Block unlocks — just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.',
+            'When "Other" is selected, the details field needs a valid reason (min. 5 letters) before Report & Block unlocks — just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.',
       ),
       (
         question: 'Where do I find Safety Check-in and SOS/Emergency tools?',

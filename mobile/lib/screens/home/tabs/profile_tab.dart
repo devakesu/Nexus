@@ -29,7 +29,6 @@ import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/export_code_card.dart';
-import 'package:nexus/screens/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
@@ -370,18 +369,32 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   /// reconciling with the network in the background, instead of blocking
   /// the whole page behind a spinner on every mount.
   Future<void> _bootstrapProfileData() async {
+    final startTime = DateTime.now();
     final cached = await SecureProfileCache.read();
     if (cached != null && mounted) {
       setState(() {
         _applyProfileData(cached);
-        _isLoading = false;
-        _isRevalidating = true;
       });
-      if (_entryController != null) {
+    }
+    await _loadProfileData(silent: cached != null, isBootstrap: true);
+
+    // Enforce a minimum 1-second loading skeleton animation to allow background fetches
+    // (such as matches, likes, and waves counts) to settle cleanly.
+    final elapsed = DateTime.now().difference(startTime);
+    final remaining = const Duration(seconds: 1) - elapsed;
+    if (remaining > Duration.zero) {
+      await Future<void>.delayed(remaining);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _isRevalidating = false;
+      });
+      if (_entryController != null && !_entryController!.isCompleted) {
         unawaited(_entryController!.forward(from: 0));
       }
     }
-    await _loadProfileData(silent: cached != null);
   }
 
   @override
@@ -409,7 +422,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return list;
   }
 
-  Future<void> _loadProfileData({bool silent = false}) async {
+  Future<void> _loadProfileData({bool silent = false, bool isBootstrap = false}) async {
     setState(() {
       if (silent) {
         _isRevalidating = true;
@@ -459,12 +472,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         }
       }
     } finally {
-      if (mounted) {
+      if (mounted && !isBootstrap) {
         setState(() {
           _isLoading = false;
           _isRevalidating = false;
         });
-        if (_entryController != null) {
+        if (_entryController != null && !_entryController!.isCompleted) {
           unawaited(_entryController!.forward(from: 0));
         }
       }
@@ -1885,10 +1898,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     final rotationController = _rotationController;
 
     if (_isLoading || pulseController == null || rotationController == null) {
-      // Only reached on a true first-ever load with no cached snapshot to
-      // render instantly - matches the shape used by the Dating/Friends/
-      // Professional settings overlays instead of a generic spinner.
-      return const SettingsLoadingSkeleton(themeColor: AppColors.primaryTeal);
+      return Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: const Center(
+          child: NexusOrbitLoader(size: 56),
+        ),
+      );
     }
 
     return GestureDetector(

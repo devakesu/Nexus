@@ -1,6 +1,9 @@
 import 'dart:async';
+// Trigger analyzer refresh
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexus/providers/discovery_hub_provider.dart';
 import 'package:nexus/screens/home/tabs/dating_tab.dart';
 import 'package:nexus/screens/home/tabs/friends_tab.dart';
 import 'package:nexus/screens/home/tabs/professional_tab.dart';
@@ -10,16 +13,16 @@ import 'package:nexus/screens/home/widgets/common_header.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/orbit_screen.dart';
 
-class MyHomePage extends StatefulWidget {
+class MyHomePage extends ConsumerStatefulWidget {
   const MyHomePage({required this.title, super.key});
 
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  ConsumerState<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends ConsumerState<MyHomePage> {
   int _currentTab = 2; // Default to My Profile (Center Tab)
 
   // Profile (index 2) is the default landing tab, so it's pre-visited and
@@ -116,9 +119,24 @@ class _MyHomePageState extends State<MyHomePage> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: CustomBottomNavBar(
-              currentIndex: _currentTab,
-              onTabSelected: _selectTab,
+            child: Consumer(
+              builder: (context, ref, child) {
+                final datingState = ref.watch(discoveryHubControllerProvider('dating'));
+                final friendsState = ref.watch(discoveryHubControllerProvider('friends'));
+                final professionalState = ref.watch(discoveryHubControllerProvider('professional'));
+
+                final datingUnseen = (datingState.value?.unseenCount ?? 0) > 0;
+                final friendsUnseen = (friendsState.value?.unseenCount ?? 0) > 0;
+                final professionalUnseen = (professionalState.value?.unseenCount ?? 0) > 0;
+
+                return CustomBottomNavBar(
+                  currentIndex: _currentTab,
+                  onTabSelected: _selectTab,
+                  showDatingBadge: datingUnseen,
+                  showFriendsBadge: friendsUnseen,
+                  showProfessionalBadge: professionalUnseen,
+                );
+              },
             ),
           ),
         ],

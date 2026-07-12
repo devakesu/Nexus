@@ -1393,7 +1393,7 @@ Future<void> showProfileReportDialog(
                     ),
                     helperText: isReportValid()
                         ? 'Reason looks good!'
-                        : 'At least 5 letters required',
+                        : 'A valid reason is required',
                     helperStyle: TextStyle(
                       color: isReportValid()
                           ? Colors.greenAccent.withValues(alpha: 0.7)

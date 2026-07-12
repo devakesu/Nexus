@@ -135,7 +135,8 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _waveItems = data.likes;
+    _waveItems.clear();
+    _waveItems.addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -546,7 +547,8 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     }
   }
 
-  Future<void> _markAllWavesSeen() async {
+
+  Future<void> _markWaveSeen(String actorId) async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) return;
     try {
@@ -554,14 +556,17 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
       final dio = createDio();
       await dio.post<void>(
         '${config.backendUrl}/api/v1/likes/mark-seen',
-        data: {'mark_all': true},
+        data: {
+          'actor_ids': [actorId],
+          'tab': 'Friends',
+        },
       );
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
         stackTrace: st,
         level: ErrorLevel.warning,
-        customMessage: '[FriendsTab] Error marking waves seen',
+        customMessage: '[FriendsTab] Error marking wave seen',
         showUi: false,
       );
     }
@@ -723,20 +728,29 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                   ),
                 ],
               ),
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 onPressed: () => doAction('superlike'),
-                icon: const Icon(LucideIcons.star, size: 14),
-                label: const Text(
-                  'Super Wave',
+                child: const Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Icon(LucideIcons.star, size: 14, color: Colors.white),
+                      ),
+                      WidgetSpan(child: SizedBox(width: 4)),
+                      TextSpan(text: 'Super Wave'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
               ),
@@ -786,11 +800,32 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     );
   }
 
+  void _onWaveProfileLoaded(String actorId, void Function() onProfileLoaded) {
+    final index = _waveItems.indexWhere((i) => i['actor_id'] == actorId);
+    if (index != -1) {
+      final waveEntry = _waveItems[index];
+      final isUnseen = waveEntry['seen_at'] == null;
+      if (isUnseen) {
+        setState(() {
+          waveEntry['seen_at'] = DateTime.now().toIso8601String();
+          _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
+          _waveItems.removeAt(index);
+          _waveItems.add(waveEntry);
+        });
+        onProfileLoaded();
+        unawaited(_markWaveSeen(actorId).then((_) {
+          unawaited(ref.read(discoveryHubControllerProvider('friends').notifier).refresh());
+        }));
+      }
+    }
+  }
+
   Future<void> _showWaveProfile({
     required BuildContext ctx,
     required String actorId,
     required String name,
     required void Function(String actorId) onActioned,
+    required void Function() onProfileLoaded,
   }) async {
     const themeColor = AppColors.modeFriends;
     final session = Supabase.instance.client.auth.currentSession;
@@ -802,13 +837,15 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     );
     final matchedProfilePic = waveEntry['profile_pic'] as String?;
 
+    final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
+
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
         return FutureBuilder<Map<String, dynamic>>(
-          future: _fetchPeerProfile(actorId, session.accessToken),
+          future: profileFuture,
           builder: (sheetCtx, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Container(
@@ -837,6 +874,13 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                 ),
               );
             }
+
+            // Mark seen and re-sort only on successful load
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _onWaveProfileLoaded(actorId, onProfileLoaded);
+              }
+            });
             return DraggableScrollableSheet(
               initialChildSize: 0.92,
               minChildSize: 0.5,
@@ -902,9 +946,6 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
   }
 
   Future<void> _showWavesOverlay() async {
-    setState(() => _unseenCount = 0);
-    unawaited(_markAllWavesSeen());
-
     if (!mounted) return;
 
     await showModalBottomSheet<void>(
