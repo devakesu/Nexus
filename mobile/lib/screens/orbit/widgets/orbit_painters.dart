@@ -111,19 +111,35 @@ class ConstellationLinesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (nodes.isEmpty) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..color = AppColors.tint(themeColor, 0.3).withValues(alpha: 0.1)
+    final baseColor = AppColors.tint(themeColor, 0.3);
+    const maxRadius = 450.0;
+
+    // Lines from center to each node, fading with distance so the closest
+    // (best) matches read as more strongly "connected" than distant ones,
+    // instead of a flat-alpha line to every node competing equally.
+    final centerPaint = Paint()
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
-
-    // Draw lines from center to nodes
     for (final node in nodes) {
       final nodePos = Offset(center.dx + node.x, center.dy + node.y);
-      canvas.drawLine(center, nodePos, paint);
+      final distance = math.sqrt(node.x * node.x + node.y * node.y);
+      final proximity = (1 - (distance / maxRadius)).clamp(0.0, 1.0);
+      final alpha = (0.04 + proximity * 0.10).clamp(0.03, 0.14);
+      canvas.drawLine(
+        center,
+        nodePos,
+        centerPaint..color = baseColor.withValues(alpha: alpha),
+      );
     }
 
-    // Draw lines between nearby nodes (e.g. within 160 units of each other)
-    const maxDistSq = 160.0 * 160.0;
+    // Lines between nearby nodes — tighter radius and a lower alpha ceiling
+    // than the center lines, since this is the O(n^2) mesh that produces the
+    // densest crossing web at higher node counts.
+    final meshPaint = Paint()
+      ..color = baseColor.withValues(alpha: 0.06)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    const maxDistSq = 115.0 * 115.0;
     for (var i = 0; i < nodes.length; i++) {
       final p1 = Offset(center.dx + nodes[i].x, center.dy + nodes[i].y);
 
@@ -133,7 +149,7 @@ class ConstellationLinesPainter extends CustomPainter {
         final dx = p1.dx - p2.dx;
         final dy = p1.dy - p2.dy;
         if (dx * dx + dy * dy <= maxDistSq) {
-          canvas.drawLine(p1, p2, paint);
+          canvas.drawLine(p1, p2, meshPaint);
         }
       }
     }

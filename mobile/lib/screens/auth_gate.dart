@@ -5,6 +5,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
+import 'package:nexus/screens/settings/reset_password_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
@@ -38,6 +39,7 @@ class _AuthGateState extends State<AuthGate> {
 
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
+  bool _isPasswordRecoveryMode = false;
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _AuthGateState extends State<AuthGate> {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
       (data) {
         if (data.event == AuthChangeEvent.signedOut) {
+          _isPasswordRecoveryMode = false;
           unawaited(NotificationService.unregisterToken());
           unawaited(NotificationService.dispose());
           // Central sign-out hook so no cached profile/discovery-hub
@@ -57,6 +60,11 @@ class _AuthGateState extends State<AuthGate> {
           // the same device.
           unawaited(SecureProfileCache.clear());
           unawaited(DiscoveryHubCache.clearAll());
+        }
+        if (data.event == AuthChangeEvent.passwordRecovery) {
+          setState(() {
+            _isPasswordRecoveryMode = true;
+          });
         }
         if (mounted) {
           setState(() {});
@@ -328,8 +336,18 @@ class _AuthGateState extends State<AuthGate> {
     } else {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null && _lastBootstrappedUserId == session.user.id) {
-        final termsVersion = _termsVersion;
-        if (!_hasProfile && termsVersion != null) {
+        if (_isPasswordRecoveryMode) {
+          currentWidget = ResetPasswordScreen(
+            key: const ValueKey('reset-password'),
+            onComplete: () {
+              setState(() {
+                _isPasswordRecoveryMode = false;
+              });
+            },
+          );
+        } else {
+          final termsVersion = _termsVersion;
+          if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
             termsVersion: termsVersion,
@@ -355,6 +373,7 @@ class _AuthGateState extends State<AuthGate> {
             title: widget.appName,
           );
         }
+      }
       } else {
         currentWidget = LoginScreen(
           key: const ValueKey('login'),

@@ -1902,6 +1902,24 @@ class _OrbitScreenState extends State<OrbitScreen>
             },
           ),
 
+          // Edge vignette — signals the starfield continues past the
+          // viewport (pan to explore) instead of reading as clipped/broken.
+          // Uses 4 edge-aligned strips rather than a RadialGradient: a
+          // circular radial gradient sizes its radius off the shortest side,
+          // which on a tall phone viewport over-darkens the vertical
+          // top/bottom while barely reaching the horizontal edges — exactly
+          // where clipped node chips actually sit.
+          const IgnorePointer(
+            child: Stack(
+              children: [
+                _OrbitEdgeFade(alignment: Alignment.topCenter),
+                _OrbitEdgeFade(alignment: Alignment.bottomCenter),
+                _OrbitEdgeFade(alignment: Alignment.centerLeft),
+                _OrbitEdgeFade(alignment: Alignment.centerRight),
+              ],
+            ),
+          ),
+
           // Header Overlay
           Positioned(
             top: 0,
@@ -1915,7 +1933,16 @@ class _OrbitScreenState extends State<OrbitScreen>
                 right: 16,
               ),
               decoration: const BoxDecoration(
-                color: Color(0xFF020408),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF020408),
+                    Color(0xFF020408),
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.82, 1.0],
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1924,11 +1951,10 @@ class _OrbitScreenState extends State<OrbitScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            LucideIcons.arrowLeft,
-                            color: Colors.white,
-                          ),
+                        _OrbitHeaderIconButton(
+                          icon: LucideIcons.arrowLeft,
+                          glowColor: widget.themeColor,
+                          semanticLabel: 'Back',
                           onPressed: () => Navigator.pop(context),
                         ),
                         const SizedBox(width: 8),
@@ -1952,18 +1978,16 @@ class _OrbitScreenState extends State<OrbitScreen>
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                          LucideIcons.slidersHorizontal,
-                          color: Colors.white,
-                        ),
+                      _OrbitHeaderIconButton(
+                        icon: LucideIcons.slidersHorizontal,
+                        glowColor: widget.themeColor,
+                        semanticLabel: 'Filters',
                         onPressed: _showFiltersPanel,
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          LucideIcons.refreshCw,
-                          color: Colors.white,
-                        ),
+                      _OrbitHeaderIconButton(
+                        icon: LucideIcons.refreshCw,
+                        glowColor: widget.themeColor,
+                        semanticLabel: 'Refresh',
                         onPressed: () =>
                             unawaited(_fetchOrbitNodes(immediate: true)),
                       ),
@@ -2104,26 +2128,87 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
   }
 
-  Widget _buildNodeAvatar({
-    required String? profilePic,
-    required double score,
-  }) {
-    final avatar = Container(
+  /// Ring width/alpha/glow step per orbit tier (0 = best match, 3 = weakest)
+  /// — the discrete, at-a-glance hierarchy signal. Raw `score` only nudges
+  /// alpha slightly within a tier so same-tier nodes aren't pixel-identical.
+  static ({double width, double alpha, double blur, double spread})
+  _tierRingStyle(int tier) {
+    switch (tier) {
+      case 0:
+        return (width: 3, alpha: 1, blur: 18.0, spread: 3);
+      case 1:
+        return (width: 2.5, alpha: 0.8, blur: 14.0, spread: 2);
+      case 2:
+        return (width: 2, alpha: 0.6, blur: 10.0, spread: 1);
+      default:
+        return (width: 1.5, alpha: 0.4, blur: 8.0, spread: 0);
+    }
+  }
+
+  static String _initialsFor(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    final first = parts.first[0].toUpperCase();
+    if (parts.length == 1) return first;
+    return '$first${parts.last[0].toUpperCase()}';
+  }
+
+  /// Deterministic (hashed on `id`, not random) per-person gradient so the
+  /// same photoless friend always renders the same placeholder across
+  /// refreshes/rebuilds, instead of every photoless node looking identical.
+  Widget _buildAvatarPlaceholder(OrbitNode node) {
+    final fraction = (node.id.hashCode.abs() % 100) / 100;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.tint(widget.themeColor, 0.15 + fraction * 0.25),
+            AppColors.tint(widget.themeColor, 0.45 + fraction * 0.25),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        _initialsFor(node.name),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNodeAvatar(OrbitNode node) {
+    final tierStyle = _tierRingStyle(node.orbitTier);
+    final scoreNudge = ((node.score % 20) - 10) / 10 * 0.04;
+    final ringAlpha = (tierStyle.alpha + scoreNudge).clamp(0.3, 1.0);
+    final profilePic = node.profilePic;
+
+    Widget avatar = Container(
       width: 58,
       height: 58,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppColors.tint(widget.themeColor, 0.4).withValues(
-            alpha: (score / 100).clamp(0.45, 1.0),
-          ),
-          width: 2.5,
+          color: AppColors.tint(
+            widget.themeColor,
+            0.4,
+          ).withValues(alpha: ringAlpha),
+          width: tierStyle.width,
         ),
         boxShadow: [
           BoxShadow(
-            color: widget.themeColor.withValues(alpha: 0.15),
-            blurRadius: 12,
-            spreadRadius: 2,
+            color: widget.themeColor.withValues(alpha: 0.15 * tierStyle.alpha),
+            blurRadius: tierStyle.blur,
+            spreadRadius: tierStyle.spread,
           ),
         ],
       ),
@@ -2131,33 +2216,54 @@ class _OrbitScreenState extends State<OrbitScreen>
         borderRadius: BorderRadius.circular(29),
         child: profilePic != null && profilePic.isNotEmpty
             ? StorageImage(imagePath: profilePic)
-            : const ColoredBox(
-                color: Color(0xFF1E293B),
-                child: Icon(
-                  LucideIcons.user,
-                  color: Colors.white54,
-                  size: 24,
-                ),
-              ),
+            : _buildAvatarPlaceholder(node),
       ),
     );
 
-    if (_reduceMotion == true) return avatar;
+    if (_reduceMotion != true) {
+      avatar = avatar
+          .animate(onPlay: (controller) => controller.repeat(reverse: true))
+          .scale(
+            begin: const Offset(0.96, 0.96),
+            end: const Offset(1.04, 1.04),
+            duration: (1.2 + node.orbitTier * 0.3).seconds,
+            curve: Curves.easeInOut,
+          );
+    }
 
-    return avatar
-        .animate(onPlay: (controller) => controller.repeat(reverse: true))
-        .scale(
-          begin: const Offset(0.96, 0.96),
-          end: const Offset(1.04, 1.04),
-          duration: (1.5 + (score % 5) * 0.1).seconds,
-          curve: Curves.easeInOut,
-        );
+    if (!node.isNew) return avatar;
+
+    // "New" presence dot — reuses the nav bar's solid-dot badge shape
+    // (custom_bottom_nav_bar.dart) rather than inventing a new pattern.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          top: -2,
+          right: -2,
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.themeColor,
+              border: Border.all(
+                color: const Color(0xFF020408),
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   static const TextStyle _nodeNameStyle = TextStyle(
     color: Colors.white,
-    fontSize: 10,
-    fontWeight: FontWeight.bold,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.5,
   );
 
   /// Truncates [name] to fit [maxTextWidth] without cutting a word in half.
@@ -2199,9 +2305,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       final x = node.x;
       final y = node.y;
       final id = node.id;
-      final name = _truncateNameAtWordBoundary(node.name, 80);
-      final profilePic = node.profilePic;
-      final score = node.score;
+      final name = _truncateNameAtWordBoundary(node.name, 92);
 
       // Position node on the canvas grid
       final posX = center + x - 40;
@@ -2216,12 +2320,12 @@ class _OrbitScreenState extends State<OrbitScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Avatar with compatibility score border
-                      _buildNodeAvatar(profilePic: profilePic, score: score),
+                      // Avatar with tier/score-driven ring and glow
+                      _buildNodeAvatar(node),
                       const SizedBox(height: 6),
                       // Name Card
                       Container(
-                        // 80px is the word-boundary target used above; this
+                        // 92px is the word-boundary target used above; this
                         // is only a safety valve for a single unbroken token
                         // (no spaces) too long to truncate at a word edge.
                         constraints: const BoxConstraints(maxWidth: 160),
@@ -2251,6 +2355,107 @@ class _OrbitScreenState extends State<OrbitScreen>
                 .scale(begin: const Offset(0.3, 0.3)),
       );
     }).toList();
+  }
+}
+
+// ── One edge of the viewport-edge vignette (see "Edge vignette" above) ──────
+
+class _OrbitEdgeFade extends StatelessWidget {
+  const _OrbitEdgeFade({required this.alignment});
+
+  /// Which physical edge this strip fades toward.
+  final Alignment alignment;
+
+  static const _fadeColor = Color(0xFF020408);
+  static const _span = 110.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final gradient = LinearGradient(
+      begin: alignment,
+      end: -alignment,
+      colors: [_fadeColor.withValues(alpha: 0.85), Colors.transparent],
+    );
+    final strip = DecoratedBox(decoration: BoxDecoration(gradient: gradient));
+
+    if (alignment == Alignment.topCenter) {
+      return Positioned(top: 0, left: 0, right: 0, height: _span, child: strip);
+    }
+    if (alignment == Alignment.bottomCenter) {
+      return Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: _span,
+        child: strip,
+      );
+    }
+    if (alignment == Alignment.centerLeft) {
+      return Positioned(top: 0, bottom: 0, left: 0, width: _span, child: strip);
+    }
+    return Positioned(top: 0, bottom: 0, right: 0, width: _span, child: strip);
+  }
+}
+
+// ── Header icon button with a Signal Glow press state (Ambient-Plus-One:
+// zero glow at rest, one glow on press) instead of the default Material
+// ripple, matching the rest of the app's hand-built tactile chrome ────────────
+
+class _OrbitHeaderIconButton extends StatefulWidget {
+  const _OrbitHeaderIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.glowColor,
+    required this.semanticLabel,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Color glowColor;
+  final String semanticLabel;
+
+  @override
+  State<_OrbitHeaderIconButton> createState() => _OrbitHeaderIconButtonState();
+}
+
+class _OrbitHeaderIconButtonState extends State<_OrbitHeaderIconButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.semanticLabel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: _pressed
+                ? [
+                    BoxShadow(
+                      color: widget.glowColor.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Icon(widget.icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
   }
 }
 

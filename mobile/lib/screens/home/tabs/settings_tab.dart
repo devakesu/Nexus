@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
+import 'package:nexus/screens/settings/change_password_sheet.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -1303,10 +1304,7 @@ class _AccountActionsSection extends StatelessWidget {
                     iconColor: const Color(0xFF64748B),
                     labelColor: const Color(0xFF0F172A),
                     showDivider: true,
-                    onTap: () => NexusToast.show(
-                      context,
-                      'Change Password - coming soon.',
-                    ),
+                    onTap: () => showChangePasswordSheet(context),
                   ),
                   _ActionRow(
                     icon: LucideIcons.logOut,
