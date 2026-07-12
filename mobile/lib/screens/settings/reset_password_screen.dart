@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -175,77 +176,75 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       color: Colors.white.withValues(alpha: 0.08),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _PasswordInput(
-                        label: 'NEW PASSWORD',
-                        hintText: 'Enter a strong password',
-                        controller: _newPasswordController,
-                        obscureText: _obscureNew,
-                        onToggleObscure: () =>
-                            setState(() => _obscureNew = !_obscureNew),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildValidationChecklist(),
-                      const SizedBox(height: 16),
-                      _PasswordInput(
-                        label: 'CONFIRM NEW PASSWORD',
-                        hintText: 'Re-enter your new password',
-                        controller: _confirmPasswordController,
-                        obscureText: _obscureConfirm,
-                        onToggleObscure: () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      if (hasConfirmError) ...[
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4, top: 8),
-                          child: Text(
-                            'Passwords do not match.',
-                            style: TextStyle(
-                              color: AppColors.error,
-                              fontSize: 12,
+                  child: _isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: NexusOrbitLoader(size: 60),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _PasswordInput(
+                              label: 'NEW PASSWORD',
+                              hintText: 'Enter a strong password',
+                              controller: _newPasswordController,
+                              obscureText: _obscureNew,
+                              onToggleObscure: () =>
+                                  setState(() => _obscureNew = !_obscureNew),
+                              onChanged: (_) => setState(() {}),
                             ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF0F172A),
-                          disabledBackgroundColor:
-                              Colors.white.withValues(alpha: 0.1),
-                          disabledForegroundColor:
-                              Colors.white.withValues(alpha: 0.3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 0,
-                        ),
-                        onPressed: _isLoading || !_canSubmit ? null : _handleSubmit,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF0F172A),
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                'Reset Password',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                            const SizedBox(height: 8),
+                            _buildValidationChecklist(),
+                            const SizedBox(height: 16),
+                            _PasswordInput(
+                              label: 'CONFIRM NEW PASSWORD',
+                              hintText: 'Re-enter your new password',
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirm,
+                              onToggleObscure: () =>
+                                  setState(() => _obscureConfirm = !_obscureConfirm),
+                              onChanged: (_) => setState(() {}),
+                            ),
+                            if (hasConfirmError) ...[
+                              const Padding(
+                                padding: EdgeInsets.only(left: 4, top: 8),
+                                child: Text(
+                                  'Passwords do not match.',
+                                  style: TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
-                      ),
-                    ],
-                  ),
+                            ],
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF0F172A),
+                                disabledBackgroundColor:
+                                    Colors.white.withValues(alpha: 0.1),
+                                disabledForegroundColor:
+                                    Colors.white.withValues(alpha: 0.3),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                              ),
+                              onPressed: _isLoading || !_canSubmit ? null : _handleSubmit,
+                              child: const Text(
+                                'Reset Password',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
@@ -395,7 +394,7 @@ class _PasswordInputState extends State<_PasswordInput> {
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               child: Row(
                 children: [
                   Icon(

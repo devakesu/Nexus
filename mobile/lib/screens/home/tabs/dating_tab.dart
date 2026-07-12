@@ -59,7 +59,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
   List<dynamic> _missingFields = [];
 
   // Likes inbox - populated from GET /api/v1/likes
-  List<Map<String, dynamic>> _likeItems = [];
+  final List<Map<String, dynamic>> _likeItems = [];
   int _unseenCount = 0;
 
   // Matches - populated from GET /api/v1/matches
@@ -143,8 +143,9 @@ class _DatingTabState extends ConsumerState<DatingTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _likeItems.clear();
-    _likeItems.addAll(data.likes);
+    _likeItems
+      ..clear()
+      ..addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -828,8 +829,9 @@ class _DatingTabState extends ConsumerState<DatingTab>
         setState(() {
           likeEntry['seen_at'] = DateTime.now().toIso8601String();
           _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
-          _likeItems.removeAt(index);
-          _likeItems.add(likeEntry);
+          _likeItems
+            ..removeAt(index)
+            ..add(likeEntry);
         });
         onProfileLoaded();
         unawaited(_markLikeSeen(actorId).then((_) {

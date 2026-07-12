@@ -55,7 +55,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
 
   List<dynamic> _missingFields = [];
 
-  List<Map<String, dynamic>> _handshakeItems = [];
+  final List<Map<String, dynamic>> _handshakeItems = [];
   int _unseenCount = 0;
 
   List<Map<String, dynamic>> _connections = [];
@@ -136,8 +136,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _handshakeItems.clear();
-    _handshakeItems.addAll(data.likes);
+    _handshakeItems
+      ..clear()
+      ..addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -806,8 +807,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
         setState(() {
           handshakeEntry['seen_at'] = DateTime.now().toIso8601String();
           _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
-          _handshakeItems.removeAt(index);
-          _handshakeItems.add(handshakeEntry);
+          _handshakeItems
+            ..removeAt(index)
+            ..add(handshakeEntry);
         });
         onProfileLoaded();
         unawaited(_markHandshakeSeen(actorId).then((_) {

@@ -54,7 +54,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
 
   List<dynamic> _missingFields = [];
 
-  List<Map<String, dynamic>> _waveItems = [];
+  final List<Map<String, dynamic>> _waveItems = [];
   int _unseenCount = 0;
 
   List<Map<String, dynamic>> _friends = [];
@@ -135,8 +135,9 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
       final uid = m['matched_user_id'] as String?;
       return (uid != null && newIds.contains(uid)) ? {...m, 'is_new': true} : m;
     }).toList();
-    _waveItems.clear();
-    _waveItems.addAll(data.likes);
+    _waveItems
+      ..clear()
+      ..addAll(data.likes);
     _unseenCount = data.unseenCount;
   }
 
@@ -809,8 +810,9 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
         setState(() {
           waveEntry['seen_at'] = DateTime.now().toIso8601String();
           _unseenCount = _unseenCount > 0 ? _unseenCount - 1 : 0;
-          _waveItems.removeAt(index);
-          _waveItems.add(waveEntry);
+          _waveItems
+            ..removeAt(index)
+            ..add(waveEntry);
         });
         onProfileLoaded();
         unawaited(_markWaveSeen(actorId).then((_) {

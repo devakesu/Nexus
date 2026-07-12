@@ -1,6 +1,5 @@
 // The background messaging isolate entry point causes the analyzer to
 // misidentify this file as an executable entry point.
-// ignore_for_file: unreachable_from_main
 
 import 'dart:async';
 import 'dart:io';

@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -145,8 +147,14 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
 
     try {
       final isMec = AppConfig.current.appVariant == AppVariant.nexusMec;
-      final appHost = isMec ? 'nexus-mec.devakesu.com' : 'nexus.devakesu.com';
-      final redirectUrl = 'https://$appHost/app';
+      final String redirectUrl;
+      if (kDebugMode) {
+        final scheme = isMec ? 'devakesu-nexus-mec' : 'devakesu-nexus';
+        redirectUrl = '$scheme://home';
+      } else {
+        final appHost = isMec ? 'nexus-mec.devakesu.com' : 'nexus.devakesu.com';
+        redirectUrl = 'https://$appHost/app';
+      }
 
       await Supabase.instance.client.auth.resetPasswordForEmail(
         email,
@@ -221,7 +229,7 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
           );
         }
       } else {
-        String errorMsg = e.message;
+        var errorMsg = e.message;
         if (e.code == 'current_password_mismatch' ||
             msg.contains('mismatch') ||
             msg.contains('incorrect') ||
@@ -275,7 +283,7 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
         Navigator.pop(context);
       }
     } on AuthException catch (e) {
-      String errorMsg = e.message;
+      var errorMsg = e.message;
       final msg = e.message.toLowerCase();
       if (e.code == 'current_password_mismatch' ||
           msg.contains('mismatch') ||
@@ -358,10 +366,22 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
                 ],
               ),
               const SizedBox(height: 18),
-              if (_step == _PasswordSheetStep.entry)
-                ..._buildEntryForm()
-              else
-                ..._buildReauthForm(),
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: NexusOrbitLoader(
+                      size: 60,
+                      lightMode: true,
+                    ),
+                  ),
+                )
+              else ...[
+                if (_step == _PasswordSheetStep.entry)
+                  ..._buildEntryForm()
+                else
+                  ..._buildReauthForm(),
+              ],
             ],
           ),
         ),
@@ -385,7 +405,7 @@ class _ChangePasswordSheetState extends State<ChangePasswordSheet> {
       const Padding(
         padding: EdgeInsets.only(top: 4, left: 4),
         child: Text(
-          'Leave blank if you registered via Google/OTP and haven\'t set a password yet.',
+          "Leave blank if you registered via Google/OTP and haven't set a password yet.",
           style: TextStyle(
             color: AppColors.inkMuted,
             fontSize: 11,
@@ -642,7 +662,7 @@ class _PasswordInputState extends State<_PasswordInput> {
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               child: Row(
                 children: [
                   Icon(
@@ -779,7 +799,7 @@ class _CustomTextFieldState extends State<_CustomTextField> {
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               child: Row(
                 children: [
                   Icon(

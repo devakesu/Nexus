@@ -1898,7 +1898,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     final rotationController = _rotationController;
 
     if (_isLoading || pulseController == null || rotationController == null) {
-      return Container(
+      return ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: const Center(
           child: NexusOrbitLoader(size: 56),

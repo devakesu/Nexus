@@ -94,6 +94,7 @@ class _AuthGateState extends State<AuthGate> {
             stackTrace: stackTrace,
             level: ErrorLevel.warning,
             customMessage: 'Authentication stream error: $error',
+            showUi: false,
           );
         }
       },
@@ -335,19 +336,18 @@ class _AuthGateState extends State<AuthGate> {
       );
     } else {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session != null && _lastBootstrappedUserId == session.user.id) {
-        if (_isPasswordRecoveryMode) {
-          currentWidget = ResetPasswordScreen(
-            key: const ValueKey('reset-password'),
-            onComplete: () {
-              setState(() {
-                _isPasswordRecoveryMode = false;
-              });
-            },
-          );
-        } else {
-          final termsVersion = _termsVersion;
-          if (!_hasProfile && termsVersion != null) {
+      if (_isPasswordRecoveryMode && session != null) {
+        currentWidget = ResetPasswordScreen(
+          key: const ValueKey('reset-password'),
+          onComplete: () {
+            setState(() {
+              _isPasswordRecoveryMode = false;
+            });
+          },
+        );
+      } else if (session != null && _lastBootstrappedUserId == session.user.id) {
+        final termsVersion = _termsVersion;
+        if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
             termsVersion: termsVersion,
@@ -373,7 +373,6 @@ class _AuthGateState extends State<AuthGate> {
             title: widget.appName,
           );
         }
-      }
       } else {
         currentWidget = LoginScreen(
           key: const ValueKey('login'),
