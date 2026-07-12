@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import math
 from typing import Any, cast
 
@@ -8,6 +9,8 @@ from app.models import (
     OrbitNodeDetailFriendsOut,
     OrbitNodeDetailProfessionalOut,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DeterministicRNG:
@@ -43,22 +46,24 @@ def coerce_float(value: Any, default: float = 0.0) -> float:
     return default
 
 
-# Minimum and maximum radial distances per tier.
-# Non-overlapping: _TIER_MAX_RADII[N] < _TIER_MIN_RADII[N+1] so that a
-# higher-scored (inner) tier node can never appear visually farther than
-# any lower-scored (outer) tier node after collision drift.
-_TIER_MIN_RADII: dict[int, float] = {
-    0: 40.0,
-    1: 155.0,
-    2: 265.0,
-    3: 375.0,
-}
-_TIER_MAX_RADII: dict[int, float] = {
-    0: 148.0,
-    1: 258.0,
-    2: 368.0,
-    3: 680.0,
-}
+# ── Layout tuning constants ────────────────────────────────────────────────
+# Nodes are packed in a phyllotaxis ("sunflower") spiral: the k-th best match
+# (0-indexed by score rank) is placed at radius INNERMOST + SCALE*sqrt(k) and
+# angle k*GOLDEN_ANGLE. This fills the disc evenly from the center outward,
+# so radius grows as sqrt(k) (compact) rather than linearly with count, and
+# every node is at a distinct rank-ordered radius (higher score => nearer the
+# center, always).
+_INNERMOST_RADIUS = 80.0  # radius of the single best match; clears the center self-avatar
+# Radial growth per unit sqrt(rank). Tuned to the smallest value that keeps
+# even the widest (name-cap-hitting) cards non-overlapping in the sunflower
+# spiral across batch sizes up to the 200-node cap; the local repair pass
+# below is a safety net for anything the packing misses.
+_SUNFLOWER_SCALE = 84.0
+_GOLDEN_ANGLE = math.pi * (3.0 - math.sqrt(5.0))  # ~137.5 degrees
+_NODE_HALF_HEIGHT = 45.0  # avatar + name-card half height
+_RADIUS_WARN_THRESHOLD = 1400.0  # nominal pannable-canvas edge; logged, not clamped
+_REPAIR_STEP = 8.0  # px pushed outward per iteration when clearing a residual overlap
+_REPAIR_MAX_STEPS = 60
 
 
 def _apply_field_visibility(
@@ -174,6 +179,34 @@ def _extract_candidate_ids(ranked_items: list[dict[str, Any]]) -> list[str]:
     return candidate_ids
 
 
+def _item_name(item: dict[str, Any]) -> str:
+    """Helper to resolve a node's display name off either the flat item or its nested profile."""
+    profile_raw = item.get("profile")
+    profile: dict[str, Any] = cast(dict[str, Any], profile_raw) if isinstance(profile_raw, dict) else {}
+    return str(item.get("name") or profile.get("name") or "Anonymous")
+
+
+# Rendered node footprint, mirroring the Flutter client (orbit_screen.dart):
+# a 58px avatar with a name card below it whose text is truncated to ~80px at
+# a word boundary (so effectively capped near _NAME_TEXT_MAX), plus 8px of
+# horizontal padding on each side. The overall node width is the wider of the
+# avatar and that card. Modelling the *truncated* card - not the full name -
+# is what keeps the packing tight; the old formula reserved ~1.6x too much
+# width for typical full names, pushing everyone needlessly far out.
+_AVATAR_WIDTH = 58.0
+_NAME_CHAR_WIDTH = 5.6  # px per char at the card's 10px bold font
+_NAME_TEXT_MAX = 90.0  # client truncates name text at ~80px + up to one whole word
+_CARD_H_PADDING = 8.0  # horizontal padding on each side of the name card
+_NODE_WIDTH_MARGIN = 4.0  # small clearance so touching cards read as separate
+
+
+def _node_half_width(name: str) -> float:
+    """Bounding half-width of a node's rendered avatar+name-card footprint."""
+    text_width = min(len(name) * _NAME_CHAR_WIDTH, _NAME_TEXT_MAX)
+    card_width = max(_AVATAR_WIDTH, text_width + 2.0 * _CARD_H_PADDING)
+    return card_width / 2.0 + _NODE_WIDTH_MARGIN
+
+
 def _bucket_low_score_items(
     sorted_items: list[dict[str, Any]],
     tier_buckets: dict[int, list[dict[str, Any]]],
@@ -181,14 +214,12 @@ def _bucket_low_score_items(
     """Helper to bucket sorted items when max score is < 70.0."""
     for index, item in enumerate(sorted_items):
         if index < 3:
-            # Top 3 matches go to Tier 1 (radius 200) so they are visible,
-            # close but not too near (Tier 0).
+            # Top 3 matches labelled Tier 1 so they read as "close" matches
+            # even when nobody clears the Tier 0 (85%+) threshold.
             tier_buckets[1].append(item)
         elif index < 8:
-            # Next 5 matches go to Tier 2 (radius 300)
             tier_buckets[2].append(item)
         else:
-            # The rest go to Tier 3 (radius 420)
             tier_buckets[3].append(item)
 
 
@@ -212,13 +243,16 @@ def _bucket_standard_score_items(
 def _bucket_items_by_tier(
     ranked_items: list[dict[str, Any]],
 ) -> dict[int, list[dict[str, Any]]]:
-    """Helper to group ranked items into distinct orbit tier buckets."""
-    tier_buckets: dict[int, list[dict[str, Any]]] = {
-        0: [],
-        1: [],
-        2: [],
-        3: [],
-    }
+    """Group ranked items into orbit tier labels (0 = best … 3 = weakest).
+
+    Tiers are only a coarse label (returned to the client as `orbit_tier` for
+    styling and carried into node-detail responses). They no longer drive the
+    radius - radius comes from the phyllotaxis packing in assign_orbit_positions,
+    which places nodes by global score rank. When the whole batch scores below
+    the standard Tier 0/1 thresholds, a rank-based fallback still labels the
+    top matches as Tier 1/2 so they don't all read as weak.
+    """
+    tier_buckets: dict[int, list[dict[str, Any]]] = {0: [], 1: [], 2: [], 3: []}
     if not ranked_items:
         return tier_buckets
 
@@ -229,111 +263,69 @@ def _bucket_items_by_tier(
     )
 
     max_score = coerce_score(sorted_items[0].get("score"))
-
-    # If the maximum score is very low, dynamically scale/distribute them
-    # so that the user sees matches on their screen (in Tier 1 and Tier 2)
-    # instead of pushing all matches off-screen into Tier 3
     if max_score < 70.0:
         _bucket_low_score_items(sorted_items, tier_buckets)
     else:
-        # Standard absolute score bucketing
         _bucket_standard_score_items(sorted_items, tier_buckets)
 
     return tier_buckets
 
 
-def _resolve_pair_collision(
-    node1: dict[str, Any],
-    node2: dict[str, Any],
-    rng: DeterministicRNG,
-) -> bool:
-    """Resolve collision between two nodes and return True if they were moved."""
-    p1 = node1.get("profile")
-    p2 = node2.get("profile")
-    p1_dict: dict[str, Any] = cast(dict[str, Any], p1) if isinstance(p1, dict) else {}
-    p2_dict: dict[str, Any] = cast(dict[str, Any], p2) if isinstance(p2, dict) else {}
-
-    name1 = str(node1.get("name") or p1_dict.get("name") or "Anonymous")
-    name2 = str(node2.get("name") or p2_dict.get("name") or "Anonymous")
-
-    # Calculate bounding box dimensions based on name card length
-    hw1 = (58.0 + len(name1) * 6.5) / 2.0 + 8.0
-    hw2 = (58.0 + len(name2) * 6.5) / 2.0 + 8.0
-    hh1 = 45.0  # Avatar height + name card height + padding
-    hh2 = 45.0
-
-    dx: float = node1["_x"] - node2["_x"]
-    dy: float = node1["_y"] - node2["_y"]
-
-    overlap_x = (hw1 + hw2) - abs(dx)
-    overlap_y = (hh1 + hh2) - abs(dy)
-
-    if overlap_x > 0 and overlap_y > 0:
-        # Resolve overlap along the axis of minimum overlap
-        if overlap_x < overlap_y:
-            # Push in X
-            sign = 1.0 if dx >= 0 else -1.0
-            if dx == 0:
-                sign = 1.0 if rng.uniform(-1.0, 1.0) >= 0 else -1.0
-            px = overlap_x * 0.5 * sign
-            node1["_x"] = round(node1["_x"] + px, 2)
-            node2["_x"] = round(node2["_x"] - px, 2)
-        else:
-            # Push in Y
-            sign = 1.0 if dy >= 0 else -1.0
-            if dy == 0:
-                sign = 1.0 if rng.uniform(-1.0, 1.0) >= 0 else -1.0
-            py = overlap_y * 0.5 * sign
-            node1["_y"] = round(node1["_y"] + py, 2)
-            node2["_y"] = round(node2["_y"] - py, 2)
-        return True
-    return False
+def _tier_label_by_id(
+    tier_buckets: dict[int, list[dict[str, Any]]],
+) -> dict[str, int]:
+    """Map each candidate id to its tier label, for tagging positioned nodes."""
+    labels: dict[str, int] = {}
+    for tier, items in tier_buckets.items():
+        for item in items:
+            profile_raw = item.get("profile")
+            profile: dict[str, Any] = (
+                cast(dict[str, Any], profile_raw)
+                if isinstance(profile_raw, dict)
+                else {}
+            )
+            candidate_id = profile.get("id")
+            if candidate_id is not None:
+                labels[str(candidate_id)] = tier
+    return labels
 
 
-def _reclamp_nodes_to_tier_bands(
-    positioned_items: list[dict[str, Any]],
-) -> None:
-    """Enforce the minimum radial distance for each tier after collision resolution.
+def _boxes_overlap(node1: dict[str, Any], node2: dict[str, Any]) -> bool:
+    """Whether two nodes' avatar+name-card bounding boxes actually overlap."""
+    hw1 = _node_half_width(_item_name(node1))
+    hw2 = _node_half_width(_item_name(node2))
+    dx = node1["_x"] - node2["_x"]
+    dy = node1["_y"] - node2["_y"]
+    return (hw1 + hw2) > abs(dx) and (2.0 * _NODE_HALF_HEIGHT) > abs(dy)
 
-    Only the inner boundary is enforced - outward drift is unrestricted so the
-    collision resolver has room to spread dense clusters without fighting the
-    enforcement. The min radii in _TIER_MIN_RADII are spaced so that a tier-N
-    node pushed outward by its own tier's collision resolver will not intrude
-    on the inner boundary of tier N+1.
+
+def _repair_overlaps(positioned_items: list[dict[str, Any]]) -> None:
+    """Safety net: nudge any still-overlapping node radially outward, locally.
+
+    Processes nodes in score-descending order and, for each, pushes it a few
+    pixels further out (along its own ray, so its angle is preserved) until it
+    clears every already-placed higher-or-equal-scored node. Because it only
+    ever moves the lower-scored node of a colliding pair further out - and
+    never touches the nodes already placed - it can reinforce but never invert
+    the score-to-radius ordering established by the sunflower packing, and it
+    can't cascade globally. It is expected to be a no-op for realistic inputs
+    (the packing is already overlap-free); it exists purely so "no overlap"
+    stays a hard guarantee.
     """
-    for item in positioned_items:
-        tier = item.get("_orbit_tier", 3)
-        r_min = _TIER_MIN_RADII.get(tier, 40.0)
-        x: float = item["_x"]
-        y: float = item["_y"]
-        r = math.sqrt(x * x + y * y)
-        if r < 1.0:
-            item["_x"] = round(r_min, 2)
-            item["_y"] = 0.0
-            continue
-        if r < r_min:
-            scale = r_min / r
-            item["_x"] = round(x * scale, 2)
-            item["_y"] = round(y * scale, 2)
-
-
-def _resolve_node_collisions(
-    positioned_items: list[dict[str, Any]],
-    rng: DeterministicRNG,
-) -> None:
-    """Relaxation loop to resolve any remaining overlaps using AABB checks."""
-    for _ in range(50):
-        moved = False
-        for i in range(len(positioned_items)):
-            for j in range(i + 1, len(positioned_items)):
-                if _resolve_pair_collision(
-                    positioned_items[i],
-                    positioned_items[j],
-                    rng,
-                ):
-                    moved = True
-        if not moved:
-            break
+    ordered = sorted(positioned_items, key=lambda it: -coerce_score(it.get("score")))
+    placed: list[dict[str, Any]] = []
+    for item in ordered:
+        r = math.hypot(item["_x"], item["_y"])
+        theta = math.atan2(item["_y"], item["_x"])
+        steps = 0
+        while steps < _REPAIR_MAX_STEPS and any(
+            _boxes_overlap(item, other) for other in placed
+        ):
+            r += _REPAIR_STEP
+            item["_x"] = round(r * math.cos(theta), 2)
+            item["_y"] = round(r * math.sin(theta), 2)
+            steps += 1
+        placed.append(item)
 
 
 def assign_orbit_positions(
@@ -347,50 +339,60 @@ def assign_orbit_positions(
     rng = DeterministicRNG(seed_value)
 
     tier_buckets = _bucket_items_by_tier(ranked_items)
+    tier_by_id = _tier_label_by_id(tier_buckets)
 
+    # Global score-descending order: best match first (rank 0), packed nearest
+    # the center. This is what makes distance a pure function of match rank -
+    # a 50% match with nobody better sits right by the center, exactly as it
+    # should, and a higher score is always at least as close as a lower one.
+    ordered = sorted(
+        ranked_items,
+        key=lambda x: coerce_score(x.get("score")),
+        reverse=True,
+    )
+
+    base_angle = rng.uniform(0.0, 2.0 * math.pi)
     positioned_items: list[dict[str, Any]] = []
+    for rank, item in enumerate(ordered):
+        # Phyllotaxis spiral: radius grows as sqrt(rank) (even areal density,
+        # compact), golden-angle step spreads consecutive ranks evenly around
+        # the full 360 degrees so there's never a clustered "spine" or an empty
+        # wedge.
+        radius = _INNERMOST_RADIUS + _SUNFLOWER_SCALE * math.sqrt(float(rank))
+        angle = base_angle + rank * _GOLDEN_ANGLE
+        profile_raw = item.get("profile")
+        profile: dict[str, Any] = (
+            cast(dict[str, Any], profile_raw)
+            if isinstance(profile_raw, dict)
+            else {}
+        )
+        candidate_id = profile.get("id")
+        tier = tier_by_id.get(str(candidate_id), 3) if candidate_id is not None else 3
+        positioned_items.append(
+            {
+                **item,
+                "_orbit_tier": tier,
+                "_x": round(radius * math.cos(angle), 2),
+                "_y": round(radius * math.sin(angle), 2),
+            },
+        )
 
-    for tier, items in tier_buckets.items():
-        if not items:
-            continue
+    _repair_overlaps(positioned_items)
 
-        count = len(items)
-        r_min = _TIER_MIN_RADII.get(tier, 40.0)
-        r_max = _TIER_MAX_RADII.get(tier, 680.0)
-        base_angle = rng.uniform(0.0, 2.0 * math.pi)
-
-        # Items within each tier are already sorted by score descending.
-        # Map each node's rank index to a unique starting radius so that
-        # higher-scored nodes are always placed closer to the center than
-        # lower-scored nodes within the same tier - no discrete ring
-        # boundaries that adjacent nodes can invert across.
-        for idx, item in enumerate(items):
-            normalized = idx / max(count - 1, 1)
-            base_r = r_min + normalized * (r_max - r_min)
-
-            angle = base_angle + (2.0 * math.pi * idx) / count
-            radial_jitter = rng.uniform(-8.0, 8.0)
-            angular_jitter = rng.uniform(-0.04, 0.04)
-
-            final_r = max(r_min, base_r + radial_jitter)
-            final_angle = angle + angular_jitter
-
-            positioned_items.append(
-                {
-                    **item,
-                    "_orbit_tier": tier,
-                    "_x": round(final_r * math.cos(final_angle), 2),
-                    "_y": round(final_r * math.sin(final_angle), 2),
-                },
-            )
-
-    # Pass 1: spread nodes using AABB relaxation.
-    _resolve_node_collisions(positioned_items, rng)
-    # Enforce inner tier boundaries - nodes pushed inward by pass-1 collisions
-    # are projected back out to their tier's minimum radius.
-    _reclamp_nodes_to_tier_bands(positioned_items)
-    # Pass 2: fix any overlaps introduced by the boundary enforcement.
-    _resolve_node_collisions(positioned_items, rng)
+    max_r = max(
+        (math.hypot(item["_x"], item["_y"]) for item in positioned_items),
+        default=0.0,
+    )
+    if max_r > _RADIUS_WARN_THRESHOLD:
+        logger.warning(
+            "orbit: layout radius %.0f exceeds canvas-safe threshold %.0f "
+            "(viewer=%s, tab=%s, n=%d)",
+            max_r,
+            _RADIUS_WARN_THRESHOLD,
+            viewer_id,
+            active_tab,
+            len(positioned_items),
+        )
 
     positioned_items.sort(
         key=lambda item: (

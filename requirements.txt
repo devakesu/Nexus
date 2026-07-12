@@ -13,3 +13,4 @@ python-dateutil==2.9.0.post0
 slowapi==0.1.9
 postgrest==2.30.1
 apscheduler==3.11.3
+pytest==8.4.1

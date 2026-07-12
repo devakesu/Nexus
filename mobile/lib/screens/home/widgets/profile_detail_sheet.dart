@@ -944,6 +944,19 @@ class ProfileDetailSheet extends StatelessWidget {
                     emojiInfoRow('👶', childrenPlans),
                 ],
 
+                // ═══════════════════════════════════════════════════════════
+                // SOUNDTRACK (Dating / Friends)
+                // ═══════════════════════════════════════════════════════════
+                if ((tab == 'Dating' || tab == 'Friends') &&
+                    topArtists.isNotEmpty) ...[
+                  sectionLabel('Soundtrack', emoji: '🎵'),
+                  chipWrap(
+                    topArtists,
+                    accent: const Color(0xFFA78BFA),
+                    labelColor: const Color(0xFFC4B5FD),
+                  ),
+                ],
+
                 // PHOTO BREAK 3
                 if ((tab == 'Dating' || tab == 'Friends') &&
                     normalPics.length >= 3) ...[
@@ -972,17 +985,8 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // SOUNDTRACK + PETS (Dating / Friends)
+                // PETS (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    topArtists.isNotEmpty) ...[
-                  sectionLabel('Soundtrack', emoji: '🎵'),
-                  chipWrap(
-                    topArtists,
-                    accent: const Color(0xFFA78BFA),
-                    labelColor: const Color(0xFFC4B5FD),
-                  ),
-                ],
                 if ((tab == 'Dating' || tab == 'Friends') &&
                     pets.isNotEmpty) ...[
                   sectionLabel('Pet parent', emoji: '🐾'),
