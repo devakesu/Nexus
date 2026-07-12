@@ -61,7 +61,8 @@ _CARD_H_PADDING = 8.0  # horizontal padding on each side of the name card
 _NODE_WIDTH_MARGIN = 4.0  # small clearance so touching cards read as separate
 _NODE_HALF_HEIGHT = 45.0  # avatar + name-card half height
 _MAX_NODE_HALF_WIDTH = (
-    max(_AVATAR_WIDTH, _NAME_TEXT_MAX + 2.0 * _CARD_H_PADDING) / 2.0 + _NODE_WIDTH_MARGIN
+    max(_AVATAR_WIDTH, _NAME_TEXT_MAX + 2.0 * _CARD_H_PADDING) / 2.0
+    + _NODE_WIDTH_MARGIN
 )  # half-width at the name-card's truncation cap - the widest any node ever gets
 
 # Nodes are packed in a phyllotaxis ("sunflower") spiral: the k-th best match
@@ -98,7 +99,7 @@ def _apply_field_visibility(
     payload: dict[str, Any],
     hidden: set[str],
 ) -> dict[str, Any]:
-    """Return a copy of payload with hidden fields replaced by their null/empty defaults.
+    """Return a copy of payload with hidden fields replaced by defaults.
 
     Scalar string fields become None; list fields become [].
     This is applied before building any response model so scoring logic
@@ -106,10 +107,10 @@ def _apply_field_visibility(
     """
     if not hidden:
         return payload
-    _LIST_FIELDS = {"pets", "top_artists", "causes_supported"}
+    list_fields = {"pets", "top_artists", "causes_supported"}
     result = dict(payload)
     for field in hidden:
-        result[field] = [] if field in _LIST_FIELDS else None
+        result[field] = [] if field in list_fields else None
     return result
 
 
@@ -208,9 +209,11 @@ def _extract_candidate_ids(ranked_items: list[dict[str, Any]]) -> list[str]:
 
 
 def _item_name(item: dict[str, Any]) -> str:
-    """Helper to resolve a node's display name off either the flat item or its nested profile."""
+    """Resolve a node's display name off either the flat item or its nested profile."""
     profile_raw = item.get("profile")
-    profile: dict[str, Any] = cast(dict[str, Any], profile_raw) if isinstance(profile_raw, dict) else {}
+    profile: dict[str, Any] = (
+        cast(dict[str, Any], profile_raw) if isinstance(profile_raw, dict) else {}
+    )
     return str(item.get("name") or profile.get("name") or "Anonymous")
 
 
@@ -310,7 +313,7 @@ def _boxes_overlap(node1: dict[str, Any], node2: dict[str, Any]) -> bool:
     hw2 = _node_half_width(_item_name(node2))
     dx = node1["_x"] - node2["_x"]
     dy = node1["_y"] - node2["_y"]
-    return (hw1 + hw2) > abs(dx) and (2.0 * _NODE_HALF_HEIGHT) > abs(dy)
+    return (hw1 + hw2) > abs(dx) and abs(dy) < (2.0 * _NODE_HALF_HEIGHT)
 
 
 def _repair_overlaps(positioned_items: list[dict[str, Any]]) -> None:

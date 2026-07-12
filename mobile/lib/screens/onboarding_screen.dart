@@ -18,11 +18,19 @@ class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     required this.termsVersion,
     required this.onComplete,
+    this.verifiedMobile,
+    this.mobileVerifiedAt,
     super.key,
   });
 
   final String termsVersion;
   final VoidCallback onComplete;
+
+  /// From the bootstrap response (public.users.mobile/mobile_verified_at) -
+  /// never Supabase Auth's user.phone. The Phone provider is disabled, so
+  /// phone verification is backend-owned (app/core/account_phone_otp.py).
+  final String? verifiedMobile;
+  final DateTime? mobileVerifiedAt;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -51,9 +59,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _nameController.addListener(_updateCanSubmit);
     _phoneController.addListener(_updateCanSubmit);
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user?.phone != null && user!.phone!.isNotEmpty) {
-      _phoneController.text = user.phone!;
+    final verifiedMobile = widget.verifiedMobile;
+    if (verifiedMobile != null && verifiedMobile.isNotEmpty) {
+      _phoneController.text = verifiedMobile;
     }
 
     final googleName = _getGoogleName();
@@ -122,21 +130,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
-    final user = Supabase.instance.client.auth.currentUser;
-    final hasVerifiedPhone =
-        user?.phone != null &&
-        user!.phone!.isNotEmpty &&
-        user.phoneConfirmedAt != null;
-    final phone = hasVerifiedPhone ? user.phone! : _phoneController.text.trim();
-    final isPhoneVerified =
-        hasVerifiedPhone ||
-        (user?.phone == phone && user?.phoneConfirmedAt != null);
+    final phone = _phoneController.text.trim();
+    final isPhoneVerified = _hasVerifiedMobile && widget.verifiedMobile == phone;
 
     if (!isPhoneVerified) {
       setState(() => _isLoading = true);
       try {
-        await Supabase.instance.client.auth.updateUser(
-          UserAttributes(phone: phone),
+        final dio = createDio();
+        await dio.post<Map<String, dynamic>>(
+          '${_config.backendUrl}/api/v1/user/phone/otp/request',
+          data: {'phone': phone},
+          options: Options(
+            headers: {'X-App-Variant': _config.variantString},
+          ),
         );
         if (mounted) setState(() => _isLoading = false);
 
@@ -155,7 +161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             e,
             stackTrace: stackTrace,
             customMessage:
-                'Failed to update phone number: ${ErrorHandler.getFriendlyMessage(e)}',
+                'Failed to send verification code: ${ErrorHandler.getFriendlyMessage(e)}',
           );
         }
       } finally {
@@ -165,6 +171,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       await _executeCompleteOnboarding();
     }
   }
+
+  /// True once the bootstrap response has confirmed a verified mobile for
+  /// this account (public.users.mobile/mobile_verified_at) - never derived
+  /// from Supabase Auth's user.phone, since the Phone provider is disabled.
+  bool get _hasVerifiedMobile =>
+      widget.verifiedMobile != null &&
+      widget.verifiedMobile!.isNotEmpty &&
+      widget.mobileVerifiedAt != null;
 
   Future<void> _executeCompleteOnboarding() async {
     if (!mounted) return;
@@ -179,30 +193,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final dio = createDio();
 
       final Map<String, dynamic> payload;
-      final user = Supabase.instance.client.auth.currentUser;
-      final phone = _phoneController.text.trim().isNotEmpty
-          ? _phoneController.text.trim()
-          : (user?.phone ?? '');
 
       if (_config.isFlavorVariant) {
-        // MEC payload: campus_branch + campus_year + campus_name + age + phone
+        // MEC payload: campus_branch + campus_year + campus_name + age
         payload = {
           'app_variant': _config.variantString,
           'campus_branch': _mecBranch,
           'campus_year': _mecYear,
           'campus_name': 'Model Engineering College',
           'age': _selectedAge,
-          'phone': phone,
           'accepted_terms_version': widget.termsVersion,
         };
       } else {
-        // Nexus main payload: name + age + lifestyle + phone
+        // Nexus main payload: name + age + lifestyle
         payload = {
           'app_variant': _config.variantString,
           'name': _nameController.text.trim(),
           'age': _selectedAge,
           'lifestyle': _lifestyle,
-          'phone': phone,
           'accepted_terms_version': widget.termsVersion,
         };
       }
@@ -258,13 +266,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   bool get _canSubmit {
     final isMec = _config.isFlavorVariant;
-    final user = Supabase.instance.client.auth.currentUser;
-    final hasVerifiedPhone =
-        user?.phone != null &&
-        user!.phone!.isNotEmpty &&
-        user.phoneConfirmedAt != null;
     final hasPhone =
-        hasVerifiedPhone || _phoneController.text.trim().isNotEmpty;
+        _hasVerifiedMobile || _phoneController.text.trim().isNotEmpty;
     if (isMec) {
       return _acceptedTerms && hasPhone;
     } else {
@@ -421,11 +424,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── Nexus (main) card ─────────────────────────────────────────────────────
 
   Widget _buildNexusCard() {
-    final user = Supabase.instance.client.auth.currentUser;
-    final hasVerifiedPhone =
-        user?.phone != null &&
-        user!.phone!.isNotEmpty &&
-        user.phoneConfirmedAt != null;
+    final hasVerifiedPhone = _hasVerifiedMobile;
     return _buildCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,7 +497,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      user.phone!,
+                      widget.verifiedMobile!,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -579,11 +578,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildMECCard() {
     final googleName = _getGoogleName();
-    final user = Supabase.instance.client.auth.currentUser;
-    final hasVerifiedPhone =
-        user?.phone != null &&
-        user!.phone!.isNotEmpty &&
-        user.phoneConfirmedAt != null;
+    final hasVerifiedPhone = _hasVerifiedMobile;
     return _buildCard(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,7 +635,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      user.phone!,
+                      widget.verifiedMobile!,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

@@ -22,11 +22,19 @@ from app.api.dependencies import (
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
+from app.core.account_phone_otp import (
+    generate_otp_code,
+    hash_otp,
+    normalize_phone,
+    verify_otp_hash,
+)
+from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.limiter import limiter
 from app.core.moderation import NameModerationError, validate_display_name
+from app.core.sms import send_sms
 from app.db.client import parse_utc_datetime, supabase_client
 from app.db.profiles import (
     decrypt_profile_record,
@@ -38,6 +46,7 @@ from app.db.users import (
     fetch_profile,
     fetch_public_user,
     is_allowed_email,
+    set_verified_mobile,
     update_user_terms,
     upsert_profile_variant,
     upsert_public_user,
@@ -46,6 +55,10 @@ from app.models import (
     ALLOWED_HIDDEN_FIELDS,
     AcceptTermsRequest,
     AcceptTermsResponse,
+    AccountPhoneOtpRequestRequest,
+    AccountPhoneOtpRequestResponse,
+    AccountPhoneOtpVerifyRequest,
+    AccountPhoneOtpVerifyResponse,
     AuthBootstrapResponse,
     CompleteOnboardingResponse,
     EmailNotificationSettingsResponse,
@@ -160,6 +173,8 @@ async def auth_bootstrap(
         accepted_terms_version=user_row.get("accepted_terms_version"),
         terms_accepted_at=user_row.get("terms_accepted_at"),
         newly_created=newly_created,
+        mobile=user_row.get("mobile"),
+        mobile_verified_at=user_row.get("mobile_verified_at"),
     )
 
 
@@ -254,6 +269,119 @@ def complete_onboarding(
         accepted_terms_version=stored_terms_version,
         terms_accepted_at=stored_terms_accepted_at,
         profile=profile_row,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Account phone verification - independent of Supabase Auth's Phone provider
+# (disabled - it doubled as a login credential with no way to keep
+# verification without also keeping phone-based sign-in). Mirrors the
+# HMAC-hash-not-store OTP pattern already proven in app/api/safety_portal.py,
+# but authenticated and keyed by user_id instead of an anonymous session_id.
+# ---------------------------------------------------------------------------
+
+_ACCOUNT_PHONE_OTP_TTL_SECONDS = 600
+_ACCOUNT_PHONE_OTP_MAX_ATTEMPTS = 5
+_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS = 60
+
+
+def _account_otp_key(user_id: str) -> str:
+    return f"account_phone_otp:otp:{user_id}"
+
+
+def _account_otp_attempts_key(user_id: str) -> str:
+    return f"account_phone_otp:attempts:{user_id}"
+
+
+def _account_otp_resend_key(user_id: str) -> str:
+    return f"account_phone_otp:resend:{user_id}"
+
+
+@router.post(
+    "/api/v1/user/phone/otp/request",
+    response_model=AccountPhoneOtpRequestResponse,
+)
+@limiter.limit(settings.rate_limit_account_phone_otp)
+async def request_account_phone_otp(
+    request: Request,
+    payload: AccountPhoneOtpRequestRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_with_replay_protection),
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+) -> AccountPhoneOtpRequestResponse:
+    _ = request
+    user_id = str(auth_user.get("id") or "").strip()
+    phone_norm = normalize_phone(payload.phone)
+
+    resend_key = _account_otp_resend_key(user_id)
+    if await redis_client.exists(resend_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait a bit before requesting another code.",
+        )
+    await redis_client.set(
+        resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+
+    code = generate_otp_code()
+    await redis_client.setex(
+        _account_otp_key(user_id),
+        _ACCOUNT_PHONE_OTP_TTL_SECONDS,
+        hash_otp(user_id, phone_norm, code),
+    )
+    await send_sms(
+        phone_norm,
+        f"Your Nexus verification code is {code}. It expires in 10 minutes. "
+        "Do not share this code.",
+    )
+
+    return AccountPhoneOtpRequestResponse(sent=True)
+
+
+@router.post(
+    "/api/v1/user/phone/otp/verify",
+    response_model=AccountPhoneOtpVerifyResponse,
+)
+@limiter.limit(settings.rate_limit_account_phone_otp)
+async def verify_account_phone_otp(
+    request: Request,
+    payload: AccountPhoneOtpVerifyRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_with_replay_protection),
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+) -> AccountPhoneOtpVerifyResponse:
+    _ = request
+    user_id = str(auth_user.get("id") or "").strip()
+    phone_norm = normalize_phone(payload.phone)
+
+    attempts_key = _account_otp_attempts_key(user_id)
+    attempts = await redis_client.get(attempts_key)
+    if attempts and int(attempts) >= _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many incorrect attempts. Please request a new code.",
+        )
+
+    otp_key = _account_otp_key(user_id)
+    stored_hash = await redis_client.get(otp_key)
+    if not stored_hash:
+        raise HTTPException(
+            status_code=400,
+            detail="That code has expired or was never requested. Request a new one.",
+        )
+
+    if not verify_otp_hash(user_id, phone_norm, payload.code, cast(str, stored_hash)):
+        await redis_client.incr(attempts_key)
+        await redis_client.expire(attempts_key, _ACCOUNT_PHONE_OTP_TTL_SECONDS)
+        raise HTTPException(status_code=400, detail="Incorrect code.")
+
+    await redis_client.delete(otp_key)
+    await redis_client.delete(attempts_key)
+
+    await run_in_threadpool(set_verified_mobile, user_id, phone_norm)
+
+    return AccountPhoneOtpVerifyResponse(
+        verified=True,
+        mobile=phone_norm,
+        mobile_verified_at=datetime.now(timezone.utc),
     )
 
 

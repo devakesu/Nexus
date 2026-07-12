@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dialog to verify the phone number using OTP.
 /// Only proceeds if the OTP is verified successfully.
@@ -48,7 +50,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
   bool get _isOtpValid {
     final code = _otpController.text.trim();
-    return code.length == 8 && RegExp(r'^\d{8}$').hasMatch(code);
+    return code.length == 6 && RegExp(r'^\d{6}$').hasMatch(code);
   }
 
   void _startCountdown() {
@@ -87,8 +89,13 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
     });
 
     try {
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(phone: widget.phone),
+      final dio = createDio();
+      await dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/user/phone/otp/request',
+        data: {'phone': widget.phone},
+        options: Options(
+          headers: {'X-App-Variant': AppConfig.current.variantString},
+        ),
       );
       if (mounted) {
         _startCountdown();
@@ -117,8 +124,8 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
   Future<void> _submitOtp() async {
     final code = _otpController.text.trim();
-    if (code.length != 8 || !RegExp(r'^\d{8}$').hasMatch(code)) {
-      setState(() => _errorMessage = 'Please enter a valid 8-digit OTP code.');
+    if (code.length != 6 || !RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _errorMessage = 'Please enter a valid 6-digit OTP code.');
       return;
     }
 
@@ -128,10 +135,13 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
     });
 
     try {
-      await Supabase.instance.client.auth.verifyOTP(
-        phone: widget.phone,
-        token: code,
-        type: OtpType.phoneChange,
+      final dio = createDio();
+      await dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/user/phone/otp/verify',
+        data: {'phone': widget.phone, 'code': code},
+        options: Options(
+          headers: {'X-App-Variant': AppConfig.current.variantString},
+        ),
       );
 
       if (mounted) {
@@ -269,7 +279,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
+                LengthLimitingTextInputFormatter(6),
               ],
               style: GoogleFonts.jetBrainsMono(
                 color: Colors.white,
@@ -279,7 +289,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
               ),
               decoration: InputDecoration(
                 counterText: '',
-                hintText: '• • • • • • • •',
+                hintText: '• • • • • •',
                 hintStyle: GoogleFonts.jetBrainsMono(
                   color: const Color(0x33FFFFFF),
                   fontSize: 22,

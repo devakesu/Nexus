@@ -5,7 +5,6 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
-import 'package:nexus/screens/settings/reset_password_screen.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
@@ -37,9 +36,15 @@ class _AuthGateState extends State<AuthGate> {
   /// proceed against a guessed version if bootstrap never returned one.
   String? _termsVersion;
 
+  /// Verified-mobile state from the bootstrap response (public.users.mobile/
+  /// mobile_verified_at), threaded into OnboardingScreen so it never reads
+  /// Supabase Auth's user.phone (the Phone provider is disabled - phone
+  /// verification is now backend-owned, see app/core/account_phone_otp.py).
+  String? _verifiedMobile;
+  DateTime? _mobileVerifiedAt;
+
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
-  bool _isPasswordRecoveryMode = false;
 
   @override
   void initState() {
@@ -52,7 +57,6 @@ class _AuthGateState extends State<AuthGate> {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
       (data) {
         if (data.event == AuthChangeEvent.signedOut) {
-          _isPasswordRecoveryMode = false;
           unawaited(NotificationService.unregisterToken());
           unawaited(NotificationService.dispose());
           // Central sign-out hook so no cached profile/discovery-hub
@@ -60,11 +64,6 @@ class _AuthGateState extends State<AuthGate> {
           // the same device.
           unawaited(SecureProfileCache.clear());
           unawaited(DiscoveryHubCache.clearAll());
-        }
-        if (data.event == AuthChangeEvent.passwordRecovery) {
-          setState(() {
-            _isPasswordRecoveryMode = true;
-          });
         }
         if (mounted) {
           setState(() {});
@@ -233,6 +232,11 @@ class _AuthGateState extends State<AuthGate> {
         if (acceptedTerms != null) {
           _termsVersion = acceptedTerms;
         }
+        _verifiedMobile = data?['mobile'] as String?;
+        final mobileVerifiedAtRaw = data?['mobile_verified_at'] as String?;
+        _mobileVerifiedAt = mobileVerifiedAtRaw != null
+            ? DateTime.tryParse(mobileVerifiedAtRaw)
+            : null;
 
         if (mounted) {
           setState(() {
@@ -336,21 +340,14 @@ class _AuthGateState extends State<AuthGate> {
       );
     } else {
       final session = Supabase.instance.client.auth.currentSession;
-      if (_isPasswordRecoveryMode && session != null) {
-        currentWidget = ResetPasswordScreen(
-          key: const ValueKey('reset-password'),
-          onComplete: () {
-            setState(() {
-              _isPasswordRecoveryMode = false;
-            });
-          },
-        );
-      } else if (session != null && _lastBootstrappedUserId == session.user.id) {
+      if (session != null && _lastBootstrappedUserId == session.user.id) {
         final termsVersion = _termsVersion;
         if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
             termsVersion: termsVersion,
+            verifiedMobile: _verifiedMobile,
+            mobileVerifiedAt: _mobileVerifiedAt,
             onComplete: () {
               setState(() {
                 _hasProfile = true;

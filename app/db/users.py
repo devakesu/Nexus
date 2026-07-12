@@ -10,7 +10,12 @@ from supabase_auth import User, UserResponse
 
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.crypto import compute_blind_index, encrypt_to_hex
+from app.core.crypto import (
+    DecryptFailedError,
+    compute_blind_index,
+    decrypt_pii,
+    encrypt_to_hex,
+)
 from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
@@ -96,6 +101,26 @@ def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
     return _dump_user_object(user)
 
 
+def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
+    """Decrypts the mobile column in place, leaving it as None if never set
+    or if decryption fails (e.g. stale key) rather than raising - a
+    fetch_public_user caller shouldn't 500 just because mobile can't be
+    read.
+    """
+    raw = row.get("mobile")
+    if not raw:
+        row["mobile"] = None
+        return row
+    try:
+        row["mobile"] = decrypt_pii(raw) or None
+    except DecryptFailedError:
+        logger.warning(
+            "Failed to decrypt mobile for user", extra={"user_id": row.get("id")},
+        )
+        row["mobile"] = None
+    return row
+
+
 def fetch_public_user(user_id: str) -> dict[str, Any] | None:
     try:
         result = (
@@ -103,7 +128,8 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
             .select(
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
-                "accepted_terms_version, terms_accepted_at",
+                "accepted_terms_version, terms_accepted_at, "
+                "mobile, mobile_verified_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -125,7 +151,31 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
     if not isinstance(row, dict):
         return None
 
-    return cast(dict[str, Any], row)
+    return _decrypt_mobile(cast(dict[str, Any], row))
+
+
+def set_verified_mobile(user_id: str, phone: str) -> None:
+    """Persists a phone number as verified after a successful account
+    phone-OTP check (app/core/account_phone_otp.py). This is the only
+    writer of these columns - never client-writable (see
+    20260731000000_account_phone_verification.sql).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        supabase_client.table("users").update(
+            {
+                "mobile": encrypt_to_hex(phone),
+                "mobile_verified_at": now,
+            },
+        ).eq("id", user_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to persist verified mobile", extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to save verified phone number. Please try again.",
+        ) from e
 
 
 def upsert_public_user(
@@ -148,7 +198,8 @@ def upsert_public_user(
             .select(
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
-                "accepted_terms_version, terms_accepted_at, xmax",
+                "accepted_terms_version, terms_accepted_at, "
+                "mobile, mobile_verified_at, xmax",
             )
             .execute()
         )
@@ -164,20 +215,23 @@ def upsert_public_user(
 
     row = result.data[0] if result.data else None
 
-    if not isinstance(row, dict):
-        row = fetch_public_user(user_id)
+    if isinstance(row, dict):
+        xmax_val = row.get("xmax")
+        row_copy = dict(row)
+        row_copy.pop("xmax", None)
+        row_copy = _decrypt_mobile(row_copy)
+    else:
+        # fetch_public_user already decrypts mobile - don't decrypt twice.
+        fetched = fetch_public_user(user_id)
+        if not isinstance(fetched, dict):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User account initialization returned no row.",
+            )
+        xmax_val = None
+        row_copy = fetched
 
-    if not isinstance(row, dict):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="User account initialization returned no row.",
-        )
-
-    xmax_val = row.get("xmax")
     newly_created = xmax_val is not None and str(xmax_val) == "0"
-
-    row_copy = dict(row)
-    row_copy.pop("xmax", None)
 
     return cast(dict[str, Any], row_copy), newly_created
 

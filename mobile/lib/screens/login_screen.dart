@@ -17,7 +17,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum LoginView { options, email, phone, otp }
+enum LoginView { options, email, otp }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.appName, super.key});
@@ -33,12 +33,10 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   LoginView _currentView = LoginView.options;
 
-  // Controllers/Values for Email and Phone login
+  // Controllers/Values for Email login
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
-  bool _isPhoneOtp = true;
   int _resendCountdown = 0;
   Timer? _countdownTimer;
 
@@ -276,7 +274,6 @@ class _LoginScreenState extends State<LoginScreen>
     _matrixTimer?.cancel();
     _physicsController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _otpController.removeListener(_updateOtpState);
     _otpController.dispose();
     _countdownTimer?.cancel();
@@ -374,74 +371,6 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (mounted) {
         setState(() {
-          _isPhoneOtp = false;
-          _currentView = LoginView.otp;
-          _resendCountdown = 60;
-          _startCountdown();
-        });
-        NexusToast.show(
-          context,
-          'OTP sent successfully!',
-          type: NexusToastType.success,
-        );
-      }
-    } on Object catch (e, stackTrace) {
-      ErrorHandler.handleError(
-        e,
-        stackTrace: stackTrace,
-        customMessage: 'Failed to send OTP: $e',
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _sendOtp() async {
-    if (_resendCountdown > 0) {
-      NexusToast.show(
-        context,
-        'Please wait $_resendCountdown seconds before requesting another code.',
-        type: NexusToastType.error,
-      );
-      return;
-    }
-
-    final phone = _phoneController.text.trim();
-
-    if (phone.isEmpty) {
-      NexusToast.show(
-        context,
-        'Please enter your phone number.',
-        type: NexusToastType.error,
-      );
-      return;
-    }
-
-    final phoneRegex = RegExp(r'^\+[1-9]\d{7,14}$');
-    if (!phoneRegex.hasMatch(phone)) {
-      NexusToast.show(
-        context,
-        'Please enter a valid phone number starting with + (e.g. +1234567890).',
-        type: NexusToastType.error,
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        phone: phone,
-      );
-      if (mounted) {
-        setState(() {
-          _isPhoneOtp = true;
           _currentView = LoginView.otp;
           _resendCountdown = 60;
           _startCountdown();
@@ -483,9 +412,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _verifyOtp() async {
-    final target = _isPhoneOtp
-        ? _phoneController.text.trim()
-        : _emailController.text.trim();
+    final target = _emailController.text.trim();
     final code = _otpController.text.trim();
 
     if (target.isEmpty || code.isEmpty) {
@@ -512,19 +439,11 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      if (_isPhoneOtp) {
-        await Supabase.instance.client.auth.verifyOTP(
-          phone: target,
-          token: code,
-          type: OtpType.sms,
-        );
-      } else {
-        await Supabase.instance.client.auth.verifyOTP(
-          email: target,
-          token: code,
-          type: OtpType.email,
-        );
-      }
+      await Supabase.instance.client.auth.verifyOTP(
+        email: target,
+        token: code,
+        type: OtpType.email,
+      );
     } on Object catch (e, stackTrace) {
       ErrorHandler.handleError(
         e,
@@ -763,16 +682,6 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.mail_outline_rounded,
               label: 'Sign in with Email',
             ),
-            const SizedBox(height: 12),
-            _buildGreyButton(
-              onTap: () {
-                setState(() {
-                  _currentView = LoginView.phone;
-                });
-              },
-              icon: Icons.phone_iphone_rounded,
-              label: 'Sign in with Phone',
-            ),
             const SizedBox(height: 20),
             _buildFootnote('Find your orbit. Connect seamlessly.'),
           ],
@@ -807,49 +716,8 @@ class _LoginScreenState extends State<LoginScreen>
             _buildBackButton(),
           ],
         );
-      case LoginView.phone:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Sign in with Phone',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Enter your phone number starting with +',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _phoneController,
-              hintText: '+911234567890',
-              icon: Icons.phone_iphone_rounded,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 16),
-            _buildActionButton(
-              onTap: _sendOtp,
-              label: 'Get OTP',
-            ),
-            const SizedBox(height: 12),
-            _buildBackButton(),
-          ],
-        );
       case LoginView.otp:
-        final targetText = _isPhoneOtp
-            ? _phoneController.text
-            : _emailController.text;
+        final targetText = _emailController.text;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -903,7 +771,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 if (_resendCountdown == 0) ...[
                   TextButton(
-                    onPressed: _isPhoneOtp ? _sendOtp : _sendEmailOtp,
+                    onPressed: _sendEmailOtp,
                     child: Text(
                       'Resend',
                       style: GoogleFonts.inter(

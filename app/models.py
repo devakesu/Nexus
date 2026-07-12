@@ -29,6 +29,8 @@ class AuthBootstrapResponse(BaseModel):
     accepted_terms_version: str | None = None
     terms_accepted_at: datetime | None = None
     newly_created: bool
+    mobile: str | None = None
+    mobile_verified_at: datetime | None = None
 
 
 class ProfileModel(BaseModel):
@@ -117,23 +119,11 @@ class BaseOnboardingRequest(BaseModel):
 
     age: int = Field(..., ge=18, le=27)
     accepted_terms_version: str
-    phone: str = Field(..., min_length=8, max_length=20)
 
     @field_validator("accepted_terms_version")
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
         return _validate_terms_version(value)
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
-            raise ValueError(
-                "Invalid phone number format. "
-                "Must start with '+' followed by 8-15 digits (E.164 format).",
-            )
-        return cleaned
 
 
 class NexusOnboardingRequest(BaseOnboardingRequest):
@@ -1792,6 +1782,58 @@ class SafetySessionEndRequest(BaseModel):
         except ValueError as e:
             raise ValueError("session_id must be a valid UUID") from e
         return v
+
+
+# ---------------------------------------------------------------------------
+# Account phone verification - independent of Supabase Auth's Phone provider
+# (disabled, since it doubled as a login credential with no way to keep
+# verification without also keeping phone-based sign-in). See
+# app/core/account_phone_otp.py.
+# ---------------------------------------------------------------------------
+
+
+class AccountPhoneOtpRequestRequest(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
+            )
+        return cleaned
+
+
+class AccountPhoneOtpRequestResponse(BaseModel):
+    sent: bool = True
+
+
+class AccountPhoneOtpVerifyRequest(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=20)
+    # Exactly 6 digits, matching generate_otp_code() - rejecting malformed
+    # input here (a 422) rather than letting it consume one of the 5
+    # precious verify attempts against a code that could never have matched.
+    code: str = Field(..., pattern=r"^\d{6}$")
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
+            )
+        return cleaned
+
+
+class AccountPhoneOtpVerifyResponse(BaseModel):
+    verified: bool = True
+    mobile: str
+    mobile_verified_at: datetime
 
 
 # ---------------------------------------------------------------------------
