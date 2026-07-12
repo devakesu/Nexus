@@ -55,4 +55,23 @@ abstract final class AppColors {
   /// tints in chat_theme.dart, which follow the same ~35% blend).
   static Color tint(Color base, [double amount = 0.35]) =>
       Color.lerp(base, Colors.white, amount)!;
+
+  /// Picks whichever of pure black/white has higher WCAG contrast against
+  /// [background]. A single fixed foreground (e.g. always black87) can clear
+  /// AA against a bright mode color (Dating) while failing it against a
+  /// darker one (Friends/Professional) — see the mode-color notes in
+  /// DESIGN.md. Computed rather than hardcoded so it stays correct if mode
+  /// colors are ever retuned.
+  static Color onSignal(Color background) {
+    double contrast(Color a, Color b) {
+      final l1 = a.computeLuminance() + 0.05;
+      final l2 = b.computeLuminance() + 0.05;
+      return l1 > l2 ? l1 / l2 : l2 / l1;
+    }
+
+    return contrast(Colors.black, background) >=
+            contrast(Colors.white, background)
+        ? Colors.black
+        : Colors.white;
+  }
 }

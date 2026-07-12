@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class ConstellationLoader extends StatefulWidget {
   const ConstellationLoader({
@@ -194,6 +195,7 @@ class _AligningText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glow = AppColors.tint(themeColor, 0.4);
     final labelText = Text(
       label,
       style: TextStyle(
@@ -223,7 +225,7 @@ class _AligningText extends StatelessWidget {
           Text(
             '...',
             style: TextStyle(
-              color: themeColor.withValues(alpha: 0.9),
+              color: glow.withValues(alpha: 0.9),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2,
@@ -246,7 +248,7 @@ class _AligningText extends StatelessWidget {
             Text(
               dots,
               style: TextStyle(
-                color: themeColor.withValues(alpha: 0.9),
+                color: glow.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
@@ -279,6 +281,13 @@ class _ConstellationPainter extends CustomPainter {
   final double sweepAngle;
   final double pulseValue;
   final double twinkleValue;
+
+  // Brightened variant of themeColor used for low-alpha glows/lines/rings
+  // drawn on the near-black backdrop — Friends/Professional's mode colors
+  // are dark by design (calibrated for text-on-white contrast, see
+  // DESIGN.md), so at low alpha over black they'd otherwise wash out next
+  // to Dating's much brighter pink.
+  Color get glow => AppColors.tint(themeColor, 0.4);
 
   static const _r1 = 36.0;
   static const _r2 = 58.0;
@@ -327,7 +336,7 @@ class _ConstellationPainter extends CustomPainter {
 
     // ── Center glow pulse ─────────────────────────────────────────────────
     paint
-      ..color = themeColor.withValues(alpha: 0.09 + pulseValue * 0.08)
+      ..color = glow.withValues(alpha: 0.09 + pulseValue * 0.08)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
     canvas.drawCircle(center, 20 + pulseValue * 7, paint);
     paint.maskFilter = null;
@@ -340,7 +349,7 @@ class _ConstellationPainter extends CustomPainter {
       canvas,
       center,
       _r1,
-      themeColor.withValues(alpha: 0.22),
+      glow.withValues(alpha: 0.22),
       dashLen: 5,
       gapLen: 9,
     );
@@ -348,7 +357,7 @@ class _ConstellationPainter extends CustomPainter {
       canvas,
       center,
       _r2,
-      themeColor.withValues(alpha: 0.15),
+      glow.withValues(alpha: 0.15),
       dashLen: 7,
       gapLen: 13,
     );
@@ -356,7 +365,7 @@ class _ConstellationPainter extends CustomPainter {
       canvas,
       center,
       _r3,
-      themeColor.withValues(alpha: 0.10),
+      glow.withValues(alpha: 0.10),
       dashLen: 9,
       gapLen: 17,
     );
@@ -405,7 +414,7 @@ class _ConstellationPainter extends CustomPainter {
       final frac = i / steps;
       final startAngle = sweepAngle - tailLength * (1 - frac);
       final alpha = frac * 0.18;
-      tailPaint.color = themeColor.withValues(alpha: alpha);
+      tailPaint.color = glow.withValues(alpha: alpha);
       canvas
         ..drawArc(
           Rect.fromCircle(center: center, radius: maxR * 0.62),
@@ -425,7 +434,7 @@ class _ConstellationPainter extends CustomPainter {
 
     // Leading edge glow
     paint
-      ..color = themeColor.withValues(alpha: 0.22)
+      ..color = glow.withValues(alpha: 0.22)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: maxR * 0.55),
@@ -498,7 +507,7 @@ class _ConstellationPainter extends CustomPainter {
       final tailAngle = clockwise ? angle - t * tailStep : angle + t * tailStep;
       final pos = _dotPos(center, radius, tailAngle);
       final frac = 1 - t / (tailCount + 1);
-      paint.color = themeColor.withValues(alpha: frac * 0.2);
+      paint.color = glow.withValues(alpha: frac * 0.2);
       canvas.drawCircle(pos, dotR * frac * 0.55, paint);
     }
 
@@ -506,7 +515,7 @@ class _ConstellationPainter extends CustomPainter {
 
     // Glow halo
     paint
-      ..color = themeColor.withValues(alpha: 0.28)
+      ..color = glow.withValues(alpha: 0.28)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
     canvas.drawCircle(pos, dotR + 2, paint);
 
@@ -530,7 +539,7 @@ class _ConstellationPainter extends CustomPainter {
     Paint paint,
   ) {
     final linePaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.13)
+      ..color = glow.withValues(alpha: 0.13)
       ..strokeWidth = 0.7
       ..isAntiAlias = true;
 

@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class OrbitFiltersPanel extends StatefulWidget {
   const OrbitFiltersPanel({
@@ -279,7 +280,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: value ? Colors.black87 : Colors.white54,
+                color: value ? AppColors.onSignal(theme) : Colors.white54,
               ),
             ),
           ),

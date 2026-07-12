@@ -632,7 +632,10 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                           ).isNotEmpty) ...[
                             Text(
                               _getEmojiForInterest(match['sub']!),
-                              style: const TextStyle(fontSize: 16),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -826,7 +829,10 @@ class _InterestsOverlayState extends State<InterestsOverlay> {
                                   ).isNotEmpty) ...[
                                     Text(
                                       _getEmojiForInterest(subInterest),
-                                      style: const TextStyle(fontSize: 13),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                     const SizedBox(width: 6),
                                   ],

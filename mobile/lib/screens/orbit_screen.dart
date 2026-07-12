@@ -529,7 +529,9 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: widget.themeColor,
-                                foregroundColor: Colors.black87,
+                                foregroundColor: AppColors.onSignal(
+                                  widget.themeColor,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -723,7 +725,9 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: widget.themeColor,
-                                foregroundColor: Colors.black87,
+                                foregroundColor: AppColors.onSignal(
+                                  widget.themeColor,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -784,15 +788,19 @@ class _OrbitScreenState extends State<OrbitScreen>
                                 if (showCustomOption &&
                                     searchQuery.trim().length <= 30)
                                   ActionChip(
-                                    avatar: const Icon(
+                                    avatar: Icon(
                                       LucideIcons.plus,
                                       size: 14,
-                                      color: Colors.black87,
+                                      color: AppColors.onSignal(
+                                        widget.themeColor,
+                                      ),
                                     ),
                                     label: Text('Add "${searchQuery.trim()}"'),
                                     backgroundColor: widget.themeColor,
-                                    labelStyle: const TextStyle(
-                                      color: Colors.black87,
+                                    labelStyle: TextStyle(
+                                      color: AppColors.onSignal(
+                                        widget.themeColor,
+                                      ),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -2106,8 +2114,8 @@ class _OrbitScreenState extends State<OrbitScreen>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: widget.themeColor.withValues(
-            alpha: (score / 100).clamp(0.2, 1.0),
+          color: AppColors.tint(widget.themeColor, 0.4).withValues(
+            alpha: (score / 100).clamp(0.45, 1.0),
           ),
           width: 2.5,
         ),

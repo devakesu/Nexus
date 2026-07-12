@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:nexus/screens/orbit_screen.dart';
+import 'package:nexus/theme/app_colors.dart';
 
 class CelestialBackgroundPainter extends CustomPainter {
   CelestialBackgroundPainter({
@@ -15,6 +16,7 @@ class CelestialBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()..isAntiAlias = true;
+    final glow = AppColors.tint(themeColor, 0.3);
 
     // 1. Draw Starfield (Deterministic based on coordinates)
     for (var i = 0; i < 150; i++) {
@@ -42,7 +44,7 @@ class CelestialBackgroundPainter extends CustomPainter {
 
     // 2. High-Tech Grid Coordinate Rings & Crosshairs
     final gridPaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.08)
+      ..color = glow.withValues(alpha: 0.08)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -61,7 +63,7 @@ class CelestialBackgroundPainter extends CustomPainter {
 
     // Diagonal coordinate sweeps
     final diagonalPaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.03)
+      ..color = glow.withValues(alpha: 0.03)
       ..strokeWidth = 0.8;
     canvas
       ..drawLine(
@@ -81,7 +83,7 @@ class CelestialBackgroundPainter extends CustomPainter {
         ..drawCircle(
           Offset(center.dx + r, center.dy),
           2,
-          paint..color = themeColor.withValues(alpha: 0.35),
+          paint..color = glow.withValues(alpha: 0.35),
         )
         ..drawCircle(Offset(center.dx - r, center.dy), 2, paint)
         ..drawCircle(Offset(center.dx, center.dy + r), 2, paint)
@@ -110,7 +112,7 @@ class ConstellationLinesPainter extends CustomPainter {
     if (nodes.isEmpty) return;
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()
-      ..color = themeColor.withValues(alpha: 0.1)
+      ..color = AppColors.tint(themeColor, 0.3).withValues(alpha: 0.1)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -155,8 +157,9 @@ class OrbitGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
+    final glow = AppColors.tint(themeColor, 0.3);
     final gridPaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.08)
+      ..color = glow.withValues(alpha: 0.08)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -175,7 +178,7 @@ class OrbitGridPainter extends CustomPainter {
 
     // Diagonal coordinate sweeps
     final diagonalPaint = Paint()
-      ..color = themeColor.withValues(alpha: 0.03)
+      ..color = glow.withValues(alpha: 0.03)
       ..strokeWidth = 0.8;
     canvas
       ..drawLine(
@@ -196,7 +199,7 @@ class OrbitGridPainter extends CustomPainter {
         ..drawCircle(
           Offset(center.dx + r, center.dy),
           2,
-          paint..color = themeColor.withValues(alpha: 0.35),
+          paint..color = glow.withValues(alpha: 0.35),
         )
         ..drawCircle(Offset(center.dx - r, center.dy), 2, paint)
         ..drawCircle(Offset(center.dx, center.dy + r), 2, paint)
