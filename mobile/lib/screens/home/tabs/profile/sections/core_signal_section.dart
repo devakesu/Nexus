@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
@@ -17,8 +16,7 @@ class CoreSignalSection extends StatefulWidget {
     required this.pronouns,
     required this.imagePaths,
     required this.pendingUploads,
-    required this.onNameChanged,
-    required this.onNameSubmitted,
+    required this.onNameTileTap,
     required this.onAgeTileTap,
     required this.onBucketChanged,
     required this.onSelectGender,
@@ -35,10 +33,6 @@ class CoreSignalSection extends StatefulWidget {
     this.isSavingPronouns = false,
     this.isSavingAge = false,
     this.isSavingBuckets = false,
-    this.nameFocusNode,
-    this.nameModerationError,
-    this.nameChangeStatusText,
-    this.nameChangeEligible = true,
     super.key,
   });
 
@@ -57,8 +51,7 @@ class CoreSignalSection extends StatefulWidget {
   final bool isSavingAge;
   final bool isSavingBuckets;
 
-  final ValueChanged<String> onNameChanged;
-  final ValueChanged<String> onNameSubmitted;
+  final VoidCallback onNameTileTap;
   final VoidCallback onAgeTileTap;
   final ValueChanged<String> onBucketChanged;
   final VoidCallback onSelectGender;
@@ -66,25 +59,84 @@ class CoreSignalSection extends StatefulWidget {
   final VoidCallback onSelectPronouns;
   final ValueChanged<int> onImageSlotTap;
   final void Function(int, int) onSwapImages;
-  final FocusNode? nameFocusNode;
   final VoidCallback? onClearGender;
   final VoidCallback? onClearSexuality;
   final VoidCallback? onClearPronouns;
-  /// Client-side moderation error (profanity/title/digits) shown as
-  /// helper text under the Display Name field. The backend is
-  /// authoritative - this is instant UX feedback only.
-  final String? nameModerationError;
-  /// Precomputed caption describing the rolling 2x/year name-change
-  /// allowance (e.g. "1 name change left this year"), or the ineligible
-  /// message once both changes are used up.
-  final String? nameChangeStatusText;
-  final bool nameChangeEligible;
 
   @override
   State<CoreSignalSection> createState() => _CoreSignalSectionState();
 }
 
 class _CoreSignalSectionState extends State<CoreSignalSection> {
+  /// A plain label -> value row (icon, uppercase label, value, chevron),
+  /// deliberately un-boxed - unlike SelectorTile, tapping this doesn't pick
+  /// a value directly, it opens a dedicated confirmation popup (age/name
+  /// change sheets), so it shouldn't read as an editable field itself.
+  Widget _buildInlineDetailRow({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+    bool isSaving = false,
+    bool showDivider = true,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              children: [
+                Icon(icon, size: 15, color: const Color(0xFF2D8CFF)),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (isSaving)
+                  const SizedBox.square(
+                    dimension: 14,
+                    child: NexusOrbitLoader(size: 14),
+                  )
+                else
+                  Icon(
+                    LucideIcons.chevronRight,
+                    size: 14,
+                    color: Colors.black.withValues(alpha: 0.3),
+                  ),
+              ],
+            ),
+          ),
+          if (showDivider)
+            Container(height: 0.5, color: Colors.black.withValues(alpha: 0.08)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBucketChip({
     required String label,
     required String value,
@@ -163,57 +215,23 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Display Name
-          GlassTextField(
-            label: 'Display Name',
-            initialValue: widget.name,
-            hintText: 'Enter your cosmic display name',
-            prefixIcon: LucideIcons.user,
-            onChanged: widget.onNameChanged,
-            onFieldSubmitted: widget.onNameSubmitted,
+          // Name & Age - plain inline rows, not boxed like the selector
+          // tiles below: tapping opens a dedicated confirmation popup
+          // (rate-limited + moderated), it isn't a direct-edit field.
+          _buildInlineDetailRow(
+            label: 'DISPLAY NAME',
+            value: widget.name,
+            icon: LucideIcons.user,
+            onTap: widget.onNameTileTap,
             isSaving: widget.isSavingName,
-            focusNode: widget.nameFocusNode,
           ),
-          if (widget.nameModerationError != null) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 12),
-              child: Text(
-                widget.nameModerationError!,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ] else if (widget.nameChangeStatusText != null) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 12),
-              child: Text(
-                widget.nameChangeStatusText!,
-                style: TextStyle(
-                  color: widget.nameChangeEligible
-                      ? Colors.black.withValues(alpha: 0.45)
-                      : AppColors.error,
-                  fontSize: 11,
-                  fontWeight: widget.nameChangeEligible
-                      ? FontWeight.normal
-                      : FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-
-          // Age tile - opens the age-change bottom sheet, which
-          // enforces the once-per-365-days rate limit.
-          SelectorTile(
+          _buildInlineDetailRow(
             label: 'AGE',
             value: '${widget.age} yrs old',
             icon: LucideIcons.calendar,
-            iconColor: const Color(0xFF2D8CFF),
-            trailingIcon: LucideIcons.info,
             onTap: widget.onAgeTileTap,
             isSaving: widget.isSavingAge,
+            showDivider: false,
           ),
           const SizedBox(height: 16),
 

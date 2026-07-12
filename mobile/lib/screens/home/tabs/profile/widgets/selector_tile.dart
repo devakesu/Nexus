@@ -12,7 +12,6 @@ class SelectorTile extends StatelessWidget {
     required this.onTap,
     this.onClear,
     this.isSaving = false,
-    this.trailingIcon,
     super.key,
   });
 
@@ -23,10 +22,6 @@ class SelectorTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onClear;
   final bool isSaving;
-  /// Overrides the default clear-button/chevron trailing affordance -
-  /// used when tapping the tile opens something other than a plain
-  /// selector (e.g. the age-change bottom sheet).
-  final IconData? trailingIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -98,9 +93,7 @@ class SelectorTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (trailingIcon != null)
-                        Icon(trailingIcon, color: iconColor, size: 14)
-                      else if (!isEmpty && onClear != null)
+                      if (!isEmpty && onClear != null)
                         Semantics(
                           button: true,
                           label: 'Clear $label',

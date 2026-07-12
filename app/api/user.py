@@ -75,7 +75,8 @@ _VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
     },
 )
 
-_AGE_CHANGE_COOLDOWN_DAYS = 365
+_AGE_CHANGE_WINDOW_DAYS = 365
+_AGE_CHANGE_MAX_PER_WINDOW = 2
 _NAME_CHANGE_WINDOW_DAYS = 365
 _NAME_CHANGE_MAX_PER_WINDOW = 2
 
@@ -347,6 +348,49 @@ def _assert_no_decryption_failures(profile: dict[str, Any]) -> None:
             )
 
 
+def _rolling_change_window_status(
+    table: str,
+    user_id: str,
+    window_days: int,
+    max_changes: int,
+) -> tuple[int, bool, datetime | None]:
+    """Return (used_count, eligible, next_eligible_at) for a rolling-window
+    change-log table (profile_name_change_log / profile_age_change_log).
+
+    Shared by both the GET (informational) and PATCH (enforcement) paths
+    for age and name, so the count/eligibility math only lives in one place.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    try:
+        res = (
+            supabase_client.table(table)
+            .select("changed_at")
+            .eq("user_id", user_id)
+            .gte("changed_at", cutoff.isoformat())
+            .order("changed_at")
+            .execute()
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to check rolling change-window eligibility",
+            extra={"user_id": user_id, "table": table},
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error.",
+        ) from e
+
+    rows = cast("list[dict[str, Any]]", getattr(res, "data", None) or [])
+    used = len(rows)
+    eligible = used < max_changes
+    next_eligible = (
+        parse_utc_datetime(rows[0]["changed_at"]) + timedelta(days=window_days)
+        if not eligible
+        else None
+    )
+    return used, eligible, next_eligible
+
+
 def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
     profile_pic = profile.get("profile_pic")
     normal_pics = profile.get("normal_pics")
@@ -366,7 +410,7 @@ def get_profile_details(
 ) -> dict[str, Any]:
     try:
         select_cols = (
-            "id, name, age, age_updated_at, campus_year, campus_branch, campus_name, "
+            "id, name, age, campus_year, campus_branch, campus_name, "
             "display_gender, display_sexuality, pronouns, bio, search_bucket, "
             "hometown, current_place, partner_values, children_plans, "
             "religious_beliefs, lifestyle, drinking, smoking, role_at, "
@@ -401,44 +445,23 @@ def get_profile_details(
 
         ordered_images = _build_ordered_images(profile)
 
-        age_updated_at = profile.get("age_updated_at")
-        age_next_eligible_dt = (
-            parse_utc_datetime(age_updated_at)
-            + timedelta(days=_AGE_CHANGE_COOLDOWN_DAYS)
-            if age_updated_at
-            else None
+        age_changes_used_in_window, age_change_eligible, age_next_eligible_dt = (
+            _rolling_change_window_status(
+                "profile_age_change_log",
+                user_id,
+                _AGE_CHANGE_WINDOW_DAYS,
+                _AGE_CHANGE_MAX_PER_WINDOW,
+            )
         )
-        age_change_eligible = (
-            age_next_eligible_dt is None
-            or datetime.now(timezone.utc) >= age_next_eligible_dt
-        )
-
-        name_cutoff = datetime.now(timezone.utc) - timedelta(
-            days=_NAME_CHANGE_WINDOW_DAYS,
-        )
-        name_log_res = (
-            supabase_client.table("profile_name_change_log")
-            .select("changed_at")
-            .eq("user_id", user_id)
-            .gte("changed_at", name_cutoff.isoformat())
-            .order("changed_at")
-            .execute()
-        )
-        recent_name_changes = cast(
-            "list[dict[str, Any]]",
-            getattr(name_log_res, "data", None) or [],
-        )
-        name_changes_used_in_window = len(recent_name_changes)
-        name_change_eligible = (
-            name_changes_used_in_window < _NAME_CHANGE_MAX_PER_WINDOW
-        )
-        name_next_eligible_at = (
-            (
-                parse_utc_datetime(recent_name_changes[0]["changed_at"])
-                + timedelta(days=_NAME_CHANGE_WINDOW_DAYS)
-            ).isoformat()
-            if not name_change_eligible
-            else None
+        (
+            name_changes_used_in_window,
+            name_change_eligible,
+            name_next_eligible_dt,
+        ) = _rolling_change_window_status(
+            "profile_name_change_log",
+            user_id,
+            _NAME_CHANGE_WINDOW_DAYS,
+            _NAME_CHANGE_MAX_PER_WINDOW,
         )
 
         return {
@@ -484,13 +507,16 @@ def get_profile_details(
             "is_professional_active": bool(
                 profile.get("is_professional_active", False),
             ),
+            "age_changes_used_in_window": age_changes_used_in_window,
             "age_change_eligible": age_change_eligible,
             "age_next_eligible_at": (
                 age_next_eligible_dt.isoformat() if age_next_eligible_dt else None
             ),
             "name_changes_used_in_window": name_changes_used_in_window,
             "name_change_eligible": name_change_eligible,
-            "name_next_eligible_at": name_next_eligible_at,
+            "name_next_eligible_at": (
+                name_next_eligible_dt.isoformat() if name_next_eligible_dt else None
+            ),
         }
     except HTTPException:
         raise
@@ -742,64 +768,24 @@ def update_profile_details(  # noqa: C901
 ) -> dict[str, Any]:
     update_data: dict[str, Any] = {}
 
+    # Resolve to the current stored name/age before running any moderation
+    # or rate-limit checks, so a resubmission of the *same* value (e.g. the
+    # Display Name field firing its blur callback with unchanged text) is a
+    # silent no-op instead of burning one of the limited change slots.
     new_name: str | None = None
-    if payload.name is not None:
-        new_name = payload.name.strip()
+    new_age: int | None = None
+    if payload.name is not None or payload.age is not None:
         try:
-            validate_display_name(new_name)
-        except NameModerationError as e:
-            raise HTTPException(status_code=422, detail=e.detail) from e
-
-        name_cutoff = datetime.now(timezone.utc) - timedelta(
-            days=_NAME_CHANGE_WINDOW_DAYS,
-        )
-        try:
-            name_log_res = (
-                supabase_client.table("profile_name_change_log")
-                .select("changed_at")
-                .eq("user_id", user_id)
-                .gte("changed_at", name_cutoff.isoformat())
-                .order("changed_at")
-                .execute()
-            )
-        except Exception as e:
-            logger.exception(
-                "Failed to check name change eligibility",
-                extra={"user_id": user_id},
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Internal server error.",
-            ) from e
-
-        recent_name_changes = cast(
-            "list[dict[str, Any]]",
-            getattr(name_log_res, "data", None) or [],
-        )
-        if len(recent_name_changes) >= _NAME_CHANGE_MAX_PER_WINDOW:
-            oldest = parse_utc_datetime(recent_name_changes[0]["changed_at"])
-            next_eligible = oldest + timedelta(days=_NAME_CHANGE_WINDOW_DAYS)
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "You've used both name changes allowed this year. "
-                    f"You can change your name again on "
-                    f"{next_eligible:%B %d, %Y}."
-                ),
-            )
-
-    if payload.age is not None:
-        try:
-            age_res = (
+            identity_res = (
                 supabase_client.table("profiles")
-                .select("age_updated_at")
+                .select("name, age")
                 .eq("id", user_id)
                 .maybe_single()
                 .execute()
             )
         except Exception as e:
             logger.exception(
-                "Failed to check age change eligibility",
+                "Failed to fetch current name/age for change comparison",
                 extra={"user_id": user_id},
             )
             raise HTTPException(
@@ -807,24 +793,60 @@ def update_profile_details(  # noqa: C901
                 detail="Internal server error.",
             ) from e
 
-        age_data = cast(
+        identity_data = cast(
             "dict[str, Any]",
-            getattr(age_res, "data", None) or {},
+            getattr(identity_res, "data", None) or {},
         )
-        last_age_change = cast("str | None", age_data.get("age_updated_at"))
-        if last_age_change:
-            age_next_eligible = parse_utc_datetime(last_age_change) + timedelta(
-                days=_AGE_CHANGE_COOLDOWN_DAYS,
-            )
-            if datetime.now(timezone.utc) < age_next_eligible:
-                raise HTTPException(
-                    status_code=403,
-                    detail=(
-                        "You can only change your age once every 365 days. "
-                        f"You'll be able to change it again on "
-                        f"{age_next_eligible:%B %d, %Y}."
-                    ),
+
+        if payload.name is not None:
+            candidate_name = payload.name.strip()
+            current_name = cast("str | None", identity_data.get("name"))
+            if candidate_name != current_name:
+                new_name = candidate_name
+                try:
+                    validate_display_name(new_name)
+                except NameModerationError as e:
+                    raise HTTPException(status_code=422, detail=e.detail) from e
+
+                _, name_eligible, name_next_eligible = _rolling_change_window_status(
+                    "profile_name_change_log",
+                    user_id,
+                    _NAME_CHANGE_WINDOW_DAYS,
+                    _NAME_CHANGE_MAX_PER_WINDOW,
                 )
+                if not name_eligible:
+                    if name_next_eligible is None:
+                        name_next_eligible = datetime.now(timezone.utc)
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "You've used both name changes allowed this year. "
+                            f"You can change your name again on "
+                            f"{name_next_eligible:%B %d, %Y}."
+                        ),
+                    )
+
+        if payload.age is not None:
+            current_age = cast("int | None", identity_data.get("age"))
+            if payload.age != current_age:
+                new_age = payload.age
+                _, age_eligible, age_next_eligible = _rolling_change_window_status(
+                    "profile_age_change_log",
+                    user_id,
+                    _AGE_CHANGE_WINDOW_DAYS,
+                    _AGE_CHANGE_MAX_PER_WINDOW,
+                )
+                if not age_eligible:
+                    if age_next_eligible is None:
+                        age_next_eligible = datetime.now(timezone.utc)
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "You've used both age changes allowed this year. "
+                            f"You can change your age again on "
+                            f"{age_next_eligible:%B %d, %Y}."
+                        ),
+                    )
 
     if payload.campus_branch is not None:
         update_data["campus_branch"] = encrypt_to_hex(payload.campus_branch.strip())
@@ -988,7 +1010,7 @@ def update_profile_details(  # noqa: C901
         else:
             update_data["is_professional_active"] = False
 
-    if not update_data and payload.age is None and new_name is None:
+    if not update_data and new_age is None and new_name is None:
         return {"status": "success", "detail": "No fields to update."}
 
     has_other_updates = bool(update_data)
@@ -996,21 +1018,24 @@ def update_profile_details(  # noqa: C901
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     try:
-        if payload.age is not None:
+        if new_age is not None:
             try:
                 supabase_client.rpc(
                     "apply_age_change",
                     {
                         "p_user_id": user_id,
-                        "p_new_age": payload.age,
-                        "p_min_interval_days": _AGE_CHANGE_COOLDOWN_DAYS,
+                        "p_new_age": new_age,
+                        "p_min_interval_days": _AGE_CHANGE_WINDOW_DAYS,
+                        "p_max_changes": _AGE_CHANGE_MAX_PER_WINDOW,
                     },
                 ).execute()
             except APIError as e:
-                if e.message == "age_change_too_soon":
+                if e.message == "age_change_limit_reached":
                     raise HTTPException(
                         status_code=403,
-                        detail="You can only change your age once every 365 days.",
+                        detail=(
+                            "You've used both age changes allowed this year."
+                        ),
                     ) from e
                 if e.message == "profile_not_found":
                     raise HTTPException(

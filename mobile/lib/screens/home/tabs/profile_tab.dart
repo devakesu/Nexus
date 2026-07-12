@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
@@ -21,10 +20,10 @@ import 'package:nexus/screens/home/tabs/profile/sections/lifestyle_resonance_sec
 import 'package:nexus/screens/home/tabs/profile/sections/social_coordinates_section.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/spotify_artists_section.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
-import 'package:nexus/screens/home/tabs/profile/utils/name_moderation.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/age_change_sheet.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/name_change_sheet.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
@@ -72,12 +71,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   // Age/name change-rate-limit eligibility, refreshed from the profile
   // details GET response - the backend is the single source of truth for
   // this date math (see app/api/user.py::get_profile_details).
+  int _ageChangesUsedInWindow = 0;
   bool _ageChangeEligible = true;
   DateTime? _ageNextEligibleAt;
   int _nameChangesUsedInWindow = 0;
   bool _nameChangeEligible = true;
   DateTime? _nameNextEligibleAt;
-  String? _nameModerationError;
   String _pronouns = '';
   String _campusName = '';
   bool _isStudying = true;
@@ -145,7 +144,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   final ScrollController _scrollController = ScrollController();
 
   // Focus nodes for interactive completion triggers
-  final FocusNode _nameFocusNode = FocusNode();
   final FocusNode _bioFocusNode = FocusNode();
   final FocusNode _hometownFocusNode = FocusNode();
   final FocusNode _currentPlaceFocusNode = FocusNode();
@@ -215,9 +213,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       _showImageSlotPicker(3);
     } else if (label == 'Gallery Slot 4') {
       _showImageSlotPicker(4);
-    } else if (label == 'Display Name') {
+    } else if (['Display Name', 'Age', 'Demographic Buckets'].contains(label)) {
       _scrollToSection(_coreSignalKey);
-      _nameFocusNode.requestFocus();
     } else if (label == 'Gender') {
       _openSelectionOverlay(
         title: 'Gender',
@@ -243,8 +240,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           unawaited(_saveProfileChanges(pronouns: val));
         },
       );
-    } else if (['Age', 'Demographic Buckets'].contains(label)) {
-      _scrollToSection(_coreSignalKey);
     } else if (label == 'Cosmic Signature (Bio)') {
       _scrollToSection(_bioKey);
       _bioFocusNode.requestFocus();
@@ -396,7 +391,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _entryController?.dispose();
     _pageController.dispose();
     _scrollController.dispose();
-    _nameFocusNode.dispose();
     _bioFocusNode.dispose();
     _hometownFocusNode.dispose();
     _currentPlaceFocusNode.dispose();
@@ -489,6 +483,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _age = (data['age'] as num?)?.toInt() ?? _age;
     _savedAge = _age;
 
+    _ageChangesUsedInWindow =
+        (data['age_changes_used_in_window'] as num?)?.toInt() ?? 0;
     _ageChangeEligible = data['age_change_eligible'] as bool? ?? true;
     _ageNextEligibleAt = DateTime.tryParse(
       data['age_next_eligible_at']?.toString() ?? '',
@@ -985,20 +981,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
   }
 
-  /// Caption describing the rolling 2x/year name-change allowance, shown
-  /// under the Display Name field (see CoreSignalSection.nameChangeStatusText).
-  String _nameChangeStatusText() {
-    if (!_nameChangeEligible) {
-      final formatted = _nameNextEligibleAt != null
-          ? DateFormat('MMMM d, y').format(_nameNextEligibleAt!)
-          : 'a later date';
-      return "You've used both name changes for this year. You can change "
-          'your name again on $formatted, or contact support via Settings → '
-          'Help, Feedback & Bug Report.';
-    }
-    final remaining = 2 - _nameChangesUsedInWindow;
-    return '$remaining name change${remaining == 1 ? '' : 's'} left this year.';
-  }
 
   int _calculateStability() {
     var filled = 0;
@@ -2059,24 +2041,23 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingPronouns: _savingFields.contains('pronouns'),
                         isSavingAge: _savingFields.contains('age'),
                         isSavingBuckets: _savingFields.contains('searchBucket'),
-                        nameFocusNode: _nameFocusNode,
-                        nameModerationError: _nameModerationError,
-                        nameChangeStatusText: _nameChangeStatusText(),
-                        nameChangeEligible: _nameChangeEligible,
-                        onNameChanged: (val) {
-                          setState(() {
-                            _name = val;
-                            _nameModerationError =
-                                validateDisplayNameClientSide(val).error;
-                          });
-                        },
-                        onNameSubmitted: (val) =>
-                            unawaited(_saveProfileChanges(name: val)),
+                        onNameTileTap: () => unawaited(
+                          showNameChangeSheet(
+                            context,
+                            currentName: _name,
+                            eligible: _nameChangeEligible,
+                            changesUsedInWindow: _nameChangesUsedInWindow,
+                            nextEligibleAt: _nameNextEligibleAt,
+                            onConfirmed: (newName) =>
+                                unawaited(_saveProfileChanges(name: newName)),
+                          ),
+                        ),
                         onAgeTileTap: () => unawaited(
                           showAgeChangeSheet(
                             context,
                             currentAge: _age,
                             eligible: _ageChangeEligible,
+                            changesUsedInWindow: _ageChangesUsedInWindow,
                             nextEligibleAt: _ageNextEligibleAt,
                             onConfirmed: (newAge) =>
                                 unawaited(_saveProfileChanges(age: newAge)),

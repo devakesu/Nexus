@@ -244,8 +244,9 @@ def upsert_profile_variant(  # noqa: C901
     }
     if profile_created:
         # Onboarding's initial name/age counts as "change #1" for the
-        # once-a-year (age) / twice-a-year (name) rate limits - see
-        # 20260728000000_profile_identity_change_limits.sql.
+        # twice-a-year rolling rate limits on both fields - see
+        # 20260728000000_profile_identity_change_limits.sql and
+        # 20260730000000_age_change_rolling_log.sql.
         upsert_payload["age_updated_at"] = now_iso
 
     try:
@@ -284,6 +285,15 @@ def upsert_profile_variant(  # noqa: C901
         except APIError:
             logger.warning(
                 "Failed to seed initial name-change marker; onboarding proceeds",
+                extra={"user_id": user_id},
+            )
+        try:
+            supabase_client.table("profile_age_change_log").insert(
+                {"user_id": user_id, "changed_at": now_iso},
+            ).execute()
+        except APIError:
+            logger.warning(
+                "Failed to seed initial age-change marker; onboarding proceeds",
                 extra={"user_id": user_id},
             )
 

@@ -4,25 +4,32 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:nexus/screens/home/tabs/profile/widgets/neon_slider.dart';
+import 'package:nexus/screens/home/tabs/profile/utils/name_moderation.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
 import 'package:nexus/theme/app_colors.dart';
 
-enum _AgeSheetStep { intro, confirm }
+enum _NameSheetStep { intro, confirm }
 
-/// Bottom sheet for changing age, gated to twice per rolling 365-day
-/// window (the value set at registration counts as the first change).
+String? _validationMessage(String candidate) {
+  if (candidate.isEmpty) return null;
+  if (candidate.length < 4) {
+    return 'Display name must be at least 4 characters.';
+  }
+  return validateDisplayNameClientSide(candidate).error;
+}
+
+/// Bottom sheet for changing display name, gated to twice per rolling
+/// 365-day window (the value set at registration counts as the first
+/// change) and run through a profanity/title/digit moderation check.
 ///
-/// Mirrors the light-themed container already used for the Gender/
-/// Sexuality/Pronouns pickers in this same Core Details section (white
-/// background, rounded top corners, drag handle) rather than the dark
-/// AlertDialog chrome used elsewhere (e.g. the profile report dialog).
-Future<void> showAgeChangeSheet(
+/// Mirrors showAgeChangeSheet's structure and light-themed chrome.
+Future<void> showNameChangeSheet(
   BuildContext context, {
-  required int currentAge,
+  required String currentName,
   required bool eligible,
   required int changesUsedInWindow,
   required DateTime? nextEligibleAt,
-  required ValueChanged<int> onConfirmed,
+  required ValueChanged<String> onConfirmed,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
@@ -30,11 +37,17 @@ Future<void> showAgeChangeSheet(
     isScrollControlled: true,
     barrierColor: Colors.black.withValues(alpha: 0.4),
     builder: (sheetContext) {
-      var step = _AgeSheetStep.intro;
-      var pendingAge = currentAge;
+      var step = _NameSheetStep.intro;
+      var pendingName = currentName;
 
       return StatefulBuilder(
         builder: (context, setModalState) {
+          final validationError = _validationMessage(pendingName);
+          final canContinue =
+              pendingName != currentName &&
+              pendingName.length >= 4 &&
+              validationError == null;
+
           return Container(
             padding: EdgeInsets.only(
               top: 12,
@@ -75,7 +88,7 @@ Future<void> showAgeChangeSheet(
                       ),
                       SizedBox(width: 10),
                       Text(
-                        'Age Change',
+                        'Name Change',
                         style: TextStyle(
                           color: Color(0xFF0F172A),
                           fontSize: 18,
@@ -88,29 +101,29 @@ Future<void> showAgeChangeSheet(
                   const SizedBox(height: 14),
                   if (!eligible)
                     ..._buildIneligibleContent(sheetContext, nextEligibleAt)
-                  else if (step == _AgeSheetStep.intro)
+                  else if (step == _NameSheetStep.intro)
                     ..._buildIntroContent(
-                      currentAge: currentAge,
-                      pendingAge: pendingAge,
+                      currentName: currentName,
                       changesUsedInWindow: changesUsedInWindow,
-                      onAgeChanged: (val) =>
-                          setModalState(() => pendingAge = val),
-                      onContinue: pendingAge != currentAge
+                      validationError: validationError,
+                      onChanged: (val) =>
+                          setModalState(() => pendingName = val.trim()),
+                      onContinue: canContinue
                           ? () => setModalState(
-                              () => step = _AgeSheetStep.confirm,
+                              () => step = _NameSheetStep.confirm,
                             )
                           : null,
                     )
                   else
                     ..._buildConfirmContent(
-                      currentAge: currentAge,
-                      pendingAge: pendingAge,
+                      currentName: currentName,
+                      pendingName: pendingName,
                       changesUsedInWindow: changesUsedInWindow,
                       onBack: () =>
-                          setModalState(() => step = _AgeSheetStep.intro),
+                          setModalState(() => step = _NameSheetStep.intro),
                       onConfirm: () {
                         Navigator.pop(sheetContext);
-                        onConfirmed(pendingAge);
+                        onConfirmed(pendingName);
                       },
                     ),
                 ],
@@ -132,15 +145,15 @@ List<Widget> _buildIneligibleContent(
       : 'a later date';
   return [
     Text(
-      'To protect against impersonation and abuse, age can only be '
-      'changed twice within a rolling 365-day window - the value set at '
-      'registration counts as the first change.',
+      'To protect against impersonation and abuse, your display name can '
+      'only be changed twice within a rolling 365-day window - the value '
+      'set at registration counts as the first change.',
       style: TextStyle(color: Colors.black.withValues(alpha: 0.6), fontSize: 13),
     ),
     const SizedBox(height: 10),
     Text(
-      "You've used both age changes for this year. You can change your "
-      'age again on $formattedDate.',
+      "You've used both name changes for this year. You can change your "
+      'name again on $formattedDate.',
       style: const TextStyle(
         color: Color(0xFF0F172A),
         fontSize: 13,
@@ -179,29 +192,41 @@ List<Widget> _buildIneligibleContent(
 }
 
 List<Widget> _buildIntroContent({
-  required int currentAge,
-  required int pendingAge,
+  required String currentName,
   required int changesUsedInWindow,
-  required ValueChanged<int> onAgeChanged,
+  required String? validationError,
+  required ValueChanged<String> onChanged,
   required VoidCallback? onContinue,
 }) {
   final remaining = 2 - changesUsedInWindow;
   return [
     Text(
-      'Age can be changed twice within a rolling 365-day window - the '
-      'value set at registration counted as the first change. You have '
-      '$remaining change${remaining == 1 ? '' : 's'} left.',
+      'Display name can be changed twice within a rolling 365-day window - '
+      'the value set at registration counted as the first change. You '
+      'have $remaining change${remaining == 1 ? '' : 's'} left. New names '
+      "can't contain numbers, titles (e.g. \"Dr.\"), or offensive language.",
       style: TextStyle(color: Colors.black.withValues(alpha: 0.6), fontSize: 13),
     ),
     const SizedBox(height: 16),
-    NeonSlider(
-      value: pendingAge.toDouble(),
-      min: 18,
-      max: 27,
-      divisions: 9,
-      label: 'Age',
-      onChanged: (val) => onAgeChanged(val.round()),
+    GlassTextField(
+      label: 'Display Name',
+      initialValue: currentName,
+      hintText: 'Enter your cosmic display name',
+      prefixIcon: LucideIcons.user,
+      onChanged: onChanged,
     ),
+    if (validationError != null)
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: Text(
+          validationError,
+          style: const TextStyle(
+            color: AppColors.error,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     const SizedBox(height: 8),
     SizedBox(
       width: double.infinity,
@@ -225,8 +250,8 @@ List<Widget> _buildIntroContent({
 }
 
 List<Widget> _buildConfirmContent({
-  required int currentAge,
-  required int pendingAge,
+  required String currentName,
+  required String pendingName,
   required int changesUsedInWindow,
   required VoidCallback onBack,
   required VoidCallback onConfirm,
@@ -234,8 +259,8 @@ List<Widget> _buildConfirmContent({
   final remainingAfter = 2 - changesUsedInWindow - 1;
   return [
     Text(
-      "You're about to change your age from $currentAge to $pendingAge. "
-      'This will use one of your two yearly age changes '
+      "You're about to change your display name from \"$currentName\" to "
+      '"$pendingName". This will use one of your two yearly name changes '
       '(${remainingAfter == 0 ? "none" : remainingAfter} left after this) '
       '- make sure this is correct before confirming.',
       style: const TextStyle(
