@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -13,11 +13,12 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/login/widgets/login_painters.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
+import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum LoginView { options, email, otp }
+enum LoginView { options, email, phone, otp }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({required this.appName, super.key});
@@ -35,7 +36,16 @@ class _LoginScreenState extends State<LoginScreen>
 
   // Controllers/Values for Email login
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
+
+  /// True when the current `otp` view is verifying a phone-as-username
+  /// lookup rather than a direct email sign-in. The OTP itself is always
+  /// emailed either way (the Phone auth provider is disabled - phone is
+  /// only ever a lookup key, see /api/v1/auth/login-by-phone), so the
+  /// backend never tells the client which email it went to; this flag just
+  /// decides which backend call `_verifyOtp`/resend should make.
+  bool _isPhoneLookupFlow = false;
 
   int _resendCountdown = 0;
   Timer? _countdownTimer;
@@ -274,6 +284,7 @@ class _LoginScreenState extends State<LoginScreen>
     _matrixTimer?.cancel();
     _physicsController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _otpController.removeListener(_updateOtpState);
     _otpController.dispose();
     _countdownTimer?.cancel();
@@ -371,6 +382,7 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (mounted) {
         setState(() {
+          _isPhoneLookupFlow = false;
           _currentView = LoginView.otp;
           _resendCountdown = 60;
           _startCountdown();
@@ -386,6 +398,80 @@ class _LoginScreenState extends State<LoginScreen>
         e,
         stackTrace: stackTrace,
         customMessage: 'Failed to send OTP: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendLoginByPhoneOtp() async {
+    if (_resendCountdown > 0) {
+      NexusToast.show(
+        context,
+        'Please wait $_resendCountdown seconds before requesting another code.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+
+    final phone = _phoneController.text.trim();
+
+    if (phone.isEmpty) {
+      NexusToast.show(
+        context,
+        'Please enter your phone number.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+
+    final phoneRegex = RegExp(r'^\+[1-9]\d{7,14}$');
+    if (!phoneRegex.hasMatch(phone)) {
+      NexusToast.show(
+        context,
+        'Please enter a valid phone number starting with + (e.g. +1234567890).',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final dio = createDio();
+      final config = AppConfig.current;
+      await dio.post<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/auth/login-by-phone/request',
+        data: {'phone': phone},
+        options: Options(
+          headers: {'X-App-Variant': config.variantString},
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _isPhoneLookupFlow = true;
+          _currentView = LoginView.otp;
+          _resendCountdown = 60;
+          _startCountdown();
+        });
+        NexusToast.show(
+          context,
+          'If that phone number is registered, a code was emailed to the '
+          'account on file.',
+          type: NexusToastType.success,
+        );
+      }
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'Failed to send code: $e',
       );
     } finally {
       if (mounted) {
@@ -444,6 +530,59 @@ class _LoginScreenState extends State<LoginScreen>
         token: code,
         type: OtpType.email,
       );
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        customMessage: 'OTP verification failed: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Verifies a phone-as-username login code. The backend resolves the
+  /// phone to an account and checks the code against that account's email
+  /// OTP itself (we never learn the email) - on success it hands back a
+  /// real Supabase session, which this device adopts via setSession rather
+  /// than ever knowing the account's email or performing its own OTP call.
+  Future<void> _verifyLoginByPhoneOtp() async {
+    final phone = _phoneController.text.trim();
+    final code = _otpController.text.trim();
+
+    if (phone.isEmpty || code.isEmpty) {
+      NexusToast.show(
+        context,
+        'Please enter the OTP verification code.',
+        type: NexusToastType.error,
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final dio = createDio();
+      final config = AppConfig.current;
+      final response = await dio.post<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/auth/login-by-phone/verify',
+        data: {'phone': phone, 'code': code},
+        options: Options(
+          headers: {'X-App-Variant': config.variantString},
+        ),
+      );
+
+      final refreshToken = response.data?['refresh_token'] as String?;
+      if (refreshToken == null || refreshToken.isEmpty) {
+        throw Exception('Malformed session response from server.');
+      }
+      await Supabase.instance.client.auth.setSession(refreshToken);
     } on Object catch (e, stackTrace) {
       ErrorHandler.handleError(
         e,
@@ -682,6 +821,16 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.mail_outline_rounded,
               label: 'Sign in with Email',
             ),
+            const SizedBox(height: 12),
+            _buildGreyButton(
+              onTap: () {
+                setState(() {
+                  _currentView = LoginView.phone;
+                });
+              },
+              icon: Icons.phone_iphone_rounded,
+              label: 'Sign in with Phone',
+            ),
             const SizedBox(height: 20),
             _buildFootnote('Find your orbit. Connect seamlessly.'),
           ],
@@ -716,8 +865,49 @@ class _LoginScreenState extends State<LoginScreen>
             _buildBackButton(),
           ],
         );
+      case LoginView.phone:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Sign in with Phone',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "We'll email a code to the account linked to this number.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _phoneController,
+              hintText: '+911234567890',
+              icon: Icons.phone_iphone_rounded,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            _buildActionButton(
+              onTap: _sendLoginByPhoneOtp,
+              label: 'Get Code',
+            ),
+            const SizedBox(height: 12),
+            _buildBackButton(),
+          ],
+        );
       case LoginView.otp:
-        final targetText = _emailController.text;
+        final targetText = _isPhoneLookupFlow
+            ? 'the email linked to ${_phoneController.text}'
+            : _emailController.text;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -753,7 +943,9 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 16),
             _buildActionButton(
-              onTap: _isOtpValid ? _verifyOtp : null,
+              onTap: _isOtpValid
+                  ? (_isPhoneLookupFlow ? _verifyLoginByPhoneOtp : _verifyOtp)
+                  : null,
               label: 'Verify & Login',
             ),
             const SizedBox(height: 12),
@@ -771,7 +963,9 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 if (_resendCountdown == 0) ...[
                   TextButton(
-                    onPressed: _sendEmailOtp,
+                    onPressed: _isPhoneLookupFlow
+                        ? _sendLoginByPhoneOtp
+                        : _sendEmailOtp,
                     child: Text(
                       'Resend',
                       style: GoogleFonts.inter(

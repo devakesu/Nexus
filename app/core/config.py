@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     rate_limit_safety: str = "20/hour"
     rate_limit_safety_portal: str = "10/hour"
     rate_limit_account_phone_otp: str = "10/hour"
+    rate_limit_login_by_phone: str = "10/hour"
     rate_limit_spotify: str = "10/minute"
     rate_limit_spotify_resync: str = "3/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"

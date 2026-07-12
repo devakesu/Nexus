@@ -34,6 +34,7 @@ from app.core.crypto import compute_blind_index, encrypt_to_hex
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.limiter import limiter
 from app.core.moderation import NameModerationError, validate_display_name
+from app.core.passwordless_email import send_login_email_otp, verify_login_email_otp
 from app.core.sms import send_sms
 from app.db.client import parse_utc_datetime, supabase_client
 from app.db.profiles import (
@@ -45,6 +46,8 @@ from app.db.profiles import (
 from app.db.users import (
     fetch_profile,
     fetch_public_user,
+    find_user_id_by_phone,
+    get_user_email_by_id,
     is_allowed_email,
     set_verified_mobile,
     update_user_terms,
@@ -63,6 +66,10 @@ from app.models import (
     CompleteOnboardingResponse,
     EmailNotificationSettingsResponse,
     EmailNotificationSettingsUpdate,
+    LoginByPhoneRequestRequest,
+    LoginByPhoneRequestResponse,
+    LoginByPhoneVerifyRequest,
+    LoginByPhoneVerifyResponse,
     MECOnboardingRequest,
     ModerationSubjectItem,
     ModerationSubjectsRequest,
@@ -382,6 +389,94 @@ async def verify_account_phone_otp(
         verified=True,
         mobile=phone_norm,
         mobile_verified_at=datetime.now(timezone.utc),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phone-as-username login. Phone is only ever a lookup key here - the code
+# is always emailed to the resolved account's verified address, never sent
+# via SMS, so this can't be used to sign in as someone via SIM-swap/phone
+# takeover the way the old Supabase-native "Sign in with Phone" could.
+# Unauthenticated (this IS the sign-in step), so App Check is the gate
+# instead of a user JWT.
+# ---------------------------------------------------------------------------
+
+_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS = 60
+
+
+def _login_by_phone_resend_key(phone_norm: str) -> str:
+    return f"login_by_phone:resend:{phone_norm}"
+
+
+@router.post(
+    "/api/v1/auth/login-by-phone/request",
+    response_model=LoginByPhoneRequestResponse,
+)
+@limiter.limit(settings.rate_limit_login_by_phone)
+async def request_login_by_phone(
+    request: Request,
+    payload: LoginByPhoneRequestRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_with_replay_protection),
+) -> LoginByPhoneRequestResponse:
+    _ = request
+    phone_norm = normalize_phone(payload.phone)
+
+    resend_key = _login_by_phone_resend_key(phone_norm)
+    if await redis_client.exists(resend_key):
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait a bit before requesting another code.",
+        )
+    await redis_client.set(
+        resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+
+    user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
+    if user_id is not None:
+        email = await run_in_threadpool(get_user_email_by_id, user_id)
+        if email:
+            await run_in_threadpool(send_login_email_otp, email)
+
+    # Always the same response, whether or not the phone matched an
+    # account - see LoginByPhoneRequestResponse's docstring.
+    return LoginByPhoneRequestResponse(sent=True)
+
+
+@router.post(
+    "/api/v1/auth/login-by-phone/verify",
+    response_model=LoginByPhoneVerifyResponse,
+)
+@limiter.limit(settings.rate_limit_login_by_phone)
+async def verify_login_by_phone(
+    request: Request,
+    payload: LoginByPhoneVerifyRequest = Body(...),  # noqa: B008
+    _device: None = Depends(verify_app_check_with_replay_protection),
+) -> LoginByPhoneVerifyResponse:
+    _ = request
+    phone_norm = normalize_phone(payload.phone)
+
+    user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
+    email = await run_in_threadpool(get_user_email_by_id, user_id) if user_id else None
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    try:
+        auth_response = await run_in_threadpool(
+            verify_login_email_otp, email, payload.code,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired code.",
+        ) from e
+
+    session = auth_response.session
+    if session is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    return LoginByPhoneVerifyResponse(
+        access_token=session.access_token,
+        refresh_token=session.refresh_token,
+        expires_in=session.expires_in,
     )
 
 

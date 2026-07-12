@@ -158,7 +158,13 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
     """Persists a phone number as verified after a successful account
     phone-OTP check (app/core/account_phone_otp.py). This is the only
     writer of these columns - never client-writable (see
-    20260731000000_account_phone_verification.sql).
+    20260731000000_account_phone_verification.sql,
+    20260731010000_mobile_blind_index.sql).
+
+    The blind index is what lets /api/v1/auth/login-by-phone resolve a
+    phone number to an account; the partial unique index on it means a
+    second account verifying an already-claimed number fails here with a
+    clear conflict rather than silently creating an ambiguous lookup.
     """
     now = datetime.now(timezone.utc).isoformat()
     try:
@@ -166,9 +172,15 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
             {
                 "mobile": encrypt_to_hex(phone),
                 "mobile_verified_at": now,
+                "mobile_blind_index": compute_blind_index(phone),
             },
         ).eq("id", user_id).execute()
     except APIError as e:
+        if e.code == "23505":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This phone number is already linked to another account.",
+            ) from e
         logger.exception(
             "Failed to persist verified mobile", extra={"user_id": user_id},
         )
@@ -176,6 +188,54 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to save verified phone number. Please try again.",
         ) from e
+
+
+def find_user_id_by_phone(phone: str) -> str | None:
+    """Resolves a verified phone number to the account that claimed it, via
+    the blind index - used by the phone-as-username login flow. Returns
+    None if no account has verified this number (callers must respond the
+    same way as a match to avoid leaking which numbers are registered, the
+    same anti-enumeration principle as app/api/safety_portal.py).
+    """
+    try:
+        result = (
+            supabase_client.table("users")
+            .select("id")
+            .eq("mobile_blind_index", compute_blind_index(phone))
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception("Failed to look up user by phone")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again later.",
+        ) from e
+
+    data = result.data
+    if not data:
+        return None
+    row = data[0]
+    return str(row["id"]) if isinstance(row, dict) and row.get("id") else None
+
+
+def get_user_email_by_id(user_id: str) -> str | None:
+    """Looks up an account's Supabase Auth email by id (auth.users, not
+    public.users - email was dropped from public.users in
+    20260729000000_drop_users_email_mobile.sql). Used to know where to send
+    the phone-login OTP - only ever to the account's real, already-verified
+    email, never derived from anything client-supplied.
+    """
+    try:
+        response = supabase_client.auth.admin.get_user_by_id(user_id)
+    except Exception:
+        logger.exception(
+            "Failed to look up user email by id", extra={"user_id": user_id},
+        )
+        return None
+    user = getattr(response, "user", None)
+    email = getattr(user, "email", None) if user is not None else None
+    return str(email) if email else None
 
 
 def upsert_public_user(
@@ -233,7 +293,7 @@ def upsert_public_user(
 
     newly_created = xmax_val is not None and str(xmax_val) == "0"
 
-    return cast(dict[str, Any], row_copy), newly_created
+    return row_copy, newly_created
 
 
 def fetch_profile(user_id: str) -> dict[str, Any] | None:

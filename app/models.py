@@ -1837,6 +1837,61 @@ class AccountPhoneOtpVerifyResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Phone-as-username login - phone number is only ever a lookup key here.
+# The OTP itself always goes to the resolved account's verified EMAIL, never
+# SMS, so this doesn't reintroduce the phone-as-login-credential surface the
+# Phone auth provider was disabled to close. Unauthenticated (this IS the
+# sign-in flow - there's no session yet), gated by App Check instead.
+# ---------------------------------------------------------------------------
+
+
+class LoginByPhoneRequestRequest(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
+            )
+        return cleaned
+
+
+class LoginByPhoneRequestResponse(BaseModel):
+    """Always {"sent": true} regardless of whether the phone actually
+    matched an account - same anti-enumeration principle as
+    SafetyPortalOtpRequestResponse.
+    """
+
+    sent: bool = True
+
+
+class LoginByPhoneVerifyRequest(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=20)
+    code: str = Field(..., min_length=4, max_length=10)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
+            raise ValueError(
+                "Invalid phone number format. "
+                "Must start with '+' followed by 8-15 digits (E.164 format).",
+            )
+        return cleaned
+
+
+class LoginByPhoneVerifyResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    expires_in: int
+
+
+# ---------------------------------------------------------------------------
 # Meetup Safety - OTP-gated trusted-contact web portal (Milestone E)
 # ---------------------------------------------------------------------------
 
