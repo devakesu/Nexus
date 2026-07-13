@@ -13,10 +13,15 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Itemized consent screen - three separate checkboxes rather than one
-/// bundled "I agree" tick, per the DPDP/GDPR compliance plan. General and
-/// special-category consent are mandatory (declining routes to account
-/// deletion); safety-data consent is optional and only gates the Meetup
-/// Safety/SOS/Digital Witness surfaces, never general app access.
+/// bundled "I agree" tick, per the DPDP/GDPR compliance plan. Only general
+/// consent is mandatory (declining routes to account deletion).
+/// Special-category (sexual orientation / religious belief) and
+/// safety-data consent are both optional: sexual orientation and religion
+/// are themselves optional/skippable profile fields, so declining that
+/// consent only gates entering a real value in those two fields
+/// (profile_tab.dart prompts inline if the user tries); safety-data
+/// consent only gates the Meetup Safety/SOS/Digital Witness surfaces.
+/// Neither optional decline blocks general app access.
 ///
 /// Reused in two contexts, both supplied by the caller (this widget itself
 /// has no Scaffold/Dialog chrome so it fits either):
@@ -51,7 +56,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
 
   static const Color _accent = AppColors.primaryTeal;
 
-  bool get _canContinue => _generalAccepted && _specialCategoryAccepted;
+  bool get _canContinue => _generalAccepted;
 
   Future<void> _submit() async {
     if (!_canContinue || _isSubmitting) return;
@@ -135,14 +140,17 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
           const SizedBox(height: 14),
           _ConsentTile(
             accent: _accent,
-            required: true,
+            required: false,
             value: _specialCategoryAccepted,
             onChanged: (v) => setState(() => _specialCategoryAccepted = v),
             title: 'Sexual orientation & religious belief data',
             description:
-                'Nexus uses this to power matching. Required to use the app, '
-                'since discovery depends on it - GDPR treats this as sensitive '
-                'data, so we ask for it separately from the general consent above.',
+                'Optional - these fields are always skippable in your '
+                'profile. GDPR treats this as sensitive data, so we ask '
+                'separately: if you leave this off, you can still use '
+                "Nexus fully, you just won't be able to fill in sexual "
+                'orientation or religious belief on your profile until you '
+                'turn it on (any time, from Profile).',
           ),
           const SizedBox(height: 14),
           _ConsentTile(

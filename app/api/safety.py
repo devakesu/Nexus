@@ -82,7 +82,7 @@ async def _notify_newly_added_contacts(
         if contact is None:
             continue
         manage_link = (
-            f"{settings.backend_public_url}/api/v1/safety/contact/{contact['id']}"
+            f"{settings.backend_url}/api/v1/safety/contact/{contact['id']}"
         )
         body = compose_contact_added_message(
             user_name=str(user_name), manage_link=manage_link,

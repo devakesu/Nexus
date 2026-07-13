@@ -42,6 +42,9 @@ max-complexity = 8
 # string literal (no frontend build step, per that milestone's design) -
 # 88-col wrapping would only hurt the embedded JS/HTML's own readability.
 "app/api/safety_portal.py" = ["E501"]
+# Same reasoning: the combined Terms of Service / Privacy Policy page is a
+# raw HTML/CSS string literal, no template engine or frontend build step.
+"app/api/legal.py" = ["E501"]
 # Test files: `assert` is the standard pytest idiom (not a production
 # assertion that could be optimized away), and `random`/non-crypto RNG is
 # fine for generating synthetic layout/fixture data - no security purpose.

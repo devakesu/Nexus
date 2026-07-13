@@ -219,6 +219,38 @@ async def require_safety_consent(
 
 
 # ---------------------------------------------------------------------------
+# Special-category-data consent guard (sexual orientation / religious belief)
+# ---------------------------------------------------------------------------
+
+
+def assert_special_category_consent(user_row: dict[str, Any]) -> None:
+    """Raise 412 if the account hasn't (or no longer has) given consent to
+    sexual-orientation/religious-belief processing - see
+    20260802000000_terms_consent_expansion.sql. Unlike general consent,
+    this category is optional (the underlying profile fields are themselves
+    optional/skippable), so this is only called when a caller is actually
+    about to set one of those fields to a real disclosed value - not a
+    blanket per-request check like assert_account_active. Same 412 +
+    stable machine-readable detail string convention as
+    assert_safety_consent, so the client can show an inline consent prompt
+    instead of a generic error.
+    """
+    stored_version = user_row.get("special_category_consent_version")
+    current_version = settings.current_terms_version.strip()
+    is_stale = True
+    if stored_version:
+        try:
+            is_stale = float(str(stored_version)) < float(current_version)
+        except ValueError:
+            is_stale = True
+    if is_stale:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="special_category_consent_required",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Firebase App Check
 # ---------------------------------------------------------------------------
 

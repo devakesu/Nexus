@@ -49,12 +49,22 @@ class AuthBootstrapResponse(BaseModel):
     safety_data_consent_version: str | None = None
     safety_data_consent_at: datetime | None = None
     # True once the user has a profile (i.e. isn't still mid-onboarding) and
-    # either mandatory consent (general or special_category) is missing or
-    # stale relative to current_terms_version. The client shows
-    # TermsConsentPage(isVersionBump: true) when this is true for an
+    # general consent is missing or stale relative to current_terms_version.
+    # special_category consent is NOT a mandatory-consent input here (see
+    # special_category_consent_granted below) - like safety-data consent, it
+    # only gates a specific optional data category (sexual orientation /
+    # religious belief profile fields), not general app access, since those
+    # fields are themselves optional/skippable in the profile. The client
+    # shows TermsConsentPage(isVersionBump: true) when this is true for an
     # already-onboarded user, and TermsConsentPage(isVersionBump: false)
     # right after onboarding completes for a first-time user.
     mandatory_consent_required: bool = False
+    # True only when special_category_consent_version is set AND not stale
+    # relative to current_terms_version - precomputed the same way as
+    # safety_data_consent_granted below, so the client can gate the
+    # sexuality/religious-belief profile fields without re-deriving
+    # version-staleness comparison logic itself.
+    special_category_consent_granted: bool = False
     # True only when safety_data_consent_version is set AND not stale
     # relative to current_terms_version - the exact same check
     # assert_safety_consent runs server-side, precomputed here so the
@@ -1124,32 +1134,22 @@ class DiscoveryViewportResponse(BaseModel):
     nodes: list[OrbitNodeOut]
 
 
-class GrievanceContactResponse(BaseModel):
-    """Public (unauthenticated) Grievance Officer / DPO contact, per DPDP
-    Act 2023 §13. Fields are null if unset - see app/api/legal.py.
-    """
-
-    name: str | None = None
-    email: str | None = None
-    phone: str | None = None
-    website: str | None = None
-
-
 class ConsentUpdateRequest(BaseModel):
     """Records one or more of the three itemized consents (see
-    20260802000000_terms_consent_expansion.sql). general_accepted and
-    special_category_accepted are mandatory - both must be true for the
-    request to succeed, but a false submission is still logged to
-    terms_consent_log (as a decline) before the 400 is raised, so decline
-    events are auditable too. safety_data_accepted is optional and
-    independently togglable; None means "leave this category unchanged"
-    rather than "decline it" - e.g. a mandatory-consent submission
-    shouldn't silently revoke a previously-granted safety consent.
+    20260802000000_terms_consent_expansion.sql). general_accepted is the
+    only mandatory one - it must be true for the request to succeed, but a
+    false submission is still logged to terms_consent_log (as a decline)
+    before the 400 is raised, so decline events are auditable too.
+    special_category_accepted and safety_data_accepted are both optional
+    and independently togglable, same shape: None means "leave this
+    category unchanged" rather than "decline it" - e.g. a general-consent
+    submission shouldn't silently revoke a previously-granted special-
+    category or safety consent.
     """
 
     terms_version: str
     general_accepted: bool
-    special_category_accepted: bool
+    special_category_accepted: bool | None = None
     safety_data_accepted: bool | None = None
 
     @field_validator("terms_version")

@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
     assert_account_active,
+    assert_special_category_consent,
     get_authenticated_user_id,
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
@@ -158,14 +159,19 @@ async def auth_bootstrap(
             await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
         except Exception as err:  # noqa: BLE001
             logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
-        required_domain = settings.allowed_email_domains.get(
-            app_variant,
-            "your approved domain",
-        )
+        allowed_domains = settings.allowed_signup_domains.get(app_variant)
+        if allowed_domains:
+            domain_str = " or ".join(f"@{d.lstrip('@')}" for d in allowed_domains)
+            detail_msg = (
+                f"Only {domain_str} accounts are allowed for this app variant. "
+            )
+        else:
+            detail_msg = "Only approved accounts are allowed for this app variant. "
+
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                f"Only @{required_domain} accounts are allowed for this app variant. "
+                f"{detail_msg}"
                 "Please sign in with your campus Google Workspace account."
             ),
         )
@@ -196,7 +202,8 @@ async def auth_bootstrap(
     current_version = settings.current_terms_version.strip()
     mandatory_consent_required = _is_consent_stale(
         user_row.get("accepted_terms_version"), current_version,
-    ) or _is_consent_stale(
+    )
+    special_category_consent_granted = not _is_consent_stale(
         user_row.get("special_category_consent_version"), current_version,
     )
     safety_data_consent_granted = not _is_consent_stale(
@@ -222,6 +229,7 @@ async def auth_bootstrap(
         safety_data_consent_version=user_row.get("safety_data_consent_version"),
         safety_data_consent_at=user_row.get("safety_data_consent_at"),
         mandatory_consent_required=mandatory_consent_required,
+        special_category_consent_granted=special_category_consent_granted,
         safety_data_consent_granted=safety_data_consent_granted,
     )
 
@@ -527,12 +535,13 @@ def accept_terms(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
-    """Records the itemized consents shown on TermsConsentPage. general and
-    special_category are mandatory - a decline is still logged (via the
-    granted=False path in each writer) before this 400s, so decline events
-    stay auditable in terms_consent_log even though the request fails.
-    safety_data is optional; omitting it (None) leaves that category
-    unchanged rather than declining it.
+    """Records the itemized consents shown on TermsConsentPage. Only
+    general is mandatory - a decline is still logged (via the granted=False
+    path in update_user_terms) before this 400s, so decline events stay
+    auditable in terms_consent_log even though the request fails.
+    special_category and safety_data are both optional and independently
+    togglable; omitting either (None) leaves that category unchanged rather
+    than declining it.
     """
     _ = request
 
@@ -560,19 +569,22 @@ def accept_terms(
         accepted_terms_version=payload.terms_version,
         granted=payload.general_accepted,
     )
-    special_result = update_special_category_consent(
-        user_id=user_id,
-        terms_version=payload.terms_version,
-        granted=payload.special_category_accepted,
-    )
 
-    if not payload.general_accepted or not payload.special_category_accepted:
+    if not payload.general_accepted:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "General and special-category consent are both required to "
-                "use Nexus. Your decline has been recorded."
+                "General Terms of Service & Privacy Policy consent is "
+                "required to use Nexus. Your decline has been recorded."
             ),
+        )
+
+    special_result = None
+    if payload.special_category_accepted is not None:
+        special_result = update_special_category_consent(
+            user_id=user_id,
+            terms_version=payload.terms_version,
+            granted=payload.special_category_accepted,
         )
 
     safety_result = None
@@ -1051,6 +1063,22 @@ def _validate_tab_activation(
     return missing
 
 
+# The "I don't want to say" choice within each field's own choice set -
+# selecting these is a decline, not a disclosure, so it never requires
+# special-category consent (only actually disclosing a real value does).
+_SPECIAL_CATEGORY_OPT_OUT_VALUES = {
+    "display_sexuality": "Prefer not to say",
+    "religious_beliefs": "Not specified",
+}
+
+
+def _sets_special_category_data(payload: ProfileDetailsUpdate) -> bool:
+    return any(
+        (val := getattr(payload, field, None)) is not None and val != opt_out
+        for field, opt_out in _SPECIAL_CATEGORY_OPT_OUT_VALUES.items()
+    )
+
+
 @router.patch("/api/v1/profile/details", response_model=ProfileUpdateResponse)
 def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
@@ -1058,6 +1086,21 @@ def update_profile_details(  # noqa: C901
     user_id: str = Depends(get_authenticated_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
+    # Sexual orientation / religious belief are optional profile fields, but
+    # DPDP/GDPR ask for separate, explicit consent before we accept a real
+    # disclosed value for either - see TermsConsentPage's now-optional third
+    # checkbox. Declining that consent doesn't block the rest of the profile,
+    # only these two fields (and only when actually setting them, not when
+    # picking the "prefer not to say"/"not specified" opt-out).
+    if _sets_special_category_data(payload):
+        consent_user_row = fetch_public_user(user_id)
+        if not consent_user_row:
+            raise HTTPException(
+                status_code=404,
+                detail="User bootstrap row not found.",
+            )
+        assert_special_category_consent(consent_user_row)
+
     update_data: dict[str, Any] = {}
 
     # Resolve to the current stored name/age before running any moderation

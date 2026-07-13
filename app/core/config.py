@@ -1,5 +1,6 @@
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, cast
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DiscoveryTab: TypeAlias = Literal["Dating", "Friends", "Professional"]
@@ -26,7 +27,8 @@ class Settings(BaseSettings):
     # --- Spotify OAuth ---
     spotify_client_id: str | None = None
     spotify_client_secret: str | None = None
-    spotify_redirect_uri: str
+    # Falls back to {backend_url}/api/v1/spotify/callback when unset.
+    spotify_redirect_uri: str | None = None
 
     # --- Rate limiting / network policy ---
     enable_rate_limiting: bool = True
@@ -44,6 +46,9 @@ class Settings(BaseSettings):
     rate_limit_account_deletion: str = "5/hour"
     rate_limit_data_export_otp: str = "5/hour"
     rate_limit_data_export: str = "3/day"
+    # Comma-separated list of allowed CORS origins.
+    # The production origin (https://{app_domain}) is automatically
+    # appended to this list when app_domain is set.
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # -- Account deletion lifecycle --
@@ -61,25 +66,31 @@ class Settings(BaseSettings):
     blind_index_key: str
 
     # -- Auth --
-    # Per-variant email domain allowlist (JSON object in the env var).
-    # Each key is a variant name, value is the required email domain.
-    # Example env: ALLOWED_EMAIL_DOMAINS={"nexus_mec":"mec.ac.in"}
+    # Per-variant email domain allowlist for signup (JSON object in the env var).
+    # Each key is a variant name, value is a list of allowed email domains.
+    # Example env: ALLOWED_SIGNUP_DOMAINS={"nexus_mec":["mec.ac.in", "gmail.com"]}
     # Variants absent from this dict have no domain restriction.
     # The main 'nexus' variant should NOT be listed here.
-    allowed_email_domains: dict[str, str] = {}
+    allowed_signup_domains: dict[str, list[str]] = {}
 
     # -- Legal --
     current_terms_version: str = "1"
 
     # -- Grievance Officer / DPO contact (DPDP Act 2023 §13) --
-    # Published via GET /api/v1/legal/contact (app/api/legal.py), the first
-    # genuinely public/unauthenticated endpoint in this backend besides
-    # /health - so a prospective user or the privacy policy page can reach
-    # it without being signed in. Display UI is a later, separate step.
+    # Displayed on GET /legal/terms and /legal/privacy (app/api/legal.py),
+    # read directly by the server-rendered page - no separate JSON API.
     grievance_officer_name: str | None = None
     grievance_officer_email: str | None = None
     grievance_officer_phone: str | None = None
     grievance_officer_website: str | None = None
+
+    # -- Legal pages (GET /legal/terms, /legal/privacy - app/api/legal.py) --
+    # Same optional-no-import-failure style as the grievance officer block
+    # above: unset renders a visible "not yet set" placeholder in the page
+    # rather than failing, since these are launch-readiness values an ops
+    # team fills in once, not runtime application config.
+    legal_effective_date: str | None = None
+    legal_governing_law_city: str | None = None
 
     # -- Email Providers --
     brevo_api_key: str | None = None
@@ -95,7 +106,8 @@ class Settings(BaseSettings):
     # Needed to build the trusted-contact escalation-cancel link sent by the
     # dead-man's-switch scheduler job, which has no incoming Request to derive
     # a base URL from (see app/services/reminder_scheduler.py).
-    backend_public_url: str = ""
+    # Falls back to https://{app_domain} when unset.
+    backend_url: str | None = None
     app_name: str = "Nexus Orbit"
     debug: bool = False
 
@@ -133,6 +145,59 @@ class Settings(BaseSettings):
         return isinstance(secret, dict) or (
             secret.strip().startswith("{") and "keys" in secret
         )
+
+    @field_validator("allowed_signup_domains", mode="before")
+    @classmethod
+    def parse_allowed_signup_domains(cls, v: Any) -> dict[str, list[str]]:
+        import json
+        from contextlib import suppress
+        if v is None:
+            return {}
+        if isinstance(v, str):
+            with suppress(json.JSONDecodeError):
+                v = json.loads(v)
+        if isinstance(v, dict):
+            normalized: dict[str, list[str]] = {}
+            dict_v = cast(dict[Any, Any], v)
+            for variant, domains in dict_v.items():
+                variant_str = str(variant)
+                if isinstance(domains, str):
+                    normalized[variant_str] = [
+                        d.strip() for d in domains.split(",") if d.strip()
+                    ]
+                elif isinstance(domains, list):
+                    list_domains = cast(list[Any], domains)
+                    normalized[variant_str] = [
+                        str(d).strip() for d in list_domains
+                    ]
+                else:
+                    normalized[variant_str] = [str(domains).strip()]
+            return normalized
+        raise ValueError(
+            "allowed_signup_domains must be a JSON object or dictionary",
+        )
+
+    @model_validator(mode="after")
+    def resolve_dynamic_defaults(self) -> "Settings":
+        if self.app_domain:
+            domain = self.app_domain.rstrip("/")
+            # Set default backend public URL if not set
+            if not self.backend_url:
+                self.backend_url = f"https://{domain}"
+
+            # Set default Spotify redirect URI if not set
+            if not self.spotify_redirect_uri:
+                self.spotify_redirect_uri = (
+                    f"{self.backend_url}/api/v1/spotify/callback"
+                )
+
+            # Automatically append the production origin to allowed_origins
+            production_origin = f"https://{domain}"
+            existing = [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+            if production_origin not in existing:
+                existing.append(production_origin)
+                self.allowed_origins = ",".join(existing)
+        return self
 
     model_config = SettingsConfigDict(
         env_file=None,

@@ -184,8 +184,14 @@ async def spotify_native_exchange(
     secret and completes the exchange.
     """
     _ = request
+    redirect_uri = settings.spotify_redirect_uri
+    if not redirect_uri:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Spotify integration is not configured.",
+        )
     allowed_redirect_uris = {
-        settings.spotify_redirect_uri,
+        redirect_uri,
         "com.devakesu.apps.nexus://callback",
     }
     if body.redirect_uri not in allowed_redirect_uris:
@@ -240,7 +246,8 @@ async def spotify_connect(
 ) -> dict[str, str]:
     """Return a Spotify authorization URL for the current user."""
     _ = request
-    if not settings.spotify_client_id or not settings.spotify_redirect_uri:
+    redirect_uri = settings.spotify_redirect_uri
+    if not settings.spotify_client_id or not redirect_uri:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Spotify integration is not configured on this server.",
@@ -253,7 +260,7 @@ async def spotify_connect(
         "response_type": "code",
         "client_id": settings.spotify_client_id,
         "scope": _SPOTIFY_SCOPES,
-        "redirect_uri": settings.spotify_redirect_uri,
+        "redirect_uri": redirect_uri,
         "state": state,
         "show_dialog": "false",
     }
@@ -294,8 +301,16 @@ async def spotify_callback(
             ),
         )
 
+    redirect_uri = settings.spotify_redirect_uri
+    if not redirect_uri:
+        return _html_result(
+            title="Configuration error",
+            success=False,
+            message="Spotify integration is not configured on the server.",
+        )
+
     try:
-        tokens = await exchange_code(code, settings.spotify_redirect_uri)
+        tokens = await exchange_code(code, redirect_uri)
     except Exception:
         logger.exception("Spotify token exchange failed for user %s", user_id)
         return _html_result(

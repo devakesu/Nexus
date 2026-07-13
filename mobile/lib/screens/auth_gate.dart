@@ -16,6 +16,7 @@ import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/safety_consent_cache.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
+import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -90,6 +91,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           unawaited(SecureProfileCache.clear());
           unawaited(DiscoveryHubCache.clearAll());
           SafetyConsentCache.clear();
+          SpecialCategoryConsentCache.clear();
           _hasReachedHome = false;
         }
         if (mounted) {
@@ -321,6 +323,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         SafetyConsentCache.isGranted =
             data?['safety_data_consent_granted'] as bool? ?? false;
         SafetyConsentCache.currentTermsVersion = _currentTermsVersion;
+        SpecialCategoryConsentCache.isGranted =
+            data?['special_category_consent_granted'] as bool? ?? false;
+        SpecialCategoryConsentCache.currentTermsVersion = _currentTermsVersion;
 
         final hasProfile = profileResponse != null;
         if (hasProfile && !_deletionPending && !_mandatoryConsentRequired) {

@@ -181,7 +181,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
     escalation_number = escalations_sent + 1
     token = make_escalation_cancel_token(session_id)
     cancel_link = (
-        f"{settings.backend_public_url}/api/v1/safety/escalation/"
+        f"{settings.backend_url}/api/v1/safety/escalation/"
         f"{session_id}/cancel?token={token}&reason=safe"
     )
 

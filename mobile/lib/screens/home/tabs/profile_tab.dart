@@ -33,8 +33,10 @@ import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
+import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/special_category_consent_prompt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -679,6 +681,65 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       'sub_interests': _savedSubInterests,
       'ordered_images': _savedImagePaths,
     };
+  }
+
+  /// Gate for sexual-orientation/religious-belief fields specifically -
+  /// both are optional/skippable, and setting either to a real disclosed
+  /// value (not the "prefer not to say"/"not specified" opt-out, which
+  /// never needs consent) requires special-category consent. Shows an
+  /// inline bottom-sheet prompt if it hasn't been granted yet, and only
+  /// proceeds with the save once it has (or already was). Backend also
+  /// enforces this (update_profile_details -> assert_special_category_consent)
+  /// so this is a UX nicety, not the only enforcement point.
+  Future<void> _saveSpecialCategoryField({
+    String? displaySexuality,
+    String? religiousBeliefs,
+  }) async {
+    const sexualityOptOut = 'Prefer not to say';
+    const religionOptOut = 'Not specified';
+    final needsConsent =
+        (displaySexuality != null &&
+            displaySexuality.isNotEmpty &&
+            displaySexuality != sexualityOptOut) ||
+        (religiousBeliefs != null &&
+            religiousBeliefs.isNotEmpty &&
+            religiousBeliefs != religionOptOut);
+
+    if (needsConsent && !SpecialCategoryConsentCache.isGranted) {
+      final granted = await _promptSpecialCategoryConsent();
+      if (!granted) return;
+    }
+
+    unawaited(
+      _saveProfileChanges(
+        displaySexuality: displaySexuality,
+        religiousBeliefs: religiousBeliefs,
+      ),
+    );
+  }
+
+  Future<bool> _promptSpecialCategoryConsent() async {
+    var granted = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+        ),
+        child: SpecialCategoryConsentPromptCard(
+          onGranted: () {
+            granted = true;
+            Navigator.of(sheetContext).pop();
+          },
+        ),
+      ),
+    );
+    return granted;
   }
 
   Future<void> _saveProfileChanges({
@@ -2100,7 +2161,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             options: FilterOptions.sexualityOptions,
                             currentValue: _displaySexuality,
                             onSelected: (val) => unawaited(
-                              _saveProfileChanges(displaySexuality: val),
+                              _saveSpecialCategoryField(displaySexuality: val),
                             ),
                           );
                         },
@@ -2317,7 +2378,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         onClearChildrenPlans: () =>
                             unawaited(_saveProfileChanges(childrenPlans: '')),
                         onReligiousBeliefsSaved: (val) => unawaited(
-                          _saveProfileChanges(religiousBeliefs: val),
+                          _saveSpecialCategoryField(religiousBeliefs: val),
                         ),
                         onClearReligiousBeliefs: () => unawaited(
                           _saveProfileChanges(religiousBeliefs: ''),

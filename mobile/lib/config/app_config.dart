@@ -57,10 +57,16 @@ class AppConfig {
   // alias, and the iOS client IDs are placeholders that make Google Sign-In
   // on iOS fail loudly rather than silently until the real values (from the
   // Google Cloud Console, distinct per flavor's bundle ID) are injected.
+  static const String _appDomain = String.fromEnvironment(
+    'APP_DOMAIN',
+    defaultValue: 'localhost:3000',
+  );
   static const String _backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'https://10.0.2.2:8000',
   );
+  static const String _effectiveBackendUrl = _backendUrl != ''
+      ? _backendUrl
+      : 'https://$_appDomain';
   static const String _googleIosClientIdNexus = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID_NEXUS',
   );
@@ -95,7 +101,7 @@ class AppConfig {
     googleWebClientId: _googleWebClientId,
     googleIosClientId: _googleIosClientIdNexus,
     logoAssetPath: 'assets/nexus.png',
-    backendUrl: _backendUrl,
+    backendUrl: _effectiveBackendUrl,
     appVariant: AppVariant.nexus,
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
@@ -107,7 +113,7 @@ class AppConfig {
     googleWebClientId: _googleWebClientId,
     googleIosClientId: _googleIosClientIdMec,
     logoAssetPath: 'assets/nexus-mec.png',
-    backendUrl: _backendUrl,
+    backendUrl: _effectiveBackendUrl,
     appVariant: AppVariant.nexusMec,
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriMec,

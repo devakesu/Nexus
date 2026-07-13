@@ -25,10 +25,10 @@ def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
     """
     Validate that the email is permitted for the given app variant.
 
-    Domain rules are stored in settings.allowed_email_domains as a
-    {variant: domain} dict (e.g. {"nexus_mec": "mec.edu.in"}).
+    Domain rules are stored in settings.allowed_signup_domains as a
+    {variant: [domains]} dict (e.g. {"nexus_mec": ["mec.edu.in"]}).
 
-    - If the variant is present in the dict → email must end with @<domain>.
+    - If the variant is present in the dict → email must end with one of the domains.
     - If the variant is 'nexus' (main) → allowed except for any domains
       reserved for flavor variants.
     - If any other variant is absent from the dict → open fallback.
@@ -38,19 +38,23 @@ def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
     if app_variant == "nexus":
         # Block users from registering/logging into the main Nexus app
         # using restricted flavor domains
-        for domain in settings.allowed_email_domains.values():
-            normalized_domain = domain.strip().lower().lstrip("@")
-            if normalized_email.endswith(f"@{normalized_domain}"):
-                return False
+        for domains in settings.allowed_signup_domains.values():
+            for domain in domains:
+                normalized_domain = domain.strip().lower().lstrip("@")
+                if normalized_email.endswith(f"@{normalized_domain}"):
+                    return False
         return True
 
-    domain = settings.allowed_email_domains.get(app_variant)
-    if not domain:
+    domains = settings.allowed_signup_domains.get(app_variant)
+    if not domains:
         # No restriction configured for this variant.
         return True
 
-    normalized_domain = domain.strip().lower().lstrip("@")
-    return normalized_email.endswith(f"@{normalized_domain}")
+    for domain in domains:
+        normalized_domain = domain.strip().lower().lstrip("@")
+        if normalized_email.endswith(f"@{normalized_domain}"):
+            return True
+    return False
 
 
 def _dump_user_object(user: User | dict[str, Any] | object) -> dict[str, Any]:
