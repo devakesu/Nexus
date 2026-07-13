@@ -160,7 +160,7 @@ mobile/scratch/
 
 # Core Application Configuration & Secrets
 mobile/lib/config/app_secrets.dart
-mobile/google-services.json
+mobile/**/google-services.json
 
 # Android native tooling overrides
 mobile/android/.gradle/
@@ -170,7 +170,6 @@ mobile/.kotlin/
 mobile/android/app/Flutter/Generated.xcconfig
 mobile/android/app/src/main/res/values/strings.xml
 mobile/android/app/src/main/res/raw/app_config.json
-mobile/android/app/google-services.json
 mobile/android/app/debug/
 mobile/android/app/profile/
 mobile/android/app/release/
@@ -188,7 +187,7 @@ mobile/ios/Flutter/flutter_export_environment.sh
 mobile/ios/Flutter/.last_build_id
 mobile/ios/Pods/
 mobile/ios/Runner/GeneratedPluginRegistrant.*
-mobile/ios/Runner/GoogleService-Info.plist
+mobile/**/GoogleService-Info.plist
 mobile/ios/DerivedData/
 *.moved-aside
 *.pbxuser

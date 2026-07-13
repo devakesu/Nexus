@@ -75,7 +75,7 @@ has_sendpulse = bool(settings.sendpulse_client_id and settings.sendpulse_client_
 
 
 def get_sender_email() -> str:
-    return f"admin@{settings.app_domain}"
+    return f"admin@{settings.email_domain}"
 
 
 def get_feedback_notify_email() -> str:
@@ -86,7 +86,7 @@ def get_feedback_notify_email() -> str:
     """
     if settings.feedback_notify_email and settings.feedback_notify_email.strip():
         return settings.feedback_notify_email.strip()
-    return f"admin@{settings.app_domain}"
+    return f"admin@{settings.email_domain}"
 
 
 def get_sender_name(from_name: str | None = None) -> str:
@@ -634,7 +634,7 @@ async def send_bootstrap_welcome_email(
         subject="Nexus Initialized",
         html=html_content,
         text=text_content,
-        sender_email=f"support@{settings.app_domain}",
+        sender_email=f"support@{settings.email_domain}",
         from_name="Nexus Support",
     )
 
@@ -699,8 +699,8 @@ async def send_feedback_confirmation_email(
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = _short_report_id(report_id)
     support_link = (
-        f'<a href="mailto:support@{settings.app_domain}" style="color: pink;">'
-        f"support@{settings.app_domain}</a>"
+        f'<a href="mailto:support@{settings.email_domain}" style="color: pink;">'
+        f"support@{settings.email_domain}</a>"
     )
     footer_html = (
         f"You're receiving this because you submitted ticket #{ticket_ref} on "
@@ -785,7 +785,7 @@ async def send_feedback_confirmation_email(
         subject=f"We've received your {label.lower()} — Nexus Support",
         html=html_content,
         text=text_content,
-        sender_email=f"support@{settings.app_domain}",
+        sender_email=f"support@{settings.email_domain}",
         from_name="Nexus Support",
     )
 
@@ -931,7 +931,7 @@ async def send_feedback_admin_notification_email(
         subject=f"[Nexus {label}] {subject}",
         html=html_content,
         text=text_content,
-        sender_email=f"support@{settings.app_domain}",
+        sender_email=f"support@{settings.email_domain}",
         from_name="Nexus Support",
         reply_to=submitter_email or None,
     )
@@ -1026,7 +1026,7 @@ async def send_trusted_contact_removed_email(
         subject="A trusted contact removed themselves — Nexus",
         html=html_content,
         text=text_content,
-        sender_email=f"support@{settings.app_domain}",
+        sender_email=f"support@{settings.email_domain}",
         from_name="Nexus Safety",
     )
 

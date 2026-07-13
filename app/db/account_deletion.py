@@ -425,7 +425,7 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
             user_id,
             {
                 "ban_duration": "876000h",  # ~100 years - effectively permanent
-                "email": f"deleted-{user_id}@deleted.{settings.app_domain}",
+                "email": f"deleted-{user_id}@deleted.{settings.email_domain}",
             },
         )
     except Exception:

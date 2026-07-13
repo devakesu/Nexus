@@ -1170,6 +1170,7 @@ class _LoginScreenState extends State<LoginScreen>
       onPressed: () {
         setState(() {
           _countdownTimer?.cancel();
+          _resendCountdown = 0; // Reset countdown when returning to login options
           _currentView = LoginView.options;
         });
       },

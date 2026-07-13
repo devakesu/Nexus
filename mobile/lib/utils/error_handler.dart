@@ -158,6 +158,12 @@ class ErrorHandler {
     if (cleaned.startsWith('Exception: ')) {
       cleaned = cleaned.substring('Exception: '.length);
     }
+    // Clean up trailing details wrapped in parentheses (e.g. " (Exception: ...)" or " (error_details)")
+    // to prevent technical repeating error logs from cluttering the user-facing UI message.
+    final parenIndex = cleaned.lastIndexOf(' (');
+    if (parenIndex != -1 && cleaned.endsWith(')')) {
+      cleaned = cleaned.substring(0, parenIndex);
+    }
     return cleaned;
   }
 

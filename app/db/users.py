@@ -2,6 +2,7 @@ import logging
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, cast
 
 from fastapi import HTTPException, status
@@ -20,6 +21,33 @@ from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
 
+def _load_disposable_domains() -> set[str]:
+    """
+    Load disposable email domains blocklist from the resources directory.
+    """
+    resources_dir = Path(__file__).resolve().parent.parent / "resources"
+    blocklist_file = resources_dir / "disposable_email_blocklist.txt"
+    try:
+        with open(blocklist_file) as f:
+            return {line.strip().lower() for line in f if line.strip()}
+    except OSError as e:
+        logger.error("Failed to load disposable email blocklist: %s", e)
+        return set()
+
+
+DISPOSABLE_DOMAINS: set[str] = _load_disposable_domains()
+
+
+def is_disposable_email(email: str) -> bool:
+    """
+    Check if the email domain is listed in the disposable email blocklist.
+    """
+    normalized_email = email.strip().lower()
+    if "@" in normalized_email:
+        domain = normalized_email.split("@")[-1]
+        return domain in DISPOSABLE_DOMAINS
+    return False
+
 
 def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
     """
@@ -29,20 +57,12 @@ def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
     {variant: [domains]} dict (e.g. {"nexus_mec": ["mec.edu.in"]}).
 
     - If the variant is present in the dict → email must end with one of the domains.
-    - If the variant is 'nexus' (main) → allowed except for any domains
-      reserved for flavor variants.
+    - If the variant is 'nexus' (main) → allowed without any domain restrictions.
     - If any other variant is absent from the dict → open fallback.
     """
     normalized_email = email.strip().lower()
 
     if app_variant == "nexus":
-        # Block users from registering/logging into the main Nexus app
-        # using restricted flavor domains
-        for domains in settings.allowed_signup_domains.values():
-            for domain in domains:
-                normalized_domain = domain.strip().lower().lstrip("@")
-                if normalized_email.endswith(f"@{normalized_domain}"):
-                    return False
         return True
 
     domains = settings.allowed_signup_domains.get(app_variant)

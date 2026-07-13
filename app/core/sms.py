@@ -40,14 +40,20 @@ async def send_via_twilio(to: str, body: str) -> ProviderResult:
 
     basic_auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
 
+    from_number = settings.twilio_from_number or ""
+    post_data = {
+        "To": to,
+        "Body": body,
+    }
+    if from_number.startswith("MG"):
+        post_data["MessagingServiceSid"] = from_number
+    else:
+        post_data["From"] = from_number
+
     async with httpx.AsyncClient() as client:
         res = await client.post(
             url,
-            data={
-                "To": to,
-                "From": settings.twilio_from_number,
-                "Body": body,
-            },
+            data=post_data,
             headers={
                 "Authorization": f"Basic {basic_auth}",
                 "Content-Type": "application/x-www-form-urlencoded",

@@ -50,6 +50,7 @@ from app.db.users import (
     find_user_id_by_phone,
     get_user_email_by_id,
     is_allowed_email,
+    is_disposable_email,
     set_verified_mobile,
     update_safety_data_consent,
     update_special_category_consent,
@@ -121,6 +122,54 @@ def _is_consent_stale(stored_version: str | None, current_version: str) -> bool:
         return True
 
 
+async def _validate_auth_user_allowed(
+    email: str,
+    user_id: str,
+    app_variant: str,
+) -> None:
+    if email:
+        is_disposable = await run_in_threadpool(is_disposable_email, email)
+        if is_disposable:
+            try:
+                await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
+            except Exception as err:  # noqa: BLE001
+                logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Disposable/temporary email addresses are not allowed. "
+                    "Please sign in with a valid email address."
+                ),
+            )
+
+    is_allowed = await run_in_threadpool(
+        is_allowed_email,
+        email,
+        app_variant=app_variant,
+    )
+    if email and not is_allowed:
+        try:
+            await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
+        except Exception as err:  # noqa: BLE001
+            logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
+        allowed_domains = settings.allowed_signup_domains.get(app_variant)
+        if allowed_domains:
+            domain_str = " or ".join(f"@{d.lstrip('@')}" for d in allowed_domains)
+            detail_msg = (
+                f"Only {domain_str} accounts are allowed for this app variant. "
+            )
+        else:
+            detail_msg = "Only approved accounts are allowed for this app variant. "
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"{detail_msg}"
+                "Please sign in with your campus Google Workspace account."
+            ),
+        )
+
+
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
 @limiter.limit(settings.rate_limit_auth)
 async def auth_bootstrap(
@@ -149,32 +198,7 @@ async def auth_bootstrap(
             detail="Unrecognized X-App-Variant header value.",
         )
 
-    is_allowed = await run_in_threadpool(
-        is_allowed_email,
-        email,
-        app_variant=app_variant,
-    )
-    if email and not is_allowed:
-        try:
-            await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
-        except Exception as err:  # noqa: BLE001
-            logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
-        allowed_domains = settings.allowed_signup_domains.get(app_variant)
-        if allowed_domains:
-            domain_str = " or ".join(f"@{d.lstrip('@')}" for d in allowed_domains)
-            detail_msg = (
-                f"Only {domain_str} accounts are allowed for this app variant. "
-            )
-        else:
-            detail_msg = "Only approved accounts are allowed for this app variant. "
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"{detail_msg}"
-                "Please sign in with your campus Google Workspace account."
-            ),
-        )
+    await _validate_auth_user_allowed(email, user_id, app_variant)
 
     user_row, newly_created = await run_in_threadpool(
         upsert_public_user,

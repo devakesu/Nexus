@@ -108,73 +108,84 @@ Future<void> main() async {
   // background catch-up, not something app startup should wait on.
   unawaited(PendingEvidenceUploadQueue.drain());
 
-  await SentryFlutter.init(
-    (options) {
-      options
-        // Not secret (Sentry DSNs are designed for client-side embedding),
-        // but overridable via --dart-define=SENTRY_DSN=... so it can be
-        // rotated without a code change.
-        ..dsn = const String.fromEnvironment(
-          'SENTRY_DSN',
-          defaultValue:
-              'https://b5cd0432aa4dcfbedcffe860e0b90f58@o4510669780287488.ingest.de.sentry.io/4511525319475280',
-        )
-        // Adds request headers and IP for users, for more info visit:
-        // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
-        ..sendDefaultPii = false
-        ..enableLogs = true
-        // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
-        // We recommend adjusting this value in production.
-        ..tracesSampleRate = 0.1
-        // The sampling rate for profiling is relative to tracesSampleRate
-        // Setting to 1.0 will profile 100% of sampled transactions:
-        // ignore: experimental_member_use
-        ..profilesSampleRate = 0.1;
-      // Configure Session Replay
-      options.replay.sessionSampleRate = kDebugMode ? 0.0 : 0.1;
-      options.replay.onErrorSampleRate = kDebugMode ? 0.0 : 1.0;
+  if (config.sentryDsn.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        const baseEnv = String.fromEnvironment(
+          'SENTRY_ENVIRONMENT',
+          defaultValue: 'production',
+        );
+        options
+          ..dsn = config.sentryDsn
+          ..environment = '${baseEnv}_${config.variantString}'
+          // Adds request headers and IP for users, for more info visit:
+          // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
+          ..sendDefaultPii = false
+          ..enableLogs = true
+          // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+          // We recommend adjusting this value in production.
+          ..tracesSampleRate = 0.1
+          // The sampling rate for profiling is relative to tracesSampleRate
+          // Setting to 1.0 will profile 100% of sampled transactions:
+          // ignore: experimental_member_use
+          ..profilesSampleRate = 0.1;
 
-      // Sanitize sensitive info in all events sent to Sentry
-      options.beforeSend = (event, hint) {
-        if (event.exceptions != null) {
-          for (final exception in event.exceptions!) {
-            if (exception.value != null) {
-              exception.value = ErrorHandler.sanitize(exception.value!);
+        // Configure Session Replay
+        options.replay.sessionSampleRate = kDebugMode ? 0.0 : 0.1;
+        options.replay.onErrorSampleRate = kDebugMode ? 0.0 : 1.0;
+
+        // Sanitize sensitive info in all events sent to Sentry
+        options.beforeSend = (event, hint) {
+          if (event.exceptions != null) {
+            for (final exception in event.exceptions!) {
+              if (exception.value != null) {
+                exception.value = ErrorHandler.sanitize(exception.value!);
+              }
             }
           }
-        }
-        final msg = event.message;
-        if (msg != null) {
-          msg.formatted = ErrorHandler.sanitize(msg.formatted);
-        }
-        if (event.contexts.isNotEmpty) {
-          event.contexts.forEach((key, value) {
-            if (value is Map<String, dynamic>) {
-              final sanitized = <String, dynamic>{};
-              value.forEach((k, v) {
-                if (v is String) {
-                  sanitized[k] = ErrorHandler.sanitize(v);
-                } else {
-                  sanitized[k] = v;
-                }
-              });
-              event.contexts[key] = sanitized;
-            } else if (value is String) {
-              event.contexts[key] = ErrorHandler.sanitize(value);
-            }
-          });
-        }
-        return event;
-      };
-    },
-    appRunner: () => runApp(
-      SentryWidget(
-        child: const ProviderScope(
-          child: MyApp(),
-        ),
+          final msg = event.message;
+          if (msg != null) {
+            msg.formatted = ErrorHandler.sanitize(msg.formatted);
+          }
+          if (event.contexts.isNotEmpty) {
+            event.contexts.forEach((key, value) {
+              if (value is Map<String, dynamic>) {
+                final sanitized = <String, dynamic>{};
+                value.forEach((k, v) {
+                  if (v is String) {
+                    sanitized[k] = ErrorHandler.sanitize(v);
+                  } else {
+                    sanitized[k] = v;
+                  }
+                });
+                event.contexts[key] = sanitized;
+              } else if (value is String) {
+                event.contexts[key] = ErrorHandler.sanitize(value);
+              }
+            });
+          }
+          return event;
+        };
+      },
+      appRunner: () {
+        // Explicitly tag the active variant for filtering in Sentry dashboard
+        unawaited(Future.value(Sentry.configureScope((scope) => scope.setTag('variant', config.variantString))));
+        runApp(
+          SentryWidget(
+            child: const ProviderScope(
+              child: MyApp(),
+            ),
+          ),
+        );
+      },
+    );
+  } else {
+    runApp(
+      const ProviderScope(
+        child: MyApp(),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {

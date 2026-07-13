@@ -42,9 +42,9 @@ logger = logging.getLogger(__name__)
 # already present in app/core/tasks.py, app/core/email.py, and
 # app/db/chat_keys.py are silent no-ops (the SDK is a no-op until init()
 # binds a client) - this is what turns them on.
-if settings.sentry_dsn:
+if settings.sentry_backend_dsn:
     sentry_sdk.init(
-        dsn=settings.sentry_dsn,
+        dsn=settings.sentry_backend_dsn,
         environment=settings.sentry_environment,
         traces_sample_rate=settings.sentry_traces_sample_rate,
         send_default_pii=False,
@@ -52,9 +52,9 @@ if settings.sentry_dsn:
     )
 
 if settings.enforce_app_check:
-    if not settings.firebase_service_account_path:
+    if not settings.firebase_service_account:
         raise RuntimeError(
-            "CRITICAL: Firebase service account path unpopulated. "
+            "CRITICAL: Firebase service account unpopulated. "
             "Required when ENFORCE_APP_CHECK is true.",
         )
 
@@ -65,7 +65,7 @@ if settings.enforce_app_check:
     except ValueError:
         try:
             cred = firebase_any.credentials.Certificate(
-                settings.firebase_service_account_path,
+                settings.firebase_service_account,
             )
             firebase_any.initialize_app(cred)
         except Exception as err:

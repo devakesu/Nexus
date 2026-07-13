@@ -14,13 +14,27 @@ class Settings(BaseSettings):
     such as Infisical rather than a local .env file.
     """
 
-    # --- Core backend secrets ---
+    # --- Required Configurations (No defaults) ---
+    app_domain: str
+    redis_url: str
+    pii_encryption_key: str
+    blind_index_key: str
     supabase_url: str
     supabase_service_role_key: str
     supabase_jwt_secret: str | dict[str, Any]
 
+    # --- General / Application Settings ---
+    app_name: str = "Nexus Orbit"
+    debug: bool = False
+    # Public scheme+host this API is reachable at, e.g. https://api.yourdomain.com.
+    # Needed to build the trusted-contact escalation-cancel link sent by the
+    # dead-man's-switch scheduler job, which has no incoming Request to derive
+    # a base URL from (see app/services/reminder_scheduler.py).
+    # Falls back to https://{app_domain} when unset.
+    backend_url: str | None = None
+
     # --- Firebase / App Check ---
-    firebase_service_account_path: str | None = None
+    firebase_service_account: dict[str, Any] | None = None
     enforce_app_check: bool = True
     enable_replay_protection: bool = True
 
@@ -30,7 +44,51 @@ class Settings(BaseSettings):
     # Falls back to {backend_url}/api/v1/spotify/callback when unset.
     spotify_redirect_uri: str | None = None
 
-    # --- Rate limiting / network policy ---
+    # --- Gated Signup & Authentication ---
+    # Per-variant email domain allowlist for signup (JSON object in the env var).
+    # Each key is a variant name, value is a list of allowed email domains.
+    # Example env: ALLOWED_SIGNUP_DOMAINS={"nexus_mec":["mec.ac.in", "gmail.com"]}
+    # Variants absent from this dict have no domain restriction.
+    # The main 'nexus' variant should NOT be listed here.
+    allowed_signup_domains: Any = {}
+
+    # --- Email Providers & Support Routing ---
+    brevo_api_key: str | None = None
+    email_domain: str | None = None
+    sendpulse_client_id: str | None = None
+    sendpulse_client_secret: str | None = None
+    # Falls back to admin@{app_domain} when unset (see app/core/email.py).
+    feedback_notify_email: str | None = None
+
+    # --- SMS / Twilio ---
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from_number: str | None = None
+
+    # --- Legal & Compliance Pages ---
+    current_terms_version: str = "1"
+    # Same optional-no-import-failure style as the grievance officer block
+    # above: unset renders a visible "not yet set" placeholder in the page
+    # rather than failing, since these are launch-readiness values an ops
+    # team fills in once, not runtime application config.
+    legal_effective_date: str | None = None
+    legal_governing_law_city: str | None = None
+
+    # -- Grievance Officer / DPO contact (DPDP Act 2023 §13) --
+    # Displayed on GET /legal/terms and /legal/privacy (app/api/legal.py),
+    # read directly by the server-rendered page - no separate JSON API.
+    grievance_officer_name: str | None = None
+    grievance_officer_email: str | None = None
+    grievance_officer_phone: str | None = None
+    grievance_officer_website: str | None = None
+
+    # --- CORS / Allowed Origins ---
+    # Comma-separated list of allowed CORS origins.
+    # The production origin (https://{app_domain}) is automatically
+    # appended to this list when app_domain is set.
+    allowed_origins: str = "http://localhost:3000,http://localhost:8080"
+
+    # --- Rate Limiting ---
     enable_rate_limiting: bool = True
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
@@ -46,12 +104,8 @@ class Settings(BaseSettings):
     rate_limit_account_deletion: str = "5/hour"
     rate_limit_data_export_otp: str = "5/hour"
     rate_limit_data_export: str = "3/day"
-    # Comma-separated list of allowed CORS origins.
-    # The production origin (https://{app_domain}) is automatically
-    # appended to this list when app_domain is set.
-    allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
-    # -- Account deletion lifecycle --
+    # --- Account Deletion Lifecycle ---
     # See app/db/account_deletion.py. Tier 1: a request starts a recoverable
     # grace window; if not cancelled, the account is anonymized in place at
     # its end. Tier 2: a much later hard-delete of the (by then long-dormant)
@@ -60,74 +114,9 @@ class Settings(BaseSettings):
     account_deletion_blocklist_cooldown_days: int = 30
     account_deletion_long_tail_purge_days: int = 365 * 3
 
-    # --- Infrastructure / crypto ---
-    redis_url: str
-    pii_encryption_key: str
-    blind_index_key: str
-
-    # -- Auth --
-    # Per-variant email domain allowlist for signup (JSON object in the env var).
-    # Each key is a variant name, value is a list of allowed email domains.
-    # Example env: ALLOWED_SIGNUP_DOMAINS={"nexus_mec":["mec.ac.in", "gmail.com"]}
-    # Variants absent from this dict have no domain restriction.
-    # The main 'nexus' variant should NOT be listed here.
-    allowed_signup_domains: dict[str, list[str]] = {}
-
-    # -- Legal --
-    current_terms_version: str = "1"
-
-    # -- Grievance Officer / DPO contact (DPDP Act 2023 §13) --
-    # Displayed on GET /legal/terms and /legal/privacy (app/api/legal.py),
-    # read directly by the server-rendered page - no separate JSON API.
-    grievance_officer_name: str | None = None
-    grievance_officer_email: str | None = None
-    grievance_officer_phone: str | None = None
-    grievance_officer_website: str | None = None
-
-    # -- Legal pages (GET /legal/terms, /legal/privacy - app/api/legal.py) --
-    # Same optional-no-import-failure style as the grievance officer block
-    # above: unset renders a visible "not yet set" placeholder in the page
-    # rather than failing, since these are launch-readiness values an ops
-    # team fills in once, not runtime application config.
-    legal_effective_date: str | None = None
-    legal_governing_law_city: str | None = None
-
-    # -- Email Providers --
-    brevo_api_key: str | None = None
-    sendpulse_client_id: str | None = None
-    sendpulse_client_secret: str | None = None
-    app_domain: str
-
-    # -- SMS / Twilio --
-    twilio_account_sid: str | None = None
-    twilio_auth_token: str | None = None
-    twilio_from_number: str | None = None
-    # Public scheme+host this API is reachable at, e.g. https://api.yourdomain.com.
-    # Needed to build the trusted-contact escalation-cancel link sent by the
-    # dead-man's-switch scheduler job, which has no incoming Request to derive
-    # a base URL from (see app/services/reminder_scheduler.py).
-    # Falls back to https://{app_domain} when unset.
-    backend_url: str | None = None
-    app_name: str = "Nexus Orbit"
-    debug: bool = False
-
-    # -- Support / feedback routing --
-    # Falls back to admin@{app_domain} when unset (see app/core/email.py).
-    feedback_notify_email: str | None = None
-
-    # -- Sentry (error monitoring) --
-    # Purely optional, no import-time failure if unset (unlike
-    # enforce_app_check's hard-fail-if-misconfigured style) - see
-    # app/main.py's gated sentry_sdk.init() call.
-    sentry_dsn: str | None = None
-    sentry_environment: str | None = None
-    sentry_traces_sample_rate: float = 0.0
-
-    # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
-    dev_allowed_email: str | None = None
-
-    # -- Meetup Safety data retention (balances the investigative value of an
-    # incident record against not hoarding highly sensitive data forever) --
+    # --- Meetup Safety Data Retention ---
+    # Meetup Safety data retention (balances the investigative value of an
+    # incident record against not hoarding highly sensitive data forever)
     # Digital Witness recordings (raw audio/video + escrowed decryption
     # keys) are the most invasive category here, so they're capped
     # regardless of account status - see purge_expired_safety_evidence in
@@ -139,6 +128,19 @@ class Settings(BaseSettings):
     safety_evidence_active_retention_days: int = 365
     safety_data_legal_hold_days: int = 180
 
+    # --- Sentry (Error Monitoring) ---
+    # Purely optional, no import-time failure if unset (unlike
+    # enforce_app_check's hard-fail-if-misconfigured style) - see
+    # app/main.py's gated sentry_sdk.init() call.
+    sentry_backend_dsn: str | None = None
+    sentry_environment: str | None = None
+    sentry_traces_sample_rate: float = 0.0
+
+    # --- Dev-Only Tooling ---
+    # Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True)
+    dev_allowed_email: str | None = None
+
+
     @property
     def is_jwks(self) -> bool:
         secret = self.supabase_jwt_secret
@@ -146,11 +148,48 @@ class Settings(BaseSettings):
             secret.strip().startswith("{") and "keys" in secret
         )
 
-    @field_validator("allowed_signup_domains", mode="before")
+    @field_validator("firebase_service_account", mode="before")
     @classmethod
-    def parse_allowed_signup_domains(cls, v: Any) -> dict[str, list[str]]:
+    def parse_firebase_service_account(
+        cls,
+        v: Any,
+    ) -> dict[str, Any] | None:
+        import base64
         import json
         from contextlib import suppress
+
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return cast(dict[str, Any], v)
+        if isinstance(v, str):
+            stripped = v.strip()
+            # If it is raw JSON string
+            if stripped.startswith("{"):
+                with suppress(json.JSONDecodeError):
+                    return cast(dict[str, Any], json.loads(stripped))
+
+            # Try Base64 decoding
+            with suppress(Exception):
+                decoded_bytes = base64.b64decode(stripped, validate=True)
+                decoded_str = decoded_bytes.decode("utf-8")
+                if decoded_str.strip().startswith("{"):
+                    with suppress(json.JSONDecodeError):
+                        return cast(dict[str, Any], json.loads(decoded_str))
+        raise ValueError(
+            "firebase_service_account must be a valid JSON dictionary "
+            "or base64-encoded JSON string",
+        )
+
+    @field_validator("allowed_signup_domains", mode="before")
+    @classmethod
+    def parse_allowed_signup_domains(
+        cls,
+        v: Any,
+    ) -> dict[str, list[str]]:
+        import json
+        from contextlib import suppress
+
         if v is None:
             return {}
         if isinstance(v, str):
@@ -167,9 +206,7 @@ class Settings(BaseSettings):
                     ]
                 elif isinstance(domains, list):
                     list_domains = cast(list[Any], domains)
-                    normalized[variant_str] = [
-                        str(d).strip() for d in list_domains
-                    ]
+                    normalized[variant_str] = [str(d).strip() for d in list_domains]
                 else:
                     normalized[variant_str] = [str(domains).strip()]
             return normalized
@@ -197,6 +234,9 @@ class Settings(BaseSettings):
             if production_origin not in existing:
                 existing.append(production_origin)
                 self.allowed_origins = ",".join(existing)
+
+        if not self.email_domain and self.app_domain:
+            self.email_domain = self.app_domain
         return self
 
     model_config = SettingsConfigDict(

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Identifies which compiled flavor of the app is running.
 ///
 /// The value is resolved from the 'FLUTTER_APP_FLAVOR' compile-time
@@ -21,7 +23,7 @@ class AppConfig {
     required this.appVariant,
     required this.spotifyClientId,
     required this.spotifyNativeRedirectUri,
-    this.allowedEmailDomain,
+    required this.sentryDsn,
   });
 
   final String supabaseUrl;
@@ -39,12 +41,11 @@ class AppConfig {
   /// "{redirectSchemeName}://{redirectHostName}"
   final String spotifyNativeRedirectUri;
 
+  /// The Sentry client DSN URL. If not provided or empty, Sentry logging will be disabled.
+  final String sentryDsn;
+
   /// Which flavor this config profile represents.
   final AppVariant appVariant;
-
-  /// Optional campus email domain enforced for this flavor.
-  /// Null means all email domains are allowed (used by the main nexus flavor).
-  final String? allowedEmailDomain;
 
   // ---------------------------------------------------------------------------
   // Configuration profiles for the different flavors
@@ -70,8 +71,8 @@ class AppConfig {
   static const String _googleIosClientIdNexus = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID_NEXUS',
   );
-  static const String _googleIosClientIdMec = String.fromEnvironment(
-    'GOOGLE_IOS_CLIENT_ID_MEC',
+  static const String _googleIosClientIdNexusMec = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID_NEXUS_MEC',
   );
   static const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const String _supabasePublishableKey = String.fromEnvironment(
@@ -87,12 +88,13 @@ class AppConfig {
     'SPOTIFY_REDIRECT_URI_NEXUS',
     defaultValue: 'devakesu-nexus://spotify-auth',
   );
-  static const String _spotifyNativeRedirectUriMec = String.fromEnvironment(
-    'SPOTIFY_REDIRECT_URI_MEC',
-    defaultValue: 'devakesu-nexus-mec://spotify-auth',
-  );
-  static const String _mecAllowedEmailDomain = String.fromEnvironment(
-    'MEC_ALLOWED_EMAIL_DOMAIN',
+  static const String _spotifyNativeRedirectUriNexusMec =
+      String.fromEnvironment(
+        'SPOTIFY_REDIRECT_URI_NEXUS_MEC',
+        defaultValue: 'devakesu-nexus-mec://spotify-auth',
+      );
+  static const String _sentryFlutterDsn = String.fromEnvironment(
+    'SENTRY_FLUTTER_DSN',
   );
 
   static const AppConfig nexus = AppConfig(
@@ -105,19 +107,20 @@ class AppConfig {
     appVariant: AppVariant.nexus,
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
+    sentryDsn: _sentryFlutterDsn,
   );
 
   static const AppConfig mec = AppConfig(
     supabaseUrl: _supabaseUrl,
     supabasePublishableKey: _supabasePublishableKey,
     googleWebClientId: _googleWebClientId,
-    googleIosClientId: _googleIosClientIdMec,
+    googleIosClientId: _googleIosClientIdNexusMec,
     logoAssetPath: 'assets/nexus-mec.png',
     backendUrl: _effectiveBackendUrl,
     appVariant: AppVariant.nexusMec,
     spotifyClientId: _spotifyClientId,
-    spotifyNativeRedirectUri: _spotifyNativeRedirectUriMec,
-    allowedEmailDomain: _mecAllowedEmailDomain,
+    spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexusMec,
+    sentryDsn: _sentryFlutterDsn,
   );
 
   /// OTP code length for email/phone verification. Must match the "OTP
@@ -150,4 +153,33 @@ class AppConfig {
 
   /// Whether this is a flavor variant (generates export codes for import).
   bool get isFlavorVariant => appVariant != AppVariant.nexus;
+
+  /// List of email domains allowed for signup for this variant.
+  /// Derived from the compile-time ALLOWED_SIGNUP_DOMAINS constant.
+  List<String> get allowedSignupDomains {
+    if (appVariant == AppVariant.nexus) {
+      return const [];
+    }
+    const raw = String.fromEnvironment('ALLOWED_SIGNUP_DOMAINS');
+    if (raw.isEmpty) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        final variantKey = variantString; // e.g. 'nexus_mec'
+        final domains = decoded[variantKey];
+        if (domains is List) {
+          return domains.map((e) => e.toString().trim()).toList();
+        } else if (domains is String) {
+          return domains.split(',').map((e) => e.trim()).toList();
+        }
+      } else if (decoded is List) {
+        return decoded.map((e) => e.toString().trim()).toList();
+      }
+    } on Object catch (_) {
+      return raw.split(',').map((e) => e.trim()).toList();
+    }
+    return const [];
+  }
 }
