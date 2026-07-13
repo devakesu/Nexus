@@ -7,8 +7,20 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 from storage3.utils import StorageException
 
-from app.core.crypto import decrypt_pii, encrypt_to_hex
+from app.core.config import settings
+from app.core.crypto import (
+    DecryptFailedError,
+    compute_blind_index,
+    decrypt_pii,
+    encrypt_to_hex,
+)
+from app.core.portal_auth import normalize_phone
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.profiles import (
+    decrypt_profile_record,
+    sanitize_decrypted_profile,
+    sign_profile_media,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +33,63 @@ _SESSION_COLS = (
 )
 
 
-def sync_safety_contacts(user_id: str, contacts: list[dict[str, Any]]) -> None:
-    """Replaces the caller's full trusted-contact mirror atomically using an RPC."""
-    encrypted: list[dict[str, Any]] = []
+def _phone_blind_index(phone: str) -> str:
+    return compute_blind_index(normalize_phone(phone))
+
+
+def sync_safety_contacts(
+    user_id: str,
+    contacts: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Replaces the caller's full trusted-contact mirror atomically using an
+    RPC, after filtering out any phone number that previously self-removed
+    (see safety_contact_notices) - a self-removal must stick even though
+    the device is the "primary copy" of this list and doesn't know about it.
+
+    Returns (blocked, newly_notified): blocked contacts were dropped from
+    the sync entirely (the caller should tell the user why); newly_notified
+    contacts are ones seen for the first time ever for this user, and the
+    caller is responsible for sending them the one-time notice SMS.
+    """
+    try:
+        notices_res = (
+            supabase_client.table("safety_contact_notices")
+            .select("phone_blind_index, self_removed_at")
+            .eq("user_id", user_id)
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch safety contact notices", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to sync safety contacts") from e
+
+    notices = {
+        str(row["phone_blind_index"]): row
+        for row in cast(list[dict[str, Any]], notices_res.data or [])
+    }
+
+    allowed: list[dict[str, Any]] = []
+    blocked: list[dict[str, Any]] = []
+    newly_notified: list[dict[str, Any]] = []
     for c in contacts:
-        encrypted.append({
+        phone = str(c.get("phone") or "")
+        blind_index = _phone_blind_index(phone)
+        notice = notices.get(blind_index)
+        if notice is not None and notice.get("self_removed_at"):
+            blocked.append(c)
+            continue
+        allowed.append(c)
+        if notice is None:
+            newly_notified.append({**c, "blind_index": blind_index})
+
+    encrypted: list[dict[str, Any]] = [
+        {
             "name": encrypt_to_hex(c.get("name")),
             "phone": encrypt_to_hex(c.get("phone")),
-        })
+        }
+        for c in allowed
+    ]
     try:
         supabase_client.rpc(
             "sync_safety_contacts",
@@ -37,6 +98,25 @@ def sync_safety_contacts(user_id: str, contacts: list[dict[str, Any]]) -> None:
     except APIError as e:
         logger.exception("Failed to sync safety contacts", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to sync safety contacts") from e
+
+    if newly_notified:
+        try:
+            supabase_client.table("safety_contact_notices").upsert(
+                [
+                    {
+                        "user_id": user_id,
+                        "phone_blind_index": n["blind_index"],
+                    }
+                    for n in newly_notified
+                ],
+                on_conflict="user_id,phone_blind_index",
+            ).execute()
+        except APIError:
+            logger.exception(
+                "Failed to record safety contact notices", extra={"user_id": user_id},
+            )
+
+    return blocked, newly_notified
 
 
 def fetch_safety_contacts(user_id: str) -> list[dict[str, Any]]:
@@ -58,6 +138,135 @@ def fetch_safety_contacts(user_id: str) -> list[dict[str, Any]]:
             extra={"user_id": user_id},
         )
         raise DatabaseAccessError("Failed to fetch safety contacts") from e
+
+
+def fetch_safety_contacts_with_id(user_id: str) -> list[dict[str, Any]]:
+    """Same as fetch_safety_contacts, but includes each row's (post-resync)
+    id - needed to build a per-contact portal link right after a sync, since
+    the plain name/phone fetch above doesn't carry it.
+    """
+    try:
+        res = (
+            supabase_client.table("safety_contacts")
+            .select("id, name, phone")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        data = cast(list[dict[str, Any]], res.data or [])
+        for row in data:
+            row["name"] = decrypt_pii(row.get("name"))
+            row["phone"] = decrypt_pii(row.get("phone"))
+        return data
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch safety contacts with id",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to fetch safety contacts") from e
+
+
+# ---------------------------------------------------------------------------
+# Trusted-contact self-removal portal
+# ---------------------------------------------------------------------------
+
+
+def fetch_safety_contact_by_id(contact_id: str) -> dict[str, Any] | None:
+    try:
+        res = (
+            supabase_client.table("safety_contacts")
+            .select("id, user_id, name, phone")
+            .eq("id", contact_id)
+            .maybe_single()
+            .execute()
+        )
+        if not res or not res.data:
+            return None
+        row = cast(dict[str, Any], res.data)
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch safety contact by id", extra={"contact_id": contact_id},
+        )
+        raise DatabaseAccessError("Failed to fetch safety contact") from e
+    row["name"] = decrypt_pii(row.get("name"))
+    row["phone"] = decrypt_pii(row.get("phone"))
+    return row
+
+
+def remove_safety_contact_self_service(contact_id: str) -> dict[str, Any] | None:
+    """Permanently removes a trusted contact at their own request: deletes
+    the safety_contacts mirror row and marks the durable notice record so a
+    later sync_safety_contacts call can't silently re-add the same phone
+    number. Returns the removed contact's {user_id, name, phone} (decrypted)
+    for the caller to notify the original user with, or None if the contact
+    no longer exists (already removed, or the user deleted their account).
+    """
+    contact = fetch_safety_contact_by_id(contact_id)
+    if contact is None:
+        return None
+
+    try:
+        supabase_client.table("safety_contacts").delete().eq(
+            "id", contact_id,
+        ).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to delete self-removed safety contact",
+            extra={"contact_id": contact_id},
+        )
+        raise DatabaseAccessError("Failed to remove trusted contact") from e
+
+    blind_index = _phone_blind_index(str(contact.get("phone") or ""))
+    now = utcnow().isoformat()
+    try:
+        supabase_client.table("safety_contact_notices").upsert(
+            {
+                "user_id": contact["user_id"],
+                "phone_blind_index": blind_index,
+                "self_removed_at": now,
+            },
+            on_conflict="user_id,phone_blind_index",
+        ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to record self-removal notice", extra={"contact_id": contact_id},
+        )
+
+    return contact
+
+
+def fetch_contact_facing_profile_summary(user_id: str) -> dict[str, Any] | None:
+    """The minimal, deliberately narrow profile view shown to a trusted
+    contact on the self-removal portal - just enough to confirm who listed
+    them (name, photo, hometown, current place), nothing from the dating/
+    matching surface.
+    """
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("name, profile_pic, hometown, current_place")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        if not res or not res.data:
+            return None
+        row = cast(dict[str, Any], res.data)
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch profile summary for contact portal",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to fetch profile summary") from e
+
+    try:
+        decrypted = sanitize_decrypted_profile(decrypt_profile_record(row))
+    except DecryptFailedError:
+        logger.exception(
+            "Failed to decrypt profile summary for contact portal",
+            extra={"user_id": user_id},
+        )
+        return None
+    return sign_profile_media(decrypted)
 
 
 def record_safety_alert(
@@ -461,3 +670,118 @@ def create_evidence_download_url(storage_path: str, expires_in: int) -> str | No
             extra={"storage_path": storage_path},
         )
         return None
+
+
+# ---------------------------------------------------------------------------
+# Retention / deletion policy
+#
+# Digital Witness recordings (safety_evidence: raw audio/video plus the
+# escrowed AES-GCM key) are the most invasive data this feature holds, so
+# they're capped by age regardless of account status. safety_alerts rows
+# (lightweight metadata - type, encrypted location, timestamp, contact
+# count) are cheaper and stay useful for trust & safety pattern review, so
+# they're only time-boxed once the owning account itself is gone - see
+# app/db/account_deletion.py's module docstring for why purged_at (Tier-1
+# anonymization) rather than account deletion request time is the anchor.
+# Both run daily from app/services/reminder_scheduler.py.
+# ---------------------------------------------------------------------------
+
+
+def purge_expired_safety_evidence() -> None:
+    """Hard-deletes safety_evidence rows (and their storage objects) older
+    than settings.safety_evidence_active_retention_days, for every account
+    - active or deleted alike. Per-row failures are logged and skipped
+    rather than aborting the whole batch, same pattern as
+    account_deletion.py's purge jobs.
+    """
+    cutoff = (
+        utcnow() - timedelta(days=settings.safety_evidence_active_retention_days)
+    ).isoformat()
+    try:
+        res = (
+            supabase_client.table("safety_evidence")
+            .select("id, storage_path")
+            .lt("created_at", cutoff)
+            .execute()
+        )
+    except APIError:
+        logger.exception("Failed to fetch expired safety evidence")
+        return
+
+    rows = cast(list[dict[str, Any]], res.data or [])
+    if not rows:
+        return
+
+    paths = [str(r["storage_path"]) for r in rows if r.get("storage_path")]
+    if paths:
+        try:
+            supabase_client.storage.from_("safety_evidence").remove(paths)
+        except Exception:
+            logger.exception(
+                "Failed to remove expired safety evidence storage objects",
+            )
+
+    ids = [str(r["id"]) for r in rows if r.get("id")]
+    try:
+        supabase_client.table("safety_evidence").delete().in_("id", ids).execute()
+    except APIError:
+        logger.exception("Failed to delete expired safety evidence rows")
+
+
+def purge_safety_data_for_purged_accounts() -> None:
+    """Hard-deletes any remaining safety_alerts/safety_evidence belonging to
+    accounts that finished Tier-1 anonymization (users.purged_at) more than
+    settings.safety_data_legal_hold_days ago - long enough to cover a
+    realistic law-enforcement or internal trust & safety follow-up window
+    on an incident from that account, short enough not to hoard it
+    indefinitely once the account is gone for good.
+    """
+    cutoff = (
+        utcnow() - timedelta(days=settings.safety_data_legal_hold_days)
+    ).isoformat()
+    try:
+        res = (
+            supabase_client.table("users")
+            .select("id")
+            .not_.is_("purged_at", "null")
+            .lte("purged_at", cutoff)
+            .execute()
+        )
+    except APIError:
+        logger.exception("Failed to fetch accounts due for safety data purge")
+        return
+
+    user_ids = [
+        str(r["id"]) for r in cast(list[dict[str, Any]], res.data or []) if r.get("id")
+    ]
+    if not user_ids:
+        return
+
+    try:
+        evidence_res = (
+            supabase_client.table("safety_evidence")
+            .select("id, storage_path")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        evidence_rows = cast(list[dict[str, Any]], evidence_res.data or [])
+        paths = [
+            str(r["storage_path"]) for r in evidence_rows if r.get("storage_path")
+        ]
+        if paths:
+            with contextlib.suppress(Exception):
+                supabase_client.storage.from_("safety_evidence").remove(paths)
+        supabase_client.table("safety_evidence").delete().in_(
+            "user_id", user_ids,
+        ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to purge safety_evidence for purged accounts",
+        )
+
+    try:
+        supabase_client.table("safety_alerts").delete().in_(
+            "user_id", user_ids,
+        ).execute()
+    except APIError:
+        logger.exception("Failed to purge safety_alerts for purged accounts")

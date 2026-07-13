@@ -28,6 +28,8 @@ from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.safety import (
     fetch_overdue_safety_sessions,
     fetch_safety_contacts,
+    purge_expired_safety_evidence,
+    purge_safety_data_for_purged_accounts,
     record_safety_escalation_sent,
 )
 from app.services.fcm_sender import (
@@ -260,6 +262,23 @@ async def _run_account_deletion_long_tail_purge() -> None:
         logger.exception("Failed to run account deletion long-tail purge")
 
 
+# Meetup Safety data retention - see app/db/safety.py for the reasoning
+# behind each window. Same 24h cadence as the account deletion jobs above;
+# both are cheap, bounded batch scans.
+async def _run_safety_evidence_retention_purge() -> None:
+    try:
+        await asyncio.to_thread(purge_expired_safety_evidence)
+    except DatabaseAccessError:
+        logger.exception("Failed to run safety evidence retention purge")
+
+
+async def _run_safety_data_legal_hold_purge() -> None:
+    try:
+        await asyncio.to_thread(purge_safety_data_for_purged_accounts)
+    except DatabaseAccessError:
+        logger.exception("Failed to run safety data legal-hold purge")
+
+
 def start_reminder_scheduler() -> AsyncIOScheduler:
     global _scheduler
     if _scheduler is not None:
@@ -302,6 +321,18 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
         _run_account_deletion_long_tail_purge,
         trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
         id="account_deletion_long_tail_purge",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _run_safety_evidence_retention_purge,
+        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        id="safety_evidence_retention_purge",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _run_safety_data_legal_hold_purge,
+        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        id="safety_data_legal_hold_purge",
         max_instances=1,
     )
     scheduler.start()

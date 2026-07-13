@@ -108,7 +108,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
 
   String _digitsOnly(String phone) => phone.replaceAll(RegExp(r'[^\d]'), '');
 
-  void _addContact(String name, String phone) {
+  Future<void> _addContact(String name, String phone) async {
     if (_contacts.length >= 3) {
       NexusToast.show(
         context,
@@ -128,13 +128,33 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
       );
       return;
     }
+    final newContact = SafetyContact(name: name, phone: phone);
     setState(() {
-      _contacts.add(SafetyContact(name: name, phone: phone));
+      _contacts.add(newContact);
     });
-    unawaited(saveSafetyContacts(_contacts));
-    // Best-effort server mirror so SOS/inform alerts can be sent without
-    // the device online — failures here don't block the local save above.
-    unawaited(SafetyAlertApi.syncContacts(_contacts));
+    await saveSafetyContacts(_contacts);
+    // Server mirror so SOS/inform alerts can be sent without the device
+    // online. Awaited (unlike a plain fire-and-forget) because the backend
+    // may refuse a phone number that previously self-removed via the
+    // trusted-contact portal - that has to roll back the optimistic local
+    // add above, not just fail silently.
+    final result = await SafetyAlertApi.syncContacts(_contacts);
+    if (!mounted) return;
+    if (result.blocked.contains(name)) {
+      setState(() {
+        _contacts.remove(newContact);
+      });
+      await saveSafetyContacts(_contacts);
+      if (mounted) {
+        NexusToast.show(
+          context,
+          '$name previously removed themselves as a trusted contact and '
+          "can't be re-added without their consent.",
+          type: NexusToastType.error,
+        );
+      }
+      return;
+    }
     NexusToast.show(
       context,
       'Contact added successfully',
@@ -220,7 +240,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
         }
         return;
       }
-      _addContact(name, phone);
+      unawaited(_addContact(name, phone));
     } on PlatformException catch (_) {
       if (mounted) {
         NexusToast.show(

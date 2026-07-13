@@ -11,18 +11,23 @@ from app.api.dependencies import (
 )
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.portal_auth import normalize_phone
 from app.core.sms import (
+    compose_contact_added_message,
     compose_inform_message,
     compose_sos_message,
     send_sms,
     verify_escalation_cancel_token,
 )
+from app.core.tasks import safe_create_task
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     cancel_safety_escalation,
     end_safety_session,
+    fetch_contact_facing_profile_summary,
     fetch_safety_alert,
     fetch_safety_contacts,
+    fetch_safety_contacts_with_id,
     fetch_safety_session,
     heartbeat_safety_session,
     record_safety_alert,
@@ -35,6 +40,7 @@ from app.models import (
     SafetyAlertRequest,
     SafetyAlertResponse,
     SafetyContactsSyncRequest,
+    SafetyContactsSyncResponse,
     SafetyEvidenceRegisterRequest,
     SafetyEvidenceRegisterResponse,
     SafetySessionCheckinRequest,
@@ -47,17 +53,54 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.put("/api/v1/safety/contacts")
+async def _notify_newly_added_contacts(
+    user_id: str,
+    newly_notified: list[dict[str, str]],
+) -> None:
+    """Fire-and-forget: sends the one-time "you were added" notice SMS
+    (with the self-removal portal link) to each phone number seen for the
+    first time in this sync. Runs after the sync itself so a slow/failed
+    SMS never blocks the response.
+    """
+    if not newly_notified:
+        return
+    try:
+        profile = await asyncio.to_thread(fetch_contact_facing_profile_summary, user_id)
+        contacts = await asyncio.to_thread(fetch_safety_contacts_with_id, user_id)
+    except DatabaseAccessError:
+        logger.exception(
+            "Failed to load context for trusted contact notice SMS",
+            extra={"user_id": user_id},
+        )
+        return
+
+    user_name = (profile or {}).get("name") or "A Nexus user"
+
+    by_phone = {normalize_phone(str(c["phone"])): c for c in contacts}
+    for n in newly_notified:
+        contact = by_phone.get(normalize_phone(str(n.get("phone") or "")))
+        if contact is None:
+            continue
+        manage_link = (
+            f"{settings.backend_public_url}/api/v1/safety/contact/{contact['id']}"
+        )
+        body = compose_contact_added_message(
+            user_name=str(user_name), manage_link=manage_link,
+        )
+        await send_sms(str(n.get("phone") or ""), body)
+
+
+@router.put("/api/v1/safety/contacts", response_model=SafetyContactsSyncResponse)
 @limiter.limit(settings.rate_limit_safety)
 async def put_safety_contacts(
     request: Request,
     payload: SafetyContactsSyncRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
-) -> dict[str, int]:
+) -> SafetyContactsSyncResponse:
     _ = request
     try:
-        await asyncio.to_thread(
+        blocked, newly_notified = await asyncio.to_thread(
             sync_safety_contacts,
             user_id,
             [c.model_dump() for c in payload.contacts],
@@ -71,7 +114,13 @@ async def put_safety_contacts(
             status_code=503,
             detail="Service temporarily unavailable.",
         ) from err
-    return {"count": len(payload.contacts)}
+
+    safe_create_task(_notify_newly_added_contacts(user_id, newly_notified))
+
+    return SafetyContactsSyncResponse(
+        count=len(payload.contacts) - len(blocked),
+        blocked=[str(c.get("name") or "") for c in blocked],
+    )
 
 
 @router.post("/api/v1/safety/alert", response_model=SafetyAlertResponse)

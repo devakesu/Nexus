@@ -1741,6 +1741,17 @@ class SafetyContactsSyncRequest(BaseModel):
     contacts: list[SafetyContactIn] = Field(..., max_length=3)
 
 
+class SafetyContactsSyncResponse(BaseModel):
+    """blocked names submitted contacts that were NOT synced because that
+    phone number previously removed itself via the self-service portal -
+    see app/db/safety.py::sync_safety_contacts. The client should surface
+    why rather than silently dropping them.
+    """
+
+    count: int
+    blocked: list[str] = []
+
+
 class SafetyLocation(BaseModel):
     lat: float
     lng: float
@@ -2061,3 +2072,62 @@ class SafetyPortalDetailsResponse(BaseModel):
     last_location: SafetyLocation | None = None
     last_location_at: datetime | None = None
     evidence: list[SafetyPortalEvidenceItem] = []
+
+
+# ---------------------------------------------------------------------------
+# Trusted-contact self-removal portal - a trusted contact has no Nexus
+# account (same "no auth dependency stack, OTP + rate limiting is the
+# actual boundary" posture as the SOS portal above), reached from the
+# one-time notice SMS sent the first time their number is synced. See
+# app/api/safety_portal.py and app/db/safety.py.
+# ---------------------------------------------------------------------------
+
+
+class SafetyContactPortalOtpRequestRequest(BaseModel):
+    phone: str = Field(..., min_length=6, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class SafetyContactPortalOtpRequestResponse(BaseModel):
+    """Always {"sent": true} regardless of whether the phone actually
+    matches this contact_id - same anti-enumeration principle as
+    SafetyPortalOtpRequestResponse.
+    """
+
+    sent: bool = True
+
+
+class SafetyContactPortalOtpVerifyRequest(BaseModel):
+    phone: str = Field(..., min_length=6, max_length=20)
+    code: str = Field(..., pattern=r"^\d{6}$")
+
+    @field_validator("phone")
+    @classmethod
+    def strip_and_require_non_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+
+class SafetyContactPortalOtpVerifyResponse(BaseModel):
+    token: str
+    expires_in: int
+
+
+class SafetyContactPortalDetailsResponse(BaseModel):
+    user_name: str
+    profile_pic: str | None = None
+    hometown: str | None = None
+    current_place: str | None = None
+
+
+class SafetyContactPortalRemoveResponse(BaseModel):
+    removed: bool = True

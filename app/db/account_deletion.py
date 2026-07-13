@@ -101,9 +101,10 @@ _NO_RETENTION_TABLES = (
 
 _MEDIA_BUCKET = "user_media"
 
-# safety_alerts/safety_evidence are deliberately NOT purged here - see the
-# "Retain, time-boxed legal hold" classification in the delete-account plan.
-# Exact hold duration needs product/legal sign-off; not decided in code yet.
+# safety_alerts/safety_evidence are deliberately NOT purged here - they're
+# on a separate, longer legal-hold timer anchored to purged_at (set below),
+# not to deletion request time. See purge_safety_data_for_purged_accounts
+# and purge_expired_safety_evidence in app/db/safety.py.
 
 
 # ---------------------------------------------------------------------------

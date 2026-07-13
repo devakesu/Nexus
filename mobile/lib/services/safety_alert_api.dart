@@ -15,6 +15,17 @@ class SafetyAlertResult {
   final int contactsTotal;
 }
 
+class SafetyContactsSyncResult {
+  const SafetyContactsSyncResult({required this.success, this.blocked = const []});
+
+  final bool success;
+
+  /// Names of contacts the backend refused to sync because that phone
+  /// number previously removed itself as a trusted contact via the
+  /// self-service portal - see app/db/safety.py::sync_safety_contacts.
+  final List<String> blocked;
+}
+
 /// Backend client for the Meetup Safety alert/contacts-sync endpoints (see
 /// app/api/safety.py). Every call is best-effort from the caller's
 /// perspective — network/auth failures are caught and surfaced as a bool/
@@ -26,11 +37,13 @@ class SafetyAlertApi {
   static final Dio _dio = createDio();
 
   /// Mirrors the full trusted-contact list server-side so alerts can be
-  /// sent without the device online. Fire-and-forget from callers.
-  static Future<bool> syncContacts(List<SafetyContact> contacts) async {
+  /// sent without the device online.
+  static Future<SafetyContactsSyncResult> syncContacts(
+    List<SafetyContact> contacts,
+  ) async {
     try {
       await NetworkUtils.requireAccessToken();
-      await _dio.put<void>(
+      final response = await _dio.put<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/safety/contacts',
         data: {
           'contacts': contacts
@@ -38,9 +51,13 @@ class SafetyAlertApi {
               .toList(),
         },
       );
-      return true;
+      final blockedRaw = response.data?['blocked'] as List<dynamic>? ?? [];
+      return SafetyContactsSyncResult(
+        success: true,
+        blocked: blockedRaw.map((e) => e as String).toList(),
+      );
     } on Object catch (_) {
-      return false;
+      return const SafetyContactsSyncResult(success: false);
     }
   }
 

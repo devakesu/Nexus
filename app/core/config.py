@@ -114,6 +114,19 @@ class Settings(BaseSettings):
     # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
     dev_allowed_email: str | None = None
 
+    # -- Meetup Safety data retention (balances the investigative value of an
+    # incident record against not hoarding highly sensitive data forever) --
+    # Digital Witness recordings (raw audio/video + escrowed decryption
+    # keys) are the most invasive category here, so they're capped
+    # regardless of account status - see purge_expired_safety_evidence in
+    # app/db/safety.py. safety_alerts (lightweight metadata: type,
+    # location, timestamp) are cheaper and more useful for trust & safety
+    # pattern review, so they're kept indefinitely for *active* accounts
+    # and only time-boxed once the account itself is gone - see
+    # purge_safety_data_for_purged_accounts.
+    safety_evidence_active_retention_days: int = 365
+    safety_data_legal_hold_days: int = 180
+
     @property
     def is_jwks(self) -> bool:
         secret = self.supabase_jwt_secret

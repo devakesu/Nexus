@@ -165,6 +165,32 @@ def compose_inform_message(
     return "\n".join(lines)
 
 
+def compose_contact_added_message(*, user_name: str, manage_link: str) -> str:
+    """The one-time notice sent to a phone number the first time it's ever
+    synced as someone's trusted contact - they're not a Nexus user and
+    never opted into anything themselves, so this is their only notice that
+    their name/number is now held for Meetup Safety alerts, and their only
+    path to opt out of it.
+    """
+    return "\n".join([
+        f"{user_name} added you as a trusted contact on Nexus Meetup Safety.",
+        "If something feels off during a meetup, you may get a check-in "
+        "or SOS text from us on their behalf.",
+        f"Didn't expect this, or want out? {manage_link}",
+    ])
+
+
+def compose_contact_self_removed_message(*, contact_name: str) -> str:
+    """Sent to the Nexus user (not the contact) after their trusted contact
+    removes themselves via the self-service portal."""
+    return "\n".join([
+        f"⚠️ {contact_name} removed themselves as your Nexus "
+        "Meetup Safety trusted contact.",
+        "They will no longer receive check-in or SOS alerts on your "
+        "behalf. Add a replacement contact in Safety Center if you'd like.",
+    ])
+
+
 def compose_unreachable_message(
     *,
     name: str,

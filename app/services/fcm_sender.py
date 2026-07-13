@@ -274,6 +274,38 @@ _SAFETY_REMINDER_NOUN_BY_TAB = {
 }
 
 
+async def send_trusted_contact_removed_notification(
+    user_id: str,
+    contact_name: str,
+) -> None:
+    """Fire-and-forget: alongside email and SMS, pushes an immediate
+    in-app-visible notice that a trusted contact removed themselves - see
+    app/api/safety_portal.py's remove_trusted_contact endpoint.
+    """
+    if not _is_firebase_initialized():
+        return
+    try:
+        tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
+        if not tokens:
+            return
+        await asyncio.to_thread(
+            _send_to_tokens,
+            tokens,
+            "A trusted contact removed themselves",
+            f"{contact_name} is no longer one of your Meetup Safety "
+            "trusted contacts.",
+            {
+                "type": "safety_contact_removed",
+            },
+            "safety_contact_removed",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send trusted contact removed notification",
+            extra={"user_id": user_id},
+        )
+
+
 async def send_meetup_safety_reminder_notification(
     user_id: str,
     peer_id: str,
