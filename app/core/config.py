@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     rate_limit_spotify_resync: str = "3/hour"
     rate_limit_account_deletion_otp: str = "5/hour"
     rate_limit_account_deletion: str = "5/hour"
+    rate_limit_data_export_otp: str = "5/hour"
+    rate_limit_data_export: str = "3/day"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
 
     # -- Account deletion lifecycle --
@@ -69,6 +71,16 @@ class Settings(BaseSettings):
     # -- Legal --
     current_terms_version: str = "1"
 
+    # -- Grievance Officer / DPO contact (DPDP Act 2023 §13) --
+    # Published via GET /api/v1/legal/contact (app/api/legal.py), the first
+    # genuinely public/unauthenticated endpoint in this backend besides
+    # /health - so a prospective user or the privacy policy page can reach
+    # it without being signed in. Display UI is a later, separate step.
+    grievance_officer_name: str | None = None
+    grievance_officer_email: str | None = None
+    grievance_officer_phone: str | None = None
+    grievance_officer_website: str | None = None
+
     # -- Email Providers --
     brevo_api_key: str | None = None
     sendpulse_client_id: str | None = None
@@ -90,6 +102,14 @@ class Settings(BaseSettings):
     # -- Support / feedback routing --
     # Falls back to admin@{app_domain} when unset (see app/core/email.py).
     feedback_notify_email: str | None = None
+
+    # -- Sentry (error monitoring) --
+    # Purely optional, no import-time failure if unset (unlike
+    # enforce_app_check's hard-fail-if-misconfigured style) - see
+    # app/main.py's gated sentry_sdk.init() call.
+    sentry_dsn: str | None = None
+    sentry_environment: str | None = None
+    sentry_traces_sample_rate: float = 0.0
 
     # -- Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True) --
     dev_allowed_email: str | None = None

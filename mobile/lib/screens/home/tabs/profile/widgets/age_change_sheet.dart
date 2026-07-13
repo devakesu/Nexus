@@ -4,8 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/neon_slider.dart';
 import 'package:nexus/theme/app_colors.dart';
+
+// Main nexus allows 18-80; every other variant (MEC, campus-gated) stays
+// 18-27 - matches NexusOnboardingRequest/MECOnboardingRequest server-side
+// (app/models.py) and the DB's per-variant trigger
+// (20260803000000_widen_profile_age_range.sql).
+int get _maxAge => AppConfig.current.isMainVariant ? 80 : 27;
 
 enum _AgeSheetStep { intro, confirm }
 
@@ -197,8 +204,8 @@ List<Widget> _buildIntroContent({
     NeonSlider(
       value: pendingAge.toDouble(),
       min: 18,
-      max: 27,
-      divisions: 9,
+      max: _maxAge.toDouble(),
+      divisions: _maxAge - 18,
       label: 'Age',
       onChanged: (val) => onAgeChanged(val.round()),
     ),

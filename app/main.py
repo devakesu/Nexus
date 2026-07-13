@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager, suppress
 from typing import Any, cast
 
 import firebase_admin
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,7 +16,9 @@ from app.api.chat import router as chat_router
 from app.api.chat_keys import router as chat_keys_router
 from app.api.devices import router as devices_router
 from app.api.discovery import router as discovery_router
+from app.api.export import router as export_router
 from app.api.feedback import router as feedback_router
+from app.api.legal import router as legal_router
 from app.api.likes import router as likes_router
 from app.api.safety import router as safety_router
 from app.api.safety_portal import router as safety_portal_router
@@ -26,12 +29,27 @@ from app.api.user import router as user_router
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.sentry_utils import scrub_event
 from app.services.reminder_scheduler import (
     start_reminder_scheduler,
     stop_reminder_scheduler,
 )
 
 logger = logging.getLogger(__name__)
+
+# Optional - a no-op if unset, unlike enforce_app_check's hard-fail style
+# below. Until this runs, the capture_exception/capture_message calls
+# already present in app/core/tasks.py, app/core/email.py, and
+# app/db/chat_keys.py are silent no-ops (the SDK is a no-op until init()
+# binds a client) - this is what turns them on.
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        send_default_pii=False,
+        before_send=scrub_event,
+    )
 
 if settings.enforce_app_check:
     if not settings.firebase_service_account_path:
@@ -138,7 +156,9 @@ app.include_router(chat_router)
 app.include_router(chat_keys_router)
 app.include_router(devices_router)
 app.include_router(discovery_router)
+app.include_router(export_router)
 app.include_router(feedback_router)
+app.include_router(legal_router)
 app.include_router(likes_router)
 app.include_router(safety_router)
 app.include_router(safety_portal_router)

@@ -13,12 +13,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Only shown in the main nexus variant onboarding screen.
 class ImportCodeDialog extends StatefulWidget {
   const ImportCodeDialog({
-    required this.termsVersion,
     required this.onImportSuccess,
     super.key,
   });
 
-  final String termsVersion;
   final VoidCallback onImportSuccess;
 
   @override

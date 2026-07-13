@@ -9,25 +9,32 @@ import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 
-/// Confirms it's really the account owner requesting deletion, via the
-/// email OTP already sent by DeleteAccountPage's "otp/request" call.
-/// Rides Supabase's native email OTP (AppConfig.otpLength digits) - the
-/// same system login_screen.dart's email flow uses - not the 6-digit
-/// SMS-based account_phone_otp system used elsewhere in Settings.
-class DeleteAccountOtpDialog extends StatefulWidget {
-  const DeleteAccountOtpDialog({
+/// Confirms it's really the account owner via an emailed OTP, before a
+/// sensitive action (account deletion, data export) proceeds. Reused across
+/// those two flows rather than duplicated - only the verify endpoint and
+/// copy differ. Rides Supabase's native email OTP (AppConfig.otpLength
+/// digits) - the same system login_screen.dart's email flow uses - not the
+/// 6-digit SMS-based account_phone_otp system used elsewhere in Settings.
+class EmailOtpReauthDialog extends StatefulWidget {
+  const EmailOtpReauthDialog({
+    required this.verifyUrl,
     required this.onVerificationSuccess,
+    this.title = "Confirm It's You",
+    this.infoText =
+        'This confirms the request came from you, not just from this device.',
     super.key,
   });
 
+  final String verifyUrl;
   final FutureOr<void> Function() onVerificationSuccess;
+  final String title;
+  final String infoText;
 
   @override
-  State<DeleteAccountOtpDialog> createState() =>
-      _DeleteAccountOtpDialogState();
+  State<EmailOtpReauthDialog> createState() => _EmailOtpReauthDialogState();
 }
 
-class _DeleteAccountOtpDialogState extends State<DeleteAccountOtpDialog> {
+class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
   final _otpController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
@@ -73,7 +80,7 @@ class _DeleteAccountOtpDialogState extends State<DeleteAccountOtpDialog> {
 
     try {
       await createDio().post<Map<String, dynamic>>(
-        '${AppConfig.current.backendUrl}/api/v1/account/deletion/otp/verify',
+        widget.verifyUrl,
         data: {'code': _otpController.text.trim()},
         options: Options(
           headers: {'X-App-Variant': AppConfig.current.variantString},
@@ -99,7 +106,7 @@ class _DeleteAccountOtpDialogState extends State<DeleteAccountOtpDialog> {
         ErrorHandler.handleError(
           e,
           stackTrace: stackTrace,
-          customMessage: 'Account deletion OTP verification failed.',
+          customMessage: 'OTP verification failed.',
           showUi: false,
         );
       }
@@ -140,7 +147,7 @@ class _DeleteAccountOtpDialogState extends State<DeleteAccountOtpDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Confirm It's You",
+                        widget.title,
                         style: GoogleFonts.manrope(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
@@ -188,8 +195,7 @@ class _DeleteAccountOtpDialogState extends State<DeleteAccountOtpDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This confirms the deletion request came from you, '
-                      'not just from this device.',
+                      widget.infoText,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: AppColors.inkMuted,

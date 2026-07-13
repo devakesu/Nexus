@@ -7,11 +7,14 @@ import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
 import 'package:nexus/screens/reactivate_account_page.dart';
 import 'package:nexus/screens/splash_screen.dart';
+import 'package:nexus/screens/terms_consent_screen.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
+import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/discovery_hub_cache.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/safety_consent_cache.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,17 +28,12 @@ class AuthGate extends StatefulWidget {
   State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
   bool _showSplash = true;
   bool _isBootstrapping = false;
   String? _lastBootstrappedUserId;
   bool _hasProfile = false;
-
-  /// Null until the server tells us which terms version this account is
-  /// bound to. Deliberately has no fallback default - onboarding must not
-  /// proceed against a guessed version if bootstrap never returned one.
-  String? _termsVersion;
 
   /// Verified-mobile state from the bootstrap response (public.users.mobile/
   /// mobile_verified_at), threaded into OnboardingScreen so it never reads
@@ -51,12 +49,31 @@ class _AuthGateState extends State<AuthGate> {
   bool _deletionPending = false;
   DateTime? _scheduledPurgeAt;
 
+  /// Itemized consent state - see 20260802000000_terms_consent_expansion.sql
+  /// and TermsConsentPage. current_terms_version is always populated by the
+  /// backend (unlike the old accepted_terms_version, which is null for a
+  /// brand-new user) - that's what makes it possible to gate on this at all
+  /// without the previous dead-end fail-safe screen.
+  String _currentTermsVersion = '1';
+  bool _mandatoryConsentRequired = false;
+  bool _hasEverAcceptedGeneralTerms = false;
+  bool _safetyDataPreviouslyAccepted = false;
+
+  /// True once this session has ever rendered MyHomePage. Once true, a
+  /// later mandatory-consent-required detection (via the app-resumed
+  /// lifecycle hook) is shown as a modal dialog over the current screen
+  /// instead of a jarring full-page swap - see _handleResumed. Before this
+  /// is true (cold start / just-finished-onboarding), build() shows the
+  /// full-page TermsConsentPage branch instead.
+  bool _hasReachedHome = false;
+
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Start initial authentication check in parallel with splash animation
     unawaited(_performInitialAuthCheck());
@@ -72,6 +89,8 @@ class _AuthGateState extends State<AuthGate> {
           // the same device.
           unawaited(SecureProfileCache.clear());
           unawaited(DiscoveryHubCache.clearAll());
+          SafetyConsentCache.clear();
+          _hasReachedHome = false;
         }
         if (mounted) {
           setState(() {});
@@ -128,10 +147,57 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_authSubscription != null) {
       unawaited(_authSubscription!.cancel());
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_handleResumed());
+    }
+  }
+
+  /// Re-bootstraps on every foreground resume, not just cold start/sign-in -
+  /// the only real trigger point for catching a server-side terms-version
+  /// bump while the app is already open (Supabase's own tokenRefreshed
+  /// events for an already-bootstrapped session are a no-op in
+  /// _checkBootstrap's short-circuit guard, so without this hook a version
+  /// bump would only ever be noticed on the next full app relaunch). If the
+  /// user was already settled on the home screen, show the result as a
+  /// modal dialog instead of swapping the whole screen away.
+  Future<void> _handleResumed() async {
+    final wasSettled =
+        _hasReachedHome && _hasProfile && !_deletionPending && !_mandatoryConsentRequired;
+    _lastBootstrappedUserId = null;
+    await _checkBootstrap();
+    if (!mounted || !wasSettled) return;
+    if (_mandatoryConsentRequired && _hasProfile && !_deletionPending) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: AppColors.canvas,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 640),
+            child: TermsConsentPage(
+              currentTermsVersion: _currentTermsVersion,
+              isVersionBump: true,
+              initialSafetyDataAccepted: _safetyDataPreviouslyAccepted,
+              onConsentRecorded: () async {
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                await _handleConsentRecorded();
+              },
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _checkBootstrap() async {
@@ -236,10 +302,6 @@ class _AuthGateState extends State<AuthGate> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
-        final acceptedTerms = data?['accepted_terms_version'] as String?;
-        if (acceptedTerms != null) {
-          _termsVersion = acceptedTerms;
-        }
         _verifiedMobile = data?['mobile'] as String?;
         final mobileVerifiedAtRaw = data?['mobile_verified_at'] as String?;
         _mobileVerifiedAt = mobileVerifiedAtRaw != null
@@ -250,10 +312,24 @@ class _AuthGateState extends State<AuthGate> {
         _scheduledPurgeAt = scheduledPurgeAtRaw != null
             ? DateTime.tryParse(scheduledPurgeAtRaw)
             : null;
+        _currentTermsVersion = data?['current_terms_version'] as String? ?? '1';
+        _mandatoryConsentRequired =
+            data?['mandatory_consent_required'] as bool? ?? false;
+        _hasEverAcceptedGeneralTerms = data?['accepted_terms_version'] != null;
+        _safetyDataPreviouslyAccepted =
+            data?['safety_data_consent_version'] != null;
+        SafetyConsentCache.isGranted =
+            data?['safety_data_consent_granted'] as bool? ?? false;
+        SafetyConsentCache.currentTermsVersion = _currentTermsVersion;
+
+        final hasProfile = profileResponse != null;
+        if (hasProfile && !_deletionPending && !_mandatoryConsentRequired) {
+          _hasReachedHome = true;
+        }
 
         if (mounted) {
           setState(() {
-            _hasProfile = profileResponse != null;
+            _hasProfile = hasProfile;
             _lastBootstrappedUserId = activeSession.user.id;
             _isBootstrapping = false;
           });
@@ -318,6 +394,15 @@ class _AuthGateState extends State<AuthGate> {
     await _checkBootstrap();
   }
 
+  /// Called by TermsConsentPage once /api/v1/auth/accept-terms has
+  /// succeeded - same reset-and-refetch trick as _handleReactivated, so
+  /// mandatory_consent_required flips to false and build() falls through
+  /// past the consent branch.
+  Future<void> _handleConsentRecorded() async {
+    _lastBootstrappedUserId = null;
+    await _checkBootstrap();
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget currentWidget;
@@ -364,17 +449,15 @@ class _AuthGateState extends State<AuthGate> {
     } else {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null && _lastBootstrappedUserId == session.user.id) {
-        final termsVersion = _termsVersion;
         if (_deletionPending) {
           currentWidget = ReactivateAccountPage(
             key: const ValueKey('reactivate-account'),
             scheduledPurgeAt: _scheduledPurgeAt,
             onReactivated: _handleReactivated,
           );
-        } else if (!_hasProfile && termsVersion != null) {
+        } else if (!_hasProfile) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
-            termsVersion: termsVersion,
             verifiedMobile: _verifiedMobile,
             mobileVerifiedAt: _mobileVerifiedAt,
             onComplete: () {
@@ -383,14 +466,21 @@ class _AuthGateState extends State<AuthGate> {
               });
             },
           );
-        } else if (!_hasProfile) {
-          // Bootstrap succeeded but didn't return a terms version - fail
-          // safe rather than onboard the user against a guessed version.
-          currentWidget = const Scaffold(
-            key: ValueKey('terms-version-missing'),
-            backgroundColor: Color(0xFF0B0D13),
-            body: Center(
-              child: CircularProgressIndicator(color: Colors.white),
+        } else if (_mandatoryConsentRequired && !_hasReachedHome) {
+          // Only shown full-page before this session has ever reached home
+          // (first-time-post-onboarding, or a version bump caught at cold
+          // start/sign-in) - a version bump caught later, while already on
+          // the home screen, is shown as a modal instead (_handleResumed).
+          currentWidget = Scaffold(
+            key: const ValueKey('terms-consent'),
+            backgroundColor: AppColors.canvas,
+            body: SafeArea(
+              child: TermsConsentPage(
+                currentTermsVersion: _currentTermsVersion,
+                isVersionBump: _hasEverAcceptedGeneralTerms,
+                initialSafetyDataAccepted: _safetyDataPreviouslyAccepted,
+                onConsentRecorded: _handleConsentRecorded,
+              ),
             ),
           );
         } else {

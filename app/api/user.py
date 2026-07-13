@@ -50,20 +50,22 @@ from app.db.users import (
     get_user_email_by_id,
     is_allowed_email,
     set_verified_mobile,
+    update_safety_data_consent,
+    update_special_category_consent,
     update_user_terms,
     upsert_profile_variant,
     upsert_public_user,
 )
 from app.models import (
     ALLOWED_HIDDEN_FIELDS,
-    AcceptTermsRequest,
-    AcceptTermsResponse,
     AccountPhoneOtpRequestRequest,
     AccountPhoneOtpRequestResponse,
     AccountPhoneOtpVerifyRequest,
     AccountPhoneOtpVerifyResponse,
     AuthBootstrapResponse,
     CompleteOnboardingResponse,
+    ConsentUpdateRequest,
+    ConsentUpdateResponse,
     EmailNotificationSettingsResponse,
     EmailNotificationSettingsUpdate,
     LoginByPhoneRequestRequest,
@@ -103,6 +105,19 @@ _NAME_CHANGE_MAX_PER_WINDOW = 2
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _is_consent_stale(stored_version: str | None, current_version: str) -> bool:
+    """True if a consent category has never been granted, or was granted
+    under an older terms version than what's currently required. Used by
+    auth_bootstrap to compute mandatory_consent_required.
+    """
+    if not stored_version:
+        return True
+    try:
+        return float(stored_version) < float(current_version)
+    except ValueError:
+        return True
 
 
 @router.post("/api/v1/auth/bootstrap", response_model=AuthBootstrapResponse)
@@ -178,6 +193,16 @@ async def auth_bootstrap(
             app_variant=app_variant,
         )
 
+    current_version = settings.current_terms_version.strip()
+    mandatory_consent_required = _is_consent_stale(
+        user_row.get("accepted_terms_version"), current_version,
+    ) or _is_consent_stale(
+        user_row.get("special_category_consent_version"), current_version,
+    )
+    safety_data_consent_granted = not _is_consent_stale(
+        user_row.get("safety_data_consent_version"), current_version,
+    )
+
     return AuthBootstrapResponse(
         user_id=str(user_row["id"]),
         email=email if email else None,
@@ -191,6 +216,13 @@ async def auth_bootstrap(
         mobile_verified_at=user_row.get("mobile_verified_at"),
         deletion_pending=bool(deletion_requested_at),
         scheduled_purge_at=user_row.get("scheduled_purge_at"),
+        current_terms_version=current_version,
+        special_category_consent_version=user_row.get("special_category_consent_version"),
+        special_category_consent_at=user_row.get("special_category_consent_at"),
+        safety_data_consent_version=user_row.get("safety_data_consent_version"),
+        safety_data_consent_at=user_row.get("safety_data_consent_at"),
+        mandatory_consent_required=mandatory_consent_required,
+        safety_data_consent_granted=safety_data_consent_granted,
     )
 
 
@@ -273,17 +305,12 @@ def complete_onboarding(
         lifestyle=user_lifestyle,
     )
 
-    stored_terms_version, stored_terms_accepted_at = update_user_terms(
-        user_id=user_id,
-        accepted_terms_version=payload.accepted_terms_version,
-    )
-
+    # Terms/consent is deliberately not collected here - onboarding creates
+    # the profile only. TermsConsentPage (a separate, dedicated step on the
+    # client) records consent via /api/v1/auth/accept-terms right after.
     return CompleteOnboardingResponse(
         user_id=user_id,
         profile_created=profile_created,
-        terms_recorded=True,
-        accepted_terms_version=stored_terms_version,
-        terms_accepted_at=stored_terms_accepted_at,
         profile=profile_row,
     )
 
@@ -491,15 +518,22 @@ async def verify_login_by_phone(
 
 @router.post(
     "/api/v1/auth/accept-terms",
-    response_model=AcceptTermsResponse,
+    response_model=ConsentUpdateResponse,
 )
 @limiter.limit(settings.rate_limit_auth)
 def accept_terms(
     request: Request,
-    payload: AcceptTermsRequest = Body(...),  # noqa: B008
+    payload: ConsentUpdateRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
+    """Records the itemized consents shown on TermsConsentPage. general and
+    special_category are mandatory - a decline is still logged (via the
+    granted=False path in each writer) before this 400s, so decline events
+    stay auditable in terms_consent_log even though the request fails.
+    safety_data is optional; omitting it (None) leaves that category
+    unchanged rather than declining it.
+    """
     _ = request
 
     user_id = str(auth_user.get("id") or "").strip()
@@ -521,16 +555,42 @@ def accept_terms(
 
     assert_account_active(user_row)
 
-    stored_terms_version, stored_terms_accepted_at = update_user_terms(
+    general_result = update_user_terms(
         user_id=user_id,
-        accepted_terms_version=payload.accepted_terms_version,
+        accepted_terms_version=payload.terms_version,
+        granted=payload.general_accepted,
+    )
+    special_result = update_special_category_consent(
+        user_id=user_id,
+        terms_version=payload.terms_version,
+        granted=payload.special_category_accepted,
     )
 
-    return AcceptTermsResponse(
+    if not payload.general_accepted or not payload.special_category_accepted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "General and special-category consent are both required to "
+                "use Nexus. Your decline has been recorded."
+            ),
+        )
+
+    safety_result = None
+    if payload.safety_data_accepted is not None:
+        safety_result = update_safety_data_consent(
+            user_id=user_id,
+            terms_version=payload.terms_version,
+            granted=payload.safety_data_accepted,
+        )
+
+    return ConsentUpdateResponse(
         user_id=user_id,
-        accepted_terms_version=stored_terms_version,
-        terms_accepted_at=stored_terms_accepted_at,
-        terms_recorded=True,
+        accepted_terms_version=general_result[0] if general_result else None,
+        terms_accepted_at=general_result[1] if general_result else None,
+        special_category_consent_version=special_result[0] if special_result else None,
+        special_category_consent_at=special_result[1] if special_result else None,
+        safety_data_consent_version=safety_result[0] if safety_result else None,
+        safety_data_consent_at=safety_result[1] if safety_result else None,
     )
 
 
@@ -1061,6 +1121,27 @@ def update_profile_details(  # noqa: C901
         if payload.age is not None:
             current_age = cast("int | None", identity_data.get("age"))
             if payload.age != current_age:
+                # Variant-aware range check: ProfileDetailsUpdate.age allows
+                # the union bound (18-80) since Pydantic has no per-request
+                # variant context, so the real per-variant bound (18-80 for
+                # nexus, 18-27 for everything else, matching
+                # NexusOnboardingRequest/MECOnboardingRequest) is enforced
+                # here against the account's real app_variant - never a
+                # client-supplied one. A DB trigger backs this up (see
+                # 20260803000000_widen_profile_age_range.sql), but this is
+                # the primary check, so a bad value gets a clean 400 instead
+                # of falling through to the RPC's generic 500 path.
+                caller_row = fetch_public_user(user_id)
+                caller_variant = (caller_row or {}).get("app_variant") or "nexus"
+                max_age = 80 if caller_variant == "nexus" else 27
+                if payload.age > max_age:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Age must be between 18 and {max_age} for "
+                            "your account type."
+                        ),
+                    )
                 new_age = payload.age
                 _, age_eligible, age_next_eligible = _rolling_change_window_status(
                     "profile_age_change_log",

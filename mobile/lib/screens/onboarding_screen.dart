@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:go_router/go_router.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/onboarding/import_code_dialog.dart';
 import 'package:nexus/screens/onboarding/mec_onboarding_fields.dart';
@@ -16,14 +15,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
-    required this.termsVersion,
     required this.onComplete,
     this.verifiedMobile,
     this.mobileVerifiedAt,
     super.key,
   });
 
-  final String termsVersion;
   final VoidCallback onComplete;
 
   /// From the bootstrap response (public.users.mobile/mobile_verified_at) -
@@ -49,9 +46,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ── Nexus-specific variant state ───────────────────────────────────────────
   String _lifestyle = 'Chill';
-
-  // ── Terms state ────────────────────────────────────────────────────────────
-  bool _acceptedTerms = false;
 
   @override
   void initState() {
@@ -202,7 +196,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'campus_year': _mecYear,
           'campus_name': 'Model Engineering College',
           'age': _selectedAge,
-          'accepted_terms_version': widget.termsVersion,
         };
       } else {
         // Nexus main payload: name + age + lifestyle
@@ -211,7 +204,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'name': _nameController.text.trim(),
           'age': _selectedAge,
           'lifestyle': _lifestyle,
-          'accepted_terms_version': widget.termsVersion,
         };
       }
 
@@ -257,7 +249,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         context: context,
         barrierDismissible: false,
         builder: (_) => ImportCodeDialog(
-          termsVersion: widget.termsVersion,
           onImportSuccess: widget.onComplete,
         ),
       ),
@@ -269,84 +260,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final hasPhone =
         _hasVerifiedMobile || _phoneController.text.trim().isNotEmpty;
     if (isMec) {
-      return _acceptedTerms && hasPhone;
+      return hasPhone;
     } else {
-      return _nameController.text.trim().isNotEmpty &&
-          _acceptedTerms &&
-          hasPhone;
+      return _nameController.text.trim().isNotEmpty && hasPhone;
     }
-  }
-
-  Widget _buildTermsCheckbox() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF090D0F),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _acceptedTerms ? _accent : const Color(0x1AFFFFFF),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Left column: checkbox only
-          Theme(
-            data: ThemeData(
-              unselectedWidgetColor: const Color(0x66FFFFFF),
-            ),
-            child: Checkbox(
-              value: _acceptedTerms,
-              activeColor: _accent,
-              checkColor: Colors.white,
-              onChanged: (val) {
-                setState(() {
-                  _acceptedTerms = val ?? false;
-                });
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Right column: terms acceptance text
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                unawaited(context.push<void>('/legal/terms'));
-              },
-              child: RichText(
-                text: const TextSpan(
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0x99FFFFFF),
-                    height: 1.4,
-                  ),
-                  children: [
-                    TextSpan(text: 'I agree to the '),
-                    TextSpan(
-                      text: 'Terms of Service',
-                      style: TextStyle(
-                        color: _accent,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    TextSpan(text: ' and '),
-                    TextSpan(
-                      text: 'Privacy Policy',
-                      style: TextStyle(
-                        color: _accent,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    TextSpan(text: '.'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // ── Build helpers ─────────────────────────────────────────────────────────
@@ -380,7 +297,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         .slideY(begin: 0.08, end: 0, duration: 420.ms);
   }
 
+  // Main nexus allows 18-80; every other variant (MEC, campus-gated) stays
+  // 18-27 - matches NexusOnboardingRequest/MECOnboardingRequest server-side
+  // (app/models.py) and the DB's per-variant trigger
+  // (20260803000000_widen_profile_age_range.sql). Derived from the
+  // compile-time flavor, not a server round-trip, since the flavor already
+  // determines which onboarding payload shape this screen builds.
+  int get _maxAge => _config.isMainVariant ? 80 : 27;
+
   Widget _buildAgeSlider() {
+    final maxAge = _maxAge;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -411,8 +337,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Slider(
             value: _selectedAge.toDouble(),
             min: 18,
-            max: 27,
-            divisions: 9,
+            max: maxAge.toDouble(),
+            divisions: maxAge - 18,
             label: '$_selectedAge',
             onChanged: (v) => setState(() => _selectedAge = v.round()),
           ),
@@ -756,10 +682,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                   // ── Variant-specific form card ────────────────---------
                   if (isMec) _buildMECCard() else _buildNexusCard(),
-                  const SizedBox(height: 20),
-
-                  // ── Terms Acceptance Checkbox ──────────────────────────
-                  _buildTermsCheckbox(),
                   const SizedBox(height: 24),
 
                   // ── Submit button ──────────────────────────────────────

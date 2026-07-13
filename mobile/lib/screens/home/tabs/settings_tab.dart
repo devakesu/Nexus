@@ -10,6 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/screens/home/widgets/tab_background.dart';
+import 'package:nexus/screens/settings/data_export_flow.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -1304,6 +1305,14 @@ class _AccountActionsSection extends StatelessWidget {
                     labelColor: const Color(0xFF0F172A),
                     showDivider: true,
                     onTap: () => _confirmSignOut(context),
+                  ),
+                  _ActionRow(
+                    icon: LucideIcons.download,
+                    label: 'Export My Data',
+                    iconColor: const Color(0xFF64748B),
+                    labelColor: const Color(0xFF0F172A),
+                    showDivider: true,
+                    onTap: () => unawaited(startDataExport(context)),
                   ),
                   _ActionRow(
                     icon: LucideIcons.trash2,

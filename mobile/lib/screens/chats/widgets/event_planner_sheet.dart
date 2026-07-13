@@ -10,7 +10,9 @@ import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/safety_consent_cache.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/safety_consent_prompt.dart';
 
 const Color _safetyBlue = AppColors.safetyBlue;
 const Color _safetyTeal = AppColors.safetyTeal;
@@ -99,6 +101,25 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
     if (!value) {
       setState(() => _safetyEnabled = false);
       return;
+    }
+    if (!SafetyConsentCache.isGranted) {
+      final granted = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+          ),
+          child: SafetyConsentPromptCard(
+            onGranted: () => Navigator.of(sheetContext).pop(true),
+          ),
+        ),
+      );
+      if (granted != true || !mounted) return;
     }
     var contacts = await loadSafetyContacts();
     if (contacts.isEmpty) {

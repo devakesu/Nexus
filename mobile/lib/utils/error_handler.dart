@@ -54,10 +54,19 @@ class ErrorHandler {
       r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
       caseSensitive: false,
     );
-    return sanitized.replaceAllMapped(fieldRegex, (match) {
+    sanitized = sanitized.replaceAllMapped(fieldRegex, (match) {
       final field = match.group(1);
       return '$field: "[REDACTED_SENSITIVE]"';
     });
+
+    // 4. Sanitize phone numbers, e.g. +91 98765 43210, (555) 123-4567
+    final phoneRegex = RegExp(
+      r'\+?\d{1,3}?[-.\s]?\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b',
+    );
+    return sanitized.replaceAllMapped(
+      phoneRegex,
+      (match) => '[PHONE_REDACTED]',
+    );
   }
 
   /// Public API to get a sanitized, user-friendly message for any error.

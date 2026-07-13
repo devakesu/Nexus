@@ -4,7 +4,11 @@ import logging
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import (
+    get_authenticated_user_id,
+    require_safety_consent,
+    verify_app_check_token,
+)
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.sms import (
@@ -49,7 +53,7 @@ async def put_safety_contacts(
     request: Request,
     payload: SafetyContactsSyncRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> dict[str, int]:
     _ = request
     try:
@@ -76,7 +80,7 @@ async def send_safety_alert(
     request: Request,
     payload: SafetyAlertRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> SafetyAlertResponse:
     """Composes and sends the SOS/inform SMS to every trusted contact on
     file, then logs the alert (and how many contacts were actually reached)
@@ -174,7 +178,7 @@ async def register_evidence(
     request: Request,
     payload: SafetyEvidenceRegisterRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> SafetyEvidenceRegisterResponse:
     """Registers a Digital Witness (Silent SOS) evidence segment already
     uploaded (as ciphertext) to the safety_evidence storage bucket. The
@@ -244,7 +248,7 @@ async def start_session(
     request: Request,
     payload: SafetySessionStartRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> SafetySessionStartResponse:
     """Mirrors a freshly-started check-in loop server-side so the dead-man's
     -switch scheduler has something to poll. The event label (if any) is

@@ -129,6 +129,8 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at, "
+                "special_category_consent_version, special_category_consent_at, "
+                "safety_data_consent_version, safety_data_consent_at, "
                 "mobile, mobile_verified_at, "
                 "deletion_requested_at, scheduled_purge_at",
             )
@@ -272,6 +274,8 @@ def upsert_public_user(
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at, "
+                "special_category_consent_version, special_category_consent_at, "
+                "safety_data_consent_version, safety_data_consent_at, "
                 "mobile, mobile_verified_at, "
                 "deletion_requested_at, scheduled_purge_at, xmax",
             )
@@ -756,23 +760,27 @@ def _validate_terms_versions(version: str) -> None:
         )
 
 
-def _fetch_existing_terms(user_id: str) -> dict[str, Any]:
+def _fetch_existing_consent_pair(
+    user_id: str,
+    version_column: str,
+    timestamp_column: str,
+) -> dict[str, Any]:
     try:
         existing_result = (
             supabase_client.table("users")
-            .select("accepted_terms_version, terms_accepted_at")
+            .select(f"{version_column}, {timestamp_column}")
             .eq("id", user_id)
             .maybe_single()
             .execute()
         )
     except APIError as e:
         logger.exception(
-            "Failed to fetch current user terms state",
-            extra={"user_id": user_id},
+            "Failed to fetch current consent state",
+            extra={"user_id": user_id, "column": version_column},
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to verify current terms acceptance state.",
+            detail="Failed to verify current consent state.",
         ) from e
 
     if existing_result is None or existing_result.data is None:
@@ -790,13 +798,18 @@ def _fetch_existing_terms(user_id: str) -> dict[str, Any]:
     return cast(dict[str, Any], existing_result.data)
 
 
-def update_user_terms(
+def _update_consent_pair(
     user_id: str,
-    accepted_terms_version: str,
+    version_column: str,
+    timestamp_column: str,
+    cleaned_version: str,
 ) -> tuple[str, datetime]:
-    cleaned_version = accepted_terms_version.strip()
-    _validate_terms_versions(cleaned_version)
-
+    """Shared non-downgrade version-write for a `{category}_consent_version`/
+    `{category}_consent_at`-shaped column pair - used by update_user_terms
+    (the general category, columns accepted_terms_version/terms_accepted_at)
+    and the special_category/safety_data consent writers below. Only ever
+    moves a category's recorded version forward, never backward or sideways.
+    """
     # Cast to float to prevent any potential SQL/PostgREST injection
     version_val = float(cleaned_version)
 
@@ -807,29 +820,28 @@ def update_user_terms(
             supabase_client.table("users")
             .update(
                 {
-                    "accepted_terms_version": cleaned_version,
-                    "terms_accepted_at": accepted_at.isoformat(),
+                    version_column: cleaned_version,
+                    timestamp_column: accepted_at.isoformat(),
                     "updated_at": accepted_at.isoformat(),
                 },
             )
             .eq("id", user_id)
             # NOTE: version_val is cast to float above to prevent injection.
-            # Using an f-string in the PostgREST .or_() filter is safe here,
-            # but future changes must ensure any interpolated variables are
-            # strictly typed.
+            # column names come only from this module's own hardcoded call
+            # sites below, never from request input.
             .or_(
-                f"accepted_terms_version.is.null,accepted_terms_version::numeric.lt.{version_val}",
+                f"{version_column}.is.null,{version_column}::numeric.lt.{version_val}",
             )
             .execute()
         )
     except APIError as e:
         logger.exception(
-            "Failed to update user terms",
-            extra={"user_id": user_id, "accepted_terms_version": cleaned_version},
+            "Failed to update consent column pair",
+            extra={"user_id": user_id, "column": version_column},
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to record terms acceptance.",
+            detail="Failed to record consent.",
         ) from e
 
     data = result.data
@@ -841,25 +853,141 @@ def update_user_terms(
                 detail="Unexpected user row payload.",
             )
         row_dict = cast(dict[str, Any], row)
-        stored_version = str(row_dict.get("accepted_terms_version") or cleaned_version)
+        stored_version = str(row_dict.get(version_column) or cleaned_version)
         stored_ts = _parse_terms_timestamp(
-            row_dict.get("terms_accepted_at") or accepted_at.isoformat(),
+            row_dict.get(timestamp_column) or accepted_at.isoformat(),
         )
         return stored_version, stored_ts
 
-    # Either the user doesn't exist, or they already accepted this (or higher) version,
-    # or it was a downgrade. Let's fetch to see the state.
-    existing = _fetch_existing_terms(user_id)
-    existing_version = existing.get("accepted_terms_version")
+    # Either the user doesn't exist, or they already accepted this (or a
+    # higher) version, or it was a downgrade. Fetch to see the state.
+    existing = _fetch_existing_consent_pair(user_id, version_column, timestamp_column)
+    existing_version = existing.get(version_column)
     if existing_version is not None:
         if float(cleaned_version) < float(existing_version):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="accepted_terms_version cannot be downgraded.",
+                detail=f"{version_column} cannot be downgraded.",
             )
-        existing_ts = _parse_terms_timestamp(existing.get("terms_accepted_at"))
+        existing_ts = _parse_terms_timestamp(existing.get(timestamp_column))
         return str(existing_version), existing_ts
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Failed to record terms acceptance.",
+        detail="Failed to record consent.",
     )
+
+
+def _clear_consent_pair(
+    user_id: str,
+    version_column: str,
+    timestamp_column: str,
+) -> None:
+    """Unconditionally nulls a consent column pair - used when a category is
+    declined/revoked. Unlike _update_consent_pair this isn't version-gated:
+    declining always takes effect regardless of what was previously stored.
+    """
+    try:
+        supabase_client.table("users").update(
+            {version_column: None, timestamp_column: None},
+        ).eq("id", user_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to clear consent column pair",
+            extra={"user_id": user_id, "column": version_column},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to record consent.",
+        ) from e
+
+
+def _log_consent_event(
+    user_id: str,
+    category: str,
+    granted: bool,
+    terms_version: str,
+) -> None:
+    """Best-effort write to the append-only audit trail
+    (20260802000000_terms_consent_expansion.sql) - logged for every accept
+    *and* decline. A logging failure must not block the consent
+    accept/decline itself from taking effect, so this only logs, never
+    raises.
+    """
+    try:
+        supabase_client.table("terms_consent_log").insert(
+            {
+                "user_id": user_id,
+                "category": category,
+                "granted": granted,
+                "terms_version": terms_version,
+            },
+        ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to write terms_consent_log row",
+            extra={"user_id": user_id, "category": category, "granted": granted},
+        )
+
+
+def update_user_terms(
+    user_id: str,
+    accepted_terms_version: str,
+    granted: bool = True,
+) -> tuple[str, datetime] | None:
+    cleaned_version = accepted_terms_version.strip()
+    _validate_terms_versions(cleaned_version)
+    if not granted:
+        _clear_consent_pair(user_id, "accepted_terms_version", "terms_accepted_at")
+        _log_consent_event(user_id, "general", False, cleaned_version)
+        return None
+    result = _update_consent_pair(
+        user_id, "accepted_terms_version", "terms_accepted_at", cleaned_version,
+    )
+    _log_consent_event(user_id, "general", True, cleaned_version)
+    return result
+
+
+def update_special_category_consent(
+    user_id: str,
+    terms_version: str,
+    granted: bool,
+) -> tuple[str, datetime] | None:
+    cleaned_version = terms_version.strip()
+    _validate_terms_versions(cleaned_version)
+    if not granted:
+        _clear_consent_pair(
+            user_id, "special_category_consent_version", "special_category_consent_at",
+        )
+        _log_consent_event(user_id, "special_category", False, cleaned_version)
+        return None
+    result = _update_consent_pair(
+        user_id,
+        "special_category_consent_version",
+        "special_category_consent_at",
+        cleaned_version,
+    )
+    _log_consent_event(user_id, "special_category", True, cleaned_version)
+    return result
+
+
+def update_safety_data_consent(
+    user_id: str,
+    terms_version: str,
+    granted: bool,
+) -> tuple[str, datetime] | None:
+    cleaned_version = terms_version.strip()
+    _validate_terms_versions(cleaned_version)
+    if not granted:
+        _clear_consent_pair(
+            user_id, "safety_data_consent_version", "safety_data_consent_at",
+        )
+        _log_consent_event(user_id, "safety_data", False, cleaned_version)
+        return None
+    result = _update_consent_pair(
+        user_id,
+        "safety_data_consent_version",
+        "safety_data_consent_at",
+        cleaned_version,
+    )
+    _log_consent_event(user_id, "safety_data", True, cleaned_version)
+    return result

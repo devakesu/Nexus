@@ -37,6 +37,31 @@ class AuthBootstrapResponse(BaseModel):
     # app/api/user.py that skips assert_account_active for this case.
     deletion_pending: bool = False
     scheduled_purge_at: datetime | None = None
+    # Itemized consent state - see 20260802000000_terms_consent_expansion.sql
+    # and app/api/user.py's consent-recording endpoint. current_terms_version
+    # is always populated (straight from settings), letting the client learn
+    # the required version *before* it has accepted anything - the previous
+    # gap that left brand-new users with no way to discover what version to
+    # accept, and existing users with no way to discover a version bump.
+    current_terms_version: str
+    special_category_consent_version: str | None = None
+    special_category_consent_at: datetime | None = None
+    safety_data_consent_version: str | None = None
+    safety_data_consent_at: datetime | None = None
+    # True once the user has a profile (i.e. isn't still mid-onboarding) and
+    # either mandatory consent (general or special_category) is missing or
+    # stale relative to current_terms_version. The client shows
+    # TermsConsentPage(isVersionBump: true) when this is true for an
+    # already-onboarded user, and TermsConsentPage(isVersionBump: false)
+    # right after onboarding completes for a first-time user.
+    mandatory_consent_required: bool = False
+    # True only when safety_data_consent_version is set AND not stale
+    # relative to current_terms_version - the exact same check
+    # assert_safety_consent runs server-side, precomputed here so the
+    # client never has to re-derive version-staleness comparison logic
+    # itself just to decide whether to show the Safety Center / event
+    # check-in toggle as locked.
+    safety_data_consent_granted: bool = False
 
 
 class ProfileModel(BaseModel):
@@ -119,17 +144,15 @@ class BaseOnboardingRequest(BaseModel):
     """
     Minimal common fields shared by all onboarding variants.
 
-    Only `age` and `accepted_terms_version` are universal.
-    All other fields (name, branch, year) are variant-specific.
+    Only `age` is universal. All other fields (name, branch, year) are
+    variant-specific. Terms/consent is deliberately NOT collected here -
+    onboarding creates the profile only; consent is a separate step (see
+    TermsConsentPage / the consent-recording endpoint in app/api/user.py),
+    so a bad/rejected consent choice never has to be untangled from profile
+    creation.
     """
 
     age: int = Field(..., ge=18, le=27)
-    accepted_terms_version: str
-
-    @field_validator("accepted_terms_version")
-    @classmethod
-    def validate_terms_version(cls, value: str) -> str:
-        return _validate_terms_version(value)
 
 
 class NexusOnboardingRequest(BaseOnboardingRequest):
@@ -197,9 +220,6 @@ OnboardingPayload = Annotated[
 class CompleteOnboardingResponse(BaseModel):
     user_id: str
     profile_created: bool
-    terms_recorded: bool
-    accepted_terms_version: str
-    terms_accepted_at: datetime
     profile: dict[str, object] = Field(exclude=True)
 
 
@@ -1104,20 +1124,48 @@ class DiscoveryViewportResponse(BaseModel):
     nodes: list[OrbitNodeOut]
 
 
-class AcceptTermsRequest(BaseModel):
-    accepted_terms_version: str
+class GrievanceContactResponse(BaseModel):
+    """Public (unauthenticated) Grievance Officer / DPO contact, per DPDP
+    Act 2023 §13. Fields are null if unset - see app/api/legal.py.
+    """
 
-    @field_validator("accepted_terms_version")
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    website: str | None = None
+
+
+class ConsentUpdateRequest(BaseModel):
+    """Records one or more of the three itemized consents (see
+    20260802000000_terms_consent_expansion.sql). general_accepted and
+    special_category_accepted are mandatory - both must be true for the
+    request to succeed, but a false submission is still logged to
+    terms_consent_log (as a decline) before the 400 is raised, so decline
+    events are auditable too. safety_data_accepted is optional and
+    independently togglable; None means "leave this category unchanged"
+    rather than "decline it" - e.g. a mandatory-consent submission
+    shouldn't silently revoke a previously-granted safety consent.
+    """
+
+    terms_version: str
+    general_accepted: bool
+    special_category_accepted: bool
+    safety_data_accepted: bool | None = None
+
+    @field_validator("terms_version")
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
         return _validate_terms_version(value)
 
 
-class AcceptTermsResponse(BaseModel):
+class ConsentUpdateResponse(BaseModel):
     user_id: str
-    accepted_terms_version: str
-    terms_accepted_at: datetime
-    terms_recorded: bool
+    accepted_terms_version: str | None = None
+    terms_accepted_at: datetime | None = None
+    special_category_consent_version: str | None = None
+    special_category_consent_at: datetime | None = None
+    safety_data_consent_version: str | None = None
+    safety_data_consent_at: datetime | None = None
 
 
 class ProfileImagesAndTagsUpdate(BaseModel):
@@ -1929,6 +1977,25 @@ class AccountDeletionRequestResponse(BaseModel):
 
 class AccountDeletionCancelResponse(BaseModel):
     reactivated: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Personal data export (DPDP §11 / GDPR Art 20) - same OTP-reauth pattern as
+# account deletion, since dumping all of a user's PII is comparably
+# sensitive. See app/db/export.py.
+# ---------------------------------------------------------------------------
+
+
+class DataExportOtpRequestResponse(BaseModel):
+    sent: bool = True
+
+
+class DataExportOtpVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=4, max_length=10)
+
+
+class DataExportOtpVerifyResponse(BaseModel):
+    verified: bool = True
 
 
 # ---------------------------------------------------------------------------

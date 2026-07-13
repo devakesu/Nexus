@@ -5,7 +5,11 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import (
+    assert_safety_consent,
+    get_authenticated_user_id,
+    verify_app_check_token,
+)
 from app.core.config import DiscoveryTab, settings
 from app.core.limiter import limiter
 from app.core.tasks import safe_create_task
@@ -32,6 +36,7 @@ from app.db.client import (
 )
 from app.db.matches import fetch_matches_for_user
 from app.db.profiles import decrypt_profile_rows
+from app.db.users import fetch_public_user
 from app.models import (
     ChatCandidateItem,
     ChatCandidatesResponse,
@@ -449,6 +454,12 @@ async def create_chat_event(
             )
         if conversation.get("closed_at") is not None:
             raise HTTPException(status_code=403, detail="This conversation is closed.")
+
+        if payload.safety_enabled:
+            user_row = await asyncio.to_thread(fetch_public_user, user_id)
+            if not user_row:
+                raise HTTPException(status_code=404, detail="User not found.")
+            assert_safety_consent(user_row)
 
         result = await asyncio.to_thread(
             create_event_with_message,

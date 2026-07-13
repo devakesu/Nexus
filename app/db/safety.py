@@ -131,16 +131,18 @@ def register_safety_evidence(
     content_type: str,
     duration_seconds: float | None,
 ) -> dict[str, Any]:
-    # SECURITY NOTE: Storing media_key_base64 in safety_evidence escrows
-    # the per-file AES-GCM decryption key server-side in plaintext. This
-    # facilitates trusted contact decryption without needing the client app
-    # active, but introduces a risk where database compromises, backups,
-    # or service-role level leaks can expose the keys to decrypt the media.
+    # media_key_base64 (the per-file AES-GCM decryption key) is
+    # Fernet-encrypted at rest, same pattern already used for
+    # safety_contacts.name/phone and safety_alerts.current_location in this
+    # file - closes the plaintext-key-escrow risk previously flagged here,
+    # while keeping trusted-contact decryption working without the
+    # reporting user's device needing to be online (fetch_evidence_for_alert_ids
+    # decrypts it back server-side before the portal ever sees it).
     payload: dict[str, Any] = {
         "user_id": user_id,
         "alert_id": alert_id,
         "storage_path": storage_path,
-        "media_key_base64": media_key_base64,
+        "media_key_base64": encrypt_to_hex(media_key_base64),
         "content_type": content_type,
     }
     if duration_seconds is not None:
@@ -423,7 +425,17 @@ def fetch_evidence_for_alert_ids(alert_ids: list[str]) -> list[dict[str, Any]]:
             .order("created_at", desc=False)
             .execute()
         )
-        return cast(list[dict[str, Any]], res.data or [])
+        rows = cast(list[dict[str, Any]], res.data or [])
+        for row in rows:
+            key = row.get("media_key_base64")
+            if key:
+                # Fail-soft: rows written before this encryption was added
+                # hold real plaintext base64, which isn't a valid Fernet
+                # token - decrypt_pii raises on those, so leave the raw
+                # value as-is rather than breaking their playback.
+                with contextlib.suppress(Exception):
+                    row["media_key_base64"] = decrypt_pii(key)
+        return rows
     except APIError as e:
         logger.exception(
             "Failed to fetch evidence for safety alerts",

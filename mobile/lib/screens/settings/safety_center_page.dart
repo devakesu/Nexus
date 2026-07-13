@@ -13,6 +13,8 @@ import 'package:nexus/screens/settings/hidden_users_page.dart';
 import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/widgets/safety_consent_prompt.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -348,6 +350,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   void _openMeetupSafetyPage() {
+    if (!SafetyConsentCache.isGranted) {
+      unawaited(_promptSafetyConsentThenOpen());
+      return;
+    }
     unawaited(
       Navigator.of(context)
           .push(
@@ -356,6 +362,33 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             ),
           )
           .then((_) => _loadHasTrustedContacts()),
+    );
+  }
+
+  /// Shown instead of navigating straight to MeetupSafetyPage when safety
+  /// consent hasn't been granted - the trusted-contacts/check-in/SOS/
+  /// Digital Witness features all live behind that page, so gating the nav
+  /// tap here (rather than every individual feature inside it) is the one
+  /// enforcement point this surface needs.
+  Future<void> _promptSafetyConsentThenOpen() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+        ),
+        child: SafetyConsentPromptCard(
+          onGranted: () {
+            Navigator.of(sheetContext).pop();
+            if (mounted) _openMeetupSafetyPage();
+          },
+        ),
+      ),
     );
   }
 

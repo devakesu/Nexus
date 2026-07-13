@@ -6,7 +6,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/screens/settings/delete_account_otp_dialog.dart';
+import 'package:nexus/screens/settings/email_otp_reauth_dialog.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -67,7 +67,12 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => DeleteAccountOtpDialog(
+        builder: (_) => EmailOtpReauthDialog(
+          verifyUrl:
+              '${AppConfig.current.backendUrl}/api/v1/account/deletion/otp/verify',
+          infoText:
+              'This confirms the deletion request came from you, not just '
+              'from this device.',
           onVerificationSuccess: _submitDeletionRequest,
         ),
       );
@@ -90,7 +95,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
     }
   }
 
-  /// Called by DeleteAccountOtpDialog once it has verified the emailed code
+  /// Called by EmailOtpReauthDialog once it has verified the emailed code
   /// against the backend. Submits the actual deletion request, then tears
   /// down local state the same way sign-out does (see settings_tab.dart's
   /// _confirmSignOut) plus clears the cached_network_image disk cache -

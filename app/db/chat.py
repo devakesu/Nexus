@@ -372,7 +372,7 @@ def _decrypt_str_field(val: Any) -> str | None:
     return str(val)
 
 
-def _decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
+def decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
     if row is None:
         return None
     from app.core.crypto import DecryptFailedError
@@ -450,7 +450,7 @@ def create_event_with_message(
         rows = cast(list[Any], res.data or [])
         if not rows or not isinstance(rows[0], dict):
             raise DatabaseAccessError("Event insert returned no row")
-        decrypted_event = _decrypt_event_row(cast(dict[str, Any], rows[0]))
+        decrypted_event = decrypt_event_row(cast(dict[str, Any], rows[0]))
         return {"message": message_row, "event": decrypted_event}
     except APIError as e:
         try:
@@ -483,7 +483,7 @@ def fetch_event(event_id: str) -> dict[str, Any] | None:
         data = getattr(res, "data", None)
         if data is None:
             return None
-        return _decrypt_event_row(cast(dict[str, Any], data))
+        return decrypt_event_row(cast(dict[str, Any], data))
     except APIError as e:
         logger.exception("Failed to fetch event", extra={"event_id": event_id})
         raise DatabaseAccessError("Failed to fetch event") from e
@@ -504,7 +504,7 @@ def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
         rows = cast(list[Any], res.data or [])
         if not rows or not isinstance(rows[0], dict):
             return None
-        return _decrypt_event_row(cast(dict[str, Any], rows[0]))
+        return decrypt_event_row(cast(dict[str, Any], rows[0]))
     except APIError as e:
         logger.exception(
             "Failed to update event status", extra={"event_id": event_id},
@@ -529,7 +529,7 @@ def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
         for row in rows:
             if not isinstance(row, dict):
                 continue
-            decrypted_row = _decrypt_event_row(cast(dict[str, Any], row))
+            decrypted_row = decrypt_event_row(cast(dict[str, Any], row))
             if decrypted_row and decrypted_row.get("event_time"):
                 e_time = decrypted_row["event_time"]
                 if now <= e_time <= window_end:
@@ -577,7 +577,7 @@ def fetch_due_safety_reminders(window_minutes: int = 35) -> list[dict[str, Any]]
         for row in rows:
             if not isinstance(row, dict):
                 continue
-            decrypted_row = _decrypt_event_row(cast(dict[str, Any], row))
+            decrypted_row = decrypt_event_row(cast(dict[str, Any], row))
             if decrypted_row and decrypted_row.get("event_time"):
                 e_time = decrypted_row["event_time"]
                 if now <= e_time <= window_end:

@@ -8,10 +8,12 @@ import jwt
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
+from starlette.concurrency import run_in_threadpool
 
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.jwks import get_live_supabase_public_key
+from app.db.users import fetch_public_user
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,57 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=detail,
         )
+
+
+# ---------------------------------------------------------------------------
+# Safety-data consent guard
+# ---------------------------------------------------------------------------
+
+
+def assert_safety_consent(user_row: dict[str, Any]) -> None:
+    """Raise 412 if the account hasn't (or no longer has) given consent to
+    Meetup Safety/SOS/Digital Witness location-data processing - see
+    20260802000000_terms_consent_expansion.sql. Unlike assert_account_active
+    this is 412 (Precondition Failed), not 403, and carries a stable
+    machine-readable detail string ("safety_consent_required") so the
+    client can distinguish it from a generic auth failure and show an
+    inline consent prompt instead of an error. This is the only
+    server-side enforcement point for safety consent added so far -
+    broader per-endpoint coverage is a separate future effort, same
+    scoping as assert_account_active's own partial rollout.
+    """
+    stored_version = user_row.get("safety_data_consent_version")
+    current_version = settings.current_terms_version.strip()
+    is_stale = True
+    if stored_version:
+        try:
+            is_stale = float(str(stored_version)) < float(current_version)
+        except ValueError:
+            is_stale = True
+    if is_stale:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail="safety_consent_required",
+        )
+
+
+async def require_safety_consent(
+    user_id: str = Depends(get_authenticated_user_id),
+) -> str:
+    """Drop-in replacement for Depends(get_authenticated_user_id) on
+    endpoints that create/process Meetup Safety data (trusted contacts,
+    session start, SOS alerts, evidence registration) - fetches the user
+    row and runs assert_safety_consent before returning the same user_id,
+    so route handlers need no other change beyond swapping the dependency.
+    """
+    user_row = await run_in_threadpool(fetch_public_user, user_id)
+    if not user_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User bootstrap row not found.",
+        )
+    assert_safety_consent(user_row)
+    return user_id
 
 
 # ---------------------------------------------------------------------------
