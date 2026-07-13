@@ -253,7 +253,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How long does Nexus keep my check-in and SOS data?',
         answer:
-            "There's no automatic expiry on Safety Check-in, SOS, or Digital Witness data right now — it's kept until your account itself is deleted. Self-serve deletion is on its way; until then, reach out through Contact Support below and we'll process the deletion for you.",
+            "Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline — even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it for good.",
       ),
     ],
   ),
@@ -271,7 +271,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'Can I delete my account?',
         answer:
-            "Self-serve deletion is on its way. In the meantime, reach out through Contact Support below and we'll process the deletion for you.",
+            "Settings → Account Actions → Delete Account. You'll be signed out immediately and hidden from Orbit, but you have 14 days to change your mind — just log back in and reactivate. After that, your account is permanently erased.",
       ),
       (
         question: 'How do I manage notifications?',
@@ -326,11 +326,6 @@ const List<_RoadmapItem> _kRoadmapItems = [
     icon: LucideIcons.link,
     title: 'Linked Accounts',
     desc: 'Connect Instagram and other platforms to enrich your profile.',
-  ),
-  (
-    icon: LucideIcons.trash2,
-    title: 'Self-Serve Account Deletion',
-    desc: 'Delete your account instantly, with no need to contact support.',
   ),
   (
     icon: LucideIcons.bookOpen,

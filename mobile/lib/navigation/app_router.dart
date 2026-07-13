@@ -6,6 +6,7 @@ import 'package:nexus/screens/chats/chats_page.dart';
 import 'package:nexus/screens/legal_terms_page.dart';
 import 'package:nexus/screens/orbit_screen.dart';
 import 'package:nexus/screens/settings/blocked_users_page.dart';
+import 'package:nexus/screens/settings/delete_account_page.dart';
 import 'package:nexus/screens/settings/email_notification_settings_page.dart';
 import 'package:nexus/screens/settings/feedback_page.dart';
 import 'package:nexus/screens/settings/help_center_page.dart';
@@ -97,6 +98,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/settings/feedback',
       builder: (context, state) => const FeedbackPage(),
+    ),
+    GoRoute(
+      path: '/settings/delete-account',
+      builder: (context, state) => const DeleteAccountPage(),
     ),
     GoRoute(
       path: '/settings/email-notifications',

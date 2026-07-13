@@ -12,6 +12,11 @@ from app.core.sms import (
     make_escalation_cancel_token,
     send_sms,
 )
+from app.db.account_deletion import (
+    expire_blocklist_entries,
+    hard_purge_long_tail_accounts,
+    purge_due_accounts,
+)
 from app.db.chat import (
     fetch_conversation_participants,
     fetch_due_event_reminders,
@@ -225,6 +230,36 @@ async def _check_overdue_safety_sessions() -> None:
             await _escalate_safety_session(session)
 
 
+# Account deletion (Tier 1 grace-window purge, Tier-1 blocklist expiry, and
+# Tier-2 long-tail hard purge) - see app/db/account_deletion.py. All three
+# are naturally idempotent (purged_at/age-based filters, expiry-based
+# DELETE, and delete_user on an already-gone id is a no-op), so the
+# single-instance caveat above doesn't block correctness here even though
+# it still applies if this service is ever scaled to multiple replicas.
+_ACCOUNT_DELETION_POLL_HOURS = 24
+
+
+async def _run_account_deletion_purge() -> None:
+    try:
+        await asyncio.to_thread(purge_due_accounts)
+    except DatabaseAccessError:
+        logger.exception("Failed to run account deletion purge")
+
+
+async def _run_blocklist_expiry() -> None:
+    try:
+        await asyncio.to_thread(expire_blocklist_entries)
+    except DatabaseAccessError:
+        logger.exception("Failed to expire deleted-account blocklist entries")
+
+
+async def _run_account_deletion_long_tail_purge() -> None:
+    try:
+        await asyncio.to_thread(hard_purge_long_tail_accounts)
+    except DatabaseAccessError:
+        logger.exception("Failed to run account deletion long-tail purge")
+
+
 def start_reminder_scheduler() -> AsyncIOScheduler:
     global _scheduler
     if _scheduler is not None:
@@ -249,6 +284,24 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
         _check_overdue_safety_sessions,
         trigger=IntervalTrigger(minutes=_SAFETY_POLL_INTERVAL_MINUTES),
         id="meetup_safety_escalations",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _run_account_deletion_purge,
+        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        id="account_deletion_purge",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _run_blocklist_expiry,
+        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        id="deleted_account_blocklist_expiry",
+        max_instances=1,
+    )
+    scheduler_any.add_job(
+        _run_account_deletion_long_tail_purge,
+        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        id="account_deletion_long_tail_purge",
         max_instances=1,
     )
     scheduler.start()

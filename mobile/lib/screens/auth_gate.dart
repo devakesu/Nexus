@@ -5,6 +5,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
+import 'package:nexus/screens/reactivate_account_page.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
@@ -42,6 +43,13 @@ class _AuthGateState extends State<AuthGate> {
   /// verification is now backend-owned, see app/core/account_phone_otp.py).
   String? _verifiedMobile;
   DateTime? _mobileVerifiedAt;
+
+  /// Set from the bootstrap response when this account has a pending
+  /// self-serve deletion request - see app/db/account_deletion.py. When
+  /// true, build() renders ReactivateAccountPage instead of the normal app,
+  /// regardless of onboarding/profile state.
+  bool _deletionPending = false;
+  DateTime? _scheduledPurgeAt;
 
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
@@ -237,6 +245,11 @@ class _AuthGateState extends State<AuthGate> {
         _mobileVerifiedAt = mobileVerifiedAtRaw != null
             ? DateTime.tryParse(mobileVerifiedAtRaw)
             : null;
+        _deletionPending = data?['deletion_pending'] as bool? ?? false;
+        final scheduledPurgeAtRaw = data?['scheduled_purge_at'] as String?;
+        _scheduledPurgeAt = scheduledPurgeAtRaw != null
+            ? DateTime.tryParse(scheduledPurgeAtRaw)
+            : null;
 
         if (mounted) {
           setState(() {
@@ -295,6 +308,16 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
+  /// Called by ReactivateAccountPage once /account/deletion/cancel has
+  /// succeeded. Forces the next _checkBootstrap() call to actually re-fetch
+  /// (rather than short-circuit on the already-bootstrapped-this-user
+  /// guard) so deletion_pending flips to false and build() falls through to
+  /// the normal onboarding/home routing.
+  Future<void> _handleReactivated() async {
+    _lastBootstrappedUserId = null;
+    await _checkBootstrap();
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget currentWidget;
@@ -342,7 +365,13 @@ class _AuthGateState extends State<AuthGate> {
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null && _lastBootstrappedUserId == session.user.id) {
         final termsVersion = _termsVersion;
-        if (!_hasProfile && termsVersion != null) {
+        if (_deletionPending) {
+          currentWidget = ReactivateAccountPage(
+            key: const ValueKey('reactivate-account'),
+            scheduledPurgeAt: _scheduledPurgeAt,
+            onReactivated: _handleReactivated,
+          );
+        } else if (!_hasProfile && termsVersion != null) {
           currentWidget = OnboardingScreen(
             key: const ValueKey('onboarding'),
             termsVersion: termsVersion,

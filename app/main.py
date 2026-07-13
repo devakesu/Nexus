@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 
+from app.api.account_deletion import router as account_deletion_router
 from app.api.chat import router as chat_router
 from app.api.chat_keys import router as chat_keys_router
 from app.api.devices import router as devices_router
@@ -132,6 +133,7 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+app.include_router(account_deletion_router)
 app.include_router(chat_router)
 app.include_router(chat_keys_router)
 app.include_router(devices_router)

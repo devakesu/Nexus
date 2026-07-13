@@ -199,6 +199,32 @@ def close_conversation_for_match_action(
         raise DatabaseAccessError("Failed to close conversation") from e
 
 
+def reopen_conversations_for_reactivation(user_id: str) -> None:
+    """Reopens conversations closed by request_deletion() (reason=
+    'account_deletion') when the user cancels within the grace window.
+
+    The closed_reason='account_deletion' filter is exact, so this can never
+    reopen a conversation that was separately closed by a genuine
+    unmatch/block/report before the deletion request - see
+    cancel_deletion() in app/db/account_deletion.py.
+    """
+    user_id = str(uuid.UUID(user_id)).lower()
+    try:
+        (
+            supabase_client.table("chat_conversations")
+            .update({"closed_at": None, "closed_reason": None})
+            .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+            .eq("closed_reason", "account_deletion")
+            .execute()
+        )
+    except APIError as e:
+        logger.exception(
+            "Failed to reopen conversations for reactivation",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to reopen conversations") from e
+
+
 def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:
     try:
         res = (

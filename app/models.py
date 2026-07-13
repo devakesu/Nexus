@@ -31,6 +31,12 @@ class AuthBootstrapResponse(BaseModel):
     newly_created: bool
     mobile: str | None = None
     mobile_verified_at: datetime | None = None
+    # Set when an account deletion request is pending. The client should
+    # route to a Reactivate screen instead of the normal app when true - see
+    # app/db/account_deletion.py and the bootstrap short-circuit in
+    # app/api/user.py that skips assert_account_active for this case.
+    deletion_pending: bool = False
+    scheduled_purge_at: datetime | None = None
 
 
 class ProfileModel(BaseModel):
@@ -1889,6 +1895,40 @@ class LoginByPhoneVerifyResponse(BaseModel):
     access_token: str
     refresh_token: str
     expires_in: int
+
+
+# ---------------------------------------------------------------------------
+# Account deletion (self-serve). Reauth (email OTP) is a dedicated step,
+# separate from the deletion request itself - see app/api/account_deletion.py
+# and app/db/account_deletion.py.
+# ---------------------------------------------------------------------------
+
+
+class AccountDeletionOtpRequestResponse(BaseModel):
+    sent: bool = True
+
+
+class AccountDeletionOtpVerifyRequest(BaseModel):
+    # Rides Supabase's native email OTP (AppConfig.otpLength on the client),
+    # not the 6-digit SMS-based account_phone_otp system - see
+    # app/core/passwordless_email.py.
+    code: str = Field(..., min_length=4, max_length=10)
+
+
+class AccountDeletionOtpVerifyResponse(BaseModel):
+    verified: bool = True
+
+
+class AccountDeletionRequestRequest(BaseModel):
+    confirmation_text: str = Field(..., max_length=50)
+
+
+class AccountDeletionRequestResponse(BaseModel):
+    scheduled_purge_at: datetime
+
+
+class AccountDeletionCancelResponse(BaseModel):
+    reactivated: bool = True
 
 
 # ---------------------------------------------------------------------------

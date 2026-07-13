@@ -40,7 +40,18 @@ class Settings(BaseSettings):
     rate_limit_login_by_phone: str = "10/hour"
     rate_limit_spotify: str = "10/minute"
     rate_limit_spotify_resync: str = "3/hour"
+    rate_limit_account_deletion_otp: str = "5/hour"
+    rate_limit_account_deletion: str = "5/hour"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
+
+    # -- Account deletion lifecycle --
+    # See app/db/account_deletion.py. Tier 1: a request starts a recoverable
+    # grace window; if not cancelled, the account is anonymized in place at
+    # its end. Tier 2: a much later hard-delete of the (by then long-dormant)
+    # anonymized shell, once its own retention window has passed.
+    account_deletion_grace_period_days: int = 14
+    account_deletion_blocklist_cooldown_days: int = 30
+    account_deletion_long_tail_purge_days: int = 365 * 3
 
     # --- Infrastructure / crypto ---
     redis_url: str

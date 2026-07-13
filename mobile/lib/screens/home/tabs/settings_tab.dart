@@ -1311,7 +1311,7 @@ class _AccountActionsSection extends StatelessWidget {
                     iconColor: AppColors.error,
                     labelColor: AppColors.error,
                     showDivider: false,
-                    onTap: () => _warnDeleteAccount(context),
+                    onTap: () => _openDeleteAccount(context),
                   ),
                 ],
               ),
@@ -1361,11 +1361,8 @@ class _AccountActionsSection extends StatelessWidget {
     }
   }
 
-  void _warnDeleteAccount(BuildContext context) {
-    NexusToast.show(
-      context,
-      'Account deletion coming soon. Contact support to proceed.',
-    );
+  void _openDeleteAccount(BuildContext context) {
+    unawaited(context.push<void>('/settings/delete-account'));
   }
 }
 

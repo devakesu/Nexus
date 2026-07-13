@@ -161,7 +161,14 @@ async def auth_bootstrap(
         app_variant=app_variant,
     )
 
-    assert_account_active(user_row)
+    # A pending-deletion account must still be able to bootstrap far enough
+    # to reach the Reactivate screen, even if it's also suspended/banned -
+    # skip assert_account_active entirely in that case rather than teaching
+    # it a deletion-aware exception. Every other call site keeps enforcing
+    # it unmodified.
+    deletion_requested_at = user_row.get("deletion_requested_at")
+    if not deletion_requested_at:
+        assert_account_active(user_row)
 
     if newly_created and email:
         background_tasks.add_task(
@@ -182,6 +189,8 @@ async def auth_bootstrap(
         newly_created=newly_created,
         mobile=user_row.get("mobile"),
         mobile_verified_at=user_row.get("mobile_verified_at"),
+        deletion_pending=bool(deletion_requested_at),
+        scheduled_purge_at=user_row.get("scheduled_purge_at"),
     )
 
 

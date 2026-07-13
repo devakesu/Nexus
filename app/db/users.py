@@ -129,7 +129,8 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at, "
-                "mobile, mobile_verified_at",
+                "mobile, mobile_verified_at, "
+                "deletion_requested_at, scheduled_purge_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -166,13 +167,25 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
     second account verifying an already-claimed number fails here with a
     clear conflict rather than silently creating an ambiguous lookup.
     """
+    from app.db.account_deletion import is_phone_blocklisted
+
+    blind_index = compute_blind_index(phone)
+    if is_phone_blocklisted(blind_index):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This phone number is restricted. Contact customer support "
+                "for details or assistance."
+            ),
+        )
+
     now = datetime.now(timezone.utc).isoformat()
     try:
         supabase_client.table("users").update(
             {
                 "mobile": encrypt_to_hex(phone),
                 "mobile_verified_at": now,
-                "mobile_blind_index": compute_blind_index(phone),
+                "mobile_blind_index": blind_index,
             },
         ).eq("id", user_id).execute()
     except APIError as e:
@@ -259,7 +272,8 @@ def upsert_public_user(
                 "id, app_variant, is_active, is_suspended, "
                 "suspended_until, moderation_status, moderation_reason_code, "
                 "accepted_terms_version, terms_accepted_at, "
-                "mobile, mobile_verified_at, xmax",
+                "mobile, mobile_verified_at, "
+                "deletion_requested_at, scheduled_purge_at, xmax",
             )
             .execute()
         )
