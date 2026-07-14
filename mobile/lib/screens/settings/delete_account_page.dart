@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
@@ -31,10 +32,49 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
   bool _isSendingCode = false;
   bool _isDeleting = false;
 
+  int _gracePeriodDays = 14;
+  int _blocklistCooldownDays = 30;
+  int _longTailPurgeDays = 1095;
+  int _safetyEvidenceActiveRetentionDays = 365;
+  int _safetyDataLegalHoldDays = 180;
+
   @override
   void initState() {
     super.initState();
     _confirmController.addListener(_updateConfirmState);
+    unawaited(_loadSettings());
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final response = await createDio().get<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/account/deletion/settings',
+      );
+      final data = response.data;
+      if (data != null && mounted) {
+        setState(() {
+          _gracePeriodDays = data['grace_period_days'] as int? ?? 14;
+          _blocklistCooldownDays =
+              data['blocklist_cooldown_days'] as int? ?? 30;
+          _longTailPurgeDays = data['long_tail_purge_days'] as int? ?? 1095;
+          _safetyEvidenceActiveRetentionDays =
+              data['safety_evidence_active_retention_days'] as int? ?? 365;
+          _safetyDataLegalHoldDays =
+              data['safety_data_legal_hold_days'] as int? ?? 180;
+        });
+      }
+    } on Object catch (e) {
+      // Gracefully fallback to defaults if request fails
+      debugPrint('Failed to load account deletion settings: $e');
+    }
+  }
+
+  String _formatLongTailPurge(int days) {
+    if (days % 365 == 0) {
+      final years = days ~/ 365;
+      return '$years year${years == 1 ? '' : 's'}';
+    }
+    return '$days days';
   }
 
   @override
@@ -116,6 +156,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       await SignalKeyService.instance.wipeLocalData();
       await DefaultCacheManager().emptyCache();
       await Supabase.instance.client.auth.signOut();
+      if (mounted) {
+        context.go('/');
+      }
     } on Object catch (e, stackTrace) {
       if (mounted) {
         NexusToast.show(
@@ -158,34 +201,35 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               ],
             ),
             const SizedBox(height: 14),
-            const _InfoSection(
+            _InfoSection(
               icon: LucideIcons.undo2,
-              title: 'Within 14 days, you can undo this',
+              title: 'Within $_gracePeriodDays days, you can undo this',
               iconColor: AppColors.success,
-              items: [
+              items: const [
                 'Log back in any time before then and a Reactivate screen lets you cancel the deletion.',
                 'Your profile, matches, and conversations all come back exactly as they were.',
               ],
             ),
             const SizedBox(height: 14),
-            const _InfoSection(
+            _InfoSection(
               icon: LucideIcons.trash2,
-              title: 'After 14 days',
+              title: 'After $_gracePeriodDays days',
               items: [
-                'Your name, photos, and profile details are permanently erased.',
-                'Your phone number is removed and can be used to sign up again.',
+                'Your name, photos, and profile details are irreversibly anonymized.',
+                if (_blocklistCooldownDays > 0)
+                  'If your account was suspended or flagged for safety issues, your phone number cannot be reused for $_blocklistCooldownDays days. Else if your status is clean, your phone number is removed and can be used to sign up again.',
                 "This step can't be undone.",
               ],
             ),
             const SizedBox(height: 14),
-            const _InfoSection(
+            _InfoSection(
               icon: LucideIcons.scale,
               title: 'What we keep, and why',
               items: [
                 'Reports or moderation history involving your account, for trust & safety - kept without your name attached.',
-                'Meetup Safety / SOS records, for a limited time, in case they are needed for a safety investigation.',
+                'Meetup Safety alerts (held for $_safetyDataLegalHoldDays days after deletion) and Digital Witness recordings (purged after $_safetyEvidenceActiveRetentionDays days), in case they are needed for a safety investigation.',
                 'Records required by law, such as billing or legal compliance history.',
-                'Everything above is deleted for good on a fixed schedule - nothing is retained indefinitely.',
+                'Everything above is permanently deleted for good after ${_formatLongTailPurge(_longTailPurgeDays)} - nothing is retained indefinitely.',
               ],
             ),
             const SizedBox(height: 24),
@@ -288,7 +332,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'You have a 14-day window to change your mind. After '
+                  'You have a $_gracePeriodDays-day window to change your mind. After '
                   "that, it's permanent. Read exactly what happens below.",
                   style: GoogleFonts.inter(
                     fontSize: 13,

@@ -5,6 +5,7 @@ user's full PII is a comparably sensitive operation.
 """
 
 import logging
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
@@ -16,8 +17,8 @@ from app.api.dependencies import (
 )
 from app.core.cache import redis_client
 from app.core.config import settings
+from app.core.email import send_data_export_otp_email
 from app.core.limiter import limiter
-from app.core.passwordless_email import send_login_email_otp, verify_login_email_otp
 from app.db.export import build_user_data_export
 from app.db.users import get_user_email_by_id
 from app.models import (
@@ -54,7 +55,9 @@ async def request_data_export_otp(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No verified email on this account. Contact support for assistance.",
         )
-    await run_in_threadpool(send_login_email_otp, email)
+    otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
+    await redis_client.setex(f"data_export:otp_code:{user_id}", 600, otp_code)
+    await send_data_export_otp_email(email, otp_code)
     return DataExportOtpRequestResponse(sent=True)
 
 
@@ -74,10 +77,17 @@ async def verify_data_export_otp(
     if not email:
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
 
-    try:
-        await run_in_threadpool(verify_login_email_otp, email, payload.code)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.") from e
+    stored_otp = await redis_client.get(f"data_export:otp_code:{user_id}")
+    if not stored_otp:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    stored_otp_str = (
+        stored_otp.decode("utf-8")
+        if isinstance(stored_otp, bytes)
+        else stored_otp
+    )
+    if stored_otp_str.strip() != payload.code.strip():
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    await redis_client.delete(f"data_export:otp_code:{user_id}")
 
     await redis_client.setex(_otp_verified_key(user_id), _OTP_VERIFIED_TTL_SECONDS, "1")
     return DataExportOtpVerifyResponse(verified=True)

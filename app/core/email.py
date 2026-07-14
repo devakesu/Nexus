@@ -1049,3 +1049,223 @@ async def send_trusted_contact_removed_email(
         use_sp = should_use_sendpulse(email)
         provider_name = "SendPulse" if use_sp else "Brevo"
         return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+
+async def send_account_deletion_otp_email(email: str, otp_code: str) -> ProviderResult:
+    """Sends a specialized OTP email notifying the user that an account
+    deletion has been requested, rather than a generic sign-in template.
+    """
+    row_1 = """
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 26px; font-weight: 300;
+                         letter-spacing: 0.15em; color: #EF4444;
+                         text-transform: uppercase;">
+                Account Deletion
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                         color: #9CA3AF; font-weight: 400;">
+                You have requested to delete your Nexus account. Please use the
+                verification code below to confirm this request.
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = f"""
+          <tr>
+            <td style="padding: 0 32px 32px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(239,68,68,0.05);
+                     border-left: 2px solid #EF4444;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 24px; line-height: 1.5; color: #EF4444;
+                             font-weight: bold; text-align: center;
+                             letter-spacing: 0.25em;">
+                    {otp_code}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = """
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #9CA3AF;">
+              <p style="margin: 0 0 24px 0;">
+                This code will expire in 10 minutes. If you did not request
+                this account deletion, please secure your account immediately.
+              </p>
+            </td>
+          </tr>
+    """
+
+    footer_html = f"""
+          You are receiving this security-related communication because an
+          account deletion request was initiated for your Nexus account.
+          If you did not request this, please contact support immediately at
+          <a href="mailto:support@{settings.app_domain}" style="color: #EF4444;">
+          support@{settings.app_domain}</a>.
+          <br>
+          <a href="https://{settings.app_domain}/legal" target="_blank"
+             style="color: white">Privacy, Terms & Legal</a>
+    """
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3,
+        subject="Confirm Account Deletion Request",
+        preheader_category="DANGER_ZONE",
+        preheader_action="DELETION_OTP",
+        footer_html=footer_html,
+    )
+
+    text_content = (
+        f"You requested to delete your Nexus account. Use code {otp_code} to verify. "
+        "This code will expire in 10 minutes."
+    )
+
+    props = SendEmailProps(
+        to=email,
+        subject="Confirm Account Deletion Request",
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.email_domain}",
+        from_name="Nexus Support",
+    )
+
+    try:
+        redacted = redact_email(email)
+        logger.info("Sending account-deletion-otp email to %s", redacted)
+        result = await send_email(props)
+        if not result.success:
+            logger.error(
+                "Failed to send account-deletion-otp email to %s: %s",
+                redacted,
+                result.error,
+            )
+        return result
+    except Exception as err:
+        logger.exception(
+            "Unexpected exception sending account-deletion-otp email to %s",
+            redact_email(email),
+        )
+        use_sp = should_use_sendpulse(email)
+        provider_name = "SendPulse" if use_sp else "Brevo"
+        return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+
+async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResult:
+    """Sends a specialized OTP email notifying the user that a personal
+    data export has been requested, rather than a generic sign-in template.
+    """
+    row_1 = """
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 26px; font-weight: 300;
+                         letter-spacing: 0.15em; color: #3B82F6;
+                         text-transform: uppercase;">
+                Data Export Request
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                         color: #9CA3AF; font-weight: 400;">
+                You have requested a full download of your Nexus account data.
+                Please use the verification code below to confirm this request.
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = f"""
+          <tr>
+            <td style="padding: 0 32px 32px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(59,130,246,0.05);
+                     border-left: 2px solid #3B82F6;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 24px; line-height: 1.5; color: #3B82F6;
+                             font-weight: bold; text-align: center;
+                             letter-spacing: 0.25em;">
+                    {otp_code}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = """
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #9CA3AF;">
+              <p style="margin: 0 0 24px 0;">
+                This code will expire in 10 minutes. If you did not request
+                this data export, please secure your account immediately.
+              </p>
+            </td>
+          </tr>
+    """
+
+    footer_html = f"""
+          You are receiving this security-related communication because a
+          personal data export request was initiated for your Nexus account.
+          If you did not request this, please contact support immediately at
+          <a href="mailto:support@{settings.app_domain}" style="color: #3B82F6;">
+          support@{settings.app_domain}</a>.
+          <br>
+          <a href="https://{settings.app_domain}/legal" target="_blank"
+             style="color: white">Privacy, Terms & Legal</a>
+    """
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3,
+        subject="Confirm Data Export Request",
+        preheader_category="SECURITY",
+        preheader_action="EXPORT_OTP",
+        footer_html=footer_html,
+    )
+
+    text_content = (
+        f"You requested to export your Nexus data. Use code {otp_code} to verify. "
+        "This code will expire in 10 minutes."
+    )
+
+    props = SendEmailProps(
+        to=email,
+        subject="Confirm Data Export Request",
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.email_domain}",
+        from_name="Nexus Support",
+    )
+
+    try:
+        redacted = redact_email(email)
+        logger.info("Sending data-export-otp email to %s", redacted)
+        result = await send_email(props)
+        if not result.success:
+            logger.error(
+                "Failed to send data-export-otp email to %s: %s",
+                redacted,
+                result.error,
+            )
+        return result
+    except Exception as err:
+        logger.exception(
+            "Unexpected exception sending data-export-otp email to %s",
+            redact_email(email),
+        )
+        use_sp = should_use_sendpulse(email)
+        provider_name = "SendPulse" if use_sp else "Brevo"
+        return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+

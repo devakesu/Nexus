@@ -1963,6 +1963,14 @@ class LoginByPhoneVerifyResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AccountDeletionSettingsResponse(BaseModel):
+    grace_period_days: int
+    blocklist_cooldown_days: int
+    long_tail_purge_days: int
+    safety_evidence_active_retention_days: int
+    safety_data_legal_hold_days: int
+
+
 class AccountDeletionOtpRequestResponse(BaseModel):
     sent: bool = True
 

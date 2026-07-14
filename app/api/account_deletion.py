@@ -5,6 +5,7 @@ app/services/reminder_scheduler.py for the purge jobs.
 """
 
 import logging
+import secrets
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from starlette.concurrency import run_in_threadpool
@@ -16,8 +17,8 @@ from app.api.dependencies import (
 )
 from app.core.cache import redis_client
 from app.core.config import settings
+from app.core.email import send_account_deletion_otp_email
 from app.core.limiter import limiter
-from app.core.passwordless_email import send_login_email_otp, verify_login_email_otp
 from app.db.account_deletion import (
     cancel_deletion,
     compute_deletion_flag_reason,
@@ -32,6 +33,7 @@ from app.models import (
     AccountDeletionOtpVerifyResponse,
     AccountDeletionRequestRequest,
     AccountDeletionRequestResponse,
+    AccountDeletionSettingsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,7 +64,9 @@ async def request_account_deletion_otp(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No verified email on this account. Contact support for assistance.",
         )
-    await run_in_threadpool(send_login_email_otp, email)
+    otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
+    await redis_client.setex(f"account_deletion:otp_code:{user_id}", 600, otp_code)
+    await send_account_deletion_otp_email(email, otp_code)
     return AccountDeletionOtpRequestResponse(sent=True)
 
 
@@ -82,10 +86,17 @@ async def verify_account_deletion_otp(
     if not email:
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
 
-    try:
-        await run_in_threadpool(verify_login_email_otp, email, payload.code)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.") from e
+    stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
+    if not stored_otp:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    stored_otp_str = (
+        stored_otp.decode("utf-8")
+        if isinstance(stored_otp, bytes)
+        else stored_otp
+    )
+    if stored_otp_str.strip() != payload.code.strip():
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    await redis_client.delete(f"account_deletion:otp_code:{user_id}")
 
     await redis_client.setex(_otp_verified_key(user_id), _OTP_VERIFIED_TTL_SECONDS, "1")
     return AccountDeletionOtpVerifyResponse(verified=True)
@@ -156,3 +167,19 @@ async def cancel_account_deletion(
         )
     await run_in_threadpool(cancel_deletion, user_id)
     return AccountDeletionCancelResponse(reactivated=True)
+
+
+@router.get(
+    "/api/v1/account/deletion/settings",
+    response_model=AccountDeletionSettingsResponse,
+)
+@limiter.limit(settings.rate_limit_account_deletion)
+def get_account_deletion_settings(request: Request) -> AccountDeletionSettingsResponse:
+    _ = request
+    return AccountDeletionSettingsResponse(
+        grace_period_days=settings.account_deletion_grace_period_days,
+        blocklist_cooldown_days=settings.account_deletion_blocklist_cooldown_days,
+        long_tail_purge_days=settings.account_deletion_long_tail_purge_days,
+        safety_evidence_active_retention_days=settings.safety_evidence_active_retention_days,
+        safety_data_legal_hold_days=settings.safety_data_legal_hold_days,
+    )
