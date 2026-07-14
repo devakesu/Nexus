@@ -857,7 +857,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: const Center(
-                  child: NexusOrbitLoader(size: 56),
+                  child: NexusOrbitLoader(),
                 ),
               );
             }
@@ -1033,7 +1033,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(child: NexusOrbitLoader(size: 64, lightMode: true)),
+        body: Center(child: NexusOrbitLoader(size: 96, lightMode: true)),
       );
     }
 

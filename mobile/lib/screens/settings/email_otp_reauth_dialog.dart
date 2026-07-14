@@ -8,6 +8,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 /// Confirms it's really the account owner via an emailed OTP, before a
 /// sensitive action (account deletion, data export) proceeds. Reused across
@@ -237,11 +238,7 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
                 constraints: const BoxConstraints(minHeight: 50),
                 child: _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.error,
-                          ),
-                        ),
+                        child: NexusOrbitLoader(size: 28, lightMode: true),
                       )
                     : _success
                     ? Container(

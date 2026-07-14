@@ -376,7 +376,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Center(
-                                  child: NexusOrbitLoader(size: 24),
+                                  child: NexusOrbitLoader(size: 24, lightMode: true),
                                 ),
                               );
                             }
@@ -427,7 +427,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         mainAxisSize: MainAxisSize.min,
         children: [
           if (loading)
-            const NexusOrbitLoader(size: 48)
+            const NexusOrbitLoader(lightMode: true)
           else if (icon != null)
             Icon(icon, size: 40, color: iconColor ?? theme.primary),
           if (text != null) ...[

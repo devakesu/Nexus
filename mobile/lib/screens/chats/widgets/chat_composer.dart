@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/screens/chats/widgets/location_picker_sheet.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -324,14 +325,7 @@ class _ChatComposerState extends State<ChatComposer> {
               ? widget.themeColor
               : const Color(0xFFCBD5E1),
           child: widget.sending
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+              ? const NexusOrbitLoader(size: 18)
               : IconButton(
                   icon: Icon(
                     hasText ? LucideIcons.send : LucideIcons.mic,

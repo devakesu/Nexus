@@ -12,6 +12,7 @@ import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -417,16 +418,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               ),
               child: Center(
                 child: busy
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
+                    ? const NexusOrbitLoader(size: 22)
                     : Text(
                         'Delete My Account',
                         style: GoogleFonts.manrope(

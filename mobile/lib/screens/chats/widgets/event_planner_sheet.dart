@@ -11,6 +11,7 @@ import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/safety_consent_prompt.dart';
 
@@ -417,14 +418,7 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
                     ),
                   ),
                   child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                      ? const NexusOrbitLoader(size: 20)
                       : Text(
                           'Send plan',
                           style: GoogleFonts.manrope(

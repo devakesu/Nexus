@@ -1962,7 +1962,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       return ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: const Center(
-          child: NexusOrbitLoader(size: 56),
+          child: NexusOrbitLoader(lightMode: true),
         ),
       );
     }

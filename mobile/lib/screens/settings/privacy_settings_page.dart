@@ -316,7 +316,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(),
       body: _loading
-          ? const Center(child: NexusOrbitLoader(size: 48))
+          ? const Center(child: NexusOrbitLoader(lightMode: true))
           : _error != null
           ? _buildError()
           : ListView(

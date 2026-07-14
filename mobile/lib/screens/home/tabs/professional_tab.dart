@@ -854,7 +854,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: const Center(
-                  child: NexusOrbitLoader(size: 56),
+                  child: NexusOrbitLoader(),
                 ),
               );
             }
@@ -1027,7 +1027,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.transparent,
-        body: Center(child: NexusOrbitLoader(size: 64, lightMode: true)),
+        body: Center(child: NexusOrbitLoader(size: 96, lightMode: true)),
       );
     }
 

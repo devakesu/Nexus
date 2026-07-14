@@ -8,6 +8,7 @@ import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Submits safety-data consent inline (without navigating away) - re-affirms
@@ -185,16 +186,7 @@ class _SafetyConsentPromptCardState extends State<SafetyConsentPromptCard> {
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     child: Center(
                       child: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
+                          ? const NexusOrbitLoader(size: 18)
                           : Text(
                               'I Accept',
                               style: GoogleFonts.manrope(

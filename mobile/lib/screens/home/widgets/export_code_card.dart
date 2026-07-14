@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -271,9 +273,7 @@ class _ExportCodeCardState extends State<ExportCodeCard> {
               height: 46,
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_teal),
-                      ),
+                      child: NexusOrbitLoader(size: 26),
                     )
                   : ElevatedButton.icon(
                       onPressed: () {

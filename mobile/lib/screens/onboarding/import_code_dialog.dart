@@ -5,6 +5,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dialog that lets a main Nexus user enter a 6-char export code generated
@@ -241,9 +242,7 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
               height: 50,
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_teal),
-                      ),
+                      child: NexusOrbitLoader(size: 28),
                     )
                   : _success
                   ? Container(

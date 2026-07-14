@@ -870,9 +870,8 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: AppColors.success,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Center(
               child: Text(
@@ -880,7 +879,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF475569),
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -893,17 +892,16 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFF334155),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Center(
               child: Text(
-                '+ Add 30 Minutes',
+                '+ Add Time',
                 style: GoogleFonts.manrope(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF475569),
+                  color: Colors.white,
                 ),
               ),
             ),

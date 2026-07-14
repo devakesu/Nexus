@@ -109,10 +109,7 @@ final goRouter = GoRouter(
     ),
     GoRoute(
       path: '/legal/terms',
-      builder: (context, state) {
-        final fragment = state.uri.fragment.isNotEmpty ? state.uri.fragment : null;
-        return LegalTermsPage(fragment: fragment);
-      },
+      builder: (context, state) => const LegalTermsPage(),
     ),
   ],
 );

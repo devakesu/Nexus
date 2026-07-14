@@ -393,14 +393,9 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             accentColor: _accent,
             tiles: [
               _TileSpec(
-                icon: LucideIcons.fileText,
-                label: 'Privacy Policy',
-                onTap: () => context.push<void>('/legal/terms#privacy'),
-              ),
-              _TileSpec(
                 icon: LucideIcons.scroll,
-                label: 'Terms of Service',
-                onTap: () => context.push<void>('/legal/terms#terms'),
+                label: 'Terms & Privacy Policy',
+                onTap: () => context.push<void>('/legal/terms'),
               ),
               const _TileSpec(
                 icon: LucideIcons.bookOpen,

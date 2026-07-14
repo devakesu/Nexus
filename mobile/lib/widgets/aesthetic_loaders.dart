@@ -75,12 +75,14 @@ class _OrbitPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final maxRadius = size.width / 2;
 
+    // Use slightly thicker and more visible orbit lines when large/full-page on light background
+    final strokeWidth = 1.0 + (size.width > 50.0 ? 0.4 : 0.0);
     final paintOrbit = Paint()
       ..color = lightMode
-          ? const Color(0xFF94A3B8).withValues(alpha: 0.2)
+          ? const Color(0xFF64748B).withValues(alpha: 0.38)
           : Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = strokeWidth;
 
     // Orbit paths
     canvas
@@ -91,7 +93,7 @@ class _OrbitPainter extends CustomPainter {
     final corePulse =
         maxRadius * 0.1 + maxRadius * 0.05 * math.sin(progress * 2 * math.pi);
     final corePaint = Paint()
-      ..color = lightMode ? const Color(0xFF334155) : Colors.white
+      ..color = lightMode ? const Color(0xFF1E293B) : Colors.white
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, corePulse, corePaint);
 
@@ -100,25 +102,43 @@ class _OrbitPainter extends CustomPainter {
     final p2r = (maxRadius * 0.163).clamp(1.5, 8.0);
     final p3r = (maxRadius * 0.100).clamp(1.5, 6.0);
 
-    // Orbiting particle 1: Dating (Red) - Inner orbit
+    // Orbiting particle 1: Dating (Red/Rose) - Inner orbit
+    // Use slightly deeper Rose for light backgrounds for distinct visibility
     final angle1 = progress * 2 * math.pi;
     final r1 = maxRadius * 0.5;
     final p1 = center + Offset(math.cos(angle1) * r1, math.sin(angle1) * r1);
-    _drawGlowingParticle(canvas, p1, AppColors.pulsarPink, p1r);
+    _drawGlowingParticle(
+      canvas,
+      p1,
+      lightMode ? const Color(0xFFE11D48) : AppColors.pulsarPink,
+      p1r,
+    );
 
-    // Orbiting particle 2: Friends (Sunset Gold) - Middle orbit, counter-clockwise
+    // Orbiting particle 2: Friends (Sunset Gold/Amber) - Middle orbit, counter-clockwise
+    // Use darker Amber on white background to avoid washing out
     final angle2 = -progress * 2 * math.pi + (math.pi / 3);
     final r2 = maxRadius * 0.75;
     final p2 =
         center + Offset(math.cos(angle2) * r2, math.sin(angle2) * r2 * 0.8);
-    _drawGlowingParticle(canvas, p2, const Color(0xFFFFB03A), p2r);
+    _drawGlowingParticle(
+      canvas,
+      p2,
+      lightMode ? const Color(0xFFD97706) : const Color(0xFFFFB03A),
+      p2r,
+    );
 
-    // Orbiting particle 3: Pro (Neon Teal) - Outer orbit, faster
+    // Orbiting particle 3: Pro (Teal) - Outer orbit, faster
+    // Use deep Teal on white background
     final angle3 = progress * 3 * math.pi + (math.pi * 2 / 3);
     final r3 = maxRadius * 0.95;
     final p3 =
         center + Offset(math.cos(angle3) * r3 * 0.9, math.sin(angle3) * r3);
-    _drawGlowingParticle(canvas, p3, AppColors.modeProfessional, p3r);
+    _drawGlowingParticle(
+      canvas,
+      p3,
+      lightMode ? const Color(0xFF0D9488) : AppColors.modeProfessional,
+      p3r,
+    );
   }
 
   void _drawGlowingParticle(
@@ -127,9 +147,9 @@ class _OrbitPainter extends CustomPainter {
     Color color,
     double radius,
   ) {
-    // Outer glow
+    // Outer glow - slightly reduced alpha on light backgrounds to preserve core contrast
     final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
+      ..color = color.withValues(alpha: lightMode ? 0.15 : 0.3)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(position, radius * 2.2, glowPaint);
 

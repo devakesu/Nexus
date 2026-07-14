@@ -6,6 +6,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/widgets/interests_overlay.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 
 class OrbitFiltersPanel extends StatefulWidget {
   const OrbitFiltersPanel({
@@ -736,16 +737,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               subtitle:
                   'Select the gender identities you would like to see in your Orbit.',
               action: widget.savingFields.contains('dating_target_buckets')
-                  ? const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white60,
-                        ),
-                      ),
-                    )
+                  ? const NexusOrbitLoader(size: 12)
                   : null,
               child: Wrap(
                 spacing: 8,
@@ -811,16 +803,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (widget.savingFields.contains('dating_for')) ...[
-                    const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white60,
-                        ),
-                      ),
-                    ),
+                    const NexusOrbitLoader(size: 12),
                     const SizedBox(width: 8),
                   ],
                   Text(
@@ -919,16 +902,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (widget.savingFields.contains('partner_values')) ...[
-                    const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white60,
-                        ),
-                      ),
-                    ),
+                    const NexusOrbitLoader(size: 12),
                     const SizedBox(width: 8),
                   ],
                   Text(
@@ -1064,14 +1038,7 @@ class _SyncingBadge extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 8,
-                height: 8,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-                ),
-              ),
+              const NexusOrbitLoader(size: 8),
               const SizedBox(width: 6),
               Text(
                 'Syncing orbit',

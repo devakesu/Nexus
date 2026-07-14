@@ -13,15 +13,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// terms/policy update takes effect immediately for every user with no
 /// app-store release needed - matching how current_terms_version already
 /// drives live re-consent (see terms_consent_screen.dart).
-///
-/// Pass [fragment] to deep-link to a specific section anchor on load
-/// (e.g. `'privacy'` → `/legal/terms#privacy`). The AppBar title adjusts
-/// to match the section being shown.
 class LegalTermsPage extends StatefulWidget {
-  const LegalTermsPage({this.fragment, super.key});
-
-  /// Optional URL fragment (without `#`) to scroll to on load.
-  final String? fragment;
+  const LegalTermsPage({super.key});
 
   @override
   State<LegalTermsPage> createState() => _LegalTermsPageState();
@@ -30,17 +23,13 @@ class LegalTermsPage extends StatefulWidget {
 class _LegalTermsPageState extends State<LegalTermsPage> {
   late final Uri _legalUri = Uri.parse(
     '${AppConfig.current.backendUrl}/legal/terms',
-  ).replace(fragment: widget.fragment);
+  );
 
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
 
-  String get _title => switch (widget.fragment) {
-        'privacy' => 'Privacy Policy',
-        'terms' => 'Terms of Service',
-        _ => 'Terms & Privacy Policy',
-      };
+  String get _title => 'Terms & Privacy Policy';
 
   @override
   void initState() {
@@ -50,20 +39,11 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
   }
 
   Future<void> _initController() async {
-    await _controller.setBackgroundColor(const Color(0xFF0B0D13));
-    // JS must be enabled so the browser can scroll to the anchor on load.
+    await _controller.setBackgroundColor(Colors.white);
     await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await _controller.setNavigationDelegate(
       NavigationDelegate(
         onPageFinished: (_) async {
-          if (widget.fragment != null) {
-            // WebViews don't reliably honour URL fragments because the
-            // native anchor scroll fires before layout is complete.
-            // Scrolling via JS in onPageFinished is the reliable fix.
-            await _controller.runJavaScript(
-              "document.getElementById('${widget.fragment}')?.scrollIntoView({behavior:'instant'});",
-            );
-          }
           if (mounted) setState(() => _isLoading = false);
         },
         onWebResourceError: (_) {
@@ -74,10 +54,8 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
             });
           }
         },
-        // Debug-only: bypass self-signed cert errors for local dev servers,
-        // mirroring the Dio badCertificateCallback in network_utils.dart.
         onSslAuthError: kDebugMode
-            ? (SslAuthError error) async {
+            ? (error) async {
                 final host = _legalUri.host;
                 final isLocalHost = host == 'localhost' ||
                     host == '127.0.0.1' ||
@@ -108,22 +86,22 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0D13),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B26),
+        backgroundColor: Colors.white,
         title: Text(
           _title,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             letterSpacing: 0.5,
           ),
         ),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             size: 20,
           ),
           onPressed: () => Navigator.of(context).pop(),
@@ -135,8 +113,8 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
           if (!_hasError) WebViewWidget(controller: _controller),
           if (_isLoading && !_hasError)
             const ColoredBox(
-              color: Color(0xFF0B0D13),
-              child: Center(child: NexusOrbitLoader(size: 40)),
+              color: Colors.white,
+              child: Center(child: NexusOrbitLoader(lightMode: true)),
             ),
           if (_hasError)
             Center(
@@ -145,13 +123,13 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    const Text(
                       "Couldn't load the Terms & Privacy Policy. Check your "
                       'connection and try again.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Color(0xFF0F172A),
                         height: 1.5,
                       ),
                     ),

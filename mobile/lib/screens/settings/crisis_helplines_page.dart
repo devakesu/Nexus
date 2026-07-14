@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -12,6 +13,12 @@ class CrisisHelplinesPage extends StatelessWidget {
   static const Color _accent = AppColors.safetyBlue;
 
   Future<void> _launchUrlHelper(BuildContext context, String url) async {
+    if (url.startsWith('tel:')) {
+      final number = url.substring(4);
+      final success = await FlutterPhoneDirectCaller.callNumber(number);
+      if (success == true) return;
+    }
+
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
@@ -29,6 +36,14 @@ class CrisisHelplinesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final helplines = [
+      {
+        'title': 'National Emergency Number (Police, Fire & Medical)',
+        'desc':
+            'Direct contact for immediate assistance in any physical danger, fire, or medical emergency.',
+        'actionText': 'Call 112',
+        'url': 'tel:112',
+        'icon': LucideIcons.phone,
+      },
       {
         'title': 'Women Helpline (Domestic Abuse)',
         'desc':
@@ -62,7 +77,7 @@ class CrisisHelplinesPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
         children: [
           Text(
-            "If you are in immediate physical danger, dial 112 (India's national emergency number) or contact your local police. For support services, reach out to these hotlines:",
+            'If you are in immediate danger or need crisis support, please reach out to the appropriate service below:',
             style: GoogleFonts.inter(
               fontSize: 13,
               color: const Color(0xFF64748B),

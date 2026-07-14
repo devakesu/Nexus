@@ -519,7 +519,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
         child: Center(child: NexusOrbitLoader(size: 24, lightMode: true)),
       );
     }
-    if (_recentTickets.isEmpty) return const SizedBox.shrink();
 
     return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,35 +535,36 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     letterSpacing: 1,
                   ),
                 ),
-                ScalePressable(
-                  onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const FeedbackTicketsListPage(),
-                      ),
-                    );
-                    unawaited(_loadRecentTickets());
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View all',
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                if (_recentTickets.isNotEmpty)
+                  ScalePressable(
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const FeedbackTicketsListPage(),
+                        ),
+                      );
+                      unawaited(_loadRecentTickets());
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View all',
+                          style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: _gradientEnd,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(
+                          LucideIcons.chevronRight,
+                          size: 14,
                           color: _gradientEnd,
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        LucideIcons.chevronRight,
-                        size: 14,
-                        color: _gradientEnd,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -574,15 +574,62 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < _recentTickets.length; i++)
-                    _buildTicketRow(
-                      _recentTickets[i],
-                      showDivider: i < _recentTickets.length - 1,
+              child: _recentTickets.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              LucideIcons.messageSquareDashed,
+                              size: 24,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No Active Tickets',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF334155),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Any feedback or bug reports you submit will show up here.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF64748B),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < _recentTickets.length; i++)
+                          _buildTicketRow(
+                            _recentTickets[i],
+                            showDivider: i < _recentTickets.length - 1,
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
           ],
         )

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Dialog to verify the phone number using OTP.
@@ -351,9 +353,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                 constraints: const BoxConstraints(minHeight: 50),
                 child: _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(_teal),
-                        ),
+                        child: NexusOrbitLoader(size: 28),
                       )
                     : _success
                     ? Container(

@@ -9,6 +9,7 @@ import 'package:nexus/screens/settings/email_otp_reauth_dialog.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -153,9 +154,7 @@ Future<void> startDataExport(BuildContext context) async {
       builder: (dialogContext) => const PopScope(
         canPop: false,
         child: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEF4444)),
-          ),
+          child: NexusOrbitLoader(size: 96),
         ),
       ),
     ),

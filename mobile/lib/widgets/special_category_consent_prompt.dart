@@ -8,6 +8,7 @@ import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/special_category_consent_cache.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Submits special-category consent inline (without navigating away) -
@@ -184,16 +185,7 @@ class _SpecialCategoryConsentPromptCardState
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     child: Center(
                       child: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
+                          ? const NexusOrbitLoader(size: 18)
                           : Text(
                               'I Accept',
                               style: GoogleFonts.manrope(

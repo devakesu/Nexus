@@ -247,7 +247,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: NexusOrbitLoader(size: 48, lightMode: true));
+      return const Center(child: NexusOrbitLoader(lightMode: true));
     }
     if (_error != null || _ticket == null) {
       return Center(

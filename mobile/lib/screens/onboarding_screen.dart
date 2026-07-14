@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,6 +11,7 @@ import 'package:nexus/screens/onboarding/otp_verification_dialog.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -125,7 +127,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     final phone = _phoneController.text.trim();
-    final isPhoneVerified = _hasVerifiedMobile && widget.verifiedMobile == phone;
+    final isPhoneVerified =
+        _hasVerifiedMobile && widget.verifiedMobile == phone;
 
     if (!isPhoneVerified) {
       setState(() => _isLoading = true);
@@ -689,9 +692,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   // ── Submit button ──────────────────────────────────────
                   if (_isLoading)
                     const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(_accent),
-                      ),
+                      child: NexusOrbitLoader(size: 28),
                     )
                   else
                     _SubmitButton(

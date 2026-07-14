@@ -14,6 +14,7 @@ import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/services/safety_dialer.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 
@@ -655,7 +656,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                         return const ColoredBox(
                           color: Color(0xFF141822),
                           child: Center(
-                            child: CircularProgressIndicator(color: _accent),
+                            child: NexusOrbitLoader(size: 60),
                           ),
                         );
                       }

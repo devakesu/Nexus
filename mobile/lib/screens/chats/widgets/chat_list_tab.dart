@@ -48,7 +48,7 @@ class ChatListTab extends ConsumerWidget {
         await ref.read(chatConversationsProvider(tab).future);
       },
       child: conversationsAsync.when(
-        loading: () => const Center(child: NexusOrbitLoader(size: 48)),
+        loading: () => const Center(child: NexusOrbitLoader(lightMode: true)),
         error: (error, stackTrace) => _ErrorState(
           themeColor: theme.primary,
           onRetry: () => ref.invalidate(chatConversationsProvider(tab)),

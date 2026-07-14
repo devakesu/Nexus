@@ -9,6 +9,7 @@ import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -148,16 +149,7 @@ class _ReactivateAccountPageState extends State<ReactivateAccountPage> {
                           ),
                           child: Center(
                             child: _isReactivating
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
+                                ? const NexusOrbitLoader(size: 22)
                                 : Text(
                                     'Reactivate My Account',
                                     style: GoogleFonts.manrope(
@@ -176,11 +168,7 @@ class _ReactivateAccountPageState extends State<ReactivateAccountPage> {
                 TextButton(
                   onPressed: busy ? null : _signOut,
                   child: _isSigningOut
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const NexusOrbitLoader(size: 18, lightMode: true)
                       : Text(
                           'Not now, sign me out',
                           style: GoogleFonts.manrope(

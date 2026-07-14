@@ -87,7 +87,7 @@ class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble>
         height: size,
         child: DecoratedBox(
           decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
-          child: Center(child: NexusOrbitLoader(size: 32)),
+          child: Center(child: NexusOrbitLoader(size: 32, lightMode: true)),
         ),
       );
     }

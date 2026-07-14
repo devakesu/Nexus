@@ -120,7 +120,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               top: 16,
               left: 0,
               right: 0,
-              child: Center(child: NexusOrbitLoader(size: 32)),
+              child: Center(child: NexusOrbitLoader(size: 32, lightMode: true)),
             ),
           Positioned(
             right: 16,

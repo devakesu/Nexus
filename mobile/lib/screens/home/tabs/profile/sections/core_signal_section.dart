@@ -119,7 +119,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                 if (isSaving)
                   const SizedBox.square(
                     dimension: 14,
-                    child: NexusOrbitLoader(size: 14),
+                    child: NexusOrbitLoader(size: 14, lightMode: true),
                   )
                 else
                   Icon(
@@ -252,7 +252,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   ),
                   if (widget.isSavingBuckets) ...[
                     const SizedBox(width: 8),
-                    const NexusOrbitLoader(size: 20),
+                    const NexusOrbitLoader(size: 20, lightMode: true),
                   ],
                 ],
               ),

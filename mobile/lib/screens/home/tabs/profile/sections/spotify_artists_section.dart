@@ -366,14 +366,7 @@ class _ConnectButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isConnecting)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(_spotifyGreen),
-                  ),
-                )
+                const NexusOrbitLoader(size: 14, lightMode: true)
               else
                 const Icon(
                   LucideIcons.refreshCw,
@@ -416,14 +409,7 @@ class _ConnectButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isConnecting)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
+              const NexusOrbitLoader(size: 16)
             else
               const Icon(LucideIcons.music2, size: 16, color: Colors.white),
             const SizedBox(width: 10),

@@ -10,6 +10,7 @@ import 'package:nexus/screens/settings/data_export_flow.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Itemized consent screen - three separate checkboxes rather than one
@@ -107,7 +108,9 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            widget.isVersionBump ? 'Our terms have changed' : 'Before you continue',
+            widget.isVersionBump
+                ? 'Our terms have changed'
+                : 'Before you continue',
             style: GoogleFonts.manrope(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -183,16 +186,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
                     ),
                     child: Center(
                       child: _isSubmitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
+                          ? const NexusOrbitLoader(size: 22)
                           : Text(
                               'Continue',
                               style: GoogleFonts.manrope(
@@ -281,7 +275,9 @@ class _ConsentTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: value ? accent.withValues(alpha: 0.4) : AppColors.borderNeutral,
+          color: value
+              ? accent.withValues(alpha: 0.4)
+              : AppColors.borderNeutral,
         ),
       ),
       child: Row(
