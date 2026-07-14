@@ -272,7 +272,8 @@ class ErrorHandler {
     _activeToast?.remove();
     _activeToast = null;
 
-    final overlayState = Overlay.of(context);
+    final overlayState = navigatorKey.currentState?.overlay;
+    if (overlayState == null) return;
 
     // Choose colors/icons based on level
     final isWarning = level == ErrorLevel.warning;
@@ -408,15 +409,16 @@ class ErrorHandler {
     final title = isCritical ? 'Critical System Error' : 'An Error Occurred';
 
     Future.delayed(Duration.zero, () {
-      if (!context.mounted) return;
+      final state = navigatorKey.currentState;
+      if (state == null || !state.mounted) return;
       unawaited(
-        showDialog<void>(
-          context: context,
-          barrierDismissible:
-              !isCritical, // Force critical errors to require interaction/acknowledgement
-          barrierColor: Colors.black.withValues(alpha: 0.75),
-          builder: (context) {
-            return Dialog(
+        state.push(
+          DialogRoute<void>(
+            context: state.context,
+            barrierDismissible: !isCritical,
+            barrierColor: Colors.black.withValues(alpha: 0.75),
+            builder: (context) {
+              return Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.symmetric(
                 horizontal: 24,
@@ -624,7 +626,7 @@ class ErrorHandler {
             );
           },
         ),
-      );
+      ));
     });
   }
 }

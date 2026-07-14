@@ -125,6 +125,9 @@ def build_tab_aware_orbit_node_detail(
 ):
     p = _apply_field_visibility(payload, hidden_fields or set())
 
+    grade_val = p.get("music_match_grade")
+    music_match_grade = int(grade_val) if grade_val is not None else None
+
     base: dict[str, Any] = {
         "id": str(p.get("id") or ""),
         "name": p.get("name"),
@@ -149,6 +152,13 @@ def build_tab_aware_orbit_node_detail(
         "interests": p.get("interests") or {},
         "sub_interests": p.get("sub_interests") or {},
         "ai_vibe_tags": p.get("ai_vibe_tags") or [],
+        "music_match_grade": music_match_grade,
+        "viewer_spotify_connected": bool(
+            p.get("viewer_spotify_connected", False),
+        ),
+        "candidate_spotify_connected": bool(
+            p.get("candidate_spotify_connected", False),
+        ),
     }
 
     if session_tab == "Dating":

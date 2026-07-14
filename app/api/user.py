@@ -1255,7 +1255,6 @@ def update_profile_details(  # noqa: C901
         "bio",
         "hometown",
         "current_place",
-        "partner_values",
         "children_plans",
         "religious_beliefs",
         "lifestyle",
@@ -1295,6 +1294,7 @@ def update_profile_details(  # noqa: C901
         "languages",
         "pets",
         "role_type",
+        "partner_values",
     ]
     for field in array_fields:
         val = getattr(payload, field, None)

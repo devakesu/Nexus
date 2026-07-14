@@ -839,6 +839,28 @@ def _update_consent_pair(
 
     accepted_at = datetime.now(timezone.utc)
 
+    # Fetch existing consent state to determine upgrade vs. downgrade vs. no-op
+    existing = _fetch_existing_consent_pair(user_id, version_column, timestamp_column)
+    existing_version = existing.get(version_column)
+
+    if existing_version is not None:
+        try:
+            existing_val = float(existing_version)
+        except ValueError:
+            existing_val = 0.0
+
+        if existing_val == version_val:
+            # Already at this version - no-op
+            existing_ts = _parse_terms_timestamp(existing.get(timestamp_column))
+            return str(existing_version), existing_ts
+
+        if existing_val > version_val:
+            # Attempted downgrade
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"{version_column} cannot be downgraded.",
+            )
+
     try:
         result = (
             supabase_client.table("users")
@@ -850,12 +872,6 @@ def _update_consent_pair(
                 },
             )
             .eq("id", user_id)
-            # NOTE: version_val is cast to float above to prevent injection.
-            # column names come only from this module's own hardcoded call
-            # sites below, never from request input.
-            .or_(
-                f"{version_column}.is.null,{version_column}::numeric.lt.{version_val}",
-            )
             .execute()
         )
     except APIError as e:
@@ -883,18 +899,6 @@ def _update_consent_pair(
         )
         return stored_version, stored_ts
 
-    # Either the user doesn't exist, or they already accepted this (or a
-    # higher) version, or it was a downgrade. Fetch to see the state.
-    existing = _fetch_existing_consent_pair(user_id, version_column, timestamp_column)
-    existing_version = existing.get(version_column)
-    if existing_version is not None:
-        if float(cleaned_version) < float(existing_version):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"{version_column} cannot be downgraded.",
-            )
-        existing_ts = _parse_terms_timestamp(existing.get(timestamp_column))
-        return str(existing_version), existing_ts
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Failed to record consent.",

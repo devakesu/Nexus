@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ---------------------------------------------------------------------------
 // Shared profile detail sheet - used by OrbitScreen and the Likes inbox.
@@ -116,7 +120,320 @@ class ProfileDetailSheet extends StatelessWidget {
     final showSexuality =
         (tab == 'Dating' || tab == 'Friends') && displaySexuality.isNotEmpty;
 
+    final musicMatchGrade = data['music_match_grade'] as int?;
+    final viewerConnected = data['viewer_spotify_connected'] as bool? ?? false;
+    final candidateConnected =
+        data['candidate_spotify_connected'] as bool? ?? false;
+    final isSelf = !showScoreBadge;
+
     // ── Local widget helpers ──────────────────────────────────────────────────
+
+    Widget buildMusicMatchCard(BuildContext context) {
+      final selfConnected = topArtists.isNotEmpty;
+      final effectiveViewerConnected = isSelf ? selfConnected : viewerConnected;
+      final effectiveCandidateConnected = isSelf
+          ? selfConnected
+          : candidateConnected;
+      final effectiveMusicMatchGrade = isSelf
+          ? (selfConnected ? 10 : null)
+          : musicMatchGrade;
+      final hasGrade = effectiveMusicMatchGrade != null;
+
+      final showNudge = !effectiveViewerConnected;
+      final showNoData =
+          effectiveViewerConnected && !effectiveCandidateConnected;
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFFA78BFA).withValues(alpha: 0.12),
+              const Color(0xFF7C3AED).withValues(alpha: 0.04),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFFA78BFA).withValues(alpha: 0.24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.music,
+                      color: Color(0xFFA78BFA),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MUSIC MATCH',
+                      style: TextStyle(
+                        color: const Color(0xFFA78BFA).withValues(alpha: 0.9),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.8,
+                      ),
+                    ),
+                  ],
+                ),
+                if (effectiveViewerConnected &&
+                    effectiveCandidateConnected &&
+                    hasGrade)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.sparkles,
+                          color: Colors.white,
+                          size: 11,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$effectiveMusicMatchGrade/10',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (showNudge) ...[
+              Center(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1DB954).withValues(alpha: 0.09),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(
+                            0xFF1DB954,
+                          ).withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: const Icon(
+                        LucideIcons.music,
+                        color: Color(0xFF1DB954),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Unlock Music Match Grade',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Connect your Spotify account to see how your music tastes align!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1DB954),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      onPressed: () async {
+                        try {
+                          final config = AppConfig.current;
+                          final response = await createDio()
+                              .get<Map<String, dynamic>>(
+                                '${config.backendUrl}/api/v1/spotify/connect',
+                              );
+                          final authUrl = response.data?['auth_url'] as String?;
+                          if (authUrl != null) {
+                            await launchUrl(
+                              Uri.parse(authUrl),
+                            );
+                            if (context.mounted) {
+                              NexusToast.show(
+                                context,
+                                'Please complete connection in your browser.',
+                              );
+                            }
+                          }
+                        } on Exception catch (_) {
+                          if (context.mounted) {
+                            NexusToast.show(
+                              context,
+                              'Failed to fetch connection link.',
+                              type: NexusToastType.error,
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(LucideIcons.link, size: 14),
+                      label: const Text(
+                        'Connect Spotify',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ] else if (showNoData) ...[
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      Icon(
+                        LucideIcons.music,
+                        color: Colors.white.withValues(alpha: 0.24),
+                        size: 32,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No music data yet',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "This user hasn't connected Spotify yet.",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              if (topArtists.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No top artists found.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                )
+              else ...[
+                if (effectiveViewerConnected &&
+                    effectiveCandidateConnected &&
+                    hasGrade) ...[
+                  Text(
+                    isSelf
+                        ? 'Your Signature Sound 🌌'
+                        : effectiveMusicMatchGrade >= 8
+                        ? 'Incredible Harmony! 🌌'
+                        : effectiveMusicMatchGrade >= 5
+                        ? 'Good Vibes Align 🎵'
+                        : 'Eclectic Mixes 🎧',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: topArtists.map((artist) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFA78BFA).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(
+                            0xFFA78BFA,
+                          ).withValues(alpha: 0.20),
+                        ),
+                      ),
+                      child: Text(
+                        artist,
+                        style: const TextStyle(
+                          color: Color(0xFFC4B5FD),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ],
+        ),
+      );
+    }
 
     Widget photoBlock(String path) {
       return AspectRatio(
@@ -945,16 +1262,10 @@ class ProfileDetailSheet extends StatelessWidget {
                 ],
 
                 // ═══════════════════════════════════════════════════════════
-                // SOUNDTRACK (Dating / Friends)
+                // SOUNDTRACK / MUSIC MATCH (Dating / Friends)
                 // ═══════════════════════════════════════════════════════════
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    topArtists.isNotEmpty) ...[
-                  sectionLabel('Soundtrack', emoji: '🎵'),
-                  chipWrap(
-                    topArtists,
-                    accent: const Color(0xFFA78BFA),
-                    labelColor: const Color(0xFFC4B5FD),
-                  ),
+                if (tab == 'Dating' || tab == 'Friends') ...[
+                  buildMusicMatchCard(context),
                 ],
 
                 // PHOTO BREAK 3

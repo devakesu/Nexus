@@ -39,6 +39,12 @@ def create_discovery_session(
         ranked_items=ranked_items,
     )
 
+    viewer_spotify_connected = (
+        bool(positioned_items[0].get("viewer_spotify_connected", False))
+        if positioned_items
+        else False
+    )
+
     items_payload: list[dict[str, Any]] = []
     for position, item in enumerate(positioned_items):
         profile_raw = item.get("profile")
@@ -49,6 +55,9 @@ def create_discovery_session(
         if not candidate_id:
             continue
 
+        grade_raw = item.get("music_match_grade")
+        music_match_grade = int(grade_raw) if grade_raw is not None else None
+
         items_payload.append(
             {
                 "position": position,
@@ -57,6 +66,10 @@ def create_discovery_session(
                 "x": coerce_float(item.get("_x")),
                 "y": coerce_float(item.get("_y")),
                 "orbit_tier": int(coerce_float(item.get("_orbit_tier"), 3.0)),
+                "music_match_grade": music_match_grade,
+                "candidate_spotify_connected": bool(
+                    item.get("candidate_spotify_connected", False),
+                ),
             },
         )
 
@@ -68,6 +81,7 @@ def create_discovery_session(
                 "p_tab": active_tab,
                 "p_filters": filters or {},
                 "p_expires_at": expires_at.isoformat(),
+                "p_viewer_spotify_connected": viewer_spotify_connected,
                 "p_items": items_payload,
             },
         ).execute()
@@ -409,6 +423,15 @@ def _build_node_detail_payload(
         )
         raise
 
+    grade_val = row.get("music_match_grade")
+    music_match_grade = int(grade_val) if grade_val is not None else None
+
+    sessions_dict = cast(dict[str, Any], row.get("discovery_sessions") or {})
+    viewer_spotify_connected = bool(
+        sessions_dict.get("viewer_spotify_connected", False),
+    )
+    candidate_spotify_connected = bool(row.get("candidate_spotify_connected", False))
+
     payload: dict[str, Any] = {
         "id": str(hydrated_profile.get("id") or cid),
         "name": hydrated_profile.get("name"),
@@ -447,6 +470,9 @@ def _build_node_detail_payload(
         "x": coerce_float(row.get("x")),
         "y": coerce_float(row.get("y")),
         "orbit_tier": int(coerce_float(row.get("orbit_tier"), 3.0)),
+        "music_match_grade": music_match_grade,
+        "viewer_spotify_connected": viewer_spotify_connected,
+        "candidate_spotify_connected": candidate_spotify_connected,
     }
     return payload
 
@@ -462,10 +488,12 @@ async def fetch_discovery_node_detail(
 
     PRIVACY BOUNDARY: this backs every peer-facing profile detail view
     (ProfileDetailSheet on the client). The nested `profiles:candidate_id(...)`
-    column list below is an explicit allowlist - it must never include
-    artist_affinity (the matching engine's raw weighted signal, see
-    app/db/profiles.py's _PROFILE_SELECT_COLUMNS) or any spotify_playlists
-    data. Only the bounded public top_artists list is safe to expose here.
+    column list below is an explicit allowlist - artist_affinity (the matching
+    engine's raw weighted signal) is selected here to compute the playlist match
+    grade server-side, but it MUST NOT be returned in the response payload (it is
+    filtered out in _build_node_detail_payload). spotify_playlists details must
+    never be selected here at all. Only the bounded public top_artists list is
+    safe to expose to the client.
     """
     try:
         res = (
@@ -477,6 +505,8 @@ async def fetch_discovery_node_detail(
                 x,
                 y,
                 orbit_tier,
+                music_match_grade,
+                candidate_spotify_connected,
                 profiles:candidate_id (
                     id,
                     name,
@@ -517,7 +547,8 @@ async def fetch_discovery_node_detail(
                     id,
                     viewer_id,
                     tab,
-                    expires_at
+                    expires_at,
+                    viewer_spotify_connected
                 )
                 """,
             )

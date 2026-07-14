@@ -150,18 +150,22 @@ class NotificationService {
   /// call it when the user taps the tile while permission is denied.
   static Future<void> showPermissionDeniedDialog(BuildContext context) async {
     if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        child: _PermissionDeniedDialog(
-          onOpenSettings: () async {
-            Navigator.of(ctx).pop();
-            await openNotificationSettings();
-          },
-          onDismiss: () => Navigator.of(ctx).pop(),
+    final navigator = Navigator.maybeOf(context) ?? ErrorHandler.navigatorKey.currentState;
+    if (navigator == null) return;
+    await navigator.push<void>(
+      DialogRoute<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.6),
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: _PermissionDeniedDialog(
+            onOpenSettings: () async {
+              Navigator.of(ctx).pop();
+              await openNotificationSettings();
+            },
+            onDismiss: () => Navigator.of(ctx).pop(),
+          ),
         ),
       ),
     );
@@ -277,14 +281,15 @@ class NotificationService {
     required String type,
     required Map<String, dynamic> data,
   }) {
-    final context = ErrorHandler.navigatorKey.currentContext;
-    if (context == null) return;
+    final state = ErrorHandler.navigatorKey.currentState;
+    if (state == null) return;
 
     _dismissTimer?.cancel();
     _activeEntry?.remove();
     _activeEntry = null;
 
-    final overlayState = Overlay.of(context);
+    final overlayState = state.overlay;
+    if (overlayState == null) return;
 
     final (IconData icon, Color accent) = switch (type) {
       'superlike' => (Icons.star_rounded, const Color(0xFFFACC15)),

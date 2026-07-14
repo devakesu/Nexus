@@ -33,6 +33,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
   bool _showSplash = true;
   bool _isBootstrapping = false;
+  bool _isSilentBootstrapping = false;
   String? _lastBootstrappedUserId;
   bool _hasProfile = false;
 
@@ -175,7 +176,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     final wasSettled =
         _hasReachedHome && _hasProfile && !_deletionPending && !_mandatoryConsentRequired;
     _lastBootstrappedUserId = null;
-    await _checkBootstrap();
+    await _checkBootstrap(silent: wasSettled);
     if (!mounted || !wasSettled) return;
     if (_mandatoryConsentRequired && _hasProfile && !_deletionPending) {
       await showDialog<void>(
@@ -202,7 +203,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _checkBootstrap() async {
+  Future<void> _checkBootstrap({bool silent = false}) async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
       _lastBootstrappedUserId = null;
@@ -215,7 +216,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       return;
     }
 
-    if (_isBootstrapping) {
+    if (_isBootstrapping || _isSilentBootstrapping) {
       return;
     }
 
@@ -224,9 +225,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
     // auth-state-change listener) could pass both checks above while this
     // call is still suspended on refreshSession() and start a concurrent
     // bootstrap.
-    setState(() {
-      _isBootstrapping = true;
-    });
+    if (silent) {
+      _isSilentBootstrapping = true;
+    } else {
+      setState(() {
+        _isBootstrapping = true;
+      });
+    }
 
     var activeSession = session;
     if (activeSession.isExpired) {
@@ -252,6 +257,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           if (mounted) {
             setState(() {
               _isBootstrapping = false;
+              _isSilentBootstrapping = false;
             });
           }
           return;
@@ -271,6 +277,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _isBootstrapping = false;
+            _isSilentBootstrapping = false;
             _lastBootstrappedUserId = null;
             _hasProfile = false;
           });
@@ -337,6 +344,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             _hasProfile = hasProfile;
             _lastBootstrappedUserId = activeSession.user.id;
             _isBootstrapping = false;
+            _isSilentBootstrapping = false;
           });
           unawaited(NotificationService.initialize());
           // Publish this device's Signal key bundle right after login so a
@@ -361,6 +369,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _isBootstrapping = false;
+          _isSilentBootstrapping = false;
         });
       }
       ErrorHandler.handleError(
@@ -377,6 +386,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _isBootstrapping = false;
+          _isSilentBootstrapping = false;
           _lastBootstrappedUserId = null;
           _hasProfile = false;
         });

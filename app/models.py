@@ -605,6 +605,10 @@ class OrbitNodeDetailBaseOut(BaseModel):
     sub_interests: dict[str, list[str]] = Field(default_factory=dict)
     ai_vibe_tags: list[str] = Field(default_factory=list)
 
+    music_match_grade: int | None = None
+    viewer_spotify_connected: bool = False
+    candidate_spotify_connected: bool = False
+
 
 class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
     display_sexuality: str | None = None
@@ -1208,11 +1212,7 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     def validate_normal_pics_constraints(cls, value: list[str]) -> list[str]:
         cleaned_list = [v.strip() for v in value if v and v.strip()]
         total_count = len(cleaned_list)
-
-        if total_count < 1:
-            raise ValueError(
-                "Validation Error: At least one normal gallery image path is required.",
-            )
+        # Allow empty normal_pics (e.g. when only avatar is set)
         if total_count > 4:
             raise ValueError(
                 "Validation Error: A maximum of 4 gallery images can be registered.",
