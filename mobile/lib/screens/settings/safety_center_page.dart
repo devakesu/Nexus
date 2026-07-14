@@ -37,9 +37,12 @@ class _ChecklistItem {
 typedef _RedFlagData = ({IconData icon, String title, String desc});
 
 class _RedFlagCarousel extends StatefulWidget {
-  const _RedFlagCarousel({required this.flags});
+  const _RedFlagCarousel({required this.flags, required this.onAllViewed});
 
   final List<_RedFlagData> flags;
+
+  /// Fired once when the user has scrolled to (or past) the final card.
+  final VoidCallback onAllViewed;
 
   @override
   State<_RedFlagCarousel> createState() => _RedFlagCarouselState();
@@ -50,6 +53,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
     viewportFraction: 0.62,
   );
   double _page = 0;
+  bool _allViewedFired = false;
 
   @override
   void initState() {
@@ -57,11 +61,28 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
     _controller.addListener(_onPageChange);
   }
 
+  // With viewportFraction < 1 and padEnds: false, the PageController page
+  // value never reaches flags.length - 1 because the last card fills the
+  // right portion of the viewport before the scroll end. The effective
+  // "active" dot is clamped so that once page rounds to flags.length - 2
+  // (second-to-last card is the primary card, last is fully visible to its
+  // right), we treat the last dot as active.
+  int get _activeDot {
+    final rounded = _page.round();
+    final last = widget.flags.length - 1;
+    return rounded >= last - 1 ? last : rounded;
+  }
+
   void _onPageChange() {
     if (mounted) {
       final newPage = _controller.page ?? 0;
       if (newPage != _page) {
         setState(() => _page = newPage);
+      }
+      // Fire once when the last card is visible (activeDot == last index).
+      if (!_allViewedFired && _activeDot >= widget.flags.length - 1) {
+        _allViewedFired = true;
+        widget.onAllViewed();
       }
     }
   }
@@ -149,7 +170,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.flags.length, (i) {
-              final active = (_page.round() == i);
+              final active = (_activeDot == i);
               return AnimatedContainer(
                 duration: 250.ms,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -182,7 +203,8 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // Whether at least one trusted contact exists — read independently here
   // just to drive the safety score checklist ring; the Meetup Safety page
-  // owns the actual contacts list.
+  // owns the actual contacts list. Only meaningful when consent is granted;
+  // forced false otherwise so the item can't show "done" without consent.
   bool _hasTrustedContacts = false;
 
   // Quiz state variables
@@ -191,7 +213,13 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   int _selectedAnswerIndex = -1;
   bool _answered = false;
 
-  // Safety Score checklist state (persisted across sessions)
+  // Safety Score checklist state (persisted across sessions).
+  // Each flag is stored under a versioned key so that content updates
+  // (new quiz questions, revised guidelines) automatically reset the tick.
+  // Bump the version constant whenever the corresponding section changes.
+  static const _quizVersion = 'v1';
+  static const _guidelinesVersion = 'v3';
+  static const _privacyVersion = 'v1';
   bool _quizCompletedOnce = false;
   bool _guidelinesReviewed = false;
   bool _privacySettingsReviewed = false;
@@ -211,6 +239,20 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     4,
     (_) => ExpansibleController(),
   );
+  // Tracks which accordion panels have been expanded at least once.
+  // Guidelines are only marked reviewed when all 4 have been opened.
+  final Set<int> _openedAccordions = {};
+  // Whether the user has scrolled through all red-flag carousel cards.
+  bool _redFlagsAllViewed = false;
+
+  /// Called whenever the user makes progress through the guidelines content
+  /// (opens an accordion or reaches the last red-flag card). Only marks the
+  /// checklist item done once both conditions are fully satisfied.
+  void _checkGuidelinesComplete() {
+    if (_openedAccordions.length == 4 && _redFlagsAllViewed) {
+      unawaited(_markGuidelinesReviewed());
+    }
+  }
 
   double get _safetyScore {
     var completed = 0;
@@ -272,11 +314,15 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _quizCompletedOnce = prefs.getBool('safety_quiz_completed') ?? false;
+      // Each flag is keyed by version so bumping the constant above
+      // automatically invalidates old ticks when content changes.
+      _quizCompletedOnce =
+          prefs.getBool('safety_quiz_completed_$_quizVersion') ?? false;
       _guidelinesReviewed =
-          prefs.getBool('safety_guidelines_reviewed') ?? false;
+          prefs.getBool('safety_guidelines_reviewed_$_guidelinesVersion') ??
+          false;
       _privacySettingsReviewed =
-          prefs.getBool('safety_privacy_reviewed') ?? false;
+          prefs.getBool('safety_privacy_reviewed_$_privacyVersion') ?? false;
     });
   }
 
@@ -284,21 +330,24 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     if (_quizCompletedOnce) return;
     setState(() => _quizCompletedOnce = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_quiz_completed', true);
+    await prefs.setBool('safety_quiz_completed_$_quizVersion', true);
   }
 
   Future<void> _markGuidelinesReviewed() async {
     if (_guidelinesReviewed) return;
     setState(() => _guidelinesReviewed = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_guidelines_reviewed', true);
+    await prefs.setBool(
+      'safety_guidelines_reviewed_$_guidelinesVersion',
+      true,
+    );
   }
 
   Future<void> _markPrivacySettingsReviewed() async {
     if (_privacySettingsReviewed) return;
     setState(() => _privacySettingsReviewed = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_privacy_reviewed', true);
+    await prefs.setBool('safety_privacy_reviewed_$_privacyVersion', true);
   }
 
   void _scrollToSection(int index) {
@@ -326,7 +375,14 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // Lightweight read of just the contact count for the safety score ring;
   // MeetupSafetyPage owns the full contacts list and its persistence.
+  // Only updates _hasTrustedContacts when consent has been granted —
+  // without consent the trusted-contacts section is inaccessible anyway,
+  // so showing the item as done would be misleading.
   Future<void> _loadHasTrustedContacts() async {
+    if (!SafetyConsentCache.isGranted) {
+      // No consent → can't have legitimately added contacts; leave false.
+      return;
+    }
     try {
       const secureStorage = FlutterSecureStorage(
         iOptions: IOSOptions(
@@ -630,7 +686,9 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     final checklist = <_ChecklistItem>[
       _ChecklistItem(
         label: 'Add a trusted contact',
-        done: _hasTrustedContacts,
+        // Only mark done if consent is granted — without it the Meetup
+        // Safety page is gated so contacts can't have been legitimately added.
+        done: _hasTrustedContacts && SafetyConsentCache.isGranted,
         icon: LucideIcons.users,
         onTap: _openMeetupSafetyPage,
       ),
@@ -1471,6 +1529,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
           const SizedBox(height: 16),
           _buildEducationAccordion(
+            index: 0,
             controller: _accordionControllers[0],
             title: '1. Meeting Up Safely (Offline Safety)',
             icon: LucideIcons.mapPin,
@@ -1488,6 +1547,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            index: 1,
             controller: _accordionControllers[1],
             title: '2. Chatting Safely (Online Safety)',
             icon: LucideIcons.messageSquare,
@@ -1505,6 +1565,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            index: 2,
             controller: _accordionControllers[2],
             title: '3. Financial & Scams Protection',
             icon: LucideIcons.alertCircle,
@@ -1521,6 +1582,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
           const SizedBox(height: 10),
           _buildEducationAccordion(
+            index: 3,
             controller: _accordionControllers[3],
             title: '4. Reporting & What Happens Next',
             icon: LucideIcons.ban,
@@ -1540,6 +1602,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   Widget _buildEducationAccordion({
+    required int index,
     required ExpansibleController controller,
     required String title,
     required IconData icon,
@@ -1567,7 +1630,12 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           side: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
         onExpansionChanged: (expanded) {
-          if (expanded) unawaited(_markGuidelinesReviewed());
+          if (expanded) {
+            _openedAccordions.add(index);
+            // Delegate to the shared completion check — red flags also
+            // need to have been fully scrolled before the tick fires.
+            _checkGuidelinesComplete();
+          }
         },
         leading: Icon(icon, color: _teal, size: 18),
         title: Text(
@@ -1711,7 +1779,13 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           ),
         ),
         const SizedBox(height: 16),
-        _RedFlagCarousel(flags: flags),
+        _RedFlagCarousel(
+          flags: flags,
+          onAllViewed: () {
+            setState(() => _redFlagsAllViewed = true);
+            _checkGuidelinesComplete();
+          },
+        ),
       ],
     );
   }

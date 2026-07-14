@@ -7,8 +7,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
+import 'package:nexus/widgets/special_category_consent_prompt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ---------------------------------------------------------------------------
@@ -120,6 +122,11 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   // Track which fields are currently being saved to show per-item loading.
   final Set<String> _saving = {};
 
+  // Whether the user has granted special-category (sexuality / religion)
+  // consent. Populated from the in-memory cache set by AuthGate; no extra
+  // network call needed.
+  bool _specialCategoryGranted = false;
+
   bool _activeStatus = true;
   bool _readReceipts = true;
 
@@ -131,6 +138,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     for (final f in _kHideableFields) {
       _visibility[f.key] = true;
     }
+    // Populate consent flag from the cache that AuthGate set at boot.
+    _specialCategoryGranted = SpecialCategoryConsentCache.isGranted;
     unawaited(_load());
   }
 
@@ -271,6 +280,34 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     } finally {
       if (mounted) setState(() => _saving.remove(field));
     }
+  }
+
+  /// Shows the GDPR consent bottom sheet. On grant, marks consent, flips
+  /// both special-category fields to visible, and persists via the API.
+  Future<void> _promptSpecialCategoryConsent() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+        ),
+        child: SpecialCategoryConsentPromptCard(
+          onGranted: () {
+            Navigator.of(sheetContext).pop();
+            if (!mounted) return;
+            setState(() => _specialCategoryGranted = true);
+            // Flip both special-category fields to visible.
+            unawaited(_toggleField('display_sexuality', true));
+            unawaited(_toggleField('religious_beliefs', true));
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -420,6 +457,9 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   }
 
   Widget _buildFieldVisibilitySection() {
+    // Keys of fields that require special-category consent to be manipulated.
+    const specialCategoryKeys = {'display_sexuality', 'religious_beliefs'};
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
@@ -489,8 +529,12 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       isFirst: i == 0,
                       isLast: i == _kHideableFields.length - 1,
                       saving: _saving.contains(_kHideableFields[i].key),
+                      locked: specialCategoryKeys
+                              .contains(_kHideableFields[i].key) &&
+                          !_specialCategoryGranted,
                       onChanged: (v) =>
                           _toggleField(_kHideableFields[i].key, v),
+                      onLockedTap: _promptSpecialCategoryConsent,
                     ),
                 ],
               ),
@@ -612,6 +656,8 @@ class _ToggleTile extends StatelessWidget {
     required this.isLast,
     required this.saving,
     required this.onChanged,
+    this.locked = false,
+    this.onLockedTap,
   });
 
   final IconData icon;
@@ -623,6 +669,10 @@ class _ToggleTile extends StatelessWidget {
   final bool isLast;
   final bool saving;
   final ValueChanged<bool> onChanged;
+  /// When true the toggle is replaced by a lock icon and the row is not
+  /// interactive via onChanged. Tapping the row instead calls onLockedTap.
+  final bool locked;
+  final VoidCallback? onLockedTap;
 
   @override
   Widget build(BuildContext context) {
@@ -634,59 +684,81 @@ class _ToggleTile extends StatelessWidget {
             height: 0.5,
             color: const Color(0xFFE2E8F0),
           ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
+        InkWell(
+          onTap: locked ? onLockedTap : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: locked
+                        ? AppColors.inkFaint.withValues(alpha: 0.1)
+                        : accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: locked ? AppColors.inkFaint : accentColor,
+                    size: 17,
+                  ),
                 ),
-                child: Icon(icon, color: accentColor, size: 17),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF0F172A),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: locked
+                              ? AppColors.inkFaint
+                              : const Color(0xFF0F172A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF94A3B8),
-                        height: 1.3,
+                      const SizedBox(height: 2),
+                      Text(
+                        locked
+                            ? 'Requires consent — tap to enable'
+                            : subtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: locked
+                              ? AppColors.primaryTeal.withValues(alpha: 0.8)
+                              : const Color(0xFF94A3B8),
+                          height: 1.3,
+                          fontWeight: locked ? FontWeight.w500 : FontWeight.w400,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              if (saving)
-                const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: NexusOrbitLoader(size: 36, lightMode: true),
-                )
-              else
-                Switch(
-                  value: value,
-                  onChanged: onChanged,
-                  activeThumbColor: accentColor,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-            ],
+                const SizedBox(width: 10),
+                if (saving)
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: NexusOrbitLoader(size: 36, lightMode: true),
+                  )
+                else if (locked)
+                  const Icon(
+                    LucideIcons.lock,
+                    size: 18,
+                    color: AppColors.inkFaint,
+                  )
+                else
+                  Switch(
+                    value: value,
+                    onChanged: onChanged,
+                    activeThumbColor: accentColor,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+              ],
+            ),
           ),
         ),
       ],

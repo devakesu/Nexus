@@ -175,38 +175,6 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
               ],
             ).animate().fade(),
             const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.error.withValues(alpha: 0.15),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
-                    color: AppColors.error,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.infoText,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.inkMuted,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fade(delay: 80.ms),
-            const SizedBox(height: 20),
             Text(
               'ENTER CODE',
               style: GoogleFonts.manrope(

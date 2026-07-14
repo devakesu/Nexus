@@ -318,14 +318,15 @@ def complete_onboarding(
         user_branch: str | None = payload.campus_branch
         user_year: int | None = payload.campus_year
         user_campus_name: str | None = payload.campus_name
-        user_lifestyle: str | None = None
+        user_demographic_bucket = None
     else:
-        # NexusOnboardingRequest: name and lifestyle are provided in the payload.
+        # NexusOnboardingRequest: name and demographic_bucket are in the
+        # payload.
         user_name = payload.name
         user_branch = None
         user_year = None
         user_campus_name = None
-        user_lifestyle = payload.lifestyle
+        user_demographic_bucket: str | None = payload.demographic_bucket
 
     profile_row, profile_created = upsert_profile_variant(
         user_id=user_id,
@@ -334,7 +335,7 @@ def complete_onboarding(
         campus_year=user_year,
         age=payload.age,
         campus_name=user_campus_name,
-        lifestyle=user_lifestyle,
+        demographic_bucket=user_demographic_bucket,
     )
 
     # Terms/consent is deliberately not collected here - onboarding creates

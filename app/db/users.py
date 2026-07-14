@@ -375,13 +375,12 @@ def upsert_profile_variant(  # noqa: C901
     campus_year: int | None,
     age: int,
     campus_name: str | None = None,
-    lifestyle: str | None = None,
+    demographic_bucket: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Upsert a profile row with variant-specific columns."""
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
-    encrypted_lifestyle = encrypt_to_hex(lifestyle) if lifestyle is not None else None
     encrypted_branch = encrypt_to_hex(campus_branch.strip()) if campus_branch else None
     branch_blind = compute_blind_index(campus_branch) if campus_branch else None
     encrypted_campus_name = encrypt_to_hex(campus_name.strip()) if campus_name else None
@@ -395,9 +394,10 @@ def upsert_profile_variant(  # noqa: C901
         "campus_year": campus_year,
         "campus_name": encrypted_campus_name,
         "age": age,
-        "lifestyle": encrypted_lifestyle,
         "updated_at": now_iso,
     }
+    if demographic_bucket is not None:
+        upsert_payload["search_bucket"] = demographic_bucket
     if profile_created:
         # Onboarding's initial name/age counts as "change #1" for the
         # twice-a-year rolling rate limits on both fields - see

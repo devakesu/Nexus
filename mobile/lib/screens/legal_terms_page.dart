@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -12,21 +13,34 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// terms/policy update takes effect immediately for every user with no
 /// app-store release needed - matching how current_terms_version already
 /// drives live re-consent (see terms_consent_screen.dart).
+///
+/// Pass [fragment] to deep-link to a specific section anchor on load
+/// (e.g. `'privacy'` → `/legal/terms#privacy`). The AppBar title adjusts
+/// to match the section being shown.
 class LegalTermsPage extends StatefulWidget {
-  const LegalTermsPage({super.key});
+  const LegalTermsPage({this.fragment, super.key});
+
+  /// Optional URL fragment (without `#`) to scroll to on load.
+  final String? fragment;
 
   @override
   State<LegalTermsPage> createState() => _LegalTermsPageState();
 }
 
 class _LegalTermsPageState extends State<LegalTermsPage> {
-  static final Uri _legalUri = Uri.parse(
+  late final Uri _legalUri = Uri.parse(
     '${AppConfig.current.backendUrl}/legal/terms',
-  );
+  ).replace(fragment: widget.fragment);
 
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
+
+  String get _title => switch (widget.fragment) {
+        'privacy' => 'Privacy Policy',
+        'terms' => 'Terms of Service',
+        _ => 'Terms & Privacy Policy',
+      };
 
   @override
   void initState() {
@@ -37,10 +51,19 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
 
   Future<void> _initController() async {
     await _controller.setBackgroundColor(const Color(0xFF0B0D13));
-    await _controller.setJavaScriptMode(JavaScriptMode.disabled);
+    // JS must be enabled so the browser can scroll to the anchor on load.
+    await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await _controller.setNavigationDelegate(
       NavigationDelegate(
-        onPageFinished: (_) {
+        onPageFinished: (_) async {
+          if (widget.fragment != null) {
+            // WebViews don't reliably honour URL fragments because the
+            // native anchor scroll fires before layout is complete.
+            // Scrolling via JS in onPageFinished is the reliable fix.
+            await _controller.runJavaScript(
+              "document.getElementById('${widget.fragment}')?.scrollIntoView({behavior:'instant'});",
+            );
+          }
           if (mounted) setState(() => _isLoading = false);
         },
         onWebResourceError: (_) {
@@ -51,6 +74,24 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
             });
           }
         },
+        // Debug-only: bypass self-signed cert errors for local dev servers,
+        // mirroring the Dio badCertificateCallback in network_utils.dart.
+        onSslAuthError: kDebugMode
+            ? (SslAuthError error) async {
+                final host = _legalUri.host;
+                final isLocalHost = host == 'localhost' ||
+                    host == '127.0.0.1' ||
+                    host == '10.0.2.2' ||
+                    host.startsWith('192.168.') ||
+                    host.startsWith('10.') ||
+                    host.startsWith('172.');
+                if (isLocalHost) {
+                  await error.proceed();
+                } else {
+                  await error.cancel();
+                }
+              }
+            : null,
       ),
     );
     await _controller.loadRequest(_legalUri);
@@ -70,8 +111,8 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
       backgroundColor: const Color(0xFF0B0D13),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161B26),
-        title: const Text(
-          'Terms & Privacy Policy',
+        title: Text(
+          _title,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,

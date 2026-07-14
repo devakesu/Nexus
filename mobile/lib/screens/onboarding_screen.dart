@@ -45,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _mecYear = 1;
 
   // ── Nexus-specific variant state ───────────────────────────────────────────
-  String _lifestyle = 'Chill';
+  String _demographicBucket = '';
 
   @override
   void initState() {
@@ -198,12 +198,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'age': _selectedAge,
         };
       } else {
-        // Nexus main payload: name + age + lifestyle
+        // Nexus main payload: name + age + demographic_bucket
         payload = {
           'app_variant': _config.variantString,
           'name': _nameController.text.trim(),
           'age': _selectedAge,
-          'lifestyle': _lifestyle,
+          'demographic_bucket': _demographicBucket,
         };
       }
 
@@ -262,7 +262,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (isMec) {
       return hasPhone;
     } else {
-      return _nameController.text.trim().isNotEmpty && hasPhone;
+      return _nameController.text.trim().isNotEmpty &&
+          hasPhone &&
+          _demographicBucket.isNotEmpty;
     }
   }
 
@@ -489,9 +491,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Divider(color: Color(0x1AFFFFFF)),
           const SizedBox(height: 20),
           NexusOnboardingFields(
-            onChanged: ({required lifestyle}) {
+            onChanged: ({required demographicBucket}) {
               setState(() {
-                _lifestyle = lifestyle;
+                _demographicBucket = demographicBucket;
               });
             },
           ),

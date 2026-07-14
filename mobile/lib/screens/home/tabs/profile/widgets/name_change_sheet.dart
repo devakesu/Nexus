@@ -148,7 +148,10 @@ List<Widget> _buildIneligibleContent(
       'To protect against impersonation and abuse, your display name can '
       'only be changed twice within a rolling 365-day window - the value '
       'set at registration counts as the first change.',
-      style: TextStyle(color: Colors.black.withValues(alpha: 0.6), fontSize: 13),
+      style: TextStyle(
+        color: Colors.black.withValues(alpha: 0.6),
+        fontSize: 13,
+      ),
     ),
     const SizedBox(height: 10),
     Text(
@@ -164,7 +167,10 @@ List<Widget> _buildIneligibleContent(
     Text(
       'Need it sooner? File a ticket via Settings → Help, Feedback & '
       'Bug Report to request an exception from customer service.',
-      style: TextStyle(color: Colors.black.withValues(alpha: 0.5), fontSize: 12),
+      style: TextStyle(
+        color: Colors.black.withValues(alpha: 0.5),
+        fontSize: 12,
+      ),
     ),
     const SizedBox(height: 18),
     SizedBox(
@@ -174,7 +180,9 @@ List<Widget> _buildIneligibleContent(
           backgroundColor: AppColors.primaryTeal,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 13),
         ),
         onPressed: () {
@@ -202,10 +210,13 @@ List<Widget> _buildIntroContent({
   return [
     Text(
       'Display name can be changed twice within a rolling 365-day window - '
-      'the value set at registration counted as the first change. You '
+      'the value set at registration counts as the first change. You '
       'have $remaining change${remaining == 1 ? '' : 's'} left. New names '
       "can't contain numbers, titles (e.g. \"Dr.\"), or offensive language.",
-      style: TextStyle(color: Colors.black.withValues(alpha: 0.6), fontSize: 13),
+      style: TextStyle(
+        color: Colors.black.withValues(alpha: 0.6),
+        fontSize: 13,
+      ),
     ),
     const SizedBox(height: 16),
     GlassTextField(
@@ -236,7 +247,9 @@ List<Widget> _buildIntroContent({
           disabledBackgroundColor: Colors.black12,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 13),
         ),
         onPressed: onContinue,

@@ -171,13 +171,16 @@ class NexusOnboardingRequest(BaseOnboardingRequest):
 
     - Name is collected from the user.
     - Age is collected.
-    - Lifestyle is collected.
+    - Demographic bucket (M/F/NB) is collected for relevance-ranked discovery.
     """
 
     app_variant: Literal["nexus"] = "nexus"
     name: str = Field(..., min_length=4, max_length=100)
     age: int = Field(..., ge=18, le=80)
-    lifestyle: str = Field(..., min_length=1)
+    demographic_bucket: Literal["M", "F", "NB"] = Field(
+        ...,
+        description="Which demographic bucket the user primarily identifies as.",
+    )
 
     @field_validator("name")
     @classmethod

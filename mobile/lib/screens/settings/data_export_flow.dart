@@ -68,7 +68,8 @@ Future<void> startDataExport(BuildContext context) async {
                 ),
                 children: [
                   const TextSpan(
-                    text: 'The exported file will contain a complete, readable copy of your personal data:\n\n'
+                    text:
+                        'The exported file will contain a complete, readable copy of your personal data:\n\n'
                         '✓  Included: Profile details, account history, active devices, matches/discovery actions, chat metadata, reports/moderation history (reporter IDs removed), feedback tickets, safety sessions/contacts, and Spotify playlists.\n\n'
                         '✗  Excluded: Chat message contents (end-to-end encrypted, never stored on server), safety recording decryption keys, and internal moderation notes.\n\n'
                         'For your privacy and security, keep this file safe and ',
@@ -120,7 +121,7 @@ Future<void> startDataExport(BuildContext context) async {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           child: Center(
                             child: Text(
-                              'Send OTP Code',
+                              'Start Export',
                               style: GoogleFonts.manrope(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -145,18 +146,20 @@ Future<void> startDataExport(BuildContext context) async {
   if (!context.mounted) return;
 
   // Show loading indicator dialog to prevent the screen from locking without feedback
-  unawaited(showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) => const PopScope(
-      canPop: false,
-      child: Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEF4444)),
+  unawaited(
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFEF4444)),
+          ),
         ),
       ),
     ),
-  ));
+  );
 
   try {
     await createDio().post<Map<String, dynamic>>(

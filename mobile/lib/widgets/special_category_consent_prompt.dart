@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
@@ -48,22 +49,22 @@ Future<bool> grantSpecialCategoryConsent(BuildContext context) async {
   }
 }
 
-/// Inline consent prompt shown in a bottom sheet before letting a user set
-/// display_sexuality/religious_beliefs to a real disclosed value for the
-/// first time - see profile_tab.dart. onGranted fires only after a
-/// successful consent submission, letting the caller proceed with the
-/// original save.
+/// Inline GDPR consent prompt shown in a bottom sheet before letting a user
+/// set display_sexuality/religious_beliefs to a real disclosed value for the
+/// first time, or before unlocking these fields in Privacy Settings.
+/// onGranted fires only after a successful consent submission.
+///
+/// Under GDPR Article 9, sexual orientation and religious belief are
+/// special-category data requiring explicit, separate consent. The card
+/// mirrors the language and structure of _ConsentTile in
+/// terms_consent_screen.dart so users see consistent framing.
 class SpecialCategoryConsentPromptCard extends StatefulWidget {
   const SpecialCategoryConsentPromptCard({
     required this.onGranted,
-    this.message =
-        'Turn on sexual orientation & religious belief data to fill this '
-        'in. Optional - Nexus works fully without it.',
     super.key,
   });
 
   final VoidCallback onGranted;
-  final String message;
 
   @override
   State<SpecialCategoryConsentPromptCard> createState() =>
@@ -74,7 +75,7 @@ class _SpecialCategoryConsentPromptCardState
     extends State<SpecialCategoryConsentPromptCard> {
   bool _isSubmitting = false;
 
-  Future<void> _handleTap() async {
+  Future<void> _handleAccept() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     final granted = await grantSpecialCategoryConsent(context);
@@ -86,28 +87,39 @@ class _SpecialCategoryConsentPromptCardState
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.primaryTeal.withValues(alpha: 0.06),
+        // Solid surface so the card is legible over the transparent bottom-
+        // sheet scrim; the teal tint is kept via the border.
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primaryTeal.withValues(alpha: 0.2),
+          color: AppColors.primaryTeal.withValues(alpha: 0.35),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Header ──────────────────────────────────────────────────────
           Row(
             children: [
               const Icon(
-                LucideIcons.shieldQuestion,
+                LucideIcons.shieldCheck,
                 color: AppColors.primaryTeal,
                 size: 18,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'This field is off',
+                  'Consent required',
                   style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -115,32 +127,61 @@ class _SpecialCategoryConsentPromptCardState
                   ),
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.inkFaint.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  'Optional',
+                  style: GoogleFonts.manrope(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkMuted,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
+
+          const SizedBox(height: 10),
+
+          // ── GDPR disclosure ─────────────────────────────────────────────
           Text(
-            widget.message,
+            'Sexual orientation and religious belief are '
+            'special-category data under GDPR (Article 9). Nexus '
+            'needs your explicit consent to store and use them. '
+            'This is entirely optional — Nexus works fully without '
+            'it, and you can withdraw consent at any time from '
+            'Privacy Settings.',
             style: GoogleFonts.inter(
               fontSize: 12.5,
               color: AppColors.inkMuted,
-              height: 1.45,
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 16),
+
+          // ── Accept button ────────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 42),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _handleTap,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: AppColors.primaryTeal,
-                    ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _handleAccept,
+                borderRadius: BorderRadius.circular(10),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.primaryTeal,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
                     child: Center(
                       child: _isSubmitting
                           ? const SizedBox(
@@ -154,7 +195,7 @@ class _SpecialCategoryConsentPromptCardState
                               ),
                             )
                           : Text(
-                              'Turn On',
+                              'I Accept',
                               style: GoogleFonts.manrope(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -164,6 +205,35 @@ class _SpecialCategoryConsentPromptCardState
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── Privacy policy link ──────────────────────────────────────────
+          Center(
+            child: GestureDetector(
+              onTap: () => context.push<void>('/legal/terms'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Read our Terms & Privacy Policy',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryTeal,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    LucideIcons.arrowUpRight,
+                    size: 12,
+                    color: AppColors.primaryTeal,
+                  ),
+                ],
               ),
             ),
           ),
