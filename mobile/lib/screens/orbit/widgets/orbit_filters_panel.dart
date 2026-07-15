@@ -35,10 +35,12 @@ class OrbitFiltersPanel extends StatefulWidget {
     required this.isRefreshing,
     required this.onFetchOrbitNodes,
     required this.scrollController,
+    required this.noUsersFound,
     super.key,
   });
 
   final String tab;
+  final bool noUsersFound;
   final Color themeColor;
   final RangeValues ageRange;
   final List<String> selectedDrinking;
@@ -450,6 +452,41 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               borderRadius: BorderRadius.circular(1),
             ),
           ),
+
+          if (widget.noUsersFound) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    color: Colors.amber,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'No users found matching your current filters. Try removing or adjusting them, or check back in a few days for new members.',
+                      style: TextStyle(
+                        color: Colors.amber.shade200,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // ── Age Range ──────────────────────────────────────────────────────
           filterSection(

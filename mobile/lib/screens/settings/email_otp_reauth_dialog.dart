@@ -9,6 +9,7 @@ import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 
 /// Confirms it's really the account owner via an emailed OTP, before a
 /// sensitive action (account deletion, data export) proceeds. Reused across
@@ -19,6 +20,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 class EmailOtpReauthDialog extends StatefulWidget {
   const EmailOtpReauthDialog({
     required this.verifyUrl,
+    required this.resendUrl,
     required this.onVerificationSuccess,
     this.title = "Confirm It's You",
     this.infoText =
@@ -27,6 +29,7 @@ class EmailOtpReauthDialog extends StatefulWidget {
   });
 
   final String verifyUrl;
+  final String resendUrl;
   final FutureOr<void> Function() onVerificationSuccess;
   final String title;
   final String infoText;
@@ -41,12 +44,34 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
   String? _errorMessage;
   bool _success = false;
 
+  Timer? _countdownTimer;
+  int _resendCountdown = 60;
+
   static const int _codeLength = AppConfig.otpLength;
 
   @override
   void initState() {
     super.initState();
+    _startCountdown();
     _otpController.addListener(_updateOtpState);
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _resendCountdown = 60;
+    });
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_resendCountdown > 0) {
+            _resendCountdown--;
+          } else {
+            _countdownTimer?.cancel();
+          }
+        });
+      }
+    });
   }
 
   void _updateOtpState() {
@@ -60,10 +85,52 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _otpController
       ..removeListener(_updateOtpState)
       ..dispose();
     super.dispose();
+  }
+
+  Future<void> _resendOtp() async {
+    if (_resendCountdown > 0 || _isLoading || _success) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await createDio().post<Map<String, dynamic>>(
+        widget.resendUrl,
+        options: Options(
+          headers: {'X-App-Variant': AppConfig.current.variantString},
+        ),
+      );
+      if (mounted) {
+        _startCountdown();
+        NexusToast.show(
+          context,
+          'A new verification code has been sent.',
+        );
+      }
+    } on Object catch (e, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorHandler.getFriendlyMessage(e);
+        });
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          customMessage: 'Failed to resend OTP.',
+          showUi: false,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _submitCode() async {
@@ -90,14 +157,11 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
 
       if (mounted) {
         setState(() => _success = true);
-        final successResult = widget.onVerificationSuccess();
-        await Future.wait<dynamic>([
-          Future<void>.delayed(const Duration(milliseconds: 600)),
-          if (successResult is Future) successResult,
-        ]);
+        await Future<void>.delayed(const Duration(milliseconds: 600));
         if (mounted) {
           Navigator.of(context).pop();
         }
+        widget.onVerificationSuccess();
       }
     } on Object catch (e, stackTrace) {
       if (mounted) {
@@ -231,6 +295,29 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
               ),
               onChanged: (_) => setState(() => _errorMessage = null),
             ).animate().fade(delay: 120.ms),
+            const SizedBox(height: 12),
+            Center(
+              child: _resendCountdown > 0
+                  ? Text(
+                      'Resend code in ${_resendCountdown}s',
+                      style: GoogleFonts.inter(
+                        color: AppColors.inkMuted,
+                        fontSize: 13,
+                      ),
+                    )
+                  : GestureDetector(
+                      onTap: _resendOtp,
+                      child: Text(
+                        'Resend OTP',
+                        style: GoogleFonts.inter(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+            ).animate().fade(delay: 140.ms),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

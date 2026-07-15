@@ -188,7 +188,11 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
-                _buildSectionHeader('Discovery Preferences', LucideIcons.compass, AppColors.modeFriends),
+                _buildSectionHeader(
+                  'Discovery Preferences',
+                  LucideIcons.compass,
+                  AppColors.modeFriends,
+                ),
 
                 // Target Buckets
                 Row(
@@ -283,7 +287,11 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 ),
                 const SizedBox(height: 12),
 
-                _buildSectionHeader('More About You', LucideIcons.user, AppColors.modeFriends),
+                _buildSectionHeader(
+                  'More About You',
+                  LucideIcons.user,
+                  AppColors.modeFriends,
+                ),
 
                 // Interests
                 Row(
@@ -307,7 +315,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Add interests to find friends who share your passions.',
+                  'Add your interests to find friends who share your passions.',
                   style: TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 12,
@@ -446,7 +454,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Connect with friends who care about the same causes.',
+                  'Connect with friends who care about the same causes as you do.',
                   style: TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 12,

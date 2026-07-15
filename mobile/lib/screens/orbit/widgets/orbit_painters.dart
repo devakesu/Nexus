@@ -102,53 +102,119 @@ class ConstellationLinesPainter extends CustomPainter {
   ConstellationLinesPainter({
     required this.nodes,
     required this.themeColor,
+    this.pulseValue = 0.0,
   });
 
   final List<OrbitNode> nodes;
   final Color themeColor;
+  final double pulseValue;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (nodes.isEmpty) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final baseColor = AppColors.tint(themeColor, 0.3);
     const maxRadius = 450.0;
 
-    // Lines from center to each node, fading with distance so the closest
-    // (best) matches read as more strongly "connected" than distant ones,
-    // instead of a flat-alpha line to every node competing equally.
+    // Draw circular orbit lines centered at canvas center for each node's distance.
+    // Deduplicate distances to avoid painting overlapping circles twice.
+    final uniqueDistances = nodes
+        .map((node) => math.sqrt(node.x * node.x + node.y * node.y))
+        .toSet();
+
+    // Use extremely faint white lines for the orbit tracks to sit quietly in the background
+    const orbitColor = Colors.white;
+    for (final distance in uniqueDistances) {
+      final proximity = (1 - (distance / maxRadius)).clamp(0.0, 1.0);
+      final alpha = (0.14 + proximity * 0.08).clamp(0.03, 0.22);
+
+      final orbitPaint = Paint()
+        ..color = orbitColor.withValues(alpha: alpha)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+      canvas.drawCircle(center, distance, orbitPaint);
+    }
+
+    // Lines from center to a subset of nodes (Option C)
+    // Deterministically select 1 in 3 nodes to anchor the constellation without creating a crowded sunburst.
     final centerPaint = Paint()
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
+
     for (final node in nodes) {
       final nodePos = Offset(center.dx + node.x, center.dy + node.y);
       final distance = math.sqrt(node.x * node.x + node.y * node.y);
       final proximity = (1 - (distance / maxRadius)).clamp(0.0, 1.0);
-      final alpha = (0.04 + proximity * 0.10).clamp(0.03, 0.14);
-      canvas.drawLine(
-        center,
-        nodePos,
-        centerPaint..color = baseColor.withValues(alpha: alpha),
-      );
+      final alpha = (0.18 + proximity * 0.18).clamp(0.09, 0.30);
+
+      if (node.id.hashCode % 3 == 0) {
+        canvas.drawLine(
+          center,
+          nodePos,
+          centerPaint
+            ..color = const Color.fromARGB(
+              255,
+              255,
+              0,
+              0,
+            ).withValues(alpha: alpha),
+        );
+      }
+
+      // Draw traveling comet pulse along the connection line (Option C)
+      final offset = (node.id.hashCode.abs() % 100) / 100.0;
+      final progress = (pulseValue + offset) % 1.0;
+      final pulsePos = Offset.lerp(center, nodePos, progress)!;
+
+      // Pulse fades in/out smoothly along the line trajectory
+      final pulseAlpha = math.sin(progress * math.pi) * (0.2 + proximity * 0.5);
+      final pulseAlphaVal = pulseAlpha.clamp(0.0, 1.0);
+
+      if (pulseAlphaVal > 0.05) {
+        final glowColor = AppColors.tint(themeColor, 0.6);
+        final glowPaint = Paint()
+          ..color = glowColor.withValues(alpha: pulseAlphaVal * 0.45)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+          ..isAntiAlias = true;
+
+        final corePaint = Paint()
+          ..color = Colors.white.withValues(alpha: pulseAlphaVal * 0.9)
+          ..isAntiAlias = true;
+
+        // 1. Glow Halo & 2. White Core (Option C)
+        canvas
+          ..drawCircle(pulsePos, 4.5, glowPaint)
+          ..drawCircle(pulsePos, 1.8, corePaint);
+      }
     }
 
-    // Lines between nearby nodes — tighter radius and a lower alpha ceiling
-    // than the center lines, since this is the O(n^2) mesh that produces the
-    // densest crossing web at higher node counts.
+    // Lines between nearby nodes to form constellations (connecting each node to its 2 nearest neighbors)
     final meshPaint = Paint()
-      ..color = baseColor.withValues(alpha: 0.06)
+      ..color = const Color.fromARGB(255, 255, 0, 0).withValues(alpha: 0.45)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
-    const maxDistSq = 115.0 * 115.0;
+
     for (var i = 0; i < nodes.length; i++) {
       final p1 = Offset(center.dx + nodes[i].x, center.dy + nodes[i].y);
 
-      for (var j = i + 1; j < nodes.length; j++) {
+      // Find distances to all other nodes
+      final targets = <({int index, double distance})>[];
+      for (var j = 0; j < nodes.length; j++) {
+        if (i == j) continue;
         final p2 = Offset(center.dx + nodes[j].x, center.dy + nodes[j].y);
+        targets.add((index: j, distance: (p1 - p2).distance));
+      }
 
-        final dx = p1.dx - p2.dx;
-        final dy = p1.dy - p2.dy;
-        if (dx * dx + dy * dy <= maxDistSq) {
+      // Sort by distance and connect to the 2 nearest neighbors
+      targets.sort((a, b) => a.distance.compareTo(b.distance));
+
+      final connectionsCount = math.min(2, targets.length);
+      for (var k = 0; k < connectionsCount; k++) {
+        final neighborIndex = targets[k].index;
+        if (i < neighborIndex) {
+          final p2 = Offset(
+            center.dx + nodes[neighborIndex].x,
+            center.dy + nodes[neighborIndex].y,
+          );
           canvas.drawLine(p1, p2, meshPaint);
         }
       }
@@ -157,7 +223,9 @@ class ConstellationLinesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ConstellationLinesPainter oldDelegate) {
-    return oldDelegate.nodes != nodes || oldDelegate.themeColor != themeColor;
+    return oldDelegate.nodes != nodes ||
+        oldDelegate.themeColor != themeColor ||
+        oldDelegate.pulseValue != pulseValue;
   }
 }
 
@@ -228,4 +296,39 @@ class OrbitGridPainter extends CustomPainter {
     return oldDelegate.themeColor != themeColor ||
         oldDelegate.sweepValue != sweepValue;
   }
+}
+
+class DashedOrbitRingPainter extends CustomPainter {
+  DashedOrbitRingPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true;
+
+    final radius = size.width / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // Draw 12 segment dashes
+    final dashLength = (2 * math.pi * radius) / 24;
+    final dashArc = (dashLength / (2 * math.pi * radius)) * 2 * math.pi;
+
+    for (var i = 0; i < 12; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        i * 2 * dashArc,
+        dashArc,
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant DashedOrbitRingPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

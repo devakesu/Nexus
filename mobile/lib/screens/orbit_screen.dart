@@ -12,6 +12,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/screens/orbit/widgets/constellation_loader.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_filters_panel.dart';
+import 'package:nexus/screens/orbit/widgets/orbit_interactive.dart';
 import 'package:nexus/screens/orbit/widgets/orbit_painters.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -1719,6 +1720,7 @@ class _OrbitScreenState extends State<OrbitScreen>
               expand: false,
               builder: (context, scrollController) {
                 return OrbitFiltersPanel(
+                  noUsersFound: _nodes.isEmpty,
                   tab: widget.tab,
                   themeColor: widget.themeColor,
                   ageRange: _ageRange,
@@ -1850,11 +1852,17 @@ class _OrbitScreenState extends State<OrbitScreen>
 
                       // Inter-node Constellation Lines
                       Positioned.fill(
-                        child: CustomPaint(
-                          painter: ConstellationLinesPainter(
-                            nodes: _nodes,
-                            themeColor: widget.themeColor,
-                          ),
+                        child: AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) {
+                            return CustomPaint(
+                              painter: ConstellationLinesPainter(
+                                nodes: _nodes,
+                                themeColor: widget.themeColor,
+                                pulseValue: _pulseController.value,
+                              ),
+                            );
+                          },
                         ),
                       ),
 
@@ -1862,22 +1870,22 @@ class _OrbitScreenState extends State<OrbitScreen>
                       _buildOrbitRing(
                         100,
                         'Core Gravity',
-                        widget.themeColor.withValues(alpha: 0.1),
+                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.12),
                       ),
                       _buildOrbitRing(
                         200,
                         'Inner Constellation',
-                        widget.themeColor.withValues(alpha: 0.08),
+                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.10),
                       ),
                       _buildOrbitRing(
                         300,
                         'Mid Horizon',
-                        widget.themeColor.withValues(alpha: 0.05),
+                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.08),
                       ),
                       _buildOrbitRing(
                         420,
                         'Deep Space Horizon',
-                        widget.themeColor.withValues(alpha: 0.03),
+                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.06),
                       ),
 
                       // Pulsing Center Node (Viewer)
@@ -1887,7 +1895,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                           label: 'Your profile',
                           excludeSemantics: true,
                           onTap: _showSelfDetails,
-                          child: GestureDetector(
+                          child: InteractiveOrbitNode(
                             onTap: _showSelfDetails,
                             child: _buildSelfAvatar(),
                           ),
@@ -1998,6 +2006,50 @@ class _OrbitScreenState extends State<OrbitScreen>
             ),
           ),
 
+          if (!_isReloading && _nodes.isEmpty && _errorMessage == null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(32, 0, 32, 140),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.users,
+                      color: AppColors.tint(widget.themeColor, 0.55),
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No users found',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Try expanding your filters or removing criteria to see more people, or check back in a few days as new users join.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           if (_errorMessage != null)
             Center(
               child: Container(
@@ -2102,14 +2154,93 @@ class _OrbitScreenState extends State<OrbitScreen>
 
     if (_reduceMotion == true) return avatar;
 
-    return avatar
+    final breathingAvatar = avatar
         .animate(onPlay: (controller) => controller.repeat(reverse: true))
         .scale(
-          begin: const Offset(0.9, 0.9),
-          end: const Offset(1.15, 1.15),
+          begin: const Offset(0.98, 0.98),
+          end: const Offset(1.02, 1.02),
           duration: 2.seconds,
           curve: Curves.easeInOut,
         );
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        // Rotating dashboard/gyro ring (Option B)
+        SizedBox(
+          width: 110,
+          height: 110,
+          child: CustomPaint(
+            painter: DashedOrbitRingPainter(
+              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.45),
+            ),
+          ),
+        )
+            .animate(onPlay: (controller) => controller.repeat())
+            .rotate(
+              begin: 0,
+              end: 1,
+              duration: 12.seconds,
+            ),
+
+        // Radiating Pulsar Wave 1 (Option A)
+        Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.55),
+              width: 1.5,
+            ),
+          ),
+        )
+            .animate(onPlay: (controller) => controller.repeat())
+            .scale(
+              begin: const Offset(1, 1),
+              end: const Offset(1.4, 1.4),
+              duration: 2.seconds,
+              curve: Curves.easeOut,
+            )
+            .fade(
+              begin: 0.6,
+              end: 0,
+              duration: 2.seconds,
+              curve: Curves.easeOut,
+            ),
+
+        // Radiating Pulsar Wave 2 - delayed (Option A)
+        Container(
+          width: 76,
+          height: 76,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.55),
+              width: 1.5,
+            ),
+          ),
+        )
+            .animate(onPlay: (controller) => controller.repeat())
+            .scale(
+              begin: const Offset(1, 1),
+              end: const Offset(1.4, 1.4),
+              delay: 1.seconds,
+              duration: 2.seconds,
+              curve: Curves.easeOut,
+            )
+            .fade(
+              begin: 0.6,
+              end: 0,
+              delay: 1.seconds,
+              duration: 2.seconds,
+              curve: Curves.easeOut,
+            ),
+
+        breathingAvatar,
+      ],
+    );
   }
 
   Widget _buildOrbitRing(double radius, String label, Color ringColor) {
@@ -2315,7 +2446,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         left: posX,
         top: posY,
         child:
-            GestureDetector(
+            InteractiveOrbitNode(
                   onTap: () => _showNodeDetails(id),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

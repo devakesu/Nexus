@@ -57,7 +57,12 @@ async def request_data_export_otp(
         )
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
     await redis_client.setex(f"data_export:otp_code:{user_id}", 600, otp_code)
-    await send_data_export_otp_email(email, otp_code)
+    otp_res = await send_data_export_otp_email(email, otp_code)
+    if not otp_res.success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to deliver verification email: {otp_res.error}",
+        )
     return DataExportOtpRequestResponse(sent=True)
 
 

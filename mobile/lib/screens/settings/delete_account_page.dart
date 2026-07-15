@@ -111,6 +111,8 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
         builder: (_) => EmailOtpReauthDialog(
           verifyUrl:
               '${AppConfig.current.backendUrl}/api/v1/account/deletion/otp/verify',
+          resendUrl:
+              '${AppConfig.current.backendUrl}/api/v1/account/deletion/otp/request',
           infoText:
               'This confirms the deletion request came from you, not just '
               'from this device.',
@@ -193,44 +195,44 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
             const SizedBox(height: 20),
             const _InfoSection(
               icon: LucideIcons.zapOff,
-              title: 'Immediately',
+              title: 'Immediate Actions',
               items: [
-                "You're signed out on every device.",
-                'Your profile stops appearing in Orbit for everyone.',
-                "Your active matches and conversations are closed - the other person sees you're no longer available.",
-                "You'll stop receiving notifications.",
+                'You will be signed out of your account on all devices.',
+                'Your profile will no longer be visible to others on Orbit.',
+                'All active matches and conversations will be closed. Other users will see that you are no longer available.',
+                'You will cease to receive notifications or updates.',
               ],
             ),
             const SizedBox(height: 14),
             _InfoSection(
               icon: LucideIcons.undo2,
-              title: 'Within $_gracePeriodDays days, you can undo this',
+              title: 'Within $_gracePeriodDays Days (Restoration window)',
               iconColor: AppColors.success,
               items: const [
-                'Log back in any time before then and a Reactivate screen lets you cancel the deletion.',
-                'Your profile, matches, and conversations all come back exactly as they were.',
+                'Logging back in at any time before the period ends allows you to cancel the deletion request.',
+                'Your profile details, active matches, and conversation history will be fully restored.',
               ],
             ),
             const SizedBox(height: 14),
             _InfoSection(
               icon: LucideIcons.trash2,
-              title: 'After $_gracePeriodDays days',
+              title: 'After $_gracePeriodDays Days (Permanent deletion)',
               items: [
                 'Your name, photos, and profile details are irreversibly anonymized.',
                 if (_blocklistCooldownDays > 0)
-                  'If your account was suspended or flagged for safety issues, your phone number cannot be reused for $_blocklistCooldownDays days. Else if your status is clean, your phone number is removed and can be used to sign up again.',
-                "This step can't be undone.",
+                  'If your account was suspended or flagged for safety issues, a secure one-way hash of your phone number is retained for **$_blocklistCooldownDays days** to prevent registration. Otherwise, your phone number is removed and can be used to sign up again.',
+                '**This action cannot be undone.**',
               ],
             ),
             const SizedBox(height: 14),
             _InfoSection(
               icon: LucideIcons.scale,
-              title: 'What we keep, and why',
+              title: 'Data Retention & Compliance',
               items: [
-                'Reports or moderation history involving your account, for trust & safety - kept without your name attached.',
-                'Meetup Safety alerts (held for $_safetyDataLegalHoldDays days after deletion) and Digital Witness recordings (purged after $_safetyEvidenceActiveRetentionDays days), in case they are needed for a safety investigation.',
-                'Records required by law, such as billing or legal compliance history.',
-                'Everything above is permanently deleted for good after ${_formatLongTailPurge(_longTailPurgeDays)} - nothing is retained indefinitely.',
+                'Historical reports and moderation logs are retained anonymously to maintain platform safety and trust.',
+                'Meetup Safety alerts are retained for **$_safetyDataLegalHoldDays days** and Digital Witness recordings are retained for **$_safetyEvidenceActiveRetentionDays days**, to support potential safety investigations.',
+                'Financial records and compliance history required by law will be retained.',
+                '**All retained data is permanently purged after ${_formatLongTailPurge(_longTailPurgeDays)}. No personal information is stored indefinitely.**',
               ],
             ),
             const SizedBox(height: 24),
@@ -323,7 +325,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'This deactivates your account right away',
+                  'Your account will be deactivated immediately',
                   style: GoogleFonts.manrope(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -333,8 +335,9 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'You have a $_gracePeriodDays-day window to change your mind. After '
-                  "that, it's permanent. Read exactly what happens below.",
+                  'You have a $_gracePeriodDays-day grace period to restore your account. '
+                  'Beyond this window, the deletion is permanent and cannot be reversed. '
+                  'Please review the timeline below.',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: AppColors.inkMuted,
@@ -354,7 +357,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'TYPE DELETE TO CONFIRM',
+          "TYPE 'DELETE' TO CONFIRM",
           style: GoogleFonts.manrope(
             fontSize: 11,
             fontWeight: FontWeight.w800,
@@ -451,6 +454,29 @@ class _InfoSection extends StatelessWidget {
   final List<String> items;
   final Color iconColor;
 
+  Widget _buildRichText(String text, TextStyle baseStyle) {
+    final parts = text.split('**');
+    if (parts.length <= 1) {
+      return Text(text, style: baseStyle);
+    }
+    final spans = <InlineSpan>[];
+    for (var i = 0; i < parts.length; i++) {
+      final isBold = i.isOdd;
+      spans.add(
+        TextSpan(
+          text: parts[i],
+          style: isBold
+              ? baseStyle.copyWith(fontWeight: FontWeight.bold, color: AppColors.ink)
+              : baseStyle,
+        ),
+      );
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+      style: baseStyle,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -460,6 +486,13 @@ class _InfoSection extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderNeutral),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000), // 3% opacity black for ambient depth
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,9 +533,9 @@ class _InfoSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: _buildRichText(
                       text,
-                      style: GoogleFonts.inter(
+                      GoogleFonts.inter(
                         fontSize: 13,
                         color: AppColors.inkMuted,
                         height: 1.5,
