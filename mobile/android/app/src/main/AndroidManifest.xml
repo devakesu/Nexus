@@ -90,7 +90,7 @@
              iOS side. Consider a separate key per flavor (nexus/nexus-mec). -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyA35VMavE0pYoCS8D3Se_gzK-J0X3HDnMI" />
+            android:value="${mapsApiKey}" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

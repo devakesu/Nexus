@@ -9,9 +9,8 @@ import workmanager_apple
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // TODO: Replace with a real Google Maps Platform API key before shipping
-    // chat location sharing - see AndroidManifest.xml for the Android side.
-    GMSServices.provideAPIKey("AIzaSyDbTXQUK7Frxicc5CSaD4X9A9xCzga8toM")
+    let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsAPIKey") as? String ?? ""
+    GMSServices.provideAPIKey(mapsApiKey)
 
     // Lets the periodic prekey-replenish background task (registered from
     // Dart in background_prekey_task.dart) reach other plugins - notably
