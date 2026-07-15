@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/home/home_screen.dart';
 import 'package:nexus/screens/login_screen.dart';
 import 'package:nexus/screens/onboarding_screen.dart';
+import 'package:nexus/screens/permissions_screen.dart';
 import 'package:nexus/screens/reactivate_account_page.dart';
 import 'package:nexus/screens/splash_screen.dart';
 import 'package:nexus/screens/terms_consent_screen.dart';
@@ -18,6 +20,7 @@ import 'package:nexus/utils/safety_consent_cache.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatefulWidget {
@@ -71,6 +74,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   bool _animationCompleted = false;
   bool _authCheckCompleted = false;
+  bool _permissionsCompleted = false;
 
   @override
   void initState() {
@@ -94,6 +98,10 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           SafetyConsentCache.clear();
           SpecialCategoryConsentCache.clear();
           _hasReachedHome = false;
+          // Note: permissions_page_completed is intentionally NOT cleared here.
+          // OS permissions are device-scoped (not session-scoped) — they survive
+          // sign-out, so forcing the permissions page again on every login is
+          // unnecessary friction.
         }
         if (mounted) {
           setState(() {});
@@ -175,8 +183,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Future<void> _handleResumed() async {
     final wasSettled =
         _hasReachedHome && _hasProfile && !_deletionPending && !_mandatoryConsentRequired;
+    final runSilent = wasSettled || Supabase.instance.client.auth.currentSession != null;
     _lastBootstrappedUserId = null;
-    await _checkBootstrap(silent: wasSettled);
+    await _checkBootstrap(silent: runSilent);
     if (!mounted || !wasSettled) return;
     if (_mandatoryConsentRequired && _hasProfile && !_deletionPending) {
       await showDialog<void>(
@@ -335,18 +344,24 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         SpecialCategoryConsentCache.currentTermsVersion = _currentTermsVersion;
 
         final hasProfile = profileResponse != null;
-        if (hasProfile && !_deletionPending && !_mandatoryConsentRequired) {
+        final prefs = await SharedPreferences.getInstance();
+        final permissionsCompleted = prefs.getBool('permissions_page_completed') ?? false;
+
+        if (hasProfile && !_deletionPending && !_mandatoryConsentRequired && permissionsCompleted) {
           _hasReachedHome = true;
         }
 
         if (mounted) {
           setState(() {
             _hasProfile = hasProfile;
+            _permissionsCompleted = permissionsCompleted;
             _lastBootstrappedUserId = activeSession.user.id;
             _isBootstrapping = false;
             _isSilentBootstrapping = false;
           });
-          unawaited(NotificationService.initialize());
+          if (permissionsCompleted) {
+            unawaited(NotificationService.initialize());
+          }
           // Publish this device's Signal key bundle right after login so a
           // brand-new match never has to wait on either side opening a chat
           // screen first (see SignalKeyService.ensureBootstrappedInBackground
@@ -442,24 +457,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         backgroundColor: Color(0xFF0B0D13),
         body: Stack(
           children: [
-            IdentityScanLoader(),
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(height: 160),
-                  Text(
-                    'Verifying your Identity...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ConstellationAlignLoader(),
           ],
         ),
       );
@@ -500,6 +498,17 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
                 onConsentRecorded: _handleConsentRecorded,
               ),
             ),
+          );
+        } else if (!_permissionsCompleted) {
+          currentWidget = PermissionsScreen(
+            key: const ValueKey('permissions'),
+            onCompleted: () {
+              unawaited(NotificationService.initialize());
+              setState(() {
+                _permissionsCompleted = true;
+                _hasReachedHome = true;
+              });
+            },
           );
         } else {
           currentWidget = MyHomePage(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
@@ -15,6 +16,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 class MeetupSafetyPage extends StatefulWidget {
   const MeetupSafetyPage({
@@ -33,13 +35,23 @@ class MeetupSafetyPage extends StatefulWidget {
   State<MeetupSafetyPage> createState() => _MeetupSafetyPageState();
 }
 
-class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
+class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBindingObserver {
   static const Color _accent = AppColors.safetyBlue;
   static const Color _teal = AppColors.safetyTeal;
 
   // Emergency Contacts state
   List<SafetyContact> _contacts = [];
   bool _loadingContacts = true;
+
+  // Live permission statuses
+  bool _locationGranted = false;
+  bool _notificationsGranted = false;
+  bool _alarmsGranted = false;
+  bool _cameraGranted = false;
+  bool _microphoneGranted = false;
+  bool _contactsGranted = false;
+  bool _phoneGranted = false;
+  bool _isApproximateLocation = false;
 
   // Date Check-In form state (the active session itself lives in
   // MeetupSafetySession, shared with CheckInAlertScreen).
@@ -55,6 +67,8 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_checkPermissions());
     unawaited(_loadContacts());
     _session.addListener(_onSessionChanged);
     _syncTicker();
@@ -70,10 +84,56 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _session.removeListener(_onSessionChanged);
     _tickTimer?.cancel();
     _checkInLabelController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_checkPermissions());
+    }
+  }
+
+  Future<void> _checkPermissions() async {
+    final loc = await ph.Permission.locationWhenInUse.status;
+    final notif = await ph.Permission.notification.status;
+    final camera = await ph.Permission.camera.status;
+    final mic = await ph.Permission.microphone.status;
+    final contacts = await ph.Permission.contacts.status;
+    
+    var alarms = true;
+    var phone = true;
+    if (Platform.isAndroid) {
+      alarms = await ph.Permission.scheduleExactAlarm.isGranted;
+      phone = await ph.Permission.phone.isGranted;
+    }
+
+    var isApprox = false;
+    if (loc.isGranted || loc.isLimited || loc.isProvisional) {
+      try {
+        final accuracy = await Geolocator.getLocationAccuracy();
+        if (accuracy == LocationAccuracyStatus.reduced) {
+          isApprox = true;
+        }
+      } on Object catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() {
+        _locationGranted = loc.isGranted || loc.isLimited || loc.isProvisional;
+        _notificationsGranted = notif.isGranted || notif.isLimited || notif.isProvisional;
+        _cameraGranted = camera.isGranted || camera.isLimited || camera.isProvisional;
+        _microphoneGranted = mic.isGranted || mic.isLimited || mic.isProvisional;
+        _contactsGranted = contacts.isGranted || contacts.isLimited || contacts.isProvisional;
+        _alarmsGranted = alarms;
+        _phoneGranted = phone;
+        _isApproximateLocation = isApprox;
+      });
+    }
   }
 
   void _onSessionChanged() {
@@ -316,6 +376,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
         padding: const EdgeInsets.only(bottom: 60),
         children: [
           _buildMeetupSafetySection(),
+          _buildPermissionsStatusSection(),
           _buildEmergencyContactsSection(),
         ],
       ),
@@ -904,6 +965,229 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> {
                   color: Colors.white,
                 ),
               ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Live Safety Permissions Section ---
+  Widget _buildPermissionsStatusSection() {
+    final hasAndroid = Platform.isAndroid;
+    final allFine = _locationGranted &&
+        !_isApproximateLocation &&
+        _notificationsGranted &&
+        _cameraGranted &&
+        _microphoneGranted &&
+        _contactsGranted &&
+        (!hasAndroid || _alarmsGranted) &&
+        (!hasAndroid || _phoneGranted);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: allFine ? const Color(0xFFECFDF5) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  allFine ? LucideIcons.shieldCheck : LucideIcons.shieldAlert,
+                  color: allFine ? AppColors.success : AppColors.warning,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SAFETY PERMISSIONS',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF475569),
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      allFine ? 'All settings verified for maximum protection.' : 'Some permissions are missing or limited.',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildPermissionStatusRow(
+            icon: LucideIcons.bell,
+            title: 'Push Notifications',
+            isGranted: _notificationsGranted,
+            permission: ph.Permission.notification,
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          _buildPermissionStatusRow(
+            icon: LucideIcons.mapPin,
+            title: 'Location Services',
+            isGranted: _locationGranted,
+            isWarning: _isApproximateLocation,
+            warningText: 'Approximate Only',
+            permission: ph.Permission.locationWhenInUse,
+          ),
+          if (Platform.isAndroid) ...[
+            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+            _buildPermissionStatusRow(
+              icon: LucideIcons.clock,
+              title: 'Alarms & Reminders',
+              isGranted: _alarmsGranted,
+              permission: ph.Permission.scheduleExactAlarm,
+            ),
+            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+            _buildPermissionStatusRow(
+              icon: LucideIcons.phoneCall,
+              title: 'Direct Phone Calling',
+              isGranted: _phoneGranted,
+              permission: ph.Permission.phone,
+            ),
+          ],
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          _buildPermissionStatusRow(
+            icon: LucideIcons.camera,
+            title: 'Camera Access',
+            isGranted: _cameraGranted,
+            permission: ph.Permission.camera,
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          _buildPermissionStatusRow(
+            icon: LucideIcons.mic,
+            title: 'Microphone Access',
+            isGranted: _microphoneGranted,
+            permission: ph.Permission.microphone,
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          _buildPermissionStatusRow(
+            icon: LucideIcons.users,
+            title: 'Contacts Access',
+            isGranted: _contactsGranted,
+            permission: ph.Permission.contacts,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionStatusRow({
+    required IconData icon,
+    required String title,
+    required bool isGranted,
+    required ph.Permission permission,
+    bool isWarning = false,
+    String? warningText,
+  }) {
+    Color badgeColor;
+    Color textColor;
+    String statusText;
+
+    if (isGranted) {
+      if (isWarning) {
+        badgeColor = const Color(0xFFFFF7ED);
+        textColor = const Color(0xFFEA580C);
+        statusText = warningText ?? 'WARNING';
+      } else {
+        badgeColor = const Color(0xFFECFDF5);
+        textColor = const Color(0xFF059669);
+        statusText = 'ENABLED';
+      }
+    } else {
+      badgeColor = const Color(0xFFFEF2F2);
+      textColor = const Color(0xFFDC2626);
+      statusText = 'DISABLED';
+    }
+
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF64748B)),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: GoogleFonts.manrope(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF334155),
+          ),
+        ),
+        const Spacer(),
+        ScalePressable(
+          onTap: () async {
+            if (isGranted && !isWarning) return;
+            
+            if (isWarning && permission == ph.Permission.locationWhenInUse) {
+              await permission.request();
+              await _checkPermissions();
+              return;
+            }
+
+            final res = await permission.request();
+            await _checkPermissions();
+            if (res.isPermanentlyDenied) {
+              unawaited(ph.openAppSettings());
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: badgeColor,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: textColor.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  statusText,
+                  style: GoogleFonts.manrope(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                if (!isGranted || isWarning) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    LucideIcons.chevronRight,
+                    size: 10,
+                    color: textColor,
+                  ),
+                ],
+              ],
             ),
           ),
         ),

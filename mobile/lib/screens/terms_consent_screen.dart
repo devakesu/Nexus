@@ -52,11 +52,12 @@ class TermsConsentPage extends StatefulWidget {
 
 class _TermsConsentPageState extends State<TermsConsentPage> {
   bool _generalAccepted = false;
+  bool _guidelinesAccepted = false;
   bool _specialCategoryAccepted = false;
   late bool _safetyDataAccepted = widget.initialSafetyDataAccepted;
   bool _isSubmitting = false;
 
-  bool get _canContinue => _generalAccepted;
+  bool get _canContinue => _generalAccepted && _guidelinesAccepted;
 
   Future<void> _submit() async {
     if (!_canContinue || _isSubmitting) return;
@@ -67,6 +68,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
         data: {
           'terms_version': widget.currentTermsVersion,
           'general_accepted': _generalAccepted,
+          'community_guidelines_accepted': _guidelinesAccepted,
           'special_category_accepted': _specialCategoryAccepted,
           'safety_data_accepted': _safetyDataAccepted,
         },
@@ -163,7 +165,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
           const SizedBox(height: 8),
           Text(
             widget.isVersionBump
-                ? "We've updated our Terms of Service and Privacy Policy. Please review and accept to keep using Nexus."
+                ? "We've updated our Terms of Service, Privacy Policy, and Community Guidelines. Please review and accept to keep using Nexus."
                 : 'Review and accept the following to start using Nexus.',
             style: GoogleFonts.inter(
               fontSize: 13.5,
@@ -184,6 +186,22 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
             icon: LucideIcons.fileText,
             linkLabel: 'Read Terms & Privacy Policy',
             onLinkTap: () => unawaited(context.push<void>('/legal/terms')),
+          ),
+          const SizedBox(height: 12),
+          _ConsentTile(
+            accent: AppColors.modeSettings,
+            required: true,
+            value: _guidelinesAccepted,
+            onChanged: (v) => setState(() => _guidelinesAccepted = v),
+            title: 'Community Guidelines',
+            description:
+                'Rules for respectful behaviour on Nexus — covering '
+                'harassment, safety, prohibited content, and how we '
+                'enforce them. Required to use the app.',
+            icon: LucideIcons.bookOpen,
+            linkLabel: 'Read Community Guidelines',
+            onLinkTap: () =>
+                unawaited(context.push<void>('/settings/community-guidelines')),
           ),
           const SizedBox(height: 12),
           _ConsentTile(
@@ -385,27 +403,31 @@ class _ConsentTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Custom Checkbox
-            _CustomCheckbox(
-              value: value,
-              accentColor: accent,
-            ),
-            const SizedBox(width: 12),
-            // Category Icon Badge
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  color: accent,
-                  size: 18,
+            // Left column: checkbox on top, icon badge below
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _CustomCheckbox(
+                  value: value,
+                  accentColor: accent,
                 ),
-              ),
+                const SizedBox(height: 16),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: accent,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 12),
             // Details Column
