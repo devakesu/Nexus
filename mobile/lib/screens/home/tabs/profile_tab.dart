@@ -308,26 +308,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     } else if (label == 'Religious Beliefs') {
       _openBottomSelectionSheet(
         title: 'Religious Beliefs',
-        options: const [
-          'Atheist',
-          'Agnostic',
-          'Spiritual',
-          'Christian',
-          'Muslim',
-          'Jewish',
-          'Hindu',
-          'Buddhist',
-          'Sikh',
-          'Jain',
-          'Shinto',
-          'Baháʼí',
-          'Taoist',
-          'Zoroastrian',
-          'Pagan',
-          'Wiccan',
-          'Other',
-          'Not specified',
-        ],
+        options: FilterOptions.religiousBeliefs,
         currentValue: _religiousBeliefs,
         onSelected: (val) =>
             unawaited(_saveProfileChanges(religiousBeliefs: val)),
@@ -1901,7 +1882,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             itemBuilder: (context, index) {
                               final option = filteredOptions[index];
                               final isSelected = option == currentValue;
-                              final emoji = getEmojiForTag(option);
+                              final tagIcon = getTagIcon(
+                                option,
+                                iconSize: 14,
+                                iconColor: isSelected
+                                    ? AppColors.pulsarPink
+                                    : Colors.black26,
+                              );
 
                               return GestureDetector(
                                 onTap: () {
@@ -1948,11 +1935,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                         ),
                                         const SizedBox(width: 10),
                                       ],
-                                      if (emoji.isNotEmpty) ...[
-                                        Text(
-                                          emoji,
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
+                                      if (tagIcon != null) ...[
+                                        tagIcon,
                                         const SizedBox(width: 12),
                                       ] else ...[
                                         Icon(

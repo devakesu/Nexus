@@ -1,637 +1,974 @@
+import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+// ---------------------------------------------------------------------------
+// getTagIcon — primary API
+// Returns a Widget (emoji Text or Lucide Icon) for any known tag.
+// Returns null when there is no icon defined, so callers can skip gracefully.
+// ---------------------------------------------------------------------------
+Widget? getTagIcon(String tag, {double iconSize = 15, Color? iconColor}) {
+  final cleanTag = tag.contains(': ') ? tag.split(': ')[1] : tag;
+
+  // Try emoji first
+  final emoji = _emojiMap[cleanTag];
+  if (emoji != null) {
+    return Text(emoji, style: TextStyle(fontSize: iconSize + 1));
+  }
+
+  // Fall back to Lucide icon
+  final lucide = _lucideMap[cleanTag];
+  if (lucide != null) {
+    return Icon(lucide, size: iconSize, color: iconColor);
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// getEmojiForTag — legacy compatibility shim
+// Returns the emoji string, or '' if none. Kept so any call sites that still
+// use the old String-based API continue to compile without change.
+// ---------------------------------------------------------------------------
 String getEmojiForTag(String tag) {
   final cleanTag = tag.contains(': ') ? tag.split(': ')[1] : tag;
-  switch (cleanTag) {
-    // Genders
-    case 'Man':
-      return '👨';
-    case 'Woman':
-      return '👩';
-    case 'Non-binary':
-      return '⚧️';
-    case 'Genderqueer':
-      return '💜';
-    case 'Genderfluid':
-      return '💧';
-    case 'Agender':
-      return '⚪';
-    case 'Transgender Man':
-      return '🏳️‍⚧️';
-    case 'Transgender Woman':
-      return '🏳️‍⚧️';
-    case 'Gender Non-Conforming':
-      return '🦄';
-    case 'Pangender':
-      return '🌀';
-    case 'Androgynous':
-      return '👤';
-    case 'Neutrois':
-      return '⚪';
-    case 'Third Gender':
-      return '🔱';
-    case 'Intersex':
-      return '🟡';
-    case 'Bigender':
-      return '👥';
-    case 'Two-Spirit':
-      return '🪶';
-    case 'Demiboy':
-      return '👦';
-    case 'Demigirl':
-      return '👧';
-    case 'Queer':
-      return '🌈';
-    case 'Questioning':
-      return '❓';
-    case 'Prefer not to say':
-      return '🤫';
-
-    // Sexualities
-    case 'Straight':
-      return '👫';
-    case 'Gay':
-      return '👨‍❤️‍👨';
-    case 'Lesbian':
-      return '👩‍❤️‍👩';
-    case 'Bisexual':
-      return '💖';
-    case 'Pansexual':
-      return '💗';
-    case 'Asexual':
-      return '🖤';
-    case 'Aromantic':
-      return '💚';
-    case 'Greysexual':
-      return '🩶';
-    case 'Polysexual':
-      return '💛';
-    case 'Omnisexual':
-      return '🪐';
-    case 'Fluid':
-      return '🌊';
-    case 'Skoliosexual':
-      return '🌀';
-    case 'Demisexual':
-      return '💜';
-
-    // Languages
-    case 'English':
-      return '🇬🇧';
-    case 'Spanish':
-      return '🇪🇸';
-    case 'Mandarin Chinese':
-      return '🇨🇳';
-    case 'Hindi':
-      return '🇮🇳';
-    case 'Arabic':
-      return '🇸🇦';
-    case 'Portuguese':
-      return '🇵🇹';
-    case 'Bengali':
-      return '🇧🇩';
-    case 'Russian':
-      return '🇷🇺';
-    case 'Japanese':
-      return '🇯🇵';
-    case 'Punjabi':
-      return '🇮🇳';
-    case 'German':
-      return '🇩🇪';
-    case 'Javanese':
-      return '🇮🇩';
-    case 'Wu Chinese':
-      return '🇨🇳';
-    case 'Malay':
-      return '🇲🇾';
-    case 'Telugu':
-      return '🇮🇳';
-    case 'Vietnamese':
-      return '🇻🇳';
-    case 'Korean':
-      return '🇰🇷';
-    case 'French':
-      return '🇫🇷';
-    case 'Marathi':
-      return '🇮🇳';
-    case 'Tamil':
-      return '🇮🇳';
-    case 'Cantonese':
-      return '🇭🇰';
-    case 'Turkish':
-      return '🇹🇷';
-    case 'Urdu':
-      return '🇵🇰';
-    case 'Italian':
-      return '🇮🇹';
-    case 'Thai':
-      return '🇹🇭';
-    case 'Persian':
-      return '🇮🇷';
-    case 'Polish':
-      return '🇵🇱';
-    case 'Kannada':
-      return '🇮🇳';
-    case 'Ukrainian':
-      return '🇺🇦';
-    case 'Filipino':
-      return '🇵🇭';
-    case 'Gujarati':
-      return '🇮🇳';
-    case 'Romanian':
-      return '🇷🇴';
-    case 'Greek':
-      return '🇬🇷';
-    case 'Czech':
-      return '🇨🇿';
-    case 'Swedish':
-      return '🇸🇪';
-    case 'Dutch':
-      return '🇳🇱';
-    case 'Hungarian':
-      return '🇭🇺';
-    case 'Zulu':
-      return '🇿🇦';
-    case 'Hebrew':
-      return '🇮🇱';
-    case 'Finnish':
-      return '🇫🇮';
-    case 'Norwegian':
-      return '🇳🇴';
-    case 'Danish':
-      return '🇩🇰';
-    case 'Swahili':
-      return '🇰🇪';
-    case 'Malayalam':
-      return '🇮🇳';
-    case 'Amharic':
-      return '🇪🇹';
-    case 'Yoruba':
-      return '🇳🇬';
-    case 'Oromo':
-      return '🇪🇹';
-    case 'Igbo':
-      return '🇳🇬';
-    case 'Burmese':
-      return '🇲🇲';
-    case 'Azerbaijani':
-      return '🇦🇿';
-    case 'Maithili':
-      return '🇮🇳';
-    case 'Uzbek':
-      return '🇺🇿';
-    case 'Sindhi':
-      return '🇵🇰';
-    case 'Pashto':
-      return '🇦🇫';
-    case 'Kurdish':
-      return '☀️';
-    case 'Sinhala':
-      return '🇱🇰';
-    case 'Somali':
-      return '🇸🇴';
-    case 'Tagalog':
-      return '🇵🇭';
-    case 'Nepali':
-      return '🇳🇵';
-    case 'Khmer':
-      return '🇰🇭';
-    case 'Lao':
-      return '🇱🇦';
-    case 'Assamese':
-      return '🇮🇳';
-    case 'Malagasy':
-      return '🇲🇬';
-    case 'Slovak':
-      return '🇸🇰';
-    case 'Bulgarian':
-      return '🇧🇬';
-    case 'Croatian':
-      return '🇭🇷';
-    case 'Serbian':
-      return '🇷🇸';
-    case 'Lithuanian':
-      return '🇱🇹';
-    case 'Latvian':
-      return '🇱🇻';
-    case 'Estonian':
-      return '🇪🇪';
-    case 'Slovenian':
-      return '🇸🇮';
-    case 'Irish':
-      return '🇮🇪';
-    case 'Welsh':
-      return '🏴󠁧󠁢󠁷󠁬󠁳󠁿';
-    case 'Icelandic':
-      return '🇮🇸';
-    case 'Catalan':
-      return '🇪🇸';
-    case 'Basque':
-      return '🇪🇸';
-    case 'Galician':
-      return '🇪🇸';
-
-    // Causes Supported
-    case 'Climate Action':
-      return '🌲';
-    case 'Tech Ethics':
-      return '⚖️';
-    case 'Mental Health':
-      return '🧠';
-    case 'LGBTQ+ Rights':
-      return '🌈';
-    case 'Education Access':
-      return '📚';
-    case 'Animal Protection':
-      return '🐾';
-    case 'Disaster Relief':
-      return '🚨';
-    case 'Poverty Alleviation':
-      return '🤝';
-    case 'Gender Equality':
-      return '⚧️';
-    case 'Scientific Research':
-      return '🔬';
-    case 'Mental Health Advocacy':
-      return '💬';
-    case 'Human Rights':
-      return '✊';
-    case 'Clean Water & Sanitation':
-      return '💧';
-    case 'Renewable Energy':
-      return '⚡';
-    case 'Economic Development':
-      return '📈';
-    case 'Arts & Culture Preservation':
-      return '🏛️';
-
-    // Pets
-    case 'Dog':
-      return '🐶';
-    case 'Cat':
-      return '🐱';
-    case 'Fish':
-      return '🐟';
-    case 'Bird':
-      return '🐦';
-    case 'Rabbit':
-      return '🐰';
-    case 'Hamster':
-      return '🐹';
-    case 'Reptile':
-      return '🦎';
-    case 'Amphibian':
-      return '🐸';
-    case 'Horse':
-      return '🐴';
-    case 'Chicken':
-      return '🐔';
-    case 'Sugar Glider':
-      return '🐿️';
-    case 'Chinchilla':
-      return '🐭';
-    case 'Hedgehog':
-      return '🦔';
-    case 'No Pets':
-      return '🚫';
-
-    // Interests - Tech & Science
-    case 'Python':
-      return '🐍';
-    case 'Flutter & Dart':
-      return '💙';
-    case 'Rust':
-      return '🦀';
-    case 'Web Development':
-      return '🌐';
-    case 'AI & Machine Learning':
-      return '🤖';
-    case 'Cybersecurity':
-      return '🔒';
-    case 'Game Development':
-      return '🎮';
-    case 'Cloud & DevOps':
-      return '☁️';
-    case 'Open Source Contribution':
-      return '🐙';
-    case 'Mobile Apps':
-      return '📱';
-    case 'Astrophysics & Space':
-      return '🚀';
-    case 'Quantum Physics':
-      return '⚛️';
-    case 'Neuroscience':
-      return '🧠';
-    case 'Psychology':
-      return '💭';
-    case 'Marine Biology':
-      return '🐬';
-    case 'Archaeology & History':
-      return '🏛️';
-    case 'Genetics & Biotech':
-      return '🧬';
-    case 'Climate Science':
-      return '🌍';
-    case 'PC Building':
-      return '🖥️';
-    case 'Virtual Reality (VR)':
-      return '🕶️';
-    case 'Drones & Quadcopters':
-      return '🛸';
-    case 'IoT & Smart Home':
-      return '🏠';
-    case 'Mechanical Keyboards':
-      return '⌨️';
-    case '3D Printing':
-      return '🖨️';
-    case 'Robotics':
-      return '🤖';
-    case 'Cryptography':
-      return '🔐';
-    case 'Data Analysis':
-      return '📊';
-    case 'Game Theory':
-      return '🎲';
-    case 'Mathematical Puzzles':
-      return '🧩';
-    case 'Algorithms':
-      return '🧮';
-
-    // Interests - Entertainment & Media
-    case 'Horror Shows':
-      return '👻';
-    case 'Sci-Fi & Fantasy':
-      return '🦄';
-    case 'Documentaries':
-      return '📽️';
-    case 'True Crime':
-      return '🕵️';
-    case 'Sitcoms & Comedy':
-      return '🎭';
-    case 'K-Dramas':
-      return '🇰🇷';
-    case 'Anime & Manga':
-      return '🌸';
-    case 'Reality TV':
-      return '📺';
-    case 'Historical Drama':
-      return '👑';
-    case 'Talk Shows':
-      return '🎙️';
-    case 'Indie & Art House':
-      return '🎨';
-    case 'Hollywood Blockbusters':
-      return '🍿';
-    case 'Classic Films':
-      return '🎞️';
-    case 'Psychological Thrillers':
-      return '🕵️‍♀️';
-    case 'Animation & Pixar':
-      return '🧸';
-    case 'Foreign Language Films':
-      return '🗣️';
-    case 'Action & Adventure':
-      return '🤠';
-    case 'RPGs (Role-Playing)':
-      return '🧙';
-    case 'FPS (First-Person)':
-      return '🔫';
-    case 'RTS (Strategy)':
-      return '♟️';
-    case 'MMORPGs':
-      return '🌐';
-    case 'Cozy & Casual Games':
-      return '☕';
-    case 'Competitive Esports':
-      return '🏆';
-    case 'Retro & Arcade':
-      return '👾';
-    case 'Tabletop & D&D':
-      return '🎲';
-    case 'Modern Board Games':
-      return '♟️';
-    case 'Rock & Metal':
-      return '🎸';
-    case 'Pop & R&B':
-      return '🎤';
-    case 'Hip Hop & Rap':
-      return '🎧';
-    case 'Indie & Folk':
-      return '🪕';
-    case 'Classical & Jazz':
-      return '🎷';
-    case 'EDM & Synthwave':
-      return '🎹';
-    case 'Lo-Fi & Chillbeats':
-      return '💤';
-    case 'Podcasts & Audiobooks':
-      return '🎙️';
-    case 'Vinyl Records':
-      return '📻';
-
-    // Interests - Sports & Outdoors
-    case 'Weightlifting':
-      return '🏋️';
-    case 'Powerlifting':
-      return '💪';
-    case 'CrossFit':
-      return '🤸';
-    case 'Calisthenics':
-      return '🤸‍♀️';
-    case 'Yoga & Pilates':
-      return '🧘';
-    case 'HIIT & Cardio':
-      return '🏃';
-    case 'Spinning & Cycling':
-      return '🚴';
-    case 'Gymnastics':
-      return '🤸‍♂️';
-    case 'Football (Soccer)':
-      return '⚽';
-    case 'Basketball':
-      return '🏀';
-    case 'Volleyball':
-      return '🏐';
-    case 'Baseball':
-      return '⚾';
-    case 'Cricket':
-      return '🏏';
-    case 'American Football':
-      return '🏈';
-    case 'Rugby':
-      return '🏉';
-    case 'Ice Hockey':
-      return '🏒';
-    case 'Tennis':
-      return '🎾';
-    case 'Badminton':
-      return '🏸';
-    case 'Table Tennis':
-      return '🏓';
-    case 'Golf':
-      return '⛳';
-    case 'Archery':
-      return '🏹';
-    case 'Fencing':
-      return '🤺';
-    case 'Billiards & Pool':
-      return '🎱';
-    case 'Swimming & Diving':
-      return '🏊';
-    case 'Surfing & Bodyboarding':
-      return '🏄';
-    case 'Kayaking & Paddle':
-      return '🛶';
-    case 'Scuba Diving':
-      return '🤿';
-    case 'Skiing':
-      return '🎿';
-    case 'Snowboarding':
-      return '🏂';
-    case 'Ice Skating':
-      return '⛸️';
-    case 'Hiking & Trekking':
-      return '🥾';
-    case 'Rock Climbing':
-      return '🧗';
-    case 'Camping & Bushcraft':
-      return '🔥';
-    case 'Backpacking':
-      return '🎒';
-    case 'Mountaineering':
-      return '🏔️';
-    case 'Trail Running':
-      return '🏃‍♂️';
-    case 'Geocaching':
-      return '📍';
-
-    // Interests - Creative & Arts
-    case 'Watercolor Painting':
-      return '🎨';
-    case 'Oil & Acrylics':
-      return '🖌️';
-    case 'Sketching & Charcoal':
-      return '✏️';
-    case 'Digital Illustration':
-      return '🖥️';
-    case 'Calligraphy':
-      return '✒️';
-    case 'Pottery & Ceramics':
-      return '🏺';
-    case 'Origami & Papercraft':
-      return '📄';
-    case 'UI/UX Design':
-      return '🎨';
-    case 'Graphic Design':
-      return '📐';
-    case 'Fashion & Apparel':
-      return '👕';
-    case 'Interior Design':
-      return '🛋️';
-    case '3D Modeling':
-      return '💻';
-    case 'Architecture':
-      return '🏛️';
-    case 'Landscape & Nature':
-      return '🌅';
-    case 'Portrait & Studio':
-      return '📸';
-    case 'Street & Documentary':
-      return '📷';
-    case 'Film & Analog':
-      return '🎞️';
-    case 'Drone Videography':
-      return '🛸';
-    case 'Video Editing':
-      return '🎬';
-    case 'Dancing':
-      return '💃';
-    case 'Acting & Theater':
-      return '🎭';
-    case 'Musical Instruments':
-      return '🎹';
-    case 'Singing & Vocals':
-      return '🎤';
-    case 'Stand-up & Improv':
-      return '🎙️';
-    case 'Creative Writing':
-      return '✍️';
-    case 'Poetry & Prose':
-      return '📜';
-    case 'Blogging & Journalism':
-      return '📰';
-    case 'Journaling':
-      return '📓';
-
-    // Interests - Food & Drink
-    case 'Baking & Pastry':
-      return '🥐';
-    case 'Sourdough Bread':
-      return '🍞';
-    case 'BBQ & Grilling':
-      return '🍖';
-    case 'Vegan & Vegetarian':
-      return '🥗';
-    case 'Fine Dining':
-      return '🍽️';
-    case 'Fermentation':
-      return '🍶';
-    case 'Meal Prep & Nutrition':
-      return '🥦';
-    case 'Specialty Coffee':
-      return '☕';
-    case 'Matcha & Green Tea':
-      return '🍵';
-    case 'Loose Leaf Tea':
-      return '🍃';
-    case 'Wine Tasting':
-      return '🍷';
-    case 'Craft Beer Brewing':
-      return '🍺';
-    case 'Mixology & Cocktails':
-      return '🍹';
-
-    // Interests - Lifestyle & Hobbies
-    case 'Houseplants':
-      return '🌿';
-    case 'Bonsai Trees':
-      return '🪴';
-    case 'Vegetable Gardening':
-      return '🥕';
-    case 'Aquascaping':
-      return '🐠';
-    case 'Foraging & Herbalism':
-      return '🍄';
-    case 'Meditation':
-      return '🧘';
-    case 'Philosophy':
-      return '📚';
-    case 'Astrology & Tarot':
-      return '🔮';
-    case 'Self-Improvement':
-      return '📈';
-    case 'Volunteering':
-      return '🤝';
-    case 'Vintage & Thrifting':
-      return '🧥';
-    case 'Sneaker Culture':
-      return '👟';
-    case 'Streetwear':
-      return '🧢';
-    case 'Watch Collecting':
-      return '⌚';
-    case 'Book Collecting':
-      return '📚';
-    case 'Dogs & Dog Training':
-      return '🦮';
-    case 'Cats & Felines':
-      return '🐈';
-    case 'Reptiles':
-      return '🦎';
-    case 'Aquariums & Fish':
-      return '🐠';
-    case 'Bird Watching':
-      return '🦤';
-
-    default:
-      return '';
-  }
+  return _emojiMap[cleanTag] ?? '';
 }
+
+// ===========================================================================
+// EMOJI MAP  –  items that have a meaningful emoji representation
+// ===========================================================================
+const Map<String, String> _emojiMap = {
+  // ── Gender ──────────────────────────────────────────────────────────────
+  'Man': '👨',
+  'Woman': '👩',
+  'Cisgender Man': '👨',
+  'Cisgender Woman': '👩',
+  'Non-binary': '⚧️',
+  'Genderqueer': '💜',
+  'Genderfluid': '💧',
+  'Agender': '⚪',
+  'Transgender Man': '🏳️‍⚧️',
+  'Transgender Woman': '🏳️‍⚧️',
+  'Transgender': '🏳️‍⚧️',
+  'Gender Non-Conforming': '🦄',
+  'Androgynous': '👤',
+  'Neutrois': '⚪',
+  'Third Gender': '🔱',
+  'Intersex': '🟡',
+  'Bigender': '👥',
+  'Two-Spirit': '🪶',
+  'Demiboy': '👦',
+  'Demigirl': '👧',
+  'Pangender': '🌀',
+  'Queer': '🌈',
+  'Questioning': '❓',
+  'Prefer not to say': '🤫',
+
+  // ── Sexuality ────────────────────────────────────────────────────────────
+  'Straight / Heterosexual': '👫',
+  'Gay': '👨‍❤️‍👨',
+  'Lesbian': '👩‍❤️‍👩',
+  'Bisexual': '💖',
+  'Pansexual': '💗',
+  'Omnisexual': '🪐',
+  'Polysexual': '💛',
+  'Asexual': '🖤',
+  'Graysexual': '🩶',
+  'Demisexual': '💜',
+  'Aromantic': '💚',
+  'Aroace': '🖤',
+  'Fluid': '🌊',
+  'Sapphic': '👩‍❤️‍👩',
+  'Achillean': '👨‍❤️‍👨',
+
+  // ── Pronouns ─────────────────────────────────────────────────────────────
+  'he/him': '♂️',
+  'she/her': '♀️',
+  'they/them': '⚧️',
+  'he/they': '♂️',
+  'she/they': '♀️',
+  'he/she': '⚥',
+  'he/she/they': '⚧️',
+  'any/all': '🌈',
+  'it/its': '🔘',
+  'Use my name': '🏷️',
+
+  // ── Languages (flag emojis) ───────────────────────────────────────────────
+  'English': '🇬🇧',
+  'Mandarin Chinese': '🇨🇳',
+  'Hindi': '🇮🇳',
+  'Spanish': '🇪🇸',
+  'French': '🇫🇷',
+  'Arabic': '🇸🇦',
+  'Bengali': '🇧🇩',
+  'Portuguese': '🇵🇹',
+  'Russian': '🇷🇺',
+  'Urdu': '🇵🇰',
+  'Indonesian / Malay': '🇮🇩',
+  'German': '🇩🇪',
+  'Japanese': '🇯🇵',
+  'Telugu': '🇮🇳',
+  'Marathi': '🇮🇳',
+  'Tamil': '🇮🇳',
+  'Cantonese': '🇭🇰',
+  'Korean': '🇰🇷',
+  'Vietnamese': '🇻🇳',
+  'Turkish': '🇹🇷',
+  'Italian': '🇮🇹',
+  'Punjabi': '🇮🇳',
+  'Gujarati': '🇮🇳',
+  'Persian / Farsi': '🇮🇷',
+  'Polish': '🇵🇱',
+  'Ukrainian': '🇺🇦',
+  'Kannada': '🇮🇳',
+  'Malayalam': '🇮🇳',
+  'Burmese': '🇲🇲',
+  'Thai': '🇹🇭',
+  'Sinhala': '🇱🇰',
+  'Nepali': '🇳🇵',
+  'Tagalog / Filipino': '🇵🇭',
+  'Javanese': '🇮🇩',
+  'Sundanese': '🇮🇩',
+  'Wu Chinese': '🇨🇳',
+  'Swahili': '🇰🇪',
+  'Hausa': '🇳🇬',
+  'Yoruba': '🇳🇬',
+  'Igbo': '🇳🇬',
+  'Amharic': '🇪🇹',
+  'Oromo': '🇪🇹',
+  'Tigrinya': '🇪🇷',
+  'Somali': '🇸🇴',
+  'Zulu': '🇿🇦',
+  'Xhosa': '🇿🇦',
+  'Shona': '🇿🇼',
+  'Kinyarwanda': '🇷🇼',
+  'Lingala': '🇨🇩',
+  'Fula': '🇬🇳',
+  'Wolof': '🇸🇳',
+  'Twi / Akan': '🇬🇭',
+  'Nyanja / Chewa': '🇲🇼',
+  'Sotho': '🇱🇸',
+  'Tswana': '🇧🇼',
+  'Afrikaans': '🇿🇦',
+  'Pashto': '🇦🇫',
+  'Dari': '🇦🇫',
+  'Sindhi': '🇵🇰',
+  'Maithili': '🇮🇳',
+  'Assamese': '🇮🇳',
+  'Khmer': '🇰🇭',
+  'Lao': '🇱🇦',
+  'Uzbek': '🇺🇿',
+  'Kazakh': '🇰🇿',
+  'Kyrgyz': '🇰🇬',
+  'Turkmen': '🇹🇲',
+  'Tajik': '🇹🇯',
+  'Azerbaijani': '🇦🇿',
+  'Mongolian': '🇲🇳',
+  'Uyghur': '🇨🇳',
+  'Dutch': '🇳🇱',
+  'Greek': '🇬🇷',
+  'Swedish': '🇸🇪',
+  'Norwegian': '🇳🇴',
+  'Danish': '🇩🇰',
+  'Finnish': '🇫🇮',
+  'Hungarian': '🇭🇺',
+  'Romanian': '🇷🇴',
+  'Czech': '🇨🇿',
+  'Slovak': '🇸🇰',
+  'Bulgarian': '🇧🇬',
+  'Serbian': '🇷🇸',
+  'Croatian': '🇭🇷',
+  'Bosnian': '🇧🇦',
+  'Slovenian': '🇸🇮',
+  'Macedonian': '🇲🇰',
+  'Albanian': '🇦🇱',
+  'Lithuanian': '🇱🇹',
+  'Latvian': '🇱🇻',
+  'Estonian': '🇪🇪',
+  'Belarusian': '🇧🇾',
+  'Catalan': '🏴',
+  'Galician': '🏴',
+  'Welsh': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+  'Irish': '🇮🇪',
+  'Icelandic': '🇮🇸',
+  'Maltese': '🇲🇹',
+  'Hebrew': '🇮🇱',
+  'Malagasy': '🇲🇬',
+  'Fijian': '🇫🇯',
+  'Māori': '🇳🇿',
+  'Hawaiian': '🌺',
+  'Samoan': '🇼🇸',
+  'Tongan': '🇹🇴',
+  'Esperanto': '🌍',
+
+  // ── Religious Beliefs ─────────────────────────────────────────────────────
+  'Atheist': '⚛️',
+  'Agnostic': '🤷',
+  'Spiritual but not religious': '✨',
+  'New Age': '🔮',
+  'Pagan / Wiccan': '🌙',
+  'Christian': '✝️',
+  'Catholic': '✝️',
+  'Protestant': '✝️',
+  'Orthodox Christian': '☦️',
+  'Muslim (Sunni)': '☪️',
+  'Muslim (Shia)': '☪️',
+  'Jewish': '✡️',
+  'Jewish (Orthodox)': '✡️',
+  'Hindu': '🕉️',
+  'Buddhist': '☸️',
+  'Sikh': '🪯',
+  'Jain': '☸️',
+  'Taoist': '☯️',
+  'Shinto': '⛩️',
+  "Bahá'í": '⭐',
+  'Zoroastrian': '🔥',
+  'Rastafari': '🌿',
+  'Druze': '⭐',
+  'Yazidi': '☀️',
+  'Animist': '🌿',
+  'Indigenous / Traditional': '🪶',
+  'Other': '🔵',
+
+  // ── Causes Supported ──────────────────────────────────────────────────────
+  'Climate Action': '🌲',
+  'Renewable Energy': '⚡',
+  'Biodiversity & Wildlife': '🦁',
+  'Ocean Conservation': '🌊',
+  'Deforestation & Reforestation': '🌳',
+  'Clean Air': '💨',
+  'Clean Water & Sanitation': '💧',
+  'Zero Waste & Recycling': '♻️',
+  'Sustainable Agriculture': '🌾',
+  'Animal Protection': '🐾',
+  'Veganism & Animal Rights': '🐮',
+  'Human Rights': '✊',
+  'Gender Equality': '⚧️',
+  'LGBTQ+ Rights': '🌈',
+  'Racial Justice': '✊',
+  'Indigenous Rights': '🪶',
+  'Disability Rights': '♿',
+  "Children's Rights": '🧒',
+  'Elder Care': '👴',
+  'Refugee & Migrant Rights': '🌍',
+  'Anti-Trafficking': '🔐',
+  'Prison Reform': '🔓',
+  'Voting Rights & Democracy': '🗳️',
+  'Mental Health Advocacy': '💬',
+  'Global Health': '🏥',
+  'Reproductive Rights': '🩺',
+  'Substance Abuse & Recovery': '💊',
+  'Nutrition & Food Security': '🥦',
+  'Rare Disease Research': '🔬',
+  'Education Access': '📚',
+  'Digital Literacy': '💻',
+  'Economic Development': '📈',
+  'Poverty Alleviation': '🤝',
+  'Fair Trade': '🌐',
+  'Entrepreneurship & Small Business': '🚀',
+  'Financial Inclusion': '💳',
+  'Scientific Research': '🔬',
+  'Tech Ethics': '⚖️',
+  'AI Safety': '🤖',
+  'Open Source & Open Knowledge': '🐙',
+  'Space Exploration': '🚀',
+  'Arts & Culture Preservation': '🏛️',
+  'Community Development': '🏘️',
+  'Volunteerism': '🤝',
+  'Religious Freedom': '🕊️',
+  'Free Speech & Press Freedom': '📰',
+  'Disaster Relief': '🚨',
+  'Hunger & Food Banks': '🍽️',
+  'Homelessness': '🏠',
+  'Peace & Conflict Resolution': '🕊️',
+  'Nuclear Disarmament': '☮️',
+
+  // ── Pets ──────────────────────────────────────────────────────────────────
+  'Dog': '🐶',
+  'Cat': '🐱',
+  'Rabbit': '🐰',
+  'Ferret': '🐾',
+  'Hamster': '🐹',
+  'Guinea Pig': '🐾',
+  'Gerbil': '🐭',
+  'Mouse': '🐭',
+  'Rat': '🐀',
+  'Chinchilla': '🐭',
+  'Hedgehog': '🦔',
+  'Sugar Glider': '🐿️',
+  'Degu': '🐭',
+  'Prairie Dog': '🐾',
+  'Parrot': '🦜',
+  'Budgie / Parakeet': '🦜',
+  'Cockatiel': '🦜',
+  'Cockatoo': '🦜',
+  'Lovebird': '🦜',
+  'Finch / Canary': '🐦',
+  'Macaw': '🦜',
+  'Pigeon / Dove': '🕊️',
+  'Chicken / Poultry': '🐔',
+  'Gecko': '🦎',
+  'Bearded Dragon': '🦎',
+  'Tortoise / Turtle': '🐢',
+  'Snake': '🐍',
+  'Iguana': '🦎',
+  'Chameleon': '🦎',
+  'Monitor Lizard': '🦎',
+  'Frog / Toad': '🐸',
+  'Axolotl': '🐟',
+  'Salamander': '🦎',
+  'Fish (Freshwater)': '🐟',
+  'Fish (Marine / Reef)': '🐠',
+  'Shrimp / Crayfish': '🦐',
+  'Crab': '🦀',
+  'Tarantula': '🕷️',
+  'Scorpion': '🦂',
+  'Stick Insect': '🦗',
+  'Snail': '🐌',
+  'Horse / Pony': '🐴',
+  'Goat': '🐐',
+  'Sheep': '🐑',
+  'Pig (Micro)': '🐷',
+  'Alpaca / Llama': '🦙',
+  'No Pets': '🚫',
+
+  // ── Interests – Tech & Science ────────────────────────────────────────────
+  'Python': '🐍',
+  'Flutter & Dart': '💙',
+  'Rust': '🦀',
+  'JavaScript & TypeScript': '🌐',
+  'Web Development': '🌐',
+  'AI & Machine Learning': '🤖',
+  'Cybersecurity': '🔒',
+  'Game Development': '🎮',
+  'Cloud & DevOps': '☁️',
+  'Open Source Contribution': '🐙',
+  'Mobile Apps': '📱',
+  'Blockchain & Web3': '🔗',
+  'Astrophysics & Space': '🚀',
+  'Quantum Physics': '⚛️',
+  'Neuroscience': '🧠',
+  'Psychology': '💭',
+  'Marine Biology': '🐬',
+  'Archaeology & History': '🏛️',
+  'Genetics & Biotech': '🧬',
+  'Climate Science': '🌍',
+  'Chemistry': '⚗️',
+  'Mathematics': '📐',
+  'Citizen Science': '🔭',
+  'PC Building': '🖥️',
+  'Virtual Reality (VR)': '🕶️',
+  'Augmented Reality (AR)': '🕶️',
+  'Drones & Quadcopters': '🛸',
+  'IoT & Smart Home': '🏠',
+  'Mechanical Keyboards': '⌨️',
+  '3D Printing': '🖨️',
+  'Robotics': '🤖',
+  'Cryptography': '🔐',
+  'Data Analysis': '📊',
+  'Game Theory': '🎲',
+  'Mathematical Puzzles': '🧩',
+  'Algorithms': '🧮',
+  'Chess & Strategy Games': '♟️',
+
+  // ── Interests – Entertainment & Media ─────────────────────────────────────
+  'Horror Shows': '👻',
+  'Sci-Fi & Fantasy': '🚀',
+  'Documentaries': '📽️',
+  'True Crime': '🕵️',
+  'Sitcoms & Comedy': '🎭',
+  'K-Dramas': '🇰🇷',
+  'Anime & Manga': '🌸',
+  'Reality TV': '📺',
+  'Historical Drama': '👑',
+  'Talk Shows': '🎙️',
+  'Mini-Series & Limited': '📺',
+  'Soap Operas': '📺',
+  'Telenovelas': '📺',
+  'Indie & Art House': '🎨',
+  'Hollywood Blockbusters': '🍿',
+  'Classic Films': '🎞️',
+  'Psychological Thrillers': '🕵️‍♀️',
+  'Animation & Pixar': '🧸',
+  'Foreign Language Films': '🗣️',
+  'Action & Adventure': '🤠',
+  'Horror': '👻',
+  'Rom-Coms': '💕',
+  'Bollywood': '🎬',
+  'Martial Arts Films': '🥋',
+  'RPGs (Role-Playing)': '🧙',
+  'FPS (First-Person)': '🔫',
+  'RTS (Strategy)': '♟️',
+  'MMORPGs': '🌐',
+  'Cozy & Casual Games': '☕',
+  'Competitive Esports': '🏆',
+  'Retro & Arcade': '👾',
+  'Tabletop & D&D': '🎲',
+  'Modern Board Games': '♟️',
+  'Card Games (TCG)': '🃏',
+  'Puzzle Games': '🧩',
+  'Horror Games': '👻',
+  'Simulation & Sandbox': '🌍',
+  'Sports Games': '🎮',
+  'Fighting Games': '🥊',
+  'Mobile Gaming': '📱',
+  'Rock & Alternative': '🎸',
+  'Metal & Heavy': '🤘',
+  'Pop': '🎤',
+  'R&B & Soul': '🎤',
+  'Hip Hop & Rap': '🎧',
+  'Indie & Folk': '🪕',
+  'Classical & Opera': '🎼',
+  'Jazz & Blues': '🎷',
+  'EDM & House': '🎹',
+  'Techno & Industrial': '🎛️',
+  'Synthwave & Retrowave': '🎹',
+  'Lo-Fi & Chillbeats': '💤',
+  'Reggae & Dancehall': '🎵',
+  'Afrobeats & Afropop': '🥁',
+  'Latin & Reggaeton': '🎺',
+  'K-Pop': '🌸',
+  'Country & Bluegrass': '🤠',
+  'Gospel & Worship': '🙏',
+  'Punk & Hardcore': '🤘',
+  'Ambient & Drone': '🌌',
+  'Vinyl Records': '📻',
+  'Live Concerts & Festivals': '🎪',
+  'Music Production': '🎛️',
+  'Meme Culture': '😂',
+  'Stand-Up Comedy': '🎙️',
+  'Sketch Comedy': '🎭',
+  'Improv': '🎭',
+  'Internet Humour': '😂',
+  'Satire': '✍️',
+  'True Crime Podcasts': '🕵️',
+  'News & Current Affairs': '📰',
+  'Self-Improvement Podcasts': '📈',
+  'Science Podcasts': '🔬',
+  'Storytelling & Fiction': '📖',
+  'Interview Shows': '🎙️',
+  'Audiobooks': '🎧',
+
+  // ── Interests – Sports & Outdoors ─────────────────────────────────────────
+  'Weightlifting': '🏋️',
+  'Powerlifting': '💪',
+  'CrossFit': '🤸',
+  'Calisthenics': '🤸‍♀️',
+  'Yoga': '🧘',
+  'Pilates': '🧘‍♀️',
+  'HIIT & Cardio': '🏃',
+  'Cycling & Spinning': '🚴',
+  'Gymnastics': '🤸‍♂️',
+  'Running & Marathons': '🏃‍♂️',
+  'Triathlons': '🏊',
+  'Dance Fitness': '💃',
+  'Boxing': '🥊',
+  'Muay Thai': '🥊',
+  'Brazilian Jiu-Jitsu (BJJ)': '🥋',
+  'Wrestling': '🤼',
+  'MMA': '🥊',
+  'Karate': '🥋',
+  'Judo': '🥋',
+  'Taekwondo': '🥋',
+  'Kickboxing': '🥊',
+  'Capoeira': '🕺',
+  'Kung Fu': '🥋',
+  'Football (Soccer)': '⚽',
+  'Basketball': '🏀',
+  'Volleyball': '🏐',
+  'Baseball': '⚾',
+  'Cricket': '🏏',
+  'American Football': '🏈',
+  'Rugby': '🏉',
+  'Ice Hockey': '🏒',
+  'Lacrosse': '🥍',
+  'Water Polo': '🤽',
+  'Handball': '🤾',
+  'Ultimate Frisbee': '🥏',
+  'Netball': '🏀',
+  'Tennis': '🎾',
+  'Badminton': '🏸',
+  'Table Tennis': '🏓',
+  'Golf': '⛳',
+  'Archery': '🏹',
+  'Fencing': '🤺',
+  'Billiards & Pool': '🎱',
+  'Track & Field': '🏃',
+  'Cycling (Road)': '🚴',
+  'Cycling (MTB)': '🚵',
+  'Skateboarding': '🛹',
+  'Parkour': '🏃',
+  'Equestrian': '🐴',
+  'Swimming': '🏊',
+  'Open Water Swimming': '🌊',
+  'Surfing & Bodyboarding': '🏄',
+  'Kayaking & Paddle': '🛶',
+  'Scuba Diving': '🤿',
+  'Snorkelling': '🤿',
+  'Sailing': '⛵',
+  'Kitesurfing': '🪁',
+  'Skiing': '🎿',
+  'Snowboarding': '🏂',
+  'Ice Skating': '⛸️',
+  'Freediving': '🤿',
+  'Hiking & Trekking': '🥾',
+  'Rock Climbing': '🧗',
+  'Bouldering': '🧗',
+  'Camping & Bushcraft': '🔥',
+  'Backpacking': '🎒',
+  'Mountaineering': '🏔️',
+  'Trail Running': '🏃‍♂️',
+  'Geocaching': '📍',
+  'Foraging': '🍄',
+  'Caving & Spelunking': '🕯️',
+  'Paragliding': '🪂',
+  'Skydiving': '🪂',
+  'Hunting & Fishing': '🎣',
+  'Football Watching': '⚽',
+  'Basketball Watching': '🏀',
+  'Formula 1': '🏎️',
+  'MMA & UFC': '🥊',
+  'Cricket Watching': '🏏',
+  'Tennis Watching': '🎾',
+  'Olympic Sports': '🏅',
+  'Fantasy Leagues': '🏆',
+
+  // ── Interests – Creative & Arts ────────────────────────────────────────────
+  'Watercolor Painting': '🎨',
+  'Oil & Acrylics': '🖌️',
+  'Sketching & Charcoal': '✏️',
+  'Digital Illustration': '🖥️',
+  'Calligraphy': '✒️',
+  'Pottery & Ceramics': '🏺',
+  'Origami & Papercraft': '📄',
+  'Printmaking': '🖨️',
+  'Sculpture': '🗿',
+  'Street Art & Graffiti': '🎨',
+  'Collage & Mixed Media': '🖼️',
+  'UI/UX Design': '🎨',
+  'Graphic Design': '📐',
+  'Fashion Design': '👗',
+  'Interior Design': '🛋️',
+  '3D Modeling': '💻',
+  'Architecture': '🏛️',
+  'Logo Design': '🏷️',
+  'Jewellery Making': '💍',
+  'Landscape & Nature': '🌅',
+  'Portrait & Studio': '📸',
+  'Street & Documentary': '📷',
+  'Film & Analog': '🎞️',
+  'Drone Videography': '🛸',
+  'Video Editing': '🎬',
+  'YouTube & Content Creation': '📹',
+  'Wedding & Events': '💍',
+  'Ballet': '🩰',
+  'Contemporary Dance': '💃',
+  'Hip Hop Dance': '🕺',
+  'Ballroom & Latin Dance': '💃',
+  'Salsa & Bachata': '💃',
+  'Traditional Dance': '🪘',
+  'Acting & Theater': '🎭',
+  'Musical Theater': '🎭',
+  'Musical Instruments': '🎹',
+  'Singing & Vocals': '🎤',
+  'Choir': '🎵',
+  'Stand-Up & Improv': '🎙️',
+  'Circus Arts': '🎪',
+  'Magic & Illusion': '🪄',
+  'Creative Fiction': '📖',
+  'Fantasy & Sci-Fi Writing': '🧙',
+  'Poetry & Prose': '📜',
+  'Blogging & Journalism': '📰',
+  'Journaling': '📓',
+  'Screenwriting': '🎬',
+  'Game Writing': '🎮',
+  'Technical Writing': '📝',
+  'Knitting & Crocheting': '🧶',
+  'Sewing & Embroidery': '🧵',
+  'Woodworking & Carpentry': '🪵',
+  'Leatherworking': '🧳',
+  'Candle & Soap Making': '🕯️',
+  'Model Building': '🛩️',
+  'RC Vehicles': '🚗',
+  'Lego & Sets': '🧱',
+  'Resin Art': '🎨',
+  'Home Renovation & DIY': '🔨',
+
+  // ── Interests – Books & Reading ────────────────────────────────────────────
+  'Fantasy': '🧙',
+  'Science Fiction': '🚀',
+  'Literary Fiction': '📖',
+  'Historical Fiction': '📜',
+  'Romance': '💕',
+  'Thriller & Mystery': '🕵️',
+  'Magical Realism': '✨',
+  'Graphic Novels & Comics': '💬',
+  'Manga': '🌸',
+  'Biographies & Memoirs': '📖',
+  'Self-Help': '📈',
+  'Philosophy': '📚',
+  'History': '🏛️',
+  'Science & Nature': '🔬',
+  'Business & Economics': '💼',
+  'True Crime Books': '🕵️',
+  'Political Theory': '⚖️',
+  'Travel Writing': '✈️',
+  'Essays & Criticism': '✍️',
+  'Spirituality & Religion': '🙏',
+  'Book Clubs': '📚',
+  'eBooks': '📱',
+  'Second-Hand Books': '📚',
+  'Reading Challenges': '🏆',
+  'Rare & Antique Books': '📜',
+
+  // ── Interests – Food & Drink ───────────────────────────────────────────────
+  'Baking & Pastry': '🥐',
+  'Sourdough Bread': '🍞',
+  'BBQ & Grilling': '🍖',
+  'Vegan & Vegetarian Cooking': '🥗',
+  'World Cuisines': '🌍',
+  'Fine Dining': '🍽️',
+  'Fermentation & Pickling': '🍶',
+  'Meal Prep & Nutrition': '🥦',
+  'Street Food': '🌮',
+  'Sushi & Japanese Cuisine': '🍣',
+  'Middle Eastern Cuisine': '🧆',
+  'Italian Cooking': '🍝',
+  'Indian Cooking': '🍛',
+  'Specialty Coffee': '☕',
+  'Matcha & Green Tea': '🍵',
+  'Loose Leaf Tea': '🍃',
+  'Wine Tasting': '🍷',
+  'Craft Beer & Brewing': '🍺',
+  'Mixology & Cocktails': '🍹',
+  'Natural Wine': '🍷',
+  'Kombucha & Fermented Drinks': '🍶',
+  'Whisky & Spirits': '🥃',
+  'Non-Alcoholic Cocktails': '🧃',
+  'Restaurant Hopping': '🍽️',
+  'Food Photography': '📸',
+  'Food Blogging': '📝',
+  'Farmers Markets': '🥕',
+  'Food Festivals': '🎪',
+
+  // ── Interests – Travel & Adventure ────────────────────────────────────────
+  'Solo Travel': '🎒',
+  'Luxury Travel': '✈️',
+  'Budget Travel': '💰',
+  'Van Life & Overlanding': '🚐',
+  'Road Trips': '🚗',
+  'Cruise Travel': '🚢',
+  'Family Travel': '👨‍👩‍👧‍👦',
+  'Workcation & Remote Work': '💻',
+  'Digital Nomad Lifestyle': '💻',
+  'Europe': '🇪🇺',
+  'Southeast Asia': '🌏',
+  'East Asia': '🌏',
+  'South Asia': '🌏',
+  'Africa': '🌍',
+  'Latin America': '🌎',
+  'Middle East': '🌍',
+  'North America': '🌎',
+  'Oceania & Pacific': '🌊',
+  'Arctic & Antarctic': '🧊',
+  'Cultural Immersion': '🎭',
+  'Historical Sites & Ruins': '🏛️',
+  'Food Tourism': '🍽️',
+  'Wildlife Safaris': '🦁',
+  'National Parks': '🏕️',
+  'Beach & Island Hopping': '🏝️',
+  'City Breaks': '🏙️',
+  'Festival Travel': '🎪',
+  'Language Immersion': '💬',
+  'Voluntourism': '🤝',
+
+  // ── Interests – Lifestyle & Wellness ──────────────────────────────────────
+  'Meditation': '🧘',
+  'Mindfulness': '🍃',
+  'Breathwork': '🌬️',
+  'Cold Plunge & Ice Baths': '🧊',
+  'Self-Improvement': '📈',
+  'Sleep Optimisation': '😴',
+  'Digital Detox': '📵',
+  'Houseplants': '🌿',
+  'Bonsai': '🪴',
+  'Vegetable Gardening': '🥕',
+  'Aquascaping': '🐠',
+  'Foraging & Herbalism': '🍄',
+  'Beekeeping': '🐝',
+  'Permaculture': '🌱',
+  'Vintage & Thrifting': '🧥',
+  'Sneaker Culture': '👟',
+  'Streetwear': '🧢',
+  'Luxury & Designer': '💎',
+  'Sustainable Fashion': '🌿',
+  'Cottagecore': '🌸',
+  'Haul Culture': '🛍️',
+  'Cosplay': '🎭',
+  'Watch Collecting': '⌚',
+  'Book Collecting': '📚',
+  'Trading Cards': '🃏',
+  'Coins & Currency': '🪙',
+  'Stamps': '✉️',
+  'Art Collecting': '🖼️',
+  'Antiques & Vintage': '🏺',
+  'Figurines & Statues': '🗿',
+  'Sports Memorabilia': '🏆',
+  'Dog Training': '🦮',
+  'Cat Care': '🐈',
+  'Exotic Pets': '🦎',
+  'Bird Watching': '🦤',
+  'Aquariums': '🐠',
+  'Animal Rescue & Fostering': '🐾',
+  'Wildlife Photography': '📸',
+
+  // ── Interests – Finance & Business ────────────────────────────────────────
+  'Stock Market': '📈',
+  'Index Funds & ETFs': '📊',
+  'Cryptocurrency': '₿',
+  'NFTs & Web3': '🖼️',
+  'Real Estate Investing': '🏠',
+  'Angel Investing': '👼',
+  'Options & Derivatives': '📊',
+  'Commodities': '🌾',
+  'Startups': '🚀',
+  'Freelancing': '💼',
+  'E-commerce': '🛒',
+  'Content Creation & Monetisation': '📹',
+  'Side Hustles': '💡',
+  'Venture Capital': '💰',
+  'Marketing & Growth': '📈',
+  'Product Management': '📋',
+  'FIRE Movement': '🔥',
+  'Frugal Living': '💰',
+  'Budgeting': '📊',
+  'Passive Income': '💸',
+  'Financial Independence': '🏖️',
+
+  // ── Interests – Social & Activism ─────────────────────────────────────────
+  'Volunteering': '🤝',
+  'Community Organising': '🏘️',
+  'Mutual Aid': '🤝',
+  'Mentorship': '🎓',
+  'Charity & Fundraising': '💛',
+  'Non-Profit Work': '❤️',
+  'Environmental Activism': '🌍',
+  'LGBTQ+ Advocacy': '🌈',
+  'Animal Rights': '🐾',
+  'Anti-War & Peace': '🕊️',
+  'Digital Rights': '🔐',
+  'Political Science': '⚖️',
+  'Current Events': '📰',
+  'Debate & Discourse': '💬',
+  'Geopolitics': '🌍',
+  'Local Politics': '🗳️',
+  'Journalism & Media Literacy': '📰',
+  'Language Learning': '💬',
+  'Linguistics': '📚',
+  'Cultural Exchange': '🌍',
+  'Pen Pals & Letter Writing': '✉️',
+  'Anthropology': '🏛️',
+
+  // ── Interests – Spirituality & Esoteric ───────────────────────────────────
+  'Yoga Philosophy': '🧘',
+  'Buddhism': '☸️',
+  'Hinduism & Vedanta': '🕉️',
+  'Sufism': '☪️',
+  'Shamanism': '🪶',
+  'Druidry & Paganism': '🌙',
+  'Astrology': '⭐',
+  'Tarot & Oracle': '🔮',
+  'Numerology': '🔢',
+  'Crystal Healing': '💎',
+  'Manifestation': '✨',
+  'Reiki & Energy Healing': '🙌',
+  'Witchcraft': '🧙‍♀️',
+  'Ghosts & Hauntings': '👻',
+  'UFOs & Extraterrestrial': '🛸',
+  'Conspiracy Theories': '🕵️',
+  'Cryptids': '👁️',
+  'Near-Death Experiences': '✨',
+
+  // ── Interests – Cars & Motors ─────────────────────────────────────────────
+  'Car Culture & Shows': '🚗',
+  'Classic & Vintage Cars': '🚘',
+  'JDM (Japanese Domestic Market)': '🇯🇵',
+  'American Muscle': '🏎️',
+  'European Sports Cars': '🏎️',
+  'Electric Vehicles': '⚡',
+  'Car Modification & Tuning': '🔧',
+  'Off-Road & 4x4': '🚙',
+  'Autocross & Track Days': '🏁',
+  'Rally & Motorsport': '🏁',
+  'Motorcycles & Touring': '🏍️',
+  'Superbikes': '🏍️',
+  'Custom & Chopper Builds': '🏍️',
+  'Dirt Bikes & Motocross': '🏍️',
+  'BMX': '🚲',
+  'E-Bikes': '🛵',
+  'Aviation & Flying': '✈️',
+  'Boating & Yachting': '⛵',
+  'Model Aircraft': '🛩️',
+};
+
+// ===========================================================================
+// LUCIDE ICON MAP  –  items where emoji don't exist or would be misleading
+// ===========================================================================
+const Map<String, IconData> _lucideMap = {
+  // ── Gender (no good emoji) ────────────────────────────────────────────────
+  'Maverique': LucideIcons.sparkles,
+  'Trigender': LucideIcons.triangleRight,
+  'Multigender': LucideIcons.layers,
+  'Demi-non-binary': LucideIcons.minus,
+  'Xenogender': LucideIcons.star,
+
+  // ── Sexuality (no emoji) ──────────────────────────────────────────────────
+  'Straight / Heterosexual': LucideIcons.arrowRight,
+  'Cupiosexual': LucideIcons.heart,
+  'Lithosexual': LucideIcons.heart,
+  'Greyromantic': LucideIcons.heart,
+  'Demiromantic': LucideIcons.heart,
+  'Skoliosexual': LucideIcons.sparkles,
+
+  // ── Pronouns (no emoji) ───────────────────────────────────────────────────
+  'xe/xem': LucideIcons.user,
+  'ze/zir': LucideIcons.user,
+  'ze/hir': LucideIcons.user,
+  'ey/em': LucideIcons.user,
+  'fae/faer': LucideIcons.user,
+  'per/per': LucideIcons.user,
+  'e/em': LucideIcons.user,
+  've/ver': LucideIcons.user,
+
+  // ── Religious beliefs (no specific emoji) ─────────────────────────────────
+  'Secular Humanist': LucideIcons.brainCircuit,
+  'Deist': LucideIcons.sun,
+  'Pantheist': LucideIcons.globe,
+  'Confucianist': LucideIcons.bookOpen,
+  'Unitarian Universalist': LucideIcons.circle,
+
+  // ── Languages (no flag emoji) ─────────────────────────────────────────────
+  'Scottish Gaelic': LucideIcons.globe,
+  'Luxembourgish': LucideIcons.globe,
+  'Basque': LucideIcons.globe,
+  'Catalan': LucideIcons.globe,
+  'Galician': LucideIcons.globe,
+  'Tibetan': LucideIcons.globe,
+  'Georgian': LucideIcons.globe,
+  'Armenian': LucideIcons.globe,
+  'Kurdish': LucideIcons.globe,
+  'Latin': LucideIcons.bookOpen,
+  'Other': LucideIcons.ellipsis,
+  'American Sign Language (ASL)': LucideIcons.hand,
+  'British Sign Language (BSL)': LucideIcons.hand,
+  'International Sign': LucideIcons.hand,
+
+  // ── Interests (concepts with no emoji) ───────────────────────────────────
+  'Embedded Systems': LucideIcons.cpu,
+  'Amateur Radio (Ham)': LucideIcons.radio,
+  'Krav Maga': LucideIcons.shield,
+  'Personal Training': LucideIcons.dumbbell,
+  'Macramé': LucideIcons.scissors,
+  'Therapy & Inner Work': LucideIcons.heart,
+  'Disability Rights': LucideIcons.accessibility,
+  'Prison Reform': LucideIcons.lock,
+  'Meditation & Prayer': LucideIcons.sun,
+  'Kabbalah': LucideIcons.star,
+  'Human Design': LucideIcons.user,
+  'Typesetting': LucideIcons.type,
+  'Podcasts (Comedy)': LucideIcons.mic,
+  'Podcasts & Audio': LucideIcons.headphones,
+  'Backpacking': LucideIcons.backpack,
+
+  // ── Drinking / Smoking habits ─────────────────────────────────────────────
+  'Never': LucideIcons.x,
+  'Occasionally': LucideIcons.clock,
+  'Socially': LucideIcons.users,
+  'Regularly': LucideIcons.refreshCw,
+
+  // ── Children plans ────────────────────────────────────────────────────────
+  'Want kids': LucideIcons.baby,
+  "Don't want kids": LucideIcons.x,
+  'Undecided': LucideIcons.helpCircle,
+  'Not specified': LucideIcons.helpCircle,
+
+  // ── Partner values ────────────────────────────────────────────────────────
+  'Authenticity': LucideIcons.fingerprint,
+  'Empathy': LucideIcons.heartHandshake,
+  'Ambition': LucideIcons.trendingUp,
+  'Loyalty': LucideIcons.shield,
+  'Honesty': LucideIcons.checkCircle,
+  'Kindness': LucideIcons.sun,
+  'Growth Mindset': LucideIcons.sprout,
+  'Creativity': LucideIcons.palette,
+  'Emotional Maturity': LucideIcons.brainCircuit,
+  'Humor & Wit': LucideIcons.laugh,
+  'Respect': LucideIcons.handshake,
+  'Adventure': LucideIcons.compass,
+  'Communication': LucideIcons.messageCircle,
+  'Curiosity': LucideIcons.searchCode,
+  'Compassion': LucideIcons.heart,
+  'Family-oriented': LucideIcons.home,
+  'Financial Stability': LucideIcons.trendingUp,
+  'Independence': LucideIcons.user,
+  'Open-mindedness': LucideIcons.aperture,
+  'Self-awareness': LucideIcons.eye,
+  'Trustworthiness': LucideIcons.lock,
+
+  // ── Interest parent category names ────────────────────────────────────────
+  'Coding': LucideIcons.code,
+  'Science & Discovery': LucideIcons.flaskConical,
+  'Gadgets & Hardware': LucideIcons.cpu,
+  'Math & Logic': LucideIcons.calculator,
+  'TV & Series': LucideIcons.tv,
+  'Movies & Cinema': LucideIcons.film,
+  'Gaming': LucideIcons.gamepad2,
+  'Music': LucideIcons.music,
+  'Comedy & Memes': LucideIcons.laugh,
+  'Fitness & Training': LucideIcons.dumbbell,
+  'Martial Arts & Combat': LucideIcons.shield,
+  'Team Sports': LucideIcons.users,
+  'Individual Sports': LucideIcons.user,
+  'Water & Winter Sports': LucideIcons.waves,
+  'Outdoor Adventure': LucideIcons.mountain,
+  'Watching Sports': LucideIcons.tv,
+  'Visual Arts': LucideIcons.palette,
+  'Design & Styling': LucideIcons.pen,
+  'Photography & Video': LucideIcons.camera,
+  'Performing Arts': LucideIcons.drama,
+  'Writing & Literature': LucideIcons.penLine,
+  'Crafts & DIY': LucideIcons.scissors,
+  'Fiction': LucideIcons.bookOpen,
+  'Non-Fiction': LucideIcons.bookOpen,
+  'Reading Habits': LucideIcons.bookMarked,
+  'Cooking & Culinary': LucideIcons.chefHat,
+  'Beverages': LucideIcons.coffee,
+  'Food Culture': LucideIcons.utensils,
+  'Travel Style': LucideIcons.map,
+  'Destinations': LucideIcons.mapPin,
+  'Travel Interests': LucideIcons.compass,
+  'Mind & Wellbeing': LucideIcons.brainCircuit,
+  'Nature & Gardening': LucideIcons.leaf,
+  'Fashion & Style': LucideIcons.shirt,
+  'Collecting & Hobbies': LucideIcons.archive,
+  'Pets & Animals': LucideIcons.pawPrint,
+  'Investing': LucideIcons.trendingUp,
+  'Business & Entrepreneurship': LucideIcons.briefcase,
+  'Personal Finance': LucideIcons.piggyBank,
+  'Community & Volunteering': LucideIcons.handshake,
+  'Activism & Advocacy': LucideIcons.megaphone,
+  'Politics & Society': LucideIcons.landmark,
+  'Language & Culture': LucideIcons.languages,
+  'Spiritual Practices': LucideIcons.moon,
+  'Mystical & Esoteric': LucideIcons.star,
+  'Paranormal & Unexplained': LucideIcons.ghost,
+  'Cars': LucideIcons.car,
+  'Motorcycles & Bikes': LucideIcons.bike,
+  'Aviation & Marine': LucideIcons.plane,
+
+  // ── Sub-interests missing icons ───────────────────────────────────────────
+  'Mountain Biking': LucideIcons.bike,
+  'Gothic & Alternative': LucideIcons.skull,
+  "Children's Rights": LucideIcons.baby,
+  "Bahá'í": LucideIcons.star,
+};

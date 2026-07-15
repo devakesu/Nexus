@@ -185,26 +185,7 @@ class LifestyleResonanceSection extends StatelessWidget {
                   onTap: () {
                     openBottomSelectionSheet(
                       title: 'Religious Beliefs',
-                      options: const [
-                        'Atheist',
-                        'Agnostic',
-                        'Spiritual',
-                        'Christian',
-                        'Muslim',
-                        'Jewish',
-                        'Hindu',
-                        'Buddhist',
-                        'Sikh',
-                        'Jain',
-                        'Shinto',
-                        'Baháʼí',
-                        'Taoist',
-                        'Zoroastrian',
-                        'Pagan',
-                        'Wiccan',
-                        'Other',
-                        'Not specified',
-                      ],
+                      options: FilterOptions.religiousBeliefs,
                       currentValue: religiousBeliefs,
                       onSelected: onReligiousBeliefsSaved,
                     );

@@ -1114,7 +1114,7 @@ def _validate_tab_activation(
 # special-category consent (only actually disclosing a real value does).
 _SPECIAL_CATEGORY_OPT_OUT_VALUES = {
     "display_sexuality": "Prefer not to say",
-    "religious_beliefs": "Not specified",
+    "religious_beliefs": "Prefer not to say",
 }
 
 

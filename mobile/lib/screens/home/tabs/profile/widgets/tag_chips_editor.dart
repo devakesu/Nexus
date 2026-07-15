@@ -234,7 +234,13 @@ class TagChipsEditor extends StatelessWidget {
                             itemBuilder: (context, index) {
                               final option = filteredPresets[index];
                               final isSelected = localSelected.contains(option);
-                              final emoji = getEmojiForTag(option);
+                              final tagIcon = getTagIcon(
+                                option,
+                                iconSize: 14,
+                                iconColor: isSelected
+                                    ? AppColors.pulsarPink
+                                    : Colors.black38,
+                              );
 
                               void handleTap() {
                                 setModalState(() {
@@ -308,13 +314,8 @@ class TagChipsEditor extends StatelessWidget {
                                           ),
                                           const SizedBox(width: 10),
                                         ],
-                                        if (emoji.isNotEmpty) ...[
-                                          Text(
-                                            emoji,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                            ),
-                                          ),
+                                        if (tagIcon != null) ...[
+                                          tagIcon,
                                           const SizedBox(width: 12),
                                         ] else ...[
                                           Icon(
@@ -556,25 +557,26 @@ class TagChipsEditor extends StatelessWidget {
                   displayValues = merged;
                 }
 
-                String resolveEmoji(String tag) {
-                  var emoji = getEmojiForTag(tag);
-                  if (emoji.isEmpty && tag.contains(': ')) {
+                Widget? resolveTagIcon(String tag) {
+                  var icon = getTagIcon(tag, iconSize: 13);
+                  if (icon == null && tag.contains(': ')) {
                     final parent = tag.split(': ')[0];
-                    emoji = getEmojiForTag(parent);
-                    if (emoji.isEmpty) {
+                    icon = getTagIcon(parent, iconSize: 13);
+                    if (icon == null) {
                       final parts = tag.split(': ');
                       if (parts.length == 2) {
                         final subs = parts[1].split(', ');
                         if (subs.isNotEmpty) {
-                          emoji = getEmojiForTag(subs[0]);
+                          icon = getTagIcon(subs[0], iconSize: 13);
                         }
                       }
                     }
                   }
-                  return emoji;
+                  return icon;
                 }
 
                 return displayValues.map((val) {
+                  final tagIcon = resolveTagIcon(val);
                   return Container(
                     padding: const EdgeInsets.only(
                       left: 10,
@@ -592,11 +594,8 @@ class TagChipsEditor extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (resolveEmoji(val).isNotEmpty) ...[
-                          Text(
-                            resolveEmoji(val),
-                            style: const TextStyle(fontSize: 13),
-                          ),
+                        if (tagIcon != null) ...[
+                          tagIcon,
                           const SizedBox(width: 6),
                         ],
                         Flexible(

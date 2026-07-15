@@ -516,7 +516,13 @@ class ProfileDetailSheet extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: items.map((item) {
-            final emoji = useEmoji ? getEmojiForTag(item) : '';
+            final tagIcon = useEmoji
+                ? getTagIcon(
+                    item,
+                    iconSize: 13,
+                    iconColor: labelColor ?? c.withValues(alpha: 0.9),
+                  )
+                : null;
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
               decoration: BoxDecoration(
@@ -524,13 +530,22 @@ class ProfileDetailSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: c.withValues(alpha: 0.28)),
               ),
-              child: Text(
-                emoji.isNotEmpty ? '$emoji $item' : item,
-                style: TextStyle(
-                  color: labelColor ?? c.withValues(alpha: 0.9),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (tagIcon != null) ...[
+                    tagIcon,
+                    const SizedBox(width: 5),
+                  ],
+                  Text(
+                    item,
+                    style: TextStyle(
+                      color: labelColor ?? c.withValues(alpha: 0.9),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             );
           }).toList(),
@@ -812,13 +827,28 @@ class ProfileDetailSheet extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      child: Text(
-                                        '${getEmojiForTag(displayGender)} $displayGender',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ...() {
+                                            final icon = getTagIcon(
+                                              displayGender,
+                                              iconSize: 12,
+                                              iconColor: Colors.white,
+                                            );
+                                            return icon != null
+                                                ? [icon, const SizedBox(width: 4)]
+                                                : <Widget>[];
+                                          }(),
+                                          Text(
+                                            displayGender,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   if (showSexuality)
@@ -838,13 +868,28 @@ class ProfileDetailSheet extends StatelessWidget {
                                           ).withValues(alpha: 0.4),
                                         ),
                                       ),
-                                      child: Text(
-                                        '${getEmojiForTag(displaySexuality)} $displaySexuality',
-                                        style: const TextStyle(
-                                          color: Color(0xFFFCCBE5),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ...() {
+                                            final icon = getTagIcon(
+                                              displaySexuality,
+                                              iconSize: 12,
+                                              iconColor: const Color(0xFFFCCBE5),
+                                            );
+                                            return icon != null
+                                                ? [icon, const SizedBox(width: 4)]
+                                                : <Widget>[];
+                                          }(),
+                                          Text(
+                                            displaySexuality,
+                                            style: const TextStyle(
+                                              color: Color(0xFFFCCBE5),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                 ],
@@ -1110,8 +1155,10 @@ class ProfileDetailSheet extends StatelessWidget {
                                           subInterests[parent.name] as List,
                                         )
                                       : <String>[];
-                                  final parentEmoji = getEmojiForTag(
+                                  final parentIcon = getTagIcon(
                                     parent.name,
+                                    iconSize: 12,
+                                    iconColor: theme.withValues(alpha: 0.95),
                                   );
                                   return Padding(
                                     padding: const EdgeInsets.only(
@@ -1137,17 +1184,24 @@ class ProfileDetailSheet extends StatelessWidget {
                                               12,
                                             ),
                                           ),
-                                          child: Text(
-                                            parentEmoji.isNotEmpty
-                                                ? '$parentEmoji ${parent.name}'
-                                                : parent.name,
-                                            style: TextStyle(
-                                              color: theme.withValues(
-                                                alpha: 0.95,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (parentIcon != null) ...[
+                                                parentIcon,
+                                                const SizedBox(width: 5),
+                                              ],
+                                              Text(
+                                                parent.name,
+                                                style: TextStyle(
+                                                  color: theme.withValues(
+                                                    alpha: 0.95,
+                                                  ),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                            ],
                                           ),
                                         ),
                                         if (subs.isNotEmpty) ...[
@@ -1156,7 +1210,11 @@ class ProfileDetailSheet extends StatelessWidget {
                                             spacing: 5,
                                             runSpacing: 5,
                                             children: subs.map((sub) {
-                                              final emoji = getEmojiForTag(sub);
+                                              final subIcon = getTagIcon(
+                                                sub,
+                                                iconSize: 11,
+                                                iconColor: Colors.white60,
+                                              );
                                               return Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -1177,15 +1235,22 @@ class ProfileDetailSheet extends StatelessWidget {
                                                         ),
                                                   ),
                                                 ),
-                                                child: Text(
-                                                  emoji.isNotEmpty
-                                                      ? '$emoji $sub'
-                                                      : sub,
-                                                  style: const TextStyle(
-                                                    color: Colors.white60,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    if (subIcon != null) ...[
+                                                      subIcon,
+                                                      const SizedBox(width: 4),
+                                                    ],
+                                                    Text(
+                                                      sub,
+                                                      style: const TextStyle(
+                                                        color: Colors.white60,
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               );
                                             }).toList(),
@@ -1395,8 +1460,10 @@ class ProfileDetailSheet extends StatelessWidget {
                                             subInterests[parent.name] as List,
                                           )
                                         : <String>[];
-                                    final parentEmoji = getEmojiForTag(
+                                    final parentIcon = getTagIcon(
                                       parent.name,
+                                      iconSize: 12,
+                                      iconColor: theme.withValues(alpha: 0.95),
                                     );
                                     return Padding(
                                       padding: const EdgeInsets.only(
@@ -1420,17 +1487,24 @@ class ProfileDetailSheet extends StatelessWidget {
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
-                                            child: Text(
-                                              parentEmoji.isNotEmpty
-                                                  ? '$parentEmoji ${parent.name}'
-                                                  : parent.name,
-                                              style: TextStyle(
-                                                color: theme.withValues(
-                                                  alpha: 0.95,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (parentIcon != null) ...[
+                                                  parentIcon,
+                                                  const SizedBox(width: 5),
+                                                ],
+                                                Text(
+                                                  parent.name,
+                                                  style: TextStyle(
+                                                    color: theme.withValues(
+                                                      alpha: 0.95,
+                                                    ),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                                 ),
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                              ],
                                             ),
                                           ),
                                           if (subs.isNotEmpty) ...[
@@ -1439,8 +1513,10 @@ class ProfileDetailSheet extends StatelessWidget {
                                               spacing: 5,
                                               runSpacing: 5,
                                               children: subs.map((sub) {
-                                                final emoji = getEmojiForTag(
+                                                final subIcon = getTagIcon(
                                                   sub,
+                                                  iconSize: 11,
+                                                  iconColor: Colors.white60,
                                                 );
                                                 return Container(
                                                   padding:
@@ -1464,16 +1540,23 @@ class ProfileDetailSheet extends StatelessWidget {
                                                           ),
                                                     ),
                                                   ),
-                                                  child: Text(
-                                                    emoji.isNotEmpty
-                                                        ? '$emoji $sub'
-                                                        : sub,
-                                                    style: const TextStyle(
-                                                      color: Colors.white60,
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      if (subIcon != null) ...[
+                                                        subIcon,
+                                                        const SizedBox(width: 4),
+                                                      ],
+                                                      Text(
+                                                        sub,
+                                                        style: const TextStyle(
+                                                          color: Colors.white60,
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 );
                                               }).toList(),

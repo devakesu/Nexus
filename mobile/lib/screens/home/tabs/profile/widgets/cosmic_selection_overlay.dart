@@ -150,12 +150,25 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                           children: [
                             Row(
                               children: [
-                                if (getEmojiForTag(option).isNotEmpty) ...[
-                                  Text(
-                                    '${getEmojiForTag(option)}  ',
-                                    style: const TextStyle(fontSize: 18),
-                                  ),
-                                ],
+                                Builder(
+                                  builder: (ctx) {
+                                    final tagIcon = getTagIcon(
+                                      option,
+                                      iconSize: 18,
+                                      iconColor: isSelected
+                                          ? const Color(0xFF0F172A)
+                                          : Colors.black87,
+                                    );
+                                    if (tagIcon == null) return const SizedBox.shrink();
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        tagIcon,
+                                        const SizedBox(width: 8),
+                                      ],
+                                    );
+                                  },
+                                ),
                                 Text(
                                   option,
                                   style: TextStyle(

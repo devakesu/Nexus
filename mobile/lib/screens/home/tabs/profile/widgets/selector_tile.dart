@@ -27,10 +27,8 @@ class SelectorTile extends StatelessWidget {
   Widget build(BuildContext context) {
     const pulsarPink = AppColors.pulsarPink;
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
-    final emoji = getEmojiForTag(value);
-    final displayText = isEmpty
-        ? 'Select...'
-        : (emoji.isNotEmpty ? '$emoji  $value' : value);
+    final tagIcon = isEmpty ? null : getTagIcon(value);
+    final displayText = isEmpty ? 'Select...' : value;
     final textColor = isEmpty
         ? Colors.black.withValues(alpha: 0.3)
         : const Color(0xFF0F172A);
@@ -83,14 +81,24 @@ class SelectorTile extends StatelessWidget {
                       Icon(icon, color: iconColor, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          displayText,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Row(
+                          children: [
+                            if (tagIcon != null) ...[
+                              tagIcon,
+                              const SizedBox(width: 6),
+                            ],
+                            Expanded(
+                              child: Text(
+                                displayText,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       if (!isEmpty && onClear != null)
