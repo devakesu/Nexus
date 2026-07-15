@@ -397,9 +397,10 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
                 label: 'Terms & Privacy Policy',
                 onTap: () => context.push<void>('/legal/terms'),
               ),
-              const _TileSpec(
+              _TileSpec(
                 icon: LucideIcons.bookOpen,
                 label: 'Community Guidelines',
+                onTap: () => context.push<void>('/settings/community-guidelines'),
               ),
             ],
           ),

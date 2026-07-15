@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Resolves the same [ImageProvider] + cache key [StorageImage] would use
@@ -88,9 +89,13 @@ class StorageImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
-        placeholder: (context, url) => _StorageImageShimmer(
+        placeholder: (context, url) => Container(
           width: width,
           height: height,
+          color: const Color(0xFF1E2332),
+          child: const Center(
+            child: NexusOrbitLoader(size: 28),
+          ),
         ),
         errorWidget: (context, url, error) => _buildError(),
       );
@@ -120,9 +125,13 @@ class StorageImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      placeholder: (context, url) => _StorageImageShimmer(
+      placeholder: (context, url) => Container(
         width: width,
         height: height,
+        color: const Color(0xFF1E2332),
+        child: const Center(
+          child: NexusOrbitLoader(size: 28),
+        ),
       ),
       errorWidget: (context, url, error) => _buildError(),
     );
@@ -136,63 +145,6 @@ class StorageImage extends StatelessWidget {
       height: height,
       child: const Center(
         child: Icon(LucideIcons.imageOff, color: Colors.white24, size: 24),
-      ),
-    );
-  }
-}
-
-class _StorageImageShimmer extends StatefulWidget {
-  const _StorageImageShimmer({this.width, this.height});
-
-  final double? width;
-  final double? height;
-
-  @override
-  State<_StorageImageShimmer> createState() => _StorageImageShimmerState();
-}
-
-class _StorageImageShimmerState extends State<_StorageImageShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-    // TickerFuture from repeat() never needs to be awaited - it resolves only on stop/dispose.
-    // ignore: discarded_futures
-    _ctrl.repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) => ShaderMask(
-        blendMode: BlendMode.srcATop,
-        shaderCallback: (bounds) => LinearGradient(
-          begin: Alignment(_ctrl.value * 3 - 1.5, 0),
-          end: Alignment(_ctrl.value * 3 - 0.8, 0),
-          colors: [
-            Colors.transparent,
-            Colors.white.withValues(alpha: 0.12),
-            Colors.transparent,
-          ],
-        ).createShader(bounds),
-        child: Container(
-          width: widget.width,
-          height: widget.height,
-          color: const Color(0xFF1E2332),
-        ),
       ),
     );
   }

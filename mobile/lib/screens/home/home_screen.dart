@@ -32,10 +32,15 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
   // survive future tab switches exactly like an always-built IndexedStack.
   final Set<int> _visitedTabs = {2};
 
-  void _selectTab(int index) {
+  String? _profileTargetSection;
+
+  void _selectTab(int index, [String? targetSection]) {
     setState(() {
       _currentTab = index;
       _visitedTabs.add(index);
+      if (index == 2 && targetSection != null) {
+        _profileTargetSection = targetSection;
+      }
     });
   }
 
@@ -88,7 +93,15 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                             )
                           else
                             const SizedBox.shrink(),
-                          ProfileTab(onOpenOrbit: _triggerOpenOrbit),
+                          ProfileTab(
+                            onOpenOrbit: _triggerOpenOrbit,
+                            targetSection: _profileTargetSection,
+                            onClearTargetSection: () {
+                              setState(() {
+                                _profileTargetSection = null;
+                              });
+                            },
+                          ),
                           if (_visitedTabs.contains(3))
                             ProfessionalTab(
                               onOpenOrbit: _triggerOpenOrbit,

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request, status
 
 from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
 from app.core.config import settings
@@ -15,7 +15,7 @@ from app.db.chat_keys import (
     upsert_identity_key,
     upsert_signed_prekey,
 )
-from app.db.client import DatabaseAccessError
+from app.db.client import DatabaseAccessError, ProfileNotFoundError
 from app.models import (
     EstablishSessionRequest,
     KeyBundleResponse,
@@ -46,6 +46,15 @@ async def upload_identity_key(
             payload.registration_id,
         )
         return {"success": True}
+    except ProfileNotFoundError as err:
+        logger.warning(
+            "Upload identity key requested but profile not found",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Complete onboarding first.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception("Failed to upload identity key", extra={"user_id": user_id})
         raise HTTPException(
@@ -71,6 +80,15 @@ async def upload_signed_prekey(
             payload.signature,
         )
         return {"success": True}
+    except ProfileNotFoundError as err:
+        logger.warning(
+            "Upload signed prekey requested but profile not found",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Complete onboarding first.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception("Failed to upload signed prekey", extra={"user_id": user_id})
         raise HTTPException(
@@ -97,6 +115,15 @@ async def upload_one_time_prekeys(
             ],
         )
         return {"success": True}
+    except ProfileNotFoundError as err:
+        logger.warning(
+            "Upload one-time prekeys requested but profile not found",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Complete onboarding first.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception(
             "Failed to upload one-time prekeys", extra={"user_id": user_id},

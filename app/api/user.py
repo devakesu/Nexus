@@ -318,6 +318,18 @@ def complete_onboarding(
         user_branch: str | None = payload.campus_branch
         user_year: int | None = payload.campus_year
         user_campus_name: str | None = payload.campus_name
+        if not user_campus_name or not user_campus_name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Institute name is required.",
+            )
+        cleaned_campus = user_campus_name.strip()
+        if sum(c.isalpha() for c in cleaned_campus) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Institute name must contain at least three letters.",
+            )
+        user_campus_name = cleaned_campus
         user_demographic_bucket = None
     else:
         # NexusOnboardingRequest: name and demographic_bucket are in the
@@ -947,18 +959,22 @@ def _validate_common_activation(
 ) -> None:
     val_name = _resolve_field(profile, payload, "name")
     val_age = _resolve_field(profile, payload, "age")
-    val_interests = _resolve_field(profile, payload, "interests")
+    val_sub_interests = _resolve_field(profile, payload, "sub_interests")
     val_profile_pic = _resolve_field(profile, payload, "profile_pic")
     val_normal_pics = _resolve_field(profile, payload, "normal_pics")
+    val_bio = _resolve_field(profile, payload, "bio")
 
     if not isinstance(val_name, str) or not val_name.strip():
         missing.append("name")
     if val_age is None:
         missing.append("age")
-    if val_interests != {"__DECRYPTION_FAILED__": True} and (
-        not isinstance(val_interests, dict)
-        or len(cast(dict[Any, Any], val_interests)) < 3
-    ):
+
+    sub_count = (
+        sum(len(v) for v in cast(dict[str, list[str]], val_sub_interests).values())
+        if isinstance(val_sub_interests, dict)
+        else 0
+    )
+    if val_sub_interests != {"__DECRYPTION_FAILED__": True} and sub_count < 2:
         missing.append("interests")
     if val_profile_pic != "__DECRYPTION_FAILED__" and (
         not isinstance(val_profile_pic, str) or not val_profile_pic.strip()
@@ -966,9 +982,14 @@ def _validate_common_activation(
         missing.append("profile_pic")
     if val_normal_pics != ["__DECRYPTION_FAILED__"] and (
         not isinstance(val_normal_pics, list)
-        or len(cast(list[Any], val_normal_pics)) < 2
+        or len(cast(list[Any], val_normal_pics)) < 1
     ):
         missing.append("normal_pics")
+    if val_bio == "__DECRYPTION_FAILED__":
+        pass
+    else:
+        if not isinstance(val_bio, str) or sum(c.isalpha() for c in val_bio) < 3:
+            missing.append("bio")
 
 
 def _validate_dating_activation(
@@ -1125,6 +1146,66 @@ def update_profile_details(  # noqa: C901
                 detail="User bootstrap row not found.",
             )
         assert_special_category_consent(consent_user_row)
+
+    # Fetch existing campus fields if campus_year or campus_name are affected by
+    # the payload.
+    if "campus_year" in payload.model_fields_set or payload.campus_name is not None:
+        try:
+            campus_res = (
+                supabase_client.table("profiles")
+                .select("campus_name, campus_year")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            campus_data = cast(
+                dict[str, Any],
+                getattr(campus_res, "data", None) or {},
+            )
+            decrypted_campus = decrypt_profile_record(campus_data)
+            existing_campus_name = decrypted_campus.get("campus_name")
+            existing_campus_year = decrypted_campus.get("campus_year")
+        except Exception as e:
+            logger.exception("Failed to fetch current profile for campus validation")
+            raise HTTPException(
+                status_code=500,
+                detail="Internal server error during campus validation.",
+            ) from e
+
+        # Determine the final/incoming values after this update
+        incoming_campus_name = (
+            payload.campus_name.strip()
+            if payload.campus_name is not None
+            else (existing_campus_name or "")
+        )
+
+        incoming_campus_year = (
+            payload.campus_year
+            if "campus_year" in payload.model_fields_set
+            else existing_campus_year
+        )
+
+        # Validate that if the final campus_name is not empty, it contains at
+        # least three alphabetic characters.
+        if incoming_campus_name and incoming_campus_name != "__DECRYPTION_FAILED__":
+            letters_count = sum(c.isalpha() for c in incoming_campus_name)
+            if letters_count < 3:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Institute name must contain at least three letters.",
+                )
+
+        # Restrict adding/keeping campus_year if campus_name is empty
+        is_empty_or_failed = (
+            not incoming_campus_name
+            or not incoming_campus_name.strip()
+            or incoming_campus_name == "__DECRYPTION_FAILED__"
+        )
+        if incoming_campus_year is not None and is_empty_or_failed:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot select a campus year when institute is empty.",
+            )
 
     update_data: dict[str, Any] = {}
 
@@ -1311,6 +1392,7 @@ def update_profile_details(  # noqa: C901
         (payload.is_dating_active is True)
         or (payload.is_friends_active is True)
         or (payload.is_professional_active is True)
+        or (payload.bio is not None)
     )
     profile = None
     if need_profile_fetch:
@@ -1320,7 +1402,8 @@ def update_profile_details(  # noqa: C901
                 "name,age,profile_pic,normal_pics,interests,sub_interests,"
                 "drinking,smoking,partner_values,dating_target_buckets,dating_for,"
                 "friends_target_buckets,causes_supported,"
-                "professional_target_buckets,looking_for,tech_skills",
+                "professional_target_buckets,looking_for,tech_skills,"
+                "bio,is_dating_active,is_friends_active,is_professional_active",
             )
             .eq("id", user_id)
             .maybe_single()
@@ -1330,6 +1413,52 @@ def update_profile_details(  # noqa: C901
         if not profile_data or not isinstance(profile_data, dict):
             raise HTTPException(status_code=404, detail="Profile not found")
         profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+
+    if profile is not None:
+        dating_active = (
+            payload.is_dating_active
+            if payload.is_dating_active is not None
+            else profile.get("is_dating_active", False)
+        )
+        friends_active = (
+            payload.is_friends_active
+            if payload.is_friends_active is not None
+            else profile.get("is_friends_active", False)
+        )
+        professional_active = (
+            payload.is_professional_active
+            if payload.is_professional_active is not None
+            else profile.get("is_professional_active", False)
+        )
+
+        is_activating = (
+            (payload.is_dating_active is True)
+            or (payload.is_friends_active is True)
+            or (payload.is_professional_active is True)
+        )
+
+        if not is_activating and (
+            dating_active or friends_active or professional_active
+        ):
+            final_bio = (
+                payload.bio
+                if payload.bio is not None
+                else profile.get("bio")
+            )
+            if final_bio == "__DECRYPTION_FAILED__":
+                pass
+            else:
+                if (
+                    not isinstance(final_bio, str)
+                    or sum(c.isalpha() for c in final_bio) < 3
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            "Bio is required when orbits are active and "
+                            "must contain at least three alphabetic characters."
+                        ),
+                    )
 
     if payload.is_dating_active is not None:
         if payload.is_dating_active:

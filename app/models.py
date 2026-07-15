@@ -221,6 +221,16 @@ class MECOnboardingRequest(BaseOnboardingRequest):
             raise ValueError("Branch is required for MEC profiles.")
         return cleaned
 
+    @field_validator("campus_name")
+    @classmethod
+    def validate_campus_name(cls, value: str | None) -> str | None:
+        if not value or not value.strip():
+            raise ValueError("Institute name is required.")
+        cleaned = value.strip()
+        if sum(c.isalpha() for c in cleaned) < 3:
+            raise ValueError("Institute name must contain at least three letters.")
+        return cleaned
+
 
 # Discriminated union resolved by the `app_variant` field.
 # FastAPI will automatically pick the correct model based on the payload.
@@ -1275,6 +1285,40 @@ class ProfileDetailsUpdate(BaseModel):
     lifestyle: str | None = Field(default=None, max_length=200)
     drinking: str | None = Field(default=None, max_length=50)
     smoking: str | None = Field(default=None, max_length=50)
+
+    @field_validator("campus_name")
+    @classmethod
+    def validate_campus_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            return ""
+        if sum(c.isalpha() for c in cleaned) < 3:
+            raise ValueError("Institute name must contain at least three letters.")
+        return cleaned
+
+    @field_validator("bio")
+    @classmethod
+    def validate_bio(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            return ""
+        if sum(c.isalpha() for c in cleaned) < 3:
+            raise ValueError("Bio must contain at least three alphabetic characters.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def check_campus_year_needs_name(self) -> "ProfileDetailsUpdate":
+        if (
+            self.campus_year is not None
+            and self.campus_name is not None
+            and not self.campus_name.strip()
+        ):
+            raise ValueError("Cannot select a campus year when institute is empty.")
+        return self
 
     @field_validator("drinking")
     @classmethod

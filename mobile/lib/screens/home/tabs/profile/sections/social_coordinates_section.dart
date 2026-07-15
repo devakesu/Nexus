@@ -8,6 +8,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:nexus/widgets/nexus_toast.dart';
 
 class SocialCoordinatesSection extends StatefulWidget {
   const SocialCoordinatesSection({
@@ -15,6 +16,7 @@ class SocialCoordinatesSection extends StatefulWidget {
     required this.currentPlace,
     required this.languages,
     required this.campusName,
+    required this.savedCampusName,
     required this.major,
     required this.isStudying,
     required this.year,
@@ -46,6 +48,7 @@ class SocialCoordinatesSection extends StatefulWidget {
   final String currentPlace;
   final List<String> languages;
   final String campusName;
+  final String savedCampusName;
   final String major;
   final bool isStudying;
   final int year;
@@ -79,6 +82,10 @@ class SocialCoordinatesSection extends StatefulWidget {
 
 class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
   bool _isExpanded = false;
+
+  bool _isValidCampusName(String name) {
+    return name.trim().replaceAll(RegExp('[^a-zA-Z]'), '').length >= 3;
+  }
 
   @override
   void didUpdateWidget(covariant SocialCoordinatesSection oldWidget) {
@@ -163,9 +170,26 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
           const SizedBox(height: 12),
 
           // Campus Year / Student Status Section
-          if (!widget.isStudying) ...[
+          if (widget.savedCampusName.trim().isNotEmpty) ...[
+            if (!widget.isStudying) ...[
             GestureDetector(
               onTap: () {
+                if (widget.savedCampusName.trim().isEmpty) {
+                  NexusToast.show(
+                    context,
+                    'Please enter your college/institute name first to set campus year.',
+                    type: NexusToastType.warning,
+                  );
+                  return;
+                }
+                if (!_isValidCampusName(widget.savedCampusName)) {
+                  NexusToast.show(
+                    context,
+                    'Institute name must contain at least three letters.',
+                    type: NexusToastType.error,
+                  );
+                  return;
+                }
                 setState(() {
                   _isExpanded = !_isExpanded;
                 });
@@ -243,6 +267,22 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
 
                       return GestureDetector(
                         onTap: () {
+                          if (widget.savedCampusName.trim().isEmpty) {
+                            NexusToast.show(
+                              context,
+                              'Please enter your college/institute name first to set campus year.',
+                              type: NexusToastType.warning,
+                            );
+                            return;
+                          }
+                          if (!_isValidCampusName(widget.savedCampusName)) {
+                            NexusToast.show(
+                              context,
+                              'Institute name must contain at least three letters.',
+                              type: NexusToastType.error,
+                            );
+                            return;
+                          }
                           widget.onIsStudyingChanged(true);
                           widget.onYearChanged(yearOption);
                         },
@@ -394,6 +434,22 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
 
                     return GestureDetector(
                       onTap: () {
+                        if (widget.savedCampusName.trim().isEmpty) {
+                          NexusToast.show(
+                            context,
+                            'Please enter your college/institute name first to set campus year.',
+                            type: NexusToastType.warning,
+                          );
+                          return;
+                        }
+                        if (!_isValidCampusName(widget.savedCampusName)) {
+                          NexusToast.show(
+                            context,
+                            'Institute name must contain at least three letters.',
+                            type: NexusToastType.error,
+                          );
+                          return;
+                        }
                         widget.onYearChanged(yearOption);
                       },
                       child: AnimatedContainer(
@@ -431,6 +487,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             ),
           ],
         ],
+      ],
       ),
     );
   }

@@ -1871,21 +1871,29 @@ class _OrbitScreenState extends State<OrbitScreen>
                         100,
                         'Core Gravity',
                         AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.12),
+                        isDashed: false,
+                        index: 0,
                       ),
                       _buildOrbitRing(
                         200,
                         'Inner Constellation',
                         AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.10),
+                        isDashed: true,
+                        index: 1,
                       ),
                       _buildOrbitRing(
                         300,
                         'Mid Horizon',
                         AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.08),
+                        isDashed: false,
+                        index: 2,
                       ),
                       _buildOrbitRing(
                         420,
                         'Deep Space Horizon',
                         AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.06),
+                        isDashed: true,
+                        index: 3,
                       ),
 
                       // Pulsing Center Node (Viewer)
@@ -2243,8 +2251,14 @@ class _OrbitScreenState extends State<OrbitScreen>
     );
   }
 
-  Widget _buildOrbitRing(double radius, String label, Color ringColor) {
-    return Center(
+  Widget _buildOrbitRing(
+    double radius,
+    String label,
+    Color ringColor, {
+    required bool isDashed,
+    required int index,
+  }) {
+    Widget ring = Center(
       child: Container(
         width: radius * 2,
         height: radius * 2,
@@ -2252,11 +2266,36 @@ class _OrbitScreenState extends State<OrbitScreen>
           shape: BoxShape.circle,
           border: Border.all(
             color: ringColor,
-            width: 1.5,
           ),
         ),
       ),
     );
+
+    if (isDashed) {
+      ring = Center(
+        child: SizedBox(
+          width: radius * 2,
+          height: radius * 2,
+          child: CustomPaint(
+            painter: DashedOrbitRingPainter(color: ringColor),
+          ),
+        ),
+      );
+    }
+
+    if (_reduceMotion == true) return ring;
+
+    final direction = index.isEven ? 1 : -1;
+    final duration = (35 + index * 12).seconds;
+
+    return ring
+        .animate(onPlay: (controller) => controller.repeat())
+        .rotate(
+          begin: 0,
+          end: direction * 2 * math.pi,
+          duration: duration,
+          curve: Curves.linear,
+        );
   }
 
   /// Ring width/alpha/glow step per orbit tier (0 = best match, 3 = weakest)
@@ -2288,10 +2327,49 @@ class _OrbitScreenState extends State<OrbitScreen>
     return '$first${parts.last[0].toUpperCase()}';
   }
 
+  double _getAvatarSize(int tier) {
+    switch (tier) {
+      case 0:
+        return 56;
+      case 1:
+        return 48;
+      case 2:
+        return 40;
+      default:
+        return 32;
+    }
+  }
+
+  double _getFontSize(int tier) {
+    switch (tier) {
+      case 0:
+        return 12;
+      case 1:
+        return 10.5;
+      case 2:
+        return 9.5;
+      default:
+        return 8.5;
+    }
+  }
+
+  double _getOpacity(int tier) {
+    switch (tier) {
+      case 0:
+        return 1;
+      case 1:
+        return 0.9;
+      case 2:
+        return 0.7;
+      default:
+        return 0.5;
+    }
+  }
+
   /// Deterministic (hashed on `id`, not random) per-person gradient so the
   /// same photoless friend always renders the same placeholder across
   /// refreshes/rebuilds, instead of every photoless node looking identical.
-  Widget _buildAvatarPlaceholder(OrbitNode node) {
+  Widget _buildAvatarPlaceholder(OrbitNode node, double avatarSize) {
     final fraction = (node.id.hashCode.abs() % 100) / 100;
     return Container(
       decoration: BoxDecoration(
@@ -2307,9 +2385,9 @@ class _OrbitScreenState extends State<OrbitScreen>
       alignment: Alignment.center,
       child: Text(
         _initialsFor(node.name),
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
-          fontSize: 18,
+          fontSize: avatarSize * 0.32,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
         ),
@@ -2318,14 +2396,15 @@ class _OrbitScreenState extends State<OrbitScreen>
   }
 
   Widget _buildNodeAvatar(OrbitNode node) {
+    final avatarSize = _getAvatarSize(node.orbitTier);
     final tierStyle = _tierRingStyle(node.orbitTier);
     final scoreNudge = ((node.score % 20) - 10) / 10 * 0.04;
     final ringAlpha = (tierStyle.alpha + scoreNudge).clamp(0.3, 1.0);
     final profilePic = node.profilePic;
 
     Widget avatar = Container(
-      width: 58,
-      height: 58,
+      width: avatarSize,
+      height: avatarSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
@@ -2344,10 +2423,10 @@ class _OrbitScreenState extends State<OrbitScreen>
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(29),
+        borderRadius: BorderRadius.circular(avatarSize / 2),
         child: profilePic != null && profilePic.isNotEmpty
             ? StorageImage(imagePath: profilePic)
-            : _buildAvatarPlaceholder(node),
+            : _buildAvatarPlaceholder(node, avatarSize),
       ),
     );
 
@@ -2438,52 +2517,57 @@ class _OrbitScreenState extends State<OrbitScreen>
       final id = node.id;
       final name = _truncateNameAtWordBoundary(node.name, 92);
 
-      // Position node on the canvas grid
-      final posX = center + x - 40;
-      final posY = center + y - 48;
+      final avatarSize = _getAvatarSize(node.orbitTier);
+      final fontSize = _getFontSize(node.orbitTier);
+      final opacity = _getOpacity(node.orbitTier);
 
       return Positioned(
-        left: posX,
-        top: posY,
-        child:
-            InteractiveOrbitNode(
-                  onTap: () => _showNodeDetails(id),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Avatar with tier/score-driven ring and glow
-                      _buildNodeAvatar(node),
-                      const SizedBox(height: 6),
-                      // Name Card
-                      Container(
-                        // 92px is the word-boundary target used above; this
-                        // is only a safety valve for a single unbroken token
-                        // (no spaces) too long to truncate at a word edge.
-                        constraints: const BoxConstraints(maxWidth: 160),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A).withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.06),
+        left: center + x,
+        top: center + y - (avatarSize / 2),
+        child: FractionalTranslation(
+          translation: const Offset(-0.5, 0),
+          child: Opacity(
+            opacity: opacity,
+            child: InteractiveOrbitNode(
+              onTap: () => _showNodeDetails(id),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Avatar with tier/score-driven ring and glow
+                  _buildNodeAvatar(node),
+                  const SizedBox(height: 4),
+                  // Name label with soft drop shadow (no background box)
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 92),
+                    child: Text(
+                      name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      style: _nodeNameStyle.copyWith(
+                        fontSize: fontSize,
+                        shadows: [
+                          Shadow(
+                            color: const Color(0xFF020408).withValues(alpha: 0.85),
+                            offset: const Offset(0, 1.5),
+                            blurRadius: 3.5,
                           ),
-                        ),
-                        child: Text(
-                          name,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          style: _nodeNameStyle,
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                )
-                .animate()
-                .fadeIn(duration: 400.ms)
-                .scale(begin: const Offset(0.3, 0.3)),
+                ],
+              ),
+            ),
+          )
+          .animate()
+          .fadeIn(duration: 400.ms, curve: Curves.easeOut)
+          .scale(
+            begin: const Offset(0.85, 0.85),
+            duration: 400.ms,
+            curve: Curves.easeOut,
+          ),
+        ),
       );
     }).toList();
   }

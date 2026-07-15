@@ -100,6 +100,18 @@ class SignalKeyService {
   Future<void> ensureBootstrappedInBackground() async {
     try {
       await ensureBootstrapped();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Expected if the user hasn't completed onboarding yet.
+        return;
+      }
+      ErrorHandler.handleError(
+        e,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage:
+            'Eager Signal key bootstrap failed post-login; will retry lazily.',
+      );
     } on Object catch (e, stackTrace) {
       ErrorHandler.handleError(
         e,

@@ -88,8 +88,7 @@ class _NexusToastEntryState extends State<_NexusToastEntry>
   @override
   Widget build(BuildContext context) {
     // Position above the floating bottom nav bar.
-    // Nav bar: 72 height + 20 bottom margin = 92px above safe area bottom.
-    final bottom = MediaQuery.of(context).viewPadding.bottom + 104;
+    final bottom = MediaQuery.of(context).viewPadding.bottom + 80;
 
     final (Color accent, IconData icon) = switch (widget.type) {
       NexusToastType.success => (

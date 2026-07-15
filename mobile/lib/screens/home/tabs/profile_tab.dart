@@ -41,9 +41,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
-  const ProfileTab({required this.onOpenOrbit, super.key});
+  const ProfileTab({
+    required this.onOpenOrbit,
+    this.targetSection,
+    this.onClearTargetSection,
+    super.key,
+  });
 
   final void Function(String, Color) onOpenOrbit;
+  final String? targetSection;
+  final VoidCallback? onClearTargetSection;
 
   @override
   ConsumerState<ProfileTab> createState() => _ProfileTabState();
@@ -339,6 +346,56 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
   }
 
+  void _scrollToTargetSection(String field) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GlobalKey? key;
+      FocusNode? focusNode;
+
+      switch (field) {
+        case 'name':
+        case 'age':
+        case 'profile_pic':
+        case 'normal_pics':
+          key = _coreSignalKey;
+        case 'bio':
+          key = _bioKey;
+          focusNode = _bioFocusNode;
+        case 'drinking':
+        case 'smoking':
+          key = _lifestyleResonanceKey;
+        case 'interests':
+        case 'sub_interests':
+          key = _affinityInterestsKey;
+        case 'hometown':
+          key = _socialCoordinatesKey;
+          focusNode = _hometownFocusNode;
+        case 'current_place':
+          key = _socialCoordinatesKey;
+          focusNode = _currentPlaceFocusNode;
+        case 'campus_name':
+          key = _socialCoordinatesKey;
+          focusNode = _campusNameFocusNode;
+      }
+
+      if (key != null) {
+        _scrollToSection(key);
+      }
+      if (focusNode != null) {
+        focusNode.requestFocus();
+      }
+      widget.onClearTargetSection?.call();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetSection != null &&
+        widget.targetSection != oldWidget.targetSection) {
+      _scrollToTargetSection(widget.targetSection!);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -365,6 +422,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
     _pageController = PageController();
     unawaited(_bootstrapProfileData());
+    if (widget.targetSection != null) {
+      _scrollToTargetSection(widget.targetSection!);
+    }
   }
 
   /// Renders instantly from the last cached snapshot (if any) while
@@ -773,6 +833,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     Map<String, int>? interests,
     Map<String, List<String>>? subInterests,
   }) async {
+    if (bio != null && bio.trim().isNotEmpty) {
+      final lettersCount = bio.replaceAll(RegExp('[^a-zA-Z]'), '').length;
+      if (lettersCount < 3) {
+        NexusToast.show(
+          context,
+          'Bio must contain at least three alphabetic characters.',
+          type: NexusToastType.error,
+        );
+        return;
+      }
+    }
+
     final fields = <String>[];
     if (name != null) fields.add('name');
     if (age != null) fields.add('age');
@@ -2213,6 +2285,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         currentPlace: _currentPlace,
                         languages: _languages,
                         campusName: _campusName,
+                        savedCampusName: _savedCampusName,
                         major: _major,
                         isStudying: _isStudying,
                         year: _year,
@@ -2246,8 +2319,33 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         },
                         onCampusNameChanged: (val) =>
                             setState(() => _campusName = val),
-                        onCampusNameSubmitted: (val) =>
-                            unawaited(_saveProfileChanges(campusName: val)),
+                        onCampusNameSubmitted: (val) {
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            setState(() {
+                              _campusName = '';
+                              _isStudying = false;
+                              _year = 0;
+                            });
+                            unawaited(_saveProfileChanges(
+                              campusName: '',
+                              clearCampusYear: true,
+                            ));
+                          } else {
+                            final lettersCount = trimmed
+                                .replaceAll(RegExp('[^a-zA-Z]'), '')
+                                .length;
+                            if (lettersCount < 3) {
+                              NexusToast.show(
+                                context,
+                                'Institute name must contain at least three letters.',
+                                type: NexusToastType.error,
+                              );
+                              return;
+                            }
+                            unawaited(_saveProfileChanges(campusName: trimmed));
+                          }
+                        },
                         onMajorChanged: (val) => setState(() => _major = val),
                         onMajorSubmitted: (val) =>
                             unawaited(_saveProfileChanges(campusBranch: val)),

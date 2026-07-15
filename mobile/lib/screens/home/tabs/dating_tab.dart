@@ -30,7 +30,7 @@ class DatingTab extends ConsumerStatefulWidget {
   });
 
   final void Function(String, Color) onOpenOrbit;
-  final void Function(int)? onNavigateToTab;
+  final void Function(int, [String?])? onNavigateToTab;
 
   @override
   ConsumerState<DatingTab> createState() => _DatingTabState();
@@ -308,6 +308,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
               'interests',
               'profile_pic',
               'normal_pics',
+              'bio',
             ];
             final hasMissingProfileFields = _missingFields.any(
               (field) => profileFields.contains(field.toString()),
@@ -409,12 +410,14 @@ class _DatingTabState extends ConsumerState<DatingTab>
                       } else if (fieldStr == 'smoking') {
                         label = 'Smoking preferences are missing';
                       } else if (fieldStr == 'interests') {
-                        label = 'At least 3 interests required';
+                        label = 'At least 2 interests required';
                       } else if (fieldStr == 'profile_pic') {
                         label = 'Profile avatar image is missing';
                       } else if (fieldStr == 'normal_pics') {
                         label =
-                            'At least 2 images required to be set in profile other than profile avatar';
+                            'At least 1 image required to be set in profile other than profile avatar';
+                      } else if (fieldStr == 'bio') {
+                        label = 'Bio is missing';
                       } else {
                         label = fieldStr.replaceAll('_', ' ');
                         label = label[0].toUpperCase() + label.substring(1);
@@ -468,8 +471,17 @@ class _DatingTabState extends ConsumerState<DatingTab>
                 ),
                 onPressed: () {
                   Navigator.pop(context);
+                  final firstMissing = _missingFields.firstWhere(
+                    (f) => !const {
+                      'dating_target_buckets',
+                      'dating_for',
+                      'partner_values',
+                    }.contains(f.toString()),
+                    orElse: () => null,
+                  );
                   widget.onNavigateToTab?.call(
                     2,
+                    firstMissing?.toString(),
                   ); // Go to Profile Tab (index 2)
                 },
                 child: const Text('Go to Profile Tab'),
@@ -569,7 +581,6 @@ class _DatingTabState extends ConsumerState<DatingTab>
       return false;
     }
   }
-
 
   Future<void> _markLikeSeen(String actorId) async {
     final session = Supabase.instance.client.auth.currentSession;
@@ -753,7 +764,10 @@ class _DatingTabState extends ConsumerState<DatingTab>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 4,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -764,7 +778,11 @@ class _DatingTabState extends ConsumerState<DatingTab>
                     children: [
                       WidgetSpan(
                         alignment: PlaceholderAlignment.middle,
-                        child: Icon(LucideIcons.star, size: 14, color: Colors.white),
+                        child: Icon(
+                          LucideIcons.star,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                       WidgetSpan(child: SizedBox(width: 4)),
                       TextSpan(text: 'Super Back'),
@@ -834,9 +852,15 @@ class _DatingTabState extends ConsumerState<DatingTab>
             ..add(likeEntry);
         });
         onProfileLoaded();
-        unawaited(_markLikeSeen(actorId).then((_) {
-          unawaited(ref.read(discoveryHubControllerProvider('dating').notifier).refresh());
-        }));
+        unawaited(
+          _markLikeSeen(actorId).then((_) {
+            unawaited(
+              ref
+                  .read(discoveryHubControllerProvider('dating').notifier)
+                  .refresh(),
+            );
+          }),
+        );
       }
     }
   }

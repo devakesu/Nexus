@@ -351,7 +351,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           // brand-new match never has to wait on either side opening a chat
           // screen first (see SignalKeyService.ensureBootstrappedInBackground
           // doc comment for the retry-safe fallback chain).
-          unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
+          if (hasProfile) {
+            unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
+          }
         }
       } else {
         // Server rejected registration (e.g. 403 Forbidden - non-college email)
@@ -479,6 +481,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
               setState(() {
                 _hasProfile = true;
               });
+              unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
             },
           );
         } else if (_mandatoryConsentRequired && !_hasReachedHome) {

@@ -39,6 +39,10 @@ class ProfileDecodeError(Exception):
     """
 
 
+class ProfileNotFoundError(Exception):
+    """Raised when a user profile does not exist in the database."""
+
+
 class DatabaseAccessError(Exception):
     """Raised when a database operation fails unexpectedly."""
 

@@ -10,7 +10,10 @@ os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")
 os.environ.setdefault("SUPABASE_JWT_SECRET", "test-jwt-secret")
 os.environ.setdefault("SPOTIFY_REDIRECT_URI", "http://localhost:8000/callback")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
-os.environ.setdefault("PII_ENCRYPTION_KEY", "test-pii-encryption-key")
+os.environ.setdefault(
+    "PII_ENCRYPTION_KEY",
+    "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+)
 os.environ.setdefault("BLIND_INDEX_KEY", "test-blind-index-key")
 os.environ.setdefault("APP_DOMAIN", "localhost")
 os.environ.setdefault("BACKEND_PUBLIC_URL", "http://localhost:8000")

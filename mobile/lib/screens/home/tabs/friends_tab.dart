@@ -30,7 +30,7 @@ class FriendsTab extends ConsumerStatefulWidget {
   });
 
   final void Function(String, Color) onOpenOrbit;
-  final void Function(int)? onNavigateToTab;
+  final void Function(int, [String?])? onNavigateToTab;
 
   @override
   ConsumerState<FriendsTab> createState() => _FriendsTabState();
@@ -298,6 +298,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
               'interests',
               'profile_pic',
               'normal_pics',
+              'bio',
             ];
             final hasMissingProfileFields = _missingFields.any(
               (field) => profileFields.contains(field.toString()),
@@ -387,11 +388,13 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                       } else if (fieldStr == 'age') {
                         label = 'Age is missing';
                       } else if (fieldStr == 'interests') {
-                        label = 'At least 3 interests required';
+                        label = 'At least 2 interests required';
                       } else if (fieldStr == 'profile_pic') {
                         label = 'Profile avatar image is missing';
                       } else if (fieldStr == 'normal_pics') {
-                        label = 'At least 2 images required in profile gallery';
+                        label = 'At least 1 image required in profile gallery';
+                      } else if (fieldStr == 'bio') {
+                        label = 'Bio is missing';
                       } else {
                         label = fieldStr.replaceAll('_', ' ');
                         label = label[0].toUpperCase() + label.substring(1);
@@ -445,7 +448,18 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                 ),
                 onPressed: () {
                   Navigator.pop(context);
-                  widget.onNavigateToTab?.call(2);
+                  final firstMissing = _missingFields.firstWhere(
+                    (f) => !const {
+                      'friends_target_buckets',
+                      'sub_interests',
+                      'causes_supported',
+                    }.contains(f.toString()),
+                    orElse: () => null,
+                  );
+                  widget.onNavigateToTab?.call(
+                    2,
+                    firstMissing?.toString(),
+                  );
                 },
                 child: const Text('Go to Profile Tab'),
               ),
@@ -547,7 +561,6 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
       return false;
     }
   }
-
 
   Future<void> _markWaveSeen(String actorId) async {
     final session = Supabase.instance.client.auth.currentSession;
@@ -734,7 +747,10 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 4,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -745,7 +761,11 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                     children: [
                       WidgetSpan(
                         alignment: PlaceholderAlignment.middle,
-                        child: Icon(LucideIcons.star, size: 14, color: Colors.white),
+                        child: Icon(
+                          LucideIcons.star,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                       WidgetSpan(child: SizedBox(width: 4)),
                       TextSpan(text: 'Super Wave'),
@@ -815,9 +835,15 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
             ..add(waveEntry);
         });
         onProfileLoaded();
-        unawaited(_markWaveSeen(actorId).then((_) {
-          unawaited(ref.read(discoveryHubControllerProvider('friends').notifier).refresh());
-        }));
+        unawaited(
+          _markWaveSeen(actorId).then((_) {
+            unawaited(
+              ref
+                  .read(discoveryHubControllerProvider('friends').notifier)
+                  .refresh(),
+            );
+          }),
+        );
       }
     }
   }

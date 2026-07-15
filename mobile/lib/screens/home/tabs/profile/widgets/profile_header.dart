@@ -181,26 +181,30 @@ class ProfileHeader extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withValues(alpha: 0.04),
-                  Colors.black.withValues(alpha: 0.01),
+                  Colors.white,
+                  const Color(0xFFE2F9FC).withValues(alpha: 0.55),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: deepCyan.withValues(alpha: 0.45),
-                width: 1.2,
+                color: deepCyan.withValues(alpha: 0.22),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: deepCyan.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  spreadRadius: 1,
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+                BoxShadow(
+                  color: deepCyan.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -212,8 +216,8 @@ class ProfileHeader extends StatelessWidget {
                   animation: pulseController,
                   builder: (context, child) {
                     return Container(
-                      width: 8,
-                      height: 8,
+                      width: 7,
+                      height: 7,
                       decoration: BoxDecoration(
                         color: deepCyan,
                         shape: BoxShape.circle,
@@ -230,13 +234,13 @@ class ProfileHeader extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Text(
-                  'Floating in the Nebula 🧑‍🚀',
+                  'Floating in the Nebula 🪐',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.8),
                     letterSpacing: 0.2,
                   ),
                 ),

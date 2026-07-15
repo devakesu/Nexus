@@ -1,6 +1,7 @@
 // The background task isolate entry point causes the analyzer to
 // misidentify this file as an executable entry point.
 
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/services/pending_evidence_upload_queue.dart';
@@ -53,7 +54,15 @@ void prekeyReplenishCallbackDispatcher() {
         // Not signed in on this device - nothing to replenish.
         return true;
       }
-      await SignalKeyService.instance.replenishOneTimePrekeysIfNeeded();
+      try {
+        await SignalKeyService.instance.replenishOneTimePrekeysIfNeeded();
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          // Profile not found (not onboarded yet). Stop trying and return success.
+          return true;
+        }
+        rethrow;
+      }
       return true;
     } on Exception {
       // No UI to surface this to. Returning false lets the OS retry with

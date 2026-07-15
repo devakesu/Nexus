@@ -5,7 +5,13 @@ from typing import Any, cast
 import sentry_sdk
 from postgrest.exceptions import APIError
 
-from app.db.client import DatabaseAccessError, normalize_uuid, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    ProfileNotFoundError,
+    normalize_uuid,
+    supabase_client,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +45,8 @@ def upsert_identity_key(
             on_conflict="user_id",
         ).execute()
     except APIError as e:
+        if e.code == "23503":
+            raise ProfileNotFoundError(f"Profile not found for user {user_id}") from e
         logger.exception("Failed to upsert identity key", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to upsert identity key") from e
 
@@ -58,6 +66,8 @@ def upsert_signed_prekey(
             },
         ).execute()
     except APIError as e:
+        if e.code == "23503":
+            raise ProfileNotFoundError(f"Profile not found for user {user_id}") from e
         logger.exception(
             "Failed to upsert signed prekey", extra={"user_id": user_id},
         )
@@ -80,6 +90,8 @@ def bulk_insert_one_time_prekeys(
     try:
         supabase_client.table("chat_one_time_prekeys").insert(rows).execute()
     except APIError as e:
+        if e.code == "23503":
+            raise ProfileNotFoundError(f"Profile not found for user {user_id}") from e
         logger.exception(
             "Failed to bulk insert one-time prekeys", extra={"user_id": user_id},
         )

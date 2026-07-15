@@ -11,7 +11,7 @@ import workmanager_apple
   ) -> Bool {
     // TODO: Replace with a real Google Maps Platform API key before shipping
     // chat location sharing - see AndroidManifest.xml for the Android side.
-    GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY_HERE")
+    GMSServices.provideAPIKey("AIzaSyDbTXQUK7Frxicc5CSaD4X9A9xCzga8toM")
 
     // Lets the periodic prekey-replenish background task (registered from
     // Dart in background_prekey_task.dart) reach other plugins - notably

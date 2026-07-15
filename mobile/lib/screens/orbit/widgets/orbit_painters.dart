@@ -18,6 +18,17 @@ class CelestialBackgroundPainter extends CustomPainter {
     final paint = Paint()..isAntiAlias = true;
     final glow = AppColors.tint(themeColor, 0.3);
 
+    // 0. Ambient Nebula Glow
+    final nebulaPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          themeColor.withValues(alpha: 0.04),
+          themeColor.withValues(alpha: 0.01),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: size.shortestSide * 0.8));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), nebulaPaint);
+
     // 1. Draw Starfield (Deterministic based on coordinates)
     for (var i = 0; i < 150; i++) {
       final x = (math.sin(i * 12345.67) * 0.5 + 0.5) * size.width;
@@ -40,6 +51,39 @@ class CelestialBackgroundPainter extends CustomPainter {
           ..drawLine(Offset(x - 4, y), Offset(x + 4, y), paint)
           ..drawLine(Offset(x, y - 4), Offset(x, y + 4), paint);
       }
+    }
+
+    // 1.5. Draw Shooting Stars (Meteors)
+    final meteor1Progress = (pulseValue * 2.2) % 3.0;
+    if (meteor1Progress < 1.0) {
+      final startPos = Offset(size.width * 0.15, size.height * 0.2);
+      final endPos = Offset(size.width * 0.8, size.height * 0.6);
+      final currentPos = Offset.lerp(startPos, endPos, meteor1Progress)!;
+      
+      final meteorPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [Colors.white.withValues(alpha: 0.65), Colors.transparent],
+        ).createShader(Rect.fromPoints(currentPos, Offset.lerp(currentPos, startPos, 0.12)!))
+        ..strokeWidth = 1.6
+        ..strokeCap = StrokeCap.round;
+      
+      canvas.drawLine(currentPos, Offset.lerp(currentPos, startPos, 0.12)!, meteorPaint);
+    }
+
+    final meteor2Progress = ((pulseValue + 0.4) * 2.2) % 3.0;
+    if (meteor2Progress < 1.0) {
+      final startPos = Offset(size.width * 0.85, size.height * 0.15);
+      final endPos = Offset(size.width * 0.35, size.height * 0.7);
+      final currentPos = Offset.lerp(startPos, endPos, meteor2Progress)!;
+      
+      final meteorPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [Colors.white.withValues(alpha: 0.5), Colors.transparent],
+        ).createShader(Rect.fromPoints(currentPos, Offset.lerp(currentPos, startPos, 0.15)!))
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.round;
+      
+      canvas.drawLine(currentPos, Offset.lerp(currentPos, startPos, 0.15)!, meteorPaint);
     }
 
     // 2. High-Tech Grid Coordinate Rings & Crosshairs
@@ -137,7 +181,7 @@ class ConstellationLinesPainter extends CustomPainter {
     // Lines from center to a subset of nodes (Option C)
     // Deterministically select 1 in 3 nodes to anchor the constellation without creating a crowded sunburst.
     final centerPaint = Paint()
-      ..strokeWidth = 1.0
+      ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
     for (final node in nodes) {
@@ -151,12 +195,7 @@ class ConstellationLinesPainter extends CustomPainter {
           center,
           nodePos,
           centerPaint
-            ..color = const Color.fromARGB(
-              255,
-              255,
-              0,
-              0,
-            ).withValues(alpha: alpha),
+            ..color = themeColor.withValues(alpha: alpha * 0.45),
         );
       }
 
@@ -189,8 +228,8 @@ class ConstellationLinesPainter extends CustomPainter {
 
     // Lines between nearby nodes to form constellations (connecting each node to its 2 nearest neighbors)
     final meshPaint = Paint()
-      ..color = const Color.fromARGB(255, 255, 0, 0).withValues(alpha: 0.45)
-      ..strokeWidth = 1.0
+      ..color = themeColor.withValues(alpha: 0.22)
+      ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
     for (var i = 0; i < nodes.length; i++) {

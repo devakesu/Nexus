@@ -24,6 +24,7 @@ class AppConfig {
     required this.spotifyClientId,
     required this.spotifyNativeRedirectUri,
     required this.sentryDsn,
+    required this.googlePlacesApiKey,
   });
 
   final String supabaseUrl;
@@ -43,6 +44,9 @@ class AppConfig {
 
   /// The Sentry client DSN URL. If not provided or empty, Sentry logging will be disabled.
   final String sentryDsn;
+
+  /// Google Places API key (unrestricted by application signature for HTTP calls).
+  final String googlePlacesApiKey;
 
   /// Which flavor this config profile represents.
   final AppVariant appVariant;
@@ -96,6 +100,9 @@ class AppConfig {
   static const String _sentryFlutterDsn = String.fromEnvironment(
     'SENTRY_FLUTTER_DSN',
   );
+  static const String _googlePlacesApiKey = String.fromEnvironment(
+    'GOOGLE_PLACES_API_KEY',
+  );
 
   static const AppConfig nexus = AppConfig(
     supabaseUrl: _supabaseUrl,
@@ -108,6 +115,7 @@ class AppConfig {
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
     sentryDsn: _sentryFlutterDsn,
+    googlePlacesApiKey: _googlePlacesApiKey,
   );
 
   static const AppConfig mec = AppConfig(
@@ -121,6 +129,7 @@ class AppConfig {
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexusMec,
     sentryDsn: _sentryFlutterDsn,
+    googlePlacesApiKey: _googlePlacesApiKey,
   );
 
   /// OTP code length for email/phone verification. Must match the "OTP
