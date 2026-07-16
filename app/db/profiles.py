@@ -101,7 +101,7 @@ _PROFILE_SELECT_COLUMNS = (
     "causes_supported, top_artists, artist_affinity, genre_affinity, "
     "tech_skills, languages, "
     "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
-    "role_type, normal_pics, profile_pic"
+    "role_type, normal_pics, profile_pic, updated_at"
 )
 # artist_affinity and genre_affinity are matching-engine-only signals - they
 # are selected here (the scoring hot path, feeding viewer + candidate dicts
@@ -377,7 +377,10 @@ def _build_candidate_query(
 ) -> Any:
     """Helper to assemble query constraints for candidate matching."""
     completion_flag_column = _get_completion_flag_column(active_tab)
-    explicit_columns = f"{_PROFILE_SELECT_COLUMNS}, {completion_flag_column}"
+    explicit_columns = (
+        f"{_PROFILE_SELECT_COLUMNS}, {completion_flag_column}, "
+        "chat_presence(last_active_at)"
+    )
     query = supabase_client.table("profiles").select(explicit_columns)
     query = query.neq("id", viewer_id)
     query = query.eq(completion_flag_column, True)
@@ -444,6 +447,24 @@ def _get_expanded_viewer_buckets(
     return viewer_search_expanded, viewer_targets
 
 
+def _unpack_chat_presence(cand_dict: dict[str, Any]) -> None:
+    """Helper to extract last_active_at from chat_presence relationship."""
+    presence = cand_dict.get("chat_presence")
+    if isinstance(presence, dict):
+        presence_dict = cast(dict[str, Any], presence)
+        last_active = presence_dict.get("last_active_at")
+        if last_active is not None:
+            cand_dict["last_active_at"] = last_active
+    elif isinstance(presence, list) and presence:
+        presence_list = cast(list[Any], presence)
+        first_presence = presence_list[0]
+        if isinstance(first_presence, dict):
+            first_presence_dict = cast(dict[str, Any], first_presence)
+            last_active = first_presence_dict.get("last_active_at")
+            if last_active is not None:
+                cand_dict["last_active_at"] = last_active
+
+
 def _filter_candidate_matches(
     candidates_data: list[Any],
     viewer_search_expanded: list[str],
@@ -469,6 +490,7 @@ def _filter_candidate_matches(
             continue
 
         if any(bucket in candidate_targets for bucket in viewer_search_expanded):
+            _unpack_chat_presence(cand_dict)
             candidates_to_enrich.append(decrypt_profile_record(cand_dict))
     return candidates_to_enrich
 

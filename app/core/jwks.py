@@ -115,12 +115,12 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
         async with httpx.AsyncClient() as client:
-            response = await client.get(jwks_url, timeout=5.0)
+            response = await client.get(jwks_url, timeout=10.0)
         if response.status_code == 200:
             _cached_jwks = PyJWKSet.from_dict(response.json())
             _last_fetch_time = current_time
     except httpx.HTTPError as err:
-        logger.warning("Supabase JWKS dynamic fetch failed: %s", err)
+        logger.warning("Supabase JWKS dynamic fetch failed: %r", err)
 
 
 def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:

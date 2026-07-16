@@ -2138,8 +2138,8 @@ class _OrbitScreenState extends State<OrbitScreen>
               ),
             ),
 
-          // Full blocking loader only on initial load (no nodes yet)
-          if (_isReloading && _nodes.isEmpty)
+          // Full blocking loader when reloading
+          if (_isReloading)
             Positioned.fill(
               child: ClipRect(
                 child: BackdropFilter(
@@ -2152,15 +2152,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                   ),
                 ),
               ),
-            ),
-
-          // Non-blocking shimmer strip for filter-triggered refreshes
-          if (_isReloading && _nodes.isNotEmpty)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: _OrbitRefreshStrip(themeColor: widget.themeColor),
             ),
         ],
       ),
@@ -2380,11 +2371,11 @@ class _OrbitScreenState extends State<OrbitScreen>
       case 0:
         return 56;
       case 1:
-        return 48;
+        return 50;
       case 2:
-        return 40;
+        return 44;
       default:
-        return 32;
+        return 38;
     }
   }
 
@@ -2721,62 +2712,6 @@ class _OrbitHeaderIconButtonState extends State<_OrbitHeaderIconButton> {
           child: Icon(widget.icon, color: Colors.white, size: 22),
         ),
       ),
-    );
-  }
-}
-
-// ── Non-blocking shimmer strip shown during filter-triggered refreshes ─────────
-
-class _OrbitRefreshStrip extends StatefulWidget {
-  const _OrbitRefreshStrip({required this.themeColor});
-  final Color themeColor;
-
-  @override
-  State<_OrbitRefreshStrip> createState() => _OrbitRefreshStripState();
-}
-
-class _OrbitRefreshStripState extends State<_OrbitRefreshStrip>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    unawaited(_ctrl.repeat());
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, _) {
-        return Container(
-          height: 2,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment(_ctrl.value * 2 - 1, 0),
-              end: Alignment(_ctrl.value * 2 + 0.4, 0),
-              colors: [
-                Colors.transparent,
-                widget.themeColor.withValues(alpha: 0.85),
-                widget.themeColor,
-                widget.themeColor.withValues(alpha: 0.85),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

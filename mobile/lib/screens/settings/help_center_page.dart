@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
-import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -48,7 +47,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How do I set up my profile?',
         answer:
-            "During onboarding you'll add your bio, core details like age, your interests and lifestyle, your general location, and can even link a few favorite artists from Spotify. You can revisit and edit any of it later from the Profile tab.",
+            "During onboarding you'll pick your display name, age, and demographic bucket (for the main Nexus app) or your major/branch and study year (for Nexus MEC). You'll also verify your phone number with an OTP. After onboarding, you can fill in your bio, location, lifestyle details, interests, and linked Spotify artists from the Profile tab at any time.",
       ),
       (
         question:
@@ -59,13 +58,18 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: "What's Nexus MEC?",
         answer:
-            'Nexus MEC is our campus-community flavor. It verifies you with a campus email and uses generated export/import codes to connect accounts, instead of typical direct account linking - built for closed university communities.',
+            'Nexus MEC is our campus-community flavor. It verifies you with a campus Google Workspace email (only approved institutional domains can sign in) and lets you export your profile to the main Nexus app via a one-time code - built for closed university communities.',
       ),
       (
         question:
             'How do I move my profile from Nexus MEC to the main Nexus app?',
         answer:
-            "From your Nexus MEC profile, generate a 6-character export code (Home → Export Code) - it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.",
+            "From your Nexus MEC Profile tab, tap the Export Profile Data card to generate a 6-character code - it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.",
+      ),
+      (
+        question: 'What is a Demographic Bucket?',
+        answer:
+            "On the main Nexus app, you pick a demographic bucket during onboarding - it's your primary community identification (e.g. Men, Women, Non-Binary). This helps surface you to the right people without exposing personal details. You can update it later from your Profile tab.",
       ),
     ],
   ),
@@ -100,6 +104,11 @@ const List<_HelpCategory> _kHelpCategories = [
         answer:
             "It depends on which Nexus app you're using - the main Nexus app lets you filter ages up to 80, while Nexus MEC (our campus flavor) caps it at 27 to match its university-community focus.",
       ),
+      (
+        question: 'How do I activate or deactivate an Orbit?',
+        answer:
+            "Each mode tab (Dating, Friends, Professional) has its own activation toggle at the top. You can also deactivate all three at once using Pause Matching in Settings. To resume after pausing, open any mode tab and activate its Orbit individually - there's no single 'resume all' button.",
+      ),
     ],
   ),
   _HelpCategory(
@@ -126,7 +135,12 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: "Do people know when I've read their message?",
         answer:
-            "Read receipts and presence indicators (online / last active) show when enabled - you're always in control of what's visible from your privacy settings.",
+            "Read receipts and presence indicators (online / last active) show when enabled - you're always in control of what's visible from your Privacy Settings.",
+      ),
+      (
+        question: 'Why can I only message someone after matching?',
+        answer:
+            'You need a mutual match (both of you liking each other) to start a conversation. This keeps your inbox focused and prevents unwanted messages.',
       ),
     ],
   ),
@@ -139,12 +153,17 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How do I edit my profile?',
         answer:
-            'Open the Profile tab any time to update your bio, core details, lifestyle info, location, interests, and linked artists.',
+            'Open the Profile tab to update your display name, age, bio, gender, sexuality, pronouns, location, lifestyle details (drinking, smoking, children plans, religious beliefs), interests, causes, pets, languages, and linked Spotify artists. Each section saves individually when you close or confirm it.',
       ),
       (
         question: "What's the AI photo tool?",
         answer:
             'Built into your Profile tab, it offers AI-assisted suggestions to help you pick and style your best profile photos.',
+      ),
+      (
+        question: 'How many photos can I add?',
+        answer:
+            'You can upload up to 5 photos: 1 primary profile picture and 4 gallery slots. Your profile picture is the first thing other users see in Orbit.',
       ),
       (
         question: 'How does photo verification work?',
@@ -154,17 +173,22 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'Can I hide specific profile fields from others?',
         answer:
-            'Yes - Privacy Settings let you toggle the visibility of individual fields, so you decide exactly what stays public.',
+            'Yes - Settings → Privacy Settings lets you individually toggle visibility for: Gender, Sexuality, Pronouns, Hometown, Current Place, Major/Branch, Religious Beliefs, Pets, Top Artists, and Causes Supported. You can also control whether others see your active status and read receipts.',
       ),
       (
         question: 'How often can I change my age?',
         answer:
-            "Age can only change once every rolling 365 days, and the age you set during onboarding counts as that first change. If you're locked out, your profile shows the exact date you're next eligible, along with a link to request an exception through support.",
+            "Age can be changed twice within a rolling 365-day window - the value you set during onboarding counts as the first change. Once both are used, the change sheet shows the exact date you're next eligible. Need it sooner? File a ticket via Settings → Help, Feedback & Bug Report to request an exception.",
       ),
       (
         question: 'How often can I change my display name?',
         answer:
-            'You get 2 name changes every rolling 365 days, and the name you set during onboarding counts as the first one. Once both are used, your profile shows the date you can change it again.',
+            "You get 2 name changes every rolling 365-day window, and the name set at registration counts as the first change. Once both are used, the sheet shows when you can change it again. Names can't contain numbers, titles (e.g. Dr.), or offensive language. Need it sooner? File a ticket via Settings → Help, Feedback & Bug Report.",
+      ),
+      (
+        question: 'Why is my sexuality or religious beliefs field locked?',
+        answer:
+            'These are special-category (sensitive) fields. You need to grant explicit consent to store and display them. If the field appears locked or empty, look for the consent prompt when you tap it - granting consent unlocks the field for the current session.',
       ),
     ],
   ),
@@ -177,17 +201,22 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How is my data protected?',
         answer:
-            'Your session and sensitive profile fields are encrypted both at rest and in transit, with strong field-level encryption for particularly sensitive data.',
+            'Your session and sensitive profile fields are encrypted both at rest and in transit, with strong field-level encryption for particularly sensitive data (sexuality, religious beliefs). Messages are end-to-end encrypted and never stored on our servers.',
       ),
       (
         question: "What's in the Safety Center?",
         answer:
-            'A full safety hub - a personal safety score checklist, an interactive safety quiz, meetup safety tools like trusted contacts and check-ins, safety guidelines, and crisis helpline resources.',
+            'A full safety hub - a personal safety score checklist, red-flag awareness cards, an interactive safety quiz, meetup safety tools (trusted contacts and check-ins), crisis helpline resources, and links to Privacy Settings, Blocked/Hidden users, and reporting.',
+      ),
+      (
+        question: 'What are the Community Guidelines?',
+        answer:
+            "Our Community Guidelines are live and browsable inside the app - Settings → Community Guidelines. They cover what's allowed, what isn't, and what happens when rules are broken.",
       ),
       (
         question: 'How do I block, hide, or report someone?',
         answer:
-            'From any profile or chat, one tap blocks, hides, or reports them - blocking removes them from your matches and search results permanently.',
+            'From any profile or chat, one tap blocks, hides, or reports them. Blocking removes them from your matches and Orbit permanently. Hiding removes them from your Orbit without affecting their visibility to others. You can manage blocked and hidden users from Settings → Blocked Users / Hidden Users.',
       ),
       (
         question: 'What happens after I report someone?',
@@ -253,7 +282,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How long does Nexus keep my check-in and SOS data?',
         answer:
-            "Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline - even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it for good.",
+            "Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline - even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it permanently.",
       ),
     ],
   ),
@@ -266,22 +295,37 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How do I sign out?',
         answer:
-            'Settings → Account Actions → Sign Out. This also securely clears your local encryption keys from the device.',
+            'Settings → Account Actions (at the bottom of Settings) → Sign Out. This also securely clears your local encryption keys from the device.',
       ),
       (
         question: 'Can I delete my account?',
         answer:
-            "Settings → Account Actions → Delete Account. You'll be signed out immediately and hidden from Orbit, but you have 14 days to change your mind - just log back in and reactivate. After that, your account is permanently erased.",
+            "Settings → Account Actions → Delete Account. You'll be asked to type DELETE and verify via an email OTP before the request is submitted. You're signed out immediately and hidden from Orbit, but you have a grace period (shown on the deletion screen) to log back in and cancel. After that, your account is permanently anonymized.",
       ),
       (
-        question: 'How do I manage notifications?',
+        question: 'How do I export my data?',
         answer:
-            "Settings → Notifications → Push Notifications opens your device's notification settings for Nexus directly.",
+            "Settings → Account Actions → Export My Data. After an email OTP verification, your data is packaged as a JSON file and handed to your device's native share/save sheet. The export includes your profile details, match history, chat metadata, safety sessions, and support tickets - but not message contents (end-to-end encrypted and never stored on our servers).",
+      ),
+      (
+        question: 'How do I manage push notifications?',
+        answer:
+            "Settings → Notifications → Push Notifications. If permissions are denied, a dialog will guide you to your device's notification settings for Nexus.",
+      ),
+      (
+        question: 'How do I manage email notifications?',
+        answer:
+            'Settings → Notifications → Email Notifications. You can independently toggle: New Matches & Likes, New Messages, Weekly Activity Digest, Product News & Updates, and Promotions & Offers.',
       ),
       (
         question: 'How do I pause my visibility without deleting anything?',
         answer:
-            "Use Pause Matching in Settings - it deactivates all three Orbits at once, so you're invisible to discovery until you turn it back on.",
+            "Settings → Privacy & Safety → Pause Matching deactivates all three Orbits at once, making you invisible to discovery. You can still chat with people you've already matched with. To resume, activate individual Orbits from their respective tabs - there is no single 'resume all' shortcut.",
+      ),
+      (
+        question: 'How do I manage blocked or hidden users?',
+        answer:
+            "Settings → Privacy & Safety → Blocked Users shows everyone you've blocked, with the option to unblock. Settings → Privacy & Safety → Hidden Users shows everyone you've hidden from your Orbit.",
       ),
     ],
   ),
@@ -294,22 +338,42 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: "Orbit won't load any profiles.",
         answer:
-            'Check your connection, confirm at least one Orbit is activated and not paused, and try pulling down to refresh.',
+            'Check your connection, confirm at least one Orbit is activated and matching is not paused (Settings → Pause Matching), and try pulling down to refresh. If the problem persists, force-close and reopen the app.',
       ),
       (
         question: "I'm not getting notifications.",
         answer:
-            'Check push permissions in Settings → Notifications, and confirm notifications are allowed for Nexus in your device settings.',
+            'Settings → Notifications → Push Notifications to check your permission status. If it shows Disabled, tap it to open a dialog guiding you to your device settings. Also check that Do Not Disturb / Focus Mode is not blocking the app.',
       ),
       (
         question: "A photo isn't uploading.",
         answer:
-            'Usually a connection hiccup or a very large file - try again on Wi-Fi, or use a smaller image. Still stuck? Contact support below.',
+            'Usually a connection hiccup or an oversized image - try again on Wi-Fi, or crop/resize the image first. Make sure the app has camera and photo library permissions in your device settings. Still stuck? Contact support below.',
       ),
       (
         question: 'The app is slow or keeps closing.',
         answer:
-            "Force close and reopen the app, and make sure you're on the latest version from the App Store or Play Store - most performance issues are fixed in updates.",
+            "Force close and reopen the app, and make sure you're on the latest version from the App Store or Play Store - most stability issues are fixed in updates.",
+      ),
+      (
+        question: 'I see a "Session expired" or login error.',
+        answer:
+            'Your session token has expired or been revoked. Sign out from Settings → Account Actions → Sign Out, then sign back in. If you see this repeatedly, check your internet connection.',
+      ),
+      (
+        question: "My profile changes aren't saving.",
+        answer:
+            'Each profile section saves automatically when you close it or tap the confirm button. If a save fails, a toast message will appear. Make sure you have a stable connection and try again. If a field like sexuality or religious beliefs appears locked, you may need to grant special-category consent first.',
+      ),
+      (
+        question: 'The export code for Nexus MEC is not working.',
+        answer:
+            "Export codes are valid for 15 minutes and can only be used once. If yours expired, open your Nexus MEC Profile tab and tap Generate Export Code again to get a new one. Make sure you're entering it in the main Nexus app during onboarding, not in Nexus MEC itself.",
+      ),
+      (
+        question: "I can't change my age or display name.",
+        answer:
+            "Both are limited to 2 changes per rolling 365-day window, and the values set at registration count as the first change. If you've used both, the change sheet shows the exact date you're next eligible. For urgent corrections, file a ticket via Settings → Help, Feedback & Bug Report.",
       ),
     ],
   ),
@@ -320,17 +384,12 @@ const List<_RoadmapItem> _kRoadmapItems = [
     icon: LucideIcons.sparkles,
     title: 'Nexus+',
     desc:
-        'Advanced filters, unlimited resets, and priority placement in Orbit.',
+        'Premium features including Gravity Pull (music-based orbit alignment), Stardust Messages (icebreaker shooting stars), Dark Nebula (invisible browsing), Retrograde (undo last action), Chroma Orbit (custom profile aesthetics), and a Verified Badge.',
   ),
   (
     icon: LucideIcons.link,
     title: 'Linked Accounts',
     desc: 'Connect Instagram and other platforms to enrich your profile.',
-  ),
-  (
-    icon: LucideIcons.bookOpen,
-    title: 'Community Guidelines Hub',
-    desc: 'A dedicated, browsable home for our community standards.',
   ),
   (
     icon: LucideIcons.badgeCheck,
@@ -841,10 +900,8 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                   iconBg: const Color(0xFFF5F3FF),
                   title: 'Community Guidelines',
                   subtitle: 'Our community standards.',
-                  onTap: () => NexusToast.show(
-                    context,
-                    'Community Guidelines - coming soon.',
-                  ),
+                  onTap: () =>
+                      context.push<void>('/settings/community-guidelines'),
                   animateDelay: 130,
                 ),
               ),

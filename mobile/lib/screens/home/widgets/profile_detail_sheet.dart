@@ -96,7 +96,13 @@ class ProfileDetailSheet extends StatelessWidget {
     final smoking = _str(data, 'smoking');
     final lifestyle = _str(data, 'lifestyle');
     final religiousBeliefs = _str(data, 'religious_beliefs');
-    final partnerValues = _str(data, 'partner_values');
+    final rawPartnerValues = data['partner_values'];
+    final String partnerValues;
+    if (rawPartnerValues is List) {
+      partnerValues = rawPartnerValues.map((e) => e.toString()).join(', ');
+    } else {
+      partnerValues = _str(data, 'partner_values');
+    }
     final childrenPlans = _str(data, 'children_plans');
 
     final interests = data['interests'] is Map

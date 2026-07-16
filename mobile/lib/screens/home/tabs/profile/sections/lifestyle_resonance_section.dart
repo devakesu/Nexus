@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/filter_options.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/glass_text_field.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/profile_visibility_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/tag_chips_editor.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
@@ -78,6 +79,7 @@ class LifestyleResonanceSection extends StatelessWidget {
       cardColor: const Color(0xFFFFF7ED),
       borderColor: const Color(0xFFFF9500).withValues(alpha: 0.4),
       accentColor: const Color(0xFFFF9500),
+      visibilityBadge: ProfileVisibilityBadge.datingAndFriends(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

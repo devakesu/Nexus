@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import time
@@ -102,10 +103,30 @@ async def get_authenticated_user_payload(
         ) from err
 
 
+_background_tasks: set[asyncio.Task[None]] = set()
+
+
+async def _update_presence_if_needed(user_id: str) -> None:
+    """Updates the user's presence heartbeat, throttled to once per 60 seconds."""
+    redis_key = f"user:presence:last_beat:{user_id}"
+    try:
+        # Set with ex=60 and nx=True to ensure it only executes once every 60 seconds
+        was_set = await redis_client.set(redis_key, "1", ex=60, nx=True)
+        if was_set:
+            from app.db.chat import upsert_presence_heartbeat
+            await run_in_threadpool(upsert_presence_heartbeat, user_id, True)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Failed to update general presence heartbeat: %s", e)
+
+
 async def get_authenticated_user_id(
     payload: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> str:
-    return payload["sub"]
+    user_id = payload["sub"]
+    task = asyncio.create_task(_update_presence_if_needed(user_id))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return user_id
 
 
 # ---------------------------------------------------------------------------

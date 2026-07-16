@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:nexus/screens/home/tabs/profile/sections/spotify_playlists_section.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/profile_visibility_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 
@@ -38,6 +39,7 @@ class SpotifyMusicSection extends ConsumerWidget {
       cardColor: const Color(0xFFEFFAF3),
       borderColor: _spotifyGreen.withValues(alpha: 0.40),
       accentColor: _spotifyGreen,
+      visibilityBadge: ProfileVisibilityBadge.datingAndFriends(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -11,6 +11,7 @@ class UniverseSection extends StatelessWidget {
     this.cardColor,
     this.borderColor,
     this.accentColor,
+    this.visibilityBadge,
     super.key,
   });
 
@@ -21,6 +22,7 @@ class UniverseSection extends StatelessWidget {
   final Color? cardColor;
   final Color? borderColor;
   final Color? accentColor;
+  final Widget? visibilityBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -83,14 +85,25 @@ class UniverseSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF0F172A),
-                          fontSize: 16,
-                          letterSpacing: 0.3,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFF0F172A),
+                              fontSize: 16,
+                              letterSpacing: 0.3,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          // The element is a nullable Widget, not a collection, so spread or collection null-aware syntax is not supported by the current compiler here.
+                          // ignore: use_null_aware_elements
+                          if (visibilityBadge != null)
+                            visibilityBadge!,
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

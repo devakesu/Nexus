@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/profile_visibility_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/selector_tile.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/universe_section.dart';
@@ -309,6 +310,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             onTap: widget.onSelectSexuality,
             onClear: widget.onClearSexuality,
             isSaving: widget.isSavingSexuality,
+            visibilityBadge: ProfileVisibilityBadge.datingAndFriends(),
           ),
           const SizedBox(height: 16),
           SelectorTile(
@@ -323,14 +325,20 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
           const SizedBox(height: 16),
 
           // Gallery slots
-          Text(
-            'Images',
-            style: TextStyle(
-              color: Colors.black.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              Text(
+                'Images',
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 6),
+              ProfileVisibilityBadge.datingAndFriends(),
+            ],
           ),
           const SizedBox(height: 10),
           Row(

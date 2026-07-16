@@ -14,6 +14,7 @@ class GlassTextField extends StatefulWidget {
     this.keyboardType,
     this.isSaving = false,
     this.focusNode,
+    this.visibilityBadge,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class GlassTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final bool isSaving;
   final FocusNode? focusNode;
+  final Widget? visibilityBadge;
 
   @override
   State<GlassTextField> createState() => _GlassTextFieldState();
@@ -82,14 +84,22 @@ class _GlassTextFieldState extends State<GlassTextField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.label,
-            style: TextStyle(
-              color: Colors.black.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (widget.visibilityBadge != null) ...[
+                const SizedBox(width: 6),
+                widget.visibilityBadge!,
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           AnimatedContainer(

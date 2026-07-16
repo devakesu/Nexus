@@ -49,3 +49,4 @@ max-complexity = 8
 # assertion that could be optimized away), and `random`/non-crypto RNG is
 # fine for generating synthetic layout/fixture data - no security purpose.
 "tests/*.py" = ["S101", "S311"]
+"Nexus_Engine/tests/*.py" = ["S101", "S311"]

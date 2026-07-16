@@ -13,6 +13,7 @@ class SelectorTile extends StatelessWidget {
     this.onClear,
     this.isSaving = false,
     this.isFullWidth = true,
+    this.visibilityBadge,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class SelectorTile extends StatelessWidget {
   final VoidCallback? onClear;
   final bool isSaving;
   final bool isFullWidth;
+  final Widget? visibilityBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +62,10 @@ class SelectorTile extends StatelessWidget {
                 letterSpacing: 1.2,
               ),
             ),
+            if (visibilityBadge != null) ...[
+              const SizedBox(width: 6),
+              visibilityBadge!,
+            ],
           ],
         ),
         const SizedBox(height: 8),
