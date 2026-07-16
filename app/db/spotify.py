@@ -116,9 +116,10 @@ def disconnect(user_id: str) -> None:
     """Fully revoke a Spotify connection.
 
     Deletes the stored refresh token and all synced playlists, and clears
-    every derived signal (artist_affinity, top_artists, music_taste_synced_at)
-    from the profile. A partial revoke would leave a stale public top_artists
-    list visible to peers after the user explicitly asked to disconnect.
+    every derived signal (artist_affinity, genre_affinity, top_artists,
+    music_taste_synced_at) from the profile. A partial revoke would leave
+    a stale public top_artists list visible to peers after the user explicitly
+    asked to disconnect.
     """
     try:
         supabase_client.table("spotify_connections").delete().eq(
@@ -132,6 +133,7 @@ def disconnect(user_id: str) -> None:
         supabase_client.table("profiles").update(
             {
                 "artist_affinity": None,
+                "genre_affinity": None,
                 "top_artists": None,
                 "music_taste_synced_at": None,
             },
@@ -242,16 +244,20 @@ def persist_artist_signals(
     user_id: str,
     artist_affinity: dict[str, float],
     top_artists: list[str],
+    genre_affinity: dict[str, float] | None = None,
 ) -> None:
-    """Write the blended matching-engine signal and the bounded public display list."""
+    """Write the blended matching-engine signals and the bounded public display list."""
+    payload: dict[str, Any] = {
+        "artist_affinity": encrypt_to_hex(json.dumps(artist_affinity)),
+        "top_artists": encrypt_to_hex(json.dumps(top_artists)),
+        "music_taste_synced_at": utcnow().isoformat(),
+    }
+    if genre_affinity is not None:
+        payload["genre_affinity"] = encrypt_to_hex(json.dumps(genre_affinity))
     try:
-        supabase_client.table("profiles").update(
-            {
-                "artist_affinity": encrypt_to_hex(json.dumps(artist_affinity)),
-                "top_artists": encrypt_to_hex(json.dumps(top_artists)),
-                "music_taste_synced_at": utcnow().isoformat(),
-            },
-        ).eq("id", user_id).execute()
+        supabase_client.table("profiles").update(payload).eq(
+            "id", user_id,
+        ).execute()
     except APIError as e:
         logger.exception(
             "Failed to persist spotify artist signals",

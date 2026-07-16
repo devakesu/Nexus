@@ -1,14 +1,14 @@
 """
 Spotify fetch/paginate/blend pipeline: OAuth token exchange + refresh,
-playlist and track pagination, and the artist_affinity blending logic that
-feeds the matching engine.
+playlist and track pagination, and the artist_affinity / genre_affinity
+blending logic that feeds the matching engine.
 
 Policy notes this module deliberately respects (see Spotify Developer
-Policy): only track/artist/playlist NAMES and Spotify IDs are ever fetched
-or stored - no album art, preview URLs, popularity, or audio-feature data
-(the kind of signal that would edge toward "training a model on Spotify
-content", which Spotify's terms prohibit). All blending below is a
-deterministic frequency/rank computation, not a trained model.
+Policy): only track/artist/playlist NAMES, genre labels, and Spotify IDs
+are ever fetched or stored - no album art, preview URLs, popularity, or
+audio-feature data (the kind of signal that would edge toward "training a
+model on Spotify content", which Spotify's terms prohibit). All blending
+below is a deterministic frequency/rank computation, not a trained model.
 """
 
 import asyncio
@@ -175,15 +175,30 @@ async def fetch_spotify_user_id(access_token: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class TopArtistsResult:
+    """Ranked artist weights and a parallel per-artist genre list.
+
+    ranked: {original_case_name: weight}  (weight in (0, 1], rank-derived)
+    genre_weights: {genre_name: weight}   (see compute_genre_affinity)
+    """
+
+    ranked: dict[str, float]
+    genre_weights: dict[str, float]
+
+
 async def fetch_top_artists_ranked(
     access_token: str,
     limit: int = _NATIVE_TOP_ARTISTS_LIMIT,
-) -> dict[str, float]:
+) -> TopArtistsResult:
     """Fetch Spotify's algorithmic top artists, weighted by rank.
 
     Rank 0 (Spotify's #1 artist) gets weight 1.0, decaying linearly to the
-    last entry. Returns {original_case_name: weight}; the caller
-    (blend_artist_affinity) handles case-insensitive key normalization.
+    last entry. The genres array returned per-artist is used to build a
+    weighted genre signal alongside the artist weights.
+
+    Returns a TopArtistsResult; the caller (blend_artist_affinity /
+    compute_genre_affinity) handles case-insensitive normalization.
     """
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
         resp = await _get_with_retry(
@@ -196,18 +211,38 @@ async def fetch_top_artists_ranked(
 
     items: list[Any] = data.get("items") or []
     valid_names: list[str] = []
-    for raw in items:
+    genres_per_rank: list[tuple[float, list[str]]] = []  # (rank_weight, genres)
+    for rank, raw in enumerate(items):
         if not isinstance(raw, dict):
             continue
         item = cast(dict[str, Any], raw)
         name = item.get("name")
-        if isinstance(name, str) and name.strip():
-            valid_names.append(name)
+        if not isinstance(name, str) or not name.strip():
+            continue
+        valid_names.append(name)
+        raw_genres: list[Any] = item.get("genres") or []
+        genres = [g for g in raw_genres if isinstance(g, str) and g.strip()]
+        # Rank weight will be assigned after we know `total`
+        genres_per_rank.append((rank, genres))
+
     if not valid_names:
-        return {}
+        return TopArtistsResult(ranked={}, genre_weights={})
 
     total = len(valid_names)
-    return {name: (total - rank) / total for rank, name in enumerate(valid_names)}
+    ranked: dict[str, float] = {
+        name: (total - rank) / total for rank, name in enumerate(valid_names)
+    }
+
+    # Build rank-weighted genre map: each genre inherits the weight of every
+    # artist that carries it. Higher-ranked artists contribute more.
+    genre_acc: dict[str, float] = {}
+    for rank_idx, genres in genres_per_rank:
+        rank_weight = (total - rank_idx) / total
+        for genre in genres:
+            key = genre.strip().lower()
+            genre_acc[key] = genre_acc.get(key, 0.0) + rank_weight
+
+    return TopArtistsResult(ranked=ranked, genre_weights=genre_acc)
 
 
 async def fetch_owned_or_collaborative_playlists(
@@ -359,6 +394,9 @@ async def fetch_playlist_tracks(  # noqa: C901
 # Aggregate + blend
 # ---------------------------------------------------------------------------
 
+_GENRE_AFFINITY_MAX_ENTRIES = 30
+_GENRE_AFFINITY_MIN_WEIGHT = 0.05
+
 
 def compute_artist_frequency(tracks: list[dict[str, Any]]) -> dict[str, float]:
     """Count artist occurrences across a flat track list (as produced by
@@ -375,6 +413,35 @@ def compute_artist_frequency(tracks: list[dict[str, Any]]) -> dict[str, float]:
 
     max_count = max(counts.values())
     return {name: count / max_count for name, count in counts.items()}
+
+
+def compute_genre_affinity(genre_weights: dict[str, float]) -> dict[str, float]:
+    """Normalize the raw rank-weighted genre accumulator into a bounded
+    [0, 1]-weighted dict suitable for matching-engine cosine scoring.
+
+    genre_weights: {genre_name: accumulated_rank_weight} as produced by
+    fetch_top_artists_ranked. Each genre inherits the rank weight of every
+    artist that carries it, so a genre shared by multiple high-ranked artists
+    ends up with a higher score than a niche genre of a single mid-tier artist.
+
+    Returns {} if the input is empty or all weights are zero.
+    """
+    if not genre_weights:
+        return {}
+
+    ranked = sorted(genre_weights.items(), key=lambda kv: kv[1], reverse=True)
+    top_weight = ranked[0][1]
+    if top_weight <= 0.0:
+        return {}
+
+    bounded: dict[str, float] = {}
+    for genre, weight in ranked[:_GENRE_AFFINITY_MAX_ENTRIES]:
+        normalized = round(weight / top_weight, 4)
+        if normalized < _GENRE_AFFINITY_MIN_WEIGHT:
+            break
+        bounded[genre] = normalized
+
+    return bounded
 
 
 def blend_artist_affinity(
@@ -437,7 +504,7 @@ def top_display_names(
 
 
 async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -> None:
-    """Full playlist + artist-affinity sync for one user.
+    """Full playlist + artist-affinity + genre-affinity sync for one user.
 
     Runs via FastAPI BackgroundTasks from the OAuth callback, native
     exchange, and /resync endpoints, so the triggering HTTP response returns
@@ -449,13 +516,16 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
     start = time.monotonic()
 
     try:
-        native_ranked = await fetch_top_artists_ranked(access_token)
+        top_artists_result = await fetch_top_artists_ranked(access_token)
     except Exception:
         logger.exception(
             "Native top-artists fetch failed during sync",
             extra={"user_id": user_id},
         )
-        native_ranked = {}
+        top_artists_result = TopArtistsResult(ranked={}, genre_weights={})
+
+    native_ranked = top_artists_result.ranked
+    genre_affinity = compute_genre_affinity(top_artists_result.genre_weights)
 
     playlists_with_tracks: list[dict[str, Any]] = []
     all_tracks: list[dict[str, Any]] = []
@@ -504,6 +574,7 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
                 user_id,
                 blended,
                 display_names,
+                genre_affinity,
             )
         return
 
@@ -511,6 +582,9 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
     blended, casing_map = blend_artist_affinity(native_ranked, playlist_freq)
     display_names = top_display_names(blended, casing_map)
 
-    await asyncio.to_thread(persist_artist_signals, user_id, blended, display_names)
+    await asyncio.to_thread(
+        persist_artist_signals, user_id, blended, display_names, genre_affinity,
+    )
+
     await asyncio.to_thread(replace_playlists, user_id, playlists_with_tracks)
     await asyncio.to_thread(mark_sync_result, user_id, "ok")

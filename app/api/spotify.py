@@ -55,6 +55,7 @@ from app.models import (
 from app.services.spotify_sync import (
     blend_artist_affinity,
     compute_artist_frequency,
+    compute_genre_affinity,
     exchange_code,
     fetch_owned_or_collaborative_playlists,
     fetch_playlist_tracks,
@@ -113,7 +114,9 @@ async def _seed_and_queue_sync(
             extra={"user_id": user_id},
         )
 
-    native_ranked = await fetch_top_artists_ranked(access_token)
+    top_artists_result = await fetch_top_artists_ranked(access_token)
+    native_ranked = top_artists_result.ranked
+    genre_affinity = compute_genre_affinity(top_artists_result.genre_weights)
     blended, casing_map = blend_artist_affinity(native_ranked, {})
     display_names = top_display_names(blended, casing_map)
 
@@ -154,7 +157,7 @@ async def _seed_and_queue_sync(
             )
 
     if display_names:
-        persist_artist_signals(user_id, blended, display_names)
+        persist_artist_signals(user_id, blended, display_names, genre_affinity)
 
     background_tasks.add_task(run_full_sync, user_id, access_token, spotify_user_id)
     return display_names

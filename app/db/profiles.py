@@ -98,12 +98,13 @@ _PROFILE_SELECT_COLUMNS = (
     "religious_beliefs, lifestyle, drinking, smoking, role_at, "
     "dating_target_buckets, dating_for, friends_target_buckets, "
     "professional_target_buckets, looking_for, activities, "
-    "causes_supported, top_artists, artist_affinity, tech_skills, languages, "
+    "causes_supported, top_artists, artist_affinity, genre_affinity, "
+    "tech_skills, languages, "
     "ai_vibe_tags, pets, interests, sub_interests, value_dimensions, "
     "role_type, normal_pics, profile_pic"
 )
-# artist_affinity is the matching-engine's weighted music-taste signal - it
-# is selected here (the scoring hot path, feeding viewer + candidate dicts
+# artist_affinity and genre_affinity are matching-engine-only signals - they
+# are selected here (the scoring hot path, feeding viewer + candidate dicts
 # into Nexus_Engine.engine.calculate_directional_match) but must NEVER be
 # added to fetch_peer_profile_by_id's column list below, nor to
 # app/db/sessions.py's fetch_discovery_node_detail - those two back every
@@ -282,7 +283,10 @@ def decrypt_profile_record(row: dict[str, Any]) -> dict[str, Any]:
     for field in array_fields:
         _parse_encrypted_list(row, field)
 
-    json_fields = ["interests", "sub_interests", "value_dimensions", "artist_affinity"]
+    json_fields = [
+        "interests", "sub_interests", "value_dimensions",
+        "artist_affinity", "genre_affinity",
+    ]
     for field in json_fields:
         _parse_encrypted_dict(row, field)
 
