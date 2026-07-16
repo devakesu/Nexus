@@ -139,7 +139,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                   ],
                 ),
                 // Signal Glow shadow via BoxDecoration, not Material's
-                // elevation: prop — DESIGN.md's shadow vocabulary.
+                // elevation: prop - DESIGN.md's shadow vocabulary.
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),

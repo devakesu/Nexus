@@ -125,7 +125,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Let us know why you're closing it — resolved, no longer relevant, etc.",
+              "Let us know why you're closing it - resolved, no longer relevant, etc.",
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF64748B),

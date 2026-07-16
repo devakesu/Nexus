@@ -15,17 +15,63 @@ final RegExp _digitRegExp = RegExp('[0-9]');
 final RegExp _nonAlphaRegExp = RegExp('[^a-z]');
 
 const Set<String> _bannedNameTitles = {
-  'dr', 'doctor', 'prof', 'professor', 'mr', 'mrs', 'ms', 'miss',
-  'sir', 'madam', 'esq', 'phd', 'md', 'rev', 'reverend',
-  'capt', 'captain', 'col', 'colonel', 'sgt', 'sergeant',
-  'lt', 'lieutenant', 'hon', 'honorable', 'judge', 'president', 'senator',
+  'dr',
+  'doctor',
+  'prof',
+  'professor',
+  'mr',
+  'mrs',
+  'ms',
+  'miss',
+  'sir',
+  'madam',
+  'esq',
+  'phd',
+  'md',
+  'rev',
+  'reverend',
+  'capt',
+  'captain',
+  'col',
+  'colonel',
+  'sgt',
+  'sergeant',
+  'lt',
+  'lieutenant',
+  'hon',
+  'honorable',
+  'judge',
+  'president',
+  'senator',
 };
 
 const Set<String> _bannedNameSubstrings = {
-  'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick',
-  'piss', 'slut', 'whore', 'faggot', 'nigger', 'nigga', 'retard',
-  'rape', 'molest', 'pedo', 'nazi', 'hitler', 'cock', 'pussy',
-  'twat', 'wanker', 'motherfucker', 'dumbass', 'jackass',
+  'fuck',
+  'shit',
+  'bitch',
+  'asshole',
+  'bastard',
+  'cunt',
+  'dick',
+  'piss',
+  'slut',
+  'whore',
+  'faggot',
+  'nigger',
+  'nigga',
+  'retard',
+  'rape',
+  'molest',
+  'pedo',
+  'nazi',
+  'hitler',
+  'cock',
+  'pussy',
+  'twat',
+  'wanker',
+  'motherfucker',
+  'dumbass',
+  'jackass',
 };
 
 NameModerationResult validateDisplayNameClientSide(String name) {
@@ -49,7 +95,7 @@ NameModerationResult validateDisplayNameClientSide(String name) {
   for (final word in _bannedNameSubstrings) {
     if (normalized.contains(word)) {
       return const NameModerationResult.invalid(
-        "That name isn't allowed — please choose another.",
+        "That name isn't allowed - please choose another.",
       );
     }
   }

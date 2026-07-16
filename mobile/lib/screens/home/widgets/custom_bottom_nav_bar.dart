@@ -29,7 +29,7 @@ class CustomBottomNavBar extends StatelessWidget {
   /// Total space scrollable or positioned content should reserve above the
   /// screen bottom so it isn't obscured by the floating nav: [navHeight] +
   /// [bottomMargin] + a comfortable breathing gap. Screens should reference
-  /// this instead of a hardcoded bottom-padding literal — that's exactly how
+  /// this instead of a hardcoded bottom-padding literal - that's exactly how
   /// this drifted before (some screens reserved 110px, others 120px, with no
   /// shared source of truth).
   static const double clearance = navHeight + bottomMargin + 18;

@@ -561,6 +561,29 @@ async def verify_login_by_phone(
     )
 
 
+def _unhide_special_category_fields(user_id: str) -> None:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("hidden_profile_fields")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data_dict = cast(dict[str, Any], getattr(res, "data", None) or {})
+        hidden = cast(list[str], data_dict.get("hidden_profile_fields") or [])
+        new_hidden = [
+            f for f in hidden
+            if f not in ("display_sexuality", "religious_beliefs")
+        ]
+        if len(new_hidden) != len(hidden):
+            supabase_client.table("profiles").update(
+                {"hidden_profile_fields": new_hidden},
+            ).eq("id", user_id).execute()
+    except Exception:
+        logger.exception("Failed to update hidden fields on terms acceptance")
+
+
 @router.post(
     "/api/v1/auth/accept-terms",
     response_model=ConsentUpdateResponse,
@@ -623,6 +646,8 @@ def accept_terms(
             terms_version=payload.terms_version,
             granted=payload.special_category_accepted,
         )
+        if payload.special_category_accepted:
+            _unhide_special_category_fields(user_id)
 
     safety_result = None
     if payload.safety_data_accepted is not None:

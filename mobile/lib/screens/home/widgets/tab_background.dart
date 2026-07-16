@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
 
-/// Shared ambient background for the main tabs — reuses the Profile tab's
+/// Shared ambient background for the main tabs - reuses the Profile tab's
 /// futuristic grid/orbit motif, tinted with each tab's own accent color.
 class TabBackground extends StatelessWidget {
   const TabBackground({

@@ -175,7 +175,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                   ],
                 ),
                 // Signal Glow shadow via BoxDecoration, not Material's
-                // elevation: prop — DESIGN.md's shadow vocabulary.
+                // elevation: prop - DESIGN.md's shadow vocabulary.
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -225,7 +225,11 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
-                _buildSectionHeader('Discovery Preferences', LucideIcons.compass, AppColors.modeDating),
+                _buildSectionHeader(
+                  'Discovery Preferences',
+                  LucideIcons.compass,
+                  AppColors.modeDating,
+                ),
 
                 // Target Buckets (Seeking Gender)
                 Row(
@@ -297,13 +301,13 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   localBuckets.remove('Open');
                                 }
                               } else {
-                                  if (selected) {
-                                    localBuckets
-                                      ..remove('Open')
-                                      ..add(code);
-                                  } else {
-                                    localBuckets.remove(code);
-                                  }
+                                if (selected) {
+                                  localBuckets
+                                    ..remove('Open')
+                                    ..add(code);
+                                } else {
+                                  localBuckets.remove(code);
+                                }
                               }
                             });
                             await widget.onSaveDatingField(

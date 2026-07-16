@@ -44,7 +44,7 @@ extension FeedbackQueryTypeX on FeedbackQueryType {
     FeedbackQueryType.help =>
       'Tell us what you were trying to do and where you got stuck.',
     FeedbackQueryType.feedback =>
-      "Share what's on your mind — we read every word.",
+      "Share what's on your mind - we read every word.",
     FeedbackQueryType.bugReport =>
       'What did you expect to happen, and what happened instead? '
           'Steps to reproduce help a lot.',

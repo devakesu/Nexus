@@ -202,7 +202,7 @@ class _ProfessionalSettingsOverlayState
                   ],
                 ),
                 // Signal Glow shadow via BoxDecoration, not Material's
-                // elevation: prop — DESIGN.md's shadow vocabulary.
+                // elevation: prop - DESIGN.md's shadow vocabulary.
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -264,7 +264,11 @@ class _ProfessionalSettingsOverlayState
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
-                _buildSectionHeader('Discovery Preferences', LucideIcons.compass, AppColors.modeProfessional),
+                _buildSectionHeader(
+                  'Discovery Preferences',
+                  LucideIcons.compass,
+                  AppColors.modeProfessional,
+                ),
 
                 // Target Buckets
                 Row(
@@ -426,7 +430,11 @@ class _ProfessionalSettingsOverlayState
                 ),
                 const SizedBox(height: 24),
 
-                _buildSectionHeader('More About You', LucideIcons.user, AppColors.modeProfessional),
+                _buildSectionHeader(
+                  'More About You',
+                  LucideIcons.user,
+                  AppColors.modeProfessional,
+                ),
 
                 // Role Type
                 Row(

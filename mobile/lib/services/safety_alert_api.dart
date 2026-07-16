@@ -16,7 +16,10 @@ class SafetyAlertResult {
 }
 
 class SafetyContactsSyncResult {
-  const SafetyContactsSyncResult({required this.success, this.blocked = const []});
+  const SafetyContactsSyncResult({
+    required this.success,
+    this.blocked = const [],
+  });
 
   final bool success;
 
@@ -28,7 +31,7 @@ class SafetyContactsSyncResult {
 
 /// Backend client for the Meetup Safety alert/contacts-sync endpoints (see
 /// app/api/safety.py). Every call is best-effort from the caller's
-/// perspective — network/auth failures are caught and surfaced as a bool/
+/// perspective - network/auth failures are caught and surfaced as a bool/
 /// null rather than thrown, since a failed sync or alert-send shouldn't
 /// crash the in-app SOS flow (the in-app mock confirmation still shows).
 class SafetyAlertApi {
@@ -64,7 +67,7 @@ class SafetyAlertApi {
   /// Sends the SOS/inform SMS fan-out, retrying transient failures (a
   /// dropped connection mid-emergency is exactly when a flaky network is
   /// most likely) up to twice more with a short backoff before giving up.
-  /// Returns null only once every attempt has failed — the in-app SOS flow
+  /// Returns null only once every attempt has failed - the in-app SOS flow
   /// treats null the same as "couldn't reach the server" and still shows
   /// its own confirmation, per the Meetup Safety plan's mock-action scoping.
   static Future<SafetyAlertResult?> sendAlert({
@@ -140,7 +143,7 @@ class SafetyAlertApi {
 
   /// Mirrors a freshly-started check-in loop server-side so the dead-man's
   /// -switch scheduler (app/services/reminder_scheduler.py) has something to
-  /// poll. Returns null if the request failed — the local exact-alarm loop
+  /// poll. Returns null if the request failed - the local exact-alarm loop
   /// still runs either way, this just widens the safety net.
   static Future<String?> startSession({
     required int intervalSeconds,
@@ -167,7 +170,7 @@ class SafetyAlertApi {
     }
   }
 
-  /// Heartbeats a successful "I'm Safe" check-in — proves the device is fine
+  /// Heartbeats a successful "I'm Safe" check-in - proves the device is fine
   /// and resets the server-side escalation counter back to zero.
   static Future<bool> checkinSession({
     required String sessionId,

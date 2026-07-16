@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Drives Silent SOS's "Digital Witness" recording: an explicit, foreground,
-/// user-initiated camera+mic recording — never a covert background capture.
+/// user-initiated camera+mic recording - never a covert background capture.
 /// See the Meetup Safety plan's Milestone C notes for why keeping this overt
 /// matters both for the UX and for the legal framing (recording a situation
 /// you're an active participant in, in the open, is on much firmer ground
@@ -19,7 +19,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - Android: SafetyRecordingService.kt's foreground service keeps this
 ///   app's *process* alive while backgrounded/locked, which is necessary
 ///   but not by itself a guarantee that the `camera` plugin's capture
-///   session survives — Android has restricted background camera access
+///   session survives - Android has restricted background camera access
 ///   since API 28, and whether a foreground service is enough to avoid
 ///   that in practice is unverified on a real device. To be safe either
 ///   way, this class runs the same pause/resume segment handling on
@@ -52,11 +52,11 @@ class DigitalWitnessRecorder extends ChangeNotifier
       : DateTime.now().difference(_segmentStartedAt!);
 
   /// Starts the foreground recording. [alertId] links captured segments to
-  /// the SOS alert row for later upload/registration — pass null if the
+  /// the SOS alert row for later upload/registration - pass null if the
   /// alert failed to reach the backend; the local recording still proceeds
   /// (it's valuable evidence with or without connectivity), it just won't
   /// have anywhere server-side to register itself once stopped. Returns
-  /// false if camera/mic permission was denied or no camera is available —
+  /// false if camera/mic permission was denied or no camera is available -
   /// callers should fall back to just the SMS alert already sent, not block
   /// the whole Silent SOS flow on this.
   Future<bool> start({required String? alertId}) async {
@@ -117,7 +117,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
       try {
         await _channel.invokeMethod<void>('stopRecording');
       } on PlatformException {
-        // Ignore — nothing Dart-side depends on this succeeding.
+        // Ignore - nothing Dart-side depends on this succeeding.
       }
     }
 
@@ -139,7 +139,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
           : DateTime.now().difference(startedAt).inMilliseconds / 1000.0;
       _segments.add((File(file.path), durationSeconds));
     } on CameraException {
-      // Best-effort — a failed segment shouldn't crash the SOS flow.
+      // Best-effort - a failed segment shouldn't crash the SOS flow.
     }
   }
 
@@ -203,7 +203,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
       await c.startVideoRecording();
       _segmentStartedAt = DateTime.now();
     } on CameraException {
-      // Leave as-is — the next explicit stop() finalizes whatever was
+      // Leave as-is - the next explicit stop() finalizes whatever was
       // captured so far.
     }
   }

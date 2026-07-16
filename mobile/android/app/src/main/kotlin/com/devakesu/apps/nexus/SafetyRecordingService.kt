@@ -16,7 +16,7 @@ import androidx.core.app.NotificationCompat
  * alive (and clearly, visibly flagged as recording) while Silent SOS's
  * Digital Witness capture is running and the user backgrounds the app or
  * locks the screen. The actual camera/mic recording is driven entirely by
- * the `camera` Flutter plugin in the Dart/Flutter engine — this service
+ * the `camera` Flutter plugin in the Dart/Flutter engine - this service
  * doesn't touch the camera itself, it just prevents Android from killing or
  * deprioritizing the process the way it would an ordinary backgrounded app.
  *
@@ -24,7 +24,7 @@ import androidx.core.app.NotificationCompat
  * point. Android will not let any app hide that a foreground service (let
  * alone one of type camera/microphone) is running, and Silent SOS is
  * designed to be an overt, in-the-open recording rather than covert
- * surveillance — see the Meetup Safety plan's Milestone C notes.
+ * surveillance - see the Meetup Safety plan's Milestone C notes.
  */
 class SafetyRecordingService : Service() {
 

@@ -12,6 +12,7 @@ import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/safety_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
@@ -35,7 +36,8 @@ class MeetupSafetyPage extends StatefulWidget {
   State<MeetupSafetyPage> createState() => _MeetupSafetyPageState();
 }
 
-class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBindingObserver {
+class _MeetupSafetyPageState extends State<MeetupSafetyPage>
+    with WidgetsBindingObserver {
   static const Color _accent = AppColors.safetyBlue;
   static const Color _teal = AppColors.safetyTeal;
 
@@ -59,7 +61,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
   Duration _checkInSelectedDuration = const Duration(hours: 1);
 
   // Ticks once a second purely to refresh the countdown text while a
-  // session is active — MeetupSafetySession owns the actual deadline.
+  // session is active - MeetupSafetySession owns the actual deadline.
   Timer? _tickTimer;
 
   MeetupSafetySession get _session => MeetupSafetySession.instance;
@@ -104,7 +106,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
     final camera = await ph.Permission.camera.status;
     final mic = await ph.Permission.microphone.status;
     final contacts = await ph.Permission.contacts.status;
-    
+
     var alarms = true;
     var phone = true;
     if (Platform.isAndroid) {
@@ -125,10 +127,14 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
     if (mounted) {
       setState(() {
         _locationGranted = loc.isGranted || loc.isLimited || loc.isProvisional;
-        _notificationsGranted = notif.isGranted || notif.isLimited || notif.isProvisional;
-        _cameraGranted = camera.isGranted || camera.isLimited || camera.isProvisional;
-        _microphoneGranted = mic.isGranted || mic.isLimited || mic.isProvisional;
-        _contactsGranted = contacts.isGranted || contacts.isLimited || contacts.isProvisional;
+        _notificationsGranted =
+            notif.isGranted || notif.isLimited || notif.isProvisional;
+        _cameraGranted =
+            camera.isGranted || camera.isLimited || camera.isProvisional;
+        _microphoneGranted =
+            mic.isGranted || mic.isLimited || mic.isProvisional;
+        _contactsGranted =
+            contacts.isGranted || contacts.isLimited || contacts.isProvisional;
         _alarmsGranted = alarms;
         _phoneGranted = phone;
         _isApproximateLocation = isApprox;
@@ -314,7 +320,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
 
   // Accepts any internationally-formatted number (+ country code, 8-15
   // digits) or a bare 10-digit Indian mobile number (starting 6-9, with an
-  // optional leading 0 or 91 trunk prefix) — covers both local contacts and
+  // optional leading 0 or 91 trunk prefix) - covers both local contacts and
   // contacts synced with a foreign country code.
   bool _isValidPhoneNumber(String raw) {
     final cleaned = raw.replaceAll(RegExp(r'[^\d+]'), '');
@@ -336,7 +342,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
     if (!permissionStatus.allGranted) {
       NexusToast.show(
         context,
-        'Check-in alerts may not fire reliably — enable notifications, '
+        'Check-in alerts may not fire reliably - enable notifications, '
         'alarms & full-screen alerts for Nexus in Settings.',
         type: NexusToastType.warning,
         duration: const Duration(seconds: 5),
@@ -369,6 +375,17 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
 
   @override
   Widget build(BuildContext context) {
+    if (!SafetyConsentCache.isGranted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
+      return const Scaffold(
+        backgroundColor: Color(0xFFF4F6FA),
+        body: SizedBox.shrink(),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(),
@@ -672,7 +689,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
   }
 
   // Explains the persistent notification this feature relies on, with a
-  // mock preview of what it looks like — this is illustrative UI, not a
+  // mock preview of what it looks like - this is illustrative UI, not a
   // live OS notification.
   Widget _buildNotificationExplainerCard() {
     return Container(
@@ -711,7 +728,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
             'This stays on your lock screen with SOS, Call 112, and Inform '
             'Trusted Contacts always one tap away. Allow lock-screen '
             'notification content and the full-screen alert permission if '
-            "your phone asks — otherwise you'll only see it after unlocking.",
+            "your phone asks - otherwise you'll only see it after unlocking.",
             style: GoogleFonts.inter(
               fontSize: 11.5,
               color: const Color(0xFF64748B),
@@ -722,7 +739,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
             const SizedBox(height: 6),
             Text(
               'On iPhone, the check-in alert arrives as a Time-Sensitive '
-              "notification — it breaks through Focus/silent mode, but you'll "
+              "notification - it breaks through Focus/silent mode, but you'll "
               'still need to tap it to open the alert screen.',
               style: GoogleFonts.inter(
                 fontSize: 11.5,
@@ -975,7 +992,8 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
   // --- Live Safety Permissions Section ---
   Widget _buildPermissionsStatusSection() {
     final hasAndroid = Platform.isAndroid;
-    final allFine = _locationGranted &&
+    final allFine =
+        _locationGranted &&
         !_isApproximateLocation &&
         _notificationsGranted &&
         _cameraGranted &&
@@ -1007,7 +1025,9 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: allFine ? const Color(0xFFECFDF5) : const Color(0xFFFEF3C7),
+                  color: allFine
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -1032,7 +1052,9 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      allFine ? 'All settings verified for maximum protection.' : 'Some permissions are missing or limited.',
+                      allFine
+                          ? 'All settings verified for maximum protection.'
+                          : 'Some permissions are missing or limited.',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: const Color(0xFF64748B),
@@ -1044,6 +1066,36 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
             ],
           ),
           const SizedBox(height: 16),
+          // Tip Card for One-time grants / precise location
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF), // Light blue info bg
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  LucideIcons.info,
+                  color: Color(0xFF3B82F6),
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Tip: Select 'While using the app' (rather than 'Only this time') and enable 'Precise location' (rather than 'Approximate') to ensure safety features work accurately.",
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      color: const Color(0xFF1E3A8A),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _buildPermissionStatusRow(
             icon: LucideIcons.bell,
             title: 'Push Notifications',
@@ -1145,7 +1197,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage> with WidgetsBinding
         ScalePressable(
           onTap: () async {
             if (isGranted && !isWarning) return;
-            
+
             if (isWarning && permission == ph.Permission.locationWhenInUse) {
               await permission.request();
               await _checkPermissions();

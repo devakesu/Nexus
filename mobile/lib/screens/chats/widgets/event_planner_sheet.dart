@@ -147,7 +147,7 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
     if (!permissionStatus.allGranted) {
       NexusToast.show(
         context,
-        'Check-in alerts may not fire reliably — enable notifications, '
+        'Check-in alerts may not fire reliably - enable notifications, '
         'alarms & full-screen alerts for Nexus in Settings.',
         type: NexusToastType.warning,
         duration: const Duration(seconds: 5),

@@ -76,13 +76,13 @@ Future<void> saveSafetyContacts(List<SafetyContact> contacts) async {
 
 // ---------------------------------------------------------------------------
 // Confirmation UI shown after the real SOS/inform SMS has already been sent
-// (SafetyAlertApi.sendAlert) — these just give the user consistent visual
+// (SafetyAlertApi.sendAlert) - these just give the user consistent visual
 // feedback that it went out, wherever they're triggered from (MeetupSafetyPage,
 // CheckInAlertScreen). They don't send anything themselves.
 // ---------------------------------------------------------------------------
 
 /// Shown when Silent SOS's Digital Witness recording couldn't start (camera/
-/// mic permission denied, no camera available) — the SOS alert itself was
+/// mic permission denied, no camera available) - the SOS alert itself was
 /// already sent for real, so this confirms that rather than implying nothing
 /// happened.
 Future<void> showSosFallbackDialog(
@@ -220,4 +220,14 @@ void showInformContactsToast(
     'Alert sent to $contactNames with your check-in status.',
     type: NexusToastType.success,
   );
+}
+
+Future<void> clearSafetyContacts() async {
+  try {
+    await _kSecureStorageOptions.delete(key: _kSecureStorageKey);
+  } on Object catch (_) {}
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kSecureStorageKey);
+  } on Object catch (_) {}
 }

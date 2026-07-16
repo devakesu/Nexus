@@ -152,13 +152,13 @@ class _SafetyConsentPromptCardState extends State<SafetyConsentPromptCard> {
           Text(
             'Meetup Safety & SOS features process the following data '
             'under your control:\n\n'
-            '• Location & check-in data — to share your whereabouts with '
+            '• Location & check-in data - to share your whereabouts with '
             'trusted contacts\n'
-            '• Battery level — to determine SOS thresholds\n'
-            '• Camera & microphone — only when you start a Digital Witness '
+            '• Battery level - to determine SOS thresholds\n'
+            '• Camera & microphone - only when you start a Digital Witness '
             'recording; never accessed passively\n\n'
             'Under GDPR, processing this data requires your explicit consent. '
-            'This is entirely optional — Nexus works fully without it, and '
+            'This is entirely optional - Nexus works fully without it, and '
             'you can withdraw consent at any time from Privacy Settings.',
             style: GoogleFonts.inter(
               fontSize: 12.5,

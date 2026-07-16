@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 // ---------------------------------------------------------------------------
-// getTagIcon — primary API
+// getTagIcon - primary API
 // Returns a Widget (emoji Text or Lucide Icon) for any known tag.
 // Returns null when there is no icon defined, so callers can skip gracefully.
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ Widget? getTagIcon(String tag, {double iconSize = 15, Color? iconColor}) {
 }
 
 // ---------------------------------------------------------------------------
-// getEmojiForTag — legacy compatibility shim
+// getEmojiForTag - legacy compatibility shim
 // Returns the emoji string, or '' if none. Kept so any call sites that still
 // use the old String-based API continue to compile without change.
 // ---------------------------------------------------------------------------

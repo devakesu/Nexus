@@ -41,7 +41,7 @@ class WavesOverlay extends StatefulWidget {
 class _WavesOverlayState extends State<WavesOverlay> {
   @override
   Widget build(BuildContext context) {
-    // Friends Signal — was previously a generic blue (#3B82F6), a
+    // Friends Signal - was previously a generic blue (#3B82F6), a
     // Mode Signal Rule violation.
     const themeColor = AppColors.modeFriends;
     return Container(
@@ -340,7 +340,7 @@ class _FriendsListOverlayState extends State<FriendsListOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Friends Signal — was previously a generic blue (#3B82F6), a
+    // Friends Signal - was previously a generic blue (#3B82F6), a
     // Mode Signal Rule violation.
     const themeColor = AppColors.modeFriends;
     final session = Supabase.instance.client.auth.currentSession;

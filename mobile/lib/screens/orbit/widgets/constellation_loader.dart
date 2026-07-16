@@ -283,7 +283,7 @@ class _ConstellationPainter extends CustomPainter {
   final double twinkleValue;
 
   // Brightened variant of themeColor used for low-alpha glows/lines/rings
-  // drawn on the near-black backdrop — Friends/Professional's mode colors
+  // drawn on the near-black backdrop - Friends/Professional's mode colors
   // are dark by design (calibrated for text-on-white contrast, see
   // DESIGN.md), so at low alpha over black they'd otherwise wash out next
   // to Dating's much brighter pink.

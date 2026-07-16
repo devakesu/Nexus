@@ -195,7 +195,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
             onChanged: (v) => setState(() => _guidelinesAccepted = v),
             title: 'Community Guidelines',
             description:
-                'Rules for respectful behaviour on Nexus — covering '
+                'Rules for respectful behaviour on Nexus - covering '
                 'harassment, safety, prohibited content, and how we '
                 'enforce them. Required to use the app.',
             icon: LucideIcons.bookOpen,

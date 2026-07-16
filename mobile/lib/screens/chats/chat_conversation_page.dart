@@ -376,7 +376,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Center(
-                                  child: NexusOrbitLoader(size: 24, lightMode: true),
+                                  child: NexusOrbitLoader(
+                                    size: 24,
+                                    lightMode: true,
+                                  ),
                                 ),
                               );
                             }
@@ -573,7 +576,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 child: SizedBox(
                   width: 40,
                   height: 40,
-                  child: widget.profilePic != null && widget.profilePic!.isNotEmpty
+                  child:
+                      widget.profilePic != null && widget.profilePic!.isNotEmpty
                       ? StorageImage(imagePath: widget.profilePic!)
                       : ColoredBox(
                           color: theme.primary.withValues(alpha: 0.12),
@@ -649,7 +653,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     );
   }
 
-  Future<void> _showChatActionsSheet(BuildContext context, ChatTabTheme theme) async {
+  Future<void> _showChatActionsSheet(
+    BuildContext context,
+    ChatTabTheme theme,
+  ) async {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -680,7 +687,9 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                       child: SizedBox(
                         width: 60,
                         height: 60,
-                        child: widget.profilePic != null && widget.profilePic!.isNotEmpty
+                        child:
+                            widget.profilePic != null &&
+                                widget.profilePic!.isNotEmpty
                             ? StorageImage(imagePath: widget.profilePic!)
                             : ColoredBox(
                                 color: theme.primary.withValues(alpha: 0.12),
@@ -716,7 +725,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               _buildSheetAction(
                 icon: LucideIcons.userMinus,
                 label: 'Unmatch',
-                description: 'Remove this connection and close the conversation',
+                description:
+                    'Remove this connection and close the conversation',
                 onTap: () {
                   Navigator.of(context).pop();
                   unawaited(_confirmUnmatch(theme));
@@ -725,7 +735,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               _buildSheetAction(
                 icon: LucideIcons.ban,
                 label: 'Block',
-                description: 'They will not be able to see or interact with you in all 3 orbits',
+                description:
+                    'They will not be able to see or interact with you in all 3 orbits',
                 iconColor: AppColors.error,
                 onTap: () {
                   Navigator.of(context).pop();
@@ -735,7 +746,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               _buildSheetAction(
                 icon: LucideIcons.flag,
                 label: 'Report & Block',
-                description: 'Report safety concerns and block them in all 3 orbits',
+                description:
+                    'Report safety concerns and block them in all 3 orbits',
                 iconColor: AppColors.error,
                 onTap: () {
                   Navigator.of(context).pop();
@@ -872,7 +884,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               child: SelectableText(
                 safetyNumber,
                 textAlign: TextAlign.center,
-                // JetBrains Mono, not Space Mono — DESIGN.md's one mono
+                // JetBrains Mono, not Space Mono - DESIGN.md's one mono
                 // family, used everywhere else the app shows a code.
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 16,

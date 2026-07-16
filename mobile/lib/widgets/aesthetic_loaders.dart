@@ -170,7 +170,7 @@ class _OrbitPainter extends CustomPainter {
 /// where Nexus is locating and aligning the user's constellation in the
 /// network. Features a twinkling starfield, expanding signal-ripple rings,
 /// and the NexusOrbitLoader at center radiating soft glow. Cosmic, warm,
-/// inviting — not a security checkpoint.
+/// inviting - not a security checkpoint.
 class ConstellationAlignLoader extends StatefulWidget {
   const ConstellationAlignLoader({super.key});
 
@@ -220,15 +220,16 @@ class _ConstellationAlignLoaderState extends State<ConstellationAlignLoader>
     // Cycle through status phrases every 2.5 s with a brief fade transition.
     _phraseTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
       if (mounted) {
-        unawaited(_statusController.forward(from: 0).then((_) {
-          if (mounted) {
-            setState(() {
-              _currentPhrase =
-                  (_currentPhrase + 1) % _statusPhrases.length;
-            });
-            unawaited(_statusController.reverse());
-          }
-        }));
+        unawaited(
+          _statusController.forward(from: 0).then((_) {
+            if (mounted) {
+              setState(() {
+                _currentPhrase = (_currentPhrase + 1) % _statusPhrases.length;
+              });
+              unawaited(_statusController.reverse());
+            }
+          }),
+        );
       }
     });
   }
@@ -300,14 +301,16 @@ class _ConstellationAlignLoaderState extends State<ConstellationAlignLoader>
 
               const SizedBox(height: 32),
 
-              // Status text — fades between phrases
+              // Status text - fades between phrases
               AnimatedBuilder(
                 animation: _statusController,
                 builder: (context, child) {
                   // _statusController goes 0→1 on phrase-out, 1→0 on phrase-in.
                   // Opacity is low when controller value is high (mid-transition).
-                  final opacity =
-                      (1.0 - _statusController.value).clamp(0.0, 1.0);
+                  final opacity = (1.0 - _statusController.value).clamp(
+                    0.0,
+                    1.0,
+                  );
                   return Opacity(
                     opacity: opacity,
                     child: Text(
@@ -342,7 +345,7 @@ class _StarfieldPainter extends CustomPainter {
   static List<_Star>? _stars;
 
   static List<_Star> _buildStars() {
-    final rng = math.Random(0xC057A1C); // fixed seed — same starfield every run
+    final rng = math.Random(0xC057A1C); // fixed seed - same starfield every run
     return List.generate(90, (i) {
       return _Star(
         x: rng.nextDouble(),
@@ -410,7 +413,8 @@ class _RipplePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     // Max radius reaches roughly to the corner so the outermost ring fills
     // the full screen before fading.
-    final maxR = math.sqrt(
+    final maxR =
+        math.sqrt(
           center.dx * center.dx + center.dy * center.dy,
         ) *
         0.85;
@@ -434,6 +438,5 @@ class _RipplePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RipplePainter old) =>
-      old.progress != progress;
+  bool shouldRepaint(covariant _RipplePainter old) => old.progress != progress;
 }

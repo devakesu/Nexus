@@ -19,7 +19,7 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Top-level background message handler — must be a top-level function.
+/// Top-level background message handler - must be a top-level function.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FCM] Background message: ${message.messageId}');
@@ -45,7 +45,7 @@ class NotificationService {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
-  /// Initialise after the user authenticates. Safe to call multiple times —
+  /// Initialise after the user authenticates. Safe to call multiple times -
   /// subsequent calls only re-register the device token.
   static Future<void> initialize() async {
     if (_initialized) {
@@ -130,7 +130,7 @@ class NotificationService {
     }
 
     if (status == AuthorizationStatus.denied) {
-      // Only show our dialog once per denial sequence — the OS dialog already
+      // Only show our dialog once per denial sequence - the OS dialog already
       // ran during this or a prior call; avoid nagging on every restart.
       final prefs = await SharedPreferences.getInstance();
       final alreadyShown = prefs.getBool(_kDenialDialogShownKey) ?? false;
@@ -139,7 +139,7 @@ class NotificationService {
       final context = ErrorHandler.navigatorKey.currentContext;
       if (context == null || !context.mounted) return;
 
-      // Show first — no async gap between the mounted-check and this call.
+      // Show first - no async gap between the mounted-check and this call.
       // Flag is written only after the dialog has actually been displayed.
       await showPermissionDeniedDialog(context);
       await prefs.setBool(_kDenialDialogShownKey, true);
@@ -150,7 +150,8 @@ class NotificationService {
   /// call it when the user taps the tile while permission is denied.
   static Future<void> showPermissionDeniedDialog(BuildContext context) async {
     if (!context.mounted) return;
-    final navigator = Navigator.maybeOf(context) ?? ErrorHandler.navigatorKey.currentState;
+    final navigator =
+        Navigator.maybeOf(context) ?? ErrorHandler.navigatorKey.currentState;
     if (navigator == null) return;
     await navigator.push<void>(
       DialogRoute<void>(
@@ -158,7 +159,10 @@ class NotificationService {
         barrierColor: Colors.black.withValues(alpha: 0.6),
         builder: (ctx) => Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
           child: _PermissionDeniedDialog(
             onOpenSettings: () async {
               Navigator.of(ctx).pop();

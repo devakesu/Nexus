@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Central source of truth for Nexus's design tokens (DESIGN.md).
 ///
 /// Screens should reference these instead of hard-coding hex literals.
-/// Hard-coding is how mode/safety colors drift from the documented system —
+/// Hard-coding is how mode/safety colors drift from the documented system -
 /// e.g. the Professional filter panel once reintroduced a "close enough"
 /// teal (`#00C4AB`) instead of the canonical `#007E6D`, and several settings
 /// pages borrowed the Safety Duo despite not being safety surfaces. Importing
@@ -14,13 +14,13 @@ abstract final class AppColors {
   /// Seed/system color; the neutral "always-on" accent (Profile tab, sliders).
   static const Color primaryTeal = Color(0xFF0891B2);
 
-  /// The app's signature brand accent — primary CTAs, onboarding, focus glows.
+  /// The app's signature brand accent - primary CTAs, onboarding, focus glows.
   static const Color pulsarPink = Color(0xFFFF7597);
 
   // ── Mode Signal Rule ─────────────────────────────────────────────────
   // One color per relationship mode, identical across nav, chat, home
   // header, and filter panel for that mode. Never mix two of these (or with
-  // pulsarPink / the Safety Duo) on the same screen — see DESIGN.md's
+  // pulsarPink / the Safety Duo) on the same screen - see DESIGN.md's
   // "One Signal Rule".
   static const Color modeDating = Color(0xFFFF4F81);
   static const Color modeFriends = Color(0xFFA45E00);
@@ -43,14 +43,14 @@ abstract final class AppColors {
   static const Color canvas = Color(0xFFF4F6FA);
 
   // ── Status ───────────────────────────────────────────────────────────
-  /// Reserved for toast/status feedback and validation states — never used
+  /// Reserved for toast/status feedback and validation states - never used
   /// as decorative accents.
   static const Color success = Color(0xFF10B981);
   static const Color error = Color(0xFFEF4444);
   static const Color warning = Color(0xFFF59E0B);
   static const Color info = Color(0xFF60A5FA);
 
-  /// Blends [base] toward white — the standard way this system derives a
+  /// Blends [base] toward white - the standard way this system derives a
   /// lighter gradient "far stop" from a signal color (see the per-mode
   /// tints in chat_theme.dart, which follow the same ~35% blend).
   static Color tint(Color base, [double amount = 0.35]) =>
@@ -59,7 +59,7 @@ abstract final class AppColors {
   /// Picks whichever of pure black/white has higher WCAG contrast against
   /// [background]. A single fixed foreground (e.g. always black87) can clear
   /// AA against a bright mode color (Dating) while failing it against a
-  /// darker one (Friends/Professional) — see the mode-color notes in
+  /// darker one (Friends/Professional) - see the mode-color notes in
   /// DESIGN.md. Computed rather than hardcoded so it stays correct if mode
   /// colors are ever retuned.
   static Color onSignal(Color background) {

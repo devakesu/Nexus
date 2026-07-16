@@ -201,7 +201,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   static const Color _teal = AppColors.safetyTeal;
   static const Color _red = AppColors.error;
 
-  // Whether at least one trusted contact exists — read independently here
+  // Whether at least one trusted contact exists - read independently here
   // just to drive the safety score checklist ring; the Meetup Safety page
   // owns the actual contacts list. Only meaningful when consent is granted;
   // forced false otherwise so the item can't show "done" without consent.
@@ -225,7 +225,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   bool _privacySettingsReviewed = false;
 
   // Section anchors for scroll-to-section navigation from the safety score
-  // card. Indices into the body's item list (see _buildSection) — driving
+  // card. Indices into the body's item list (see _buildSection) - driving
   // ScrollablePositionedList.scrollTo instead of a GlobalKey/ensureVisible
   // lets the list jump to a section that hasn't been built yet without
   // disabling virtualization for the rest of the page.
@@ -375,7 +375,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // Lightweight read of just the contact count for the safety score ring;
   // MeetupSafetyPage owns the full contacts list and its persistence.
-  // Only updates _hasTrustedContacts when consent has been granted —
+  // Only updates _hasTrustedContacts when consent has been granted -
   // without consent the trusted-contacts section is inaccessible anyway,
   // so showing the item as done would be misleading.
   Future<void> _loadHasTrustedContacts() async {
@@ -548,7 +548,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(),
-      // A plain virtualized ScrollablePositionedList — unlike ListView, its
+      // A plain virtualized ScrollablePositionedList - unlike ListView, its
       // ItemScrollController can jump straight to a section by index even
       // before that section has ever been built, so the checklist's
       // "scroll to quiz/guidelines" taps work without forcing the whole
@@ -562,7 +562,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     );
   }
 
-  // Tappable summary card that opens a dedicated page — used so Meetup
+  // Tappable summary card that opens a dedicated page - used so Meetup
   // Safety Alert and Crisis Helplines get room to breathe on their own
   // screen instead of crowding the Safety Center hub. Laid out vertically
   // (icon, title, subtitle) so a pair fits comfortably side by side.
@@ -686,7 +686,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     final checklist = <_ChecklistItem>[
       _ChecklistItem(
         label: 'Add a trusted contact',
-        // Only mark done if consent is granted — without it the Meetup
+        // Only mark done if consent is granted - without it the Meetup
         // Safety page is gated so contacts can't have been legitimately added.
         done: _hasTrustedContacts && SafetyConsentCache.isGranted,
         icon: LucideIcons.users,
@@ -970,7 +970,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         icon: LucideIcons.ban,
         title: 'Instant Block, Report & Hide',
         desc:
-            'One tap removes someone from your matches, requests, and search results — permanently.',
+            'One tap removes someone from your matches, requests, and search results - permanently.',
       ),
     ];
 
@@ -1023,7 +1023,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Everything working quietly in the background — from identity checks to 24/7 moderation — to keep Nexus genuine and safe.',
+                'Everything working quietly in the background - from identity checks to 24/7 moderation - to keep Nexus genuine and safe.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: const Color(0xFF64748B),
@@ -1632,7 +1632,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         onExpansionChanged: (expanded) {
           if (expanded) {
             _openedAccordions.add(index);
-            // Delegate to the shared completion check — red flags also
+            // Delegate to the shared completion check - red flags also
             // need to have been fully scrolled before the tick fires.
             _checkGuidelinesComplete();
           }
@@ -1719,7 +1719,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         icon: LucideIcons.handCoins,
         title: 'Asks for Money',
         desc:
-            'Requests cash, gift cards, crypto, or your banking details — for any reason.',
+            'Requests cash, gift cards, crypto, or your banking details - for any reason.',
       ),
       (
         icon: LucideIcons.messageCircleOff,
@@ -1791,7 +1791,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   // --- Shortcuts & Direct Links ---
-  // Deliberately the one dark card on the page — every other section is a
+  // Deliberately the one dark card on the page - every other section is a
   // light/white card, so this reads instantly as "different kind of
   // content" (a utility menu, not a safety topic) rather than blending in.
   Widget _buildShortcutsSection() {
@@ -1966,7 +1966,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               ),
           const SizedBox(height: 10),
           Text(
-            "You're never alone here — help is always one tap away.",
+            "You're never alone here - help is always one tap away.",
             textAlign: TextAlign.center,
             style: GoogleFonts.manrope(
               fontSize: 12.5,

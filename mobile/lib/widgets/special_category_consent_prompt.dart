@@ -156,7 +156,7 @@ class _SpecialCategoryConsentPromptCardState
             'Sexual orientation and religious belief are '
             'special-category data under GDPR (Article 9). Nexus '
             'needs your explicit consent to store and use them. '
-            'This is entirely optional — Nexus works fully without '
+            'This is entirely optional - Nexus works fully without '
             'it, and you can withdraw consent at any time from '
             'Privacy Settings.',
             style: GoogleFonts.inter(

@@ -9,10 +9,10 @@ const _channel = MethodChannel('com.devakesu.apps.nexus/safety');
 /// Calls an emergency number with as few taps as possible.
 ///
 /// Android: places the call directly via a native `ACTION_CALL` (the
-/// `CALL_PHONE` permission, requested here on first use) — no dialer, no
+/// `CALL_PHONE` permission, requested here on first use) - no dialer, no
 /// confirmation step. iOS never allows any third-party app to skip its own
 /// "Call 112?" system confirmation, so it falls back to the existing
-/// dialer-prefill flow via `tel:` — there's no API that changes that.
+/// dialer-prefill flow via `tel:` - there's no API that changes that.
 Future<void> callEmergencyNumber(BuildContext context, String number) async {
   if (Platform.isAndroid) {
     try {

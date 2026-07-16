@@ -4,8 +4,8 @@ import 'package:nexus/theme/app_colors.dart';
 
 /// Onboarding fields shown only for the main Nexus flavor.
 ///
-/// Collects the user's demographic bucket — which group they primarily
-/// identify as — used for relevance-ranked discovery.
+/// Collects the user's demographic bucket - which group they primarily
+/// identify as - used for relevance-ranked discovery.
 class NexusOnboardingFields extends StatefulWidget {
   const NexusOnboardingFields({
     required this.onChanged,
@@ -115,14 +115,10 @@ class _BucketChip extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected
-                ? AppColors.pulsarPink
-                : const Color(0x1AFFFFFF),
+            color: selected ? AppColors.pulsarPink : const Color(0x1AFFFFFF),
             width: selected ? 1.5 : 1,
           ),
-          color: selected
-              ? const Color(0x26FF7597)
-              : const Color(0xFF0B0D13),
+          color: selected ? const Color(0x26FF7597) : const Color(0xFF0B0D13),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

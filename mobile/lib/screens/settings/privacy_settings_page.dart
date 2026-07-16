@@ -2,11 +2,18 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/services/meetup_safety_session.dart';
+import 'package:nexus/services/safety_alert_api.dart';
+import 'package:nexus/services/safety_contacts.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/profile_refresh_notifier.dart';
+import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
@@ -106,7 +113,7 @@ class PrivacySettingsPage extends StatefulWidget {
 }
 
 class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
-  // Settings Signal — matches this page's parent Settings tab. Was
+  // Settings Signal - matches this page's parent Settings tab. Was
   // previously Safety Blue (#0284C7); Privacy Settings isn't a safety
   // surface (that's Safety Center / meetup safety / crisis helplines).
   static const Color _accent = AppColors.modeSettings;
@@ -126,6 +133,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   // consent. Populated from the in-memory cache set by AuthGate; no extra
   // network call needed.
   bool _specialCategoryGranted = false;
+  bool _safetyDataGranted = false;
 
   bool _activeStatus = true;
   bool _readReceipts = true;
@@ -140,6 +148,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
     // Populate consent flag from the cache that AuthGate set at boot.
     _specialCategoryGranted = SpecialCategoryConsentCache.isGranted;
+    _safetyDataGranted = SafetyConsentCache.isGranted;
     unawaited(_load());
   }
 
@@ -310,6 +319,365 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     );
   }
 
+  Future<bool> _showConfirmWithdrawDialog({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  color: const Color(0xFF475569),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF64748B),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: Text(
+                        'Withdraw',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _withdrawSpecialCategoryConsent() async {
+    final confirmed = await _showConfirmWithdrawDialog(
+      title: 'Withdraw Special Category Consent?',
+      description: 'This will clear your sexuality and religious beliefs on your profile, '
+          'hide these fields from public visibility, and re-lock these settings.',
+      icon: LucideIcons.eyeOff,
+      iconColor: AppColors.error,
+      iconBgColor: const Color(0xFFFEF2F2),
+    );
+
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      // 1. Accept terms with special_category_accepted = false
+      await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
+        data: {
+          'terms_version': SpecialCategoryConsentCache.currentTermsVersion,
+          'general_accepted': true,
+          'community_guidelines_accepted': true,
+          'special_category_accepted': false,
+          'safety_data_accepted': _safetyDataGranted,
+        },
+      );
+
+      // 2. Clear sexuality and religious_beliefs fields
+      await _dio.patch<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/details',
+        data: {
+          'display_sexuality': 'Prefer not to say',
+          'religious_beliefs': 'Prefer not to say',
+        },
+      );
+
+      // 3. Make the fields hidden (visibility = false)
+      final currentHidden = _visibility.entries
+          .where((e) => !e.value)
+          .map((e) => e.key)
+          .toList();
+      if (!currentHidden.contains('display_sexuality')) {
+        currentHidden.add('display_sexuality');
+      }
+      if (!currentHidden.contains('religious_beliefs')) {
+        currentHidden.add('religious_beliefs');
+      }
+      await _dio.patch<void>(
+        '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
+        data: {'hidden_fields': currentHidden},
+      );
+
+      // 4. Update caches and local state
+      SpecialCategoryConsentCache.isGranted = false;
+      await SecureProfileCache.clear();
+      ProfileRefreshNotifier.notifyChanged();
+
+      if (mounted) {
+        setState(() {
+          _specialCategoryGranted = false;
+          _visibility['display_sexuality'] = false;
+          _visibility['religious_beliefs'] = false;
+        });
+        NexusToast.show(
+          context,
+          'Special category consent withdrawn and profile fields cleared.',
+          type: NexusToastType.success,
+        );
+      }
+    } on Exception catch (_) {
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Failed to withdraw consent. Please try again.',
+          type: NexusToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _withdrawSafetyDataConsent() async {
+    final confirmed = await _showConfirmWithdrawDialog(
+      title: 'Withdraw Safety Data Consent?',
+      description: 'This will terminate any active safety or check-in session and disable '
+          'all meetup safety features.',
+      icon: LucideIcons.shieldAlert,
+      iconColor: AppColors.error,
+      iconBgColor: const Color(0xFFFEF2F2),
+    );
+
+    if (!confirmed || !mounted) return;
+
+    setState(() {
+      _loading = true;
+    });
+
+    try {
+      // 1. Accept terms with safety_data_accepted = false
+      await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
+        data: {
+          'terms_version': SafetyConsentCache.currentTermsVersion,
+          'general_accepted': true,
+          'community_guidelines_accepted': true,
+          'special_category_accepted': _specialCategoryGranted,
+          'safety_data_accepted': false,
+        },
+      );
+
+      // 2. End any active meetup safety session
+      await MeetupSafetySession.instance.end();
+
+      // Clear safety contacts locally and sync empty list to server
+      await clearSafetyContacts();
+      await SafetyAlertApi.syncContacts([]);
+
+      // 3. Update caches and local state
+      SafetyConsentCache.isGranted = false;
+
+      if (mounted) {
+        setState(() {
+          _safetyDataGranted = false;
+        });
+        NexusToast.show(
+          context,
+          'Safety data consent withdrawn and session stopped.',
+          type: NexusToastType.success,
+        );
+      }
+    } on Exception catch (_) {
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Failed to withdraw consent. Please try again.',
+          type: NexusToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildConsentTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required String actionLabel,
+    VoidCallback? onActionTap,
+    bool isFirst = false,
+  }) {
+    final isDestructive = actionLabel == 'Delete Account' || actionLabel == 'Withdraw Consent';
+    final isInteractive = onActionTap != null;
+
+    return Column(
+      children: [
+        if (!isFirst)
+          Container(
+            margin: const EdgeInsets.only(left: 64),
+            height: 0.5,
+            color: const Color(0xFFE2E8F0),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF64748B),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: onActionTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isInteractive
+                        ? (isDestructive ? const Color(0xFFFEF2F2) : const Color(0xFFF1F5F9))
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isInteractive
+                          ? (isDestructive ? const Color(0xFFFEE2E2) : const Color(0xFFE2E8F0))
+                          : const Color(0xFFF1F5F9),
+                    ),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: isInteractive
+                          ? (isDestructive ? AppColors.error : const Color(0xFF475569))
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,6 +721,39 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       isLast: true,
                       saving: _saving.contains('share_read_receipts'),
                       onChanged: _toggleReadReceipts,
+                    ),
+                  ],
+                ),
+                _Section(
+                  title: 'Withdraw Consents',
+                  children: [
+                    _buildConsentTile(
+                      icon: LucideIcons.scroll,
+                      iconColor: const Color(0xFF64748B),
+                      iconBgColor: const Color(0xFFF1F5F9),
+                      title: 'General Terms & Policies',
+                      subtitle: 'Mandatory to use Nexus. Withdrawing requires account deletion.',
+                      actionLabel: 'Delete Account',
+                      onActionTap: () => context.push('/settings/delete-account'),
+                      isFirst: true,
+                    ),
+                    _buildConsentTile(
+                      icon: LucideIcons.heart,
+                      iconColor: _specialCategoryGranted ? AppColors.error : const Color(0xFF94A3B8),
+                      iconBgColor: _specialCategoryGranted ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                      title: 'Sensitive Profile Data',
+                      subtitle: 'Consent for processing sexual orientation & religious beliefs.',
+                      actionLabel: _specialCategoryGranted ? 'Withdraw Consent' : 'Not Granted',
+                      onActionTap: _specialCategoryGranted ? _withdrawSpecialCategoryConsent : null,
+                    ),
+                    _buildConsentTile(
+                      icon: LucideIcons.shieldAlert,
+                      iconColor: _safetyDataGranted ? AppColors.safetyBlue : const Color(0xFF94A3B8),
+                      iconBgColor: _safetyDataGranted ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+                      title: 'Meetup Safety & SOS Data',
+                      subtitle: 'Consent for location sharing, battery, camera & mic during dates.',
+                      actionLabel: _safetyDataGranted ? 'Withdraw Consent' : 'Not Granted',
+                      onActionTap: _safetyDataGranted ? _withdrawSafetyDataConsent : null,
                     ),
                   ],
                 ),
@@ -529,8 +930,10 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       isFirst: i == 0,
                       isLast: i == _kHideableFields.length - 1,
                       saving: _saving.contains(_kHideableFields[i].key),
-                      locked: specialCategoryKeys
-                              .contains(_kHideableFields[i].key) &&
+                      locked:
+                          specialCategoryKeys.contains(
+                            _kHideableFields[i].key,
+                          ) &&
                           !_specialCategoryGranted,
                       onChanged: (v) =>
                           _toggleField(_kHideableFields[i].key, v),
@@ -669,6 +1072,7 @@ class _ToggleTile extends StatelessWidget {
   final bool isLast;
   final bool saving;
   final ValueChanged<bool> onChanged;
+
   /// When true the toggle is replaced by a lock icon and the row is not
   /// interactive via onChanged. Tapping the row instead calls onLockedTap.
   final bool locked;
@@ -722,16 +1126,16 @@ class _ToggleTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        locked
-                            ? 'Requires consent — tap to enable'
-                            : subtitle,
+                        locked ? 'Requires consent - tap to enable' : subtitle,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: locked
                               ? AppColors.primaryTeal.withValues(alpha: 0.8)
                               : const Color(0xFF94A3B8),
                           height: 1.3,
-                          fontWeight: locked ? FontWeight.w500 : FontWeight.w400,
+                          fontWeight: locked
+                              ? FontWeight.w500
+                              : FontWeight.w400,
                         ),
                       ),
                     ],

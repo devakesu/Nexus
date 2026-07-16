@@ -40,7 +40,7 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
-  // Settings Signal — matches the Settings tab's own nav color. Was
+  // Settings Signal - matches the Settings tab's own nav color. Was
   // previously Safety Blue (#0284C7), which broke the Mode Signal Rule and
   // leaked the Safety Duo onto a non-safety surface.
   static const Color _accent = AppColors.modeSettings;
@@ -400,7 +400,8 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
               _TileSpec(
                 icon: LucideIcons.bookOpen,
                 label: 'Community Guidelines',
-                onTap: () => context.push<void>('/settings/community-guidelines'),
+                onTap: () =>
+                    context.push<void>('/settings/community-guidelines'),
               ),
             ],
           ),
@@ -423,26 +424,28 @@ class _NexusPlusPromoCard extends StatelessWidget {
   final Color accentColor;
 
   void _showNexusPlusOverlay(BuildContext context) {
-    unawaited(showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'NexusPlus',
-      barrierColor: Colors.black.withValues(alpha: 0.65),
-      transitionDuration: const Duration(milliseconds: 350),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return _NexusPlusOverlay(accentColor: accentColor);
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedValue = Curves.easeOutQuart.transform(animation.value);
-        return FadeTransition(
-          opacity: animation,
-          child: Transform.scale(
-            scale: 0.94 + 0.06 * curvedValue,
-            child: child,
-          ),
-        );
-      },
-    ));
+    unawaited(
+      showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'NexusPlus',
+        barrierColor: Colors.black.withValues(alpha: 0.65),
+        transitionDuration: const Duration(milliseconds: 350),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _NexusPlusOverlay(accentColor: accentColor);
+        },
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          final curvedValue = Curves.easeOutQuart.transform(animation.value);
+          return FadeTransition(
+            opacity: animation,
+            child: Transform.scale(
+              scale: 0.94 + 0.06 * curvedValue,
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -754,8 +757,9 @@ class _NexusPlusOverlay extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF7C3AED,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),

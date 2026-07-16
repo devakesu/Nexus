@@ -475,7 +475,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              "Tip: Select 'While using the app' (rather than 'Only this time') for Location, Camera, and Mic to avoid configuration prompts on every launch.",
+                              "Tip: Select 'While using the app' (rather than 'Only this time') and enable 'Precise location' (rather than 'Approximate') for Location, Camera, and Mic to ensure safety features work accurately.",
                               style: GoogleFonts.inter(
                                 fontSize: 11.5,
                                 color: AppColors.inkMuted,

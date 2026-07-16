@@ -43,7 +43,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'What is Nexus?',
         answer:
-            'Nexus brings three ways to connect into one app — Dating, Friends, and Professional — all built around a single profile. Switch tabs any time; who you meet changes, but your profile stays yours.',
+            'Nexus brings three ways to connect into one app - Dating, Friends, and Professional - all built around a single profile. Switch tabs any time; who you meet changes, but your profile stays yours.',
       ),
       (
         question: 'How do I set up my profile?',
@@ -54,18 +54,18 @@ const List<_HelpCategory> _kHelpCategories = [
         question:
             'Can Dating, Friends, and Professional all be active at once?',
         answer:
-            'Yes. Each context has its own activation toggle, so you can be discoverable for Dating and Professional networking at the same time, or focus on just one — entirely up to you.',
+            'Yes. Each context has its own activation toggle, so you can be discoverable for Dating and Professional networking at the same time, or focus on just one - entirely up to you.',
       ),
       (
         question: "What's Nexus MEC?",
         answer:
-            'Nexus MEC is our campus-community flavor. It verifies you with a campus email and uses generated export/import codes to connect accounts, instead of typical direct account linking — built for closed university communities.',
+            'Nexus MEC is our campus-community flavor. It verifies you with a campus email and uses generated export/import codes to connect accounts, instead of typical direct account linking - built for closed university communities.',
       ),
       (
         question:
             'How do I move my profile from Nexus MEC to the main Nexus app?',
         answer:
-            "From your Nexus MEC profile, generate a 6-character export code (Home → Export Code) — it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.",
+            "From your Nexus MEC profile, generate a 6-character export code (Home → Export Code) - it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.",
       ),
     ],
   ),
@@ -78,27 +78,27 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'What is Orbit?',
         answer:
-            'Orbit is our discovery screen — instead of a flat swipe stack, potential matches appear as nodes arranged in concentric tiers around you, positioned by how closely you match. Open it from the Dating, Friends, or Professional tab.',
+            'Orbit is our discovery screen - instead of a flat swipe stack, potential matches appear as nodes arranged in concentric tiers around you, positioned by how closely you match. Open it from the Dating, Friends, or Professional tab.',
       ),
       (
         question: 'Why do the tiers matter?',
         answer:
-            'Closer tiers generally mean a stronger match on shared interests, preferences, and activity — so you can prioritize who to check out first, without losing the rest of the field.',
+            'Closer tiers generally mean a stronger match on shared interests, preferences, and activity - so you can prioritize who to check out first, without losing the rest of the field.',
       ),
       (
         question: 'Can I filter who shows up in my Orbit?',
         answer:
-            'Yes — each Orbit has its own filters panel, so you can fine-tune preferences separately for Dating, Friends, and Professional.',
+            'Yes - each Orbit has its own filters panel, so you can fine-tune preferences separately for Dating, Friends, and Professional.',
       ),
       (
         question: 'Why does my Orbit look empty?',
         answer:
-            "Make sure the relevant Orbit is activated and matching isn't paused (Settings → Pause Matching), check your connection, and try pulling down to refresh — new profiles roll in continuously.",
+            "Make sure the relevant Orbit is activated and matching isn't paused (Settings → Pause Matching), check your connection, and try pulling down to refresh - new profiles roll in continuously.",
       ),
       (
         question: "Why is my Orbit's age filter capped at a different number?",
         answer:
-            "It depends on which Nexus app you're using — the main Nexus app lets you filter ages up to 80, while Nexus MEC (our campus flavor) caps it at 27 to match its university-community focus.",
+            "It depends on which Nexus app you're using - the main Nexus app lets you filter ages up to 80, while Nexus MEC (our campus flavor) caps it at 27 to match its university-community focus.",
       ),
     ],
   ),
@@ -111,7 +111,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'Are my chats actually private?',
         answer:
-            "Yes — every conversation on Nexus is end-to-end encrypted using the Signal Protocol, the same technology behind Signal's encrypted messaging. Only you and the other person can ever read what's sent.",
+            "Yes - every conversation on Nexus is end-to-end encrypted using the Signal Protocol, the same technology behind Signal's encrypted messaging. Only you and the other person can ever read what's sent.",
       ),
       (
         question: 'Can I send more than text?',
@@ -121,12 +121,12 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'What are chat events?',
         answer:
-            'Chat events let you schedule a meetup right inside a conversation, with optional location sharing and reminders — handy for planning a first coffee or call.',
+            'Chat events let you schedule a meetup right inside a conversation, with optional location sharing and reminders - handy for planning a first coffee or call.',
       ),
       (
         question: "Do people know when I've read their message?",
         answer:
-            "Read receipts and presence indicators (online / last active) show when enabled — you're always in control of what's visible from your privacy settings.",
+            "Read receipts and presence indicators (online / last active) show when enabled - you're always in control of what's visible from your privacy settings.",
       ),
     ],
   ),
@@ -149,12 +149,12 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How does photo verification work?',
         answer:
-            "It's on our roadmap, not live yet — the plan is a quick live selfie scan matched against your profile photos, earning you a blue verified badge plus ongoing duplicate and deepfake scans once it ships. We'll let you know the moment it's live.",
+            "It's on our roadmap, not live yet - the plan is a quick live selfie scan matched against your profile photos, earning you a blue verified badge plus ongoing duplicate and deepfake scans once it ships. We'll let you know the moment it's live.",
       ),
       (
         question: 'Can I hide specific profile fields from others?',
         answer:
-            'Yes — Privacy Settings let you toggle the visibility of individual fields, so you decide exactly what stays public.',
+            'Yes - Privacy Settings let you toggle the visibility of individual fields, so you decide exactly what stays public.',
       ),
       (
         question: 'How often can I change my age?',
@@ -182,27 +182,27 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: "What's in the Safety Center?",
         answer:
-            'A full safety hub — a personal safety score checklist, an interactive safety quiz, meetup safety tools like trusted contacts and check-ins, safety guidelines, and crisis helpline resources.',
+            'A full safety hub - a personal safety score checklist, an interactive safety quiz, meetup safety tools like trusted contacts and check-ins, safety guidelines, and crisis helpline resources.',
       ),
       (
         question: 'How do I block, hide, or report someone?',
         answer:
-            'From any profile or chat, one tap blocks, hides, or reports them — blocking removes them from your matches and search results permanently.',
+            'From any profile or chat, one tap blocks, hides, or reports them - blocking removes them from your matches and search results permanently.',
       ),
       (
         question: 'What happens after I report someone?',
         answer:
-            "Our Trust & Safety team reviews every report, 24/7. It's completely confidential — the reported user is never told who reported them.",
+            "Our Trust & Safety team reviews every report, 24/7. It's completely confidential - the reported user is never told who reported them.",
       ),
       (
         question: 'Why does my report need more detail when I choose "Other"?',
         answer:
-            'When "Other" is selected, the details field needs a valid reason (min. 5 letters) before Report & Block unlocks — just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.',
+            'When "Other" is selected, the details field needs a valid reason (min. 5 letters) before Report & Block unlocks - just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.',
       ),
       (
         question: 'Where do I find Safety Check-in and SOS/Emergency tools?',
         answer:
-            'They live in their own section below — Safety Check-In & Emergency Alerts — covering meetup check-ins, trusted contacts, and exactly what SOS does. You can also open the same tools from Safety Center → Meetup Safety Alert.',
+            'They live in their own section below - Safety Check-In & Emergency Alerts - covering meetup check-ins, trusted contacts, and exactly what SOS does. You can also open the same tools from Safety Center → Meetup Safety Alert.',
       ),
     ],
   ),
@@ -215,35 +215,35 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'What is a Safety Check-in, and when should I use it?',
         answer:
-            "A Safety Check-in — called Meetup Safety Alert in the Safety Center — keeps you accountable during a date or meetup. Pick a check-in interval (15 / 30 / 60 / 120 minutes) and an optional label, like Coffee with Jordan at Bloom Cafe, so your trusted contacts have context if anything's ever sent to them. You'll need at least one trusted contact on file before you can start one.",
+            "A Safety Check-in - called Meetup Safety Alert in the Safety Center - keeps you accountable during a date or meetup. Pick a check-in interval (15 / 30 / 60 / 120 minutes) and an optional label, like Coffee with Jordan at Bloom Cafe, so your trusted contacts have context if anything's ever sent to them. You'll need at least one trusted contact on file before you can start one.",
       ),
       (
         question:
             'How many trusted contacts can I add, and do they get notified right away?',
         answer:
-            "You can add up to 3, typed in manually or picked from your address book — and adding someone doesn't notify them. They only hear from Nexus the moment a real alert actually fires, and that message includes a link where they can verify their own phone number to view your session's live status, last known location, and any evidence clips — no Nexus account needed on their end.",
+            "You can add up to 3, typed in manually or picked from your address book - and adding someone doesn't notify them. They only hear from Nexus the moment a real alert actually fires, and that message includes a link where they can verify their own phone number to view your session's live status, last known location, and any evidence clips - no Nexus account needed on their end.",
       ),
       (
         question: 'What happens if I miss a check-in?',
         answer:
-            "If you don't check in within about 5 minutes of your scheduled time, Nexus texts your trusted contacts that you're unreachable — including your last known battery level, connection type, and the meetup label if you set one — plus a link they can tap to cancel the alert themselves, no account needed. This repeats up to 3 times, spaced by your check-in interval, until you check in or a contact cancels it.",
+            "If you don't check in within about 5 minutes of your scheduled time, Nexus texts your trusted contacts that you're unreachable - including your last known battery level, connection type, and the meetup label if you set one - plus a link they can tap to cancel the alert themselves, no account needed. This repeats up to 3 times, spaced by your check-in interval, until you check in or a contact cancels it.",
       ),
       (
         question:
             "What does SOS actually do, and what's the difference between Silent and Loud?",
         answer:
-            "Both give you a 5-second window to cancel, then grab your location if it's available and text every trusted contact an emergency alert with a map link, the meetup label if any, and a nudge to consider contacting local authorities. Loud SOS plays a full-volume alarm with a one-tap Stop Alarm & Call 112 button; Silent SOS instead starts Digital Witness, a visible on-screen recording, with no sound at all. Either way, Nexus only texts your own trusted contacts — it doesn't call the police or alert a Nexus safety team for you, so Call 112 is always a separate, manual tap.",
+            "Both give you a 5-second window to cancel, then grab your location if it's available and text every trusted contact an emergency alert with a map link, the meetup label if any, and a nudge to consider contacting local authorities. Loud SOS plays a full-volume alarm with a one-tap Stop Alarm & Call 112 button; Silent SOS instead starts Digital Witness, a visible on-screen recording, with no sound at all. Either way, Nexus only texts your own trusted contacts - it doesn't call the police or alert a Nexus safety team for you, so Call 112 is always a separate, manual tap.",
       ),
       (
         question: 'What is Digital Witness, and is that recording private?',
         answer:
-            "Digital Witness is Silent SOS's camera-and-mic recording — always visible on your screen while it runs, by design, so it's never a secret recording. Segments are encrypted and access-controlled, but unlike your end-to-end encrypted chats, the decryption key isn't held solely on your device, so treat it as protected rather than as airtight-private as a message only you and your match can read. If your camera or mic isn't available, Silent SOS still sends the alert text — you'll just be missing the footage.",
+            "Digital Witness is Silent SOS's camera-and-mic recording - always visible on your screen while it runs, by design, so it's never a secret recording. Segments are encrypted and access-controlled, but unlike your end-to-end encrypted chats, the decryption key isn't held solely on your device, so treat it as protected rather than as airtight-private as a message only you and your match can read. If your camera or mic isn't available, Silent SOS still sends the alert text - you'll just be missing the footage.",
       ),
       (
         question:
             'Does a Safety Check-in or SOS track my location the whole time?',
         answer:
-            "No — Nexus doesn't run continuous background location tracking. The only moment it captures your location is if you trigger SOS, and even then it's best-effort: if location access isn't available at that moment, the alert still goes out to your trusted contacts, just without a map link.",
+            "No - Nexus doesn't run continuous background location tracking. The only moment it captures your location is if you trigger SOS, and even then it's best-effort: if location access isn't available at that moment, the alert still goes out to your trusted contacts, just without a map link.",
       ),
       (
         question: 'Will the check-in alert always wake up my phone?',
@@ -253,7 +253,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How long does Nexus keep my check-in and SOS data?',
         answer:
-            "Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline — even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it for good.",
+            "Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline - even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it for good.",
       ),
     ],
   ),
@@ -271,7 +271,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'Can I delete my account?',
         answer:
-            "Settings → Account Actions → Delete Account. You'll be signed out immediately and hidden from Orbit, but you have 14 days to change your mind — just log back in and reactivate. After that, your account is permanently erased.",
+            "Settings → Account Actions → Delete Account. You'll be signed out immediately and hidden from Orbit, but you have 14 days to change your mind - just log back in and reactivate. After that, your account is permanently erased.",
       ),
       (
         question: 'How do I manage notifications?',
@@ -281,7 +281,7 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: 'How do I pause my visibility without deleting anything?',
         answer:
-            "Use Pause Matching in Settings — it deactivates all three Orbits at once, so you're invisible to discovery until you turn it back on.",
+            "Use Pause Matching in Settings - it deactivates all three Orbits at once, so you're invisible to discovery until you turn it back on.",
       ),
     ],
   ),
@@ -304,12 +304,12 @@ const List<_HelpCategory> _kHelpCategories = [
       (
         question: "A photo isn't uploading.",
         answer:
-            'Usually a connection hiccup or a very large file — try again on Wi-Fi, or use a smaller image. Still stuck? Contact support below.',
+            'Usually a connection hiccup or a very large file - try again on Wi-Fi, or use a smaller image. Still stuck? Contact support below.',
       ),
       (
         question: 'The app is slow or keeps closing.',
         answer:
-            "Force close and reopen the app, and make sure you're on the latest version from the App Store or Play Store — most performance issues are fixed in updates.",
+            "Force close and reopen the app, and make sure you're on the latest version from the App Store or Play Store - most performance issues are fixed in updates.",
       ),
     ],
   ),
@@ -1186,7 +1186,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                "A few things we're actively building — this is a living list, not a promise of dates.",
+                "A few things we're actively building - this is a living list, not a promise of dates.",
                 style: GoogleFonts.inter(
                   fontSize: 12.5,
                   color: Colors.white54,

@@ -20,7 +20,7 @@ class HiddenUsersPage extends StatefulWidget {
 }
 
 class _HiddenUsersPageState extends State<HiddenUsersPage> {
-  // Settings Signal — matches this page's parent Settings tab. Was
+  // Settings Signal - matches this page's parent Settings tab. Was
   // previously Safety Blue (#0284C7); Hidden Users isn't a safety surface.
   static const Color _accentBlue = AppColors.modeSettings;
 
@@ -315,8 +315,8 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
     final filteredUsers = _selectedTabFilter == 'All'
         ? _users
         : _users
-            .where((u) => u.entries.any((e) => e.tab == _selectedTabFilter))
-            .toList();
+              .where((u) => u.entries.any((e) => e.tab == _selectedTabFilter))
+              .toList();
 
     return Column(
       children: [
@@ -330,10 +330,10 @@ class _HiddenUsersPageState extends State<HiddenUsersPage> {
                   accentColor: _selectedTabFilter == 'Dating'
                       ? AppColors.modeDating
                       : _selectedTabFilter == 'Friends'
-                          ? AppColors.modeFriends
-                          : _selectedTabFilter == 'Professional'
-                              ? AppColors.modeProfessional
-                              : _accentBlue,
+                      ? AppColors.modeFriends
+                      : _selectedTabFilter == 'Professional'
+                      ? AppColors.modeProfessional
+                      : _accentBlue,
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),

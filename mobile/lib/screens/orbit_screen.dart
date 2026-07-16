@@ -1891,28 +1891,40 @@ class _OrbitScreenState extends State<OrbitScreen>
                       _buildOrbitRing(
                         100,
                         'Core Gravity',
-                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.12),
+                        AppColors.tint(
+                          widget.themeColor,
+                          0.45,
+                        ).withValues(alpha: 0.12),
                         isDashed: false,
                         index: 0,
                       ),
                       _buildOrbitRing(
                         200,
                         'Inner Constellation',
-                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.10),
+                        AppColors.tint(
+                          widget.themeColor,
+                          0.45,
+                        ).withValues(alpha: 0.10),
                         isDashed: true,
                         index: 1,
                       ),
                       _buildOrbitRing(
                         300,
                         'Mid Horizon',
-                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.08),
+                        AppColors.tint(
+                          widget.themeColor,
+                          0.45,
+                        ).withValues(alpha: 0.08),
                         isDashed: false,
                         index: 2,
                       ),
                       _buildOrbitRing(
                         420,
                         'Deep Space Horizon',
-                        AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.06),
+                        AppColors.tint(
+                          widget.themeColor,
+                          0.45,
+                        ).withValues(alpha: 0.06),
                         isDashed: true,
                         index: 3,
                       ),
@@ -1939,12 +1951,12 @@ class _OrbitScreenState extends State<OrbitScreen>
             },
           ),
 
-          // Edge vignette — signals the starfield continues past the
+          // Edge vignette - signals the starfield continues past the
           // viewport (pan to explore) instead of reading as clipped/broken.
           // Uses 4 edge-aligned strips rather than a RadialGradient: a
           // circular radial gradient sizes its radius off the shortest side,
           // which on a tall phone viewport over-darkens the vertical
-          // top/bottom while barely reaching the horizontal edges — exactly
+          // top/bottom while barely reaching the horizontal edges - exactly
           // where clipped node chips actually sit.
           const IgnorePointer(
             child: Stack(
@@ -2040,12 +2052,18 @@ class _OrbitScreenState extends State<OrbitScreen>
               alignment: Alignment.bottomCenter,
               child: Container(
                 margin: const EdgeInsets.fromLTRB(32, 0, 32, 140),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F172A).withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.2),
+                    color: AppColors.tint(
+                      widget.themeColor,
+                      0.45,
+                    ).withValues(alpha: 0.2),
                   ),
                 ),
                 child: Column(
@@ -2198,14 +2216,17 @@ class _OrbitScreenState extends State<OrbitScreen>
       children: [
         // Rotating dashboard/gyro ring (Option B)
         SizedBox(
-          width: 110,
-          height: 110,
-          child: CustomPaint(
-            painter: DashedOrbitRingPainter(
-              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.45),
-            ),
-          ),
-        )
+              width: 110,
+              height: 110,
+              child: CustomPaint(
+                painter: DashedOrbitRingPainter(
+                  color: AppColors.tint(
+                    widget.themeColor,
+                    0.45,
+                  ).withValues(alpha: 0.45),
+                ),
+              ),
+            )
             .animate(onPlay: (controller) => controller.repeat())
             .rotate(
               begin: 0,
@@ -2215,16 +2236,19 @@ class _OrbitScreenState extends State<OrbitScreen>
 
         // Radiating Pulsar Wave 1 (Option A)
         Container(
-          width: 76,
-          height: 76,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.55),
-              width: 1.5,
-            ),
-          ),
-        )
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.tint(
+                    widget.themeColor,
+                    0.45,
+                  ).withValues(alpha: 0.55),
+                  width: 1.5,
+                ),
+              ),
+            )
             .animate(onPlay: (controller) => controller.repeat())
             .scale(
               begin: const Offset(1, 1),
@@ -2241,16 +2265,19 @@ class _OrbitScreenState extends State<OrbitScreen>
 
         // Radiating Pulsar Wave 2 - delayed (Option A)
         Container(
-          width: 76,
-          height: 76,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.tint(widget.themeColor, 0.45).withValues(alpha: 0.55),
-              width: 1.5,
-            ),
-          ),
-        )
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.tint(
+                    widget.themeColor,
+                    0.45,
+                  ).withValues(alpha: 0.55),
+                  width: 1.5,
+                ),
+              ),
+            )
             .animate(onPlay: (controller) => controller.repeat())
             .scale(
               begin: const Offset(1, 1),
@@ -2320,7 +2347,7 @@ class _OrbitScreenState extends State<OrbitScreen>
   }
 
   /// Ring width/alpha/glow step per orbit tier (0 = best match, 3 = weakest)
-  /// — the discrete, at-a-glance hierarchy signal. Raw `score` only nudges
+  /// - the discrete, at-a-glance hierarchy signal. Raw `score` only nudges
   /// alpha slightly within a tier so same-tier nodes aren't pixel-identical.
   static ({double width, double alpha, double blur, double spread})
   _tierRingStyle(int tier) {
@@ -2464,7 +2491,7 @@ class _OrbitScreenState extends State<OrbitScreen>
 
     if (!node.isNew) return avatar;
 
-    // "New" presence dot — reuses the nav bar's solid-dot badge shape
+    // "New" presence dot - reuses the nav bar's solid-dot badge shape
     // (custom_bottom_nav_bar.dart) rather than inventing a new pattern.
     return Stack(
       clipBehavior: Clip.none,
@@ -2547,47 +2574,50 @@ class _OrbitScreenState extends State<OrbitScreen>
         top: center + y - (avatarSize / 2),
         child: FractionalTranslation(
           translation: const Offset(-0.5, 0),
-          child: Opacity(
-            opacity: opacity,
-            child: InteractiveOrbitNode(
-              onTap: () => _showNodeDetails(id),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Avatar with tier/score-driven ring and glow
-                  _buildNodeAvatar(node),
-                  const SizedBox(height: 4),
-                  // Name label with soft drop shadow (no background box)
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 92),
-                    child: Text(
-                      name,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      textAlign: TextAlign.center,
-                      style: _nodeNameStyle.copyWith(
-                        fontSize: fontSize,
-                        shadows: [
-                          Shadow(
-                            color: const Color(0xFF020408).withValues(alpha: 0.85),
-                            offset: const Offset(0, 1.5),
-                            blurRadius: 3.5,
+          child:
+              Opacity(
+                    opacity: opacity,
+                    child: InteractiveOrbitNode(
+                      onTap: () => _showNodeDetails(id),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Avatar with tier/score-driven ring and glow
+                          _buildNodeAvatar(node),
+                          const SizedBox(height: 4),
+                          // Name label with soft drop shadow (no background box)
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 92),
+                            child: Text(
+                              name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                              style: _nodeNameStyle.copyWith(
+                                fontSize: fontSize,
+                                shadows: [
+                                  Shadow(
+                                    color: const Color(
+                                      0xFF020408,
+                                    ).withValues(alpha: 0.85),
+                                    offset: const Offset(0, 1.5),
+                                    blurRadius: 3.5,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 400.ms, curve: Curves.easeOut)
+                  .scale(
+                    begin: const Offset(0.85, 0.85),
+                    duration: 400.ms,
+                    curve: Curves.easeOut,
                   ),
-                ],
-              ),
-            ),
-          )
-          .animate()
-          .fadeIn(duration: 400.ms, curve: Curves.easeOut)
-          .scale(
-            begin: const Offset(0.85, 0.85),
-            duration: 400.ms,
-            curve: Curves.easeOut,
-          ),
         ),
       );
     }).toList();

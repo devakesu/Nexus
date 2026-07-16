@@ -99,7 +99,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           SpecialCategoryConsentCache.clear();
           _hasReachedHome = false;
           // Note: permissions_page_completed is intentionally NOT cleared here.
-          // OS permissions are device-scoped (not session-scoped) — they survive
+          // OS permissions are device-scoped (not session-scoped) - they survive
           // sign-out, so forcing the permissions page again on every login is
           // unnecessary friction.
         }
@@ -182,8 +182,12 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   /// modal dialog instead of swapping the whole screen away.
   Future<void> _handleResumed() async {
     final wasSettled =
-        _hasReachedHome && _hasProfile && !_deletionPending && !_mandatoryConsentRequired;
-    final runSilent = wasSettled || Supabase.instance.client.auth.currentSession != null;
+        _hasReachedHome &&
+        _hasProfile &&
+        !_deletionPending &&
+        !_mandatoryConsentRequired;
+    final runSilent =
+        wasSettled || Supabase.instance.client.auth.currentSession != null;
     _lastBootstrappedUserId = null;
     await _checkBootstrap(silent: runSilent);
     if (!mounted || !wasSettled) return;
@@ -193,8 +197,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         barrierDismissible: false,
         builder: (dialogContext) => Dialog(
           backgroundColor: AppColors.canvas,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 40,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 640),
             child: TermsConsentPage(
@@ -345,9 +354,13 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
         final hasProfile = profileResponse != null;
         final prefs = await SharedPreferences.getInstance();
-        final permissionsCompleted = prefs.getBool('permissions_page_completed') ?? false;
+        final permissionsCompleted =
+            prefs.getBool('permissions_page_completed') ?? false;
 
-        if (hasProfile && !_deletionPending && !_mandatoryConsentRequired && permissionsCompleted) {
+        if (hasProfile &&
+            !_deletionPending &&
+            !_mandatoryConsentRequired &&
+            permissionsCompleted) {
           _hasReachedHome = true;
         }
 
@@ -367,7 +380,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           // screen first (see SignalKeyService.ensureBootstrappedInBackground
           // doc comment for the retry-safe fallback chain).
           if (hasProfile) {
-            unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
+            unawaited(
+              SignalKeyService.instance.ensureBootstrappedInBackground(),
+            );
           }
         }
       } else {
@@ -479,7 +494,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
               setState(() {
                 _hasProfile = true;
               });
-              unawaited(SignalKeyService.instance.ensureBootstrappedInBackground());
+              unawaited(
+                SignalKeyService.instance.ensureBootstrappedInBackground(),
+              );
             },
           );
         } else if (_mandatoryConsentRequired && !_hasReachedHome) {

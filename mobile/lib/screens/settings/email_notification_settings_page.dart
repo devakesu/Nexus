@@ -76,7 +76,7 @@ class EmailNotificationSettingsPage extends StatefulWidget {
 
 class _EmailNotificationSettingsPageState
     extends State<EmailNotificationSettingsPage> {
-  // Settings Signal — matches this page's parent Settings tab. Was
+  // Settings Signal - matches this page's parent Settings tab. Was
   // previously Safety Blue (#0284C7); Email Notifications isn't a safety
   // surface.
   static const Color _accent = AppColors.modeSettings;
@@ -263,7 +263,7 @@ class _EmailNotificationSettingsPageState
           label: 'Transactional Emails',
           subtitle:
               'Security alerts, password resets, and billing receipts. '
-              "Required to keep your account safe — can't be turned off.",
+              "Required to keep your account safe - can't be turned off.",
           accentColor: _accent,
         ),
       ],

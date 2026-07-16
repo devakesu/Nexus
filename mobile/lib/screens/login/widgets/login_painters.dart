@@ -300,7 +300,7 @@ class GravityFieldPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant GravityFieldPainter oldDelegate) {
     // simulatedTime advances every physics tick, so this still repaints on
-    // essentially every real animation frame — but unlike a blanket `true`,
+    // essentially every real animation frame - but unlike a blanket `true`,
     // it skips repainting if this painter is reconstructed with identical
     // field values for an unrelated rebuild.
     return oldDelegate.simulatedTime != simulatedTime ||

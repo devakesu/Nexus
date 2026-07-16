@@ -273,7 +273,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   // ── Build helpers ─────────────────────────────────────────────────────────
 
-  // Pulsar Pink — onboarding's brand accent per DESIGN.md. This constant was
+  // Pulsar Pink - onboarding's brand accent per DESIGN.md. This constant was
   // previously misnamed "_teal" despite already holding pink; meanwhile
   // Safety Teal (#0D9488) was separately hardcoded throughout this file,
   // which was the actual One Signal Rule violation, fixed below.

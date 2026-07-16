@@ -324,7 +324,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Thanks — we got it!',
+                'Thanks - we got it!',
                 style: GoogleFonts.manrope(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -486,8 +486,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: 3),
                   Text(
                     email != null
-                        ? "This reaches our team directly — we'll reply to $email."
-                        : 'This reaches our team directly — no bots in between.',
+                        ? "This reaches our team directly - we'll reply to $email."
+                        : 'This reaches our team directly - no bots in between.',
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
                       color: const Color(0xFF64748B),
@@ -577,7 +577,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
               child: _recentTickets.isEmpty
                   ? Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 32,
+                        horizontal: 24,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -732,7 +735,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       Icon(
                         type.icon,
                         size: 20,
-                        color: selected ? _gradientEnd : const Color(0xFF94A3B8),
+                        color: selected
+                            ? _gradientEnd
+                            : const Color(0xFF94A3B8),
                       ),
                       const SizedBox(height: 8),
                       Text(

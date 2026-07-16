@@ -11,7 +11,7 @@ class ChatTabTheme {
 }
 
 // Primaries match each mode's Mode Signal color from the bottom nav
-// (custom_bottom_nav_bar.dart) exactly — DESIGN.md's Mode Signal Rule
+// (custom_bottom_nav_bar.dart) exactly - DESIGN.md's Mode Signal Rule
 // requires one consistent accent per mode across nav, chat, and filters.
 // Secondaries are a lightened tint of that same primary, used only as the
 // gradient's far stop.

@@ -107,6 +107,9 @@ Future<void> startDataExport(BuildContext context) async {
                       color: AppColors.error,
                     ),
                   ),
+                  const TextSpan(
+                    text: ' We are not responsible if this file is leaked from you.',
+                  ),
                 ],
               ),
             ),

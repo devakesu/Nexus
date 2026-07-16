@@ -21,7 +21,7 @@ import 'package:nexus/widgets/scale_pressable.dart';
 enum _SosPhase { idle, countdown, silentActive, loudActive }
 
 /// Full-screen, animated Meetup Safety check-in alert. Pushed by
-/// [MeetupSafetySession] whenever a check-in comes due — whether the app was
+/// [MeetupSafetySession] whenever a check-in comes due - whether the app was
 /// already open, the user tapped the check-in notification, or (on Android)
 /// the notification's full-screen intent launched the app directly over the
 /// lock screen.
@@ -605,7 +605,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
     );
   }
 
-  // Silent SOS's "Digital Witness" viewfinder — an explicit, visible
+  // Silent SOS's "Digital Witness" viewfinder - an explicit, visible
   // recording, never covert. See DigitalWitnessRecorder's doc comment.
   Widget _buildSilentRecordingOverlay() {
     return Container(
@@ -668,10 +668,10 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
               const SizedBox(height: 20),
               Text(
                 _alertSent
-                    ? 'Recording video and audio as evidence, in the open — this '
+                    ? 'Recording video and audio as evidence, in the open - this '
                           'is visible on your screen the whole time, never hidden. '
                           'Trusted contacts have been notified.'
-                    : 'Recording video and audio as evidence. ALERT SENDING FAILED — '
+                    : 'Recording video and audio as evidence. ALERT SENDING FAILED - '
                           'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
@@ -772,7 +772,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
               child: Text(
                 _alertSent
                     ? 'Alarm sounding at full volume. Trusted contacts have been notified.'
-                    : 'Alarm sounding at full volume. ALERT SENDING FAILED — '
+                    : 'Alarm sounding at full volume. ALERT SENDING FAILED - '
                           'trusted contacts have not been notified. Please call 112 directly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(

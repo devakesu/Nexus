@@ -30,7 +30,7 @@ const _kPrefServerSessionId = 'meetup_safety_server_session_id';
 /// and the check-in-due full-screen notification.
 ///
 /// Tapping any of these currently just brings the app forward to the
-/// relevant screen — wiring real SOS/call/inform side effects from a
+/// relevant screen - wiring real SOS/call/inform side effects from a
 /// background isolate (without opening the app) is a later phase.
 abstract final class MeetupSafetyNotificationActions {
   static const sos = 'meetup_safety_sos';
@@ -39,14 +39,14 @@ abstract final class MeetupSafetyNotificationActions {
   static const imSafe = 'meetup_safety_im_safe';
 }
 
-/// Result of [MeetupSafetySession.ensureAndroidPermissions] — which of the
+/// Result of [MeetupSafetySession.ensureAndroidPermissions] - which of the
 /// Android settings-gated permissions the check-in-due alert depends on are
 /// actually granted. `false` doesn't necessarily mean the user just denied
 /// it: `requestExactAlarmsPermission`/`requestFullScreenIntentPermission`
 /// open a system Settings screen and don't wait for the user to come back,
 /// so it can also mean "not yet granted, user was just sent to Settings".
 /// Either way, callers should warn rather than block on an incomplete
-/// result — the ongoing notification and local exact-alarm loop still work
+/// result - the ongoing notification and local exact-alarm loop still work
 /// best-effort regardless.
 class MeetupSafetyPermissionStatus {
   const MeetupSafetyPermissionStatus({
@@ -94,12 +94,12 @@ class MeetupSafetySession extends ChangeNotifier {
 
   /// Server-side mirror of this session (app/db/safety.py's safety_sessions
   /// table), used by the dead-man's-switch escalation job. Null if the
-  /// mirror call failed — the local exact-alarm loop is unaffected either
+  /// mirror call failed - the local exact-alarm loop is unaffected either
   /// way, this is purely an additional safety net.
   String? _serverSessionId;
 
   /// Exposed so SOS/inform alerts can be tagged with the session they
-  /// happened during (see SafetyAlertApi.sendAlert's sessionId param) — that
+  /// happened during (see SafetyAlertApi.sendAlert's sessionId param) - that
   /// link is what lets the Milestone E trusted-contact portal show a
   /// session's location/evidence.
   String? get serverSessionId => _serverSessionId;
@@ -123,7 +123,7 @@ class MeetupSafetySession extends ChangeNotifier {
       final localTz = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(localTz.identifier));
     } on Exception {
-      // Falls back to the timezone package's default (UTC) — exact-alarm
+      // Falls back to the timezone package's default (UTC) - exact-alarm
       // scheduling still works, just anchored to UTC wall-clock if the
       // device's real zone couldn't be resolved.
     }
@@ -134,7 +134,7 @@ class MeetupSafetySession extends ChangeNotifier {
     final darwinInit = DarwinInitializationSettings(
       // Also attempts the Critical Alert interruption level; inert unless
       // Apple ever grants that entitlement for this app (a business-side
-      // request, not a code change) — Time-Sensitive is what actually ships.
+      // request, not a code change) - Time-Sensitive is what actually ships.
       requestCriticalPermission: true,
       notificationCategories: [
         DarwinNotificationCategory(
@@ -298,7 +298,7 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   /// Mirrors a freshly-started session server-side. Fire-and-forget from
-  /// start() — the local exact-alarm loop is what actually keeps the check-in
+  /// start() - the local exact-alarm loop is what actually keeps the check-in
   /// loop working, this just widens the safety net to cover the device going
   /// unreachable entirely.
   Future<void> _mirrorStart(int generation) async {
@@ -326,7 +326,7 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   /// Heartbeats the server mirror on a successful check-in (or an extend,
-  /// which is really just a reschedule) — resets its escalation counter the
+  /// which is really just a reschedule) - resets its escalation counter the
   /// same way the local reschedule resets the exact alarm.
   Future<void> _mirrorCheckin() async {
     final sessionId = _serverSessionId;
@@ -444,7 +444,7 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   /// Pushes the full-screen check-in alert if a session is active and it
-  /// isn't already showing. Safe to call redundantly — both the in-app timer
+  /// isn't already showing. Safe to call redundantly - both the in-app timer
   /// and a tapped/auto-launched notification can each trigger this for the
   /// same deadline, only the first call actually navigates.
   void _showAlertScreenIfNeeded() {
@@ -571,7 +571,7 @@ class MeetupSafetySession extends ChangeNotifier {
     }
     // SOS / Call 112 / Inform Contacts tapped from the ongoing notification:
     // for now this just foregrounds the app to the alert screen, where the
-    // same buttons are available — see the class doc comment above.
+    // same buttons are available - see the class doc comment above.
     if (response.actionId == MeetupSafetyNotificationActions.sos ||
         response.actionId == MeetupSafetyNotificationActions.call112 ||
         response.actionId == MeetupSafetyNotificationActions.informContacts) {

@@ -33,6 +33,7 @@ import 'package:nexus/screens/home/widgets/export_code_card.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/profile_refresh_notifier.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -65,6 +66,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   late final Dio _dio;
   late final SpotifyService _spotifyService;
   final SupabaseClient _client = Supabase.instance.client;
+  StreamSubscription<void>? _profileRefreshSub;
 
   // Loading state
   bool _isLoading = true;
@@ -453,6 +455,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     );
 
     _pageController = PageController();
+    _profileRefreshSub = ProfileRefreshNotifier.stream.listen((_) {
+      if (mounted) {
+        setState(() {
+          if (!SpecialCategoryConsentCache.isGranted) {
+            _displaySexuality = '';
+            _savedDisplaySexuality = '';
+            _religiousBeliefs = '';
+            _savedReligiousBeliefs = '';
+          }
+        });
+        unawaited(_loadProfileData(silent: true));
+      }
+    });
     unawaited(_bootstrapProfileData());
     if (widget.targetSection != null) {
       _scrollToTargetSection(widget.targetSection!);
@@ -493,6 +508,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   @override
   void dispose() {
+    unawaited(_profileRefreshSub?.cancel());
     _pulseController?.dispose();
     _rotationController?.dispose();
     _entryController?.dispose();

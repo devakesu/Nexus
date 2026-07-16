@@ -720,7 +720,7 @@ async def send_feedback_confirmation_email(
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                         color: #9CA3AF; font-weight: 400;">
-                Thanks, {user_name} — we've received your {label.lower()} and
+                Thanks, {user_name} - we've received your {label.lower()} and
                 it's now in our queue. Our team typically responds within
                 24-48 hours.
               </p>
@@ -768,21 +768,21 @@ async def send_feedback_confirmation_email(
 
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3,
-        subject=f"We've received your {label.lower()} — Nexus Support",
+        subject=f"We've received your {label.lower()} - Nexus Support",
         preheader_category="SUPPORT",
         preheader_action=f"TICKET_{ticket_ref}_OPEN",
         footer_html=footer_html,
     )
 
     text_content = (
-        f"Thanks, {user_name} — we've received your {label.lower()} "
+        f"Thanks, {user_name} - we've received your {label.lower()} "
         f"(ticket #{ticket_ref}) and it's now in our queue. Our team "
         "typically responds within 24-48 hours."
     )
 
     props = SendEmailProps(
         to=email,
-        subject=f"We've received your {label.lower()} — Nexus Support",
+        subject=f"We've received your {label.lower()} - Nexus Support",
         html=html_content,
         text=text_content,
         sender_email=f"support@{settings.email_domain}",
@@ -921,7 +921,7 @@ async def send_feedback_admin_notification_email(
     )
 
     text_content = (
-        f"New {label} — #{ticket_ref}\nSubject: {subject}\n"
+        f"New {label} - #{ticket_ref}\nSubject: {subject}\n"
         f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n\n"
         f"{message}"
     )
@@ -982,7 +982,7 @@ async def send_trusted_contact_removed_email(
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                         color: #9CA3AF; font-weight: 400;">
-                Hi {user_name} — <strong style="color: #FFFFFF;">
+                Hi {user_name} - <strong style="color: #FFFFFF;">
                 {contact_name}</strong> removed themselves as one of your
                 Meetup Safety trusted contacts.
               </p>
@@ -1007,7 +1007,7 @@ async def send_trusted_contact_removed_email(
 
     html_content = render_email_template(
         rows_html=row_1 + row_2,
-        subject="A trusted contact removed themselves — Nexus",
+        subject="A trusted contact removed themselves - Nexus",
         preheader_category="SAFETY",
         preheader_action="CONTACT_REMOVED",
         footer_html=(
@@ -1016,14 +1016,14 @@ async def send_trusted_contact_removed_email(
         ),
     )
     text_content = (
-        f"Hi {user_name} — {contact_name} removed themselves as one of "
+        f"Hi {user_name} - {contact_name} removed themselves as one of "
         "your Meetup Safety trusted contacts. They will no longer receive "
         "check-in or SOS alerts on your behalf."
     )
 
     props = SendEmailProps(
         to=email,
-        subject="A trusted contact removed themselves — Nexus",
+        subject="A trusted contact removed themselves - Nexus",
         html=html_content,
         text=text_content,
         sender_email=f"support@{settings.email_domain}",
@@ -1267,5 +1267,3 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
         use_sp = should_use_sendpulse(email)
         provider_name = "SendPulse" if use_sp else "Brevo"
         return ProviderResult(success=False, provider=provider_name, error=str(err))
-
-

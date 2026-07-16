@@ -20,7 +20,7 @@ class BlockedUsersPage extends StatefulWidget {
 }
 
 class _BlockedUsersPageState extends State<BlockedUsersPage> {
-  // Settings Signal — matches this page's parent Settings tab. Was
+  // Settings Signal - matches this page's parent Settings tab. Was
   // previously Safety Blue (#0284C7); Blocked Users isn't a safety surface.
   static const Color _accentBlue = AppColors.modeSettings;
 
