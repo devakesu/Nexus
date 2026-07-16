@@ -12,6 +12,7 @@ class SelectorTile extends StatelessWidget {
     required this.onTap,
     this.onClear,
     this.isSaving = false,
+    this.isFullWidth = true,
     super.key,
   });
 
@@ -22,12 +23,22 @@ class SelectorTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onClear;
   final bool isSaving;
+  final bool isFullWidth;
 
   @override
   Widget build(BuildContext context) {
     const pulsarPink = AppColors.pulsarPink;
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
-    final tagIcon = isEmpty ? null : getTagIcon(value);
+    
+    // Layout configurations based on width mode
+    final iconSize = isFullWidth ? 15.0 : 13.0;
+    final fontSize = isFullWidth ? 12.5 : 12.0;
+    final leftPadding = isFullWidth ? 14.0 : 10.0;
+    final iconTextGap = isFullWidth ? 8.0 : 5.0;
+    final clearWidth = isFullWidth ? 44.0 : 36.0;
+    final rightPadding = isFullWidth ? 12.0 : 8.0;
+
+    final tagIcon = isEmpty ? null : getTagIcon(value, iconSize: iconSize);
     final displayText = isEmpty ? 'Select...' : value;
     final textColor = isEmpty
         ? Colors.black.withValues(alpha: 0.3)
@@ -36,14 +47,20 @@ class SelectorTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.black.withValues(alpha: 0.5),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -77,23 +94,22 @@ class SelectorTile extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Icon(icon, color: iconColor, size: 16),
-                      const SizedBox(width: 8),
+                      SizedBox(width: leftPadding),
                       Expanded(
                         child: Row(
                           children: [
                             if (tagIcon != null) ...[
                               tagIcon,
-                              const SizedBox(width: 6),
+                              SizedBox(width: iconTextGap),
                             ],
                             Expanded(
                               child: Text(
                                 displayText,
                                 maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: textColor,
-                                  fontSize: 12.5,
+                                  fontSize: fontSize,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -110,12 +126,10 @@ class SelectorTile extends StatelessWidget {
                           child: GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: onClear,
-                            // 44px minimum touch target; the icon itself
-                            // stays 13px, centered within.
-                            child: const SizedBox(
-                              width: 44,
+                            child: SizedBox(
+                              width: clearWidth,
                               height: 44,
-                              child: Center(
+                              child: const Center(
                                 child: Icon(
                                   LucideIcons.x,
                                   size: 13,
@@ -131,7 +145,7 @@ class SelectorTile extends StatelessWidget {
                           color: Colors.black.withValues(alpha: 0.35),
                           size: 14,
                         ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: rightPadding),
                     ],
                   ),
                   if (isSaving)

@@ -252,11 +252,6 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onSelected: (selected) async {
-                            if (widget.savingFields.contains(
-                              'friends_target_buckets',
-                            )) {
-                              return;
-                            }
                             setState(() {
                               if (code == 'Open') {
                                 if (selected) {
@@ -486,11 +481,6 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onDeleted: () async {
-                          if (widget.savingFields.contains(
-                            'causes_supported',
-                          )) {
-                            return;
-                          }
                           setState(() => localCauses.remove(val));
                           await widget.onSaveFriendsField(
                             'causes_supported',
@@ -531,11 +521,6 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                           ),
                           side: BorderSide.none,
                           onPressed: () async {
-                            if (widget.savingFields.contains(
-                              'causes_supported',
-                            )) {
-                              return;
-                            }
                             setState(() => localCauses.add(val));
                             await widget.onSaveFriendsField(
                               'causes_supported',

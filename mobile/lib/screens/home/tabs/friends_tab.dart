@@ -51,6 +51,8 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
   List<String> _flatInterests = [];
   List<String> _causesSupported = [];
   final Set<String> _savingFields = {};
+  final Map<String, dynamic> _pendingSaves = {};
+  final Set<String> _activeSaves = {};
 
   List<dynamic> _missingFields = [];
 
@@ -218,18 +220,40 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     dynamic value,
     StateSetter setModalState,
   ) async {
+    if (_activeSaves.contains(field)) {
+      _pendingSaves[field] = value;
+      setModalState(() => _savingFields.add(field));
+      return;
+    }
+
+    _activeSaves.add(field);
     setModalState(() => _savingFields.add(field));
-    final success = await _saveFriendsProfileDetails({field: value});
+
+    dynamic currentValueToSave = value;
+    var success = false;
+
+    while (true) {
+      success = await _saveFriendsProfileDetails({field: currentValueToSave});
+
+      if (_pendingSaves.containsKey(field)) {
+        currentValueToSave = _pendingSaves[field];
+        _pendingSaves.remove(field);
+      } else {
+        break;
+      }
+    }
+
+    _activeSaves.remove(field);
     if (mounted) {
       setModalState(() {
         _savingFields.remove(field);
         if (success) {
           if (field == 'friends_target_buckets') {
-            _friendsTargetBuckets = List<String>.from(value as List);
+            _friendsTargetBuckets = List<String>.from(currentValueToSave as List);
           } else if (field == 'causes_supported') {
-            _causesSupported = List<String>.from(value as List);
+            _causesSupported = List<String>.from(currentValueToSave as List);
           } else if (field == 'sub_interests') {
-            final map = value as Map<String, List<String>>;
+            final map = currentValueToSave as Map<String, List<String>>;
             final flat = <String>[];
             map.forEach((parent, subs) {
               for (final sub in subs) {

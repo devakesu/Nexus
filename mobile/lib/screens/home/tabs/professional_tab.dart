@@ -52,6 +52,8 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
   String _company = '';
   List<String> _roleType = [];
   final Set<String> _savingFields = {};
+  final Map<String, dynamic> _pendingSaves = {};
+  final Set<String> _activeSaves = {};
 
   List<dynamic> _missingFields = [];
 
@@ -214,22 +216,44 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     dynamic value,
     StateSetter setModalState,
   ) async {
+    if (_activeSaves.contains(field)) {
+      _pendingSaves[field] = value;
+      setModalState(() => _savingFields.add(field));
+      return;
+    }
+
+    _activeSaves.add(field);
     setModalState(() => _savingFields.add(field));
-    final success = await _saveProfessionalProfileDetails({field: value});
+
+    dynamic currentValueToSave = value;
+    var success = false;
+
+    while (true) {
+      success = await _saveProfessionalProfileDetails({field: currentValueToSave});
+
+      if (_pendingSaves.containsKey(field)) {
+        currentValueToSave = _pendingSaves[field];
+        _pendingSaves.remove(field);
+      } else {
+        break;
+      }
+    }
+
+    _activeSaves.remove(field);
     if (mounted) {
       setModalState(() {
         _savingFields.remove(field);
         if (success) {
           if (field == 'professional_target_buckets') {
-            _professionalTargetBuckets = List<String>.from(value as List);
+            _professionalTargetBuckets = List<String>.from(currentValueToSave as List);
           } else if (field == 'looking_for') {
-            _lookingFor = List<String>.from(value as List);
+            _lookingFor = List<String>.from(currentValueToSave as List);
           } else if (field == 'tech_skills') {
-            _techSkills = List<String>.from(value as List);
+            _techSkills = List<String>.from(currentValueToSave as List);
           } else if (field == 'role_at') {
-            _company = value as String;
+            _company = currentValueToSave as String;
           } else if (field == 'role_type') {
-            _roleType = List<String>.from(value as List);
+            _roleType = List<String>.from(currentValueToSave as List);
           }
         }
       });

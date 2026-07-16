@@ -211,25 +211,19 @@ class ProfileHeader extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Pulsing high-tech status indicator dot
+                // Spinning & Pulsing Sparkles status indicator
                 AnimatedBuilder(
-                  animation: pulseController,
+                  animation: Listenable.merge([pulseController, rotationController]),
                   builder: (context, child) {
-                    return Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: deepCyan,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: deepCyan.withValues(
-                              alpha: 0.4 + 0.6 * pulseController.value,
-                            ),
-                            blurRadius: 4 + 6 * pulseController.value,
-                            spreadRadius: 1 + 2 * pulseController.value,
-                          ),
-                        ],
+                    return Transform.rotate(
+                      angle: rotationController.value * 2 * 3.141592653589793,
+                      child: Transform.scale(
+                        scale: 0.85 + 0.3 * pulseController.value,
+                        child: const Icon(
+                          LucideIcons.sparkles,
+                          color: deepCyan,
+                          size: 14,
+                        ),
                       ),
                     );
                   },

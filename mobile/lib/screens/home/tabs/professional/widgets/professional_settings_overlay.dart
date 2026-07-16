@@ -326,11 +326,6 @@ class _ProfessionalSettingsOverlayState
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onSelected: (selected) async {
-                            if (widget.savingFields.contains(
-                              'professional_target_buckets',
-                            )) {
-                              return;
-                            }
                             setState(() {
                               if (code == 'Open') {
                                 if (selected) {
@@ -413,9 +408,6 @@ class _ProfessionalSettingsOverlayState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       onSelected: (selected) async {
-                        if (widget.savingFields.contains('looking_for')) {
-                          return;
-                        }
                         setState(() {
                           if (selected) {
                             localLookingFor.add(item);
@@ -488,9 +480,6 @@ class _ProfessionalSettingsOverlayState
                         borderRadius: BorderRadius.circular(12),
                       ),
                       onSelected: (selected) async {
-                        if (widget.savingFields.contains('role_type')) {
-                          return;
-                        }
                         setState(() {
                           if (selected) {
                             localRoleType.add(item);
@@ -671,9 +660,6 @@ class _ProfessionalSettingsOverlayState
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onDeleted: () async {
-                          if (widget.savingFields.contains('tech_skills')) {
-                            return;
-                          }
                           setState(() => localTechSkills.remove(val));
                           await widget.onSaveProfessionalField(
                             'tech_skills',
@@ -745,9 +731,6 @@ class _ProfessionalSettingsOverlayState
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onPressed: () async {
-                          if (widget.savingFields.contains('tech_skills')) {
-                            return;
-                          }
                           setState(() {
                             localTechSkills.add(skillsSearchQuery.trim());
                             skillsSearchQuery = '';
@@ -772,9 +755,6 @@ class _ProfessionalSettingsOverlayState
                         ),
                         side: BorderSide.none,
                         onPressed: () async {
-                          if (widget.savingFields.contains('tech_skills')) {
-                            return;
-                          }
                           setState(() => localTechSkills.add(val));
                           await widget.onSaveProfessionalField(
                             'tech_skills',

@@ -54,6 +54,8 @@ class _DatingTabState extends ConsumerState<DatingTab>
   List<String> _datingFor = [];
   List<String> _partnerValues = [];
   final Set<String> _savingFields = {};
+  final Map<String, dynamic> _pendingSaves = {};
+  final Set<String> _activeSaves = {};
 
   // Local state for checking off missing fields dialog
   List<dynamic> _missingFields = [];
@@ -213,22 +215,46 @@ class _DatingTabState extends ConsumerState<DatingTab>
     dynamic value,
     StateSetter setModalState,
   ) async {
+    if (_activeSaves.contains(field)) {
+      _pendingSaves[field] = value;
+      setModalState(() {
+        _savingFields.add(field);
+      });
+      return;
+    }
+
+    _activeSaves.add(field);
     setModalState(() {
       _savingFields.add(field);
     });
-    final success = await _saveDatingProfileDetails({
-      field: value,
-    });
+
+    dynamic currentValueToSave = value;
+    var success = false;
+
+    while (true) {
+      success = await _saveDatingProfileDetails({
+        field: currentValueToSave,
+      });
+
+      if (_pendingSaves.containsKey(field)) {
+        currentValueToSave = _pendingSaves[field];
+        _pendingSaves.remove(field);
+      } else {
+        break;
+      }
+    }
+
+    _activeSaves.remove(field);
     if (mounted) {
       setModalState(() {
         _savingFields.remove(field);
         if (success) {
           if (field == 'dating_target_buckets') {
-            _datingTargetBuckets = List<String>.from(value as List);
+            _datingTargetBuckets = List<String>.from(currentValueToSave as List);
           } else if (field == 'dating_for') {
-            _datingFor = List<String>.from(value as List);
+            _datingFor = List<String>.from(currentValueToSave as List);
           } else if (field == 'partner_values') {
-            _partnerValues = List<String>.from(value as List);
+            _partnerValues = List<String>.from(currentValueToSave as List);
           }
         }
       });
@@ -1425,7 +1451,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Activate Dating Orbit above to unlock matches, chats, and daily sparks.',
+                          'Activate Dating Orbit above to unlock matches, chats, and find authentic connections.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,

@@ -265,6 +265,8 @@ class _OrbitScreenState extends State<OrbitScreen>
   final List<String> _selectedTechSkills = [];
 
   final Set<String> _savingFields = {};
+  final Map<String, dynamic> _pendingSaves = {};
+  final Set<String> _activeSaves = {};
   bool _isCentered = false;
   bool _isReloading = false;
   Timer? _fetchDebounceTimer;
@@ -429,12 +431,36 @@ class _OrbitScreenState extends State<OrbitScreen>
     dynamic value,
     StateSetter setModalState,
   ) async {
+    if (_activeSaves.contains(field)) {
+      _pendingSaves[field] = value;
+      setModalState(() {
+        _savingFields.add(field);
+      });
+      return;
+    }
+
+    _activeSaves.add(field);
     setModalState(() {
       _savingFields.add(field);
     });
-    final success = await _saveDatingProfileDetails({
-      field: value,
-    });
+
+    dynamic currentValueToSave = value;
+    var success = false;
+
+    while (true) {
+      success = await _saveDatingProfileDetails({
+        field: currentValueToSave,
+      });
+
+      if (_pendingSaves.containsKey(field)) {
+        currentValueToSave = _pendingSaves[field];
+        _pendingSaves.remove(field);
+      } else {
+        break;
+      }
+    }
+
+    _activeSaves.remove(field);
     if (mounted) {
       setModalState(() {
         _savingFields.remove(field);
@@ -442,15 +468,15 @@ class _OrbitScreenState extends State<OrbitScreen>
           if (field == 'dating_target_buckets') {
             _selectedShowBuckets
               ..clear()
-              ..addAll(List<String>.from(value as List));
+              ..addAll(List<String>.from(currentValueToSave as List));
           } else if (field == 'dating_for') {
             _selectedDatingFor
               ..clear()
-              ..addAll(List<String>.from(value as List));
+              ..addAll(List<String>.from(currentValueToSave as List));
           } else if (field == 'partner_values') {
             _selectedPartnerValues
               ..clear()
-              ..addAll(List<String>.from(value as List));
+              ..addAll(List<String>.from(currentValueToSave as List));
           }
         }
       });
@@ -809,11 +835,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     onPressed: () async {
-                                      if (_savingFields.contains(
-                                        'partner_values',
-                                      )) {
-                                        return;
-                                      }
                                       final customVal = searchQuery.trim();
                                       setPaneState(() {
                                         _selectedPartnerValues.add(customVal);

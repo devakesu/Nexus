@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -93,6 +94,27 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _displaySexuality = '';
   String _searchBucket = 'NB';
   final Set<String> _savingFields = {};
+  final Map<String, dynamic> _pendingProfilePayload = {};
+  bool _isProfileSaving = false;
+
+  String _mapPayloadKeyToField(String key) {
+    switch (key) {
+      case 'display_gender': return 'displayGender';
+      case 'display_sexuality': return 'displaySexuality';
+      case 'search_bucket': return 'searchBucket';
+      case 'campus_branch': return 'campusBranch';
+      case 'campus_year': return 'campusYear';
+      case 'campus_name': return 'campusName';
+      case 'current_place': return 'currentPlace';
+      case 'children_plans': return 'childrenPlans';
+      case 'religious_beliefs': return 'religiousBeliefs';
+      case 'causes_supported': return 'causesSupported';
+      case 'top_artists': return 'topArtists';
+      case 'sub_interests':
+      case 'interests': return 'interests';
+      default: return key;
+    }
+  }
   String _bio = '';
 
   // Extended profile fields from DB migration
@@ -144,6 +166,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   final GlobalKey _coreSignalKey = GlobalKey();
   final GlobalKey _bioKey = GlobalKey();
   final GlobalKey _socialCoordinatesKey = GlobalKey();
+  final GlobalKey _campusNameKey = GlobalKey();
+  final GlobalKey _majorKey = GlobalKey();
   final GlobalKey _lifestyleResonanceKey = GlobalKey();
   final GlobalKey _affinityInterestsKey = GlobalKey();
   final GlobalKey _spotifyArtistsKey = GlobalKey();
@@ -162,16 +186,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   AnimationController? _entryController;
 
   void _scrollToSection(GlobalKey key) {
-    final context = key.currentContext;
-    if (context != null) {
-      unawaited(
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        ),
-      );
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        final context = key.currentContext;
+        if (context != null && context.mounted) {
+          unawaited(
+            Scrollable.ensureVisible(
+              context,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+              alignment: 0.3,
+            ),
+          );
+        }
+      });
+    });
   }
 
   Widget _buildStaggeredEntrance({
@@ -236,7 +265,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         options: FilterOptions.sexualityOptions,
         currentValue: _displaySexuality,
         onSelected: (val) =>
-            unawaited(_saveProfileChanges(displaySexuality: val)),
+            unawaited(_saveSpecialCategoryField(displaySexuality: val)),
       );
     } else if (label == 'Pronouns') {
       _openBottomSelectionSheet(
@@ -249,23 +278,38 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         },
       );
     } else if (label == 'Cosmic Signature (Bio)') {
-      _scrollToSection(_bioKey);
       _bioFocusNode.requestFocus();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollToSection(_bioKey);
+      });
     }
     // 2. Social & Campus Info
     else if (label == 'Hometown') {
-      _scrollToSection(_socialCoordinatesKey);
       _hometownFocusNode.requestFocus();
     } else if (label == 'Current Place') {
-      _scrollToSection(_socialCoordinatesKey);
       _currentPlaceFocusNode.requestFocus();
     } else if (label == 'Institute Name') {
-      _scrollToSection(_socialCoordinatesKey);
       _campusNameFocusNode.requestFocus();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollToSection(_campusNameKey);
+      });
     } else if (label == 'Major') {
-      _scrollToSection(_socialCoordinatesKey);
       _majorFocusNode.requestFocus();
-    } else if (['Languages', 'Campus Year'].contains(label)) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollToSection(_majorKey);
+      });
+    } else if (label == 'Languages') {
+      _openMultiSelectSheet(
+        title: 'Languages',
+        currentValues: _languages,
+        presets: FilterOptions.languages,
+        onChanged: (val) {
+          setState(() => _languages = val);
+          unawaited(_saveProfileChanges(languages: val));
+        },
+        allowCustom: false,
+      );
+    } else if (label == 'Campus Year') {
       _scrollToSection(_socialCoordinatesKey);
     }
     // 3. Lifestyle & Preferences
@@ -306,17 +350,24 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         onSelected: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
       );
     } else if (label == 'Religious Beliefs') {
-      _openBottomSelectionSheet(
+       _openBottomSelectionSheet(
         title: 'Religious Beliefs',
         options: FilterOptions.religiousBeliefs,
         currentValue: _religiousBeliefs,
         onSelected: (val) =>
-            unawaited(_saveProfileChanges(religiousBeliefs: val)),
+            unawaited(_saveSpecialCategoryField(religiousBeliefs: val)),
       );
-    } else if ([
-      'Lifestyle Description',
-      'Pets',
-    ].contains(label)) {
+    } else if (label == 'Pets') {
+      _openMultiSelectSheet(
+        title: 'Pets',
+        currentValues: _pets,
+        presets: FilterOptions.pets,
+        onChanged: (val) {
+          setState(() => _pets = val);
+          unawaited(_saveProfileChanges(pets: val));
+        },
+      );
+    } else if (label == 'Lifestyle Description') {
       _scrollToSection(_lifestyleResonanceKey);
     }
     // 4. Interests & Hobbies
@@ -737,7 +788,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     String? religiousBeliefs,
   }) async {
     const sexualityOptOut = 'Prefer not to say';
-    const religionOptOut = 'Not specified';
+    const religionOptOut = 'Prefer not to say';
     final needsConsent =
         (displaySexuality != null &&
             displaySexuality.isNotEmpty &&
@@ -783,6 +834,27 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return granted;
   }
 
+  bool _areListsEqual(List<String>? a, List<String>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool _areMapsOfListsEqual(Map<String, List<String>>? a, Map<String, List<String>>? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key)) return false;
+      if (!_areListsEqual(a[key], b[key])) return false;
+    }
+    return true;
+  }
+
   Future<void> _saveProfileChanges({
     String? name,
     int? age,
@@ -814,6 +886,35 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     Map<String, int>? interests,
     Map<String, List<String>>? subInterests,
   }) async {
+    var hasChanges = false;
+    if (name != null && name != _savedName) hasChanges = true;
+    if (age != null && age != _savedAge) hasChanges = true;
+    if (displayGender != null && displayGender != _savedDisplayGender) hasChanges = true;
+    if (displaySexuality != null && displaySexuality != _savedDisplaySexuality) hasChanges = true;
+    if (pronouns != null && pronouns != _savedPronouns) hasChanges = true;
+    if (bio != null && bio != _savedBio) hasChanges = true;
+    if (searchBucket != null && searchBucket != _savedSearchBucket) hasChanges = true;
+    if (campusBranch != null && campusBranch != _savedMajor) hasChanges = true;
+    if (campusYear != null && campusYear != _savedYear) hasChanges = true;
+    if (clearCampusYear && _savedYear != 0) hasChanges = true;
+    if (campusName != null && campusName != _savedCampusName) hasChanges = true;
+    if (hometown != null && hometown != _savedHometown) hasChanges = true;
+    if (currentPlace != null && currentPlace != _savedCurrentPlace) hasChanges = true;
+    if (childrenPlans != null && childrenPlans != _savedChildrenPlans) hasChanges = true;
+    if (religiousBeliefs != null && religiousBeliefs != _savedReligiousBeliefs) hasChanges = true;
+    if (lifestyle != null && lifestyle != _savedLifestyle) hasChanges = true;
+    if (drinking != null && drinking != _savedDrinking) hasChanges = true;
+    if (smoking != null && smoking != _savedSmoking) hasChanges = true;
+    if (causesSupported != null && !_areListsEqual(causesSupported, _savedCausesSupported)) hasChanges = true;
+    if (topArtists != null && !_areListsEqual(topArtists, _savedTopArtists)) hasChanges = true;
+    if (languages != null && !_areListsEqual(languages, _savedLanguages)) hasChanges = true;
+    if (pets != null && !_areListsEqual(pets, _savedPets)) hasChanges = true;
+    if (subInterests != null && !_areMapsOfListsEqual(subInterests, _savedSubInterests)) hasChanges = true;
+
+    if (!hasChanges) {
+      return;
+    }
+
     if (bio != null && bio.trim().isNotEmpty) {
       final lettersCount = bio.replaceAll(RegExp('[^a-zA-Z]'), '').length;
       if (lettersCount < 3) {
@@ -826,211 +927,215 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       }
     }
 
-    final fields = <String>[];
-    if (name != null) fields.add('name');
-    if (age != null) fields.add('age');
-    if (displayGender != null) fields.add('displayGender');
-    if (displaySexuality != null) fields.add('displaySexuality');
-    if (pronouns != null) fields.add('pronouns');
-    if (bio != null) fields.add('bio');
-    if (searchBucket != null) fields.add('searchBucket');
-    if (campusBranch != null) fields.add('campusBranch');
-    if (campusYear != null || clearCampusYear) fields.add('campusYear');
-    if (campusName != null) fields.add('campusName');
-    if (hometown != null) fields.add('hometown');
-    if (currentPlace != null) fields.add('currentPlace');
-    if (childrenPlans != null) fields.add('childrenPlans');
-    if (religiousBeliefs != null) fields.add('religiousBeliefs');
-    if (lifestyle != null) fields.add('lifestyle');
-    if (drinking != null) fields.add('drinking');
-    if (smoking != null) fields.add('smoking');
-    if (causesSupported != null) fields.add('causesSupported');
-    if (topArtists != null) fields.add('topArtists');
-    if (languages != null) fields.add('languages');
-    if (pets != null) fields.add('pets');
-    if (subInterests != null || interests != null) fields.add('interests');
+    final incomingPayload = <String, dynamic>{};
+    if (name != null) incomingPayload['name'] = name;
+    if (age != null) incomingPayload['age'] = age;
+    if (displayGender != null) {
+      incomingPayload['display_gender'] = displayGender.isEmpty
+          ? 'Prefer not to say'
+          : displayGender;
+    }
+    if (displaySexuality != null) {
+      incomingPayload['display_sexuality'] = displaySexuality.isEmpty
+          ? 'Prefer not to say'
+          : displaySexuality;
+    }
+    if (pronouns != null) {
+      incomingPayload['pronouns'] = pronouns.isEmpty
+          ? 'Prefer not to say'
+          : pronouns;
+    }
+    if (bio != null) incomingPayload['bio'] = bio;
+    if (searchBucket != null) incomingPayload['search_bucket'] = searchBucket;
+    if (campusBranch != null) incomingPayload['campus_branch'] = campusBranch;
+    if (campusYear != null) {
+      incomingPayload['campus_year'] = campusYear;
+    } else if (clearCampusYear) {
+      incomingPayload['campus_year'] = null;
+    }
+    if (campusName != null) incomingPayload['campus_name'] = campusName;
+    if (hometown != null) incomingPayload['hometown'] = hometown;
+    if (currentPlace != null) incomingPayload['current_place'] = currentPlace;
+    if (childrenPlans != null) {
+      incomingPayload['children_plans'] = childrenPlans.isEmpty
+          ? 'Not specified'
+          : childrenPlans;
+    }
+    if (religiousBeliefs != null) {
+      incomingPayload['religious_beliefs'] = religiousBeliefs.isEmpty
+          ? 'Prefer not to say'
+          : religiousBeliefs;
+    }
+    if (lifestyle != null) incomingPayload['lifestyle'] = lifestyle;
+    if (drinking != null) {
+      incomingPayload['drinking'] = drinking.isEmpty ? null : drinking;
+    }
+    if (smoking != null) {
+      incomingPayload['smoking'] = smoking.isEmpty ? null : smoking;
+    }
+    if (role != null) incomingPayload['role_at'] = role;
+    if (targetBuckets != null) incomingPayload['target_buckets'] = targetBuckets;
+    if (lookingFor != null) incomingPayload['looking_for'] = lookingFor;
+    if (activities != null) incomingPayload['activities'] = activities;
+    if (causesSupported != null) {
+      incomingPayload['causes_supported'] = causesSupported;
+    }
+    if (topArtists != null) incomingPayload['top_artists'] = topArtists;
+    if (techSkills != null) incomingPayload['tech_skills'] = techSkills;
+    if (languages != null) incomingPayload['languages'] = languages;
+    if (pets != null) incomingPayload['pets'] = pets;
+    if (interests != null) incomingPayload['interests'] = interests;
+    if (subInterests != null) incomingPayload['sub_interests'] = subInterests;
 
-    setState(() {
-      _savingFields.addAll(fields);
-    });
+    _pendingProfilePayload.addAll(incomingPayload);
 
-    try {
-      final session = _client.auth.currentSession;
-      if (session != null) {
-        final config = AppConfig.current;
-        final dio = _dio;
+    if (_isProfileSaving) {
+      setState(() {
+        for (final key in incomingPayload.keys) {
+          _savingFields.add(_mapPayloadKeyToField(key));
+        }
+      });
+      return;
+    }
 
-        final payload = <String, dynamic>{};
-        if (name != null) payload['name'] = name;
-        if (age != null) payload['age'] = age;
-        if (displayGender != null) {
-          payload['display_gender'] = displayGender.isEmpty
-              ? 'Prefer not to say'
-              : displayGender;
-        }
-        if (displaySexuality != null) {
-          payload['display_sexuality'] = displaySexuality.isEmpty
-              ? 'Prefer not to say'
-              : displaySexuality;
-        }
-        if (pronouns != null) {
-          payload['pronouns'] = pronouns.isEmpty
-              ? 'Prefer not to say'
-              : pronouns;
-        }
-        if (bio != null) payload['bio'] = bio;
-        if (searchBucket != null) payload['search_bucket'] = searchBucket;
-        if (campusBranch != null) payload['campus_branch'] = campusBranch;
-        if (campusYear != null) {
-          payload['campus_year'] = campusYear;
-        } else if (clearCampusYear) {
-          payload['campus_year'] = null;
-        }
-        if (campusName != null) payload['campus_name'] = campusName;
-        if (hometown != null) payload['hometown'] = hometown;
-        if (currentPlace != null) payload['current_place'] = currentPlace;
-        if (childrenPlans != null) {
-          payload['children_plans'] = childrenPlans.isEmpty
-              ? 'Not specified'
-              : childrenPlans;
-        }
-        if (religiousBeliefs != null) {
-          payload['religious_beliefs'] = religiousBeliefs.isEmpty
-              ? 'Not specified'
-              : religiousBeliefs;
-        }
-        if (lifestyle != null) payload['lifestyle'] = lifestyle;
-        if (drinking != null) {
-          payload['drinking'] = drinking.isEmpty ? null : drinking;
-        }
-        if (smoking != null) {
-          payload['smoking'] = smoking.isEmpty ? null : smoking;
-        }
-        if (role != null) payload['role_at'] = role;
-        if (targetBuckets != null) payload['target_buckets'] = targetBuckets;
-        if (lookingFor != null) payload['looking_for'] = lookingFor;
-        if (activities != null) payload['activities'] = activities;
-        if (causesSupported != null) {
-          payload['causes_supported'] = causesSupported;
-        }
-        if (topArtists != null) payload['top_artists'] = topArtists;
-        if (techSkills != null) payload['tech_skills'] = techSkills;
-        if (languages != null) payload['languages'] = languages;
-        if (pets != null) payload['pets'] = pets;
-        if (interests != null) payload['interests'] = interests;
-        if (subInterests != null) payload['sub_interests'] = subInterests;
+    _isProfileSaving = true;
 
-        // Perform the details secure endpoint update
-        if (payload.isNotEmpty) {
+    while (_pendingProfilePayload.isNotEmpty) {
+      final currentPayload = Map<String, dynamic>.from(_pendingProfilePayload);
+      _pendingProfilePayload.clear();
+
+      final fields = currentPayload.keys.map(_mapPayloadKeyToField).toList();
+      setState(() {
+        _savingFields.addAll(fields);
+      });
+
+      try {
+        final session = _client.auth.currentSession;
+        if (session != null) {
+          final config = AppConfig.current;
+          final dio = _dio;
+
           final response = await dio.patch<Map<String, dynamic>>(
             '${config.backendUrl}/api/v1/profile/details',
-            data: payload,
-            options: Options(
-              headers: {},
-            ),
+            data: currentPayload,
           );
 
           if (response.statusCode == 200 && mounted) {
             setState(() {
-              if (age != null) {
-                _age = age;
-                _savedAge = age;
+              if (currentPayload.containsKey('name')) {
+                _name = currentPayload['name'] as String;
+                _savedName = _name;
               }
-              if (name != null) {
-                _name = name;
-                _savedName = name;
+              if (currentPayload.containsKey('age')) {
+                _age = currentPayload['age'] as int;
+                _savedAge = _age;
               }
-              if (displayGender != null) {
-                _displayGender = displayGender;
-                _savedDisplayGender = displayGender;
+              if (currentPayload.containsKey('display_gender')) {
+                final displayGender = currentPayload['display_gender'] as String;
+                _displayGender = displayGender == 'Prefer not to say' ? '' : displayGender;
+                _savedDisplayGender = _displayGender;
               }
-              if (displaySexuality != null) {
-                _displaySexuality = displaySexuality;
-                _savedDisplaySexuality = displaySexuality;
+              if (currentPayload.containsKey('display_sexuality')) {
+                final displaySexuality = currentPayload['display_sexuality'] as String;
+                _displaySexuality = displaySexuality == 'Prefer not to say' ? '' : displaySexuality;
+                _savedDisplaySexuality = _displaySexuality;
               }
-              if (pronouns != null) {
-                _pronouns = pronouns;
+              if (currentPayload.containsKey('pronouns')) {
+                final pronouns = currentPayload['pronouns'] as String;
+                _pronouns = pronouns == 'Prefer not to say' ? '' : pronouns;
                 _savedPronouns = pronouns;
               }
-              if (bio != null) {
-                _bio = bio;
-                _savedBio = bio;
+              if (currentPayload.containsKey('bio')) {
+                _bio = currentPayload['bio'] as String;
+                _savedBio = _bio;
               }
-              if (searchBucket != null) {
-                _searchBucket = searchBucket;
-                _savedSearchBucket = searchBucket;
+              if (currentPayload.containsKey('search_bucket')) {
+                _searchBucket = currentPayload['search_bucket'] as String;
+                _savedSearchBucket = _searchBucket;
               }
-              if (campusBranch != null) {
-                _major = campusBranch;
-                _savedMajor = campusBranch;
+              if (currentPayload.containsKey('campus_branch')) {
+                _major = currentPayload['campus_branch'] as String;
+                _savedMajor = _major;
               }
-              if (campusYear != null) {
-                _year = campusYear;
-                _savedYear = campusYear;
-              } else if (clearCampusYear) {
-                _year = 0;
-                _savedYear = 0;
+              if (currentPayload.containsKey('campus_year')) {
+                final val = currentPayload['campus_year'];
+                if (val == null) {
+                  _year = 0;
+                  _savedYear = 0;
+                } else {
+                  _year = val as int;
+                  _savedYear = _year;
+                }
               }
-              if (campusName != null) {
-                _campusName = campusName;
-                _savedCampusName = campusName;
+              if (currentPayload.containsKey('campus_name')) {
+                _campusName = currentPayload['campus_name'] as String;
+                _savedCampusName = _campusName;
               }
-              if (hometown != null) {
-                _hometown = hometown;
-                _savedHometown = hometown;
+              if (currentPayload.containsKey('hometown')) {
+                _hometown = currentPayload['hometown'] as String;
+                _savedHometown = _hometown;
               }
-              if (currentPlace != null) {
-                _currentPlace = currentPlace;
-                _savedCurrentPlace = currentPlace;
+              if (currentPayload.containsKey('current_place')) {
+                _currentPlace = currentPayload['current_place'] as String;
+                _savedCurrentPlace = _currentPlace;
               }
-              if (childrenPlans != null) {
-                _childrenPlans = childrenPlans;
-                _savedChildrenPlans = childrenPlans;
+              if (currentPayload.containsKey('children_plans')) {
+                final plans = currentPayload['children_plans'] as String;
+                _childrenPlans = plans == 'Not specified' ? '' : plans;
+                _savedChildrenPlans = _childrenPlans;
               }
-              if (religiousBeliefs != null) {
-                _religiousBeliefs = religiousBeliefs;
-                _savedReligiousBeliefs = religiousBeliefs;
+              if (currentPayload.containsKey('religious_beliefs')) {
+                final beliefs = currentPayload['religious_beliefs'] as String;
+                _religiousBeliefs = beliefs == 'Prefer not to say' ? '' : beliefs;
+                _savedReligiousBeliefs = _religiousBeliefs;
               }
-              if (lifestyle != null) {
-                _lifestyle = lifestyle;
-                _savedLifestyle = lifestyle;
+              if (currentPayload.containsKey('lifestyle')) {
+                _lifestyle = currentPayload['lifestyle'] as String;
+                _savedLifestyle = _lifestyle;
               }
-              if (drinking != null) {
-                _drinking = drinking;
-                _savedDrinking = drinking;
+              if (currentPayload.containsKey('drinking')) {
+                final d = currentPayload['drinking'];
+                _drinking = d == null ? '' : d as String;
+                _savedDrinking = _drinking;
               }
-              if (smoking != null) {
-                _smoking = smoking;
-                _savedSmoking = smoking;
+              if (currentPayload.containsKey('smoking')) {
+                final s = currentPayload['smoking'];
+                _smoking = s == null ? '' : s as String;
+                _savedSmoking = _smoking;
               }
-              if (causesSupported != null) {
-                _causesSupported = causesSupported;
-                _savedCausesSupported = List<String>.from(causesSupported);
+              if (currentPayload.containsKey('causes_supported')) {
+                _causesSupported = List<String>.from(currentPayload['causes_supported'] as List);
+                _savedCausesSupported = List<String>.from(_causesSupported);
               }
-              if (topArtists != null) {
-                _topArtists = topArtists;
-                _savedTopArtists = List<String>.from(topArtists);
+              if (currentPayload.containsKey('top_artists')) {
+                _topArtists = List<String>.from(currentPayload['top_artists'] as List);
+                _savedTopArtists = List<String>.from(_topArtists);
               }
-              if (languages != null) {
-                _languages = languages;
-                _savedLanguages = List<String>.from(languages);
+              if (currentPayload.containsKey('languages')) {
+                _languages = List<String>.from(currentPayload['languages'] as List);
+                _savedLanguages = List<String>.from(_languages);
               }
-              if (pets != null) {
-                _pets = pets;
-                _savedPets = List<String>.from(pets);
+              if (currentPayload.containsKey('pets')) {
+                _pets = List<String>.from(currentPayload['pets'] as List);
+                _savedPets = List<String>.from(_pets);
               }
-              if (subInterests != null) {
-                _subInterests = subInterests;
-                _savedSubInterests = Map<String, List<String>>.from(
-                  subInterests,
-                );
+              if (currentPayload.containsKey('sub_interests')) {
+                _subInterests = Map<String, List<String>>.from(currentPayload['sub_interests'] as Map);
+                _savedSubInterests = Map<String, List<String>>.from(_subInterests);
               }
             });
             unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
-            if (age != null || name != null) {
-              // Refresh the rate-limit eligibility windows from the
-              // server rather than re-deriving the 365-day math here.
+            if (currentPayload.containsKey('age') || currentPayload.containsKey('name')) {
               unawaited(_loadProfileData(silent: true));
+            }
+
+            if (mounted) {
+              NexusToast.show(
+                context,
+                'Cosmic frequency synchronized.',
+                type: NexusToastType.success,
+                duration: const Duration(seconds: 2),
+              );
             }
           } else {
             throw Exception(
@@ -1038,74 +1143,61 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             );
           }
         }
-
+      } on Object catch (e) {
+        debugPrint('[ProfileTab] Error saving profile details: $e');
         if (mounted) {
+          setState(() {
+            if (currentPayload.containsKey('name')) _name = _savedName;
+            if (currentPayload.containsKey('age')) _age = _savedAge;
+            if (currentPayload.containsKey('display_gender')) _displayGender = _savedDisplayGender;
+            if (currentPayload.containsKey('display_sexuality')) _displaySexuality = _savedDisplaySexuality;
+            if (currentPayload.containsKey('pronouns')) _pronouns = _savedPronouns;
+            if (currentPayload.containsKey('bio')) _bio = _savedBio;
+            if (currentPayload.containsKey('search_bucket')) _searchBucket = _savedSearchBucket;
+            if (currentPayload.containsKey('campus_branch')) _major = _savedMajor;
+            if (currentPayload.containsKey('campus_year')) {
+              _year = _savedYear;
+              _isStudying = _savedIsStudying;
+            }
+            if (currentPayload.containsKey('campus_name')) _campusName = _savedCampusName;
+            if (currentPayload.containsKey('hometown')) _hometown = _savedHometown;
+            if (currentPayload.containsKey('current_place')) _currentPlace = _savedCurrentPlace;
+            if (currentPayload.containsKey('children_plans')) _childrenPlans = _savedChildrenPlans;
+            if (currentPayload.containsKey('religious_beliefs')) _religiousBeliefs = _savedReligiousBeliefs;
+            if (currentPayload.containsKey('lifestyle')) _lifestyle = _savedLifestyle;
+            if (currentPayload.containsKey('drinking')) _drinking = _savedDrinking;
+            if (currentPayload.containsKey('smoking')) _smoking = _savedSmoking;
+            if (currentPayload.containsKey('causes_supported')) {
+              _causesSupported = List<String>.from(_savedCausesSupported);
+            }
+            if (currentPayload.containsKey('top_artists')) {
+              _topArtists = List<String>.from(_savedTopArtists);
+            }
+            if (currentPayload.containsKey('languages')) {
+              _languages = List<String>.from(_savedLanguages);
+            }
+            if (currentPayload.containsKey('pets')) _pets = List<String>.from(_savedPets);
+            if (currentPayload.containsKey('sub_interests') || currentPayload.containsKey('interests')) {
+              _subInterests = Map<String, List<String>>.from(_savedSubInterests);
+            }
+          });
+
+          final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
           NexusToast.show(
             context,
-            'Cosmic frequency synchronized.',
-            type: NexusToastType.success,
-            duration: const Duration(seconds: 2),
+            'Failed to synchronize cosmic frequency: $friendlyMsg',
+            type: NexusToastType.error,
           );
         }
-      }
-    } on Object catch (e) {
-      debugPrint('[ProfileTab] Error saving profile details: $e');
-      if (mounted) {
-        setState(() {
-          // Revert all modified fields back to their saved versions
-          if (name != null) _name = _savedName;
-          if (age != null) _age = _savedAge;
-          if (displayGender != null) _displayGender = _savedDisplayGender;
-          if (displaySexuality != null) {
-            _displaySexuality = _savedDisplaySexuality;
-          }
-          if (pronouns != null) _pronouns = _savedPronouns;
-          if (bio != null) _bio = _savedBio;
-          if (searchBucket != null) _searchBucket = _savedSearchBucket;
-          if (campusBranch != null) _major = _savedMajor;
-          if (campusYear != null || clearCampusYear) {
-            _year = _savedYear;
-            _isStudying = _savedIsStudying;
-          }
-          if (campusName != null) _campusName = _savedCampusName;
-          if (hometown != null) _hometown = _savedHometown;
-          if (currentPlace != null) _currentPlace = _savedCurrentPlace;
-          if (childrenPlans != null) _childrenPlans = _savedChildrenPlans;
-          if (religiousBeliefs != null) {
-            _religiousBeliefs = _savedReligiousBeliefs;
-          }
-          if (lifestyle != null) _lifestyle = _savedLifestyle;
-          if (drinking != null) _drinking = _savedDrinking;
-          if (smoking != null) _smoking = _savedSmoking;
-          if (causesSupported != null) {
-            _causesSupported = List<String>.from(_savedCausesSupported);
-          }
-          if (topArtists != null) {
-            _topArtists = List<String>.from(_savedTopArtists);
-          }
-          if (languages != null) {
-            _languages = List<String>.from(_savedLanguages);
-          }
-          if (pets != null) _pets = List<String>.from(_savedPets);
-          if (subInterests != null || interests != null) {
-            _subInterests = Map<String, List<String>>.from(_savedSubInterests);
-          }
-        });
-
-        final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
-        NexusToast.show(
-          context,
-          'Failed to synchronize cosmic frequency: $friendlyMsg',
-          type: NexusToastType.error,
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _savingFields.removeAll(fields);
-        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _savingFields.removeAll(fields);
+          });
+        }
       }
     }
+    _isProfileSaving = false;
   }
 
 
@@ -1996,6 +2088,270 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     );
   }
 
+  void _openMultiSelectSheet({
+    required String title,
+    required List<String> currentValues,
+    required List<String> presets,
+    required ValueChanged<List<String>> onChanged,
+    bool allowCustom = true,
+  }) {
+    final localSelected = List<String>.from(currentValues);
+    final localPresets = List<String>.from(presets);
+
+    for (final val in localSelected) {
+      if (!localPresets.contains(val)) {
+        localPresets.add(val);
+      }
+    }
+
+    final textController = TextEditingController();
+    final searchController = TextEditingController();
+
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        barrierColor: Colors.black.withValues(alpha: 0.8),
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              final showSearch = localPresets.length > 10;
+              final filteredPresets = showSearch
+                  ? localPresets.where((option) {
+                      return option.toLowerCase().contains(
+                        searchController.text.toLowerCase(),
+                      );
+                    }).toList()
+                  : localPresets;
+
+              return Container(
+                padding: EdgeInsets.only(
+                  top: 12,
+                  left: 20,
+                  right: 20,
+                  bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
+                  ),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 18),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Done',
+                              style: TextStyle(
+                                color: AppColors.pulsarPink,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (showSearch) ...[
+                        TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search $title...',
+                            prefixIcon: const Icon(
+                              LucideIcons.search,
+                              size: 16,
+                              color: Colors.black38,
+                            ),
+                            filled: true,
+                            fillColor: Colors.black.withValues(alpha: 0.03),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (val) => setModalState(() {}),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.4,
+                        ),
+                        child: SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: filteredPresets.map((option) {
+                              final isSelected = localSelected.contains(option);
+                              return FilterChip(
+                                label: Text(option),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setModalState(() {
+                                    if (selected) {
+                                      localSelected.add(option);
+                                    } else {
+                                      localSelected.remove(option);
+                                    }
+                                  });
+                                  onChanged(localSelected);
+                                },
+                                selectedColor:
+                                    AppColors.pulsarPink.withValues(alpha: 0.15),
+                                checkmarkColor: AppColors.pulsarPink,
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? AppColors.pulsarPink
+                                      : const Color(0xFF334155),
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  fontSize: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? AppColors.pulsarPink.withValues(
+                                            alpha: 0.5,
+                                          )
+                                        : Colors.black12,
+                                  ),
+                                ),
+                                backgroundColor: Colors.transparent,
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      if (allowCustom) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: textController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Add custom...',
+                                    border: InputBorder.none,
+                                    hintStyle: TextStyle(fontSize: 13),
+                                    isDense: true,
+                                    contentPadding:
+                                        EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  style: const TextStyle(fontSize: 13),
+                                  onSubmitted: (val) {
+                                    final trimmed = val.trim();
+                                    if (trimmed.isNotEmpty &&
+                                        !localPresets.contains(trimmed)) {
+                                      setModalState(() {
+                                        localPresets.add(trimmed);
+                                        localSelected.add(trimmed);
+                                      });
+                                      onChanged(localSelected);
+                                      textController.clear();
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Semantics(
+                                button: true,
+                                label: 'Add tag',
+                                excludeSemantics: true,
+                                onTap: () {
+                                  final trimmed = textController.text.trim();
+                                  if (trimmed.isNotEmpty &&
+                                      !localPresets.contains(trimmed)) {
+                                    setModalState(() {
+                                      localPresets.add(trimmed);
+                                      localSelected.add(trimmed);
+                                    });
+                                    onChanged(localSelected);
+                                    textController.clear();
+                                  }
+                                },
+                                child: GestureDetector(
+                                  onTap: () {
+                                    final trimmed = textController.text.trim();
+                                    if (trimmed.isNotEmpty &&
+                                        !localPresets.contains(trimmed)) {
+                                      setModalState(() {
+                                        localPresets.add(trimmed);
+                                        localSelected.add(trimmed);
+                                      });
+                                      onChanged(localSelected);
+                                      textController.clear();
+                                    }
+                                  },
+                                  child: const Icon(
+                                    LucideIcons.plusCircle,
+                                    color: AppColors.pulsarPink,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ).then((_) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = AppConfig.current;
@@ -2093,6 +2449,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             children: [
               Expanded(
                 child: ListView(
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(9999),
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(
@@ -2265,6 +2622,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       index: 4,
                       child: SocialCoordinatesSection(
                         key: _socialCoordinatesKey,
+                        campusNameKey: _campusNameKey,
+                        majorKey: _majorKey,
                         hometown: _hometown,
                         currentPlace: _currentPlace,
                         languages: _languages,

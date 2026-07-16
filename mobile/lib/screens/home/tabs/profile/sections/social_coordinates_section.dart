@@ -41,6 +41,8 @@ class SocialCoordinatesSection extends StatefulWidget {
     this.currentPlaceFocusNode,
     this.campusNameFocusNode,
     this.majorFocusNode,
+    this.campusNameKey,
+    this.majorKey,
     super.key,
   });
 
@@ -62,6 +64,8 @@ class SocialCoordinatesSection extends StatefulWidget {
   final FocusNode? currentPlaceFocusNode;
   final FocusNode? campusNameFocusNode;
   final FocusNode? majorFocusNode;
+  final Key? campusNameKey;
+  final Key? majorKey;
 
   final ValueChanged<String> onHometownChanged;
   final ValueChanged<String> onHometownSubmitted;
@@ -146,6 +150,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
           const SizedBox(height: 12),
 
           GlassTextField(
+            key: widget.campusNameKey,
             label: 'INSTITUTE NAME',
             initialValue: widget.campusName,
             hintText: 'Add your college name',
@@ -158,6 +163,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
           const SizedBox(height: 12),
 
           GlassTextField(
+            key: widget.majorKey,
             label: 'MAJOR',
             initialValue: widget.major,
             hintText: 'e.g. Computer Science',

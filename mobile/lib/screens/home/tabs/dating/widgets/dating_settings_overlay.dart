@@ -287,11 +287,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onSelected: (selected) async {
-                            if (widget.savingFields.contains(
-                              'dating_target_buckets',
-                            )) {
-                              return;
-                            }
                             setState(() {
                               if (code == 'Open') {
                                 if (selected) {
@@ -405,9 +400,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           onSelected: (selected) async {
-                            if (widget.savingFields.contains('dating_for')) {
-                              return;
-                            }
                             setState(() {
                               if (selected) {
                                 localDatingFor.add(code);
@@ -492,11 +484,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onDeleted: () async {
-                          if (widget.savingFields.contains(
-                            'partner_values',
-                          )) {
-                            return;
-                          }
                           setState(() {
                             localPartnerValues.remove(val);
                           });
@@ -574,11 +561,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onPressed: () async {
-                          if (widget.savingFields.contains(
-                            'partner_values',
-                          )) {
-                            return;
-                          }
                           setState(() {
                             localPartnerValues.add(searchQuery.trim());
                             searchQuery = '';
@@ -605,11 +587,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                         ),
                         side: BorderSide.none,
                         onPressed: () async {
-                          if (widget.savingFields.contains(
-                            'partner_values',
-                          )) {
-                            return;
-                          }
                           setState(() {
                             localPartnerValues.add(val);
                           });

@@ -119,9 +119,10 @@ class LifestyleResonanceSection extends StatelessWidget {
                   },
                   onClear: onClearDrinking,
                   isSaving: isSavingDrinking,
+                  isFullWidth: false,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: SelectorTile(
                   label: 'SMOKING',
@@ -143,58 +144,53 @@ class LifestyleResonanceSection extends StatelessWidget {
                   },
                   onClear: onClearSmoking,
                   isSaving: isSavingSmoking,
+                  isFullWidth: false,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Children Plans and Religious Beliefs
-          Row(
-            children: [
-              Expanded(
-                child: SelectorTile(
-                  label: 'CHILDREN PLANS',
-                  value: childrenPlans,
-                  icon: LucideIcons.baby,
-                  iconColor: const Color(0xFFFF9500),
-                  onTap: () {
-                    openBottomSelectionSheet(
-                      title: 'Children Plans',
-                      options: const [
-                        'Want kids',
-                        "Don't want kids",
-                        'Undecided',
-                        'Not specified',
-                      ],
-                      currentValue: childrenPlans,
-                      onSelected: onChildrenPlansSaved,
-                    );
-                  },
-                  onClear: onClearChildrenPlans,
-                  isSaving: isSavingChildrenPlans,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SelectorTile(
-                  label: 'RELIGIOUS BELIEFS',
-                  value: religiousBeliefs,
-                  icon: LucideIcons.sparkles,
-                  iconColor: const Color(0xFF5856D6),
-                  onTap: () {
-                    openBottomSelectionSheet(
-                      title: 'Religious Beliefs',
-                      options: FilterOptions.religiousBeliefs,
-                      currentValue: religiousBeliefs,
-                      onSelected: onReligiousBeliefsSaved,
-                    );
-                  },
-                  onClear: onClearReligiousBeliefs,
-                  isSaving: isSavingReligiousBeliefs,
-                ),
-              ),
-            ],
+          // Children Plans
+          SelectorTile(
+            label: 'CHILDREN PLANS',
+            value: childrenPlans,
+            icon: LucideIcons.baby,
+            iconColor: const Color(0xFFFF9500),
+            onTap: () {
+              openBottomSelectionSheet(
+                title: 'Children Plans',
+                options: const [
+                  'Want kids',
+                  "Don't want kids",
+                  'Undecided',
+                  'Not specified',
+                ],
+                currentValue: childrenPlans,
+                onSelected: onChildrenPlansSaved,
+              );
+            },
+            onClear: onClearChildrenPlans,
+            isSaving: isSavingChildrenPlans,
+          ),
+          const SizedBox(height: 16),
+
+          // Religious Beliefs
+          SelectorTile(
+            label: 'RELIGIOUS BELIEFS',
+            value: religiousBeliefs,
+            icon: LucideIcons.sparkles,
+            iconColor: const Color(0xFF5856D6),
+            onTap: () {
+              openBottomSelectionSheet(
+                title: 'Religious Beliefs',
+                options: FilterOptions.religiousBeliefs,
+                currentValue: religiousBeliefs,
+                onSelected: onReligiousBeliefsSaved,
+              );
+            },
+            onClear: onClearReligiousBeliefs,
+            isSaving: isSavingReligiousBeliefs,
           ),
           const SizedBox(height: 16),
 

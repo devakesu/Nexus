@@ -809,11 +809,6 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                           fontSize: 12,
                         ),
                         onSelected: (selected) async {
-                          if (widget.savingFields.contains(
-                            'dating_target_buckets',
-                          )) {
-                            return;
-                          }
                           setState(() {
                             if (selected) {
                               widget.selectedShowBuckets.add(code);
@@ -909,9 +904,6 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                           fontSize: 12,
                         ),
                         onSelected: (selected) async {
-                          if (widget.savingFields.contains('dating_for')) {
-                            return;
-                          }
                           setState(() {
                             if (selected) {
                               widget.selectedDatingFor.add(code);
@@ -1004,17 +996,12 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           onDeleted: () async {
-                            if (widget.savingFields.contains(
-                              'partner_values',
-                            )) {
-                              return;
-                            }
                             setState(() {
                               widget.selectedPartnerValues.remove(val);
                             });
                             await widget.onSaveDatingField(
                               'partner_values',
-                              widget.selectedPartnerValues.join(', '),
+                              widget.selectedPartnerValues,
                               setState,
                             );
                           },

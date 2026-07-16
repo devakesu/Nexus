@@ -641,6 +641,781 @@ class ProfileDetailSheet extends StatelessWidget {
     );
 
     // ── Build ─────────────────────────────────────────────────────────────────
+    final sections = <Widget>[];
+
+    // Bio
+    if (bio.isNotEmpty) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            decoration: BoxDecoration(
+              color: theme.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '"',
+                  style: TextStyle(
+                    color: theme.withValues(alpha: 0.6),
+                    fontSize: 38,
+                    height: 0.85,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    bio,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 14,
+                      height: 1.7,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Background - campus + role
+    if (campusBranch.isNotEmpty ||
+        campusYear != null ||
+        campusName.isNotEmpty ||
+        role.isNotEmpty ||
+        roleType.isNotEmpty) {
+      sections.add(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            sectionLabel('Background', emoji: '🎓'),
+            if (campusBranch.isNotEmpty ||
+                campusYear != null ||
+                campusName.isNotEmpty)
+              emojiInfoRow(
+                '🏛️',
+                [
+                  if (campusBranch.isNotEmpty) campusBranch,
+                  if (campusYear != null) 'Year $campusYear',
+                  if (campusName.isNotEmpty) campusName,
+                ].where((s) => s.isNotEmpty).join(' · '),
+              ),
+            if (roleType.isNotEmpty || role.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '💼',
+                          style: TextStyle(fontSize: 17),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (roleType.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: roleType
+                                  .map(
+                                    (type) => Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 9,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        type,
+                                        style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          if (role.isNotEmpty) ...[
+                            if (roleType.isNotEmpty)
+                              const SizedBox(height: 5),
+                            Text(
+                              role,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    if (tab == 'Professional') {
+      if (lookingForLabels.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Open to', emoji: '🤝'),
+              chipWrap(lookingForLabels),
+            ],
+          ),
+        );
+      }
+      if (techSkills.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Tech stack', emoji: '💻'),
+              chipWrap(
+                techSkills,
+                accent: Colors.cyanAccent,
+                labelColor: Colors.cyanAccent,
+              ),
+            ],
+          ),
+        );
+      }
+      if (activities.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Activities', icon: LucideIcons.activity),
+              chipWrap(
+                activities,
+                accent: Colors.white,
+                labelColor: Colors.white60,
+              ),
+            ],
+          ),
+        );
+      }
+      if (languages.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Speaks', emoji: '🗣️'),
+              chipWrap(
+                languages,
+                accent: Colors.white,
+                labelColor: Colors.white60,
+                useEmoji: true,
+              ),
+            ],
+          ),
+        );
+      }
+      if (interestKeys.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Interests', emoji: '✨'),
+              ...interestsCategories
+                  .where(
+                    (cat) => cat.parents.any(
+                      (p) => interestKeys.contains(p.name),
+                    ),
+                  )
+                  .map((cat) {
+                    final matchedParents = cat.parents
+                        .where((p) => interestKeys.contains(p.name))
+                        .toList();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                cat.icon,
+                                size: 12,
+                                color: theme.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cat.name.toUpperCase(),
+                                style: TextStyle(
+                                  color: theme.withValues(alpha: 0.6),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: theme.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            children: matchedParents.map((parent) {
+                              final subs =
+                                  subInterests[parent.name] is List
+                                  ? List<String>.from(
+                                      subInterests[parent.name] as List,
+                                    )
+                                  : <String>[];
+                              final parentIcon = getTagIcon(
+                                parent.name,
+                                iconSize: 12,
+                                iconColor: theme.withValues(alpha: 0.95),
+                              );
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  right: 12,
+                                  bottom: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 11,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.withValues(
+                                          alpha: 0.14,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (parentIcon != null) ...[
+                                            parentIcon,
+                                            const SizedBox(width: 5),
+                                          ],
+                                          Text(
+                                            parent.name,
+                                            style: TextStyle(
+                                              color: theme.withValues(
+                                                alpha: 0.95,
+                                              ),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (subs.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Wrap(
+                                        spacing: 5,
+                                        runSpacing: 5,
+                                        children: subs.map((sub) {
+                                          final subIcon = getTagIcon(
+                                            sub,
+                                            iconSize: 11,
+                                            iconColor: Colors.white60,
+                                          );
+                                          return Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 9,
+                                                  vertical: 3,
+                                                ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(
+                                                    alpha: 0.07,
+                                                  ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    10,
+                                                  ),
+                                              border: Border.all(
+                                                color: Colors.white
+                                                    .withValues(
+                                                      alpha: 0.12,
+                                                    ),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (subIcon != null) ...[
+                                                  subIcon,
+                                                  const SizedBox(width: 4),
+                                                ],
+                                                Text(
+                                                  sub,
+                                                  style: const TextStyle(
+                                                    color: Colors.white60,
+                                                    fontSize: 11,
+                                                    fontWeight:
+                                                        FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+            ],
+          ),
+        );
+      }
+      if (causesSupported.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Cares about', emoji: '🌍'),
+              chipWrap(
+                causesSupported,
+                accent: const Color(0xFF34D399),
+                labelColor: const Color(0xFF6EE7B7),
+                useEmoji: true,
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      // Dating or Friends
+      if (tab == 'Dating' && datingForLabels.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Here for', emoji: '💘'),
+              chipWrap(
+                datingForLabels,
+                accent: const Color(0xFFEC4899),
+                labelColor: const Color(0xFFFCCBE5),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (drinking.isNotEmpty ||
+          smoking.isNotEmpty ||
+          lifestyle.isNotEmpty ||
+          religiousBeliefs.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Lifestyle', emoji: '🌱'),
+              if (drinking.isNotEmpty)
+                emojiInfoRow('🍺', 'Drinks $drinking'),
+              if (smoking.isNotEmpty) emojiInfoRow('🚬', 'Smokes $smoking'),
+              if (lifestyle.isNotEmpty) emojiInfoRow('💫', lifestyle),
+              if (religiousBeliefs.isNotEmpty)
+                emojiInfoRow('🙏', religiousBeliefs),
+            ],
+          ),
+        );
+      }
+
+      if (interestKeys.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Interests', emoji: '✨'),
+              ...interestsCategories
+                  .where(
+                    (cat) => cat.parents.any(
+                      (p) => interestKeys.contains(p.name),
+                    ),
+                  )
+                  .map((cat) {
+                    final matchedParents = cat.parents
+                        .where((p) => interestKeys.contains(p.name))
+                        .toList();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                cat.icon,
+                                size: 12,
+                                color: theme.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                cat.name.toUpperCase(),
+                                style: TextStyle(
+                                  color: theme.withValues(alpha: 0.6),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: theme.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            children: matchedParents.map((parent) {
+                              final subs =
+                                  subInterests[parent.name] is List
+                                  ? List<String>.from(
+                                      subInterests[parent.name] as List,
+                                    )
+                                  : <String>[];
+                              final parentIcon = getTagIcon(
+                                parent.name,
+                                iconSize: 12,
+                                iconColor: theme.withValues(alpha: 0.95),
+                              );
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  right: 12,
+                                  bottom: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 11,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.withValues(
+                                          alpha: 0.14,
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (parentIcon != null) ...[
+                                            parentIcon,
+                                            const SizedBox(width: 5),
+                                          ],
+                                          Text(
+                                            parent.name,
+                                            style: TextStyle(
+                                              color: theme.withValues(
+                                                alpha: 0.95,
+                                              ),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (subs.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Wrap(
+                                        spacing: 5,
+                                        runSpacing: 5,
+                                        children: subs.map((sub) {
+                                          final subIcon = getTagIcon(
+                                            sub,
+                                            iconSize: 11,
+                                            iconColor: Colors.white60,
+                                          );
+                                          return Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 9,
+                                                  vertical: 3,
+                                                ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(
+                                                    alpha: 0.07,
+                                                  ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    10,
+                                                  ),
+                                              border: Border.all(
+                                                color: Colors.white
+                                                    .withValues(
+                                                      alpha: 0.12,
+                                                    ),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (subIcon != null) ...[
+                                                  subIcon,
+                                                  const SizedBox(width: 4),
+                                                ],
+                                                Text(
+                                                  sub,
+                                                  style: const TextStyle(
+                                                    color: Colors.white60,
+                                                    fontSize: 11,
+                                                    fontWeight:
+                                                        FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+            ],
+          ),
+        );
+      }
+
+      if (causesSupported.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Cares about', emoji: '🌍'),
+              chipWrap(
+                causesSupported,
+                accent: const Color(0xFF34D399),
+                labelColor: const Color(0xFF6EE7B7),
+                useEmoji: true,
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (partnerValues.isNotEmpty || childrenPlans.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Relationship', emoji: '❤️'),
+              if (partnerValues.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFFEC4899,
+                      ).withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(
+                          0xFFEC4899,
+                        ).withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Text(
+                      partnerValues,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 14,
+                        height: 1.65,
+                      ),
+                    ),
+                  ),
+                ),
+              if (partnerValues.isNotEmpty && childrenPlans.isNotEmpty)
+                const SizedBox(height: 14),
+              if (childrenPlans.isNotEmpty)
+                emojiInfoRow('👶', childrenPlans),
+            ],
+          ),
+        );
+      }
+
+      // Music Match
+      sections.add(buildMusicMatchCard(context));
+
+      if (languages.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Speaks', emoji: '🗣️'),
+              chipWrap(
+                languages,
+                accent: Colors.white,
+                labelColor: Colors.white60,
+                useEmoji: true,
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (pets.isNotEmpty) {
+        sections.add(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              sectionLabel('Pet parent', emoji: '🐾'),
+              chipWrap(
+                pets,
+                accent: const Color(0xFFFBBF24),
+                labelColor: const Color(0xFFFDE68A),
+                useEmoji: true,
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    // Gather photo widgets (only for Dating/Friends)
+    final photoWidgets = (tab == 'Dating' || tab == 'Friends')
+        ? normalPics.map<Widget>((pic) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: photoBlock(pic),
+            );
+          }).toList()
+        : <Widget>[];
+
+    final bodyItems = <Widget>[];
+
+    if (tab == 'Dating' || tab == 'Friends') {
+      final numSections = sections.length;
+      final numPhotos = photoWidgets.length;
+
+      if (numPhotos == 0) {
+        bodyItems.addAll(sections);
+      } else if (numSections == 0) {
+        bodyItems.addAll(photoWidgets);
+      } else {
+        final insertions = <int, List<Widget>>{};
+        if (numPhotos <= numSections) {
+          final step = (numSections + 1) / (numPhotos + 1);
+          for (var i = 0; i < numPhotos; i++) {
+            final target = (i + 1) * step;
+            var slot = target.round().clamp(1, numSections);
+            while (slot < numSections && insertions.containsKey(slot)) {
+              slot++;
+            }
+            insertions.putIfAbsent(slot, () => <Widget>[]).add(photoWidgets[i]);
+          }
+        } else {
+          for (var i = 0; i < numSections; i++) {
+            insertions[i + 1] = [photoWidgets[i]];
+          }
+          final remaining = <Widget>[];
+          for (var i = numSections; i < numPhotos; i++) {
+            remaining.add(photoWidgets[i]);
+          }
+          if (remaining.isNotEmpty) {
+            insertions.putIfAbsent(numSections, () => <Widget>[]).addAll(remaining);
+          }
+        }
+
+        for (var i = 0; i < numSections; i++) {
+          bodyItems.add(sections[i]);
+          final sectionNum = i + 1;
+          if (insertions.containsKey(sectionNum)) {
+            bodyItems.addAll(insertions[sectionNum]!);
+          }
+        }
+      }
+    } else {
+      bodyItems.addAll(sections);
+    }
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF090D1A),
@@ -920,680 +1695,7 @@ class ProfileDetailSheet extends StatelessWidget {
                     ),
                   ),
 
-                // ═══════════════════════════════════════════════════════════
-                // BIO
-                // ═══════════════════════════════════════════════════════════
-                if (bio.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                      decoration: BoxDecoration(
-                        color: theme.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: theme.withValues(alpha: 0.18),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '"',
-                            style: TextStyle(
-                              color: theme.withValues(alpha: 0.6),
-                              fontSize: 38,
-                              height: 0.85,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              bio,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.75),
-                                fontSize: 14,
-                                height: 1.7,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ═══════════════════════════════════════════════════════════
-                // BACKGROUND - campus + role
-                // ═══════════════════════════════════════════════════════════
-                if (campusBranch.isNotEmpty ||
-                    campusYear != null ||
-                    campusName.isNotEmpty ||
-                    role.isNotEmpty ||
-                    roleType.isNotEmpty) ...[
-                  sectionLabel('Background', emoji: '🎓'),
-                  if (campusBranch.isNotEmpty ||
-                      campusYear != null ||
-                      campusName.isNotEmpty)
-                    emojiInfoRow(
-                      '🏛️',
-                      [
-                        if (campusBranch.isNotEmpty) campusBranch,
-                        if (campusYear != null) 'Year $campusYear',
-                        if (campusName.isNotEmpty) campusName,
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                    ),
-                  if (roleType.isNotEmpty || role.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '💼',
-                                style: TextStyle(fontSize: 17),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (roleType.isNotEmpty)
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: roleType
-                                        .map(
-                                          (type) => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 9,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.08,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.15,
-                                                ),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              type,
-                                              style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                letterSpacing: 0.2,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                if (role.isNotEmpty) ...[
-                                  if (roleType.isNotEmpty)
-                                    const SizedBox(height: 5),
-                                  Text(
-                                    role,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13.5,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // DATING FOR (Dating only)
-                // ═══════════════════════════════════════════════════════════
-                if (tab == 'Dating' && datingForLabels.isNotEmpty) ...[
-                  sectionLabel('Here for', emoji: '💘'),
-                  chipWrap(
-                    datingForLabels,
-                    accent: const Color(0xFFEC4899),
-                    labelColor: const Color(0xFFFCCBE5),
-                  ),
-                ],
-
-                // PHOTO BREAK 1
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    normalPics.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  photoBlock(normalPics[0]),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // LIFESTYLE - Dating & Friends (after 1st pic, before interests)
-                // ═══════════════════════════════════════════════════════════
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    (drinking.isNotEmpty ||
-                        smoking.isNotEmpty ||
-                        lifestyle.isNotEmpty ||
-                        religiousBeliefs.isNotEmpty)) ...[
-                  sectionLabel('Lifestyle', emoji: '🌱'),
-                  if (drinking.isNotEmpty)
-                    emojiInfoRow('🍺', 'Drinks $drinking'),
-                  if (smoking.isNotEmpty) emojiInfoRow('🚬', 'Smokes $smoking'),
-                  if (lifestyle.isNotEmpty) emojiInfoRow('💫', lifestyle),
-                  if (religiousBeliefs.isNotEmpty)
-                    emojiInfoRow('🙏', religiousBeliefs),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // INTERESTS - organized by category (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if (tab != 'Professional' && interestKeys.isNotEmpty) ...[
-                  sectionLabel('Interests', emoji: '✨'),
-                  ...interestsCategories
-                      .where(
-                        (cat) => cat.parents.any(
-                          (p) => interestKeys.contains(p.name),
-                        ),
-                      )
-                      .map((cat) {
-                        final matchedParents = cat.parents
-                            .where((p) => interestKeys.contains(p.name))
-                            .toList();
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Category rule header
-                              Row(
-                                children: [
-                                  Icon(
-                                    cat.icon,
-                                    size: 12,
-                                    color: theme.withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    cat.name.toUpperCase(),
-                                    style: TextStyle(
-                                      color: theme.withValues(alpha: 0.6),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.5,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Container(
-                                      height: 1,
-                                      color: theme.withValues(alpha: 0.1),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                children: matchedParents.map((parent) {
-                                  final subs = subInterests[parent.name] is List
-                                      ? List<String>.from(
-                                          subInterests[parent.name] as List,
-                                        )
-                                      : <String>[];
-                                  final parentIcon = getTagIcon(
-                                    parent.name,
-                                    iconSize: 12,
-                                    iconColor: theme.withValues(alpha: 0.95),
-                                  );
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      right: 12,
-                                      bottom: 10,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        // Parent chip - solid fill, no border
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 11,
-                                            vertical: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme.withValues(
-                                              alpha: 0.14,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (parentIcon != null) ...[
-                                                parentIcon,
-                                                const SizedBox(width: 5),
-                                              ],
-                                              Text(
-                                                parent.name,
-                                                style: TextStyle(
-                                                  color: theme.withValues(
-                                                    alpha: 0.95,
-                                                  ),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (subs.isNotEmpty) ...[
-                                          const SizedBox(height: 5),
-                                          Wrap(
-                                            spacing: 5,
-                                            runSpacing: 5,
-                                            children: subs.map((sub) {
-                                              final subIcon = getTagIcon(
-                                                sub,
-                                                iconSize: 11,
-                                                iconColor: Colors.white60,
-                                              );
-                                              return Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 9,
-                                                      vertical: 3,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withValues(
-                                                        alpha: 0.07,
-                                                      ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  border: Border.all(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: 0.12,
-                                                        ),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    if (subIcon != null) ...[
-                                                      subIcon,
-                                                      const SizedBox(width: 4),
-                                                    ],
-                                                    Text(
-                                                      sub,
-                                                      style: const TextStyle(
-                                                        color: Colors.white60,
-                                                        fontSize: 11,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                ],
-
-                // PHOTO BREAK 2
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    normalPics.length >= 2) ...[
-                  const SizedBox(height: 20),
-                  photoBlock(normalPics[1]),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // CAUSES (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if (tab != 'Professional' && causesSupported.isNotEmpty) ...[
-                  sectionLabel('Cares about', emoji: '🌍'),
-                  chipWrap(
-                    causesSupported,
-                    accent: const Color(0xFF34D399),
-                    labelColor: const Color(0xFF6EE7B7),
-                    useEmoji: true,
-                  ),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // RELATIONSHIP - partner values + family plans (Dating)
-                // ═══════════════════════════════════════════════════════════
-                if (tab == 'Dating' &&
-                    (partnerValues.isNotEmpty || childrenPlans.isNotEmpty)) ...[
-                  sectionLabel('Relationship', emoji: '❤️'),
-                  if (partnerValues.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFFEC4899,
-                          ).withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: const Color(
-                              0xFFEC4899,
-                            ).withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Text(
-                          partnerValues,
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 14,
-                            height: 1.65,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (partnerValues.isNotEmpty && childrenPlans.isNotEmpty)
-                    const SizedBox(height: 14),
-                  if (childrenPlans.isNotEmpty)
-                    emojiInfoRow('👶', childrenPlans),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // SOUNDTRACK / MUSIC MATCH (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if (tab == 'Dating' || tab == 'Friends') ...[
-                  buildMusicMatchCard(context),
-                ],
-
-                // PHOTO BREAK 3
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    normalPics.length >= 3) ...[
-                  const SizedBox(height: 20),
-                  photoBlock(normalPics[2]),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // LANGUAGES (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if (tab != 'Professional' && languages.isNotEmpty) ...[
-                  sectionLabel('Speaks', emoji: '🗣️'),
-                  chipWrap(
-                    languages,
-                    accent: Colors.white,
-                    labelColor: Colors.white60,
-                    useEmoji: true,
-                  ),
-                ],
-
-                // PHOTO BREAK 4
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    normalPics.length >= 4) ...[
-                  const SizedBox(height: 20),
-                  photoBlock(normalPics[3]),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // PETS (Dating / Friends)
-                // ═══════════════════════════════════════════════════════════
-                if ((tab == 'Dating' || tab == 'Friends') &&
-                    pets.isNotEmpty) ...[
-                  sectionLabel('Pet parent', emoji: '🐾'),
-                  chipWrap(
-                    pets,
-                    accent: const Color(0xFFFBBF24),
-                    labelColor: const Color(0xFFFDE68A),
-                    useEmoji: true,
-                  ),
-                ],
-
-                // ═══════════════════════════════════════════════════════════
-                // PROFESSIONAL: Open to · Tech stack · Activities ·
-                //               Speaks · Interests · Cares about
-                // ═══════════════════════════════════════════════════════════
-                if (tab == 'Professional') ...[
-                  if (lookingForLabels.isNotEmpty) ...[
-                    sectionLabel('Open to', emoji: '🤝'),
-                    chipWrap(lookingForLabels),
-                  ],
-                  if (techSkills.isNotEmpty) ...[
-                    sectionLabel('Tech stack', emoji: '💻'),
-                    chipWrap(
-                      techSkills,
-                      accent: Colors.cyanAccent,
-                      labelColor: Colors.cyanAccent,
-                    ),
-                  ],
-                  if (activities.isNotEmpty) ...[
-                    sectionLabel('Activities', icon: LucideIcons.activity),
-                    chipWrap(
-                      activities,
-                      accent: Colors.white,
-                      labelColor: Colors.white60,
-                    ),
-                  ],
-                  if (languages.isNotEmpty) ...[
-                    sectionLabel('Speaks', emoji: '🗣️'),
-                    chipWrap(
-                      languages,
-                      accent: Colors.white,
-                      labelColor: Colors.white60,
-                      useEmoji: true,
-                    ),
-                  ],
-                  if (interestKeys.isNotEmpty) ...[
-                    sectionLabel('Interests', emoji: '✨'),
-                    ...interestsCategories
-                        .where(
-                          (cat) => cat.parents.any(
-                            (p) => interestKeys.contains(p.name),
-                          ),
-                        )
-                        .map((cat) {
-                          final matchedParents = cat.parents
-                              .where((p) => interestKeys.contains(p.name))
-                              .toList();
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      cat.icon,
-                                      size: 12,
-                                      color: theme.withValues(alpha: 0.6),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      cat.name.toUpperCase(),
-                                      style: TextStyle(
-                                        color: theme.withValues(alpha: 0.6),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Container(
-                                        height: 1,
-                                        color: theme.withValues(alpha: 0.1),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  children: matchedParents.map((parent) {
-                                    final subs =
-                                        subInterests[parent.name] is List
-                                        ? List<String>.from(
-                                            subInterests[parent.name] as List,
-                                          )
-                                        : <String>[];
-                                    final parentIcon = getTagIcon(
-                                      parent.name,
-                                      iconSize: 12,
-                                      iconColor: theme.withValues(alpha: 0.95),
-                                    );
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 12,
-                                        bottom: 10,
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 11,
-                                              vertical: 5,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: theme.withValues(
-                                                alpha: 0.14,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (parentIcon != null) ...[
-                                                  parentIcon,
-                                                  const SizedBox(width: 5),
-                                                ],
-                                                Text(
-                                                  parent.name,
-                                                  style: TextStyle(
-                                                    color: theme.withValues(
-                                                      alpha: 0.95,
-                                                    ),
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (subs.isNotEmpty) ...[
-                                            const SizedBox(height: 5),
-                                            Wrap(
-                                              spacing: 5,
-                                              runSpacing: 5,
-                                              children: subs.map((sub) {
-                                                final subIcon = getTagIcon(
-                                                  sub,
-                                                  iconSize: 11,
-                                                  iconColor: Colors.white60,
-                                                );
-                                                return Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 9,
-                                                        vertical: 3,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: 0.07,
-                                                        ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          10,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: 0.12,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      if (subIcon != null) ...[
-                                                        subIcon,
-                                                        const SizedBox(width: 4),
-                                                      ],
-                                                      Text(
-                                                        sub,
-                                                        style: const TextStyle(
-                                                          color: Colors.white60,
-                                                          fontSize: 11,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                  ],
-                  if (causesSupported.isNotEmpty) ...[
-                    sectionLabel('Cares about', emoji: '🌍'),
-                    chipWrap(
-                      causesSupported,
-                      accent: const Color(0xFF34D399),
-                      labelColor: const Color(0xFF6EE7B7),
-                      useEmoji: true,
-                    ),
-                  ],
-                ],
-
-                // REMAINING PHOTOS (5th+)
-                if (tab == 'Dating' || tab == 'Friends')
-                  ...normalPics
-                      .skip(4)
-                      .map(
-                        (pic) => Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: photoBlock(pic),
-                        ),
-                      ),
-
+                ...bodyItems,
                 // ═══════════════════════════════════════════════════════════
                 // SAFETY ACTIONS - Hide · Block · Report
                 // ═══════════════════════════════════════════════════════════
