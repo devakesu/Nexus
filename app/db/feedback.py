@@ -28,6 +28,8 @@ def _build_feedback_payload(
     app_version: str | None,
     platform: str | None,
     device_info: dict[str, Any] | None,
+    contact_email: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "user_id": user_id,
@@ -41,6 +43,8 @@ def _build_feedback_payload(
         "app_version": app_version.strip() if app_version else None,
         "platform": platform or None,
         "device_info": device_info or None,
+        "contact_email": contact_email.strip().lower() if contact_email else None,
+        "metadata": metadata or None,
     }
     payload.update({k: v for k, v in optional_fields.items() if v is not None})
     return payload
@@ -56,6 +60,8 @@ def record_feedback_submission(
     app_version: str | None = None,
     platform: str | None = None,
     device_info: dict[str, Any] | None = None,
+    contact_email: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Insert a Help, Feedback & Bug Report ticket.
 
@@ -73,6 +79,8 @@ def record_feedback_submission(
         app_version=app_version,
         platform=platform,
         device_info=device_info,
+        contact_email=contact_email,
+        metadata=metadata,
     )
 
     try:

@@ -6,7 +6,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
@@ -15,6 +15,7 @@ from app.db.chat import close_conversation_for_match_action
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.exclusions import (
     fetch_likes_for_user,
+    get_cached_active_block_ids,
     invalidate_block_cache,
     mark_likes_seen,
     record_discovery_action,
@@ -63,7 +64,7 @@ async def get_likes_inbox(
     request: Request,
     tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> LikesListResponse:
     _ = request
     try:
@@ -75,6 +76,9 @@ async def get_likes_inbox(
         actor_ids = list(
             {str(row["actor_id"]) for row in like_rows if row.get("actor_id")},
         )
+
+        block_ids = await get_cached_active_block_ids(user_id)
+        actor_ids = [aid for aid in actor_ids if aid not in block_ids]
 
         profiles_res = await asyncio.to_thread(
             lambda: (
@@ -91,6 +95,8 @@ async def get_likes_inbox(
         items: list[LikeListItem] = []
         for row in like_rows:
             actor_id = str(row.get("actor_id") or "")
+            if actor_id in block_ids or actor_id not in profile_map:
+                continue
             profile = profile_map.get(actor_id, {})
             items.append(
                 LikeListItem(
@@ -132,7 +138,7 @@ async def mark_likes_as_seen(
     request: Request,
     payload: MarkLikesSeenRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -206,7 +212,7 @@ async def get_peer_profile(
     request: Request,
     payload: PeerProfileRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> OrbitNodeDetailResponse:
     _ = request
     try:
@@ -272,7 +278,7 @@ async def record_like_back_action(
     request: Request,
     payload: LikeActionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> LikeActionResponse:
     _ = request
     try:
@@ -350,7 +356,7 @@ async def get_matches(
     request: Request,
     tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> MatchesListResponse:
     _ = request
     try:
@@ -359,9 +365,11 @@ async def get_matches(
         if not rows:
             return MatchesListResponse(matches=[])
 
+        block_ids = await get_cached_active_block_ids(user_id)
         counterpart_ids = [
             str(r["matched_user_id"]) for r in rows if r.get("matched_user_id")
         ]
+        counterpart_ids = [cid for cid in counterpart_ids if cid not in block_ids]
 
         profiles_res = await asyncio.to_thread(
             lambda: (
@@ -378,6 +386,8 @@ async def get_matches(
         items: list[MatchItem] = []
         for row in rows:
             uid = str(row.get("matched_user_id") or "")
+            if uid in block_ids or uid not in profile_map:
+                continue
             profile = profile_map.get(uid, {})
             matched_at = _parse_matched_at(row.get("created_at"))
             items.append(
@@ -410,7 +420,7 @@ async def record_match_action(
     request: Request,
     payload: MatchActionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> MatchActionResponse:
     _ = request
     try:

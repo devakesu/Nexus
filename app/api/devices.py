@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.client import supabase_client
@@ -45,7 +45,7 @@ async def register_device(
     request: Request,
     payload: RegisterDeviceRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -74,7 +74,7 @@ async def unregister_device(
     request: Request,
     payload: RegisterDeviceRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:

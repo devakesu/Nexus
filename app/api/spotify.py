@@ -31,7 +31,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from app.api.dependencies import get_authenticated_user_id
+from app.api.dependencies import get_active_user_id
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -176,7 +176,7 @@ async def spotify_native_exchange(
     request: Request,
     body: _NativeExchangeRequest,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     """
     Exchange a native SDK authorization code for artists + a persistent
@@ -245,7 +245,7 @@ async def spotify_native_exchange(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_connect(
     request: Request,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, str]:
     """Return a Spotify authorization URL for the current user."""
     _ = request
@@ -378,7 +378,7 @@ async def spotify_callback(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_status(
     request: Request,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> SpotifyStatusResponse:
     """Cheap connected/last-synced/counts summary for the Profile tab's
     initial render - avoids pulling the full playlist payload just to decide
@@ -434,7 +434,7 @@ def _playlist_out_from_row(raw: dict[str, Any]) -> SpotifyPlaylistOut:
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_playlists(
     request: Request,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> SpotifyPlaylistsResponse:
     """Owner-only: full decrypted playlist + track payload.
 
@@ -466,7 +466,7 @@ async def spotify_playlists(
 async def spotify_resync(
     request: Request,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Resync playlists + artists using the stored refresh token - no
     re-auth needed. Tightly rate-limited since it can trigger ~100+ Spotify
@@ -517,7 +517,7 @@ async def spotify_resync(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_disconnect(
     request: Request,
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Fully revoke a Spotify connection: deletes the stored refresh token
     and all synced playlists, and clears artist_affinity/top_artists/

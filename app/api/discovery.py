@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
@@ -41,7 +41,7 @@ async def get_discovery_orbit(
     request: Request,
     payload: DiscoveryRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ):
     _ = request
     active_tab = payload.tab
@@ -126,7 +126,7 @@ async def get_discovery_node_detail(
     request: Request,
     payload: OrbitNodeDetailRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ):
     _ = request
 
@@ -198,7 +198,7 @@ async def get_discovery_viewport(
     request: Request,
     payload: DiscoveryViewportRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ):
     _ = request
 
@@ -313,7 +313,7 @@ async def handle_discovery_action(
     request: Request,
     payload: DiscoveryActionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ):
     _ = request
     try:

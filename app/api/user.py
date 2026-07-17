@@ -19,7 +19,7 @@ from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import (
     assert_account_active,
     assert_special_category_consent,
-    get_authenticated_user_id,
+    get_active_user_id,
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
@@ -673,7 +673,7 @@ def accept_terms(
 async def update_profile_media_and_tags(
     request: Request,
     payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ):
     _ = request
@@ -772,7 +772,7 @@ def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
 
 @router.get("/api/v1/profile/details", response_model=ProfileDetailsResponse)
 def get_profile_details(
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     try:
         select_cols = (
@@ -900,7 +900,7 @@ def get_profile_details(
 )
 def get_moderation_subjects(
     payload: ModerationSubjectsRequest = Body(...),  # noqa: B008
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> list[dict[str, Any]]:
     """
     Returns basic decrypted profile info for users the caller has actively
@@ -1154,7 +1154,7 @@ def _sets_special_category_data(payload: ProfileDetailsUpdate) -> bool:
 def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
     # Sexual orientation / religious belief are optional profile fields, but
@@ -1665,7 +1665,7 @@ def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsRespon
     response_model=PrivacySettingsResponse,
 )
 def get_privacy_settings(
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
     try:
         res = (
@@ -1692,7 +1692,7 @@ def get_privacy_settings(
 )
 def update_privacy_settings(
     payload: PrivacySettingsUpdate = Body(...),  # noqa: B008
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
     update_data: dict[str, Any] = {}
     if payload.hidden_fields is not None:
@@ -1748,7 +1748,7 @@ def _to_email_notification_settings_response(
     response_model=EmailNotificationSettingsResponse,
 )
 def get_email_notification_settings(
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
     try:
         res = (
@@ -1778,7 +1778,7 @@ def get_email_notification_settings(
 )
 def update_email_notification_settings(
     payload: EmailNotificationSettingsUpdate = Body(...),  # noqa: B008
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:

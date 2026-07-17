@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Reques
 
 from app.api.dependencies import (
     assert_safety_consent,
-    get_authenticated_user_id,
+    get_active_user_id,
     verify_app_check_token,
 )
 from app.core.config import DiscoveryTab, settings
@@ -35,6 +35,7 @@ from app.db.client import (
     utcnow,
 )
 from app.db.matches import fetch_matches_for_user
+from app.db.exclusions import get_cached_active_block_ids
 from app.db.profiles import decrypt_profile_rows
 from app.db.users import fetch_public_user
 from app.models import (
@@ -65,7 +66,7 @@ async def get_chats(
     request: Request,
     tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> ChatsListResponse:
     _ = request
     try:
@@ -74,9 +75,11 @@ async def get_chats(
         if not rows:
             return ChatsListResponse(conversations=[])
 
+        block_ids = await get_cached_active_block_ids(user_id)
         counterpart_ids = [
             str(r["matched_user_id"]) for r in rows if r.get("matched_user_id")
         ]
+        counterpart_ids = [cid for cid in counterpart_ids if cid not in block_ids]
 
         profiles_res = await asyncio.to_thread(
             lambda: supabase_client.table("profiles")
@@ -90,6 +93,8 @@ async def get_chats(
         items: list[ChatConversationItem] = []
         for row in rows:
             uid = str(row.get("matched_user_id") or "")
+            if uid in block_ids or uid not in profile_map:
+                continue
             profile = profile_map.get(uid, {})
             items.append(
                 ChatConversationItem(
@@ -124,7 +129,7 @@ async def get_new_chat_candidates(
     request: Request,
     tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> ChatCandidatesResponse:
     """Matches in this tab that have no conversation started yet."""
     _ = request
@@ -134,8 +139,12 @@ async def get_new_chat_candidates(
             asyncio.to_thread(fetch_started_match_ids, user_id, tab),
         )
 
+        block_ids = await get_cached_active_block_ids(user_id)
         candidate_rows = [
             m for m in matches if str(m.get("match_id")) not in started_match_ids
+        ]
+        candidate_rows = [
+            m for m in candidate_rows if str(m.get("matched_user_id")) not in block_ids
         ]
         if not candidate_rows:
             return ChatCandidatesResponse(candidates=[])
@@ -158,6 +167,8 @@ async def get_new_chat_candidates(
         items: list[ChatCandidateItem] = []
         for row in candidate_rows:
             uid = str(row.get("matched_user_id") or "")
+            if uid in block_ids or uid not in profile_map:
+                continue
             profile = profile_map.get(uid, {})
             items.append(
                 ChatCandidateItem(
@@ -191,7 +202,7 @@ async def create_chat(
     request: Request,
     payload: CreateChatRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> CreateChatResponse:
     """Idempotently create (or fetch) the conversation for a match."""
     _ = request
@@ -235,7 +246,7 @@ async def send_message(
     conversation_id: str = Path(...),
     payload: SendMessageRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> SendMessageResponse:
     _ = request
     try:
@@ -300,7 +311,7 @@ async def send_presence_heartbeat(
     request: Request,
     payload: PresenceHeartbeatRequest = Body(default=PresenceHeartbeatRequest()),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -331,7 +342,7 @@ async def get_presence(
     request: Request,
     target_user_id: str = Path(...),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> PresenceResponse:
     """
     Deliberately returns an empty PresenceResponse (nulls) for every case
@@ -381,7 +392,7 @@ async def mark_conversation_messages_read(
     request: Request,
     conversation_id: str = Path(...),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> MarkMessagesReadResponse:
     """
     Silently no-ops (returns marked_count=0) if the reader has Read
@@ -430,7 +441,7 @@ async def create_chat_event(
     conversation_id: str = Path(...),
     payload: CreateEventRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
     """
     Creates a date/plan proposal: event_time/location are stored in
@@ -549,7 +560,7 @@ async def update_chat_event(
     event_id: str = Path(...),
     payload: UpdateEventStatusRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
     _ = request
     try:

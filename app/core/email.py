@@ -1267,3 +1267,115 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
         use_sp = should_use_sendpulse(email)
         provider_name = "SendPulse" if use_sp else "Brevo"
         return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+
+async def send_support_appeal_otp_email(
+    email: str,
+    otp_code: str,
+) -> ProviderResult:
+    """Sends a verification OTP email to a user attempting to submit
+    a support appeal ticket while logged out or suspended.
+    """
+    row_1 = """
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 26px; font-weight: 300;
+                         letter-spacing: 0.15em; color: #7C3AED;
+                         text-transform: uppercase;">
+                Support Verification
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                         color: #9CA3AF; font-weight: 400;">
+                You are verifying your email address to submit a support appeal.
+                Please use the verification code below to complete your ticket.
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = f"""
+          <tr>
+            <td style="padding: 0 32px 32px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(124,58,237,0.05);
+                     border-left: 2px solid #7C3AED;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 24px; line-height: 1.5; color: #7C3AED;
+                             font-weight: bold; text-align: center;
+                             letter-spacing: 0.25em;">
+                    {otp_code}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = """
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #9CA3AF;">
+              <p style="margin: 0 0 24px 0;">
+                This code will expire in 10 minutes. If you did not initiate
+                this request, please disregard this email.
+              </p>
+            </td>
+          </tr>
+    """
+
+    footer_html = f"""
+          You are receiving this communication to verify your identity for a
+          support request on your Nexus account.
+          If you did not request this, please contact support immediately at
+          <a href="mailto:support@{settings.app_domain}" style="color: #7C3AED;">
+          support@{settings.app_domain}</a>.
+          <br>
+          <a href="https://{settings.app_domain}/legal" target="_blank"
+             style="color: white">Privacy, Terms & Legal</a>
+    """
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3,
+        subject="Confirm Support Verification",
+        preheader_category="SECURITY",
+        preheader_action="SUPPORT_OTP",
+        footer_html=footer_html,
+    )
+
+    text_content = (
+        f"Use code {otp_code} to verify your email for your support request. "
+        "This code will expire in 10 minutes."
+    )
+
+    props = SendEmailProps(
+        to=email,
+        subject="Confirm Support Verification",
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.email_domain}",
+        from_name="Nexus Support",
+    )
+
+    try:
+        redacted = redact_email(email)
+        logger.info("Sending support-appeal-otp email to %s", redacted)
+        result = await send_email(props)
+        if not result.success:
+            logger.error(
+                "Failed to send support-appeal-otp email to %s: %s",
+                redacted,
+                result.error,
+            )
+        return result
+    except Exception as err:
+        logger.exception(
+            "Unexpected exception sending support-appeal-otp email to %s",
+            redact_email(email),
+        )
+        use_sp = should_use_sendpulse(email)
+        provider_name = "SendPulse" if use_sp else "Brevo"
+        return ProviderResult(success=False, provider=provider_name, error=str(err))

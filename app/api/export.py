@@ -12,7 +12,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
-    get_authenticated_user_id,
+    get_active_user_id,
     verify_app_check_with_replay_protection,
 )
 from app.core.cache import redis_client
@@ -46,7 +46,7 @@ def _otp_verified_key(user_id: str) -> str:
 async def request_data_export_otp(
     request: Request,
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> DataExportOtpRequestResponse:
     _ = request
     email = await run_in_threadpool(get_user_email_by_id, user_id)
@@ -75,7 +75,7 @@ async def verify_data_export_otp(
     request: Request,
     payload: DataExportOtpVerifyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> DataExportOtpVerifyResponse:
     _ = request
     email = await run_in_threadpool(get_user_email_by_id, user_id)
@@ -103,7 +103,7 @@ async def verify_data_export_otp(
 async def export_account_data(
     request: Request,
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     _ = request
     otp_key = _otp_verified_key(user_id)

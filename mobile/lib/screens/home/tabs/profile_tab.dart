@@ -108,7 +108,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       case 'campus_year': return 'campusYear';
       case 'campus_name': return 'campusName';
       case 'current_place': return 'currentPlace';
-      case 'children_plans': return 'childrenPlans';
       case 'religious_beliefs': return 'religiousBeliefs';
       case 'causes_supported': return 'causesSupported';
       case 'top_artists': return 'topArtists';
@@ -123,7 +122,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _hometown = '';
   String _currentPlace = '';
 
-  String _childrenPlans = '';
   String _religiousBeliefs = '';
   String _lifestyle = '';
   String _drinking = '';
@@ -149,7 +147,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _savedHometown = '';
   String _savedCurrentPlace = '';
 
-  String _savedChildrenPlans = '';
   String _savedReligiousBeliefs = '';
   String _savedLifestyle = '';
   String _savedDrinking = '';
@@ -338,18 +335,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         ],
         currentValue: _smoking,
         onSelected: (val) => unawaited(_saveProfileChanges(smoking: val)),
-      );
-    } else if (label == 'Children Plans') {
-      _openBottomSelectionSheet(
-        title: 'Children Plans',
-        options: const [
-          'Want kids',
-          "Don't want kids",
-          'Undecided',
-          'Not specified',
-        ],
-        currentValue: _childrenPlans,
-        onSelected: (val) => unawaited(_saveProfileChanges(childrenPlans: val)),
       );
     } else if (label == 'Religious Beliefs') {
        _openBottomSelectionSheet(
@@ -672,9 +657,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _currentPlace = cleanVal(data['current_place']);
     _savedCurrentPlace = _currentPlace;
 
-    _childrenPlans = cleanSingle(data['children_plans']);
-    _savedChildrenPlans = _childrenPlans;
-
     _religiousBeliefs = cleanSingle(data['religious_beliefs']);
     _savedReligiousBeliefs = _religiousBeliefs;
 
@@ -776,7 +758,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       'bio': _savedBio,
       'hometown': _savedHometown,
       'current_place': _savedCurrentPlace,
-      'children_plans': _savedChildrenPlans,
       'religious_beliefs': _savedReligiousBeliefs,
       'lifestyle': _savedLifestyle,
       'drinking': _savedDrinking,
@@ -885,7 +866,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     String? campusName,
     String? hometown,
     String? currentPlace,
-    String? childrenPlans,
     String? religiousBeliefs,
     String? lifestyle,
     String? drinking,
@@ -916,7 +896,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (campusName != null && campusName != _savedCampusName) hasChanges = true;
     if (hometown != null && hometown != _savedHometown) hasChanges = true;
     if (currentPlace != null && currentPlace != _savedCurrentPlace) hasChanges = true;
-    if (childrenPlans != null && childrenPlans != _savedChildrenPlans) hasChanges = true;
     if (religiousBeliefs != null && religiousBeliefs != _savedReligiousBeliefs) hasChanges = true;
     if (lifestyle != null && lifestyle != _savedLifestyle) hasChanges = true;
     if (drinking != null && drinking != _savedDrinking) hasChanges = true;
@@ -972,11 +951,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (campusName != null) incomingPayload['campus_name'] = campusName;
     if (hometown != null) incomingPayload['hometown'] = hometown;
     if (currentPlace != null) incomingPayload['current_place'] = currentPlace;
-    if (childrenPlans != null) {
-      incomingPayload['children_plans'] = childrenPlans.isEmpty
-          ? 'Not specified'
-          : childrenPlans;
-    }
+    if (currentPlace != null) incomingPayload['current_place'] = currentPlace;
     if (religiousBeliefs != null) {
       incomingPayload['religious_beliefs'] = religiousBeliefs.isEmpty
           ? 'Prefer not to say'
@@ -1095,11 +1070,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 _currentPlace = currentPayload['current_place'] as String;
                 _savedCurrentPlace = _currentPlace;
               }
-              if (currentPayload.containsKey('children_plans')) {
-                final plans = currentPayload['children_plans'] as String;
-                _childrenPlans = plans == 'Not specified' ? '' : plans;
-                _savedChildrenPlans = _childrenPlans;
-              }
               if (currentPayload.containsKey('religious_beliefs')) {
                 final beliefs = currentPayload['religious_beliefs'] as String;
                 _religiousBeliefs = beliefs == 'Prefer not to say' ? '' : beliefs;
@@ -1178,7 +1148,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             if (currentPayload.containsKey('campus_name')) _campusName = _savedCampusName;
             if (currentPayload.containsKey('hometown')) _hometown = _savedHometown;
             if (currentPayload.containsKey('current_place')) _currentPlace = _savedCurrentPlace;
-            if (currentPayload.containsKey('children_plans')) _childrenPlans = _savedChildrenPlans;
             if (currentPayload.containsKey('religious_beliefs')) _religiousBeliefs = _savedReligiousBeliefs;
             if (currentPayload.containsKey('lifestyle')) _lifestyle = _savedLifestyle;
             if (currentPayload.containsKey('drinking')) _drinking = _savedDrinking;
@@ -1219,7 +1188,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   int _calculateStability() {
     var filled = 0;
-    const total = 28;
+    const total = 27;
 
     // 1. The Core Signal
     if (_imagePaths[0] != null && _imagePaths[0]!.isNotEmpty) filled++;
@@ -1247,7 +1216,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (_lifestyle.isNotEmpty) filled++;
     if (_drinking.isNotEmpty) filled++;
     if (_smoking.isNotEmpty) filled++;
-    if (_childrenPlans.isNotEmpty) filled++;
     if (_religiousBeliefs.isNotEmpty) filled++;
     if (_pets.isNotEmpty) filled++;
 
@@ -2512,7 +2480,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         lifestyle: _lifestyle,
                         drinking: _drinking,
                         smoking: _smoking,
-                        childrenPlans: _childrenPlans,
                         religiousBeliefs: _religiousBeliefs,
                         pets: _pets,
                         subInterests: _subInterests,
@@ -2800,15 +2767,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         lifestyle: _lifestyle,
                         drinking: _drinking,
                         smoking: _smoking,
-                        childrenPlans: _childrenPlans,
                         religiousBeliefs: _religiousBeliefs,
                         pets: _pets,
                         isSavingLifestyle: _savingFields.contains('lifestyle'),
                         isSavingDrinking: _savingFields.contains('drinking'),
                         isSavingSmoking: _savingFields.contains('smoking'),
-                        isSavingChildrenPlans: _savingFields.contains(
-                          'childrenPlans',
-                        ),
                         isSavingReligiousBeliefs: _savingFields.contains(
                           'religiousBeliefs',
                         ),
@@ -2830,10 +2793,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                             unawaited(_saveProfileChanges(smoking: val)),
                         onClearSmoking: () =>
                             unawaited(_saveProfileChanges(smoking: '')),
-                        onChildrenPlansSaved: (val) =>
-                            unawaited(_saveProfileChanges(childrenPlans: val)),
-                        onClearChildrenPlans: () =>
-                            unawaited(_saveProfileChanges(childrenPlans: '')),
                         onReligiousBeliefsSaved: (val) => unawaited(
                           _saveSpecialCategoryField(religiousBeliefs: val),
                         ),

@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request, status
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.chat_keys import (
@@ -35,7 +35,7 @@ async def upload_identity_key(
     request: Request,
     payload: UploadIdentityKeyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -68,7 +68,7 @@ async def upload_signed_prekey(
     request: Request,
     payload: UploadSignedPrekeyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -102,7 +102,7 @@ async def upload_one_time_prekeys(
     request: Request,
     payload: UploadOneTimePrekeysRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     _ = request
     try:
@@ -141,7 +141,7 @@ async def upload_one_time_prekeys(
 async def get_one_time_prekey_count(
     request: Request,
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> OneTimePrekeyCountResponse:
     _ = request
     try:
@@ -165,7 +165,7 @@ async def get_key_bundle(
     request: Request,
     target_user_id: str = Path(...),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> KeyBundleResponse:
     _ = request
     try:
@@ -201,7 +201,7 @@ async def establish_session(
     request: Request,
     payload: EstablishSessionRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Diagnostics-only: records that user_id completed X3DH toward its peer.
 

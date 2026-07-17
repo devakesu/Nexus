@@ -324,13 +324,23 @@ def _fetch_and_decrypt_viewer(
             # NOTE: We fetch all fields needed for decryption. If any expected
             # columns are omitted, decrypt_profile_record will receive None
             # and default them to empty.
-            .select(_PROFILE_SELECT_COLUMNS)
+            .select(f"{_PROFILE_SELECT_COLUMNS}, users!inner(app_variant)")
             .eq("id", viewer_id)
             .limit(1)
             .execute()
         )
         viewer_rows = viewer_res.data
-        viewer = viewer_rows[0] if viewer_rows else None
+        if viewer_rows and isinstance(viewer_rows[0], dict):
+            viewer = cast(dict[str, Any], viewer_rows[0])
+            users_info = viewer.pop("users", None)
+            users_dict = (
+                cast(dict[str, Any], users_info)
+                if isinstance(users_info, dict)
+                else {}
+            )
+            viewer["app_variant"] = users_dict.get("app_variant", "nexus")
+        else:
+            viewer = None
     except APIError as e:
         logger.exception(
             "Failed to fetch viewer profile",
@@ -344,7 +354,7 @@ def _fetch_and_decrypt_viewer(
         )
         raise DatabaseAccessError("Unexpected error fetching viewer profile") from e
 
-    if not viewer or not isinstance(viewer, dict):
+    if not viewer:
         logger.warning(
             "Viewer profile response was empty or malformed",
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
@@ -374,17 +384,23 @@ def _build_candidate_query(
     active_tab: DiscoveryTab,
     filters: DiscoveryFilters,
     excluded_ids: set[str],
+    app_variant: str,
 ) -> Any:
     """Helper to assemble query constraints for candidate matching."""
     completion_flag_column = _get_completion_flag_column(active_tab)
     explicit_columns = (
         f"{_PROFILE_SELECT_COLUMNS}, {completion_flag_column}, "
-        "chat_presence(last_active_at)"
+        "chat_presence(last_active_at), "
+        "users!inner(app_variant, is_active, is_suspended, moderation_status)"
     )
     query = supabase_client.table("profiles").select(explicit_columns)
     query = query.neq("id", viewer_id)
     query = query.eq(completion_flag_column, True)
     query = query.eq("is_deactivated", False)
+    query = query.eq("users.app_variant", app_variant)
+    query = query.eq("users.is_active", True)
+    query = query.eq("users.is_suspended", False)
+    query = query.neq("users.moderation_status", "banned")
 
     if filters.campus_years:
         query = query.in_("campus_year", filters.campus_years)
@@ -480,6 +496,7 @@ def _filter_candidate_matches(
             continue
 
         cand_dict = cast(dict[str, Any], candidate)
+        cand_dict.pop("users", None)
         candidate_targets_raw = cand_dict.get(target_bucket_column)
         if not isinstance(candidate_targets_raw, list):
             continue
@@ -728,8 +745,16 @@ def fetch_stage_1_candidates(
     if not viewer:
         return None, []
 
+    app_variant = viewer.get("app_variant", "nexus")
+
     excluded_ids = fetch_active_discovery_excluded_ids(viewer_id, active_tab)
-    query = _build_candidate_query(viewer_id, active_tab, filters, excluded_ids)
+    query = _build_candidate_query(
+        viewer_id=viewer_id,
+        active_tab=active_tab,
+        filters=filters,
+        excluded_ids=excluded_ids,
+        app_variant=app_variant,
+    )
 
     dealbreakers = set(filters.dealbreaker_fields or [])
     active_post_fetch = sum(

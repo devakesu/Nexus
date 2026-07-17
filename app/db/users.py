@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
-from app.core.cache import redis_client
+from app.core.cache import invalidate_user_status_cache, redis_client
 from app.core.config import settings
 from app.core.crypto import (
     DecryptFailedError,
@@ -214,6 +214,7 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
                 "mobile_blind_index": blind_index,
             },
         ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         if e.code == "23505":
             raise HTTPException(
@@ -305,6 +306,7 @@ def upsert_public_user(
             )
             .execute()
         )
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         logger.exception(
             "Failed to upsert public user",
@@ -874,6 +876,7 @@ def _update_consent_pair(
             .eq("id", user_id)
             .execute()
         )
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         logger.exception(
             "Failed to update consent column pair",
@@ -918,6 +921,7 @@ def _clear_consent_pair(
         supabase_client.table("users").update(
             {version_column: None, timestamp_column: None},
         ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         logger.exception(
             "Failed to clear consent column pair",

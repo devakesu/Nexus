@@ -1282,7 +1282,7 @@ class ProfileDetailSheet extends StatelessWidget {
         );
       }
 
-      if (partnerValues.isNotEmpty || childrenPlans.isNotEmpty) {
+      if (tab != 'Friends' && (partnerValues.isNotEmpty || childrenPlans.isNotEmpty)) {
         sections.add(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

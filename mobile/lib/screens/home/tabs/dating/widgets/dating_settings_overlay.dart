@@ -9,6 +9,7 @@ class DatingSettingsOverlay extends StatefulWidget {
     required this.datingTargetBuckets,
     required this.datingFor,
     required this.partnerValues,
+    required this.childrenPlans,
     required this.savingFields,
     required this.onSaveDatingField,
     required this.onLoadDatingProfileStatusSilent,
@@ -20,6 +21,7 @@ class DatingSettingsOverlay extends StatefulWidget {
   final List<String> datingTargetBuckets;
   final List<String> datingFor;
   final List<String> partnerValues;
+  final String childrenPlans;
   final Set<String> savingFields;
   final Future<void> Function(String field, dynamic value, StateSetter setState)
   onSaveDatingField;
@@ -35,6 +37,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
   late List<String> localBuckets;
   late List<String> localDatingFor;
   late List<String> localPartnerValues;
+  late String localChildrenPlans;
   String searchQuery = '';
 
   final List<String> predefinedValues = const [
@@ -82,6 +85,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
     localBuckets = List<String>.from(widget.datingTargetBuckets);
     localDatingFor = List<String>.from(widget.datingFor);
     localPartnerValues = List<String>.from(widget.partnerValues);
+    localChildrenPlans = widget.childrenPlans;
   }
 
   Widget _buildSectionHeader(String title, IconData icon, Color color) {
@@ -422,6 +426,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                 ),
                 const SizedBox(height: 32),
 
+
                 // Partner Values Input Header
                 Row(
                   children: [
@@ -603,6 +608,87 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       );
                     }),
                   ],
+                ),
+                const SizedBox(height: 32),
+
+                _buildSectionHeader(
+                  'More About You',
+                  LucideIcons.user,
+                  AppColors.modeDating,
+                ),
+
+                // Children Plans
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Children Plans',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (widget.savingFields.contains('children_plans'))
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: NexusOrbitLoader(size: 16, lightMode: true),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'What are your plans or feelings about having children?',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children:
+                      [
+                        'Want kids',
+                        "Don't want kids",
+                        'Undecided',
+                        'Not specified',
+                      ].map((option) {
+                        final isSelected = localChildrenPlans == option;
+                        return FilterChip(
+                          label: Text(option),
+                          selected: isSelected,
+                          selectedColor: AppColors.modeDating,
+                          backgroundColor: Colors.black.withValues(
+                            alpha: 0.04,
+                          ),
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          onSelected: (selected) async {
+                            final newValue = selected ? option : '';
+                            setState(() {
+                              localChildrenPlans = newValue;
+                            });
+                            await widget.onSaveDatingField(
+                              'children_plans',
+                              newValue,
+                              setState,
+                            );
+                          },
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 40),
               ],

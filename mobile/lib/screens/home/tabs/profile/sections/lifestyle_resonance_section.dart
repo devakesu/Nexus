@@ -12,7 +12,6 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.lifestyle,
     required this.drinking,
     required this.smoking,
-    required this.childrenPlans,
     required this.religiousBeliefs,
     required this.pets,
     required this.onLifestyleChanged,
@@ -21,16 +20,13 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.openBottomSelectionSheet,
     required this.onDrinkingSaved,
     required this.onSmokingSaved,
-    required this.onChildrenPlansSaved,
     required this.onReligiousBeliefsSaved,
     this.onClearDrinking,
     this.onClearSmoking,
-    this.onClearChildrenPlans,
     this.onClearReligiousBeliefs,
     this.isSavingLifestyle = false,
     this.isSavingDrinking = false,
     this.isSavingSmoking = false,
-    this.isSavingChildrenPlans = false,
     this.isSavingReligiousBeliefs = false,
     this.isSavingPets = false,
     super.key,
@@ -39,13 +35,11 @@ class LifestyleResonanceSection extends StatelessWidget {
   final String lifestyle;
   final String drinking;
   final String smoking;
-  final String childrenPlans;
   final String religiousBeliefs;
   final List<String> pets;
   final bool isSavingLifestyle;
   final bool isSavingDrinking;
   final bool isSavingSmoking;
-  final bool isSavingChildrenPlans;
   final bool isSavingReligiousBeliefs;
   final bool isSavingPets;
 
@@ -63,11 +57,9 @@ class LifestyleResonanceSection extends StatelessWidget {
 
   final ValueChanged<String> onDrinkingSaved;
   final ValueChanged<String> onSmokingSaved;
-  final ValueChanged<String> onChildrenPlansSaved;
   final ValueChanged<String> onReligiousBeliefsSaved;
   final VoidCallback? onClearDrinking;
   final VoidCallback? onClearSmoking;
-  final VoidCallback? onClearChildrenPlans;
   final VoidCallback? onClearReligiousBeliefs;
 
   @override
@@ -150,30 +142,6 @@ class LifestyleResonanceSection extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-
-          // Children Plans
-          SelectorTile(
-            label: 'CHILDREN PLANS',
-            value: childrenPlans,
-            icon: LucideIcons.baby,
-            iconColor: const Color(0xFFFF9500),
-            onTap: () {
-              openBottomSelectionSheet(
-                title: 'Children Plans',
-                options: const [
-                  'Want kids',
-                  "Don't want kids",
-                  'Undecided',
-                  'Not specified',
-                ],
-                currentValue: childrenPlans,
-                onSelected: onChildrenPlansSaved,
-              );
-            },
-            onClear: onClearChildrenPlans,
-            isSaving: isSavingChildrenPlans,
           ),
           const SizedBox(height: 16),
 

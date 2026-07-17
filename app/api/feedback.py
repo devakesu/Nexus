@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import secrets
+import string
 from typing import Any
 
 from fastapi import (
@@ -10,16 +12,20 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    status,
 )
+from pydantic import BaseModel, Field
 
-from app.api.dependencies import get_authenticated_user_id, verify_app_check_token
+from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import (
     send_feedback_admin_notification_email,
     send_feedback_confirmation_email,
+    send_support_appeal_otp_email,
 )
 from app.core.limiter import limiter
-from app.db.client import DatabaseAccessError
+from app.db.client import DatabaseAccessError, supabase_client
 from app.db.feedback import (
     add_ticket_comment,
     close_ticket,
@@ -81,7 +87,7 @@ async def submit_feedback(
     background_tasks: BackgroundTasks,
     payload: FeedbackSubmitRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> FeedbackSubmitResponse:
     _ = request
 
@@ -165,7 +171,7 @@ async def list_my_feedback_tickets(
     limit: int | None = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> list[FeedbackTicketSummary]:
     _ = request
     try:
@@ -185,7 +191,7 @@ async def get_feedback_ticket(
     request: Request,
     report_id: str,
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
     _ = request
     try:
@@ -226,7 +232,7 @@ async def add_feedback_comment(
     report_id: str,
     payload: FeedbackCommentRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> FeedbackCommentEntry:
     _ = request
     try:
@@ -272,7 +278,7 @@ async def close_feedback_ticket(
     report_id: str,
     payload: FeedbackCloseRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
     _ = request
     try:
@@ -307,3 +313,169 @@ async def close_feedback_ticket(
             status_code=503,
             detail="Service temporarily unavailable.",
         ) from err
+
+
+class SupportAppealOtpRequest(BaseModel):
+    email: str = Field(..., description="Email address of the account to appeal")
+
+
+class SupportAppealSubmitRequest(BaseModel):
+    email: str = Field(..., description="Email address of the account")
+    otp_code: str = Field(
+        ..., min_length=6, max_length=6, description="6-digit verification OTP code",
+    )
+    subject: str = Field(..., min_length=3, max_length=150)
+    message: str = Field(..., min_length=10, max_length=5000)
+
+
+@router.post("/api/v1/feedback/appeal-otp/send")
+@limiter.limit(settings.rate_limit_auth)
+async def send_appeal_otp(
+    request: Request,
+    payload: SupportAppealOtpRequest = Body(...),  # noqa: B008
+) -> dict[str, bool]:
+    _ = request
+    email = payload.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required.")
+
+    try:
+        rpc_res = await asyncio.to_thread(
+            lambda: supabase_client.rpc(
+                "get_user_id_by_email", {"email_addr": email},
+            ).execute()
+        )
+        user_id = rpc_res.data
+    except Exception as err:
+        logger.exception("Failed to resolve user ID by email via RPC")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Support service temporarily unavailable.",
+        ) from err
+
+    if not user_id:
+        logger.info("Appeal OTP requested for non-existent email: %s", email)
+        return {"success": True}
+
+    otp_code = "".join(secrets.choice(string.digits) for _ in range(6))
+    otp_key = f"appeal:otp:{email}"
+
+    try:
+        await redis_client.set(otp_key, otp_code, ex=600)
+    except Exception as err:
+        logger.exception("Failed to store appeal OTP in Redis")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Support service temporarily unavailable.",
+        ) from err
+
+    email_res = await send_support_appeal_otp_email(email, otp_code)
+    if not email_res.success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email.",
+        )
+
+    return {"success": True}
+
+
+@router.post("/api/v1/feedback/appeal/submit")
+@limiter.limit(settings.rate_limit_auth)
+async def submit_appeal_ticket(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    payload: SupportAppealSubmitRequest = Body(...),  # noqa: B008
+) -> dict[str, Any]:
+    _ = request
+    email = payload.email.strip().lower()
+    otp_code = payload.otp_code.strip()
+
+    otp_key = f"appeal:otp:{email}"
+    try:
+        stored_otp = await redis_client.get(otp_key)
+    except Exception as err:
+        logger.exception("Failed to fetch appeal OTP from Redis")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Support service temporarily unavailable.",
+        ) from err
+
+    if not stored_otp or stored_otp != otp_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code.",
+        )
+
+    try:
+        await redis_client.delete(otp_key)
+    except Exception as err:
+        logger.warning("Failed to delete appeal OTP key %s: %s", otp_key, err)
+
+    try:
+        rpc_res = await asyncio.to_thread(
+            lambda: supabase_client.rpc(
+                "get_user_id_by_email", {"email_addr": email},
+            ).execute()
+        )
+        user_id = rpc_res.data
+    except Exception as err:
+        logger.exception("Failed to resolve user ID by email via RPC")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Support service temporarily unavailable.",
+        ) from err
+
+    if not user_id or not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account associated with this email address.",
+        )
+
+    query_type = "help"
+    subject = payload.subject.strip()
+    message = payload.message.strip()
+
+    try:
+        report_row = await asyncio.to_thread(
+            record_feedback_submission,
+            user_id=user_id,
+            query_type=query_type,
+            subject=subject,
+            message=message,
+            github_issue_url=None,
+            attachment_paths=[],
+            app_version=None,
+            platform=None,
+            device_info={},
+            contact_email=email,
+            metadata={"source": "unauthenticated_appeal"},
+        )
+    except Exception as err:
+        logger.exception("Failed to record support appeal ticket in DB")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to submit appeal ticket. Please try again.",
+        ) from err
+
+    report_id = str(report_row["id"])
+    background_tasks.add_task(
+        send_feedback_confirmation_email,
+        email=email,
+        query_type=query_type,
+        subject=subject,
+        report_id=report_id,
+    )
+    background_tasks.add_task(
+        send_feedback_admin_notification_email,
+        report_id=report_id,
+        query_type=query_type,
+        subject=subject,
+        message=message,
+        user_id=user_id,
+        submitter_email=email,
+    )
+
+    return {
+        "success": True,
+        "ticket_id": report_id,
+    }

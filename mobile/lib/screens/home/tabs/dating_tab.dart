@@ -53,6 +53,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
   List<String> _datingTargetBuckets = [];
   List<String> _datingFor = [];
   List<String> _partnerValues = [];
+  String _childrenPlans = '';
   final Set<String> _savingFields = {};
   final Map<String, dynamic> _pendingSaves = {};
   final Set<String> _activeSaves = {};
@@ -167,6 +168,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
     _partnerValues = rawPartnerValues is List
         ? rawPartnerValues.map((e) => e.toString()).toList()
         : [];
+    _childrenPlans = data['children_plans']?.toString() ?? '';
   }
 
   Future<void> _loadDatingProfileStatus() async {
@@ -255,6 +257,8 @@ class _DatingTabState extends ConsumerState<DatingTab>
             _datingFor = List<String>.from(currentValueToSave as List);
           } else if (field == 'partner_values') {
             _partnerValues = List<String>.from(currentValueToSave as List);
+          } else if (field == 'children_plans') {
+            _childrenPlans = currentValueToSave as String;
           }
         }
       });
@@ -544,6 +548,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
             datingTargetBuckets: _datingTargetBuckets,
             datingFor: _datingFor,
             partnerValues: _partnerValues,
+            childrenPlans: _childrenPlans,
             savingFields: _savingFields,
             onSaveDatingField: (field, value, setStateCallback) async {
               await _saveDatingField(field, value, setStateCallback);

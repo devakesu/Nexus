@@ -24,6 +24,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab, settings
+from app.core.cache import invalidate_user_status_cache
 from app.db.chat import (
     close_conversation_for_match_action,
     reopen_conversations_for_reactivation,
@@ -246,6 +247,7 @@ def request_deletion(
                 "deletion_flagged_reason_code": flagged_reason_code,
             },
         ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         logger.exception(
             "Failed to set deletion lifecycle columns", extra={"user_id": user_id},
@@ -308,6 +310,7 @@ def cancel_deletion(user_id: str) -> None:
                 "deletion_flagged_reason_code": None,
             },
         ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
     except APIError as e:
         logger.exception(
             "Failed to cancel deletion lifecycle columns", extra={"user_id": user_id},
@@ -370,6 +373,7 @@ def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
             "purged_at": now.isoformat(),
         },
     ).eq("id", user_id).execute()
+    invalidate_user_status_cache(user_id)
 
 
 def _delete_no_retention_rows(user_id: str) -> None:

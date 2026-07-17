@@ -1,9 +1,10 @@
 import asyncio
 import hashlib
+import json
 import logging
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import jwt
 from fastapi import Depends, Header, HTTPException, status
@@ -129,6 +130,39 @@ async def get_authenticated_user_id(
     return user_id
 
 
+async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
+    redis_key = f"user:status:{user_id}"
+    try:
+        cached = await redis_client.get(redis_key)
+        if cached:
+            res = json.loads(cached)
+            if isinstance(res, dict):
+                return cast(dict[str, Any], res)
+    except Exception:
+        logger.exception("Failed to fetch user status from Redis cache")
+
+    user_row = await run_in_threadpool(fetch_public_user, user_id)
+    if user_row:
+        try:
+            await redis_client.set(redis_key, json.dumps(user_row), ex=60)
+        except Exception:
+            logger.exception("Failed to write user status to Redis cache")
+    return user_row
+
+
+async def get_active_user_id(
+    user_id: str = Depends(get_authenticated_user_id),
+) -> str:
+    user_row = await get_cached_public_user(user_id)
+    if not user_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found. Please complete bootstrap first.",
+        )
+    assert_account_active(user_row)
+    return user_id
+
+
 # ---------------------------------------------------------------------------
 # Account-status guard
 # ---------------------------------------------------------------------------
@@ -221,15 +255,15 @@ def assert_safety_consent(user_row: dict[str, Any]) -> None:
 
 
 async def require_safety_consent(
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(get_active_user_id),
 ) -> str:
-    """Drop-in replacement for Depends(get_authenticated_user_id) on
+    """Drop-in replacement for Depends(get_active_user_id) on
     endpoints that create/process Meetup Safety data (trusted contacts,
     session start, SOS alerts, evidence registration) - fetches the user
     row and runs assert_safety_consent before returning the same user_id,
     so route handlers need no other change beyond swapping the dependency.
     """
-    user_row = await run_in_threadpool(fetch_public_user, user_id)
+    user_row = await get_cached_public_user(user_id)
     if not user_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
