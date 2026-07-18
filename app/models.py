@@ -913,6 +913,8 @@ class ChatConversationItem(BaseModel):
     age: int | None = None
     profile_pic: str | None = None
     last_message_at: datetime
+    has_unread: bool = False
+    unread_count: int = 0
 
 
 class ChatsListResponse(BaseModel):

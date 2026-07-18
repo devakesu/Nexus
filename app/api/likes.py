@@ -372,6 +372,12 @@ async def record_like_back_action(
         # Revoke their incoming like so it clears from the inbox
         if payload.action in ("like", "superlike", "pass", "block"):
             await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
+            if matched:
+                await asyncio.to_thread(
+                    revoke_incoming_like,
+                    payload.target_id,
+                    user_id,
+                )
 
         return LikeActionResponse(success=True, matched=matched, match_id=match_id)
 

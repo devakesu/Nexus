@@ -129,7 +129,7 @@ class MeetupSafetySession extends ChangeNotifier {
       // device's real zone couldn't be resolved.
     }
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_notification_silhouette');
     // Not const: DarwinNotificationAction.plain(...) is a non-const factory,
     // so this whole tree can't be a compile-time constant.
     final darwinInit = DarwinInitializationSettings(
@@ -154,13 +154,25 @@ class MeetupSafetySession extends ChangeNotifier {
       ],
     );
 
-    await _plugin.initialize(
-      settings: InitializationSettings(
-        android: androidInit,
-        iOS: darwinInit,
-      ),
-      onDidReceiveNotificationResponse: _onNotificationResponse,
-    );
+    try {
+      await _plugin.initialize(
+        settings: InitializationSettings(
+          android: androidInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: _onNotificationResponse,
+      );
+    } on Object catch (e) {
+      debugPrint('[Safety] Failed to initialize with ic_notification, falling back: $e');
+      const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await _plugin.initialize(
+        settings: InitializationSettings(
+          android: fallbackInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: _onNotificationResponse,
+      );
+    }
 
     // Peek at whether a check-in was left active from a prior session -
     // `_restore()` below reads the same pref, so this doesn't add a real

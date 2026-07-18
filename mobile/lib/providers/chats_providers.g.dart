@@ -9,19 +9,15 @@ part of 'chats_providers.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
-@ProviderFor(chatConversations)
+@ProviderFor(ChatConversations)
 final chatConversationsProvider = ChatConversationsFamily._();
 
 final class ChatConversationsProvider
     extends
-        $FunctionalProvider<
-          AsyncValue<List<ChatConversationSummary>>,
-          List<ChatConversationSummary>,
-          FutureOr<List<ChatConversationSummary>>
-        >
-    with
-        $FutureModifier<List<ChatConversationSummary>>,
-        $FutureProvider<List<ChatConversationSummary>> {
+        $AsyncNotifierProvider<
+          ChatConversations,
+          List<ChatConversationSummary>
+        > {
   ChatConversationsProvider._({
     required ChatConversationsFamily super.from,
     required String super.argument,
@@ -45,15 +41,7 @@ final class ChatConversationsProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<ChatConversationSummary>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
-
-  @override
-  FutureOr<List<ChatConversationSummary>> create(Ref ref) {
-    final argument = this.argument as String;
-    return chatConversations(ref, argument);
-  }
+  ChatConversations create() => ChatConversations();
 
   @override
   bool operator ==(Object other) {
@@ -66,11 +54,14 @@ final class ChatConversationsProvider
   }
 }
 
-String _$chatConversationsHash() => r'f4356979c768bf5bbbe962864f4c7af1e19acce7';
+String _$chatConversationsHash() => r'5873dd444c4bcd6035cbfd9edf50864855e2a5a8';
 
 final class ChatConversationsFamily extends $Family
     with
-        $FunctionalFamilyOverride<
+        $ClassFamilyOverride<
+          ChatConversations,
+          AsyncValue<List<ChatConversationSummary>>,
+          List<ChatConversationSummary>,
           FutureOr<List<ChatConversationSummary>>,
           String
         > {
@@ -88,6 +79,36 @@ final class ChatConversationsFamily extends $Family
 
   @override
   String toString() => r'chatConversationsProvider';
+}
+
+abstract class _$ChatConversations
+    extends $AsyncNotifier<List<ChatConversationSummary>> {
+  late final _$args = ref.$arg as String;
+  String get tab => _$args;
+
+  FutureOr<List<ChatConversationSummary>> build(String tab);
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref
+            as $Ref<
+              AsyncValue<List<ChatConversationSummary>>,
+              List<ChatConversationSummary>
+            >;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<
+                AsyncValue<List<ChatConversationSummary>>,
+                List<ChatConversationSummary>
+              >,
+              AsyncValue<List<ChatConversationSummary>>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, () => build(_$args));
+  }
 }
 
 @ProviderFor(newChatCandidates)
@@ -165,4 +186,48 @@ final class NewChatCandidatesFamily extends $Family
 
   @override
   String toString() => r'newChatCandidatesProvider';
+}
+
+@ProviderFor(HasUnreadMessages)
+final hasUnreadMessagesProvider = HasUnreadMessagesProvider._();
+
+final class HasUnreadMessagesProvider
+    extends $AsyncNotifierProvider<HasUnreadMessages, bool> {
+  HasUnreadMessagesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'hasUnreadMessagesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$hasUnreadMessagesHash();
+
+  @$internal
+  @override
+  HasUnreadMessages create() => HasUnreadMessages();
+}
+
+String _$hasUnreadMessagesHash() => r'f2d98f2c4ab673098925c43ed199eab16ba89d94';
+
+abstract class _$HasUnreadMessages extends $AsyncNotifier<bool> {
+  FutureOr<bool> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<bool>, bool>,
+              AsyncValue<bool>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
 }

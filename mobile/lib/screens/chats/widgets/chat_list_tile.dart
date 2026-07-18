@@ -38,12 +38,25 @@ class ChatListTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000), // black @ ~3% matching Ambient Card
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
+        border: Border.all(
+          color: conversation.hasUnread
+              ? themeColor.withValues(alpha: 0.35)
+              : Colors.transparent,
+          width: 1.5,
+        ),
+        boxShadow: [
+          if (conversation.hasUnread)
+            BoxShadow(
+              color: themeColor.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          else
+            const BoxShadow(
+              color: Color(0x08000000), // black @ ~3% matching Ambient Card
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
         ],
       ),
       child: Material(
@@ -117,12 +130,43 @@ class ChatListTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _relativeTime(conversation.lastMessageAt),
-                  style: GoogleFonts.inter(
-                    fontSize: 11.5,
-                    color: const Color(0xFFCBD5E1),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _relativeTime(conversation.lastMessageAt),
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5,
+                        color: conversation.hasUnread
+                            ? themeColor
+                            : const Color(0xFFCBD5E1),
+                        fontWeight: conversation.hasUnread
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    if (conversation.hasUnread) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: themeColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          conversation.unreadCount > 99
+                              ? '99+'
+                              : '${conversation.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

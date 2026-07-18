@@ -2,20 +2,31 @@
 // misidentify this file as an executable entry point.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_settings/app_settings.dart';
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/navigation/app_router.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
+import 'package:nexus/services/signal/local_key_vault.dart';
+import 'package:nexus/services/signal/message_codec.dart';
+import 'package:nexus/services/signal/session_manager.dart';
+import 'package:nexus/services/signal/signal_database.dart';
+import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/secure_session_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,6 +34,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FCM] Background message: ${message.messageId}');
+  await NotificationService.handlePushMessage(message);
 }
 
 const _kDenialDialogShownKey = 'fcm_denial_dialog_shown';
@@ -215,14 +227,7 @@ class NotificationService {
   // ---------------------------------------------------------------------------
 
   static void _handleForegroundMessage(RemoteMessage message) {
-    final n = message.notification;
-    if (n == null) return;
-    _showInAppToast(
-      title: n.title ?? '',
-      body: n.body ?? '',
-      type: (message.data['type'] as String?) ?? '',
-      data: message.data,
-    );
+    unawaited(handlePushMessage(message, isForeground: true));
   }
 
   static void _handleNotificationTap(Map<String, dynamic> data) {
@@ -232,6 +237,8 @@ class NotificationService {
     if (type == 'chat_message') {
       final conversationId = data['conversation_id'] as String?;
       final actorId = data['actor_id'] as String?;
+      final name = data['name'] as String?;
+      final profilePic = data['profile_pic'] as String?;
       if (conversationId == null || actorId == null) return;
 
       unawaited(
@@ -241,8 +248,8 @@ class NotificationService {
             'conversationId': conversationId,
             'matchedUserId': actorId,
             'tab': (data['tab'] as String?) ?? 'Dating',
-            'name': (data['name'] as String?) ?? 'Nexus user',
-            'profilePic': null,
+            'name': name ?? 'Nexus user',
+            'profilePic': profilePic,
           },
         ),
       );
@@ -272,6 +279,286 @@ class NotificationService {
     }
   }
 
+  static Future<void> handlePushMessage(
+    RemoteMessage message, {
+    bool isForeground = false,
+  }) async {
+    WidgetsFlutterBinding.ensureInitialized();
+    try {
+      Supabase.instance;
+    } on Object catch (_) {
+      try {
+        final config = AppConfig.current;
+        await Supabase.initialize(
+          url: config.supabaseUrl,
+          publishableKey: config.supabasePublishableKey,
+          authOptions: const FlutterAuthClientOptions(
+            localStorage: SecureLocalStorage(),
+            pkceAsyncStorage: SecureGotrueAsyncStorage(),
+          ),
+        );
+      } on Object catch (e) {
+        debugPrint('[FCM] Failed to initialize Supabase in background: $e');
+      }
+    }
+    final data = message.data;
+    final type = data['type'] as String?;
+
+    if (type != 'chat_message') {
+      final n = message.notification;
+      if (n != null && isForeground) {
+        _showInAppToast(
+          title: n.title ?? '',
+          body: n.body ?? '',
+          type: type ?? '',
+          data: data,
+        );
+      }
+      return;
+    }
+
+    final senderId = data['actor_id'] as String?;
+    final senderName = data['name'] as String? ?? 'Someone';
+    final conversationId = data['conversation_id'] as String?;
+    final profilePic = data['profile_pic'] as String?;
+    if (senderId == null || conversationId == null) return;
+
+    final plaintext = await _decryptMessage(data) ?? 'New message';
+
+    if (isForeground) {
+      _showInAppToast(
+        title: senderName,
+        body: plaintext,
+        type: 'chat_message',
+        data: data,
+        profilePic: profilePic,
+      );
+      return;
+    }
+
+    // Background push: retrieve and update active notifications to support merging within 3 hours
+    final prefs = await SharedPreferences.getInstance();
+    final activeJson = prefs.getString('active_notifications');
+    var activeMap = <String, dynamic>{};
+    if (activeJson != null) {
+      try {
+        activeMap = json.decode(activeJson) as Map<String, dynamic>;
+      } on Object catch (_) {}
+    }
+
+    final now = DateTime.now();
+    var messages = <String>[];
+    if (activeMap.containsKey(senderId)) {
+      final entry = activeMap[senderId] as Map<String, dynamic>;
+      final lastMsgAtStr = entry['last_message_at'] as String?;
+      final lastMsgAt = lastMsgAtStr != null ? DateTime.tryParse(lastMsgAtStr) : null;
+      if (lastMsgAt != null && now.difference(lastMsgAt).inHours <= 3) {
+        messages = List<String>.from(entry['messages'] as List);
+      }
+    }
+
+    messages.add(plaintext);
+    activeMap[senderId] = {
+      'sender_name': senderName,
+      'conversation_id': conversationId,
+      'last_message_at': now.toIso8601String(),
+      'messages': messages,
+    };
+    await prefs.setString('active_notifications', json.encode(activeMap));
+
+    final largeIconPath = await _downloadProfilePic(profilePic);
+    final notificationBody = messages.reversed.join('\n');
+    final notificationId = senderId.hashCode;
+
+    final androidDetails = AndroidNotificationDetails(
+      'chat_message',
+      'Chats',
+      channelDescription: 'When you receive a new chat message',
+      importance: Importance.high,
+      priority: Priority.high,
+      largeIcon: largeIconPath != null ? FilePathAndroidBitmap(largeIconPath) : null,
+      styleInformation: const BigTextStyleInformation(''),
+    );
+
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      attachments: largeIconPath != null
+          ? [DarwinNotificationAttachment(largeIconPath)]
+          : null,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final localPlugin = FlutterLocalNotificationsPlugin();
+    const androidInit = AndroidInitializationSettings('ic_notification_silhouette');
+    const darwinInit = DarwinInitializationSettings();
+    try {
+      await localPlugin.initialize(
+        settings: const InitializationSettings(
+          android: androidInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: (response) {
+          _handleNotificationTap(data);
+        },
+      );
+    } on Object catch (e) {
+      debugPrint('[FCM] Failed to initialize with ic_notification, falling back: $e');
+      const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await localPlugin.initialize(
+        settings: const InitializationSettings(
+          android: fallbackInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: (response) {
+          _handleNotificationTap(data);
+        },
+      );
+    }
+
+    await localPlugin.show(
+      id: notificationId,
+      title: senderName,
+      body: notificationBody,
+      notificationDetails: details,
+      payload: json.encode(data),
+    );
+  }
+
+  static Future<String?> _decryptMessage(Map<String, dynamic> data) async {
+    final senderId = data['actor_id'] as String?;
+    final ciphertext = data['ciphertext'] as String?;
+    final metadataStr = data['ciphertext_metadata'] as String?;
+    if (senderId == null || ciphertext == null) return null;
+
+    try {
+      final store = await SignalKeyService.instance.ensureBootstrapped();
+      final address = SignalProtocolAddress(senderId, kSignalDeviceId);
+      final metadata = metadataStr != null
+          ? json.decode(metadataStr) as Map<String, dynamic>
+          : <String, dynamic>{};
+      final signalType = metadata['signal_message_type'] as String? ?? 'whisper';
+
+      final plaintext = await MessageCodec.instance.decryptText(
+        store: store,
+        address: address,
+        ciphertextBase64: ciphertext,
+        signalMessageType: signalType,
+      );
+
+      if (plaintext != null) {
+        final messageId = data['message_id'] as String?;
+        final conversationId = data['conversation_id'] as String?;
+        final createdAtStr = data['created_at'] as String?;
+        final messageType = data['msg_type'] as String? ?? 'text';
+        if (messageId != null && conversationId != null) {
+          final createdAt = createdAtStr != null
+              ? DateTime.tryParse(createdAtStr) ?? DateTime.now()
+              : DateTime.now();
+          try {
+            final encrypted = await LocalKeyVault.instance.encryptBytes(
+              Uint8List.fromList(utf8.encode(plaintext)),
+            );
+            final db = SignalDatabase.instance;
+            await db.into(db.localMessages).insertOnConflictUpdate(
+              LocalMessagesCompanion.insert(
+                id: messageId,
+                conversationId: conversationId,
+                senderId: senderId,
+                isMine: false,
+                createdAt: createdAt,
+                messageType: messageType,
+                plaintextEnc: Value(encrypted),
+                decryptFailed: const Value(false),
+              ),
+            );
+            debugPrint('[FCM] Successfully decrypted and cached message $messageId');
+          } on Object catch (e, st) {
+            debugPrint('[FCM] Failed to cache decrypted message $messageId: $e\n$st');
+          }
+        }
+      }
+
+      return plaintext;
+    } on Object catch (e) {
+      debugPrint('[FCM] Decryption failed: $e');
+      return null;
+    }
+  }
+
+  static Future<String?> _downloadProfilePic(String? imagePath) async {
+    if (imagePath == null || imagePath.isEmpty) return null;
+    try {
+      String url;
+      var headers = <String, String>{};
+
+      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        url = imagePath;
+      } else {
+        final publicUrl = Supabase.instance.client.storage
+            .from('user_media')
+            .getPublicUrl(imagePath);
+        url = publicUrl.replaceFirst(
+          '/public/',
+          '/authenticated/',
+        );
+        final session = Supabase.instance.client.auth.currentSession;
+        final token = session?.accessToken;
+        final apikey = AppConfig.current.supabasePublishableKey;
+        headers = {
+          'apikey': apikey,
+          if (token != null) 'Authorization': 'Bearer $token',
+        };
+      }
+
+      final dio = Dio();
+      final tempDir = Directory.systemTemp;
+      final filePath =
+          '${tempDir.path}/notification_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await dio.download(
+        url,
+        filePath,
+        options: Options(headers: headers),
+      );
+      return filePath;
+    } on Object catch (e) {
+      debugPrint('[FCM] Failed to download profile pic: $e');
+      return null;
+    }
+  }
+
+  static Future<void> clearNotificationsForConversation(String conversationId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeJson = prefs.getString('active_notifications');
+      if (activeJson == null) return;
+
+      final activeMap = json.decode(activeJson) as Map<String, dynamic>;
+      String? matchedSenderId;
+      for (final entry in activeMap.entries) {
+        final val = entry.value as Map<String, dynamic>;
+        if (val['conversation_id'] == conversationId) {
+          matchedSenderId = entry.key;
+          break;
+        }
+      }
+
+      if (matchedSenderId != null) {
+        activeMap.remove(matchedSenderId);
+        await prefs.setString('active_notifications', json.encode(activeMap));
+        final localPlugin = FlutterLocalNotificationsPlugin();
+        await localPlugin.cancel(id: matchedSenderId.hashCode);
+      }
+    } on Object catch (e) {
+      debugPrint('[FCM] Failed to clear notifications: $e');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // In-app foreground toast
   // ---------------------------------------------------------------------------
@@ -284,6 +571,7 @@ class NotificationService {
     required String body,
     required String type,
     required Map<String, dynamic> data,
+    String? profilePic,
   }) {
     final state = ErrorHandler.navigatorKey.currentState;
     if (state == null) return;
@@ -343,14 +631,23 @@ class NotificationService {
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
+                            if (profilePic != null && profilePic.isNotEmpty)
+                              ClipOval(
+                                child: SizedBox(
+                                  width: 38,
+                                  height: 38,
+                                  child: StorageImage(imagePath: profilePic),
+                                ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(icon, color: accent, size: 22),
                               ),
-                              child: Icon(icon, color: accent, size: 22),
-                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(

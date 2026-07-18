@@ -148,14 +148,22 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
                         lightMode: !isMine,
                       ),
                     )
-                  : Icon(
-                      _failed
-                          ? LucideIcons.triangleAlert
-                          : (_ready && _player.playing
-                                ? LucideIcons.pause
-                                : LucideIcons.play),
-                      color: iconColor,
-                      size: 18,
+                  : StreamBuilder<PlayerState>(
+                      stream: _player.playerStateStream,
+                      builder: (context, snapshot) {
+                        final state = snapshot.data;
+                        final playing = state?.playing ?? false;
+                        final completed = state?.processingState == ProcessingState.completed;
+                        final showPause = _ready && playing && !completed;
+
+                        return Icon(
+                          _failed
+                              ? LucideIcons.triangleAlert
+                              : (showPause ? LucideIcons.pause : LucideIcons.play),
+                          color: iconColor,
+                          size: 18,
+                        );
+                      },
                     ),
             ),
           ),

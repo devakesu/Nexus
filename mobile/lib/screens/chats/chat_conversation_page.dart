@@ -15,6 +15,7 @@ import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -58,6 +59,11 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
     _scrollController.addListener(_maybeLoadOlder);
+    unawaited(
+      NotificationService.clearNotificationsForConversation(
+        widget.conversationId,
+      ),
+    );
   }
 
   void _maybeLoadOlder() {
@@ -396,7 +402,9 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                           },
                         ),
                 ),
-                if (!chatState.sessionReady && !chatState.conversationClosed)
+                if (!chatState.sessionReady &&
+                    !chatState.conversationClosed &&
+                    !chatState.isRevalidating)
                   _waitingBanner(theme),
                 ChatComposer(
                   themeColor: theme.primary,

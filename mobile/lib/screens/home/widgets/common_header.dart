@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/providers/chats_providers.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 
-class CommonHeader extends StatelessWidget {
+class CommonHeader extends ConsumerWidget {
   const CommonHeader({
     required this.appName,
     required this.currentTab,
@@ -17,7 +19,8 @@ class CommonHeader extends StatelessWidget {
   final VoidCallback? onChatTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasUnread = ref.watch(hasUnreadMessagesProvider).value ?? false;
     Color tabThemeColor;
     Color tabThemeColorSecondary;
     String? tabLabel;
@@ -133,32 +136,54 @@ class CommonHeader extends StatelessWidget {
           ScalePressable(
             onTap: onChatTap ?? () {},
             enabled: onChatTap != null,
-            child: Container(
-              width: iconSize,
-              height: iconSize,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: tabThemeColor.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: iconSize,
+                  height: iconSize,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: tabThemeColor.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.messageCircle,
+                      color: tabThemeColor,
+                      size: 21,
+                    ),
                   ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  LucideIcons.messageCircle,
-                  color: tabThemeColor,
-                  size: 21,
                 ),
-              ),
+                if (hasUnread)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 11,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444), // red-500
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

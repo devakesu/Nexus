@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'chats_providers.g.dart';
 
@@ -12,6 +15,8 @@ class ChatConversationSummary {
     required this.age,
     required this.profilePic,
     required this.lastMessageAt,
+    required this.hasUnread,
+    required this.unreadCount,
   });
 
   factory ChatConversationSummary.fromJson(Map<String, dynamic> json) {
@@ -22,6 +27,8 @@ class ChatConversationSummary {
       age: json['age'] as int?,
       profilePic: json['profile_pic'] as String?,
       lastMessageAt: DateTime.parse(json['last_message_at'] as String),
+      hasUnread: json['has_unread'] as bool? ?? false,
+      unreadCount: json['unread_count'] as int? ?? 0,
     );
   }
 
@@ -31,6 +38,8 @@ class ChatConversationSummary {
   final int? age;
   final String? profilePic;
   final DateTime lastMessageAt;
+  final bool hasUnread;
+  final int unreadCount;
 }
 
 class ChatCandidate {
@@ -63,22 +72,69 @@ class ChatCandidate {
 }
 
 @riverpod
-Future<List<ChatConversationSummary>> chatConversations(
-  Ref ref,
-  String tab,
-) async {
-  final dio = createDio();
-  await NetworkUtils.requireAccessToken();
-  final response = await dio.get<Map<String, dynamic>>(
-    '${AppConfig.current.backendUrl}/api/v1/chats',
-    queryParameters: {'tab': tab},
-  );
-  final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
-  return rawList
-      .map(
-        (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
-      )
-      .toList();
+class ChatConversations extends _$ChatConversations {
+  RealtimeChannel? _channel;
+
+  @override
+  Future<List<ChatConversationSummary>> build(String tab) async {
+    ref.onDispose(() {
+      final ch = _channel;
+      if (ch != null) {
+        unawaited(Supabase.instance.client.removeChannel(ch));
+      }
+    });
+
+    final dio = createDio();
+    await NetworkUtils.requireAccessToken();
+    final response = await dio.get<Map<String, dynamic>>(
+      '${AppConfig.current.backendUrl}/api/v1/chats',
+      queryParameters: {'tab': tab},
+    );
+    final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
+
+    if (_channel == null) {
+      _channel = Supabase.instance.client.channel('chats-realtime:$tab');
+      _channel!
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'chat_messages',
+            callback: (_) => unawaited(refresh()),
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'chat_conversations',
+            callback: (_) => unawaited(refresh()),
+          )
+          .subscribe();
+    }
+
+    return rawList
+        .map(
+          (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<void> refresh() async {
+    try {
+      final dio = createDio();
+      final response = await dio.get<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/chats',
+        queryParameters: {'tab': tab},
+      );
+      final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
+      final list = rawList
+          .map(
+            (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
+      state = AsyncData(list);
+    } on Object catch (_) {
+      // Retain old state if update fails.
+    }
+  }
 }
 
 @riverpod
@@ -93,4 +149,59 @@ Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
   return rawList
       .map((e) => ChatCandidate.fromJson(e as Map<String, dynamic>))
       .toList();
+}
+
+@riverpod
+class HasUnreadMessages extends _$HasUnreadMessages {
+  RealtimeChannel? _channel;
+
+  @override
+  Future<bool> build() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return false;
+    final userId = session.user.id;
+
+    ref.onDispose(() {
+      final ch = _channel;
+      if (ch != null) {
+        unawaited(Supabase.instance.client.removeChannel(ch));
+      }
+    });
+
+    if (_channel == null) {
+      _channel = Supabase.instance.client.channel('global-unread-messages');
+      _channel!
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'chat_messages',
+            callback: (_) => refresh(),
+          )
+          .subscribe();
+    }
+
+    return _fetch(userId);
+  }
+
+  Future<void> refresh() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    final val = await _fetch(session.user.id);
+    state = AsyncData(val);
+  }
+
+  Future<bool> _fetch(String userId) async {
+    try {
+
+      final res = await Supabase.instance.client
+          .from('chat_messages')
+          .select('id')
+          .neq('sender_id', userId)
+          .filter('read_at', 'is', null)
+          .limit(1);
+      return (res as List).isNotEmpty;
+    } on Object catch (_) {
+      return false;
+    }
+  }
 }

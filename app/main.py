@@ -51,13 +51,7 @@ if settings.sentry_backend_dsn:
         before_send=scrub_event,
     )
 
-if settings.enforce_app_check:
-    if not settings.firebase_service_account:
-        raise RuntimeError(
-            "CRITICAL: Firebase service account unpopulated. "
-            "Required when ENFORCE_APP_CHECK is true.",
-        )
-
+if settings.firebase_service_account:
     # Use public API firebase_admin.get_app() to check initialization
     firebase_any: Any = firebase_admin
     try:
@@ -73,6 +67,11 @@ if settings.enforce_app_check:
             raise RuntimeError(
                 "CRITICAL: Firebase SDK initialization failed. Check logs for details.",
             ) from err
+elif settings.enforce_app_check:
+    raise RuntimeError(
+        "CRITICAL: Firebase service account unpopulated. "
+        "Required when ENFORCE_APP_CHECK is true.",
+    )
 
 
 @asynccontextmanager

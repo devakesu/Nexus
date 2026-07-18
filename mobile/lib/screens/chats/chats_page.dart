@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/providers/chats_providers.dart';
 import 'package:nexus/screens/chats/widgets/chat_list_tab.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
@@ -57,6 +59,19 @@ class _ChatsPageState extends State<ChatsPage>
     final index = value.floor();
     final localValue = value - index;
     return Color.lerp(colors[index], colors[index + 1], localValue) ?? colors[index];
+  }
+
+  Color _getTabThemeColor(String tab) {
+    switch (tab) {
+      case 'Dating':
+        return AppColors.modeDating;
+      case 'Friends':
+        return AppColors.modeFriends;
+      case 'Professional':
+        return AppColors.modeProfessional;
+      default:
+        return AppColors.primaryTeal;
+    }
   }
 
   @override
@@ -157,9 +172,40 @@ class _ChatsPageState extends State<ChatsPage>
                           fontWeight: FontWeight.w600,
                         ),
                         tabs: _tabs.map((t) => Tab(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(t),
+                          child: Consumer(
+                            builder: (context, ref, _) {
+                              final convos = ref.watch(chatConversationsProvider(t)).value ?? [];
+                              final unreadCount = convos.fold<int>(0, (sum, c) => sum + c.unreadCount);
+                              final isSelected = _tabController.index == _tabs.indexOf(t);
+
+                              return FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(t),
+                                    if (unreadCount > 0) ...[
+                                      const SizedBox(width: 5),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? Colors.white : _getTabThemeColor(t),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          unreadCount > 99 ? '99+' : '$unreadCount',
+                                          style: TextStyle(
+                                            color: isSelected ? _getTabThemeColor(t) : Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         )).toList(),
                       ),

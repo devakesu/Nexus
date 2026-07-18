@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any, cast
 
 import firebase_admin
@@ -50,26 +51,61 @@ def _fetch_profile_name(user_id: str) -> str | None:
     return str(name) if name is not None else None
 
 
+def _deactivate_fcm_token(token: str) -> None:
+    try:
+        supabase_client.table("user_devices").update({"is_active": False}).eq(
+            "fcm_token",
+            token,
+        ).execute()
+    except Exception:
+        logger.exception("Failed to deactivate FCM token %s", token)
+
+
+def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
+    try:
+        from app.db.profiles import fetch_peer_profile_by_id
+
+        profile = fetch_peer_profile_by_id(user_id)
+        if profile:
+            return profile.get("name"), profile.get("profile_pic")
+    except Exception:
+        logger.exception(
+            "Failed to fetch profile details",
+            extra={"user_id": user_id},
+        )
+    return None, None
+
+
 def _send_to_tokens(
     tokens: list[str],
-    title: str,
-    body: str,
+    title: str | None,
+    body: str | None,
     data: dict[str, str],
     channel_id: str,
 ) -> None:
     if not tokens:
         return
+    notification = (
+        _fcm.Notification(title=title, body=body) if title or body else None
+    )
     msg = _fcm.MulticastMessage(
         tokens=tokens,
-        notification=_fcm.Notification(title=title, body=body),
+        notification=notification,
         data=data,
         android=_fcm.AndroidConfig(
             priority="high",
-            notification=_fcm.AndroidNotification(channel_id=channel_id),
+            notification=(
+                _fcm.AndroidNotification(channel_id=channel_id)
+                if notification
+                else None
+            ),
         ),
         apns=_fcm.APNSConfig(
             payload=_fcm.APNSPayload(
-                aps=_fcm.Aps(sound="default"),
+                aps=_fcm.Aps(
+                    sound="default" if notification else None,
+                    content_available=True,
+                ),
             ),
         ),
     )
@@ -77,11 +113,19 @@ def _send_to_tokens(
     if response.failure_count > 0:
         for i, resp in enumerate(response.responses):
             if not resp.success:
+                exc = resp.exception
                 logger.warning(
                     "FCM delivery failed for token index %d: %s",
                     i,
-                    str(resp.exception),
+                    str(exc),
                 )
+                if exc:
+                    exc_str = str(exc)
+                    if (
+                        getattr(exc, "code", None) == "NOT_FOUND"
+                        or "NotRegistered" in exc_str
+                    ):
+                        _deactivate_fcm_token(tokens[i])
 
 
 async def send_like_notification(
@@ -171,37 +215,62 @@ async def send_chat_message_notification(
     recipient_id: str,
     conversation_id: str,
     tab: str,
+    message_id: str,
+    ciphertext: str,
+    ciphertext_metadata: dict[str, Any] | str,
+    message_type: str = "text",
+    created_at: str | datetime | None = None,
 ) -> None:
-    """
-    Fire-and-forget: notify recipient_id of a new message from sender_id.
+    """Fire-and-forget: notify recipient_id of a new message from sender_id.
 
-    The body is deliberately generic - the server never has message
-    plaintext, so it cannot include a content preview. conversation_id/tab/
-    name are included as data-only fields so the client can deep-link
-    straight into the conversation on tap.
+    The body is deliberately omitted for E2EE messages - the payload is sent
+    as a data-only push, allowing the recipient's client to decrypt the
+    ciphertext locally on receipt and construct the notification.
     """
     if not _is_firebase_initialized():
         return
     try:
-        tokens, sender_name = await asyncio.gather(
+        import json
+
+        tokens, (sender_name, profile_pic) = await asyncio.gather(
             asyncio.to_thread(_fetch_user_fcm_tokens, recipient_id),
-            asyncio.to_thread(_fetch_profile_name, sender_id),
+            asyncio.to_thread(_fetch_profile_details, sender_id),
         )
         if not tokens:
             return
         name = sender_name or "Someone"
+
+        meta_str = (
+            json.dumps(ciphertext_metadata)
+            if isinstance(ciphertext_metadata, dict)
+            else str(ciphertext_metadata)
+        )
+        created_at_str = (
+            created_at.isoformat()
+            if isinstance(created_at, datetime)
+            else str(created_at or "")
+        )
+
+        data = {
+            "type": "chat_message",
+            "actor_id": sender_id,
+            "conversation_id": conversation_id,
+            "tab": tab,
+            "name": name,
+            "profile_pic": profile_pic or "",
+            "message_id": message_id,
+            "ciphertext": ciphertext,
+            "ciphertext_metadata": meta_str,
+            "msg_type": message_type,
+            "created_at": created_at_str,
+        }
+
         await asyncio.to_thread(
             _send_to_tokens,
             tokens,
-            f"New message from {name}",
-            "Open Nexus to read it",
-            {
-                "type": "chat_message",
-                "actor_id": sender_id,
-                "conversation_id": conversation_id,
-                "tab": tab,
-                "name": name,
-            },
+            None,
+            None,
+            data,
             "chat_message",
         )
     except Exception:

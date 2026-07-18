@@ -327,14 +327,10 @@ class ChatConversationController extends _$ChatConversationController {
       );
       return ChatConversationState(
         messages: initialMessages,
-        // Conservative: composer stays disabled and no realtime channel is
-        // subscribed until _bootstrap() actually confirms the session and
-        // conversation state - sendText()/etc. already no-op safely while
-        // _store/_peerAddress are unset. Deliberately not starting the
-        // session-ready poller off this synchronous snapshot - _bootstrap()
-        // above is already in flight and will call _syncSessionPolling
-        // itself moments later with the real, network-confirmed value.
-        sessionReady: false,
+        // Since we have local history, assume the session is ready for now
+        // to prevent the composer placeholder from flickering. _bootstrap()
+        // will update this state shortly.
+        sessionReady: true,
         sending: false,
         isRevalidating: true,
       );

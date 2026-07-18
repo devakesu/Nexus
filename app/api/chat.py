@@ -34,8 +34,8 @@ from app.db.client import (
     supabase_client,
     utcnow,
 )
-from app.db.matches import fetch_matches_for_user
 from app.db.exclusions import get_cached_active_block_ids
+from app.db.matches import fetch_matches_for_user
 from app.db.profiles import decrypt_profile_rows
 from app.db.users import fetch_public_user
 from app.models import (
@@ -90,20 +90,42 @@ async def get_chats(
         )
         profile_map = decrypt_profile_rows(cast(list[Any], profiles_res.data or []))
 
+        convo_ids = [
+            str(r["conversation_id"]) for r in rows if r.get("conversation_id")
+        ]
+        unread_counts: dict[str, int] = {}
+        if convo_ids:
+            unread_res = await asyncio.to_thread(
+                lambda: supabase_client.table("chat_messages")
+                .select("conversation_id")
+                .in_("conversation_id", convo_ids)
+                .neq("sender_id", user_id)
+                .is_("read_at", "null")
+                .execute(),
+            )
+            raw_unread = cast(list[dict[str, Any]], unread_res.data or [])
+            for r in raw_unread:
+                c_id = str(r.get("conversation_id") or "")
+                if c_id:
+                    unread_counts[c_id] = unread_counts.get(c_id, 0) + 1
+
         items: list[ChatConversationItem] = []
         for row in rows:
             uid = str(row.get("matched_user_id") or "")
             if uid in block_ids or uid not in profile_map:
                 continue
             profile = profile_map.get(uid, {})
+            conversation_id = str(row.get("conversation_id") or "")
             items.append(
                 ChatConversationItem(
-                    conversation_id=str(row.get("conversation_id") or ""),
+                    conversation_id=conversation_id,
                     matched_user_id=uid,
                     name=profile.get("name"),
                     age=profile.get("age"),
                     profile_pic=profile.get("profile_pic"),
                     last_message_at=row["last_message_at"],
+                    has_unread=conversation_id in unread_counts,
+                    unread_count=unread_counts.get(conversation_id, 0),
                 ),
             )
 
@@ -285,6 +307,11 @@ async def send_message(
                 recipient_id=recipient_id,
                 conversation_id=conversation_id,
                 tab=str(conversation.get("tab") or "Dating"),
+                message_id=str(row.get("id") or ""),
+                ciphertext=payload.ciphertext,
+                ciphertext_metadata=payload.ciphertext_metadata,
+                message_type=payload.message_type,
+                created_at=row["created_at"],
             ),
         )
 
@@ -495,6 +522,11 @@ async def create_chat_event(
                 recipient_id=recipient_id,
                 conversation_id=conversation_id,
                 tab=str(conversation.get("tab") or "Dating"),
+                message_id=str(message_row.get("id") or ""),
+                ciphertext=payload.ciphertext,
+                ciphertext_metadata=payload.ciphertext_metadata,
+                message_type="event",
+                created_at=message_row["created_at"],
             ),
         )
 
