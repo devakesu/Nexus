@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime
 from typing import Any, cast
 
 import jwt
@@ -15,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.jwks import get_live_supabase_public_key
+from app.db.client import parse_utc_datetime
 from app.db.users import fetch_public_user
 
 logger = logging.getLogger(__name__)
@@ -202,7 +202,7 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
         reason_suffix = f" (Reason: {user_reason})" if user_reason else ""
         if suspended_until:
             try:
-                dt = datetime.fromisoformat(str(suspended_until).replace("Z", "+00:00"))
+                dt = parse_utc_datetime(str(suspended_until))
                 formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
             except ValueError:
                 formatted_time = str(suspended_until)

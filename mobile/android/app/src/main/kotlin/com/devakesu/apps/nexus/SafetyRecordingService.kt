@@ -59,6 +59,7 @@ class SafetyRecordingService : Service() {
                     NotificationManager.IMPORTANCE_LOW,
                 ).apply {
                     description = "Shown while Silent SOS is recording evidence."
+                    group = "safety"
                 },
             )
         }

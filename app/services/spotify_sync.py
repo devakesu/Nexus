@@ -330,8 +330,8 @@ async def fetch_playlist_tracks(  # noqa: C901
     params: dict[str, Any] | None = {
         "limit": 50,
         "fields": (
-            "items(track(id,name,artists(name)),"
-            "item(id,name,artists(name))),next"
+            "items(track(id,name,artists(name,id)),"
+            "item(id,name,artists(name,id))),next"
         ),
     }
     headers = _auth_header(access_token)
@@ -369,18 +369,23 @@ async def fetch_playlist_tracks(  # noqa: C901
 
             raw_artists: list[Any] = track.get("artists") or []
             artist_names: list[str] = []
+            artist_ids: list[str] = []
             for raw_artist in raw_artists:
                 if not isinstance(raw_artist, dict):
                     continue
                 artist_name = cast(dict[str, Any], raw_artist).get("name")
+                artist_id = cast(dict[str, Any], raw_artist).get("id")
                 if isinstance(artist_name, str):
                     artist_names.append(artist_name)
+                if isinstance(artist_id, str):
+                    artist_ids.append(artist_id)
 
             tracks.append(
                 {
                     "spotify_track_id": track.get("id"),
                     "name": name,
                     "artists": artist_names,
+                    "artist_ids": artist_ids,
                 },
             )
 
@@ -393,6 +398,83 @@ async def fetch_playlist_tracks(  # noqa: C901
 # ---------------------------------------------------------------------------
 # Aggregate + blend
 # ---------------------------------------------------------------------------
+
+def compute_playlist_artist_ids_frequency(
+    tracks: list[dict[str, Any]],
+) -> dict[str, tuple[str, float]]:
+    """Count artist occurrences by ID across a flat track list.
+
+    Returns {artist_id: (artist_name, frequency_weight_in_0_1)}.
+    """
+    counts: Counter[tuple[str, str]] = Counter()  # (id, name)
+    for track in tracks:
+        names = cast(list[str], track.get("artists") or [])
+        ids = cast(list[str], track.get("artist_ids") or [])
+        for name, aid in zip(names, ids, strict=False):
+            if name.strip() and aid.strip():
+                key = (aid.strip(), name.strip())
+                counts[key] = counts[key] + 1
+
+
+    if not counts:
+        return {}
+
+    max_count = max(counts.values())
+    return {aid: (name, count / max_count) for (aid, name), count in counts.items()}
+
+
+
+async def fetch_artist_genres_batch(
+    client: httpx.AsyncClient,
+    access_token: str,
+    artist_ids: list[str],
+) -> dict[str, list[str]]:
+    """Fetch genres for a list of artist IDs using GET /v1/artists.
+
+    Returns {lowercased_artist_name: list_of_genres}.
+    """
+    if not artist_ids:
+        return {}
+
+    # Split into chunks of 50 (Spotify API limit per request)
+    chunk_size = 50
+    chunks = [
+        artist_ids[i : i + chunk_size]
+        for i in range(0, len(artist_ids), chunk_size)
+    ]
+    artist_genres: dict[str, list[str]] = {}
+    headers = _auth_header(access_token)
+
+    for chunk in chunks:
+        ids_str = ",".join(chunk)
+        url = "https://api.spotify.com/v1/artists"
+        try:
+            resp = await _get_with_retry(
+                client,
+                url,
+                params={"ids": ids_str},
+                headers=headers,
+            )
+            data = cast(dict[str, Any], resp.json())
+            artists = cast(list[Any], data.get("artists") or [])
+            for artist in artists:
+                if not isinstance(artist, dict):
+                    continue
+                artist_dict = cast(dict[str, Any], artist)
+                name = artist_dict.get("name")
+                genres = cast(list[str], artist_dict.get("genres") or [])
+                if isinstance(name, str) and name.strip():
+                    artist_genres[name.strip().lower()] = [
+                        g for g in genres if g.strip()
+                    ]
+
+        except Exception:
+            logger.exception("Failed to fetch artist genres batch")
+
+    return artist_genres
+
+
+
 
 _GENRE_AFFINITY_MAX_ENTRIES = 30
 _GENRE_AFFINITY_MIN_WEIGHT = 0.05
@@ -503,6 +585,47 @@ def top_display_names(
 # ---------------------------------------------------------------------------
 
 
+async def _blend_playlist_genres_affinity(
+    access_token: str,
+    all_tracks: list[dict[str, Any]],
+    genre_acc: dict[str, float],
+) -> None:
+    """Helper to fetch and blend playlist genres to reduce complexity."""
+    if not all_tracks:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            playlist_artist_ids = compute_playlist_artist_ids_frequency(
+                all_tracks,
+            )
+            # Sort by frequency and take top 50 to avoid rate limits
+            sorted_ids = sorted(
+                playlist_artist_ids.items(),
+                key=lambda kv: kv[1][1],
+                reverse=True,
+            )[:50]
+            target_ids = [aid for aid, _ in sorted_ids]
+            if target_ids:
+                playlist_genres = await fetch_artist_genres_batch(
+                    client,
+                    access_token,
+                    target_ids,
+                )
+                for _, (name, freq_weight) in sorted_ids:
+                    genres = playlist_genres.get(name.lower()) or []
+                    for genre in genres:
+                        key = genre.strip().lower()
+                        genre_acc[key] = (
+                            genre_acc.get(key, 0.0)
+                            + SPOTIFY_AFFINITY_PLAYLIST_WEIGHT * freq_weight
+                        )
+    except Exception:
+        logger.exception(
+            "Failed to fetch/blend playlist genres during full sync",
+        )
+
+
+
 async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -> None:
     """Full playlist + artist-affinity + genre-affinity sync for one user.
 
@@ -582,9 +705,37 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
     blended, casing_map = blend_artist_affinity(native_ranked, playlist_freq)
     display_names = top_display_names(blended, casing_map)
 
+    # Blend genre affinity from both native top artists and playlists
+    genre_acc: dict[str, float] = {}
+
+    # 1. Accumulate genres from native top artists (weighted by NATIVE_WEIGHT)
+    for genre, weight in top_artists_result.genre_weights.items():
+        genre_acc[genre] = (
+            genre_acc.get(genre, 0.0) + SPOTIFY_AFFINITY_NATIVE_WEIGHT * weight
+        )
+
+    # 2. Accumulate genres from playlists (weighted by PLAYLIST_WEIGHT)
+    await _blend_playlist_genres_affinity(access_token, all_tracks, genre_acc)
+
+    genre_affinity = compute_genre_affinity(genre_acc)
+
     await asyncio.to_thread(
-        persist_artist_signals, user_id, blended, display_names, genre_affinity,
+        persist_artist_signals,
+        user_id,
+        blended,
+        display_names,
+        genre_affinity,
+    )
+    await asyncio.to_thread(
+        replace_playlists,
+        user_id,
+        playlists_with_tracks,
+    )
+    await asyncio.to_thread(
+        mark_sync_result,
+        user_id,
+        "ok",
     )
 
-    await asyncio.to_thread(replace_playlists, user_id, playlists_with_tracks)
-    await asyncio.to_thread(mark_sync_result, user_id, "ok")
+
+

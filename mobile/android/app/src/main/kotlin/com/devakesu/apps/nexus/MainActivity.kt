@@ -39,15 +39,36 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // showWhenLocked/turnScreenOn in AndroidManifest.xml cover API 27+;
-        // pre-27 devices need the equivalent window flags set here so the
-        // Meetup Safety check-in alert still launches over the lock screen.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) {
+        val isSafetyCheckinLaunch = intent?.getStringExtra("payload") == "meetup_safety_checkin_due"
+        setShowWhenLockedCompat(isSafetyCheckinLaunch)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val isSafetyCheckinLaunch = intent.getStringExtra("payload") == "meetup_safety_checkin_due"
+        if (isSafetyCheckinLaunch) {
+            setShowWhenLockedCompat(true)
+        }
+    }
+
+    private fun setShowWhenLockedCompat(show: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(show)
+            setTurnScreenOn(show)
+        } else {
             @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
+            if (show) {
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                )
+            } else {
+                window.clearFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                )
+            }
         }
     }
 
@@ -70,6 +91,11 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SAFETY_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "setShowWhenLocked" -> {
+                        val show = call.argument<Boolean>("show") ?: false
+                        setShowWhenLockedCompat(show)
+                        result.success(null)
+                    }
                     "startRecording" -> {
                         // A native crash right as Silent SOS activates would be the
                         // one moment this app can least afford to fail silently -
@@ -172,6 +198,8 @@ class MainActivity : FlutterActivity() {
             listOf(
                 NotificationChannelGroup("likes", "Likes"),
                 NotificationChannelGroup("matches", "Matches"),
+                NotificationChannelGroup("chats", "Chats"),
+                NotificationChannelGroup("safety", "Meetup Safety"),
             )
         )
 
@@ -200,6 +228,62 @@ class MainActivity : FlutterActivity() {
                 ).apply {
                     description = "When you get a new match"
                     group = "matches"
+                },
+                NotificationChannel(
+                    "chat_message",
+                    "Chats",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "When you receive a new chat message"
+                    group = "chats"
+                },
+                NotificationChannel(
+                    "chat_event_reminder",
+                    "Reminders",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "When a planned meetup is coming up"
+                    group = "chats"
+                },
+                NotificationChannel(
+                    "meetup_safety_ongoing",
+                    "Meetup Safety (active)",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "The persistent alert panel shown while a Meetup Safety check-in is active"
+                    group = "safety"
+                },
+                NotificationChannel(
+                    "meetup_safety_checkin",
+                    "Meetup Safety check-in",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Alerts you when it's time to check in during Meetup Safety"
+                    group = "safety"
+                },
+                NotificationChannel(
+                    "safety_contact_removed",
+                    "Trusted Contacts",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Alerts you when a trusted contact is removed"
+                    group = "safety"
+                },
+                NotificationChannel(
+                    "meetup_safety_reminder",
+                    "Check-in Reminders",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Nudges you to configure or start your check-in"
+                    group = "safety"
+                },
+                NotificationChannel(
+                    "safety_recording",
+                    "Meetup Safety recording",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Shown while Silent SOS is recording evidence."
+                    group = "safety"
                 },
             )
         )

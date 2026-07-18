@@ -13,7 +13,7 @@ Track mapping
       campus_branch + campus_year + role + tech_skills + sub_interests
       + looking_for
   identity_embedding
-      causes_supported + activities + ai_vibe_tags + display_gender + pronouns
+      causes_supported + activities + display_gender + pronouns
 """
 
 import logging
@@ -77,7 +77,6 @@ def generate_nexus_intent_embeddings(
     looking_for: list[str] = list(profile.get("looking_for") or [])
     activities: list[str] = list(profile.get("activities") or [])
     causes_supported: list[str] = list(profile.get("causes_supported") or [])
-    ai_vibe_tags: list[str] = list(profile.get("ai_vibe_tags") or [])
     tech_skills: list[str] = list(profile.get("tech_skills") or [])
 
     # sub_interests is a dict[str, list[str]] - flatten to a single list.
@@ -116,8 +115,7 @@ def generate_nexus_intent_embeddings(
     identity_text_context = (
         f"[IDENTITY SPACE] Presentation Silhouette: {display_gender} ({pronouns}) | "
         f"Social Causes Supported: {', '.join(causes_supported)} | "
-        f"Campus Context Engagements: {', '.join(activities)} | "
-        f"Edge-AI Aesthetic Signatures: {', '.join(ai_vibe_tags)}"
+        f"Campus Context Engagements: {', '.join(activities)}"
     )
 
     # ──────────────────────────────────────────────────────────────────

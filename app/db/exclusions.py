@@ -9,7 +9,12 @@ from postgrest.exceptions import APIError
 
 from app.core.cache import get_block_ids_cache_ttl, redis_client
 from app.core.config import DiscoveryTab
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    parse_utc_datetime,
+    supabase_client,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +78,10 @@ def _check_pass_expiry(
     excluded: set[str],
 ) -> None:
     if expires_at_raw and isinstance(expires_at_raw, str):
-        try:
-            expires_at = datetime.fromisoformat(
-                expires_at_raw.replace("Z", "+00:00"),
-            )
+        with contextlib.suppress(Exception):
+            expires_at = parse_utc_datetime(expires_at_raw)
             if expires_at > now:
                 excluded.add(target_id)
-        except ValueError:
-            pass
 
 
 def _process_exclusion_row(
@@ -392,9 +393,7 @@ def fetch_expired_pass_candidates(
             if not target_id or not isinstance(expires_at_raw, str):
                 continue
             try:
-                expires_at = datetime.fromisoformat(
-                    expires_at_raw.replace("Z", "+00:00"),
-                )
+                expires_at = parse_utc_datetime(expires_at_raw)
             except ValueError:
                 continue
             # Only include rows where the pass has actually expired

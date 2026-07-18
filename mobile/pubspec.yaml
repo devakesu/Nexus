@@ -75,9 +75,10 @@ dependencies:
   sentry_flutter: ^9.18.0
   share_plus: ^13.2.0
   shared_preferences: ^2.5.5
-  sqlite3_flutter_libs: ^0.6.0+eol
   supabase_flutter: ^2.12.2
+
   timezone: ^0.11.1
+
   url_launcher: ^6.3.2
   uuid: ^4.5.3
   webview_flutter: ^4.14.1
@@ -109,6 +110,7 @@ flutter:
     - assets/nexus-mec.png
     - assets/sounds/emergency_alarm.wav
     - assets/google_logo.png
+    - assets/model.tflite
 
   # To add assets to your application, add an assets section, like this:
   # assets:

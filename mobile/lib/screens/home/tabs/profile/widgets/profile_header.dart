@@ -14,6 +14,7 @@ class ProfileHeader extends StatelessWidget {
     required this.pulseController,
     required this.hasPendingUpload,
     required this.onAvatarTap,
+    this.isRemoving = false,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class ProfileHeader extends StatelessWidget {
   final AnimationController rotationController;
   final AnimationController pulseController;
   final bool hasPendingUpload;
+  final bool isRemoving;
   final VoidCallback onAvatarTap;
 
   @override
@@ -37,9 +39,9 @@ class ProfileHeader extends StatelessWidget {
             button: true,
             label: 'Change profile photo',
             excludeSemantics: true,
-            onTap: onAvatarTap,
+            onTap: isRemoving ? null : onAvatarTap,
             child: GestureDetector(
-              onTap: onAvatarTap,
+              onTap: isRemoving ? null : onAvatarTap,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -103,13 +105,16 @@ class ProfileHeader extends StatelessWidget {
                               child: Stack(
                                 children: [
                                   Positioned.fill(
-                                    child: StorageImage(
-                                      imagePath: avatarPath!,
-                                      width: 100,
-                                      height: 100,
+                                    child: Opacity(
+                                      opacity: isRemoving ? 0.5 : 1.0,
+                                      child: StorageImage(
+                                        imagePath: avatarPath!,
+                                        width: 100,
+                                        height: 100,
+                                      ),
                                     ),
                                   ),
-                                  if (hasPendingUpload)
+                                  if (hasPendingUpload || isRemoving)
                                     const Positioned.fill(
                                       child: ColoredBox(
                                         color: Colors.black54,

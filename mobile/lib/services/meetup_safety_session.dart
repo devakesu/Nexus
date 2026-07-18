@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:nexus/screens/settings/checkin_alert_screen.dart';
@@ -191,6 +192,13 @@ class MeetupSafetySession extends ChangeNotifier {
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
+    await android?.createNotificationChannelGroup(
+      const AndroidNotificationChannelGroup(
+        'safety',
+        'Meetup Safety',
+        description: 'Meetup Safety notifications',
+      ),
+    );
     await android?.createNotificationChannel(
       const AndroidNotificationChannel(
         _kOngoingChannelId,
@@ -200,6 +208,7 @@ class MeetupSafetySession extends ChangeNotifier {
             'check-in is active.',
         importance: Importance.low,
         playSound: false,
+        groupId: 'safety',
       ),
     );
     await android?.createNotificationChannel(
@@ -209,6 +218,7 @@ class MeetupSafetySession extends ChangeNotifier {
         description:
             "Alerts you when it's time to check in during Meetup Safety.",
         importance: Importance.max,
+        groupId: 'safety',
       ),
     );
   }
@@ -452,6 +462,15 @@ class MeetupSafetySession extends ChangeNotifier {
     final navigator = ErrorHandler.navigatorKey.currentState;
     if (navigator == null) return;
     _alertScreenShowing = true;
+
+    if (Platform.isAndroid) {
+      unawaited(
+        const MethodChannel('com.devakesu.apps.nexus/safety')
+            .invokeMethod<void>('setShowWhenLocked', {'show': true})
+            .catchError((_) {}),
+      );
+    }
+
     unawaited(
       navigator
           .push(
@@ -459,7 +478,16 @@ class MeetupSafetySession extends ChangeNotifier {
               builder: (_) => const CheckInAlertScreen(),
             ),
           )
-          .then((_) => _alertScreenShowing = false),
+          .then((_) {
+            _alertScreenShowing = false;
+            if (Platform.isAndroid) {
+              unawaited(
+                const MethodChannel('com.devakesu.apps.nexus/safety')
+                    .invokeMethod<void>('setShowWhenLocked', {'show': false})
+                    .catchError((_) {}),
+              );
+            }
+          }),
     );
   }
 

@@ -426,9 +426,10 @@ def _build_node_detail_payload(
     grade_val = row.get("music_match_grade")
     music_match_grade = int(grade_val) if grade_val is not None else None
 
-    sessions_dict = cast(dict[str, Any], row.get("discovery_sessions") or {})
-    viewer_spotify_connected = bool(
-        sessions_dict.get("viewer_spotify_connected", False),
+    from app.db.spotify import get_connection
+    connection = get_connection(viewer_id)
+    viewer_spotify_connected = (
+        connection is not None and not connection.get("disconnected_at")
     )
     candidate_spotify_connected = bool(row.get("candidate_spotify_connected", False))
 

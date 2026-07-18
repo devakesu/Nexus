@@ -890,104 +890,111 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     final matchedProfilePic = waveEntry['profile_pic'] as String?;
 
     final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
+    final currentProfileFuture = profileFuture;
+
 
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
-        return FutureBuilder<Map<String, dynamic>>(
-          future: profileFuture,
-          builder: (sheetCtx, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Container(
-                height: MediaQuery.of(sheetCtx).size.height * 0.7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF090D1A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                child: const Center(
-                  child: NexusOrbitLoader(),
-                ),
-              );
-            }
-            if (snapshot.hasError || !snapshot.hasData) {
-              return Container(
-                height: MediaQuery.of(sheetCtx).size.height * 0.4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF090D1A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Unable to load profile.',
-                    style: TextStyle(color: Colors.white38),
-                  ),
-                ),
-              );
-            }
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            return FutureBuilder<Map<String, dynamic>>(
+              future: currentProfileFuture,
+              builder: (sheetCtx, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    height: MediaQuery.of(sheetCtx).size.height * 0.7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF090D1A),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                    ),
+                    child: const Center(
+                      child: NexusOrbitLoader(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Container(
+                    height: MediaQuery.of(sheetCtx).size.height * 0.4,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF090D1A),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Unable to load profile.',
+                        style: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+                  );
+                }
 
-            // Mark seen and re-sort only on successful load
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _onWaveProfileLoaded(actorId, onProfileLoaded);
-              }
-            });
-            return DraggableScrollableSheet(
-              initialChildSize: 0.92,
-              minChildSize: 0.5,
-              maxChildSize: 0.97,
-              expand: false,
-              builder: (dsCtx, scrollController) {
-                return ProfileDetailSheet(
-                  data: snapshot.data!,
-                  themeColor: themeColor,
-                  scrollController: scrollController,
-                  showScoreBadge: false,
-                  actionBar: _buildWaveBackActionBar(
-                    dsCtx,
-                    actorId,
-                    name,
-                    themeColor,
-                    matchedProfilePic,
-                    onActioned,
-                  ),
-                  onHideTap: (c) async {
-                    Navigator.pop(c);
-                    await _recordWaveAction(
-                      actorId,
-                      'hide',
-                      session.accessToken,
+                // Mark seen and re-sort only on successful load
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _onWaveProfileLoaded(actorId, onProfileLoaded);
+                  }
+                });
+                return DraggableScrollableSheet(
+                  initialChildSize: 0.92,
+                  minChildSize: 0.5,
+                  maxChildSize: 0.97,
+                  expand: false,
+                  builder: (dsCtx, scrollController) {
+                    return ProfileDetailSheet(
+                      data: snapshot.data!,
+                      themeColor: themeColor,
+                      scrollController: scrollController,
+                      showScoreBadge: false,
+
+                      actionBar: _buildWaveBackActionBar(
+                        dsCtx,
+                        actorId,
+                        name,
+                        themeColor,
+                        matchedProfilePic,
+                        onActioned,
+                      ),
+                      onHideTap: (c) async {
+                        Navigator.pop(c);
+                        await _recordWaveAction(
+                          actorId,
+                          'hide',
+                          session.accessToken,
+                        );
+                        onActioned(actorId);
+                      },
+                      onBlockTap: (c) async {
+                        final ok = await showProfileBlockDialog(c, name);
+                        if ((ok ?? false) && c.mounted) {
+                          Navigator.pop(c);
+                          await _recordWaveAction(
+                            actorId,
+                            'block',
+                            session.accessToken,
+                          );
+                          onActioned(actorId);
+                        }
+                      },
+                      onReportTap: (c) => showProfileReportDialog(
+                        c,
+                        themeColor: themeColor,
+                        onConfirmed: (reason, detail) async {
+                          Navigator.pop(c);
+                          await _recordWaveAction(
+                            actorId,
+                            'report',
+                            session.accessToken,
+                            reason: reason,
+                            reasonDetail: detail,
+                          );
+                          onActioned(actorId);
+                        },
+                      ),
                     );
-                    onActioned(actorId);
                   },
-                  onBlockTap: (c) async {
-                    final ok = await showProfileBlockDialog(c, name);
-                    if ((ok ?? false) && c.mounted) {
-                      Navigator.pop(c);
-                      await _recordWaveAction(
-                        actorId,
-                        'block',
-                        session.accessToken,
-                      );
-                      onActioned(actorId);
-                    }
-                  },
-                  onReportTap: (c) => showProfileReportDialog(
-                    c,
-                    themeColor: themeColor,
-                    onConfirmed: (reason, detail) async {
-                      Navigator.pop(c);
-                      await _recordWaveAction(
-                        actorId,
-                        'report',
-                        session.accessToken,
-                        reason: reason,
-                        reasonDetail: detail,
-                      );
-                      onActioned(actorId);
-                    },
-                  ),
                 );
               },
             );

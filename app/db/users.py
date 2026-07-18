@@ -748,10 +748,14 @@ def execute_import(
 
 
 def _parse_terms_timestamp(ts_raw: Any) -> datetime:
-    if isinstance(ts_raw, str):
-        return datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-    if isinstance(ts_raw, datetime):
-        return ts_raw
+    try:
+        if isinstance(ts_raw, (str, datetime)):
+            return parse_utc_datetime(ts_raw)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected terms acceptance timestamp payload.",
+        ) from e
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Unexpected terms acceptance timestamp payload.",

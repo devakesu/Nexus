@@ -1255,8 +1255,14 @@ class ProfileImagesAndTagsUpdate(BaseModel):
                 "vibe tags allowed.",
             )
 
-        # Prevent injection attempts inside strings
+        # Prevent injection attempts inside strings and enforce individual
+        # tag length constraints.
         for tag in cleaned_tags:
+            if len(tag) > 30:
+                raise ValueError(
+                    f"Validation Error: Vibe tag expression exceeds maximum safety "
+                    f"limit of 30 characters: '{tag}'",
+                )
             if not tag.isalnum() and "-" not in tag and "_" not in tag:
                 raise ValueError(
                     f"Validation Error: Malformed characters detected in tag "

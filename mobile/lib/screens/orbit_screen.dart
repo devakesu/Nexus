@@ -1386,7 +1386,11 @@ class _OrbitScreenState extends State<OrbitScreen>
                   themeColor: theme,
                   scrollController: scrollController,
                   actionBar: _buildOrbitActionBar(sheetCtx, candidateId, theme),
+                  onSpotifyConnectRefresh: () async {
+                    setState(() {});
+                  },
                   onHideTap: (ctx) async {
+
                     Navigator.pop(ctx);
                     await _performAction(candidateId, 'hide');
                   },
@@ -1662,6 +1666,15 @@ class _OrbitScreenState extends State<OrbitScreen>
                   scrollController: scrollController,
                   showScoreBadge: false,
                   showSafetyActions: false,
+                  onSpotifyConnectRefresh: () async {
+                    // Pop the current sheet then reopen with fresh data
+                    // so the synced artists/playlists appear immediately.
+                    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                    await Future<void>.delayed(
+                      const Duration(milliseconds: 300),
+                    );
+                    if (mounted) unawaited(_showSelfDetails());
+                  },
                 );
               },
             );

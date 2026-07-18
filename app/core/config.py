@@ -253,8 +253,8 @@ except Exception as e:
     raise RuntimeError(
         "CRITICAL: Failed to validate application secrets block.\n"
         "Ensure you are running the application wrapped inside the "
-        "Infisical CLI tool.\n"
-        "Command: infisical run --env=dev -- uvicorn app.main:app --reload\n"
+        "Command: infisical run --env=dev -- "
+        "uvicorn app.main:app --reload --reload-dir app\n"
         f"Error Details: {e}",
     ) from e
 
@@ -321,10 +321,10 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "identity_embedding": 3,
         "ai_vibe_tags": 3,
         "children_plans": 4,
-        "causes_supported": 3,
+        "causes_supported": 2,
         "religious_beliefs": 3,
         "career_embedding": 2,
-        "activities": 2,
+        "activities": 1,
         "artist_affinity": 1,
         "hometown": 1,
         "current_place": 1,
@@ -334,7 +334,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "complementary_roles": 0,
     },
     "Friends": {
-        "activities": 5,
+        "activities": 3,
         "interests": 5,
         "artist_affinity": 5,
         "ai_vibe_tags": 3,
@@ -345,7 +345,7 @@ TAB_MASKS: dict[DiscoveryTab, dict[str, int]] = {
         "pets": 3,
         "drinking": 2,
         "smoking": 2,
-        "causes_supported": 2,
+        "causes_supported": 1,
         "lifestyle": 2,
         "languages": 2,
         "value_dimensions": 2,

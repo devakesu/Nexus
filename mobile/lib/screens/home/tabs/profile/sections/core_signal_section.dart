@@ -25,6 +25,7 @@ class CoreSignalSection extends StatefulWidget {
     required this.onSelectPronouns,
     required this.onImageSlotTap,
     required this.onSwapImages,
+    this.removingSlots = const {},
     this.onClearGender,
     this.onClearSexuality,
     this.onClearPronouns,
@@ -45,6 +46,7 @@ class CoreSignalSection extends StatefulWidget {
   final String pronouns;
   final List<String?> imagePaths;
   final Map<int, dynamic> pendingUploads;
+  final Set<int> removingSlots;
   final bool isSavingName;
   final bool isSavingGender;
   final bool isSavingSexuality;
@@ -383,9 +385,13 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                         children: [
                           if (imagePath != null) ...[
                             Positioned.fill(
-                              child: StorageImage(imagePath: imagePath),
+                              child: Opacity(
+                                opacity: widget.removingSlots.contains(slotIndex) ? 0.5 : 1.0,
+                                child: StorageImage(imagePath: imagePath),
+                              ),
                             ),
-                            if (widget.pendingUploads.containsKey(slotIndex))
+                            if (widget.pendingUploads.containsKey(slotIndex) ||
+                                widget.removingSlots.contains(slotIndex))
                               const Positioned.fill(
                                 child: ColoredBox(
                                   color: Colors.black54,
@@ -420,14 +426,18 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                   aspectRatio: 1,
                   child: DragTarget<int>(
                     onWillAcceptWithDetails: (details) =>
-                        details.data != slotIndex,
+                        details.data != slotIndex &&
+                        !widget.removingSlots.contains(slotIndex) &&
+                        !widget.removingSlots.contains(details.data),
                     onAcceptWithDetails: (details) {
                       widget.onSwapImages(details.data, slotIndex);
                     },
                     builder: (context, candidateData, rejectedData) {
                       final isHovered = candidateData.isNotEmpty;
+                      final isRemoving = widget.removingSlots.contains(slotIndex);
                       return LongPressDraggable<int>(
                         data: slotIndex,
+                        maxSimultaneousDrags: isRemoving ? 0 : 1,
                         feedback: Material(
                           color: Colors.transparent,
                           child: Opacity(
@@ -451,7 +461,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                           child: itemWidget,
                         ),
                         child: GestureDetector(
-                          onTap: () => widget.onImageSlotTap(slotIndex),
+                          onTap: isRemoving
+                              ? null
+                              : () => widget.onImageSlotTap(slotIndex),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             decoration: BoxDecoration(

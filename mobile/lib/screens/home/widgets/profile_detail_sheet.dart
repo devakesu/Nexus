@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/config/filter_options.dart';
+import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:nexus/screens/home/tabs/profile/utils/emoji_helper.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/profile_refresh_notifier.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,7 +27,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 typedef SheetSafetyCallback = Future<void> Function(BuildContext sheetCtx);
 
-class ProfileDetailSheet extends StatelessWidget {
+class ProfileDetailSheet extends ConsumerStatefulWidget {
   const ProfileDetailSheet({
     required this.data,
     required this.themeColor,
@@ -31,6 +36,7 @@ class ProfileDetailSheet extends StatelessWidget {
     this.onHideTap,
     this.onBlockTap,
     this.onReportTap,
+    this.onSpotifyConnectRefresh,
     this.showScoreBadge = true,
     this.showSafetyActions = true,
     super.key,
@@ -43,8 +49,50 @@ class ProfileDetailSheet extends StatelessWidget {
   final SheetSafetyCallback? onHideTap;
   final SheetSafetyCallback? onBlockTap;
   final SheetSafetyCallback? onReportTap;
+  final Future<void> Function()? onSpotifyConnectRefresh;
   final bool showScoreBadge;
   final bool showSafetyActions;
+
+  @override
+  ConsumerState<ProfileDetailSheet> createState() => _ProfileDetailSheetState();
+}
+
+class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
+    with WidgetsBindingObserver {
+  late bool _viewerConnected;
+  bool _awaitingSpotifyReturn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewerConnected =
+        widget.data['viewer_spotify_connected'] as bool? ?? false;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingSpotifyReturn) {
+      _awaitingSpotifyReturn = false;
+      unawaited(_performSpotifySync());
+    }
+  }
+
+  Future<void> _performSpotifySync() async {
+    if (!mounted) return;
+    setState(() => _viewerConnected = true);
+    unawaited(ref.refresh(spotifyStatusProvider.future));
+    ProfileRefreshNotifier.notifyChanged();
+    if (widget.onSpotifyConnectRefresh != null) {
+      await widget.onSpotifyConnectRefresh!();
+    }
+  }
 
   // ── Data helpers ───────────────────────────────────────────────────────────
 
@@ -72,7 +120,8 @@ class ProfileDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = themeColor;
+    final theme = widget.themeColor;
+    final data = widget.data;
     // ── Extract data ─────────────────────────────────────────────────────────
     final profilePic = _str(data, 'profile_pic');
     final normalPics = _strList(data, 'normal_pics');
@@ -127,10 +176,10 @@ class ProfileDetailSheet extends StatelessWidget {
         (tab == 'Dating' || tab == 'Friends') && displaySexuality.isNotEmpty;
 
     final musicMatchGrade = data['music_match_grade'] as int?;
-    final viewerConnected = data['viewer_spotify_connected'] as bool? ?? false;
+    final viewerConnected = _viewerConnected;
     final candidateConnected =
         data['candidate_spotify_connected'] as bool? ?? false;
-    final isSelf = !showScoreBadge;
+    final isSelf = !widget.showScoreBadge;
 
     // ── Local widget helpers ──────────────────────────────────────────────────
 
@@ -306,17 +355,14 @@ class ProfileDetailSheet extends StatelessWidget {
                               );
                           final authUrl = response.data?['auth_url'] as String?;
                           if (authUrl != null) {
+                            _awaitingSpotifyReturn = true;
                             await launchUrl(
                               Uri.parse(authUrl),
+                              mode: LaunchMode.externalApplication,
                             );
-                            if (context.mounted) {
-                              NexusToast.show(
-                                context,
-                                'Please complete connection in your browser.',
-                              );
-                            }
                           }
                         } on Exception catch (_) {
+                          _awaitingSpotifyReturn = false;
                           if (context.mounted) {
                             NexusToast.show(
                               context,
@@ -483,27 +529,64 @@ class ProfileDetailSheet extends StatelessWidget {
       );
     }
 
-    Widget sectionLabel(String label, {String emoji = '', IconData? icon}) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
-        child: Row(
-          children: [
-            if (emoji.isNotEmpty) ...[
-              Text(emoji, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 7),
-            ] else if (icon != null) ...[
-              Icon(icon, color: theme, size: 13),
-              const SizedBox(width: 7),
+    Widget buildSectionCard({
+      required String label,
+      required List<Widget> children,
+      String emoji = '',
+      IconData? icon,
+      Color? cardThemeColor,
+    }) {
+      final c = cardThemeColor ?? theme;
+      return Container(
+        margin: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              c.withValues(alpha: 0.12),
+              c.withValues(alpha: 0.03),
             ],
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: theme.withValues(alpha: 0.75),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.8,
-              ),
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: c.withValues(alpha: 0.24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: c.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                if (emoji.isNotEmpty) ...[
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 8),
+                ] else if (icon != null) ...[
+                  Icon(icon, color: c, size: 13),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: c.withValues(alpha: 0.9),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...children,
           ],
         ),
       );
@@ -514,54 +597,61 @@ class ProfileDetailSheet extends StatelessWidget {
       Color? accent,
       Color? labelColor,
       bool useEmoji = false,
+      bool inCard = true,
     }) {
       final c = accent ?? theme;
+      final wrap = Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: items.map((item) {
+          final tagIcon = useEmoji
+              ? getTagIcon(
+                  item,
+                  iconSize: 13,
+                  iconColor: labelColor ?? c.withValues(alpha: 0.9),
+                )
+              : null;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: c.withValues(alpha: 0.28)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tagIcon != null) ...[
+                  tagIcon,
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  item,
+                  style: TextStyle(
+                    color: labelColor ?? c.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+      if (inCard) {
+        return wrap;
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: items.map((item) {
-            final tagIcon = useEmoji
-                ? getTagIcon(
-                    item,
-                    iconSize: 13,
-                    iconColor: labelColor ?? c.withValues(alpha: 0.9),
-                  )
-                : null;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-              decoration: BoxDecoration(
-                color: c.withValues(alpha: 0.09),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: c.withValues(alpha: 0.28)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (tagIcon != null) ...[
-                    tagIcon,
-                    const SizedBox(width: 5),
-                  ],
-                  Text(
-                    item,
-                    style: TextStyle(
-                      color: labelColor ?? c.withValues(alpha: 0.9),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
+        child: wrap,
       );
     }
 
-    Widget emojiInfoRow(String emoji, String text) {
+    Widget emojiInfoRow(String emoji, String text, {bool inCard = true}) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
+        padding: inCard
+            ? const EdgeInsets.only(bottom: 11)
+            : const EdgeInsets.fromLTRB(20, 0, 20, 11),
         child: Row(
           children: [
             Container(
@@ -652,18 +742,11 @@ class ProfileDetailSheet extends StatelessWidget {
     // Bio
     if (bio.isNotEmpty) {
       sections.add(
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-            decoration: BoxDecoration(
-              color: theme.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.withValues(alpha: 0.18),
-              ),
-            ),
-            child: Row(
+        buildSectionCard(
+          label: 'About',
+          icon: LucideIcons.user,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -689,7 +772,7 @@ class ProfileDetailSheet extends StatelessWidget {
                 ),
               ],
             ),
-          ),
+          ],
         ),
       );
     }
@@ -701,11 +784,11 @@ class ProfileDetailSheet extends StatelessWidget {
         role.isNotEmpty ||
         roleType.isNotEmpty) {
       sections.add(
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        buildSectionCard(
+          label: 'Background',
+          emoji: '🎓',
+          cardThemeColor: const Color(0xFF6366F1),
           children: [
-            sectionLabel('Background', emoji: '🎓'),
             if (campusBranch.isNotEmpty ||
                 campusYear != null ||
                 campusName.isNotEmpty)
@@ -719,8 +802,16 @@ class ProfileDetailSheet extends StatelessWidget {
               ),
             if (roleType.isNotEmpty || role.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
+                padding: EdgeInsets.only(
+                  top:
+                      (campusBranch.isNotEmpty ||
+                          campusYear != null ||
+                          campusName.isNotEmpty)
+                      ? 12.0
+                      : 0.0,
+                ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       width: 34,
@@ -743,44 +834,46 @@ class ProfileDetailSheet extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (roleType.isNotEmpty)
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: roleType
-                                  .map(
-                                    (type) => Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 9,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.08,
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: roleType
+                                    .map(
+                                      (type) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 3,
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
-                                        border: Border.all(
+                                        decoration: BoxDecoration(
                                           color: Colors.white.withValues(
-                                            alpha: 0.15,
+                                            alpha: 0.08,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.15,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          type,
+                                          style: const TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.2,
                                           ),
                                         ),
                                       ),
-                                      child: Text(
-                                        type,
-                                        style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.2,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                                    )
+                                    .toList(),
+                              ),
                             ),
-                          if (role.isNotEmpty) ...[
-                            if (roleType.isNotEmpty)
-                              const SizedBox(height: 5),
+                          if (role.isNotEmpty)
                             Text(
                               role,
                               style: const TextStyle(
@@ -788,7 +881,6 @@ class ProfileDetailSheet extends StatelessWidget {
                                 fontSize: 13.5,
                               ),
                             ),
-                          ],
                         ],
                       ),
                     ),
@@ -803,27 +895,27 @@ class ProfileDetailSheet extends StatelessWidget {
     if (tab == 'Professional') {
       if (lookingForLabels.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Open to',
+            emoji: '🤝',
+            cardThemeColor: const Color(0xFF06B6D4),
             children: [
-              sectionLabel('Open to', emoji: '🤝'),
-              chipWrap(lookingForLabels),
+              chipWrap(lookingForLabels, accent: const Color(0xFF06B6D4)),
             ],
           ),
         );
       }
       if (techSkills.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Tech stack',
+            emoji: '💻',
+            cardThemeColor: const Color(0xFF06B6D4),
             children: [
-              sectionLabel('Tech stack', emoji: '💻'),
               chipWrap(
                 techSkills,
-                accent: Colors.cyanAccent,
-                labelColor: Colors.cyanAccent,
+                accent: const Color(0xFF06B6D4),
+                labelColor: const Color(0xFF22D3EE),
               ),
             ],
           ),
@@ -831,15 +923,15 @@ class ProfileDetailSheet extends StatelessWidget {
       }
       if (activities.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Activities',
+            icon: LucideIcons.activity,
+            cardThemeColor: const Color(0xFF94A3B8),
             children: [
-              sectionLabel('Activities', icon: LucideIcons.activity),
               chipWrap(
                 activities,
-                accent: Colors.white,
-                labelColor: Colors.white60,
+                accent: const Color(0xFF94A3B8),
+                labelColor: Colors.white70,
               ),
             ],
           ),
@@ -847,15 +939,15 @@ class ProfileDetailSheet extends StatelessWidget {
       }
       if (languages.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Speaks',
+            emoji: '🗣️',
+            cardThemeColor: const Color(0xFF0EA5E9),
             children: [
-              sectionLabel('Speaks', emoji: '🗣️'),
               chipWrap(
                 languages,
-                accent: Colors.white,
-                labelColor: Colors.white60,
+                accent: const Color(0xFF0EA5E9),
+                labelColor: Colors.white70,
                 useEmoji: true,
               ),
             ],
@@ -864,186 +956,186 @@ class ProfileDetailSheet extends StatelessWidget {
       }
       if (interestKeys.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              sectionLabel('Interests', emoji: '✨'),
-              ...interestsCategories
-                  .where(
-                    (cat) => cat.parents.any(
-                      (p) => interestKeys.contains(p.name),
-                    ),
-                  )
-                  .map((cat) {
-                    final matchedParents = cat.parents
-                        .where((p) => interestKeys.contains(p.name))
-                        .toList();
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                cat.icon,
-                                size: 12,
-                                color: theme.withValues(alpha: 0.6),
+          buildSectionCard(
+            label: 'Interests',
+            emoji: '✨',
+            cardThemeColor: const Color(0xFFD946EF),
+            children: interestsCategories
+                .where(
+                  (cat) => cat.parents.any(
+                    (p) => interestKeys.contains(p.name),
+                  ),
+                )
+                .map((cat) {
+                  final matchedParents = cat.parents
+                      .where((p) => interestKeys.contains(p.name))
+                      .toList();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              cat.icon,
+                              size: 12,
+                              color: const Color(
+                                0xFFD946EF,
+                              ).withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              cat.name.toUpperCase(),
+                              style: TextStyle(
+                                color: const Color(
+                                  0xFFD946EF,
+                                ).withValues(alpha: 0.6),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                cat.name.toUpperCase(),
-                                style: TextStyle(
-                                  color: theme.withValues(alpha: 0.6),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.5,
-                                ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: const Color(
+                                  0xFFD946EF,
+                                ).withValues(alpha: 0.1),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: theme.withValues(alpha: 0.1),
-                                ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          children: matchedParents.map((parent) {
+                            final subs = subInterests[parent.name] is List
+                                ? List<String>.from(
+                                    subInterests[parent.name] as List,
+                                  )
+                                : <String>[];
+                            final parentIcon = getTagIcon(
+                              parent.name,
+                              iconSize: 12,
+                              iconColor: const Color(
+                                0xFFD946EF,
+                              ).withValues(alpha: 0.95),
+                            );
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                right: 12,
+                                bottom: 10,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            children: matchedParents.map((parent) {
-                              final subs =
-                                  subInterests[parent.name] is List
-                                  ? List<String>.from(
-                                      subInterests[parent.name] as List,
-                                    )
-                                  : <String>[];
-                              final parentIcon = getTagIcon(
-                                parent.name,
-                                iconSize: 12,
-                                iconColor: theme.withValues(alpha: 0.95),
-                              );
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                  right: 12,
-                                  bottom: 10,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 11,
-                                        vertical: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 11,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFD946EF).withValues(
+                                        alpha: 0.14,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: theme.withValues(
-                                          alpha: 0.14,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (parentIcon != null) ...[
+                                          parentIcon,
+                                          const SizedBox(width: 5),
+                                        ],
+                                        Text(
+                                          parent.name,
+                                          style: TextStyle(
+                                            color: const Color(0xFFD946EF)
+                                                .withValues(
+                                                  alpha: 0.95,
+                                                ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (parentIcon != null) ...[
-                                            parentIcon,
-                                            const SizedBox(width: 5),
-                                          ],
-                                          Text(
-                                            parent.name,
-                                            style: TextStyle(
-                                              color: theme.withValues(
-                                                alpha: 0.95,
+                                      ],
+                                    ),
+                                  ),
+                                  if (subs.isNotEmpty) ...[
+                                    const SizedBox(height: 5),
+                                    Wrap(
+                                      spacing: 5,
+                                      runSpacing: 5,
+                                      children: subs.map((sub) {
+                                        final subIcon = getTagIcon(
+                                          sub,
+                                          iconSize: 11,
+                                          iconColor: Colors.white60,
+                                        );
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 9,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.07,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.12,
                                               ),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (subs.isNotEmpty) ...[
-                                      const SizedBox(height: 5),
-                                      Wrap(
-                                        spacing: 5,
-                                        runSpacing: 5,
-                                        children: subs.map((sub) {
-                                          final subIcon = getTagIcon(
-                                            sub,
-                                            iconSize: 11,
-                                            iconColor: Colors.white60,
-                                          );
-                                          return Container(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 9,
-                                                  vertical: 3,
-                                                ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white
-                                                  .withValues(
-                                                    alpha: 0.07,
-                                                  ),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    10,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.white
-                                                    .withValues(
-                                                      alpha: 0.12,
-                                                    ),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (subIcon != null) ...[
-                                                  subIcon,
-                                                  const SizedBox(width: 4),
-                                                ],
-                                                Text(
-                                                  sub,
-                                                  style: const TextStyle(
-                                                    color: Colors.white60,
-                                                    fontSize: 11,
-                                                    fontWeight:
-                                                        FontWeight.w500,
-                                                  ),
-                                                ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (subIcon != null) ...[
+                                                subIcon,
+                                                const SizedBox(width: 4),
                                               ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
+                                              Text(
+                                                sub,
+                                                style: const TextStyle(
+                                                  color: Colors.white60,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
                                   ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-            ],
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                })
+                .toList(),
           ),
         );
       }
       if (causesSupported.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Cares about',
+            emoji: '🌍',
+            cardThemeColor: const Color(0xFF10B981),
             children: [
-              sectionLabel('Cares about', emoji: '🌍'),
               chipWrap(
                 causesSupported,
-                accent: const Color(0xFF34D399),
+                accent: const Color(0xFF10B981),
                 labelColor: const Color(0xFF6EE7B7),
                 useEmoji: true,
               ),
@@ -1055,15 +1147,15 @@ class ProfileDetailSheet extends StatelessWidget {
       // Dating or Friends
       if (tab == 'Dating' && datingForLabels.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Here for',
+            emoji: '💘',
+            cardThemeColor: const Color(0xFFF43F5E),
             children: [
-              sectionLabel('Here for', emoji: '💘'),
               chipWrap(
                 datingForLabels,
-                accent: const Color(0xFFEC4899),
-                labelColor: const Color(0xFFFCCBE5),
+                accent: const Color(0xFFF43F5E),
+                labelColor: const Color(0xFFFDA4AF),
               ),
             ],
           ),
@@ -1075,13 +1167,12 @@ class ProfileDetailSheet extends StatelessWidget {
           lifestyle.isNotEmpty ||
           religiousBeliefs.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Lifestyle',
+            emoji: '🌱',
+            cardThemeColor: const Color(0xFF84CC16),
             children: [
-              sectionLabel('Lifestyle', emoji: '🌱'),
-              if (drinking.isNotEmpty)
-                emojiInfoRow('🍺', 'Drinks $drinking'),
+              if (drinking.isNotEmpty) emojiInfoRow('🍺', 'Drinks $drinking'),
               if (smoking.isNotEmpty) emojiInfoRow('🚬', 'Smokes $smoking'),
               if (lifestyle.isNotEmpty) emojiInfoRow('💫', lifestyle),
               if (religiousBeliefs.isNotEmpty)
@@ -1093,187 +1184,187 @@ class ProfileDetailSheet extends StatelessWidget {
 
       if (interestKeys.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              sectionLabel('Interests', emoji: '✨'),
-              ...interestsCategories
-                  .where(
-                    (cat) => cat.parents.any(
-                      (p) => interestKeys.contains(p.name),
-                    ),
-                  )
-                  .map((cat) {
-                    final matchedParents = cat.parents
-                        .where((p) => interestKeys.contains(p.name))
-                        .toList();
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                cat.icon,
-                                size: 12,
-                                color: theme.withValues(alpha: 0.6),
+          buildSectionCard(
+            label: 'Interests',
+            emoji: '✨',
+            cardThemeColor: const Color(0xFFD946EF),
+            children: interestsCategories
+                .where(
+                  (cat) => cat.parents.any(
+                    (p) => interestKeys.contains(p.name),
+                  ),
+                )
+                .map((cat) {
+                  final matchedParents = cat.parents
+                      .where((p) => interestKeys.contains(p.name))
+                      .toList();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              cat.icon,
+                              size: 12,
+                              color: const Color(
+                                0xFFD946EF,
+                              ).withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              cat.name.toUpperCase(),
+                              style: TextStyle(
+                                color: const Color(
+                                  0xFFD946EF,
+                                ).withValues(alpha: 0.6),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                cat.name.toUpperCase(),
-                                style: TextStyle(
-                                  color: theme.withValues(alpha: 0.6),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.5,
-                                ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: const Color(
+                                  0xFFD946EF,
+                                ).withValues(alpha: 0.1),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: theme.withValues(alpha: 0.1),
-                                ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          children: matchedParents.map((parent) {
+                            final subs = subInterests[parent.name] is List
+                                ? List<String>.from(
+                                    subInterests[parent.name] as List,
+                                  )
+                                : <String>[];
+                            final parentIcon = getTagIcon(
+                              parent.name,
+                              iconSize: 12,
+                              iconColor: const Color(
+                                0xFFD946EF,
+                              ).withValues(alpha: 0.95),
+                            );
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                right: 12,
+                                bottom: 10,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            children: matchedParents.map((parent) {
-                              final subs =
-                                  subInterests[parent.name] is List
-                                  ? List<String>.from(
-                                      subInterests[parent.name] as List,
-                                    )
-                                  : <String>[];
-                              final parentIcon = getTagIcon(
-                                parent.name,
-                                iconSize: 12,
-                                iconColor: theme.withValues(alpha: 0.95),
-                              );
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                  right: 12,
-                                  bottom: 10,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 11,
-                                        vertical: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 11,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFD946EF).withValues(
+                                        alpha: 0.14,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: theme.withValues(
-                                          alpha: 0.14,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (parentIcon != null) ...[
+                                          parentIcon,
+                                          const SizedBox(width: 5),
+                                        ],
+                                        Text(
+                                          parent.name,
+                                          style: TextStyle(
+                                            color: const Color(0xFFD946EF)
+                                                .withValues(
+                                                  alpha: 0.95,
+                                                ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (parentIcon != null) ...[
-                                            parentIcon,
-                                            const SizedBox(width: 5),
-                                          ],
-                                          Text(
-                                            parent.name,
-                                            style: TextStyle(
-                                              color: theme.withValues(
-                                                alpha: 0.95,
+                                      ],
+                                    ),
+                                  ),
+                                  if (subs.isNotEmpty) ...[
+                                    const SizedBox(height: 5),
+                                    Wrap(
+                                      spacing: 5,
+                                      runSpacing: 5,
+                                      children: subs.map((sub) {
+                                        final subIcon = getTagIcon(
+                                          sub,
+                                          iconSize: 11,
+                                          iconColor: Colors.white60,
+                                        );
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 9,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.07,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.12,
                                               ),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (subs.isNotEmpty) ...[
-                                      const SizedBox(height: 5),
-                                      Wrap(
-                                        spacing: 5,
-                                        runSpacing: 5,
-                                        children: subs.map((sub) {
-                                          final subIcon = getTagIcon(
-                                            sub,
-                                            iconSize: 11,
-                                            iconColor: Colors.white60,
-                                          );
-                                          return Container(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 9,
-                                                  vertical: 3,
-                                                ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white
-                                                  .withValues(
-                                                    alpha: 0.07,
-                                                  ),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    10,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.white
-                                                    .withValues(
-                                                      alpha: 0.12,
-                                                    ),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (subIcon != null) ...[
-                                                  subIcon,
-                                                  const SizedBox(width: 4),
-                                                ],
-                                                Text(
-                                                  sub,
-                                                  style: const TextStyle(
-                                                    color: Colors.white60,
-                                                    fontSize: 11,
-                                                    fontWeight:
-                                                        FontWeight.w500,
-                                                  ),
-                                                ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (subIcon != null) ...[
+                                                subIcon,
+                                                const SizedBox(width: 4),
                                               ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
+                                              Text(
+                                                sub,
+                                                style: const TextStyle(
+                                                  color: Colors.white60,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
                                   ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-            ],
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                })
+                .toList(),
           ),
         );
       }
 
       if (causesSupported.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Cares about',
+            emoji: '🌍',
+            cardThemeColor: const Color(0xFF10B981),
             children: [
-              sectionLabel('Cares about', emoji: '🌍'),
               chipWrap(
                 causesSupported,
-                accent: const Color(0xFF34D399),
+                accent: const Color(0xFF10B981),
                 labelColor: const Color(0xFF6EE7B7),
                 useEmoji: true,
               ),
@@ -1282,44 +1373,16 @@ class ProfileDetailSheet extends StatelessWidget {
         );
       }
 
-      if (tab != 'Friends' && (partnerValues.isNotEmpty || childrenPlans.isNotEmpty)) {
+      if (tab != 'Friends' &&
+          (partnerValues.isNotEmpty || childrenPlans.isNotEmpty)) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Relationship',
+            emoji: '❤️',
+            cardThemeColor: const Color(0xFFF43F5E),
             children: [
-              sectionLabel('Relationship', emoji: '❤️'),
-              if (partnerValues.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 0),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                    decoration: BoxDecoration(
-                      color: const Color(
-                        0xFFEC4899,
-                      ).withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: const Color(
-                          0xFFEC4899,
-                        ).withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Text(
-                      partnerValues,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 14,
-                        height: 1.65,
-                      ),
-                    ),
-                  ),
-                ),
-              if (partnerValues.isNotEmpty && childrenPlans.isNotEmpty)
-                const SizedBox(height: 14),
-              if (childrenPlans.isNotEmpty)
-                emojiInfoRow('👶', childrenPlans),
+              if (partnerValues.isNotEmpty) emojiInfoRow('💞', partnerValues),
+              if (childrenPlans.isNotEmpty) emojiInfoRow('👶', childrenPlans),
             ],
           ),
         );
@@ -1330,14 +1393,14 @@ class ProfileDetailSheet extends StatelessWidget {
 
       if (languages.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Speaks',
+            emoji: '🗣️',
+            cardThemeColor: const Color(0xFF0EA5E9),
             children: [
-              sectionLabel('Speaks', emoji: '🗣️'),
               chipWrap(
                 languages,
-                accent: Colors.white,
+                accent: const Color(0xFF0EA5E9),
                 labelColor: Colors.white60,
                 useEmoji: true,
               ),
@@ -1348,14 +1411,14 @@ class ProfileDetailSheet extends StatelessWidget {
 
       if (pets.isNotEmpty) {
         sections.add(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          buildSectionCard(
+            label: 'Pet parent',
+            emoji: '🐾',
+            cardThemeColor: const Color(0xFFF59E0B),
             children: [
-              sectionLabel('Pet parent', emoji: '🐾'),
               chipWrap(
                 pets,
-                accent: const Color(0xFFFBBF24),
+                accent: const Color(0xFFF59E0B),
                 labelColor: const Color(0xFFFDE68A),
                 useEmoji: true,
               ),
@@ -1406,7 +1469,9 @@ class ProfileDetailSheet extends StatelessWidget {
             remaining.add(photoWidgets[i]);
           }
           if (remaining.isNotEmpty) {
-            insertions.putIfAbsent(numSections, () => <Widget>[]).addAll(remaining);
+            insertions
+                .putIfAbsent(numSections, () => <Widget>[])
+                .addAll(remaining);
           }
         }
 
@@ -1432,7 +1497,7 @@ class ProfileDetailSheet extends StatelessWidget {
           // ── Scrollable body ────────────────────────────────────────────────
           Expanded(
             child: ListView(
-              controller: scrollController,
+              controller: widget.scrollController,
               padding: EdgeInsets.zero,
               children: [
                 // ═══════════════════════════════════════════════════════════
@@ -1507,7 +1572,7 @@ class ProfileDetailSheet extends StatelessWidget {
                         ),
                       ),
                       // Score badge - top right (optional)
-                      if (showScoreBadge)
+                      if (widget.showScoreBadge)
                         Positioned(
                           top: 14,
                           right: 16,
@@ -1618,7 +1683,10 @@ class ProfileDetailSheet extends StatelessWidget {
                                               iconColor: Colors.white,
                                             );
                                             return icon != null
-                                                ? [icon, const SizedBox(width: 4)]
+                                                ? [
+                                                    icon,
+                                                    const SizedBox(width: 4),
+                                                  ]
                                                 : <Widget>[];
                                           }(),
                                           Text(
@@ -1656,10 +1724,15 @@ class ProfileDetailSheet extends StatelessWidget {
                                             final icon = getTagIcon(
                                               displaySexuality,
                                               iconSize: 12,
-                                              iconColor: const Color(0xFFFCCBE5),
+                                              iconColor: const Color(
+                                                0xFFFCCBE5,
+                                              ),
                                             );
                                             return icon != null
-                                                ? [icon, const SizedBox(width: 4)]
+                                                ? [
+                                                    icon,
+                                                    const SizedBox(width: 4),
+                                                  ]
                                                 : <Widget>[];
                                           }(),
                                           Text(
@@ -1705,10 +1778,10 @@ class ProfileDetailSheet extends StatelessWidget {
                 // ═══════════════════════════════════════════════════════════
                 // SAFETY ACTIONS - Hide · Block · Report
                 // ═══════════════════════════════════════════════════════════
-                if (showSafetyActions &&
-                    onHideTap != null &&
-                    onBlockTap != null &&
-                    onReportTap != null)
+                if (widget.showSafetyActions &&
+                    widget.onHideTap != null &&
+                    widget.onBlockTap != null &&
+                    widget.onReportTap != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
                     child: Column(
@@ -1725,21 +1798,21 @@ class ProfileDetailSheet extends StatelessWidget {
                               icon: LucideIcons.eyeOff,
                               label: 'Hide',
                               color: Colors.white38,
-                              callback: onHideTap!,
+                              callback: widget.onHideTap!,
                             ),
                             divider(),
                             safetyBtn(
                               icon: LucideIcons.shieldOff,
                               label: 'Block',
                               color: Colors.orange,
-                              callback: onBlockTap!,
+                              callback: widget.onBlockTap!,
                             ),
                             divider(),
                             safetyBtn(
                               icon: LucideIcons.flag,
                               label: 'Report',
                               color: Colors.redAccent,
-                              callback: onReportTap!,
+                              callback: widget.onReportTap!,
                             ),
                           ],
                         ),
@@ -1754,7 +1827,7 @@ class ProfileDetailSheet extends StatelessWidget {
           ),
 
           // ── Sticky action bar ──────────────────────────────────────────────
-          ?actionBar,
+          ?widget.actionBar,
         ],
       ),
     );

@@ -182,7 +182,21 @@ async def get_key_bundle(
                 detail="This user has not set up secure messaging yet.",
             )
 
-        return KeyBundleResponse(user_id=target_user_id, **bundle)
+        import base64
+        return KeyBundleResponse(
+            user_id=target_user_id,
+            identity_public_key=base64.b64encode(bundle["identity_public_key"]),
+            registration_id=bundle["registration_id"],
+            signed_prekey_id=bundle["signed_prekey_id"],
+            signed_prekey_public=base64.b64encode(bundle["signed_prekey_public"]),
+            signed_prekey_signature=base64.b64encode(bundle["signed_prekey_signature"]),
+            one_time_prekey_id=bundle["one_time_prekey_id"],
+            one_time_prekey_public=(
+                base64.b64encode(bundle["one_time_prekey_public"])
+                if bundle["one_time_prekey_public"] is not None
+                else None
+            ),
+        )
     except DatabaseAccessError as err:
         logger.exception(
             "Failed to fetch key bundle",

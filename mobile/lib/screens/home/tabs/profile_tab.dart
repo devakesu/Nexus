@@ -59,7 +59,7 @@ class ProfileTab extends ConsumerStatefulWidget {
 }
 
 class _ProfileTabState extends ConsumerState<ProfileTab>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   AnimationController? _pulseController;
   AnimationController? _rotationController;
   late PageController _pageController;
@@ -160,6 +160,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   // Profile images slot paths: supports up to 5 images (1 primary profile pic + 4 gallery pics)
   final List<String?> _imagePaths = [null, null, null, null, null];
   List<String?> _savedImagePaths = [null, null, null, null, null];
+  final Set<int> _removingSlots = {};
   Timer? _saveImagesDebounceTimer;
 
   final GlobalKey _coreSignalKey = GlobalKey();
@@ -453,6 +454,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         unawaited(_loadProfileData(silent: true));
       }
     });
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_bootstrapProfileData());
     if (widget.targetSection != null) {
       _scrollToTargetSection(widget.targetSection!);
@@ -493,6 +495,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_profileRefreshSub?.cancel());
     _pulseController?.dispose();
     _rotationController?.dispose();
@@ -505,6 +508,29 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _campusNameFocusNode.dispose();
     _majorFocusNode.dispose();
     super.dispose();
+  }
+
+  bool _awaitingSpotifyReturn = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      if (_awaitingSpotifyReturn) {
+        _awaitingSpotifyReturn = false;
+        // Show overlay immediately, then wait for backend to finish its
+        // OAuth callback before re-fetching.
+        setState(() => _isSpotifyConnecting = true);
+        unawaited(Future<void>.delayed(const Duration(seconds: 2)).then((_) async {
+          if (!mounted) return;
+          await _loadProfileData(silent: true);
+          unawaited(ref.refresh(spotifyStatusProvider.future));
+          if (mounted) setState(() => _isSpotifyConnecting = false);
+        }));
+      } else {
+        unawaited(_loadProfileData(silent: true));
+        unawaited(ref.refresh(spotifyStatusProvider.future));
+      }
+    }
   }
 
   List<String> get _flatSubInterests {
@@ -1295,65 +1321,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     setState(() => _isSpotifyConnecting = true);
     try {
       final authUrl = await _spotifyService.fetchAuthUrl();
-      if (mounted) {
-        if (authUrl != null) {
-          await launchUrl(
-            Uri.parse(authUrl),
-            mode: LaunchMode.externalApplication,
-          );
-          if (!mounted) return;
-          await showDialog<void>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1E2E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: const Row(
-                children: [
-                  Icon(Icons.music_note, color: Color(0xFF1DB954), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Spotify',
-                    style: TextStyle(
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              content: const Text(
-                'After connecting on Spotify, tap "Sync" to load your top artists.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.white38),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1DB954),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    unawaited(_loadProfileData());
-                    unawaited(ref.refresh(spotifyStatusProvider.future));
-                  },
-                  child: const Text(
-                    'Sync Artists',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+      if (mounted && authUrl != null) {
+        _awaitingSpotifyReturn = true;
+        await launchUrl(
+          Uri.parse(authUrl),
+          mode: LaunchMode.externalApplication,
+        );
+        // WidgetsBindingObserver.didChangeAppLifecycleState will fire when
+        // the user returns from the browser and auto-reload profile data +
+        // refresh spotifyStatusProvider — no manual dialog needed.
       }
     } on Object catch (e) {
       if (!mounted) return;
@@ -1440,6 +1416,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
               }
             }
             _savedImagePaths = List<String?>.from(_imagePaths);
+            _removingSlots.clear();
           });
           unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
         } on Object catch (e) {
@@ -1449,6 +1426,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             _imagePaths
               ..clear()
               ..addAll(_savedImagePaths);
+            _removingSlots.clear();
           });
           ref.read(clientAIImageManagerProvider.notifier).restoreBackup();
 
@@ -1565,14 +1543,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   Future<void> _clearImage(int slotIndex) async {
     final oldPaths = List<String?>.from(_imagePaths);
     setState(() {
-      if (slotIndex > 0) {
-        for (var i = slotIndex; i < 4; i++) {
-          _imagePaths[i] = _imagePaths[i + 1];
-        }
-        _imagePaths[4] = null;
-      } else {
-        _imagePaths[0] = null;
-      }
+      _removingSlots.add(slotIndex);
     });
 
     try {
@@ -1584,6 +1555,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     } on Object catch (e) {
       if (!mounted) return;
       setState(() {
+        _removingSlots.remove(slotIndex);
         _imagePaths
           ..clear()
           ..addAll(oldPaths);
@@ -2452,6 +2424,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         rotationController: rotationController,
                         pulseController: pulseController,
                         hasPendingUpload: pendingUploads.containsKey(0),
+                        isRemoving: _removingSlots.contains(0),
                         onAvatarTap: () => _showImageSlotPicker(0),
                       ),
                     ),
@@ -2505,6 +2478,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         pronouns: _pronouns,
                         imagePaths: _imagePaths,
                         pendingUploads: pendingUploads,
+                        removingSlots: _removingSlots,
                         isSavingName: _savingFields.contains('name'),
                         isSavingGender: _savingFields.contains('displayGender'),
                         isSavingSexuality: _savingFields.contains(

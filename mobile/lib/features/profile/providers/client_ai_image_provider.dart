@@ -3,8 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -272,6 +274,9 @@ class ClientAIImageManager extends _$ClientAIImageManager {
       final unifiedUniqueTags = <String>{};
       state.slotSpecificVibeTags.values.forEach(unifiedUniqueTags.addAll);
 
+      // Truncate to maximum 15 tags to prevent backend size validation failures
+      final truncatedTags = unifiedUniqueTags.take(15).toList();
+
       // 3. Dispatch unified payload containing storage URLs and tags to FastAPI
       final config = AppConfig.current;
 
@@ -283,8 +288,8 @@ class ClientAIImageManager extends _$ClientAIImageManager {
               .sublist(1)
               .where((p) => p.isNotEmpty)
               .toList(),
-          'ai_vibe_tags': unifiedUniqueTags.isNotEmpty
-              ? unifiedUniqueTags.toList()
+          'ai_vibe_tags': truncatedTags.isNotEmpty
+              ? truncatedTags
               : ['ambient-vibe'],
         },
       );
@@ -421,6 +426,18 @@ class RefinedEdgeVisionBroker {
     'textile',
     'clothing',
     'apparel',
+    'outerwear',
+    'footwear',
+    't-shirt',
+    'shirt',
+    'jeans',
+    'pants',
+    'shoe',
+    'shoes',
+    'wood',
+    'glass',
+    'metal',
+    'plastic',
   };
 
   // 🎨 2. EXTENDED NEXUS AESTHETIC TRANSLATION MATRIX
@@ -433,6 +450,7 @@ class RefinedEdgeVisionBroker {
     'software': 'dev-era',
     'screen': 'deep-work',
     'monitor': 'deep-work',
+    'keyboard': 'workspace-steez',
     'glasses': 'geek-chic',
     'eyewear': 'geek-chic',
     'desk': 'workspace-steez',
@@ -442,27 +460,60 @@ class RefinedEdgeVisionBroker {
     'coffee': 'caffeine-addict',
     'espresso': 'caffeine-addict',
     'cafe': 'coffee-shop-steez',
+    'cafeteria': 'coffee-shop-steez',
     'mug': 'ambient-brew',
     'cup': 'ambient-brew',
+    'teapot': 'ambient-brew',
     'restaurant': 'foodie-orbit',
     'food': 'foodie-orbit',
+    'cuisine': 'foodie-orbit',
+    'dish': 'foodie-orbit',
+    'meal': 'foodie-orbit',
+
+    // Food, Desserts & Drinks
+    'pizza': 'foodie-orbit',
+    'burger': 'foodie-orbit',
+    'sandwich': 'foodie-orbit',
+    'cake': 'sweet-tooth',
+    'dessert': 'sweet-tooth',
+    'bakery': 'sweet-tooth',
+    'ice-cream': 'sweet-tooth',
+    'chocolate': 'sweet-tooth',
+    'wine': 'nightlife-vibe',
+    'beer': 'nightlife-vibe',
+    'cocktail': 'nightlife-vibe',
+    'bar': 'nightlife-vibe',
 
     // Creative & Intellectual
     'book': 'intellectual',
     'books': 'book-worm-era',
+    'notebook': 'intellectual',
     'library': 'quiet-hours',
+    'bookcase': 'quiet-hours',
     'musical-instrument': 'analog-vibe',
     'guitar': 'indie-vibe',
+    'acoustic-guitar': 'indie-vibe',
+    'electric-guitar': 'indie-vibe',
+    'piano': 'classical-vibe',
+    'keyboard-instrument': 'classical-vibe',
+    'drum': 'sonic-era',
+    'drums': 'sonic-era',
     'audio-equipment': 'sonic-era',
+    'headphones': 'sonic-era',
+    'earphones': 'sonic-era',
     'microphone': 'creative-expression',
     'art': 'creative-expression',
     'painting': 'creative-expression',
+    'easel': 'creative-expression',
+    'canvas': 'creative-expression',
 
-    // Nature, Environment & Escapism
+    // Nature, Environment & Travel/Escapism
     'plant': 'solarpunk',
+    'houseplant': 'solarpunk',
     'tree': 'canopy-escape',
     'trees': 'canopy-escape',
     'forest': 'canopy-escape',
+    'woodland': 'canopy-escape',
     'vegetation': 'organic-vibe',
     'nature': 'organic-vibe',
     'sky': 'celestial-vibe',
@@ -470,12 +521,64 @@ class RefinedEdgeVisionBroker {
     'sunset': 'golden-hour-club',
     'sunrise': 'early-bird',
     'mountain': 'wanderlust',
+    'hill': 'wanderlust',
     'lake': 'wanderlust',
+    'river': 'wanderlust',
+    'valley': 'wanderlust',
+    'beach': 'wanderlust',
+    'ocean': 'wanderlust',
+    'sea': 'wanderlust',
+    'sand': 'wanderlust',
+    'backpack': 'wanderlust',
+    'sleeping-bag': 'wanderlust',
+    'tent': 'wanderlust',
+    'campground': 'wanderlust',
 
-    // Campus Companion Dynamics
+    // Pets & Animals
     'cat': 'feline-friend',
+    'kitten': 'feline-friend',
     'dog': 'canine-energy',
+    'puppy': 'canine-energy',
     'pet': 'animal-lover',
+    'horse': 'equestrian-vibe',
+    'bird': 'nature-lover',
+
+    // Fashion, Styles & Presentation
+    'suit': 'dapper-era',
+    'groom': 'dapper-era',
+    'tuxedo': 'dapper-era',
+    'blazer': 'dapper-era',
+    'windsor-tie': 'dapper-era',
+    'necktie': 'dapper-era',
+    'cardigan': 'dapper-era',
+    'jersey': 'active-orbit',
+    'activewear': 'active-orbit',
+    'sneaker': 'streetwear-steez',
+    'sneakers': 'streetwear-steez',
+    'runningshoe': 'active-orbit',
+    'sunglasses': 'sun-club',
+    'sunglass': 'sun-club',
+
+    // Vehicles & Adventure
+    'car': 'motor-enthusiast',
+    'sports-car': 'motor-enthusiast',
+    'convertible': 'motor-enthusiast',
+    'motorcycle': 'adventure-seeker',
+    'scooter': 'adventure-seeker',
+    'bicycle': 'active-orbit',
+    'bike': 'active-orbit',
+
+    // Games & Recreation
+    'gamepad': 'gamer-era',
+    'controller': 'gamer-era',
+    'joystick': 'gamer-era',
+    'board-game': 'tabletop-steez',
+    'chess': 'tabletop-steez',
+
+    // Tools & Artifacts
+    'spatula': 'foodie-orbit',
+    'paintbrush': 'creative-expression',
+    'mortarboard': 'academic-era',
   };
 
   /// Runs local machine vision calculations with strict filtering layers.
@@ -487,9 +590,12 @@ class RefinedEdgeVisionBroker {
     final optimizedFile = await _downscaleInferenceTarget(imageFile);
     final inputImage = InputImage.fromFile(optimizedFile);
 
-    // Elevate confidence threshold slightly to prune low-probability noise tags
+    // Copy model asset to local support directory to resolve the file path for native ML Kit
+    final modelPath = await _getLocalModelPath();
     final imageLabeler = ImageLabeler(
-      options: ImageLabelerOptions(confidenceThreshold: 0.62),
+      options: LocalLabelerOptions(
+        modelPath: modelPath,
+      ),
     );
 
     try {
@@ -535,16 +641,9 @@ class RefinedEdgeVisionBroker {
           continue;
         }
 
-        // STEP D: Fallback Sanitization (Only allowed if it represents a complex object/lifestyle trait)
-        final sanitizedFallback = parsedLabel
-            .replaceAll(RegExp(r'[^a-z0-9\-]'), '')
-            .replaceAll(RegExp('-+'), '-')
-            .replaceAll(RegExp(r'^-|-$'), '');
-
-        // Fallback guard: Only allow descriptive strings with reasonable length, append safe modifier
-        if (sanitizedFallback.isNotEmpty && sanitizedFallback.length >= 4) {
-          compiledAestheticTags.add('$sanitizedFallback-vibe');
-        }
+        // STEP D: Fallback Sanitization - Disabled.
+        // We only allow curated aesthetic tags from the translation matrix
+        // or semantic filters to prevent literal object names from polluting the vibes.
       }
 
       // Deduplicate elements instantly while maintaining baseline confidence sorting ranks
@@ -596,5 +695,20 @@ class RefinedEdgeVisionBroker {
     } on Object catch (_) {
       return file;
     }
+  }
+
+  Future<String> _getLocalModelPath() async {
+    final supportDir = await getApplicationSupportDirectory();
+    final localFile = File('${supportDir.path}/model.tflite');
+    
+    // Always overwrite to ensure changes in assets/model.tflite are updated on the device
+    final byteData = await rootBundle.load('assets/model.tflite');
+    await localFile.writeAsBytes(
+      byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      ),
+    );
+    return localFile.path;
   }
 }

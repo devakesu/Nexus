@@ -40,7 +40,9 @@ class SpotifyMusicSection extends ConsumerWidget {
       borderColor: _spotifyGreen.withValues(alpha: 0.40),
       accentColor: _spotifyGreen,
       visibilityBadge: ProfileVisibilityBadge.datingAndFriends(),
-      child: Column(
+      child: Stack(
+        children: [
+          Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isConnected) ...[
@@ -112,10 +114,10 @@ class SpotifyMusicSection extends ConsumerWidget {
                   return const SizedBox.shrink();
                 }
                 final lastSynced = status.lastSyncedAt;
-                final subtitle = status.playlistCount == 0
+                final subtitle = lastSynced == null
                     ? 'Syncing your playlists…'
                     : '${status.playlistCount} playlist${status.playlistCount == 1 ? '' : 's'}'
-                        '${lastSynced != null ? ' · synced ${_relativeTimeShort(lastSynced)}' : ''}';
+                        ' · synced ${_relativeTimeShort(lastSynced)}';
 
                 return GestureDetector(
                   onTap: () => openPlaylistsSheet(context),
@@ -218,6 +220,40 @@ class SpotifyMusicSection extends ConsumerWidget {
               ),
             ),
           ],
+        ],
+      ),
+          // ── Syncing overlay ────────────────────────────────────────────────
+          Positioned.fill(
+            child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: isConnecting ? 1.0 : 0.0,
+            child: IgnorePointer(
+              ignoring: !isConnecting,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFFAF3).withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const NexusOrbitLoader(size: 36),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Syncing with Spotify…',
+                      style: TextStyle(
+                        color: const Color(0xFF1DB954).withValues(alpha: 0.85),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Annotated, Any, cast
 
@@ -12,7 +13,12 @@ from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
 from app.core.tasks import safe_create_task
 from app.db.chat import close_conversation_for_match_action
-from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
+from app.db.client import (
+    DatabaseAccessError,
+    ProfileDecodeError,
+    parse_utc_datetime,
+    supabase_client,
+)
 from app.db.exclusions import (
     fetch_likes_for_user,
     get_cached_active_block_ids,
@@ -51,10 +57,9 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_matched_at(raw_ts: Any) -> datetime:
-    if isinstance(raw_ts, str):
-        return datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
-    if isinstance(raw_ts, datetime):
-        return raw_ts
+    with suppress(Exception):
+        if isinstance(raw_ts, (str, datetime)):
+            return parse_utc_datetime(raw_ts)
     return datetime.now(tz=timezone.utc)
 
 
@@ -240,6 +245,37 @@ async def get_peer_profile(
         profile.setdefault("x", 0.0)
         profile.setdefault("y", 0.0)
         profile.setdefault("orbit_tier", 1)
+
+        # Check viewer connection status dynamically
+        from app.db.spotify import get_connection
+
+        viewer_conn = await asyncio.to_thread(get_connection, user_id_normalized)
+        viewer_connected = viewer_conn is not None and not viewer_conn.get(
+            "disconnected_at",
+        )
+        profile["viewer_spotify_connected"] = viewer_connected
+
+        # If both are connected, calculate the playlist match grade!
+        candidate_connected = bool(
+            profile.get("artist_affinity") or profile.get("genre_affinity"),
+        )
+        profile["candidate_spotify_connected"] = candidate_connected
+
+        if viewer_connected and candidate_connected:
+            viewer_profile = await asyncio.to_thread(
+                fetch_peer_profile_by_id,
+                user_id_normalized,
+            )
+            if viewer_profile:
+                from Nexus_Engine.engine import calculate_playlist_match_grade
+
+                grade = calculate_playlist_match_grade(
+                    viewer_profile.get("artist_affinity"),
+                    profile.get("artist_affinity"),
+                    viewer_profile.get("genre_affinity"),
+                    profile.get("genre_affinity"),
+                )
+                profile["music_match_grade"] = grade
 
         return build_tab_aware_orbit_node_detail(
             session_tab=inferred_tab,
