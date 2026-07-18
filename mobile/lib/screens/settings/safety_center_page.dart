@@ -499,33 +499,35 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
       case 1:
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildNavCard(
-                  icon: LucideIcons.shieldAlert,
-                  iconColor: _red,
-                  iconBg: const Color(0xFFFEE2E2),
-                  title: 'Meetup Safety Alert',
-                  subtitle: 'Check-ins, SOS & trusted contacts.',
-                  onTap: _openMeetupSafetyPage,
-                  animateDelay: 50,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildNavCard(
+                    icon: LucideIcons.shieldAlert,
+                    iconColor: _red,
+                    iconBg: const Color(0xFFFEE2E2),
+                    title: 'Meetup Safety Alert',
+                    subtitle: 'Check-ins, SOS & trusted contacts.',
+                    onTap: _openMeetupSafetyPage,
+                    animateDelay: 50,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildNavCard(
-                  icon: LucideIcons.phoneCall,
-                  iconColor: const Color(0xFFEA580C),
-                  iconBg: const Color(0xFFFFF7ED),
-                  title: 'Crisis Helplines',
-                  subtitle: 'Confidential support hotlines.',
-                  onTap: _openCrisisHelplinesPage,
-                  animateDelay: 80,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildNavCard(
+                    icon: LucideIcons.phoneCall,
+                    iconColor: const Color(0xFFEA580C),
+                    iconBg: const Color(0xFFFFF7ED),
+                    title: 'Crisis Helplines',
+                    subtitle: 'Confidential support hotlines.',
+                    onTap: _openCrisisHelplinesPage,
+                    animateDelay: 80,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       case 2:

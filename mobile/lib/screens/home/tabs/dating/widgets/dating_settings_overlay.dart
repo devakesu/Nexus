@@ -88,6 +88,221 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
     localChildrenPlans = widget.childrenPlans;
   }
 
+  void _openPartnerValuesSelectionOverlay() {
+    var overlaySearchQuery = '';
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setOverlayState) {
+              final filteredValues = predefinedValues
+                  .where(
+                    (val) => val.toLowerCase().contains(
+                      overlaySearchQuery.toLowerCase(),
+                    ),
+                  )
+                  .toList();
+
+              final showCustomOption =
+                  overlaySearchQuery.trim().isNotEmpty &&
+                  !predefinedValues.any(
+                    (val) =>
+                        val.toLowerCase() ==
+                        overlaySearchQuery.trim().toLowerCase(),
+                  ) &&
+                  !localPartnerValues.any(
+                    (val) =>
+                        val.toLowerCase() ==
+                        overlaySearchQuery.trim().toLowerCase(),
+                  );
+
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.75,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Partner Core Values',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.modeDating,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Done'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: TextField(
+                        style: const TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search or add core values...',
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          prefixIcon: const Icon(
+                            LucideIcons.search,
+                            size: 18,
+                            color: Colors.grey,
+                          ),
+                          filled: true,
+                          fillColor: Colors.black.withValues(alpha: 0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        onChanged: (v) {
+                          setOverlayState(() {
+                            overlaySearchQuery = v;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (showCustomOption)
+                                ActionChip(
+                                  avatar: const Icon(
+                                    LucideIcons.plus,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                  label: Text(
+                                    'Add "${overlaySearchQuery.trim()}"',
+                                  ),
+                                  backgroundColor: AppColors.modeDating,
+                                  labelStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  onPressed: () async {
+                                    final newVal = overlaySearchQuery.trim();
+                                    setState(() {
+                                      localPartnerValues.add(newVal);
+                                    });
+                                    setOverlayState(() {
+                                      overlaySearchQuery = '';
+                                    });
+                                    await widget.onSaveDatingField(
+                                      'partner_values',
+                                      localPartnerValues,
+                                      setState,
+                                    );
+                                  },
+                                ),
+                              ...filteredValues.map((val) {
+                                final isSelected =
+                                    localPartnerValues.contains(val);
+                                return FilterChip(
+                                  label: Text(val),
+                                  selected: isSelected,
+                                  selectedColor: AppColors.modeDating,
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
+                                  ),
+                                  checkmarkColor: Colors.white,
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: BorderSide.none,
+                                  onSelected: (selected) async {
+                                    setState(() {
+                                      if (selected) {
+                                        localPartnerValues.add(val);
+                                      } else {
+                                        localPartnerValues.remove(val);
+                                      }
+                                    });
+                                    setOverlayState(() {});
+                                    await widget.onSaveDatingField(
+                                      'partner_values',
+                                      localPartnerValues,
+                                      setState,
+                                    );
+                                  },
+                                );
+                              }),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title, IconData icon, Color color) {
     return Padding(
       padding: const EdgeInsets.only(top: 24, bottom: 16),
@@ -121,22 +336,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredValues = predefinedValues
-        .where(
-          (val) => val.toLowerCase().contains(searchQuery.toLowerCase()),
-        )
-        .where((val) => !localPartnerValues.contains(val))
-        .toList();
-
-    final showCustomOption =
-        searchQuery.trim().isNotEmpty &&
-        !predefinedValues.any(
-          (val) => val.toLowerCase() == searchQuery.trim().toLowerCase(),
-        ) &&
-        !localPartnerValues.any(
-          (val) => val.toLowerCase() == searchQuery.trim().toLowerCase(),
-        );
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
@@ -508,106 +707,28 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                   const SizedBox(height: 16),
                 ],
 
-                // Search Bar
-                TextField(
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 14,
+                OutlinedButton.icon(
+                  onPressed: _openPartnerValuesSelectionOverlay,
+                  icon: const Icon(
+                    LucideIcons.plus,
+                    size: 16,
+                    color: AppColors.modeDating,
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'Search or add core values...',
-                    prefixIcon: const Icon(
-                      LucideIcons.search,
-                      size: 18,
-                      color: Colors.grey,
+                  label: const Text('Add / Edit Core Values'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.modeDating,
+                    side: const BorderSide(
+                      color: AppColors.modeDating,
+                      width: 1.5,
                     ),
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.04),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    contentPadding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
-                  onChanged: (val) {
-                    setState(() {
-                      searchQuery = val;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Predefined / Filtered Choices
-                const Text(
-                  'Tap to select values:',
-                  style: TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    if (showCustomOption)
-                      ActionChip(
-                        avatar: const Icon(
-                          LucideIcons.plus,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                        label: Text('Add "${searchQuery.trim()}"'),
-                        backgroundColor: AppColors.modeDating,
-                        labelStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        onPressed: () async {
-                          setState(() {
-                            localPartnerValues.add(searchQuery.trim());
-                            searchQuery = '';
-                          });
-                          await widget.onSaveDatingField(
-                            'partner_values',
-                            localPartnerValues,
-                            setState,
-                          );
-                        },
-                      ),
-                    ...filteredValues.map((val) {
-                      return ActionChip(
-                        label: Text(val),
-                        backgroundColor: Colors.black.withValues(
-                          alpha: 0.04,
-                        ),
-                        labelStyle: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide.none,
-                        onPressed: () async {
-                          setState(() {
-                            localPartnerValues.add(val);
-                          });
-                          await widget.onSaveDatingField(
-                            'partner_values',
-                            localPartnerValues,
-                            setState,
-                          );
-                        },
-                      );
-                    }),
-                  ],
                 ),
                 const SizedBox(height: 32),
 

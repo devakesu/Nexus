@@ -58,69 +58,71 @@ Future<void> showAgeChangeSheet(
               border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
             ),
             child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Row(
-                    children: [
-                      Icon(
-                        LucideIcons.shieldCheck,
-                        color: Color(0xFF2D8CFF),
-                        size: 20,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Age Change',
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  if (!eligible)
-                    ..._buildIneligibleContent(sheetContext, nextEligibleAt)
-                  else if (step == _AgeSheetStep.intro)
-                    ..._buildIntroContent(
-                      currentAge: currentAge,
-                      pendingAge: pendingAge,
-                      changesUsedInWindow: changesUsedInWindow,
-                      onAgeChanged: (val) =>
-                          setModalState(() => pendingAge = val),
-                      onContinue: pendingAge != currentAge
-                          ? () => setModalState(
-                              () => step = _AgeSheetStep.confirm,
-                            )
-                          : null,
-                    )
-                  else
-                    ..._buildConfirmContent(
-                      currentAge: currentAge,
-                      pendingAge: pendingAge,
-                      changesUsedInWindow: changesUsedInWindow,
-                      onBack: () =>
-                          setModalState(() => step = _AgeSheetStep.intro),
-                      onConfirm: () {
-                        Navigator.pop(sheetContext);
-                        onConfirmed(pendingAge);
-                      },
                     ),
-                ],
+                    const Row(
+                      children: [
+                        Icon(
+                          LucideIcons.shieldCheck,
+                          color: Color(0xFF2D8CFF),
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Age Change',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (!eligible)
+                      ..._buildIneligibleContent(sheetContext, nextEligibleAt)
+                    else if (step == _AgeSheetStep.intro)
+                      ..._buildIntroContent(
+                        currentAge: currentAge,
+                        pendingAge: pendingAge,
+                        changesUsedInWindow: changesUsedInWindow,
+                        onAgeChanged: (val) =>
+                            setModalState(() => pendingAge = val),
+                        onContinue: pendingAge != currentAge
+                            ? () => setModalState(
+                                () => step = _AgeSheetStep.confirm,
+                              )
+                            : null,
+                      )
+                    else
+                      ..._buildConfirmContent(
+                        currentAge: currentAge,
+                        pendingAge: pendingAge,
+                        changesUsedInWindow: changesUsedInWindow,
+                        onBack: () =>
+                            setModalState(() => step = _AgeSheetStep.intro),
+                        onConfirm: () {
+                          Navigator.pop(sheetContext);
+                          onConfirmed(pendingAge);
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
           );

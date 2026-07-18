@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/config/app_config.dart';
 import 'package:nexus/providers/chat_conversation_provider.dart';
 import 'package:nexus/providers/presence_provider.dart';
 import 'package:nexus/screens/chats/chat_theme.dart';
@@ -15,10 +16,12 @@ import 'package:nexus/screens/chats/widgets/message_bubble.dart';
 import 'package:nexus/screens/chats/widgets/presence_badge.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
 import 'package:nexus/screens/home/widgets/profile_detail_sheet.dart';
+import 'package:nexus/screens/orbit/widgets/constellation_loader.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/signal/session_manager.dart';
 import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
@@ -52,6 +55,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   Timer? _heartbeatTimer;
+  double _lastViewInsetsBottom = 0;
 
   @override
   void initState() {
@@ -126,6 +130,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       unawaited(PresenceHeartbeat.beat(isOnline: false));
     }
   }
+
+
 
   void _startHeartbeat() {
     unawaited(PresenceHeartbeat.beat());
@@ -328,6 +334,25 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
 
   @override
   Widget build(BuildContext context) {
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+    if (viewInsetsBottom != _lastViewInsetsBottom) {
+      final isKeyboardOpening = viewInsetsBottom > _lastViewInsetsBottom;
+      _lastViewInsetsBottom = viewInsetsBottom;
+      if (isKeyboardOpening) {
+        if (_scrollController.hasClients) {
+          final isNearBottom = _scrollController.offset >=
+              _scrollController.position.maxScrollExtent - 120;
+          if (isNearBottom) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+              }
+            });
+          }
+        }
+      }
+    }
+
     final theme = chatTabTheme(widget.tab);
     final asyncState = ref.watch(
       chatConversationControllerProvider(
@@ -339,8 +364,11 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: _buildAppBar(context, theme),
-      body: SafeArea(
-        child: asyncState.when(
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: SafeArea(
+          child: asyncState.when(
           loading: () => Center(child: _statusMessage(theme, loading: true)),
           error: (error, stackTrace) => Center(
             child: _statusMessage(
@@ -421,7 +449,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             );
           },
         ),
-      ),
+      )),
     );
   }
 
@@ -578,59 +606,63 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ),
           titleSpacing: 0,
-          title: Row(
-            children: [
-              ClipOval(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child:
-                      widget.profilePic != null && widget.profilePic!.isNotEmpty
-                      ? StorageImage(imagePath: widget.profilePic!)
-                      : ColoredBox(
-                          color: theme.primary.withValues(alpha: 0.12),
-                          child: Icon(
-                            LucideIcons.user,
-                            color: theme.primary,
-                            size: 22,
+          title: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _showPeerProfile(context, theme),
+            child: Row(
+              children: [
+                ClipOval(
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child:
+                        widget.profilePic != null && widget.profilePic!.isNotEmpty
+                        ? StorageImage(imagePath: widget.profilePic!)
+                        : ColoredBox(
+                            color: theme.primary.withValues(alpha: 0.12),
+                            child: Icon(
+                              LucideIcons.user,
+                              color: theme.primary,
+                              size: 22,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16.5,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16.5,
+                        ),
                       ),
-                    ),
-                    PresenceBadge(
-                      peerUserId: widget.matchedUserId,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppColors.inkMuted,
-                      ),
-                      fallback: Text(
-                        'Offline',
+                      PresenceBadge(
+                        peerUserId: widget.matchedUserId,
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: AppColors.inkFaint,
+                          color: AppColors.inkMuted,
+                        ),
+                        fallback: Text(
+                          'Offline',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.inkFaint,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
             Center(
@@ -661,10 +693,114 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     );
   }
 
+  Future<Map<String, dynamic>> _fetchPeerProfile() async {
+    final config = AppConfig.current;
+    final dio = createDio();
+    final response = await dio.post<Map<String, dynamic>>(
+      '${config.backendUrl}/api/v1/profile/peer',
+      data: {
+        'target_id': widget.matchedUserId,
+        'tab': widget.tab,
+      },
+    );
+    if (response.statusCode == 200 && response.data != null) {
+      return response.data!;
+    }
+    throw Exception('Failed to load peer profile');
+  }
+
+  void _showPeerProfile(BuildContext context, ChatTabTheme theme) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+        return FutureBuilder<Map<String, dynamic>>(
+          future: () async {
+            final results = await Future.wait<dynamic>([
+              _fetchPeerProfile(),
+              Future<void>.delayed(const Duration(milliseconds: 1000)),
+            ]);
+            return results[0] as Map<String, dynamic>;
+          }(),
+          builder: (context, snapshot) {
+            // ── Loading ──────────────────────────────────────────────────────
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                width: double.infinity,
+                height: MediaQuery.of(context).size.height * 0.7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      top: 12,
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    ConstellationLoader(
+                      themeColor: theme.primary,
+                      label: 'LOCKING ONTO SIGNAL',
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // ── Error ────────────────────────────────────────────────────────
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF090D1A),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Unable to load profile.',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                ),
+              );
+            }
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.92,
+              minChildSize: 0.5,
+              maxChildSize: 0.97,
+              expand: false,
+              builder: (sheetCtx, scrollController) {
+                return ProfileDetailSheet(
+                  data: snapshot.data!,
+                  themeColor: theme.primary,
+                  scrollController: scrollController,
+                  showScoreBadge: false,
+                  showSafetyActions: false,
+                );
+              },
+            );
+          },
+        );
+      },
+    ));
+  }
+
   Future<void> _showChatActionsSheet(
     BuildContext context,
     ChatTabTheme theme,
   ) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -674,96 +810,98 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderNeutral,
-                  borderRadius: BorderRadius.circular(2),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderNeutral,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    ClipOval(
-                      child: SizedBox(
-                        width: 60,
-                        height: 60,
-                        child:
-                            widget.profilePic != null &&
-                                widget.profilePic!.isNotEmpty
-                            ? StorageImage(imagePath: widget.profilePic!)
-                            : ColoredBox(
-                                color: theme.primary.withValues(alpha: 0.12),
-                                child: Icon(
-                                  LucideIcons.user,
-                                  color: theme.primary,
-                                  size: 28,
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      ClipOval(
+                        child: SizedBox(
+                          width: 60,
+                          height: 60,
+                          child:
+                              widget.profilePic != null &&
+                                  widget.profilePic!.isNotEmpty
+                              ? StorageImage(imagePath: widget.profilePic!)
+                              : ColoredBox(
+                                  color: theme.primary.withValues(alpha: 0.12),
+                                  child: Icon(
+                                    LucideIcons.user,
+                                    color: theme.primary,
+                                    size: 28,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      widget.name,
-                      style: GoogleFonts.manrope(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.name,
+                        style: GoogleFonts.manrope(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Manage connection',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppColors.inkMuted,
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manage connection',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppColors.inkMuted,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _buildSheetAction(
-                icon: LucideIcons.userMinus,
-                label: 'Unmatch',
-                description:
-                    'Remove this connection and close the conversation',
-                onTap: () {
-                  Navigator.of(context).pop();
-                  unawaited(_confirmUnmatch(theme));
-                },
-              ),
-              _buildSheetAction(
-                icon: LucideIcons.ban,
-                label: 'Block',
-                description:
-                    'They will not be able to see or interact with you in all 3 orbits',
-                iconColor: AppColors.error,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  unawaited(_handleBlock());
-                },
-              ),
-              _buildSheetAction(
-                icon: LucideIcons.flag,
-                label: 'Report & Block',
-                description:
-                    'Report safety concerns and block them in all 3 orbits',
-                iconColor: AppColors.error,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  unawaited(_handleReport());
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 24),
+                _buildSheetAction(
+                  icon: LucideIcons.userMinus,
+                  label: 'Unmatch',
+                  description:
+                      'Remove this connection and close the conversation',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    unawaited(_confirmUnmatch(theme));
+                  },
+                ),
+                _buildSheetAction(
+                  icon: LucideIcons.ban,
+                  label: 'Block',
+                  description:
+                      'They will not be able to see or interact with you in all 3 orbits',
+                  iconColor: AppColors.error,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    unawaited(_handleBlock());
+                  },
+                ),
+                _buildSheetAction(
+                  icon: LucideIcons.flag,
+                  label: 'Report & Block',
+                  description:
+                      'Report safety concerns and block them in all 3 orbits',
+                  iconColor: AppColors.error,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    unawaited(_handleReport());
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),

@@ -527,6 +527,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           if (mounted) setState(() => _isSpotifyConnecting = false);
         }));
       } else {
+        final pending = ref.read(clientAIImageManagerProvider).pendingUploads;
+        if (pending.isNotEmpty || _removingSlots.isNotEmpty) {
+          return;
+        }
         unawaited(_loadProfileData(silent: true));
         unawaited(ref.refresh(spotifyStatusProvider.future));
       }
@@ -749,7 +753,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
     final rawImages = data['ordered_images'];
     if (rawImages is List) {
+      final pending = ref.read(clientAIImageManagerProvider).pendingUploads;
       final loadedImages = List<String>.generate(5, (i) {
+        if (pending.containsKey(i) || _removingSlots.contains(i)) {
+          return _imagePaths[i] ?? '';
+        }
         if (i < rawImages.length &&
             rawImages[i] != null &&
             rawImages[i].toString().isNotEmpty) {
@@ -1908,7 +1916,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       ],
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.45,
+                          maxHeight: MediaQuery.of(context).size.height *
+                              (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.45),
                         ),
                         child: ShaderMask(
                           shaderCallback: (bounds) {
@@ -2166,7 +2175,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       ],
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.4,
+                          maxHeight: MediaQuery.of(context).size.height *
+                              (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.4),
                         ),
                         child: SingleChildScrollView(
                           child: Wrap(

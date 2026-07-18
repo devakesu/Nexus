@@ -104,6 +104,221 @@ class _ProfessionalSettingsOverlayState
     companyController = TextEditingController(text: widget.company);
   }
 
+  void _openTechSkillsSelectionOverlay() {
+    var overlaySearchQuery = '';
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setOverlayState) {
+              final filteredSkills = predefinedSkills
+                  .where(
+                    (val) => val.toLowerCase().contains(
+                      overlaySearchQuery.toLowerCase(),
+                    ),
+                  )
+                  .toList();
+
+              final showCustomSkill =
+                  overlaySearchQuery.trim().isNotEmpty &&
+                  !predefinedSkills.any(
+                    (val) =>
+                        val.toLowerCase() ==
+                        overlaySearchQuery.trim().toLowerCase(),
+                  ) &&
+                  !localTechSkills.any(
+                    (val) =>
+                        val.toLowerCase() ==
+                        overlaySearchQuery.trim().toLowerCase(),
+                  );
+
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.75,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Key Skills',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.modeProfessional,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Done'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: TextField(
+                        style: const TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search or add skills...',
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          prefixIcon: const Icon(
+                            LucideIcons.search,
+                            size: 18,
+                            color: Colors.grey,
+                          ),
+                          filled: true,
+                          fillColor: Colors.black.withValues(alpha: 0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        onChanged: (v) {
+                          setOverlayState(() {
+                            overlaySearchQuery = v;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (showCustomSkill)
+                                ActionChip(
+                                  avatar: const Icon(
+                                    LucideIcons.plus,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                  label: Text(
+                                    'Add "${overlaySearchQuery.trim()}"',
+                                  ),
+                                  backgroundColor: AppColors.modeProfessional,
+                                  labelStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  onPressed: () async {
+                                    final newVal = overlaySearchQuery.trim();
+                                    setState(() {
+                                      localTechSkills.add(newVal);
+                                    });
+                                    setOverlayState(() {
+                                      overlaySearchQuery = '';
+                                    });
+                                    await widget.onSaveProfessionalField(
+                                      'tech_skills',
+                                      localTechSkills,
+                                      setState,
+                                    );
+                                  },
+                                ),
+                              ...filteredSkills.map((val) {
+                                final isSelected =
+                                    localTechSkills.contains(val);
+                                return FilterChip(
+                                  label: Text(val),
+                                  selected: isSelected,
+                                  selectedColor: AppColors.modeProfessional,
+                                  backgroundColor: Colors.black.withValues(
+                                    alpha: 0.04,
+                                  ),
+                                  checkmarkColor: Colors.white,
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  side: BorderSide.none,
+                                  onSelected: (selected) async {
+                                    setState(() {
+                                      if (selected) {
+                                        localTechSkills.add(val);
+                                      } else {
+                                        localTechSkills.remove(val);
+                                      }
+                                    });
+                                    setOverlayState(() {});
+                                    await widget.onSaveProfessionalField(
+                                      'tech_skills',
+                                      localTechSkills,
+                                      setState,
+                                    );
+                                  },
+                                );
+                              }),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title, IconData icon, Color color) {
     return Padding(
       padding: const EdgeInsets.only(top: 24, bottom: 16),
@@ -144,22 +359,6 @@ class _ProfessionalSettingsOverlayState
 
   @override
   Widget build(BuildContext context) {
-    final filteredSkills = predefinedSkills
-        .where(
-          (val) => val.toLowerCase().contains(skillsSearchQuery.toLowerCase()),
-        )
-        .where((val) => !localTechSkills.contains(val))
-        .toList();
-
-    final showCustomSkill =
-        skillsSearchQuery.trim().isNotEmpty &&
-        !predefinedSkills.any(
-          (val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase(),
-        ) &&
-        !localTechSkills.any(
-          (val) => val.toLowerCase() == skillsSearchQuery.trim().toLowerCase(),
-        );
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
@@ -183,24 +382,31 @@ class _ProfessionalSettingsOverlayState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    Icon(
-                      LucideIcons.settings,
-                      color: AppColors.modeProfessional,
-                      size: 24,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Professional Settings',
-                      style: TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.settings,
+                        color: AppColors.modeProfessional,
+                        size: 24,
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Professional Settings',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 // Signal Glow shadow via BoxDecoration, not Material's
                 // elevation: prop - DESIGN.md's shadow vocabulary.
                 Container(
@@ -681,98 +887,28 @@ class _ProfessionalSettingsOverlayState
                   const SizedBox(height: 16),
                 ],
 
-                TextField(
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 14,
+                OutlinedButton.icon(
+                  onPressed: _openTechSkillsSelectionOverlay,
+                  icon: const Icon(
+                    LucideIcons.plus,
+                    size: 16,
+                    color: AppColors.modeProfessional,
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'Search or add skills...',
-                    prefixIcon: const Icon(
-                      LucideIcons.search,
-                      size: 18,
-                      color: Colors.grey,
+                  label: const Text('Add / Edit Key Skills'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.modeProfessional,
+                    side: const BorderSide(
+                      color: AppColors.modeProfessional,
+                      width: 1.5,
                     ),
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.04),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    contentPadding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
-                  onChanged: (val) {
-                    setState(() => skillsSearchQuery = val);
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                const Text(
-                  'Tap to add skills:',
-                  style: TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    if (showCustomSkill)
-                      ActionChip(
-                        avatar: const Icon(
-                          LucideIcons.plus,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                        label: Text('Add "${skillsSearchQuery.trim()}"'),
-                        backgroundColor: AppColors.modeProfessional,
-                        labelStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        onPressed: () async {
-                          setState(() {
-                            localTechSkills.add(skillsSearchQuery.trim());
-                            skillsSearchQuery = '';
-                          });
-                          await widget.onSaveProfessionalField(
-                            'tech_skills',
-                            localTechSkills,
-                            setState,
-                          );
-                        },
-                      ),
-                    ...filteredSkills.map((val) {
-                      return ActionChip(
-                        label: Text(val),
-                        backgroundColor: Colors.black.withValues(alpha: 0.04),
-                        labelStyle: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide.none,
-                        onPressed: () async {
-                          setState(() => localTechSkills.add(val));
-                          await widget.onSaveProfessionalField(
-                            'tech_skills',
-                            localTechSkills,
-                            setState,
-                          );
-                        },
-                      );
-                    }),
-                  ],
                 ),
                 const SizedBox(height: 40),
               ],

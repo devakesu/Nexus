@@ -64,69 +64,71 @@ Future<void> showNameChangeSheet(
               border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
             ),
             child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Row(
-                    children: [
-                      Icon(
-                        LucideIcons.shieldCheck,
-                        color: Color(0xFF2D8CFF),
-                        size: 20,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Name Change',
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  if (!eligible)
-                    ..._buildIneligibleContent(sheetContext, nextEligibleAt)
-                  else if (step == _NameSheetStep.intro)
-                    ..._buildIntroContent(
-                      currentName: currentName,
-                      changesUsedInWindow: changesUsedInWindow,
-                      validationError: validationError,
-                      onChanged: (val) =>
-                          setModalState(() => pendingName = val.trim()),
-                      onContinue: canContinue
-                          ? () => setModalState(
-                              () => step = _NameSheetStep.confirm,
-                            )
-                          : null,
-                    )
-                  else
-                    ..._buildConfirmContent(
-                      currentName: currentName,
-                      pendingName: pendingName,
-                      changesUsedInWindow: changesUsedInWindow,
-                      onBack: () =>
-                          setModalState(() => step = _NameSheetStep.intro),
-                      onConfirm: () {
-                        Navigator.pop(sheetContext);
-                        onConfirmed(pendingName);
-                      },
                     ),
-                ],
+                    const Row(
+                      children: [
+                        Icon(
+                          LucideIcons.shieldCheck,
+                          color: Color(0xFF2D8CFF),
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Name Change',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (!eligible)
+                      ..._buildIneligibleContent(sheetContext, nextEligibleAt)
+                    else if (step == _NameSheetStep.intro)
+                      ..._buildIntroContent(
+                        currentName: currentName,
+                        changesUsedInWindow: changesUsedInWindow,
+                        validationError: validationError,
+                        onChanged: (val) =>
+                            setModalState(() => pendingName = val.trim()),
+                        onContinue: canContinue
+                            ? () => setModalState(
+                                () => step = _NameSheetStep.confirm,
+                              )
+                            : null,
+                      )
+                    else
+                      ..._buildConfirmContent(
+                        currentName: currentName,
+                        pendingName: pendingName,
+                        changesUsedInWindow: changesUsedInWindow,
+                        onBack: () =>
+                            setModalState(() => step = _NameSheetStep.intro),
+                        onConfirm: () {
+                          Navigator.pop(sheetContext);
+                          onConfirmed(pendingName);
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
           );

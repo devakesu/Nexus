@@ -650,6 +650,23 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   onSelected: (v) {
                                     setPaneState(() {
                                       if (v) {
+                                        if (title == 'Select Religious Beliefs') {
+                                          if (opt == 'Atheist' ||
+                                              opt == 'Agnostic') {
+                                            localCopy.removeWhere(
+                                              (item) =>
+                                                  item != 'Atheist' &&
+                                                  item != 'Agnostic',
+                                            );
+                                          } else if (opt == 'Not specified') {
+                                            localCopy.clear();
+                                          } else {
+                                            localCopy
+                                              ..remove('Atheist')
+                                              ..remove('Agnostic')
+                                              ..remove('Not specified');
+                                          }
+                                        }
                                         localCopy.add(opt);
                                       } else {
                                         localCopy.remove(opt);

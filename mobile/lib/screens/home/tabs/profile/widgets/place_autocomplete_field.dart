@@ -521,107 +521,109 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           const SizedBox(height: 16),
 
           // Google Map display (Decoration)
-          Container(
-            height: 200,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.black.withValues(alpha: 0.08),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          if (bottomInset == 0) ...[
+            Container(
+              height: 200,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.black.withValues(alpha: 0.08),
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(19),
-              child: Stack(
-                children: [
-                  GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: _currentLatLng,
-                      zoom: 11.5,
-                    ),
-                    onMapCreated: (controller) => _mapController = controller,
-                    scrollGesturesEnabled: false,
-                    zoomGesturesEnabled: false,
-                    tiltGesturesEnabled: false,
-                    rotateGesturesEnabled: false,
-                    zoomControlsEnabled: false,
-                    myLocationButtonEnabled: false,
-                    compassEnabled: false,
-                    mapToolbarEnabled: false,
-                    circles: {
-                      Circle(
-                        circleId: const CircleId('general_area'),
-                        center: _currentLatLng,
-                        radius: 6000, // 6km radius showing the general area
-                        fillColor: pulsarPink.withValues(alpha: 0.15),
-                        strokeColor: pulsarPink.withValues(alpha: 0.4),
-                        strokeWidth: 2,
-                      ),
-                    },
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('center'),
-                        position: _currentLatLng,
-                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueRose,
-                        ),
-                      ),
-                    },
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  // Decorative overlay label
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            LucideIcons.globe,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'General Area (Not Scrollable)',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_isLoading)
-                    ColoredBox(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
-                        ),
-                      ),
-                    ),
                 ],
               ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(19),
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: _currentLatLng,
+                        zoom: 11.5,
+                      ),
+                      onMapCreated: (controller) => _mapController = controller,
+                      scrollGesturesEnabled: false,
+                      zoomGesturesEnabled: false,
+                      tiltGesturesEnabled: false,
+                      rotateGesturesEnabled: false,
+                      zoomControlsEnabled: false,
+                      myLocationButtonEnabled: false,
+                      compassEnabled: false,
+                      mapToolbarEnabled: false,
+                      circles: {
+                        Circle(
+                          circleId: const CircleId('general_area'),
+                          center: _currentLatLng,
+                          radius: 6000, // 6km radius showing the general area
+                          fillColor: pulsarPink.withValues(alpha: 0.15),
+                          strokeColor: pulsarPink.withValues(alpha: 0.4),
+                          strokeWidth: 2,
+                        ),
+                      },
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('center'),
+                          position: _currentLatLng,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRose,
+                          ),
+                        ),
+                      },
+                    ),
+                    // Decorative overlay label
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.globe,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'General Area (Not Scrollable)',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isLoading)
+                      ColoredBox(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ],
 
           // Search Field
           Padding(

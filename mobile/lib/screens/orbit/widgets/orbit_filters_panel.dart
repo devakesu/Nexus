@@ -749,10 +749,55 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
 
             filterSection(
               label: 'Religious Beliefs',
-              child: filterChips(
-                FilterOptions.religiousBeliefs,
-                widget.selectedReligiousBeliefs,
+              action: customAddButton(
+                onTap: () => widget.onOpenTagSelectionPane(
+                  'Select Religious Beliefs',
+                  FilterOptions.religiousBeliefs,
+                  widget.selectedReligiousBeliefs,
+                  setState,
+                ),
               ),
+              child: widget.selectedReligiousBeliefs.isEmpty
+                  ? const Text(
+                      'No religious beliefs selected.',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: widget.selectedReligiousBeliefs.map((opt) {
+                        return Chip(
+                          label: Text(
+                            opt,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          backgroundColor: Colors.white.withValues(alpha: 0.05),
+                          deleteIcon: Icon(
+                            LucideIcons.x,
+                            size: 14,
+                            color: theme,
+                          ),
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.15),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          onDeleted: () {
+                            setState(() {
+                              widget.selectedReligiousBeliefs.remove(opt);
+                            });
+                            unawaited(widget.onFetchOrbitNodes());
+                          },
+                        );
+                      }).toList(),
+                    ),
             ),
 
             const Padding(
