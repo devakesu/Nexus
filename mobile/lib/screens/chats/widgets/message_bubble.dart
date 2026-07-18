@@ -104,6 +104,7 @@ class MessageBubble extends StatelessWidget {
           conversationId: conversationId,
           peerUserId: peerUserId,
           isMine: message.isMine,
+          themeColor: themeColor,
         );
       case 'location':
         final pointer = _parseLocationPointer();

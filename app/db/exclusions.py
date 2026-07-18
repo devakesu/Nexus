@@ -152,6 +152,25 @@ def fetch_active_discovery_excluded_ids(
             if isinstance(row_raw, dict):
                 row_dict = cast(dict[str, Any], row_raw)
                 _process_exclusion_row(row_dict, viewer_id, active_tab, now, excluded)
+
+        # Exclude users with active matches in this orbit
+        matches_res = (
+            supabase_client.table("matches")
+            .select("liker_id, liked_back_id")
+            .or_(f"liker_id.eq.{viewer_id},liked_back_id.eq.{viewer_id}")
+            .eq("tab", active_tab)
+            .is_("unmatched_at", "null")
+            .execute()
+        )
+        for row_raw in cast(list[Any], matches_res.data or []):
+            if isinstance(row_raw, dict):
+                row_dict = cast(dict[str, Any], row_raw)
+                liker = str(row_dict.get("liker_id") or "")
+                liked_back = str(row_dict.get("liked_back_id") or "")
+                counterpart = liked_back if liker == viewer_id else liker
+                if counterpart:
+                    excluded.add(counterpart)
+
         return excluded
 
     except APIError as e:

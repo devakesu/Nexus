@@ -20,6 +20,7 @@ class VoiceMessageBubble extends ConsumerStatefulWidget {
     required this.conversationId,
     required this.peerUserId,
     required this.isMine,
+    this.themeColor,
     super.key,
   });
 
@@ -27,6 +28,7 @@ class VoiceMessageBubble extends ConsumerStatefulWidget {
   final String conversationId;
   final String peerUserId;
   final bool isMine;
+  final Color? themeColor;
 
   @override
   ConsumerState<VoiceMessageBubble> createState() => _VoiceMessageBubbleState();
@@ -120,10 +122,11 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
   Widget build(BuildContext context) {
     super.build(context);
     final isMine = widget.isMine;
-    final iconColor = isMine ? Colors.white : const Color(0xFF0F172A);
+    final primaryThemeColor = widget.themeColor ?? const Color(0xFF6366F1);
     final subColor = isMine
         ? Colors.white.withValues(alpha: 0.8)
-        : const Color(0xFF94A3B8);
+        : const Color(0xFF64748B);
+    final waveHighlightColor = isMine ? Colors.white : primaryThemeColor;
 
     return SizedBox(
       width: 200,
@@ -137,8 +140,8 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: (isMine ? Colors.white : const Color(0xFF0F172A))
-                    .withValues(alpha: 0.12),
+                color: (isMine ? Colors.white : primaryThemeColor)
+                    .withValues(alpha: 0.15),
               ),
               child: _loading
                   ? Padding(
@@ -160,7 +163,7 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
                           _failed
                               ? LucideIcons.triangleAlert
                               : (showPause ? LucideIcons.pause : LucideIcons.play),
-                          color: iconColor,
+                          color: isMine ? Colors.white : primaryThemeColor,
                           size: 18,
                         );
                       },
@@ -183,29 +186,19 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
                           Duration(
                             milliseconds: widget.pointer.durationMs ?? 0,
                           );
+                      final progress = total.inMilliseconds > 0
+                          ? (position.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0)
+                          : 0.0;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
-                            height: 4,
-                            child: LinearProgressIndicator(
-                              value: total.inMilliseconds > 0
-                                  ? (position.inMilliseconds /
-                                            total.inMilliseconds)
-                                        .clamp(0.0, 1.0)
-                                  : 0,
-                              backgroundColor:
-                                  (isMine
-                                          ? Colors.white
-                                          : const Color(0xFF0F172A))
-                                      .withValues(alpha: 0.12),
-                              valueColor: AlwaysStoppedAnimation(
-                                isMine ? Colors.white : const Color(0xFF0F172A),
-                              ),
-                            ),
+                          StaticVoiceWaveform(
+                            progress: progress,
+                            isMine: isMine,
+                            color: waveHighlightColor,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
                             _formatDuration(_ready ? position : total),
                             style: GoogleFonts.inter(
@@ -220,6 +213,41 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
           ),
         ],
       ),
+    );
+  }
+}
+
+class StaticVoiceWaveform extends StatelessWidget {
+  const StaticVoiceWaveform({
+    required this.progress,
+    required this.isMine,
+    required this.color,
+    super.key,
+  });
+
+  final double progress;
+  final bool isMine;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final heights = [10.0, 16.0, 12.0, 22.0, 8.0, 18.0, 14.0, 24.0, 10.0, 16.0, 12.0, 20.0, 6.0, 14.0, 10.0];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(heights.length, (index) {
+        final barProgress = index / heights.length;
+        final isPlayed = progress >= barProgress;
+        return Container(
+          width: 3,
+          height: heights[index],
+          decoration: BoxDecoration(
+            color: isPlayed
+                ? color
+                : color.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(1.5),
+          ),
+        );
+      }),
     );
   }
 }

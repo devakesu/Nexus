@@ -2,4 +2,6 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/nexus.png"
+  adaptive_icon_background: "#080616"
+  adaptive_icon_foreground: "assets/nexus_foreground.png"
   flavor: nexus

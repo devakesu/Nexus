@@ -2,4 +2,6 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/nexus-mec.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/nexus_mec_foreground.png"
   flavor: mec

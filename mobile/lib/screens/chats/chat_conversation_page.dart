@@ -57,12 +57,20 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   Timer? _heartbeatTimer;
   double _lastViewInsetsBottom = 0;
 
+  final Map<String, GlobalKey> _messageKeys = {};
+  final _floatingDateNotifier = ValueNotifier<DateTime?>(null);
+  final _floatingDateOpacityNotifier = ValueNotifier<double>(0);
+  Timer? _floatingDateTimer;
+  List<ChatMessageView> _currentMessages = [];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
-    _scrollController.addListener(_maybeLoadOlder);
+    _scrollController
+      ..addListener(_maybeLoadOlder)
+      ..addListener(_updateFloatingDate);
     unawaited(
       NotificationService.clearNotificationsForConversation(
         widget.conversationId,
@@ -75,6 +83,112 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     if (_scrollController.position.pixels <= 200) {
       unawaited(_loadOlderPreservingScroll());
     }
+  }
+
+  bool _isSameDay(DateTime d1, DateTime d2) {
+    final local1 = d1.toLocal();
+    final local2 = d2.toLocal();
+    return local1.year == local2.year &&
+        local1.month == local2.month &&
+        local1.day == local2.day;
+  }
+
+  String _formatDateDivider(DateTime date) {
+    final now = DateTime.now();
+    final localDate = date.toLocal();
+    final localNow = now.toLocal();
+
+    if (_isSameDay(localDate, localNow)) {
+      return 'Today';
+    }
+
+    final yesterday = localNow.subtract(const Duration(days: 1));
+    if (_isSameDay(localDate, yesterday)) {
+      return 'Yesterday';
+    }
+
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[localDate.month - 1]} ${localDate.day}, ${localDate.year}';
+  }
+
+  Widget _buildDateDivider(DateTime date) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          _formatDateDivider(date),
+          style: GoogleFonts.inter(
+            color: const Color(0xFF64748B),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _updateFloatingDate() {
+    if (!_scrollController.hasClients || _currentMessages.isEmpty) return;
+
+    final viewportBox = context.findRenderObject() as RenderBox?;
+    if (viewportBox == null) return;
+
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy +
+        kToolbarHeight +
+        statusBarHeight;
+
+    ChatMessageView? topMessage;
+    var minDistance = double.infinity;
+
+    for (final entry in _messageKeys.entries) {
+      final key = entry.value;
+      final elementContext = key.currentContext;
+      if (elementContext == null) continue;
+
+      final box = elementContext.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) continue;
+
+      final position = box.localToGlobal(Offset.zero);
+      final itemTop = position.dy;
+      final itemBottom = position.dy + box.size.height;
+
+      if (itemTop <= viewportTop + 8 && itemBottom >= viewportTop - 8) {
+        topMessage = _findMessageById(entry.key);
+        break;
+      } else if (itemTop > viewportTop && (itemTop - viewportTop) < minDistance) {
+        minDistance = itemTop - viewportTop;
+        topMessage = _findMessageById(entry.key);
+      }
+    }
+
+    if (topMessage != null) {
+      _floatingDateNotifier.value = topMessage.createdAt;
+      _showFloatingDateChip();
+    }
+  }
+
+  ChatMessageView? _findMessageById(String id) {
+    for (final m in _currentMessages) {
+      if (m.id == id) return m;
+    }
+    return null;
+  }
+
+  void _showFloatingDateChip() {
+    _floatingDateOpacityNotifier.value = 1.0;
+    _floatingDateTimer?.cancel();
+    _floatingDateTimer = Timer(const Duration(milliseconds: 1500), () {
+      _floatingDateOpacityNotifier.value = 0.0;
+    });
   }
 
   /// Fetches the next page of older messages while keeping the viewport
@@ -102,6 +216,9 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _heartbeatTimer?.cancel();
+    _floatingDateTimer?.cancel();
+    _floatingDateNotifier.dispose();
+    _floatingDateOpacityNotifier.dispose();
     unawaited(PresenceHeartbeat.beat(isOnline: false));
     _scrollController.dispose();
     super.dispose();
@@ -379,6 +496,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ),
           data: (chatState) {
+            _currentMessages = chatState.messages;
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => _scrollToBottom(),
             );
@@ -399,35 +517,116 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                             text: 'Say hi to ${widget.name} 👋',
                           ),
                         )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
-                          itemCount:
-                              chatState.messages.length +
-                              (chatState.loadingOlder ? 1 : 0),
-                          itemBuilder: (_, i) {
-                            if (chatState.loadingOlder && i == 0) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Center(
-                                  child: NexusOrbitLoader(
-                                    size: 24,
-                                    lightMode: true,
-                                  ),
+                      : Stack(
+                          children: [
+                            ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+                              itemCount:
+                                  chatState.messages.length +
+                                  (chatState.loadingOlder ? 1 : 0),
+                              itemBuilder: (_, i) {
+                                if (chatState.loadingOlder && i == 0) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 12),
+                                    child: Center(
+                                      child: NexusOrbitLoader(
+                                        size: 24,
+                                        lightMode: true,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final messageIndex = chatState.loadingOlder
+                                    ? i - 1
+                                    : i;
+                                final message = chatState.messages[messageIndex];
+                                final key = _messageKeys.putIfAbsent(
+                                  message.id,
+                                  GlobalKey.new,
+                                );
+                                final bubble = MessageBubble(
+                                  message: message,
+                                  themeColor: theme.primary,
+                                  conversationId: widget.conversationId,
+                                  peerUserId: widget.matchedUserId,
+                                  onSecurityAlertTapped: _showSafetyNumberDialog,
+                                );
+                                final showDateHeader = messageIndex == 0 ||
+                                    !_isSameDay(
+                                      message.createdAt,
+                                      chatState.messages[messageIndex - 1].createdAt,
+                                    );
+                                return Container(
+                                  key: key,
+                                  child: showDateHeader
+                                      ? Column(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            _buildDateDivider(message.createdAt),
+                                            bubble,
+                                          ],
+                                        )
+                                      : bubble,
+                                );
+                              },
+                            ),
+                            Positioned(
+                              top: 10,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: ValueListenableBuilder<double>(
+                                  valueListenable: _floatingDateOpacityNotifier,
+                                  builder: (context, opacity, child) {
+                                    return AnimatedOpacity(
+                                      opacity: opacity,
+                                      duration: const Duration(milliseconds: 200),
+                                      curve: Curves.easeOut,
+                                      child: AnimatedSlide(
+                                        offset: opacity == 0.0
+                                            ? const Offset(0, -0.2)
+                                            : Offset.zero,
+                                        duration: const Duration(milliseconds: 200),
+                                        curve: Curves.easeOut,
+                                        child: ValueListenableBuilder<DateTime?>(
+                                          valueListenable: _floatingDateNotifier,
+                                          builder: (context, date, child) {
+                                            if (date == null) return const SizedBox.shrink();
+                                            return Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.08),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Text(
+                                                _formatDateDivider(date),
+                                                style: GoogleFonts.inter(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            }
-                            final messageIndex = chatState.loadingOlder
-                                ? i - 1
-                                : i;
-                            return MessageBubble(
-                              message: chatState.messages[messageIndex],
-                              themeColor: theme.primary,
-                              conversationId: widget.conversationId,
-                              peerUserId: widget.matchedUserId,
-                              onSecurityAlertTapped: _showSafetyNumberDialog,
-                            );
-                          },
+                              ),
+                            ),
+                          ],
                         ),
                 ),
                 if (!chatState.sessionReady &&
