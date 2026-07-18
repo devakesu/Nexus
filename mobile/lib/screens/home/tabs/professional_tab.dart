@@ -749,57 +749,6 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.warning, AppColors.error],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.warning.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 4,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                onPressed: () => doAction('superlike'),
-                child: const Text.rich(
-                  TextSpan(
-                    children: [
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Icon(
-                          LucideIcons.star,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                      WidgetSpan(child: SizedBox(width: 4)),
-                      TextSpan(text: 'Super Connect'),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
             flex: 2,
             child: DecoratedBox(
               decoration: BoxDecoration(

@@ -466,17 +466,20 @@ class _OrbitScreenState extends State<OrbitScreen>
         _savingFields.remove(field);
         if (success) {
           if (field == 'dating_target_buckets') {
+            final listCopy = List<String>.from(currentValueToSave as List);
             _selectedShowBuckets
               ..clear()
-              ..addAll(List<String>.from(currentValueToSave as List));
+              ..addAll(listCopy);
           } else if (field == 'dating_for') {
+            final listCopy = List<String>.from(currentValueToSave as List);
             _selectedDatingFor
               ..clear()
-              ..addAll(List<String>.from(currentValueToSave as List));
+              ..addAll(listCopy);
           } else if (field == 'partner_values') {
+            final listCopy = List<String>.from(currentValueToSave as List);
             _selectedPartnerValues
               ..clear()
-              ..addAll(List<String>.from(currentValueToSave as List));
+              ..addAll(listCopy);
           }
         }
       });

@@ -85,11 +85,13 @@ class OrbitFiltersPanel extends StatefulWidget {
 
 class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
   late RangeValues _ageRange;
+  late List<String> _localShowBuckets;
 
   @override
   void initState() {
     super.initState();
     _ageRange = widget.ageRange;
+    _localShowBuckets = List<String>.from(widget.selectedShowBuckets);
   }
 
   @override
@@ -97,6 +99,9 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.ageRange != widget.ageRange) {
       _ageRange = widget.ageRange;
+    }
+    if (oldWidget.selectedShowBuckets != widget.selectedShowBuckets) {
+      _localShowBuckets = List<String>.from(widget.selectedShowBuckets);
     }
   }
 
@@ -832,7 +837,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                       {'code': 'Open', 'label': 'Open to all'},
                     ].map((item) {
                       final code = item['code']!;
-                      final isSelected = widget.selectedShowBuckets.contains(
+                      final isSelected = _localShowBuckets.contains(
                         code,
                       );
                       return FilterChip(
@@ -855,15 +860,27 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                         ),
                         onSelected: (selected) async {
                           setState(() {
-                            if (selected) {
-                              widget.selectedShowBuckets.add(code);
+                            if (code == 'Open') {
+                              if (selected) {
+                                _localShowBuckets
+                                  ..clear()
+                                  ..add('Open');
+                              } else {
+                                _localShowBuckets.remove('Open');
+                              }
                             } else {
-                              widget.selectedShowBuckets.remove(code);
+                              if (selected) {
+                                _localShowBuckets
+                                  ..remove('Open')
+                                  ..add(code);
+                              } else {
+                                _localShowBuckets.remove(code);
+                              }
                             }
                           });
                           await widget.onSaveDatingField(
                             'dating_target_buckets',
-                            widget.selectedShowBuckets,
+                            List<String>.from(_localShowBuckets),
                             setState,
                           );
                         },

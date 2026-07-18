@@ -1284,7 +1284,7 @@ class ProfileDetailsUpdate(BaseModel):
     display_sexuality: str | None = Field(default=None, max_length=50)
     pronouns: str | None = Field(default=None, max_length=50)
     bio: str | None = Field(default=None, max_length=1000)
-    search_bucket: Literal["M", "F", "NB", "Q"] | None = None
+    search_bucket: Literal["M", "F", "NB"] | None = None
     hometown: str | None = Field(default=None, max_length=100)
     current_place: str | None = Field(default=None, max_length=100)
     partner_values: list[str] | None = Field(default=None)

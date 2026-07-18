@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from fastapi import HTTPException
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.user import update_profile_details
@@ -78,12 +78,7 @@ def test_update_profile_details_endpoint_campus_validation(
 ) -> None:
     # Mock database profiles response when fetching profile details for validation
     mock_execute = MagicMock()
-    chain = (
-        mock_supabase.table.return_value
-        .select.return_value
-        .eq.return_value
-        .maybe_single
-    )
+    chain = mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single
     chain.return_value.execute = mock_execute
 
     # Define a helper to mock DB state
@@ -124,10 +119,7 @@ def test_update_profile_details_endpoint_campus_validation(
     payload = ProfileDetailsUpdate(campus_year=2)
     # Mock the update call execution as well so it doesn't fail on final save
     update_chain = (
-        mock_supabase.table.return_value
-        .update.return_value
-        .eq.return_value
-        .execute
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute
     )
     update_chain.return_value.data = {"status": "success"}
 
@@ -138,3 +130,37 @@ def test_update_profile_details_endpoint_campus_validation(
         _device=None,
     )
     assert res == {"status": "success", "detail": "Profile details synchronized."}
+
+
+@patch("app.db.profiles.supabase_client")
+def test_build_candidate_query_open_bucket_expansion(mock_supabase: MagicMock) -> None:
+    from app.db.profiles import (
+        _build_candidate_query,  # pyright: ignore[reportPrivateUsage]
+    )
+    from app.models import DiscoveryFilters
+
+    mock_query = MagicMock()
+    mock_supabase.table.return_value = mock_query
+    mock_query.select.return_value = mock_query
+    mock_query.neq.return_value = mock_query
+    mock_query.eq.return_value = mock_query
+    mock_query.gte.return_value = mock_query
+    mock_query.lte.return_value = mock_query
+    mock_query.in_.return_value = mock_query
+    mock_query.overlaps.return_value = mock_query
+
+    filters = DiscoveryFilters(
+        min_age=18,
+        max_age=25,
+        search_bucket_filter=["Open"],
+    )
+
+    _build_candidate_query(
+        viewer_id="viewer123",
+        active_tab="Dating",
+        filters=filters,
+        excluded_ids=set(),
+        app_variant="nexus",
+    )
+
+    mock_query.in_.assert_any_call("search_bucket", ["M", "F", "NB"])

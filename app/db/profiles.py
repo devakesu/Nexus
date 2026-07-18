@@ -157,7 +157,7 @@ def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
     # Normalize to list[str]
     str_buckets = [str(b) for b in buckets]
     if "Open" in str_buckets:
-        return ["M", "F", "NB", "Q"]
+        return ["M", "F", "NB"]
     return str_buckets
 
 
@@ -409,7 +409,8 @@ def _build_candidate_query(
     if filters.dating_for and "dating_for" in dealbreakers:
         query = query.overlaps("dating_for", filters.dating_for)
     if filters.search_bucket_filter:
-        query = query.in_("search_bucket", filters.search_bucket_filter)
+        expanded_buckets = _expand_target_buckets(filters.search_bucket_filter)
+        query = query.in_("search_bucket", expanded_buckets)
 
     query = query.gte("age", filters.min_age)
     query = query.lte("age", filters.max_age)
