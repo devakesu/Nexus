@@ -26,6 +26,7 @@ from app.api.spotify import router as spotify_router
 from app.api.status import router as status_router
 from app.api.sync import router as sync_router
 from app.api.user import router as user_router
+from app.api.well_known import router as well_known_router
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -165,6 +166,7 @@ app.include_router(spotify_router)
 app.include_router(user_router)
 app.include_router(sync_router)
 app.include_router(status_router)
+app.include_router(well_known_router)
 
 if settings.debug:
     try:

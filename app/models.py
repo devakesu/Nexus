@@ -1987,6 +1987,7 @@ class LoginByPhoneRequestResponse(BaseModel):
     """
 
     sent: bool = True
+    exists: bool = True
 
 
 class LoginByPhoneVerifyRequest(BaseModel):

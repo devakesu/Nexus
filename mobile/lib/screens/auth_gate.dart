@@ -131,7 +131,6 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
             stackTrace: stackTrace,
             level: ErrorLevel.warning,
             customMessage: 'Authentication stream error: $error',
-            showUi: false,
           );
         }
       },

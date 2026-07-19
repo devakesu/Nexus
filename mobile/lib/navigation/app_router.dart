@@ -30,6 +30,15 @@ final goRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/login',
+      builder: (context, state) {
+        const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
+        const isMec = flavor == 'mec';
+        const appName = isMec ? 'Nexus MEC' : 'Nexus';
+        return const AuthGate(appName: appName);
+      },
+    ),
+    GoRoute(
       path: '/orbit',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;

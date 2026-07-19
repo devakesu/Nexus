@@ -60,13 +60,14 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="${appScheme}" android:host="home"/>
+                <data android:scheme="${appScheme}" android:host="login"/>
             </intent-filter>
-            <!-- App Links / Universal Links -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="${appHost}" android:pathPrefix="/app"/>
+                <data android:scheme="https" android:host="${appHost}" android:pathPrefix="/login-callback"/>
             </intent-filter>
         </activity>
         <!-- Required by image_cropper (uCrop) for the square-crop activity -->

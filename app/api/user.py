@@ -513,14 +513,16 @@ async def request_login_by_phone(
     )
 
     user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
+    exists = False
     if user_id is not None:
         email = await run_in_threadpool(get_user_email_by_id, user_id)
         if email:
             await run_in_threadpool(send_login_email_otp, email)
+            exists = True
 
     # Always the same response, whether or not the phone matched an
     # account - see LoginByPhoneRequestResponse's docstring.
-    return LoginByPhoneRequestResponse(sent=True)
+    return LoginByPhoneRequestResponse(sent=exists, exists=exists)
 
 
 @router.post(

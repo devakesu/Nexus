@@ -46,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen>
   /// backend never tells the client which email it went to; this flag just
   /// decides which backend call `_verifyOtp`/resend should make.
   bool _isPhoneLookupFlow = false;
+  bool _hidePhoneLogin = false;
 
   int _resendCountdown = 0;
   Timer? _countdownTimer;
@@ -377,8 +378,11 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
+      final config = AppConfig.current;
+      final redirectUrl = 'https://${config.appDomain}/login-callback';
       await Supabase.instance.client.auth.signInWithOtp(
         email: email,
+        emailRedirectTo: redirectUrl,
       );
       if (mounted) {
         setState(() {
@@ -446,13 +450,68 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final dio = createDio();
       final config = AppConfig.current;
-      await dio.post<Map<String, dynamic>>(
+      final response = await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/login-by-phone/request',
         data: {'phone': phone},
         options: Options(
           headers: {'X-App-Variant': config.variantString},
         ),
       );
+      final exists = response.data?['exists'] as bool? ?? false;
+      if (!exists) {
+        if (mounted) {
+          setState(() {
+            _currentView = LoginView.options;
+            _hidePhoneLogin = true;
+          });
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: const Color(0xFF161B26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF374151)),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppColors.pulsarPink),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Registration Required',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                'This phone number is not registered. Please sign in or register with Google or Email first.',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF9CA3AF),
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'OK',
+                    style: GoogleFonts.inter(
+                      color: AppColors.pulsarPink,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _isPhoneLookupFlow = true;
@@ -821,16 +880,18 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.mail_outline_rounded,
               label: 'Sign in with Email',
             ),
-            const SizedBox(height: 12),
-            _buildGreyButton(
-              onTap: () {
-                setState(() {
-                  _currentView = LoginView.phone;
-                });
-              },
-              icon: Icons.phone_iphone_rounded,
-              label: 'Sign in with Phone',
-            ),
+            if (!_hidePhoneLogin) ...[
+              const SizedBox(height: 12),
+              _buildGreyButton(
+                onTap: () {
+                  setState(() {
+                    _currentView = LoginView.phone;
+                  });
+                },
+                icon: Icons.phone_iphone_rounded,
+                label: 'Sign in with Phone',
+              ),
+            ],
             const SizedBox(height: 20),
             _buildFootnote('Find your orbit. Connect seamlessly.'),
           ],
@@ -849,6 +910,16 @@ class _LoginScreenState extends State<LoginScreen>
                 color: Colors.white,
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter your email address below to receive a login link or code.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF6B7280),
+                height: 1.4,
+              ),
+            ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _emailController,
@@ -859,7 +930,7 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 16),
             _buildActionButton(
               onTap: _sendEmailOtp,
-              label: 'Get OTP',
+              label: 'Login with Email Link/Code',
             ),
             const SizedBox(height: 12),
             _buildBackButton(),
@@ -881,11 +952,12 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              "We'll email a code to the account linked to this number.",
+              'Only registered users who have linked a phone number can use this. If you are new, please sign in with Google or Email first.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xFF6B7280),
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 16),
@@ -898,7 +970,7 @@ class _LoginScreenState extends State<LoginScreen>
             const SizedBox(height: 16),
             _buildActionButton(
               onTap: _sendLoginByPhoneOtp,
-              label: 'Get Code',
+              label: 'Get Link/Code',
             ),
             const SizedBox(height: 12),
             _buildBackButton(),
@@ -908,12 +980,15 @@ class _LoginScreenState extends State<LoginScreen>
         final targetText = _isPhoneLookupFlow
             ? 'the email linked to ${_phoneController.text}'
             : _emailController.text;
+        final instructionText = _isPhoneLookupFlow
+            ? 'Either click the link or enter the ${AppConfig.otpLength}-digit code sent to $targetText'
+            : 'Either click the link in the email sent to\n$targetText\nor enter the ${AppConfig.otpLength}-digit code below:';
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Verify OTP',
+              _isPhoneLookupFlow ? 'Verify OTP' : 'Check Your Email',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 18,
@@ -923,22 +998,23 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter the 8-digit code sent to $targetText',
+              instructionText,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: const Color(0xFF6B7280),
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _otpController,
-              hintText: '8-digit code',
+              hintText: '${AppConfig.otpLength}-digit code',
               icon: Icons.lock_clock_outlined,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
+                LengthLimitingTextInputFormatter(AppConfig.otpLength),
               ],
             ),
             const SizedBox(height: 16),
@@ -1170,7 +1246,8 @@ class _LoginScreenState extends State<LoginScreen>
       onPressed: () {
         setState(() {
           _countdownTimer?.cancel();
-          _resendCountdown = 0; // Reset countdown when returning to login options
+          _resendCountdown =
+              0; // Reset countdown when returning to login options
           _currentView = LoginView.options;
         });
       },

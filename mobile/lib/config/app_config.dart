@@ -20,6 +20,7 @@ class AppConfig {
     required this.googleIosClientId,
     required this.logoAssetPath,
     required this.backendUrl,
+    required this.appDomain,
     required this.appVariant,
     required this.spotifyClientId,
     required this.spotifyNativeRedirectUri,
@@ -33,6 +34,7 @@ class AppConfig {
   final String googleIosClientId;
   final String logoAssetPath;
   final String backendUrl;
+  final String appDomain;
 
   /// Spotify public client ID from the Spotify Developer Dashboard.
   /// Also register your SHA-1 fingerprints and both redirect URIs there.
@@ -111,6 +113,7 @@ class AppConfig {
     googleIosClientId: _googleIosClientIdNexus,
     logoAssetPath: 'assets/nexus.png',
     backendUrl: _effectiveBackendUrl,
+    appDomain: _appDomain,
     appVariant: AppVariant.nexus,
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
@@ -125,6 +128,7 @@ class AppConfig {
     googleIosClientId: _googleIosClientIdNexusMec,
     logoAssetPath: 'assets/nexus-mec.png',
     backendUrl: _effectiveBackendUrl,
+    appDomain: _appDomain,
     appVariant: AppVariant.nexusMec,
     spotifyClientId: _spotifyClientId,
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexusMec,
@@ -134,8 +138,8 @@ class AppConfig {
 
   /// OTP code length for email/phone verification. Must match the "OTP
   /// Length" setting in the Supabase Auth dashboard for every project this
-  /// app points at - Supabase defaults to 6, this app expects 8.
-  static const int otpLength = 8;
+  /// app points at - Supabase defaults to 6, this app expects 6.
+  static const int otpLength = 6;
 
   // ---------------------------------------------------------------------------
   // Runtime accessors

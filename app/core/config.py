@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     rate_limit_data_export_otp: str = "5/hour"
     rate_limit_data_export: str = "3/day"
 
+    # --- App Link / Universal Link verification ---
+    apple_team_id: str | None = None
+    android_sha256_fingerprint: str | None = None
+
     # --- Account Deletion Lifecycle ---
     # See app/db/account_deletion.py. Tier 1: a request starts a recoverable
     # grace window; if not cancelled, the account is anonymized in place at
@@ -139,7 +143,6 @@ class Settings(BaseSettings):
     # --- Dev-Only Tooling ---
     # Dev-only tooling (see app/api/dev_temp.py, only mounted when debug=True)
     dev_allowed_email: str | None = None
-
 
     @property
     def is_jwks(self) -> bool:
