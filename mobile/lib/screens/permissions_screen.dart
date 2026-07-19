@@ -7,10 +7,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class PermissionItem {
   const PermissionItem({
@@ -42,7 +42,8 @@ class PermissionsScreen extends StatefulWidget {
   State<PermissionsScreen> createState() => _PermissionsScreenState();
 }
 
-class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindingObserver {
+class _PermissionsScreenState extends State<PermissionsScreen>
+    with WidgetsBindingObserver {
   Map<Permission, PermissionStatus> _statuses = {};
   bool _isLoading = true;
   bool _isApproximateLocation = false;
@@ -52,7 +53,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       const PermissionItem(
         permission: Permission.notification,
         name: 'Push Notifications',
-        description: 'Optional • Required to receive instant safety alerts, chat messages, and check-in alarms.',
+        description:
+            'Optional • Required to receive instant safety alerts, chat messages, and check-in alarms.',
         icon: LucideIcons.bell,
         isCore: true,
         reason: "Required so you don't miss safety check-ins and messages.",
@@ -60,7 +62,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       const PermissionItem(
         permission: Permission.locationWhenInUse,
         name: 'Location Services',
-        description: 'Optional • Used to share your current location in chat and with Meetup Safety alerts or SOS.',
+        description:
+            'Optional • Used to share your current location in chat and with Meetup Safety alerts or SOS.',
         icon: LucideIcons.mapPin,
         isCore: true,
         reason: 'Required for core safety features and meeting up.',
@@ -69,7 +72,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         const PermissionItem(
           permission: Permission.scheduleExactAlarm,
           name: 'Alarms & Reminders',
-          description: 'Optional • Required so Meetup Safety check-ins can trigger alarms exactly on time even in background.',
+          description:
+              'Optional • Required so Meetup Safety check-ins can trigger alarms exactly on time even in background.',
           icon: LucideIcons.clock,
           isCore: true,
           reason: 'Required for exact timing of safety check-ins.',
@@ -78,7 +82,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         const PermissionItem(
           permission: Permission.phone,
           name: 'Direct Phone Calling',
-          description: 'Optional • Required to place an SOS call to emergency services directly with zero taps.',
+          description:
+              'Optional • Required to place an SOS call to emergency services directly with zero taps.',
           icon: LucideIcons.phoneCall,
           isCore: false,
           reason: 'Used to call emergency lines instantly in SOS mode.',
@@ -86,7 +91,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       const PermissionItem(
         permission: Permission.camera,
         name: 'Camera Access',
-        description: 'Optional • Used for taking profile photos, sending images in chat, and recording video during a Silent SOS.',
+        description:
+            'Optional • Used for taking profile photos, sending images in chat, and recording video during a Silent SOS.',
         icon: LucideIcons.camera,
         isCore: false,
         reason: 'Used for profiles, chat media, and video evidence.',
@@ -94,7 +100,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       const PermissionItem(
         permission: Permission.microphone,
         name: 'Microphone Access',
-        description: 'Optional • Used for sending voice messages in chat and recording audio evidence during a Silent SOS.',
+        description:
+            'Optional • Used for sending voice messages in chat and recording audio evidence during a Silent SOS.',
         icon: LucideIcons.mic,
         isCore: false,
         reason: 'Used for voice messages and audio evidence.',
@@ -102,7 +109,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       const PermissionItem(
         permission: Permission.contacts,
         name: 'Contacts Access',
-        description: "Optional • Required to pick trusted safety contacts directly from your device's address book.",
+        description:
+            "Optional • Required to pick trusted safety contacts directly from your device's address book.",
         icon: LucideIcons.users,
         isCore: false,
         reason: 'Used to easily select and add trusted contacts.',
@@ -138,7 +146,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
     var isApprox = false;
     final locStatus = newStatuses[Permission.locationWhenInUse];
-    if (locStatus != null && (locStatus.isGranted || locStatus.isLimited || locStatus.isProvisional)) {
+    if (locStatus != null &&
+        (locStatus.isGranted ||
+            locStatus.isLimited ||
+            locStatus.isProvisional)) {
       try {
         final accuracy = await Geolocator.getLocationAccuracy();
         if (accuracy == LocationAccuracyStatus.reduced) {
@@ -158,19 +169,21 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
   Future<void> _requestPermission(PermissionItem item) async {
     final status = _statuses[item.permission];
-    
-    if (status != null && (status.isGranted || status.isLimited || status.isProvisional)) {
-      if (item.permission == Permission.locationWhenInUse && _isApproximateLocation) {
+
+    if (status != null &&
+        (status.isGranted || status.isLimited || status.isProvisional)) {
+      if (item.permission == Permission.locationWhenInUse &&
+          _isApproximateLocation) {
         // Try requesting location again to see if they want to upgrade to precise from the system dialog
         final newStatus = await item.permission.request();
         await _checkStatuses();
-        
+
         if (mounted) {
           setState(() {
             _statuses[item.permission] = newStatus;
           });
         }
-        
+
         if (mounted && !_isApproximateLocation) {
           NexusToast.show(
             context,
@@ -200,7 +213,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     }
 
     final newStatus = await item.permission.request();
-    
+
     if (mounted) {
       setState(() {
         _statuses[item.permission] = newStatus;
@@ -209,7 +222,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
     if (newStatus.isPermanentlyDenied) {
       _showSettingsDialog(item);
-    } else if (newStatus.isGranted || newStatus.isLimited || newStatus.isProvisional) {
+    } else if (newStatus.isGranted ||
+        newStatus.isLimited ||
+        newStatus.isProvisional) {
       await _checkStatuses();
 
       if (item.permission == Permission.locationWhenInUse) {
@@ -247,7 +262,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         builder: (ctx) => AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'Settings Required',
             style: GoogleFonts.manrope(
@@ -307,7 +324,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
         builder: (ctx) => AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'Precise Location Recommended',
             style: GoogleFonts.manrope(
@@ -361,8 +380,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   }
 
   Future<void> _onContinue() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('permissions_page_completed', true);
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.setBool('permissions_page_completed', value: true);
     widget.onCompleted();
   }
 
@@ -438,14 +457,17 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Configure permissions',
-                      style: GoogleFonts.manrope(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                        height: 1.2,
-                      ),
-                    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
+                          'Configure permissions',
+                          style: GoogleFonts.manrope(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            height: 1.2,
+                          ),
+                        )
+                        .animate()
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.1, end: 0),
                     const SizedBox(height: 8),
                     Text(
                       'Configure device permissions to access core security features and social integration. All permissions are optional and can be managed anytime.',
@@ -463,7 +485,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                       decoration: BoxDecoration(
                         color: AppColors.info.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.info.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: AppColors.info.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -497,15 +521,23 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         .asMap()
                         .entries
                         .map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildPermissionCard(item),
-                      ).animate()
-                          .fadeIn(delay: (index * 50 + 150).ms, duration: 400.ms)
-                          .slideY(begin: 0.05, end: 0, curve: Curves.easeOut);
-                    }),
+                          final index = entry.key;
+                          final item = entry.value;
+                          return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildPermissionCard(item),
+                              )
+                              .animate()
+                              .fadeIn(
+                                delay: (index * 50 + 150).ms,
+                                duration: 400.ms,
+                              )
+                              .slideY(
+                                begin: 0.05,
+                                end: 0,
+                                curve: Curves.easeOut,
+                              );
+                        }),
                     const SizedBox(height: 16),
 
                     // Section: Additional Permissions
@@ -517,15 +549,23 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         .asMap()
                         .entries
                         .map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildPermissionCard(item),
-                      ).animate()
-                          .fadeIn(delay: (index * 50 + 250).ms, duration: 400.ms)
-                          .slideY(begin: 0.05, end: 0, curve: Curves.easeOut);
-                    }),
+                          final index = entry.key;
+                          final item = entry.value;
+                          return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildPermissionCard(item),
+                              )
+                              .animate()
+                              .fadeIn(
+                                delay: (index * 50 + 250).ms,
+                                duration: 400.ms,
+                              )
+                              .slideY(
+                                begin: 0.05,
+                                end: 0,
+                                curve: Curves.easeOut,
+                              );
+                        }),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -591,7 +631,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
 
   Widget _buildPermissionCard(PermissionItem item) {
     final status = _statuses[item.permission];
-    final isGranted = status != null && (status.isGranted || status.isLimited || status.isProvisional);
+    final isGranted =
+        status != null &&
+        (status.isGranted || status.isLimited || status.isProvisional);
     final isPermanentlyDenied = status == PermissionStatus.permanentlyDenied;
 
     Color badgeBgColor;
@@ -600,7 +642,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
     IconData badgeIcon;
 
     if (isGranted) {
-      if (item.permission == Permission.locationWhenInUse && _isApproximateLocation) {
+      if (item.permission == Permission.locationWhenInUse &&
+          _isApproximateLocation) {
         badgeBgColor = AppColors.warning.withValues(alpha: 0.1);
         badgeTextColor = AppColors.warning;
         badgeText = 'APPROXIMATE';
@@ -623,7 +666,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       badgeIcon = LucideIcons.chevronRight;
     }
 
-    final accentColor = item.isCore ? AppColors.pulsarPink : AppColors.primaryTeal;
+    final accentColor = item.isCore
+        ? AppColors.pulsarPink
+        : AppColors.primaryTeal;
 
     return Container(
       decoration: BoxDecoration(
@@ -690,7 +735,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: badgeBgColor,
                         borderRadius: BorderRadius.circular(10),
@@ -718,7 +766,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: item.isCore
                             ? AppColors.pulsarPink.withValues(alpha: 0.1)
@@ -730,7 +781,9 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         style: GoogleFonts.manrope(
                           fontSize: 8,
                           fontWeight: FontWeight.w800,
-                          color: item.isCore ? AppColors.pulsarPink : AppColors.primaryTeal,
+                          color: item.isCore
+                              ? AppColors.pulsarPink
+                              : AppColors.primaryTeal,
                           letterSpacing: 0.5,
                         ),
                       ),

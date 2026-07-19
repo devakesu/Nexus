@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/login/widgets/login_painters.dart';
+import 'package:nexus/services/security_service.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/encrypted_string.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -33,6 +36,11 @@ class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   bool _isLoading = false;
   LoginView _currentView = LoginView.options;
+
+  bool _isScreenRecordingOrMirroringActive = false;
+  bool _isOverlayDetected = false;
+  StreamSubscription<void>? _overlaySubscription;
+  Timer? _securityCheckTimer;
 
   // Controllers/Values for Email login
   final TextEditingController _emailController = TextEditingController();
@@ -67,6 +75,25 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
+    _overlaySubscription = SecurityService.onOverlayDetected.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isOverlayDetected = true;
+        });
+      }
+    });
+    _securityCheckTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) async {
+      final active = await SecurityService.isScreenRecordingOrMirroring();
+      if (mounted && active != _isScreenRecordingOrMirroringActive) {
+        setState(() {
+          _isScreenRecordingOrMirroringActive = active;
+        });
+      }
+    });
+
     _nodes.clear();
 
     // Initialize 6 desaturated nodes (2 of each category) spread out from the center at opposite angles
@@ -282,6 +309,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    unawaited(_overlaySubscription?.cancel());
+    _securityCheckTimer?.cancel();
+    unawaited(SecurityService.exitSensitiveScreen());
     _matrixTimer?.cancel();
     _physicsController.dispose();
     _emailController.dispose();
@@ -320,11 +350,18 @@ class _LoginScreenState extends State<LoginScreen>
         throw Exception('Missing authentication tokens from Google.');
       }
 
-      await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
+      final encryptedAccessToken = EncryptedString(accessToken);
+      final encryptedIdToken = EncryptedString(idToken);
+
+      await encryptedAccessToken.use((accToken) async {
+        await encryptedIdToken.use((idTok) async {
+          await Supabase.instance.client.auth.signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idTok,
+            accessToken: accToken,
+          );
+        });
+      });
     } on Object catch (e, stackTrace) {
       ErrorHandler.handleError(
         e,
@@ -474,7 +511,10 @@ class _LoginScreenState extends State<LoginScreen>
               ),
               title: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: AppColors.pulsarPink),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.pulsarPink,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Registration Required',
@@ -558,9 +598,16 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _verifyOtp() async {
     final target = _emailController.text.trim();
-    final code = _otpController.text.trim();
+    final encryptedCode = EncryptedString(_otpController.text.trim());
 
-    if (target.isEmpty || code.isEmpty) {
+    final isLengthValid = encryptedCode.use(
+      (code) => code.length == AppConfig.otpLength,
+    );
+    final isFormatValid = encryptedCode.use(
+      (code) => RegExp(r'^\d+$').hasMatch(code),
+    );
+
+    if (target.isEmpty || _otpController.text.trim().isEmpty) {
       NexusToast.show(
         context,
         'Please enter the OTP verification code.',
@@ -569,8 +616,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (code.length != AppConfig.otpLength ||
-        !RegExp(r'^\d+$').hasMatch(code)) {
+    if (!isLengthValid || !isFormatValid) {
       NexusToast.show(
         context,
         'Please enter a valid ${AppConfig.otpLength}-digit OTP code (digits only).',
@@ -584,10 +630,12 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      await Supabase.instance.client.auth.verifyOTP(
-        email: target,
-        token: code,
-        type: OtpType.email,
+      await encryptedCode.use(
+        (code) => Supabase.instance.client.auth.verifyOTP(
+          email: target,
+          token: code,
+          type: OtpType.email,
+        ),
       );
     } on Object catch (e, stackTrace) {
       ErrorHandler.handleError(
@@ -611,9 +659,11 @@ class _LoginScreenState extends State<LoginScreen>
   /// than ever knowing the account's email or performing its own OTP call.
   Future<void> _verifyLoginByPhoneOtp() async {
     final phone = _phoneController.text.trim();
-    final code = _otpController.text.trim();
+    final encryptedCode = EncryptedString(_otpController.text.trim());
 
-    if (phone.isEmpty || code.isEmpty) {
+    final isCodeEmpty = encryptedCode.use((code) => code.isEmpty);
+
+    if (phone.isEmpty || isCodeEmpty) {
       NexusToast.show(
         context,
         'Please enter the OTP verification code.',
@@ -629,11 +679,13 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final dio = createDio();
       final config = AppConfig.current;
-      final response = await dio.post<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/auth/login-by-phone/verify',
-        data: {'phone': phone, 'code': code},
-        options: Options(
-          headers: {'X-App-Variant': config.variantString},
+      final response = await encryptedCode.use(
+        (code) => dio.post<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/auth/login-by-phone/verify',
+          data: {'phone': phone, 'code': code},
+          options: Options(
+            headers: {'X-App-Variant': config.variantString},
+          ),
         ),
       );
 
@@ -677,6 +729,98 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isScreenRecordingOrMirroringActive) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Container(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.videocam_off, color: Colors.red, size: 80),
+                const SizedBox(height: 24),
+                Text(
+                  'Screen Recording / Mirroring Detected',
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'To protect your sensitive financial and academic data, this application cannot run while screen recording or mirroring is active. Please turn off recording/mirroring to proceed.',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_isOverlayDetected) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Container(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.security, color: Colors.amber, size: 80),
+                const SizedBox(height: 24),
+                Text(
+                  'Screen Overlay Detected',
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Another application is drawing an overlay on top of this screen. This is blocked to prevent credential theft. Please close any overlay applications to continue.',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: Colors.grey[400],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isOverlayDetected = false;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    'I have closed it',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final mediaQuery = MediaQuery.of(context);
     final size = mediaQuery.size;
     final isMec = widget.appName.toLowerCase().contains('mec');

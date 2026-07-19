@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/encrypted_string.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -146,12 +148,16 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
       _errorMessage = null;
     });
 
+    final encryptedCode = EncryptedString(_otpController.text.trim());
+
     try {
-      await createDio().post<Map<String, dynamic>>(
-        widget.verifyUrl,
-        data: {'code': _otpController.text.trim()},
-        options: Options(
-          headers: {'X-App-Variant': AppConfig.current.variantString},
+      await encryptedCode.use(
+        (code) => createDio().post<Map<String, dynamic>>(
+          widget.verifyUrl,
+          data: {'code': code},
+          options: Options(
+            headers: {'X-App-Variant': AppConfig.current.variantString},
+          ),
         ),
       );
 

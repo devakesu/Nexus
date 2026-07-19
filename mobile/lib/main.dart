@@ -16,6 +16,7 @@ import 'package:nexus/navigation/app_router.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/notification_service.dart';
 import 'package:nexus/services/pending_evidence_upload_queue.dart';
+import 'package:nexus/services/security_service.dart';
 import 'package:nexus/services/signal/background_prekey_task.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -25,6 +26,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
   SentryWidgetsFlutterBinding.ensureInitialized();
+  SecurityService.initialize();
+  await SecurityService.checkDebugger();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -181,7 +184,13 @@ Future<void> main() async {
       },
       appRunner: () {
         // Explicitly tag the active variant for filtering in Sentry dashboard
-        unawaited(Future.value(Sentry.configureScope((scope) => scope.setTag('variant', config.variantString))));
+        unawaited(
+          Future.value(
+            Sentry.configureScope(
+              (scope) => scope.setTag('variant', config.variantString),
+            ),
+          ),
+        );
         runApp(
           SentryWidget(
             child: const ProviderScope(
@@ -255,6 +264,6 @@ class MyHttpOverrides extends HttpOverrides {
     return super.createHttpClient(context)
       ..connectionTimeout = kDebugMode
           ? const Duration(seconds: 45)
-          : const Duration(seconds: 30);
+          : const Duration(seconds: 20);
   }
 }

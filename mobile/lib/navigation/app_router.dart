@@ -122,7 +122,7 @@ final goRouter = GoRouter(
       builder: (context, state) => const CommunityGuidelinesPage(),
     ),
     GoRoute(
-      path: '/legal/terms',
+      path: '/legal',
       builder: (context, state) => const LegalTermsPage(),
     ),
   ],

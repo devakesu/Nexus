@@ -26,8 +26,8 @@ import 'package:nexus/services/signal/signal_key_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:nexus/utils/secure_session_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Top-level background message handler - must be a top-level function.
@@ -123,7 +123,6 @@ class NotificationService {
   // ---------------------------------------------------------------------------
   // Permission flow
   // ---------------------------------------------------------------------------
-
 
   /// Show the "enable notifications" dialog. Exposed so the settings page can
   /// call it when the user taps the tile while permission is denied.
@@ -304,8 +303,8 @@ class NotificationService {
     }
 
     // Background push: retrieve and update active notifications to support merging within 3 hours
-    final prefs = await SharedPreferences.getInstance();
-    final activeJson = prefs.getString('active_notifications');
+    final prefs = await SecurePreferences.getInstance();
+    final activeJson = await prefs.getString('active_notifications');
     var activeMap = <String, dynamic>{};
     if (activeJson != null) {
       try {
@@ -318,7 +317,9 @@ class NotificationService {
     if (activeMap.containsKey(senderId)) {
       final entry = activeMap[senderId] as Map<String, dynamic>;
       final lastMsgAtStr = entry['last_message_at'] as String?;
-      final lastMsgAt = lastMsgAtStr != null ? DateTime.tryParse(lastMsgAtStr) : null;
+      final lastMsgAt = lastMsgAtStr != null
+          ? DateTime.tryParse(lastMsgAtStr)
+          : null;
       if (lastMsgAt != null && now.difference(lastMsgAt).inHours <= 3) {
         messages = List<String>.from(entry['messages'] as List);
       }
@@ -343,7 +344,9 @@ class NotificationService {
       channelDescription: 'When you receive a new chat message',
       importance: Importance.high,
       priority: Priority.high,
-      largeIcon: largeIconPath != null ? FilePathAndroidBitmap(largeIconPath) : null,
+      largeIcon: largeIconPath != null
+          ? FilePathAndroidBitmap(largeIconPath)
+          : null,
       styleInformation: const BigTextStyleInformation(''),
     );
 
@@ -362,7 +365,9 @@ class NotificationService {
     );
 
     final localPlugin = FlutterLocalNotificationsPlugin();
-    const androidInit = AndroidInitializationSettings('ic_notification_silhouette');
+    const androidInit = AndroidInitializationSettings(
+      'ic_notification_silhouette',
+    );
     const darwinInit = DarwinInitializationSettings();
     try {
       await localPlugin.initialize(
@@ -375,7 +380,9 @@ class NotificationService {
         },
       );
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to initialize with ic_notification, falling back: $e');
+      debugPrint(
+        '[FCM] Failed to initialize with ic_notification, falling back: $e',
+      );
       const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       await localPlugin.initialize(
         settings: const InitializationSettings(
@@ -409,7 +416,8 @@ class NotificationService {
       final metadata = metadataStr != null
           ? json.decode(metadataStr) as Map<String, dynamic>
           : <String, dynamic>{};
-      final signalType = metadata['signal_message_type'] as String? ?? 'whisper';
+      final signalType =
+          metadata['signal_message_type'] as String? ?? 'whisper';
 
       final plaintext = await MessageCodec.instance.decryptText(
         store: store,
@@ -432,21 +440,27 @@ class NotificationService {
               Uint8List.fromList(utf8.encode(plaintext)),
             );
             final db = SignalDatabase.instance;
-            await db.into(db.localMessages).insertOnConflictUpdate(
-              LocalMessagesCompanion.insert(
-                id: messageId,
-                conversationId: conversationId,
-                senderId: senderId,
-                isMine: false,
-                createdAt: createdAt,
-                messageType: messageType,
-                plaintextEnc: Value(encrypted),
-                decryptFailed: const Value(false),
-              ),
+            await db
+                .into(db.localMessages)
+                .insertOnConflictUpdate(
+                  LocalMessagesCompanion.insert(
+                    id: messageId,
+                    conversationId: conversationId,
+                    senderId: senderId,
+                    isMine: false,
+                    createdAt: createdAt,
+                    messageType: messageType,
+                    plaintextEnc: Value(encrypted),
+                    decryptFailed: const Value(false),
+                  ),
+                );
+            debugPrint(
+              '[FCM] Successfully decrypted and cached message $messageId',
             );
-            debugPrint('[FCM] Successfully decrypted and cached message $messageId');
           } on Object catch (e, st) {
-            debugPrint('[FCM] Failed to cache decrypted message $messageId: $e\n$st');
+            debugPrint(
+              '[FCM] Failed to cache decrypted message $messageId: $e\n$st',
+            );
           }
         }
       }
@@ -499,10 +513,12 @@ class NotificationService {
     }
   }
 
-  static Future<void> clearNotificationsForConversation(String conversationId) async {
+  static Future<void> clearNotificationsForConversation(
+    String conversationId,
+  ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final activeJson = prefs.getString('active_notifications');
+      final prefs = await SecurePreferences.getInstance();
+      final activeJson = await prefs.getString('active_notifications');
       if (activeJson == null) return;
 
       final activeMap = json.decode(activeJson) as Map<String, dynamic>;

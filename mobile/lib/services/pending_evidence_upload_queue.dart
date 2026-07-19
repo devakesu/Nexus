@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/services/signal/media_crypto.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -56,8 +56,8 @@ class PendingEvidenceUploadQueue {
   PendingEvidenceUploadQueue._();
 
   static Future<List<_PendingSegment>> _read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_kPrefKey);
+    final prefs = await SecurePreferences.getInstance();
+    final raw = await prefs.getString(_kPrefKey);
     if (raw == null || raw.isEmpty) return [];
     final decoded = jsonDecode(raw) as List<dynamic>;
     return decoded
@@ -67,7 +67,7 @@ class PendingEvidenceUploadQueue {
   }
 
   static Future<void> _write(List<_PendingSegment> segments) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SecurePreferences.getInstance();
     if (segments.isEmpty) {
       await prefs.remove(_kPrefKey);
       return;

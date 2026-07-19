@@ -39,6 +39,7 @@ dependencies:
   drift: ^2.34.0
   drift_flutter: ^0.3.0
   emoji_picker_flutter: ^4.4.0
+  encrypt: ^5.0.3
   firebase_app_check: ^0.4.3
   firebase_core: ^4.7.0
   firebase_messaging: ^16.4.1
@@ -148,3 +149,6 @@ sentry:
   upload_source_maps: true
   project: nexus-f
   org: devakesu
+
+dependency_overrides:
+  pointycastle: 4.0.0

@@ -39,7 +39,7 @@ def _placeholder_banner(missing: list[str]) -> str:
 
 def render_legal_page() -> str:
     """Builds the combined Terms of Service + Privacy Policy page served at
-    /legal/terms and /legal/privacy (see routes below). Single template,
+    /legal and /legal/privacy (see routes below). Single template,
     single source of truth - the two routes render the exact same HTML and
     differ only in which section the browser lands on, via URL fragment.
     Interpolates live settings (grievance officer contact, app domain,
@@ -89,7 +89,7 @@ def render_legal_page() -> str:
     return html.replace("__PLACEHOLDER_BANNER__", _placeholder_banner(missing))
 
 
-@router.get("/legal/terms")
+@router.get("/legal")
 @limiter.limit(settings.rate_limit_health)
 def legal_terms_page(request: Request) -> HTMLResponse:
     """Public, unauthenticated - reachable before signup/login, and this is
@@ -113,7 +113,7 @@ def legal_privacy_page(request: Request) -> RedirectResponse:
     the content.
     """
     _ = request
-    return RedirectResponse(url="/legal/terms#privacy", status_code=302)
+    return RedirectResponse(url="/legal#privacy", status_code=302)
 
 
 _LEGAL_PAGE_TEMPLATE = r"""<!doctype html>

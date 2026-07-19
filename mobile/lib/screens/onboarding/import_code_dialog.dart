@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/encrypted_string.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -39,8 +40,13 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
   }
 
   Future<void> _submitCode() async {
-    final code = _codeController.text.trim().toUpperCase();
-    if (code.length != 6 || !RegExp(r'^[A-Z0-9]+$').hasMatch(code)) {
+    final encryptedCode = EncryptedString(
+      _codeController.text.trim().toUpperCase(),
+    );
+    final isCodeValid = encryptedCode.use(
+      (code) => code.length == 6 && RegExp(r'^[A-Z0-9]+$').hasMatch(code),
+    );
+    if (!isCodeValid) {
       setState(() => _errorMessage = 'Please enter a valid 6-character code.');
       return;
     }
@@ -59,14 +65,16 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
       final config = AppConfig.current;
       final dio = createDio();
 
-      final response = await dio.post<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/profiles/import',
-        data: {'sync_code': code},
-        options: Options(
-          headers: {
-            'X-App-Variant': config.variantString,
-          },
-          validateStatus: (status) => status != null && status < 600,
+      final response = await encryptedCode.use(
+        (code) => dio.post<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/profiles/import',
+          data: {'sync_code': code},
+          options: Options(
+            headers: {
+              'X-App-Variant': config.variantString,
+            },
+            validateStatus: (status) => status != null && status < 600,
+          ),
         ),
       );
 

@@ -7,7 +7,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Terms of Service & Privacy Policy - a WebView pointed at the same
-/// server-rendered page (GET /legal/terms, app/api/legal.py) that's
+/// server-rendered page (GET /legal, app/api/legal.py) that's
 /// reachable on the public web. One document, one style, everywhere: the
 /// in-app copy and the web copy are always the literal same render, and a
 /// terms/policy update takes effect immediately for every user with no
@@ -22,7 +22,7 @@ class LegalTermsPage extends StatefulWidget {
 
 class _LegalTermsPageState extends State<LegalTermsPage> {
   late final Uri _legalUri = Uri.parse(
-    '${AppConfig.current.backendUrl}/legal/terms',
+    '${AppConfig.current.backendUrl}/legal',
   );
 
   late final WebViewController _controller;
@@ -57,7 +57,8 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
         onSslAuthError: kDebugMode
             ? (error) async {
                 final host = _legalUri.host;
-                final isLocalHost = host == 'localhost' ||
+                final isLocalHost =
+                    host == 'localhost' ||
                     host == '127.0.0.1' ||
                     host == '10.0.2.2' ||
                     host.startsWith('192.168.') ||

@@ -20,6 +20,7 @@ from app.api.export import router as export_router
 from app.api.feedback import router as feedback_router
 from app.api.legal import router as legal_router
 from app.api.likes import router as likes_router
+from app.api.root import router as root_router
 from app.api.safety import router as safety_router
 from app.api.safety_portal import router as safety_portal_router
 from app.api.spotify import router as spotify_router
@@ -150,7 +151,7 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
-
+app.include_router(root_router)
 app.include_router(account_deletion_router)
 app.include_router(chat_router)
 app.include_router(chat_keys_router)

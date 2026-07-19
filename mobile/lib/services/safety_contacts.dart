@@ -8,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SafetyContact {
@@ -50,23 +49,7 @@ Future<List<SafetyContact>> loadSafetyContacts() async {
     // Gracefully fallback to legacy storage or empty list on corruption/decryption error.
   }
 
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final legacyList = prefs.getStringList(_kSecureStorageKey);
-    if (legacyList == null || legacyList.isEmpty) return [];
-
-    final migrated = legacyList
-        .map(
-          (item) =>
-              SafetyContact.fromJson(jsonDecode(item) as Map<String, dynamic>),
-        )
-        .toList();
-    await saveSafetyContacts(migrated);
-    await prefs.remove(_kSecureStorageKey);
-    return migrated;
-  } on Object catch (_) {
-    return [];
-  }
+  return [];
 }
 
 Future<void> saveSafetyContacts(List<SafetyContact> contacts) async {
@@ -225,9 +208,5 @@ void showInformContactsToast(
 Future<void> clearSafetyContacts() async {
   try {
     await _kSecureStorageOptions.delete(key: _kSecureStorageKey);
-  } on Object catch (_) {}
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kSecureStorageKey);
   } on Object catch (_) {}
 }

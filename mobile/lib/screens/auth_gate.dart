@@ -17,10 +17,10 @@ import 'package:nexus/utils/discovery_hub_cache.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:nexus/utils/secure_profile_cache.dart';
 import 'package:nexus/utils/special_category_consent_cache.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatefulWidget {
@@ -352,9 +352,9 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         SpecialCategoryConsentCache.currentTermsVersion = _currentTermsVersion;
 
         final hasProfile = profileResponse != null;
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await SecurePreferences.getInstance();
         final permissionsCompleted =
-            prefs.getBool('permissions_page_completed') ?? false;
+            await prefs.getBool('permissions_page_completed') ?? false;
 
         if (hasProfile &&
             !_deletionPending &&

@@ -10,6 +10,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.hardware.display.DisplayManager
+import android.view.Display
+import android.view.MotionEvent
+import android.content.Context
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.spotify.sdk.android.auth.AuthorizationClient
@@ -27,6 +31,8 @@ class MainActivity : FlutterActivity() {
 
         const val SAFETY_CHANNEL = "com.devakesu.apps.nexus/safety"
         const val CALL_PERMISSION_REQUEST_CODE = 0x5B02
+
+        const val SECURITY_CHANNEL = "com.devakesu.apps.nexus/security"
     }
 
     private var pendingSpotifyResult: MethodChannel.Result? = null
@@ -72,6 +78,34 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isScreenBeingRecordedOrMirrored(): Boolean {
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager ?: return false
+        val displays = displayManager.displays
+        for (display in displays) {
+            if (display.displayId != Display.DEFAULT_DISPLAY) {
+                val flags = display.flags
+                val isPresentation = (flags and DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION) != 0
+                val isAutoMirror = (flags and DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR) != 0
+                val isPublic = (flags and DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC) != 0
+                if (isPresentation || isAutoMirror || isPublic) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val isObscured = (event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0 ||
+                (event.flags and MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED) != 0
+        if (isObscured) {
+            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                MethodChannel(messenger, SECURITY_CHANNEL).invokeMethod("onOverlayDetected", null)
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         createNotificationChannels()
@@ -83,6 +117,29 @@ class MainActivity : FlutterActivity() {
                         val clientId = call.argument<String>("clientId").orEmpty()
                         val redirectUri = call.argument<String>("redirectUri").orEmpty()
                         launchSpotifyAuth(clientId, redirectUri, result)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SECURITY_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isDebuggerConnected" -> {
+                        val connected = android.os.Debug.isDebuggerConnected() || android.os.Debug.waitingForDebugger()
+                        result.success(connected)
+                    }
+                    "setSecureFlag" -> {
+                        val secure = call.argument<Boolean>("secure") ?: false
+                        if (secure) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        }
+                        result.success(null)
+                    }
+                    "isScreenRecordingOrMirroring" -> {
+                        result.success(isScreenBeingRecordedOrMirrored())
                     }
                     else -> result.notImplemented()
                 }

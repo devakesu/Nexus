@@ -207,7 +207,7 @@ class _SafetyConsentPromptCardState extends State<SafetyConsentPromptCard> {
           // ── Privacy policy link ──────────────────────────────────────────
           Center(
             child: GestureDetector(
-              onTap: () => context.push<void>('/legal/terms'),
+              onTap: () => context.push<void>('/legal'),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -185,7 +185,7 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
             description: 'How Nexus works, and how we handle your data.',
             icon: LucideIcons.fileText,
             linkLabel: 'Read Terms & Privacy Policy',
-            onLinkTap: () => unawaited(context.push<void>('/legal/terms')),
+            onLinkTap: () => unawaited(context.push<void>('/legal')),
           ),
           const SizedBox(height: 12),
           _ConsentTile(

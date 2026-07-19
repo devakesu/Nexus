@@ -14,11 +14,11 @@ import 'package:nexus/screens/settings/meetup_safety_page.dart';
 import 'package:nexus/screens/settings/privacy_settings_page.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/safety_consent_cache.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:nexus/widgets/safety_consent_prompt.dart';
 import 'package:nexus/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class _ChecklistItem {
   _ChecklistItem({
@@ -311,43 +311,46 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
 
   // --- Safety Score checklist persistence ---
   Future<void> _loadChecklistFlags() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SecurePreferences.getInstance();
+    if (!mounted) return;
+    final quizCompleted =
+        await prefs.getBool('safety_quiz_completed_$_quizVersion') ?? false;
+    final guidelinesReviewed =
+        await prefs.getBool('safety_guidelines_reviewed_$_guidelinesVersion') ??
+        false;
+    final privacyReviewed =
+        await prefs.getBool('safety_privacy_reviewed_$_privacyVersion') ??
+        false;
     if (!mounted) return;
     setState(() {
-      // Each flag is keyed by version so bumping the constant above
-      // automatically invalidates old ticks when content changes.
-      _quizCompletedOnce =
-          prefs.getBool('safety_quiz_completed_$_quizVersion') ?? false;
-      _guidelinesReviewed =
-          prefs.getBool('safety_guidelines_reviewed_$_guidelinesVersion') ??
-          false;
-      _privacySettingsReviewed =
-          prefs.getBool('safety_privacy_reviewed_$_privacyVersion') ?? false;
+      _quizCompletedOnce = quizCompleted;
+      _guidelinesReviewed = guidelinesReviewed;
+      _privacySettingsReviewed = privacyReviewed;
     });
   }
 
   Future<void> _markQuizCompleted() async {
     if (_quizCompletedOnce) return;
     setState(() => _quizCompletedOnce = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_quiz_completed_$_quizVersion', true);
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.setBool('safety_quiz_completed_$_quizVersion', value: true);
   }
 
   Future<void> _markGuidelinesReviewed() async {
     if (_guidelinesReviewed) return;
     setState(() => _guidelinesReviewed = true);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SecurePreferences.getInstance();
     await prefs.setBool(
       'safety_guidelines_reviewed_$_guidelinesVersion',
-      true,
+      value: true,
     );
   }
 
   Future<void> _markPrivacySettingsReviewed() async {
     if (_privacySettingsReviewed) return;
     setState(() => _privacySettingsReviewed = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('safety_privacy_reviewed_$_privacyVersion', true);
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.setBool('safety_privacy_reviewed_$_privacyVersion', value: true);
   }
 
   void _scrollToSection(int index) {
@@ -395,8 +398,8 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         if (mounted) setState(() => _hasTrustedContacts = list.isNotEmpty);
         return;
       }
-      final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList('safety_contacts');
+      final prefs = await SecurePreferences.getInstance();
+      final list = await prefs.getStringList('safety_contacts');
       if (mounted) {
         setState(() => _hasTrustedContacts = list?.isNotEmpty ?? false);
       }

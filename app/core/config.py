@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     legal_governing_law_city: str | None = None
 
     # -- Grievance Officer / DPO contact (DPDP Act 2023 §13) --
-    # Displayed on GET /legal/terms and /legal/privacy (app/api/legal.py),
+    # Displayed on GET /legal and /legal/privacy (app/api/legal.py),
     # read directly by the server-rendered page - no separate JSON API.
     grievance_officer_name: str | None = None
     grievance_officer_email: str | None = None

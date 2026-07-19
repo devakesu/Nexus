@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/encrypted_string.dart';
 import 'package:nexus/utils/error_handler.dart';
 import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
@@ -125,8 +126,11 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
   }
 
   Future<void> _submitOtp() async {
-    final code = _otpController.text.trim();
-    if (code.length != 6 || !RegExp(r'^\d{6}$').hasMatch(code)) {
+    final encryptedCode = EncryptedString(_otpController.text.trim());
+    final isCodeValid = encryptedCode.use(
+      (code) => code.length == 6 && RegExp(r'^\d{6}$').hasMatch(code),
+    );
+    if (!isCodeValid) {
       setState(() => _errorMessage = 'Please enter a valid 6-digit OTP code.');
       return;
     }
@@ -138,11 +142,13 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
 
     try {
       final dio = createDio();
-      await dio.post<Map<String, dynamic>>(
-        '${AppConfig.current.backendUrl}/api/v1/user/phone/otp/verify',
-        data: {'phone': widget.phone, 'code': code},
-        options: Options(
-          headers: {'X-App-Variant': AppConfig.current.variantString},
+      await encryptedCode.use(
+        (code) => dio.post<Map<String, dynamic>>(
+          '${AppConfig.current.backendUrl}/api/v1/user/phone/otp/verify',
+          data: {'phone': widget.phone, 'code': code},
+          options: Options(
+            headers: {'X-App-Variant': AppConfig.current.variantString},
+          ),
         ),
       );
 

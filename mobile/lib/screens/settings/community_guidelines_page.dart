@@ -1,12 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/theme/app_colors.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // ---------------------------------------------------------------------------
 // Main Page
@@ -34,10 +35,11 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
 
   void _loadPledgeState() {
     unawaited(
-      SharedPreferences.getInstance().then((prefs) {
+      SecurePreferences.getInstance().then((prefs) async {
+        final val = await prefs.getBool('pledge_signed');
         if (mounted) {
           setState(() {
-            _pledgeSigned = prefs.getBool('pledge_signed') ?? false;
+            _pledgeSigned = val ?? false;
           });
         }
       }),
@@ -45,8 +47,8 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
   }
 
   Future<void> _savePledgeState(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pledge_signed', value);
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.setBool('pledge_signed', value: value);
   }
 
   static const List<_TabMeta> _tabs = [

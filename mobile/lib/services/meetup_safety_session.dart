@@ -10,7 +10,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:nexus/screens/settings/checkin_alert_screen.dart';
 import 'package:nexus/services/safety_alert_api.dart';
 import 'package:nexus/utils/error_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexus/utils/secure_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -177,8 +177,8 @@ class MeetupSafetySession extends ChangeNotifier {
     // Peek at whether a check-in was left active from a prior session -
     // `_restore()` below reads the same pref, so this doesn't add a real
     // extra read (SharedPreferences caches in memory after first access).
-    final prefs = await SharedPreferences.getInstance();
-    final hasActiveSession = prefs.getBool(_kPrefActive) ?? false;
+    final prefs = await SecurePreferences.getInstance();
+    final hasActiveSession = await prefs.getBool(_kPrefActive) ?? false;
 
     if (Platform.isAndroid && hasActiveSession) {
       // A check-in is already active, so `_restore()` below is about to
@@ -247,19 +247,19 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
-    final active = prefs.getBool(_kPrefActive) ?? false;
+    final prefs = await SecurePreferences.getInstance();
+    final active = await prefs.getBool(_kPrefActive) ?? false;
     if (!active) return;
 
-    final intervalSeconds = prefs.getInt(_kPrefIntervalSeconds);
-    final nextEpochMs = prefs.getInt(_kPrefNextCheckInEpochMs);
+    final intervalSeconds = await prefs.getInt(_kPrefIntervalSeconds);
+    final nextEpochMs = await prefs.getInt(_kPrefNextCheckInEpochMs);
     if (intervalSeconds == null || nextEpochMs == null) return;
 
     isActive = true;
     checkInInterval = Duration(seconds: intervalSeconds);
     nextCheckInAt = DateTime.fromMillisecondsSinceEpoch(nextEpochMs);
-    checkInLabel = prefs.getString(_kPrefLabel) ?? '';
-    _serverSessionId = prefs.getString(_kPrefServerSessionId);
+    checkInLabel = await prefs.getString(_kPrefLabel) ?? '';
+    _serverSessionId = await prefs.getString(_kPrefServerSessionId);
     // Defensively re-post rather than assume the previous ongoing
     // notification / scheduled alarm survived whatever caused this restart
     // (idempotent either way - this is the same call every checkInSafely()/
@@ -271,8 +271,8 @@ class MeetupSafetySession extends ChangeNotifier {
   }
 
   Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kPrefActive, isActive);
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.setBool(_kPrefActive, value: isActive);
     if (!isActive) {
       await prefs.remove(_kPrefIntervalSeconds);
       await prefs.remove(_kPrefNextCheckInEpochMs);
@@ -343,7 +343,7 @@ class MeetupSafetySession extends ChangeNotifier {
       return;
     }
     _serverSessionId = sessionId;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SecurePreferences.getInstance();
     await prefs.setString(_kPrefServerSessionId, sessionId);
   }
 
