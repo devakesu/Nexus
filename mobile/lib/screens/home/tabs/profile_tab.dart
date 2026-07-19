@@ -25,6 +25,7 @@ import 'package:nexus/screens/home/tabs/profile/widgets/age_change_sheet.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/cosmic_selection_overlay.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/futuristic_background_painter.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/name_change_sheet.dart';
+import 'package:nexus/screens/home/tabs/profile/widgets/place_autocomplete_field.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/profile_header.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/stability_tracker.dart';
 import 'package:nexus/screens/home/tabs/profile/widgets/storage_image.dart';
@@ -171,6 +172,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   final GlobalKey _lifestyleResonanceKey = GlobalKey();
   final GlobalKey _affinityInterestsKey = GlobalKey();
   final GlobalKey _spotifyArtistsKey = GlobalKey();
+  final GlobalKey<PlaceAutocompleteFieldState> _hometownKey =
+      GlobalKey<PlaceAutocompleteFieldState>();
+  final GlobalKey<PlaceAutocompleteFieldState> _currentPlaceKey =
+      GlobalKey<PlaceAutocompleteFieldState>();
 
   bool _isSpotifyConnecting = false;
   final ScrollController _scrollController = ScrollController();
@@ -286,16 +291,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     // 2. Social & Campus Info
     else if (label == 'Hometown') {
       _scrollToSection(_socialCoordinatesKey);
-      Future.delayed(
-        const Duration(milliseconds: 350),
-        _hometownFocusNode.requestFocus,
-      );
+      Future.delayed(const Duration(milliseconds: 350), () {
+        _hometownKey.currentState?.openLocationPicker();
+      });
     } else if (label == 'Current Place') {
       _scrollToSection(_socialCoordinatesKey);
-      Future.delayed(
-        const Duration(milliseconds: 350),
-        _currentPlaceFocusNode.requestFocus,
-      );
+      Future.delayed(const Duration(milliseconds: 350), () {
+        _currentPlaceKey.currentState?.openLocationPicker();
+      });
     } else if (label == 'Institute Name') {
       _campusNameFocusNode.requestFocus();
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -2599,6 +2602,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         key: _socialCoordinatesKey,
                         campusNameKey: _campusNameKey,
                         majorKey: _majorKey,
+                        hometownKey: _hometownKey,
+                        currentPlaceKey: _currentPlaceKey,
                         hometown: _hometown,
                         currentPlace: _currentPlace,
                         languages: _languages,

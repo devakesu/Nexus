@@ -80,16 +80,15 @@ class CoordinatePainter extends CustomPainter {
     const greyColor = Color(0xFF6B7280); // Muted Slate Grey
 
     // Phase Calculations
-    // Frame 0: PURE BLACK (0.0 to 0.1)
-    // Frame 10 (Anchor): Drop pinpoint (0.1 to 0.3)
-    // Frame 30 (Radius Sweep): Sweep circular vector (0.3 to 0.7)
-    // Frame 50 (Handoff): Zoom out / resolve grid (0.7 to 1.0)
+    // Frame 0: Drop pinpoint (0.0 to 0.2)
+    // Frame 20 (Radius Sweep): Sweep circular vector (0.2 to 0.6)
+    // Frame 60 (Handoff): Zoom out / resolve grid (0.6 to 1.0)
 
     var scale = 1.0;
     var gridOpacity = 0.0;
 
-    if (progress > 0.7) {
-      final zoomProgress = ((progress - 0.7) / 0.3).clamp(0.0, 1.0);
+    if (progress > 0.6) {
+      final zoomProgress = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
       // Zoom out smoothly backwards
       scale = 1 - (0.2 * Curves.easeInOutCubic.transform(zoomProgress));
       gridOpacity = Curves.easeOut.transform(zoomProgress);
@@ -100,7 +99,7 @@ class CoordinatePainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.scale(scale);
 
-    // Draw Grid Lines (Resolves/fades in during Frame 50 Zoom out)
+    // Draw Grid Lines (Resolves/fades in during Frame 60 Zoom out)
     if (gridOpacity > 0) {
       final gridPaint = Paint()
         ..color = accentColor.withValues(alpha: 0.06 * gridOpacity)
@@ -118,10 +117,10 @@ class CoordinatePainter extends CustomPainter {
       }
     }
 
-    // Frame 10 (The Anchor): Glowing point coordinates vector drops directly in the mathematical center
-    if (progress >= 0.1) {
+    // Frame 0 (The Anchor): Glowing point coordinates vector drops directly in the mathematical center
+    if (progress >= 0.0) {
       final anchorProgress = math
-          .min((progress - 0.1) / 0.2, 1.0)
+          .min(progress / 0.2, 1.0)
           .clamp(0.0, 1.0);
       final pointRadius = 2.5 * anchorProgress;
 
@@ -142,7 +141,7 @@ class CoordinatePainter extends CustomPainter {
       if (anchorProgress > 0) {
         var xText = '0.00';
         var yText = '0.00';
-        if (progress < 0.45) {
+        if (progress < 0.35) {
           // Dynamic coordinates to look like calculation/locking in
           final rand = math.Random((progress * 200).toInt());
           xText = (rand.nextDouble() * 20 - 10).toStringAsFixed(2);
@@ -166,10 +165,10 @@ class CoordinatePainter extends CustomPainter {
       }
     }
 
-    // Frame 30 (The Radius Sweep): Thin, single-pixel vector ring path shoots out
-    if (progress >= 0.3) {
+    // Frame 20 (The Radius Sweep): Thin, single-pixel vector ring path shoots out
+    if (progress >= 0.2) {
       final sweepProgress = math
-          .min((progress - 0.3) / 0.4, 1.0)
+          .min((progress - 0.2) / 0.4, 1.0)
           .clamp(0.0, 1.0);
       final currentSweepRadius = sweepProgress * (maxRadius * 0.75);
 
@@ -215,9 +214,9 @@ class CoordinatePainter extends CustomPainter {
       canvas.drawCircle(Offset.zero, currentSweepRadius, sweepPaint);
 
       // Fade-in text when sweep completes a decent path
-      if (progress >= 0.5) {
+      if (progress >= 0.4) {
         final textFadeProgress = math
-            .min((progress - 0.5) / 0.25, 1.0)
+            .min((progress - 0.4) / 0.25, 1.0)
             .clamp(0.0, 1.0);
         final textSpan = TextSpan(
           text: '[NEXUS_ENGINE_INITIALIZED]',
@@ -237,8 +236,8 @@ class CoordinatePainter extends CustomPainter {
     }
 
     // Bottom Coordinate Log: [x: -42.84, y: 112.50] -> Vector Identity Validated
-    if (progress >= 0.6) {
-      final logFade = math.min((progress - 0.6) / 0.2, 1.0).clamp(0.0, 1.0);
+    if (progress >= 0.5) {
+      final logFade = math.min((progress - 0.5) / 0.2, 1.0).clamp(0.0, 1.0);
       final textSpan = TextSpan(
         text: '[x: -42.84, y: 112.50] -> Vector Identity Validated',
         style: GoogleFonts.jetBrainsMono(

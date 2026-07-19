@@ -40,10 +40,10 @@ class PlaceAutocompleteField extends StatefulWidget {
   final FocusNode? focusNode;
 
   @override
-  State<PlaceAutocompleteField> createState() => _PlaceAutocompleteFieldState();
+  State<PlaceAutocompleteField> createState() => PlaceAutocompleteFieldState();
 }
 
-class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
+class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   late FocusNode _focusNode;
   bool _isFocused = false;
 
@@ -136,7 +136,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
       });
       if (_focusNode.hasFocus) {
         _focusNode.unfocus();
-        _openLocationPicker();
+        openLocationPicker();
       }
     });
   }
@@ -149,7 +149,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
     super.dispose();
   }
 
-  void _openLocationPicker() {
+  void openLocationPicker() {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -190,7 +190,7 @@ class _PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
           ),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: _openLocationPicker,
+            onTap: openLocationPicker,
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),

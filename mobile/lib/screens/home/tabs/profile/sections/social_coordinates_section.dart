@@ -43,6 +43,8 @@ class SocialCoordinatesSection extends StatefulWidget {
     this.majorFocusNode,
     this.campusNameKey,
     this.majorKey,
+    this.hometownKey,
+    this.currentPlaceKey,
     super.key,
   });
 
@@ -66,6 +68,8 @@ class SocialCoordinatesSection extends StatefulWidget {
   final FocusNode? majorFocusNode;
   final Key? campusNameKey;
   final Key? majorKey;
+  final Key? hometownKey;
+  final Key? currentPlaceKey;
 
   final ValueChanged<String> onHometownChanged;
   final ValueChanged<String> onHometownSubmitted;
@@ -112,6 +116,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           PlaceAutocompleteField(
+            key: widget.hometownKey,
             label: 'Hometown',
             initialValue: widget.hometown,
             hintText: 'Set your hometown',
@@ -124,6 +129,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
           const SizedBox(height: 12),
 
           PlaceAutocompleteField(
+            key: widget.currentPlaceKey,
             label: 'Current Place',
             initialValue: widget.currentPlace,
             hintText: 'Set your current place',
