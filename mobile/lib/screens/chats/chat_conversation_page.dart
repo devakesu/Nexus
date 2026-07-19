@@ -496,13 +496,22 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
           ),
           data: (chatState) {
-            _currentMessages = chatState.messages;
+            final uniqueMessages = <ChatMessageView>[];
+            final seenIds = <String>{};
+            for (final m in chatState.messages) {
+              if (seenIds.add(m.id)) {
+                uniqueMessages.add(m);
+              }
+            }
+            _currentMessages = uniqueMessages;
+            _messageKeys.removeWhere((key, _) => !seenIds.contains(key));
+
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => _scrollToBottom(),
             );
             final showNewDeviceBanner =
                 chatState.isNewLocalIdentity &&
-                chatState.messages.any((m) => m.decryptFailed);
+                uniqueMessages.any((m) => m.decryptFailed);
             return Column(
               children: [
                 if (showNewDeviceBanner) _newDeviceBanner(theme),
@@ -510,7 +519,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                   _conversationClosedBanner(theme),
                 if (chatState.isRevalidating) _syncingIndicator(theme),
                 Expanded(
-                  child: chatState.messages.isEmpty
+                  child: uniqueMessages.isEmpty
                       ? Center(
                           child: _statusMessage(
                             theme,
@@ -523,7 +532,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                               controller: _scrollController,
                               padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
                               itemCount:
-                                  chatState.messages.length +
+                                  uniqueMessages.length +
                                   (chatState.loadingOlder ? 1 : 0),
                               itemBuilder: (_, i) {
                                 if (chatState.loadingOlder && i == 0) {
@@ -540,7 +549,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                                 final messageIndex = chatState.loadingOlder
                                     ? i - 1
                                     : i;
-                                final message = chatState.messages[messageIndex];
+                                final message = uniqueMessages[messageIndex];
                                 final key = _messageKeys.putIfAbsent(
                                   message.id,
                                   GlobalKey.new,
@@ -555,7 +564,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                                 final showDateHeader = messageIndex == 0 ||
                                     !_isSameDay(
                                       message.createdAt,
-                                      chatState.messages[messageIndex - 1].createdAt,
+                                      uniqueMessages[messageIndex - 1].createdAt,
                                     );
                                 return Container(
                                   key: key,

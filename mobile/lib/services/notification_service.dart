@@ -37,8 +37,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await NotificationService.handlePushMessage(message);
 }
 
-const _kDenialDialogShownKey = 'fcm_denial_dialog_shown';
-
 class NotificationService {
   NotificationService._();
 
@@ -65,8 +63,6 @@ class NotificationService {
       return;
     }
     _initialized = true;
-
-    await _requestAndHandlePermission();
 
     final token = await _getAndRegisterToken();
     if (kDebugMode) debugPrint('[FCM] Token: $token');
@@ -128,35 +124,6 @@ class NotificationService {
   // Permission flow
   // ---------------------------------------------------------------------------
 
-  static Future<void> _requestAndHandlePermission() async {
-    final result = await _messaging.requestPermission();
-    final status = result.authorizationStatus;
-    if (kDebugMode) debugPrint('[FCM] Permission: $status');
-
-    if (status == AuthorizationStatus.authorized ||
-        status == AuthorizationStatus.provisional) {
-      // Clear any stale "dialog shown" flag so it can re-show if ever revoked.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_kDenialDialogShownKey);
-      return;
-    }
-
-    if (status == AuthorizationStatus.denied) {
-      // Only show our dialog once per denial sequence - the OS dialog already
-      // ran during this or a prior call; avoid nagging on every restart.
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyShown = prefs.getBool(_kDenialDialogShownKey) ?? false;
-      if (alreadyShown) return;
-
-      final context = ErrorHandler.navigatorKey.currentContext;
-      if (context == null || !context.mounted) return;
-
-      // Show first - no async gap between the mounted-check and this call.
-      // Flag is written only after the dialog has actually been displayed.
-      await showPermissionDeniedDialog(context);
-      await prefs.setBool(_kDenialDialogShownKey, true);
-    }
-  }
 
   /// Show the "enable notifications" dialog. Exposed so the settings page can
   /// call it when the user taps the tile while permission is denied.

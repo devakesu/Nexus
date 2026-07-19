@@ -285,9 +285,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
     // 2. Social & Campus Info
     else if (label == 'Hometown') {
-      _hometownFocusNode.requestFocus();
+      _scrollToSection(_socialCoordinatesKey);
+      Future.delayed(
+        const Duration(milliseconds: 350),
+        _hometownFocusNode.requestFocus,
+      );
     } else if (label == 'Current Place') {
-      _currentPlaceFocusNode.requestFocus();
+      _scrollToSection(_socialCoordinatesKey);
+      Future.delayed(
+        const Duration(milliseconds: 350),
+        _currentPlaceFocusNode.requestFocus,
+      );
     } else if (label == 'Institute Name') {
       _campusNameFocusNode.requestFocus();
       Future.delayed(const Duration(milliseconds: 300), () {
