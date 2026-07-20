@@ -17,7 +17,7 @@ Please check the options that apply to this bug:
 
 - **App Flavor:**
   - [ ] `nexus` (General/General Audience)
-  - [ ] `mec` (Campus-gated context)
+  - [ ] `nexus_mec` (Campus-gated context)
 - **Platform:**
   - [ ] Android (Mobile App)
   - [ ] iOS (Mobile App)

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/onboarding/import_code_dialog.dart';
-import 'package:nexus/screens/onboarding/mec_onboarding_fields.dart';
+import 'package:nexus/screens/onboarding/nexus_mec_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/nexus_onboarding_fields.dart';
 import 'package:nexus/screens/onboarding/otp_verification_dialog.dart';
 import 'package:nexus/theme/app_colors.dart';
@@ -76,7 +76,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   AppConfig get _config => AppConfig.current;
 
-  /// Derives name from Google OAuth metadata for MEC (read-only).
+  /// Derives name from Google OAuth metadata for NEXUS_MEC (read-only).
   String _getGoogleName() {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null && user.userMetadata != null) {
@@ -120,7 +120,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _submitOnboarding() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // MEC: branch must be selected
+    // NEXUS_MEC: branch must be selected
     if (_config.isFlavorVariant && _mecBranch.isEmpty) {
       _showError('Please select your branch.');
       return;
@@ -192,7 +192,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final Map<String, dynamic> payload;
 
       if (_config.isFlavorVariant) {
-        // MEC payload: campus_branch + campus_year + campus_name + age
+        // NEXUS_MEC payload: campus_branch + campus_year + campus_name + age
         payload = {
           'app_variant': _config.variantString,
           'campus_branch': _mecBranch,
@@ -302,7 +302,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         .slideY(begin: 0.08, end: 0, duration: 420.ms);
   }
 
-  // Main nexus allows 18-80; every other variant (MEC, campus-gated) stays
+  // Main nexus allows 18-80; every other variant (NEXUS_MEC, campus-gated) stays
   // 18-27 - matches NexusOnboardingRequest/MECOnboardingRequest server-side
   // (app/models.py) and the DB's per-variant trigger
   // (20260803000000_widen_profile_age_range.sql). Derived from the
@@ -505,7 +505,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // ── MEC (flavor) card ─────────────────────────────────────────────────────
+  // ── NEXUS_MEC (flavor) card ─────────────────────────────────────────────────────
 
   Widget _buildMECCard() {
     final googleName = _getGoogleName();
@@ -663,7 +663,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   // ── Header ─────────────────────────────────────────────
                   Text(
-                    isMec ? 'Welcome MEC' : 'NEXUS',
+                    isMec ? 'Welcome NEXUS MEC' : 'NEXUS',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 12,

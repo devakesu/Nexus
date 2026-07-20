@@ -654,7 +654,7 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-		97C147031CF9000F007C1E02 /* Debug-mec */ = {
+		97C147031CF9000F007C1E02 /* Debug-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -761,7 +761,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-		97C147041CF9000F007C1E02 /* Release-mec */ = {
+		97C147041CF9000F007C1E02 /* Release-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -863,7 +863,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
-		249021D3217E4FDB00AE9E02 /* Profile-mec */ = {
+		249021D3217E4FDB00AE9E02 /* Profile-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -936,11 +936,11 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
-		97C147061CF9000F007C1E02 /* Debug-mec */ = {
+		97C147061CF9000F007C1E02 /* Debug-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
-				APP_DISPLAY_NAME = "Nexus MEC";
+				APP_DISPLAY_NAME = "Nexus NEXUS_MEC";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
@@ -981,7 +981,7 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
-		97C147071CF9000F007C1E02 /* Release-mec */ = {
+		97C147071CF9000F007C1E02 /* Release-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
@@ -1025,7 +1025,7 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
-		249021D4217E4FDB00AE9E02 /* Profile-mec */ = {
+		249021D4217E4FDB00AE9E02 /* Profile-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
@@ -1070,9 +1070,9 @@
 				97C147031CF9000F007C1E01 /* Debug-nexus */,
 				97C147041CF9000F007C1E01 /* Release-nexus */,
 				249021D3217E4FDB00AE9E01 /* Profile-nexus */,
-				97C147031CF9000F007C1E02 /* Debug-mec */,
-				97C147041CF9000F007C1E02 /* Release-mec */,
-				249021D3217E4FDB00AE9E02 /* Profile-mec */,);
+				97C147031CF9000F007C1E02 /* Debug-nexus_mec */,
+				97C147041CF9000F007C1E02 /* Release-nexus_mec */,
+				249021D3217E4FDB00AE9E02 /* Profile-nexus_mec */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
@@ -1086,9 +1086,9 @@
 				97C147061CF9000F007C1E01 /* Debug-nexus */,
 				97C147071CF9000F007C1E01 /* Release-nexus */,
 				249021D4217E4FDB00AE9E01 /* Profile-nexus */,
-				97C147061CF9000F007C1E02 /* Debug-mec */,
-				97C147071CF9000F007C1E02 /* Release-mec */,
-				249021D4217E4FDB00AE9E02 /* Profile-mec */,);
+				97C147061CF9000F007C1E02 /* Debug-nexus_mec */,
+				97C147071CF9000F007C1E02 /* Release-nexus_mec */,
+				249021D4217E4FDB00AE9E02 /* Profile-nexus_mec */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

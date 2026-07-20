@@ -108,7 +108,7 @@ flutter:
 
   assets:
     - assets/nexus.png
-    - assets/nexus-mec.png
+    - assets/nexus_mec.png
     - assets/sounds/emergency_alarm.wav
     - assets/google_logo.png
     - assets/model.tflite

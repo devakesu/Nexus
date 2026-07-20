@@ -24,7 +24,7 @@ final goRouter = GoRouter(
       path: '/',
       builder: (context, state) {
         const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-        const isMec = flavor == 'mec';
+        const isMec = flavor == 'nexus_mec';
         const appName = isMec ? 'Nexus MEC' : 'Nexus';
         return const AuthGate(appName: appName);
       },
@@ -33,7 +33,7 @@ final goRouter = GoRouter(
       path: '/login',
       builder: (context, state) {
         const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-        const isMec = flavor == 'mec';
+        const isMec = flavor == 'nexus_mec';
         const appName = isMec ? 'Nexus MEC' : 'Nexus';
         return const AuthGate(appName: appName);
       },
@@ -46,7 +46,7 @@ final goRouter = GoRouter(
             extra['tab'] == null ||
             extra['themeColor'] == null) {
           const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-          const isMec = flavor == 'mec';
+          const isMec = flavor == 'nexus_mec';
           const appName = isMec ? 'Nexus MEC' : 'Nexus';
           return const AuthGate(appName: appName);
         }
@@ -72,7 +72,7 @@ final goRouter = GoRouter(
             extra['tab'] == null ||
             extra['name'] == null) {
           const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-          const isMec = flavor == 'mec';
+          const isMec = flavor == 'nexus_mec';
           const appName = isMec ? 'Nexus MEC' : 'Nexus';
           return const AuthGate(appName: appName);
         }

@@ -308,11 +308,11 @@ def complete_onboarding(
 
     # Resolve name and variant-specific fields per flavor.
     if isinstance(payload, MECOnboardingRequest):
-        # MEC: name is derived server-side from Google OAuth metadata.
+        # NEXUS_MEC: name is derived server-side from Google OAuth metadata.
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email is required for campus MEC onboarding.",
+                detail="Email is required for campus NEXUS_MEC onboarding.",
             )
         user_name = extract_user_name(email, auth_user)
         user_branch: str | None = payload.campus_branch

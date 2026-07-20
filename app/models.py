@@ -218,7 +218,7 @@ class MECOnboardingRequest(BaseOnboardingRequest):
     def validate_branch(cls, value: str) -> str:
         cleaned = value.strip()
         if not cleaned:
-            raise ValueError("Branch is required for MEC profiles.")
+            raise ValueError("Branch is required for NEXUS_MEC profiles.")
         return cleaned
 
     @field_validator("campus_name")

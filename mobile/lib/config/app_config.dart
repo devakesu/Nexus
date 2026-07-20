@@ -129,7 +129,7 @@ class AppConfig {
     appVersion: _appVersion,
   );
 
-  static const AppConfig mec = AppConfig(
+  static const AppConfig nexusMec = AppConfig(
     supabaseUrl: _supabaseUrl,
     supabasePublishableKey: _supabasePublishableKey,
     googleWebClientId: _googleWebClientId,
@@ -157,7 +157,7 @@ class AppConfig {
   /// Returns the [AppConfig] matching the compile-time FLUTTER_APP_FLAVOR constant.
   static AppConfig get current {
     const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-    return flavor == 'mec' ? mec : nexus;
+    return flavor == 'nexus_mec' ? nexusMec : nexus;
   }
 
   /// The canonical variant string sent to the backend in the X-App-Variant header.

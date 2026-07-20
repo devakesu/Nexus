@@ -58,7 +58,8 @@ class _ChatsPageState extends State<ChatsPage>
 
     final index = value.floor();
     final localValue = value - index;
-    return Color.lerp(colors[index], colors[index + 1], localValue) ?? colors[index];
+    return Color.lerp(colors[index], colors[index + 1], localValue) ??
+        colors[index];
   }
 
   Color _getTabThemeColor(String tab) {
@@ -120,7 +121,9 @@ class _ChatsPageState extends State<ChatsPage>
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      AppConfig.current.isFlavorVariant ? 'MEC Chats' : 'Nexus Chats',
+                      AppConfig.current.isFlavorVariant
+                          ? 'Nexus MEC Chats'
+                          : 'Nexus Chats',
                       style: GoogleFonts.manrope(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -133,7 +136,9 @@ class _ChatsPageState extends State<ChatsPage>
                 AnimatedBuilder(
                   animation: _tabController.animation!,
                   builder: (context, _) {
-                    final animValue = _tabController.animation?.value ?? _tabController.index.toDouble();
+                    final animValue =
+                        _tabController.animation?.value ??
+                        _tabController.index.toDouble();
                     final activeColor = _getInterpolatedColor(animValue);
 
                     return Container(
@@ -171,43 +176,67 @@ class _ChatsPageState extends State<ChatsPage>
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
-                        tabs: _tabs.map((t) => Tab(
-                          child: Consumer(
-                            builder: (context, ref, _) {
-                              final convos = ref.watch(chatConversationsProvider(t)).value ?? [];
-                              final unreadCount = convos.fold<int>(0, (sum, c) => sum + c.unreadCount);
-                              final isSelected = _tabController.index == _tabs.indexOf(t);
+                        tabs: _tabs
+                            .map(
+                              (t) => Tab(
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final convos =
+                                        ref
+                                            .watch(chatConversationsProvider(t))
+                                            .value ??
+                                        [];
+                                    final unreadCount = convos.fold<int>(
+                                      0,
+                                      (sum, c) => sum + c.unreadCount,
+                                    );
+                                    final isSelected =
+                                        _tabController.index ==
+                                        _tabs.indexOf(t);
 
-                              return FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(t),
-                                    if (unreadCount > 0) ...[
-                                      const SizedBox(width: 5),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? Colors.white : _getTabThemeColor(t),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          unreadCount > 99 ? '99+' : '$unreadCount',
-                                          style: TextStyle(
-                                            color: isSelected ? _getTabThemeColor(t) : Colors.white,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                    return FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(t),
+                                          if (unreadCount > 0) ...[
+                                            const SizedBox(width: 5),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 5,
+                                                    vertical: 1.5,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : _getTabThemeColor(t),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                unreadCount > 99
+                                                    ? '99+'
+                                                    : '$unreadCount',
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? _getTabThemeColor(t)
+                                                      : Colors.white,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                    ],
-                                  ],
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
-                        )).toList(),
+                              ),
+                            )
+                            .toList(),
                       ),
                     );
                   },

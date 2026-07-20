@@ -27,7 +27,7 @@ Which area of the application does this feature request apply to?
 - [ ] Chat & Messaging
 - [ ] Spotify Integration (Music Taste Signals)
 - [ ] Safety Center / Meetup-Safety Guidance
-- [ ] Campus-Gating (`mec` flavor specific features)
+- [ ] Campus-Gating (`nexus_mec` flavor specific features)
 - [ ] Developer Experience / Devops / Docker Setup
 - [ ] Other (please specify: _____)
 

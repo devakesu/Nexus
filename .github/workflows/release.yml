@@ -265,7 +265,7 @@ jobs:
             checksums.txt
             provenance.intoto.jsonl
 
-  # Build mobile Flutter application for nexus and mec flavors
+  # Build mobile Flutter application for nexus and nexus_mec flavors
   build-mobile:
     name: Build Flutter App
     needs: guard
@@ -389,7 +389,7 @@ jobs:
           mkdir -p mobile/release-assets
           mkdir -p mobile/play-console-assets
 
-          for FLAVOR in nexus mec; do
+          for FLAVOR in nexus nexus_mec; do
             echo "=== Building Flavor: ${FLAVOR} ==="
             
             # APK
@@ -660,7 +660,7 @@ jobs:
 
           This release includes:
           - 🐳 Docker image for backend (${PLATFORM_LIST})
-          - 📱 Flutter Android APKs (nexus and mec flavors)
+          - 📱 Flutter Android APKs (nexus and nexus_mec flavors)
           - 🔐 Signed images and artifacts using cosign
           - 📋 Software Bill of Materials (SBOM) in CycloneDX format
           - ✅ Build provenance attestations

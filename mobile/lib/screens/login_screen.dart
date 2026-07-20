@@ -823,7 +823,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     final mediaQuery = MediaQuery.of(context);
     final size = mediaQuery.size;
-    final isMec = widget.appName.toLowerCase().contains('mec');
+    final isMec = widget.appName.toLowerCase().contains('nexus_mec');
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B0D13), // Cosmic Obsidian

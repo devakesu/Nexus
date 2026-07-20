@@ -10,8 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
-import 'package:nexus/firebase_options_mec.dart' as mec_opts;
 import 'package:nexus/firebase_options_nexus.dart' as nexus_opts;
+import 'package:nexus/firebase_options_nexus_mec.dart' as nexus_mec_opts;
 import 'package:nexus/navigation/app_router.dart';
 import 'package:nexus/services/meetup_safety_session.dart';
 import 'package:nexus/services/notification_service.dart';
@@ -67,13 +67,13 @@ Future<void> main() async {
   final config = AppConfig.current;
   const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
   assert(
-    flavor == 'nexus' || flavor == 'mec',
-    'FLUTTER_APP_FLAVOR environment variable must be specified as either "nexus" or "mec" at build time via --dart-define=FLUTTER_APP_FLAVOR=...',
+    flavor == 'nexus' || flavor == 'nexus_mec',
+    'FLUTTER_APP_FLAVOR environment variable must be specified as either "nexus" or "nexus_mec" at build time via --dart-define=FLUTTER_APP_FLAVOR=...',
   );
 
   // Initialize Firebase dynamically based on flavor
-  final firebaseOptions = flavor == 'mec'
-      ? mec_opts.DefaultFirebaseOptions.currentPlatform
+  final firebaseOptions = flavor == 'nexus_mec'
+      ? nexus_mec_opts.DefaultFirebaseOptions.currentPlatform
       : nexus_opts.DefaultFirebaseOptions.currentPlatform;
 
   // Initialize Firebase and Supabase in parallel to speed up app startup
@@ -215,7 +215,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-    const isMec = flavor == 'mec';
+    const isMec = flavor == 'nexus_mec';
     const appName = isMec ? 'Nexus MEC' : 'Nexus';
 
     return MaterialApp.router(

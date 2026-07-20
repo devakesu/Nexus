@@ -804,7 +804,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
                 'Do not create multiple accounts to evade a ban, generate artificial matches, or contact users who have blocked you.',
               ),
               _bullet(
-                'For the MEC campus flavor, your account must be associated with a valid campus email. Using a personal email to circumvent campus gating is a policy violation.',
+                'For the Nexus MEC campus flavor, your account must be associated with a valid campus email. Using a personal email to circumvent campus gating is a policy violation.',
               ),
               _bullet(
                 'Gender identity, sexuality, and pronouns must be your own genuine identity. Misrepresenting these to access certain discovery filters is a violation.',

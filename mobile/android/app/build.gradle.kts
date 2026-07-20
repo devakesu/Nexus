@@ -58,7 +58,7 @@ android {
             manifestPlaceholders["redirectSchemeName"] = "devakesu-nexus"
             manifestPlaceholders["redirectHostName"] = "spotify-auth"
         }
-        create("mec") {
+        create("nexus_mec") {
             dimension = "brand"
             applicationId = "com.devakesu.apps.nexus.mec"
             resValue("string", "app_name", "Nexus MEC")

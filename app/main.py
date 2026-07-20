@@ -100,7 +100,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Nexus MEC Matchmaking Engine",
+    title="Nexus Matchmaking Engine",
     version=settings.app_version,
     docs_url="/api/v1/docs" if settings.debug else None,
     redoc_url=None,
