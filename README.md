@@ -43,12 +43,25 @@ Engineered with a BeReal-style authentic and spontaneous brand personality, Nexu
 
 ## 📲 Get the Mobile App
 
+Choose the version that fits your community:
+
 <!-- markdownlint-disable MD033 -->
-<p align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus" target="_blank" rel="noopener noreferrer">
-    <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="260" />
-  </a>
-</p>
+<table align="center" border="0" cellpadding="10">
+  <tr>
+    <td align="center">
+      <strong>Nexus (General)</strong><br />
+      <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus" target="_blank" rel="noopener noreferrer">
+        <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Nexus on Google Play" width="240" />
+      </a>
+    </td>
+    <td align="center">
+      <strong>Nexus MEC (Campus-Gated)</strong><br />
+      <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec" target="_blank" rel="noopener noreferrer">
+        <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Nexus MEC on Google Play" width="240" />
+      </a>
+    </td>
+  </tr>
+</table>
 <!-- markdownlint-enable MD033 -->
 
 ## 🎯 Key Vibes
@@ -301,7 +314,10 @@ flutter build appbundle --flavor nexus_mec -t lib/main.dart
 flutter build ipa --flavor nexus -t lib/main.dart
 ```
 
-Direct Google Play Link: [Nexus on Google Play](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus)
+Direct Google Play Links:
+
+- [Nexus (General Audience)](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus)
+- [Nexus MEC (Campus-Gated)](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec)
 
 ## ❓ Frequently Asked Questions
 

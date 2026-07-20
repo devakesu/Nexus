@@ -77,7 +77,7 @@ jobs:
 
       - name: Install Infisical CLI
         run: |
-          curl -1sLf 'https://dl.cloudsmith.io/public/infisical/cli/setup.deb.sh' | sudo -E bash
+          curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | sudo -E bash
           sudo apt-get update && sudo apt-get install -y infisical
 
       - name: Fetch Public Secrets from Infisical to .env
@@ -315,7 +315,7 @@ jobs:
 
       - name: Install Infisical CLI
         run: |
-          curl -1sLf 'https://dl.cloudsmith.io/public/infisical/cli/setup.deb.sh' | sudo -E bash
+          curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | sudo -E bash
           sudo apt-get update && sudo apt-get install -y infisical
 
       - name: Export Secrets
@@ -465,14 +465,14 @@ jobs:
         with:
           subject-path: |
             mobile/release-assets/nexus-android-v${{ steps.version.outputs.version }}.apk
-            mobile/release-assets/mec-android-v${{ steps.version.outputs.version }}.apk
+            mobile/release-assets/nexus-mec-android-v${{ steps.version.outputs.version }}.apk
 
       - name: Attest AABs
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:
           subject-path: |
             mobile/play-console-assets/nexus-app-release.aab
-            mobile/play-console-assets/mec-app-release.aab
+            mobile/play-console-assets/nexus-mec-app-release.aab
 
       - name: Assemble Mobile Release checksums
         working-directory: mobile
@@ -483,9 +483,9 @@ jobs:
             echo "# Mobile Release Checksums"
             echo ""
             sha256sum nexus-android-v${{ steps.version.outputs.version }}.apk
-            sha256sum mec-android-v${{ steps.version.outputs.version }}.apk
+            sha256sum nexus-mec-android-v${{ steps.version.outputs.version }}.apk
             sha256sum nexus-sbom.json
-            sha256sum mec-sbom.json
+            sha256sum nexus-mec-sbom.json
             echo ""
             echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           } > mobile-checksums.txt
@@ -503,7 +503,7 @@ jobs:
           name: mobile-release-artifacts
           path: |
             mobile/release-assets/nexus-sbom.json
-            mobile/release-assets/mec-sbom.json
+            mobile/release-assets/nexus-mec-sbom.json
             mobile/release-assets/mobile-checksums.txt
 
       - name: Upload Play Console internal assets to Private S3 Storage
@@ -635,7 +635,7 @@ jobs:
           ## Verify Mobile APKs
           \`\`\`bash
           gh attestation verify nexus-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
-          gh attestation verify mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
+          gh attestation verify nexus-mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
           \`\`\`
           EOF
 
@@ -683,8 +683,8 @@ jobs:
             ./artifacts/VERIFY.md \
             ./artifacts/web/provenance.intoto.jsonl \
             ./artifacts/mobile/nexus-android-v${{ steps.version.outputs.version }}.apk \
-            ./artifacts/mobile/mec-android-v${{ steps.version.outputs.version }}.apk \
+            ./artifacts/mobile/nexus-mec-android-v${{ steps.version.outputs.version }}.apk \
             ./artifacts/mobile/nexus-sbom.json \
-            ./artifacts/mobile/mec-sbom.json \
+            ./artifacts/mobile/nexus-mec-sbom.json \
             ./artifacts/mobile/mobile-checksums.txt \
             --draft=false
