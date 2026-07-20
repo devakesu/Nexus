@@ -1,0 +1,21 @@
+# CODEOWNERS
+# This file defines the individuals or teams that own specific parts of the codebase.
+
+# Default owner for everything in the repo
+* @devakesu
+
+# Backend (Python API & Tests)
+/app/ @devakesu
+/tests/ @devakesu
+/requirements.txt @devakesu
+/ruff.toml @devakesu
+/pyrightconfig.json @devakesu
+
+# Mobile (Flutter App)
+/mobile/ @devakesu
+
+# Database / Supabase Config
+/supabase/ @devakesu
+
+# GitHub Config / Actions
+/.github/ @devakesu

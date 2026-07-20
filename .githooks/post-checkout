@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Arguments received by post-checkout:
+# $1: Previous HEAD ref
+# $2: New HEAD ref
+# $3: Flag (1 if it was a branch checkout, 0 if it was a file checkout)
+
+if [ "$3" -eq 1 ]; then
+  # Automatically bump pubspec.yaml if we checked out a new release branch
+  python3 scripts/sync-version.py --post-checkout
+fi
+
+exit 0
