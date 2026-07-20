@@ -654,6 +654,8 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
+			name = "Debug-nexus";
+		};
 		97C147031CF9000F007C1E02 /* Debug-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -709,6 +711,8 @@
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
+			name = "Debug-nexus_mec";
+		};
 		97C147041CF9000F007C1E01 /* Release-nexus */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -761,6 +765,8 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
+			name = "Release-nexus";
+		};
 		97C147041CF9000F007C1E02 /* Release-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -813,6 +819,8 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
+			name = "Release-nexus_mec";
+		};
 		249021D3217E4FDB00AE9E01 /* Profile-nexus */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -863,6 +871,8 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
+			name = "Profile-nexus";
+		};
 		249021D3217E4FDB00AE9E02 /* Profile-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -913,6 +923,8 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
+			name = "Profile-nexus_mec";
+		};
 		97C147061CF9000F007C1E01 /* Debug-nexus */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
@@ -936,6 +948,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Debug-nexus";
+		};
 		97C147061CF9000F007C1E02 /* Debug-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
@@ -959,6 +973,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Debug-nexus_mec";
+		};
 		97C147071CF9000F007C1E01 /* Release-nexus */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
@@ -981,6 +997,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Release-nexus";
+		};
 		97C147071CF9000F007C1E02 /* Release-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
@@ -1003,6 +1021,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Release-nexus_mec";
+		};
 		249021D4217E4FDB00AE9E01 /* Profile-nexus */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
@@ -1025,6 +1045,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Profile-nexus";
+		};
 		249021D4217E4FDB00AE9E02 /* Profile-nexus_mec */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
@@ -1047,6 +1069,8 @@
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
+			name = "Profile-nexus_mec";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1066,13 +1090,13 @@
 				97C147031CF9000F007C117D /* Debug */,
 				97C147041CF9000F007C117D /* Release */,
 				249021D3217E4FDB00AE95B9 /* Profile */,
-			
 				97C147031CF9000F007C1E01 /* Debug-nexus */,
 				97C147041CF9000F007C1E01 /* Release-nexus */,
 				249021D3217E4FDB00AE9E01 /* Profile-nexus */,
 				97C147031CF9000F007C1E02 /* Debug-nexus_mec */,
 				97C147041CF9000F007C1E02 /* Release-nexus_mec */,
-				249021D3217E4FDB00AE9E02 /* Profile-nexus_mec */,);
+				249021D3217E4FDB00AE9E02 /* Profile-nexus_mec */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
@@ -1082,13 +1106,13 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
-			
 				97C147061CF9000F007C1E01 /* Debug-nexus */,
 				97C147071CF9000F007C1E01 /* Release-nexus */,
 				249021D4217E4FDB00AE9E01 /* Profile-nexus */,
 				97C147061CF9000F007C1E02 /* Debug-nexus_mec */,
 				97C147071CF9000F007C1E02 /* Release-nexus_mec */,
-				249021D4217E4FDB00AE9E02 /* Profile-nexus_mec */,);
+				249021D4217E4FDB00AE9E02 /* Profile-nexus_mec */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
@@ -1104,7 +1128,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */;
+			package = 781AD8BC2B33823900A9FFBB;
 			productName = FlutterGeneratedPluginSwiftPackage;
 		};
 /* End XCSwiftPackageProductDependency section */
