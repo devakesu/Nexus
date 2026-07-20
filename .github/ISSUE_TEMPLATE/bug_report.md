@@ -1,9 +1,10 @@
 ---
 name: Bug Report
 about: File a bug report to help us improve Nexus
-title: '[BUG] '
-labels: ['bug', 'triage']
+title: "[BUG] "
+labels: bug, enhancement
 assignees: ''
+
 ---
 
 ## Describe the Bug
