@@ -16,6 +16,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 permissions: {}
+
 jobs:
   # Initial repository check guard
   guard:
@@ -38,7 +39,7 @@ jobs:
 
   # Build, sign, and push Docker images
   build-and-release:
-    name: Build & Release
+    name: Build & Release Backend
     needs: guard
     runs-on: ubuntu-latest
     permissions:
@@ -49,9 +50,20 @@ jobs:
     outputs:
       image_digest: ${{ steps.build-push.outputs.digest }}
       platforms: ${{ steps.prep.outputs.platforms }}
+      app_version: ${{ steps.version.outputs.app_version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
@@ -63,63 +75,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Infisical CLI
+        run: |
+          curl -1sLf 'https://dl.cloudsmith.io/public/infisical/cli/setup.deb.sh' | sudo -E bash
+          sudo apt-get update && sudo apt-get install -y infisical
+
+      - name: Fetch Public Secrets from Infisical to .env
+        env:
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+        run: |
+          infisical export --projectId=2c94b0e4-559c-46a3-833c-1cb66f59c842 --env=prod --path=/public --format=dotenv > .env
+          echo "APP_VERSION=${APP_VERSION}" >> .env
+
       - name: Prepare derived values
         id: prep
         env:
           REPO: ${{ github.repository }}
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          # Set APP_DOMAIN with validation; avoid silent localhost fallback for real releases
-          APP_DOMAIN="${{ env.NEXT_PUBLIC_APP_DOMAIN || vars.NEXT_PUBLIC_APP_DOMAIN }}"
-          if [ -z "$APP_DOMAIN" ] || [ "$APP_DOMAIN" = "null" ]; then
-            if [ "${{ env.ALLOW_APP_DOMAIN_LOCALHOST_FALLBACK || vars.ALLOW_APP_DOMAIN_LOCALHOST_FALLBACK }}" != "true" ]; then
-              echo "::warning::NEXT_PUBLIC_APP_DOMAIN (repo variable) is not configured. Falling back to APP_DOMAIN=localhost."
-              echo "::warning::To explicitly allow this fallback without warnings, set vars.ALLOW_APP_DOMAIN_LOCALHOST_FALLBACK=true."
-            fi
-            APP_DOMAIN="localhost"
-          fi
-          echo "APP_DOMAIN=${APP_DOMAIN}" >> $GITHUB_ENV
-
-          # Derive BACKEND_URL if not set
-          BACKEND_URL="${{ env.NEXT_PUBLIC_BACKEND_URL || vars.NEXT_PUBLIC_BACKEND_URL }}"
-          if [ -z "$BACKEND_URL" ] || [ "$BACKEND_URL" = "null" ]; then
-             if [ "$APP_DOMAIN" = "localhost" ]; then
-               BACKEND_URL="http://localhost:3000"
-             else
-               BACKEND_URL="https://${APP_DOMAIN}"
-             fi
-          fi
-          echo "BACKEND_URL=${BACKEND_URL}" >> $GITHUB_ENV
           IMAGE_NAME=$(echo "$REPO" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-
-          # Debug: Show what will be used
-          echo "🐳 Image name: ${IMAGE_NAME}"
-          echo "   Full path: ghcr.io/${REPO_OWNER}/${IMAGE_NAME}"
 
           # Determine build platforms
           if [ "${{ github.event_name }}" == "push" ]; then
             PLATFORMS="linux/amd64"
-            echo "📦 Main push detected - building amd64 only"
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.build_arm64 }}" == "true" ]; then
               PLATFORMS="linux/amd64,linux/arm64"
-              echo "📦 Manual dispatch with ARM64 enabled"
             else
               PLATFORMS="linux/amd64"
-              echo "📦 Manual dispatch - AMD64 only (faster build)"
             fi
           else
             PLATFORMS="linux/amd64"
           fi
           echo "platforms=${PLATFORMS}" >> $GITHUB_OUTPUT
-          echo "  Build platforms: ${PLATFORMS}"
 
-          echo "app_url=https://${APP_DOMAIN}" >> $GITHUB_OUTPUT
-          echo "sitemap_url=https://${APP_DOMAIN}/sitemap.xml" >> $GITHUB_OUTPUT
-          echo "app_email=@${APP_DOMAIN}" >> $GITHUB_OUTPUT
-          echo "legal_email=legal@${APP_DOMAIN}" >> $GITHUB_OUTPUT
-          
           TIMESTAMP="${{ github.event.head_commit.timestamp }}"
           if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" == "null" ]; then
             TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -136,54 +127,16 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ env.NEXT_PUBLIC_APP_VERSION || vars.NEXT_PUBLIC_APP_VERSION || 'latest' }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ steps.version.outputs.app_version }}
             ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:latest
-          secrets: |
-            sentry_token=${{ env.SENTRY_AUTH_TOKEN || secrets.SENTRY_AUTH_TOKEN }}
           platforms: ${{ steps.prep.outputs.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            APP_COMMIT_SHA=${{ github.sha }}
-            SOURCE_DATE_EPOCH=${{ steps.prep.outputs.source_date_epoch }}
-            NEXT_PUBLIC_BACKEND_URL=${{ env.NEXT_PUBLIC_BACKEND_URL || vars.NEXT_PUBLIC_BACKEND_URL }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL || vars.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-            NEXT_PUBLIC_SUPABASE_CF_PROXY_URL=${{ env.NEXT_PUBLIC_SUPABASE_CF_PROXY_URL || vars.NEXT_PUBLIC_SUPABASE_CF_PROXY_URL }}
-            NEXT_PUBLIC_SUPABASE_AWS_PROXY_URL=${{ env.NEXT_PUBLIC_SUPABASE_AWS_PROXY_URL || vars.NEXT_PUBLIC_SUPABASE_AWS_PROXY_URL }}
-            NEXT_PUBLIC_GITHUB_URL=${{ env.NEXT_PUBLIC_GITHUB_URL || vars.NEXT_PUBLIC_GITHUB_URL }}
-            NEXT_PUBLIC_SENTRY_DSN=${{ env.NEXT_PUBLIC_SENTRY_DSN || vars.NEXT_PUBLIC_SENTRY_DSN }}
-            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
-            NEXT_PUBLIC_GA_ID=${{ env.NEXT_PUBLIC_GA_ID || vars.NEXT_PUBLIC_GA_ID }}
-            NEXT_PUBLIC_ANDROID_PACKAGE_NAME=${{ env.NEXT_PUBLIC_ANDROID_PACKAGE_NAME || vars.NEXT_PUBLIC_ANDROID_PACKAGE_NAME }}
-            SENTRY_ORG=${{ env.SENTRY_ORG || vars.SENTRY_ORG }}
-            SENTRY_PROJECT=${{ env.SENTRY_PROJECT || vars.SENTRY_PROJECT }}
-            NEXT_PUBLIC_APP_NAME=${{ env.NEXT_PUBLIC_APP_NAME || vars.NEXT_PUBLIC_APP_NAME }}
-            NEXT_PUBLIC_APP_VERSION=${{ env.NEXT_PUBLIC_APP_VERSION || vars.NEXT_PUBLIC_APP_VERSION || 'latest' }}
-            MIN_APP_VERSION=${{ env.MIN_APP_VERSION || vars.MIN_APP_VERSION || 'latest' }}
-            NEXT_PUBLIC_APP_DOMAIN=${{ env.NEXT_PUBLIC_APP_DOMAIN || vars.NEXT_PUBLIC_APP_DOMAIN }}
-            NEXT_PUBLIC_AUTHOR_NAME=${{ env.NEXT_PUBLIC_AUTHOR_NAME || vars.NEXT_PUBLIC_AUTHOR_NAME }}
-            NEXT_PUBLIC_AUTHOR_URL=${{ env.NEXT_PUBLIC_AUTHOR_URL || vars.NEXT_PUBLIC_AUTHOR_URL }}
-            NEXT_PUBLIC_APP_URL=${{ steps.prep.outputs.app_url }}
-            NEXT_PUBLIC_SITEMAP_URL=${{ steps.prep.outputs.sitemap_url }}
-            NEXT_PUBLIC_APP_EMAIL=${{ steps.prep.outputs.app_email }}
-            NEXT_PUBLIC_LEGAL_EMAIL=${{ steps.prep.outputs.legal_email }}
-            NEXT_PUBLIC_DONATE_URL=${{ env.NEXT_PUBLIC_DONATE_URL || vars.NEXT_PUBLIC_DONATE_URL }}
-            NEXT_PUBLIC_DEFAULT_DOMAIN=${{ env.NEXT_PUBLIC_DEFAULT_DOMAIN || vars.NEXT_PUBLIC_DEFAULT_DOMAIN }}
-            NEXT_PUBLIC_ATTENDANCE_TARGET_MIN=${{ env.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN || vars.NEXT_PUBLIC_ATTENDANCE_TARGET_MIN }}
-            NEXT_PUBLIC_SENTRY_REPLAY_RATE=${{ env.NEXT_PUBLIC_SENTRY_REPLAY_RATE || vars.NEXT_PUBLIC_SENTRY_REPLAY_RATE }}
-            NEXT_PUBLIC_FORCE_STRICT_CSP=${{ env.NEXT_PUBLIC_FORCE_STRICT_CSP || vars.NEXT_PUBLIC_FORCE_STRICT_CSP }}
-            GITHUB_REPOSITORY=${{ github.repository }}
-            GITHUB_RUN_ID=${{ github.run_id }}
-            GITHUB_RUN_NUMBER=${{ github.run_number }}
-            BUILD_TIMESTAMP=${{ steps.prep.outputs.created }}
-            AUDIT_STATUS=PASSED
-            SIGNATURE_STATUS=SLSA_PROVENANCE_GENERATED
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.created=${{ steps.prep.outputs.created }}
-            org.opencontainers.image.version=${{ env.NEXT_PUBLIC_APP_VERSION || vars.NEXT_PUBLIC_APP_VERSION || 'latest' }}
+            org.opencontainers.image.version=${{ steps.version.outputs.app_version }}
 
       # Attest build provenance
       - name: Attest Build Provenance
@@ -201,8 +154,6 @@ jobs:
           set -euo pipefail
 
           echo "=== Downloading SLSA Provenance Attestation ==="
-
-          # Retry logic: attestation may take a moment to be available
           MAX_ATTEMPTS=5
           ATTEMPT=1
           SLEEP_TIME=10
@@ -223,19 +174,15 @@ jobs:
               if [ -n "$DIGEST_FILE" ]; then
                 mv "$DIGEST_FILE" provenance.intoto.jsonl
                 echo "✓ SLSA provenance attestation downloaded successfully"
-                ls -lh provenance.intoto.jsonl
                 exit 0
               else
-                echo "⚠ Could not find downloaded attestation file"
-                echo "Current directory contents:"
-                ls -la
                 echo "Waiting ${SLEEP_TIME}s before retry..."
                 sleep $SLEEP_TIME
                 ATTEMPT=$((ATTEMPT + 1))
                 continue
               fi
             else
-              echo "⚠ Download failed, waiting ${SLEEP_TIME}s before retry..."
+              echo "Waiting ${SLEEP_TIME}s before retry..."
               sleep $SLEEP_TIME
               ATTEMPT=$((ATTEMPT + 1))
             fi
@@ -273,5 +220,471 @@ jobs:
       - name: Sign the published Docker image
         env:
           COSIGN_YES: "true"
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
         run: |
-          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}"
+          timeout 300 cosign sign \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.ref }}" \
+            -a "version=${{ steps.version.outputs.app_version }}" \
+            "${IMAGE_URI}"
+
+      - name: Verify image signature
+        env:
+          IMAGE_URI: ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}@${{ steps.build-push.outputs.digest }}
+        run: |
+          cosign verify \
+            --certificate-identity-regexp="^https://github.com/${{ github.repository }}/.github/workflows/" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE_URI}"
+
+      # Sign SBOM file
+      - name: Sign SBOM artifact
+        run: |
+          timeout 60 cosign sign-blob --yes \
+            --bundle sbom.json.bundle \
+            sbom.json
+
+      # Generate SHA256 checksums
+      - name: Generate checksums
+        run: |
+          echo "# Release Artifact Checksums" > checksums.txt
+          echo "" >> checksums.txt
+          sha256sum sbom.json >> checksums.txt
+          sha256sum sbom.json.bundle >> checksums.txt
+          sha256sum provenance.intoto.jsonl >> checksums.txt
+
+      # Upload artifacts
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45b531
+        with:
+          name: web-release-artifacts
+          path: |
+            sbom.json
+            sbom.json.bundle
+            checksums.txt
+            provenance.intoto.jsonl
+
+  # Build mobile Flutter application for nexus and mec flavors
+  build-mobile:
+    name: Build Flutter App
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_S3_PRIVATE_BUCKET: ${{ secrets.AWS_S3_PRIVATE_BUCKET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
+
+      - name: Set up Java
+        uses: actions/setup-java@b622de1dfa918ecc0ab28f40cd42e3c3752cd6c5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: ./.github/actions/flutter-action
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Install Infisical CLI
+        run: |
+          curl -1sLf 'https://dl.cloudsmith.io/public/infisical/cli/setup.deb.sh' | sudo -E bash
+          sudo apt-get update && sudo apt-get install -y infisical
+
+      - name: Export Secrets
+        id: secrets
+        env:
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+
+          # Export public secrets to GitHub Env
+          eval $(infisical export --projectId=2c94b0e4-559c-46a3-833c-1cb66f59c842 --env=prod --path=/public --format=export-env)
+
+          # Pass to GITHUB_ENV so they persist across steps
+          echo "APP_DOMAIN=$APP_DOMAIN" >> $GITHUB_ENV
+          echo "GOOGLE_PLACES_API_KEY=$GOOGLE_PLACES_API_KEY" >> $GITHUB_ENV
+          echo "GOOGLE_IOS_CLIENT_ID_NEXUS=$GOOGLE_IOS_CLIENT_ID_NEXUS" >> $GITHUB_ENV
+          echo "GOOGLE_IOS_CLIENT_ID_NEXUS_MEC=$GOOGLE_IOS_CLIENT_ID_NEXUS_MEC" >> $GITHUB_ENV
+          echo "SUPABASE_URL=$SUPABASE_URL" >> $GITHUB_ENV
+          echo "SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" >> $GITHUB_ENV
+          echo "GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID" >> $GITHUB_ENV
+          echo "SPOTIFY_CLIENT_ID=$SPOTIFY_CLIENT_ID" >> $GITHUB_ENV
+          echo "SPOTIFY_REDIRECT_URI_NEXUS=$SPOTIFY_REDIRECT_URI_NEXUS" >> $GITHUB_ENV
+          echo "SPOTIFY_REDIRECT_URI_NEXUS_MEC=$SPOTIFY_REDIRECT_URI_NEXUS_MEC" >> $GITHUB_ENV
+          echo "SENTRY_FLUTTER_DSN=$SENTRY_FLUTTER_DSN" >> $GITHUB_ENV
+
+      - name: Prepare Android signing key
+        working-directory: mobile/android
+        run: |
+          set -euo pipefail
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > nexus-release.jks
+            cat > key.properties << EOF
+            storePassword=${ANDROID_KEYSTORE_PASSWORD}
+            keyPassword=${ANDROID_KEY_PASSWORD}
+            keyAlias=${ANDROID_KEY_ALIAS}
+            storeFile=nexus-release.jks
+            EOF
+            chmod 600 key.properties nexus-release.jks
+            echo "✓ Configured dynamic signing keystore from Infisical /ci"
+          else
+            echo "Using checked-in keys"
+          fi
+
+      - name: Prepare google-services.json
+        working-directory: mobile/android
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            mkdir -p app
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+            echo "✓ Recreated app/google-services.json"
+          else
+            echo "Using checked-in google-services.json"
+          fi
+
+      - name: Build Mobile Flavors
+        env:
+          BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          BACKEND_URL="${BACKEND_URL:-https://$APP_DOMAIN}"
+          BUILD_TIME="${BUILD_TIMESTAMP:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+
+          # Write mapsApiKey to local.properties
+          echo "mapsApiKey=$GOOGLE_PLACES_API_KEY" > mobile/android/local.properties
+
+          mkdir -p mobile/release-assets
+          mkdir -p mobile/play-console-assets
+
+          for FLAVOR in nexus mec; do
+            echo "=== Building Flavor: ${FLAVOR} ==="
+            
+            # APK
+            cd mobile
+            flutter build apk --release --flavor $FLAVOR \
+              --obfuscate \
+              --split-debug-info=build/debug-info \
+              --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
+              --build-name="${{ steps.version.outputs.version }}" \
+              --build-number="${{ github.run_number }}" \
+              --dart-define=APP_VERSION="$APP_VERSION" \
+              --dart-define=APP_COMMIT_SHA=${{ github.sha }} \
+              --dart-define=BUILD_TIMESTAMP=${BUILD_TIME} \
+              --dart-define=GITHUB_RUN_ID=${{ github.run_id }} \
+              --dart-define=GITHUB_RUN_NUMBER=${{ github.run_number }} \
+              --dart-define=APP_DOMAIN="${APP_DOMAIN}" \
+              --dart-define=BACKEND_URL="${BACKEND_URL}" \
+              --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="${GOOGLE_IOS_CLIENT_ID_NEXUS:-}" \
+              --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS_MEC="${GOOGLE_IOS_CLIENT_ID_NEXUS_MEC:-}" \
+              --dart-define=SUPABASE_URL="${SUPABASE_URL:-}" \
+              --dart-define=SUPABASE_PUBLISHABLE_KEY="${SUPABASE_PUBLISHABLE_KEY:-}" \
+              --dart-define=GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}" \
+              --dart-define=SPOTIFY_CLIENT_ID="${SPOTIFY_CLIENT_ID:-}" \
+              --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="${SPOTIFY_REDIRECT_URI_NEXUS:-}" \
+              --dart-define=SPOTIFY_REDIRECT_URI_NEXUS_MEC="${SPOTIFY_REDIRECT_URI_NEXUS_MEC:-}" \
+              --dart-define=SENTRY_FLUTTER_DSN="${SENTRY_FLUTTER_DSN:-}" \
+              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
+
+            # App Bundle
+            flutter build appbundle --release --flavor $FLAVOR \
+              --obfuscate \
+              --split-debug-info=build/debug-info \
+              --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
+              --build-name="${{ steps.version.outputs.version }}" \
+              --build-number="${{ github.run_number }}" \
+              --dart-define=APP_VERSION="$APP_VERSION" \
+              --dart-define=APP_COMMIT_SHA=${{ github.sha }} \
+              --dart-define=BUILD_TIMESTAMP=${BUILD_TIME} \
+              --dart-define=GITHUB_RUN_ID=${{ github.run_id }} \
+              --dart-define=GITHUB_RUN_NUMBER=${{ github.run_number }} \
+              --dart-define=APP_DOMAIN="${APP_DOMAIN}" \
+              --dart-define=BACKEND_URL="${BACKEND_URL}" \
+              --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="${GOOGLE_IOS_CLIENT_ID_NEXUS:-}" \
+              --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS_MEC="${GOOGLE_IOS_CLIENT_ID_NEXUS_MEC:-}" \
+              --dart-define=SUPABASE_URL="${SUPABASE_URL:-}" \
+              --dart-define=SUPABASE_PUBLISHABLE_KEY="${SUPABASE_PUBLISHABLE_KEY:-}" \
+              --dart-define=GOOGLE_WEB_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-}" \
+              --dart-define=SPOTIFY_CLIENT_ID="${SPOTIFY_CLIENT_ID:-}" \
+              --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="${SPOTIFY_REDIRECT_URI_NEXUS:-}" \
+              --dart-define=SPOTIFY_REDIRECT_URI_NEXUS_MEC="${SPOTIFY_REDIRECT_URI_NEXUS_MEC:-}" \
+              --dart-define=SENTRY_FLUTTER_DSN="${SENTRY_FLUTTER_DSN:-}" \
+              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
+
+            # Upload debug symbols and obfuscation maps to Sentry
+            echo "=== Uploading Sentry Symbols & Source Maps ==="
+            dart run sentry_dart_plugin
+
+            cd ..
+
+            # Dynamic SBOM
+            npx --yes @cyclonedx/cdxgen -t dart --no-install-deps -o mobile/release-assets/${FLAVOR}-sbom.json mobile
+
+            # Attest build provenance
+            uses_apk_prov=$(gh attestation verify mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk --owner ${{ github.repository_owner }} 2>/dev/null || true)
+            
+            # Generate SBOM & provenance checksums
+            cp mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk mobile/release-assets/${FLAVOR}-android-v${{ steps.version.outputs.version }}.apk
+            cp mobile/build/app/outputs/bundle/${FLAVOR}Release/app-${FLAVOR}-release.aab mobile/play-console-assets/${FLAVOR}-app-release.aab
+          done
+
+      - name: Attest APKs
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
+        with:
+          subject-path: |
+            mobile/release-assets/nexus-android-v${{ steps.version.outputs.version }}.apk
+            mobile/release-assets/mec-android-v${{ steps.version.outputs.version }}.apk
+
+      - name: Attest AABs
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32
+        with:
+          subject-path: |
+            mobile/play-console-assets/nexus-app-release.aab
+            mobile/play-console-assets/mec-app-release.aab
+
+      - name: Assemble Mobile Release checksums
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          cd release-assets
+          {
+            echo "# Mobile Release Checksums"
+            echo ""
+            sha256sum nexus-android-v${{ steps.version.outputs.version }}.apk
+            sha256sum mec-android-v${{ steps.version.outputs.version }}.apk
+            sha256sum nexus-sbom.json
+            sha256sum mec-sbom.json
+            echo ""
+            echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          } > mobile-checksums.txt
+
+      - name: Upload mobile APK artifacts
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45b531
+        with:
+          name: mobile-apk-artifacts
+          path: |
+            mobile/release-assets/*.apk
+
+      - name: Upload mobile security metadata artifacts
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45b531
+        with:
+          name: mobile-release-artifacts
+          path: |
+            mobile/release-assets/nexus-sbom.json
+            mobile/release-assets/mec-sbom.json
+            mobile/release-assets/mobile-checksums.txt
+
+      - name: Upload Play Console internal assets to Private S3 Storage
+        working-directory: mobile/play-console-assets
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          AWS_S3_PRIVATE_BUCKET: ${{ secrets.AWS_S3_PRIVATE_BUCKET || vars.AWS_S3_PRIVATE_BUCKET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${AWS_S3_PRIVATE_BUCKET:-}" ]; then
+            echo "::warning::AWS_S3_PRIVATE_BUCKET is not configured. Internal artifacts (.aab) will not be archived to cloud storage."
+            exit 0
+          fi
+
+          echo "Uploading private internal release assets to s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ steps.version.outputs.version }}/"
+          aws s3 cp . "s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ steps.version.outputs.version }}/" --recursive
+          echo "✓ Internal artifacts securely archived to private S3 bucket"
+
+  # Create GitHub Release with artifacts
+  create-github-release:
+    name: Create GitHub Release
+    needs: [build-and-release, build-mobile]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          if [[ "${APP_VERSION}" != v* ]]; then
+            VERSION_TAG="v${APP_VERSION}"
+          else
+            VERSION_TAG="${APP_VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download web artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ca6fa739
+        with:
+          name: web-release-artifacts
+          path: ./artifacts/web
+
+      - name: Download mobile APK artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ca6fa739
+        with:
+          name: mobile-apk-artifacts
+          path: ./artifacts/mobile
+
+      - name: Download mobile metadata artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372ca6fa739
+        with:
+          name: mobile-release-artifacts
+          path: ./artifacts/mobile
+
+      - name: Verify checksums
+        run: |
+          echo "=== Verification Checksums ==="
+          cat ./artifacts/web/checksums.txt
+          echo ""
+          cat ./artifacts/mobile/mobile-checksums.txt
+
+      - name: Calculate previous version for changelog
+        id: prev_version
+        env:
+          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+        run: |
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$' | grep -v "^${VERSION_TAG}$" | head -n1 || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            PREV_REF=$(git rev-list --max-parents=0 HEAD)
+            echo "changelog_text=${PREV_REF}...${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "changelog_text=${PREV_TAG}...${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate verification instructions
+        env:
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+          DIGEST: ${{ needs.build-and-release.outputs.image_digest }}
+          VERSION: ${{ steps.version.outputs.app_version }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
+
+          cat > ./artifacts/VERIFY.md << EOF
+          # Release Verification Instructions
+
+          This release includes signed web and mobile artifacts with attestations for supply chain security.
+
+          ## Verify Docker Image Signature
+          \`\`\`bash
+          cosign verify \\
+            --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \\
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
+            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+          \`\`\`
+
+          ## Verify Build Attestation
+          \`\`\`bash
+          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
+          \`\`\`
+
+          ## Verify SBOM Signature
+          \`\`\`bash
+          cosign verify-blob --bundle sbom.json.bundle sbom.json
+          \`\`\`
+
+          ## Verify Checksums
+          \`\`\`bash
+          sha256sum -c checksums.txt
+          sha256sum -c mobile-checksums.txt
+          \`\`\`
+
+          ## Verify Mobile APKs
+          \`\`\`bash
+          gh attestation verify nexus-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
+          gh attestation verify mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
+          \`\`\`
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          DIGEST: ${{ needs.build-and-release.outputs.image_digest }}
+          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          SERVER_URL: ${{ github.server_url }}
+          CHANGELOG_TEXT: ${{ steps.prev_version.outputs.changelog_text }}
+          PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
+          PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
+
+          gh release create "${VERSION_TAG}" \
+            --title "Release ${VERSION_TAG}" \
+            --latest \
+            --notes "## Release ${VERSION_TAG}
+
+          This release includes:
+          - 🐳 Docker image for backend (${PLATFORM_LIST})
+          - 📱 Flutter Android APKs (nexus and mec flavors)
+          - 🔐 Signed images and artifacts using cosign
+          - 📋 Software Bill of Materials (SBOM) in CycloneDX format
+          - ✅ Build provenance attestations
+          - 🔍 SHA256 checksums for all artifacts
+
+          ### Docker Images
+          \`\`\`bash
+          docker pull ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+          \`\`\`
+          **Image Digest**: \`${DIGEST}\`
+
+          ### Verification
+          See [VERIFY.md](https://github.com/${REPOSITORY}/releases/download/${VERSION_TAG}/VERIFY.md) for detailed verification instructions.
+
+          ---
+          **Full Changelog**: ${SERVER_URL}/${REPOSITORY}/compare/${CHANGELOG_TEXT}" \
+            ./artifacts/web/sbom.json \
+            ./artifacts/web/sbom.json.bundle \
+            ./artifacts/web/checksums.txt \
+            ./artifacts/VERIFY.md \
+            ./artifacts/web/provenance.intoto.jsonl \
+            ./artifacts/mobile/nexus-android-v${{ steps.version.outputs.version }}.apk \
+            ./artifacts/mobile/mec-android-v${{ steps.version.outputs.version }}.apk \
+            ./artifacts/mobile/nexus-sbom.json \
+            ./artifacts/mobile/mec-sbom.json \
+            ./artifacts/mobile/mobile-checksums.txt \
+            --draft=false

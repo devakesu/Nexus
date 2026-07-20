@@ -16,7 +16,6 @@ import 'package:nexus/utils/network_utils.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -55,7 +54,6 @@ class _FeedbackPageState extends State<FeedbackPage> {
   final List<_PendingAttachment> _attachments = [];
 
   bool _submitting = false;
-  PackageInfo? _packageInfo;
 
   bool _loadingTickets = true;
   List<FeedbackTicketSummary> _recentTickets = [];
@@ -64,13 +62,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   void initState() {
     super.initState();
     _dio = createDio();
-    unawaited(_loadPackageInfo());
     unawaited(_loadRecentTickets());
-  }
-
-  Future<void> _loadPackageInfo() async {
-    final info = await PackageInfo.fromPlatform();
-    if (mounted) setState(() => _packageInfo = info);
   }
 
   Future<void> _loadRecentTickets() async {
@@ -243,9 +235,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         .toList();
 
     try {
-      final appVersion = _packageInfo != null
-          ? '${_packageInfo!.version}+${_packageInfo!.buildNumber}'
-          : null;
+      final appVersion = AppConfig.current.appVersion;
       final platform = Platform.isIOS ? 'ios' : 'android';
 
       final githubUrl = _githubUrlController.text.trim();

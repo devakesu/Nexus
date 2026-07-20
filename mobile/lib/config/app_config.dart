@@ -26,6 +26,7 @@ class AppConfig {
     required this.spotifyNativeRedirectUri,
     required this.sentryDsn,
     required this.googlePlacesApiKey,
+    required this.appVersion,
   });
 
   final String supabaseUrl;
@@ -49,6 +50,8 @@ class AppConfig {
 
   /// Google Places API key (unrestricted by application signature for HTTP calls).
   final String googlePlacesApiKey;
+
+  final String appVersion;
 
   /// Which flavor this config profile represents.
   final AppVariant appVariant;
@@ -105,6 +108,10 @@ class AppConfig {
   static const String _googlePlacesApiKey = String.fromEnvironment(
     'GOOGLE_PLACES_API_KEY',
   );
+  static const String _appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '1.0.0',
+  );
 
   static const AppConfig nexus = AppConfig(
     supabaseUrl: _supabaseUrl,
@@ -119,6 +126,7 @@ class AppConfig {
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
     sentryDsn: _sentryFlutterDsn,
     googlePlacesApiKey: _googlePlacesApiKey,
+    appVersion: _appVersion,
   );
 
   static const AppConfig mec = AppConfig(
@@ -134,6 +142,7 @@ class AppConfig {
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexusMec,
     sentryDsn: _sentryFlutterDsn,
     googlePlacesApiKey: _googlePlacesApiKey,
+    appVersion: _appVersion,
   );
 
   /// OTP code length for email/phone verification. Must match the "OTP

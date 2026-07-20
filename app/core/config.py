@@ -1,7 +1,48 @@
 from typing import Any, Literal, TypeAlias, cast
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+# Keys that must NOT be loaded from .env/statically under any circumstances.
+# They are only allowed to be loaded from the runtime environment.
+BLOCKED_DOTENV_KEYS: set[str] = {
+    "redis_url",
+    "pii_encryption_key",
+    "blind_index_key",
+    "supabase_service_role_key",
+    "supabase_jwt_secret",
+    "firebase_service_account",
+    "spotify_client_secret",
+    "brevo_api_key",
+    "sendpulse_client_id",
+    "sendpulse_client_secret",
+    "twilio_account_sid",
+    "twilio_auth_token",
+    "twilio_from_number",
+    "sentry_backend_dsn",
+    "enable_rate_limiting",
+    "enable_replay_protection",
+    "enforce_app_check",
+    "rate_limit_account_deletion",
+    "rate_limit_account_deletion_otp",
+    "rate_limit_account_phone_otp",
+    "rate_limit_auth",
+    "rate_limit_data_export",
+    "rate_limit_data_export_otp",
+    "rate_limit_discover",
+    "rate_limit_feedback",
+    "rate_limit_health",
+    "rate_limit_login_by_phone",
+    "rate_limit_safety",
+    "rate_limit_safety_portal",
+    "rate_limit_spotify",
+    "rate_limit_spotify_resync",
+}
 
 DiscoveryTab: TypeAlias = Literal["Dating", "Friends", "Professional"]
 
@@ -25,6 +66,7 @@ class Settings(BaseSettings):
 
     # --- General / Application Settings ---
     app_name: str = "Nexus Orbit"
+    app_version: str = "1.0.0"
     debug: bool = False
     # Public scheme+host this API is reachable at, e.g. https://api.yourdomain.com.
     # Needed to build the trusted-contact escalation-cancel link sent by the
@@ -243,9 +285,42 @@ class Settings(BaseSettings):
         return self
 
     model_config = SettingsConfigDict(
-        env_file=None,
+        env_file=".env",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        class FilteredDotenvSource(PydanticBaseSettingsSource):
+            def get_field_value(
+                self,
+                field: FieldInfo,
+                field_name: str,
+            ) -> tuple[Any, str, bool]:
+                if field_name in BLOCKED_DOTENV_KEYS:
+                    return None, field_name, False
+                return dotenv_settings.get_field_value(field, field_name)
+
+            def __call__(self) -> dict[str, Any]:
+                raw_data = dotenv_settings()
+                return {
+                    k: v for k, v in raw_data.items()
+                    if k not in BLOCKED_DOTENV_KEYS
+                }
+
+        return (
+            init_settings,
+            env_settings,
+            FilteredDotenvSource(settings_cls),
+            file_secret_settings,
+        )
 
 
 try:
