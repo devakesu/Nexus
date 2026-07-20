@@ -140,8 +140,9 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: (isMine ? Colors.white : primaryThemeColor)
-                    .withValues(alpha: 0.15),
+                color: (isMine ? Colors.white : primaryThemeColor).withValues(
+                  alpha: 0.15,
+                ),
               ),
               child: _loading
                   ? Padding(
@@ -156,13 +157,16 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
                       builder: (context, snapshot) {
                         final state = snapshot.data;
                         final playing = state?.playing ?? false;
-                        final completed = state?.processingState == ProcessingState.completed;
+                        final completed =
+                            state?.processingState == ProcessingState.completed;
                         final showPause = _ready && playing && !completed;
 
                         return Icon(
                           _failed
                               ? LucideIcons.triangleAlert
-                              : (showPause ? LucideIcons.pause : LucideIcons.play),
+                              : (showPause
+                                    ? LucideIcons.pause
+                                    : LucideIcons.play),
                           color: isMine ? Colors.white : primaryThemeColor,
                           size: 18,
                         );
@@ -187,7 +191,8 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
                             milliseconds: widget.pointer.durationMs ?? 0,
                           );
                       final progress = total.inMilliseconds > 0
-                          ? (position.inMilliseconds / total.inMilliseconds).clamp(0.0, 1.0)
+                          ? (position.inMilliseconds / total.inMilliseconds)
+                                .clamp(0.0, 1.0)
                           : 0.0;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +236,23 @@ class StaticVoiceWaveform extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heights = [10.0, 16.0, 12.0, 22.0, 8.0, 18.0, 14.0, 24.0, 10.0, 16.0, 12.0, 20.0, 6.0, 14.0, 10.0];
+    final heights = [
+      10.0,
+      16.0,
+      12.0,
+      22.0,
+      8.0,
+      18.0,
+      14.0,
+      24.0,
+      10.0,
+      16.0,
+      12.0,
+      20.0,
+      6.0,
+      14.0,
+      10.0,
+    ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(heights.length, (index) {
@@ -241,9 +262,7 @@ class StaticVoiceWaveform extends StatelessWidget {
           width: 3,
           height: heights[index],
           decoration: BoxDecoration(
-            color: isPlayed
-                ? color
-                : color.withValues(alpha: 0.25),
+            color: isPlayed ? color : color.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(1.5),
           ),
         );

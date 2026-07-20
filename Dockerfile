@@ -23,7 +23,8 @@ COPY . .
 COPY mocks/Nexus_Engine/engine.py /app/Nexus_Engine/engine.py
 
 # Create a non-root user and set ownership
-RUN groupadd -g 10001 appgroup && \
+RUN chmod +x /app/entrypoint.sh && \
+    groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /sbin/nologin -c "Nexus User" appuser && \
     chown -R appuser:appgroup /app
 
@@ -33,6 +34,8 @@ EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl --fail --silent --show-error http://127.0.0.1:8000/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Wrap the start command with Infisical CLI to dynamically fetch runtime secrets into memory at boot time.
 CMD ["sh", "-c", "exec infisical run --projectId \"${INFISICAL_PROJECT_ID}\" --path /runtime --env prod -- uvicorn app.main:app --host 0.0.0.0 --port 8000"]

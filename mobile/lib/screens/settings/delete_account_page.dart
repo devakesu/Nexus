@@ -545,7 +545,10 @@ class _InfoSection extends StatelessWidget {
         TextSpan(
           text: parts[i],
           style: isBold
-              ? baseStyle.copyWith(fontWeight: FontWeight.bold, color: AppColors.ink)
+              ? baseStyle.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.ink,
+                )
               : baseStyle,
         ),
       );

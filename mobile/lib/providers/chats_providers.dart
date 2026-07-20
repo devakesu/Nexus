@@ -192,7 +192,6 @@ class HasUnreadMessages extends _$HasUnreadMessages {
 
   Future<bool> _fetch(String userId) async {
     try {
-
       final res = await Supabase.instance.client
           .from('chat_messages')
           .select('id')

@@ -184,83 +184,248 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
           // Campus Year / Student Status Section
           if (widget.savedCampusName.trim().isNotEmpty) ...[
             if (!widget.isStudying) ...[
-            GestureDetector(
-              onTap: () {
-                if (widget.savedCampusName.trim().isEmpty) {
-                  NexusToast.show(
-                    context,
-                    'Please enter your college/institute name first to set campus year.',
-                    type: NexusToastType.warning,
-                  );
-                  return;
-                }
-                if (!_isValidCampusName(widget.savedCampusName)) {
-                  NexusToast.show(
-                    context,
-                    'Institute name must contain at least three letters.',
-                    type: NexusToastType.error,
-                  );
-                  return;
-                }
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                });
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.08),
+              GestureDetector(
+                onTap: () {
+                  if (widget.savedCampusName.trim().isEmpty) {
+                    NexusToast.show(
+                      context,
+                      'Please enter your college/institute name first to set campus year.',
+                      type: NexusToastType.warning,
+                    );
+                    return;
+                  }
+                  if (!_isValidCampusName(widget.savedCampusName)) {
+                    NexusToast.show(
+                      context,
+                      'Institute name must contain at least three letters.',
+                      type: NexusToastType.error,
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      LucideIcons.graduationCap,
-                      color: Colors.black45,
-                      size: 18,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.08),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Currently Studying here?',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF0F172A),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.graduationCap,
+                        color: Colors.black45,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Currently Studying here?',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF0F172A),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
+                      Icon(
+                        _isExpanded
+                            ? LucideIcons.minusCircle
+                            : LucideIcons.plusCircle,
+                        color: AppColors.pulsarPink,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_isExpanded) ...[
+                const SizedBox(height: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CAMPUS YEAR',
+                      style: TextStyle(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                    Icon(
-                      _isExpanded
-                          ? LucideIcons.minusCircle
-                          : LucideIcons.plusCircle,
-                      color: AppColors.pulsarPink,
-                      size: 18,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(5, (index) {
+                        final yearOption = index + 1;
+                        final label =
+                            '${yearOption == 1
+                                ? "1st"
+                                : yearOption == 2
+                                ? "2nd"
+                                : yearOption == 3
+                                ? "3rd"
+                                : "${yearOption}th"} Year';
+
+                        return GestureDetector(
+                          onTap: () {
+                            if (widget.savedCampusName.trim().isEmpty) {
+                              NexusToast.show(
+                                context,
+                                'Please enter your college/institute name first to set campus year.',
+                                type: NexusToastType.warning,
+                              );
+                              return;
+                            }
+                            if (!_isValidCampusName(widget.savedCampusName)) {
+                              NexusToast.show(
+                                context,
+                                'Institute name must contain at least three letters.',
+                                type: NexusToastType.error,
+                              );
+                              return;
+                            }
+                            widget.onIsStudyingChanged(true);
+                            widget.onYearChanged(yearOption);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFF3F4F6),
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Text(
+                              label,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.black87,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ],
                 ),
+              ],
+            ] else ...[
+              // Studying Switch (Turn off only)
+              GestureDetector(
+                onTap: () {
+                  widget.onIsStudyingChanged(false);
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Current Student Status',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: const Color(0xFF0F172A),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Turn off to disable student status',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.black45,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Flat Switch (On state)
+                      Container(
+                        width: 44,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.primaryTeal,
+                        ),
+                        child: Stack(
+                          children: [
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                width: 18,
+                                height: 18,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                  vertical: 3,
+                                ),
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            if (_isExpanded) ...[
               const SizedBox(height: 16),
+
+              // Campus Year Segmented Selector
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'CAMPUS YEAR',
-                    style: TextStyle(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'CAMPUS YEAR',
+                        style: TextStyle(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      if (widget.isSavingCampusYear) ...[
+                        const SizedBox(width: 8),
+                        const NexusOrbitLoader(size: 20),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -268,6 +433,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                     runSpacing: 8,
                     children: List.generate(5, (index) {
                       final yearOption = index + 1;
+                      final isSelected = widget.year == yearOption;
                       final label =
                           '${yearOption == 1
                               ? "1st"
@@ -276,6 +442,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                               : yearOption == 3
                               ? "3rd"
                               : "${yearOption}th"} Year';
+                      const primaryColor = AppColors.primaryTeal;
 
                       return GestureDetector(
                         onTap: () {
@@ -295,7 +462,6 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                             );
                             return;
                           }
-                          widget.onIsStudyingChanged(true);
                           widget.onYearChanged(yearOption);
                         },
                         child: AnimatedContainer(
@@ -306,17 +472,23 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                           ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            color: const Color(0xFFF3F4F6),
+                            color: isSelected
+                                ? primaryColor
+                                : const Color(0xFFF3F4F6),
                             border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.08),
+                              color: isSelected
+                                  ? Colors.transparent
+                                  : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Text(
                             label,
                             style: GoogleFonts.plusJakartaSans(
-                              color: Colors.black87,
+                              color: isSelected ? Colors.white : Colors.black87,
                               fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                             ),
                           ),
                         ),
@@ -326,180 +498,8 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                 ],
               ),
             ],
-          ] else ...[
-            // Studying Switch (Turn off only)
-            GestureDetector(
-              onTap: () {
-                widget.onIsStudyingChanged(false);
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Current Student Status',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFF0F172A),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Turn off to disable student status',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: Colors.black45,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Flat Switch (On state)
-                    Container(
-                      width: 44,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: AppColors.primaryTeal,
-                      ),
-                      child: Stack(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 3,
-                                vertical: 3,
-                              ),
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Campus Year Segmented Selector
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'CAMPUS YEAR',
-                      style: TextStyle(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    if (widget.isSavingCampusYear) ...[
-                      const SizedBox(width: 8),
-                      const NexusOrbitLoader(size: 20),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List.generate(5, (index) {
-                    final yearOption = index + 1;
-                    final isSelected = widget.year == yearOption;
-                    final label =
-                        '${yearOption == 1
-                            ? "1st"
-                            : yearOption == 2
-                            ? "2nd"
-                            : yearOption == 3
-                            ? "3rd"
-                            : "${yearOption}th"} Year';
-                    const primaryColor = AppColors.primaryTeal;
-
-                    return GestureDetector(
-                      onTap: () {
-                        if (widget.savedCampusName.trim().isEmpty) {
-                          NexusToast.show(
-                            context,
-                            'Please enter your college/institute name first to set campus year.',
-                            type: NexusToastType.warning,
-                          );
-                          return;
-                        }
-                        if (!_isValidCampusName(widget.savedCampusName)) {
-                          NexusToast.show(
-                            context,
-                            'Institute name must contain at least three letters.',
-                            type: NexusToastType.error,
-                          );
-                          return;
-                        }
-                        widget.onYearChanged(yearOption);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: isSelected
-                              ? primaryColor
-                              : const Color(0xFFF3F4F6),
-                          border: Border.all(
-                            color: isSelected
-                                ? Colors.transparent
-                                : Colors.black.withValues(alpha: 0.08),
-                          ),
-                        ),
-                        child: Text(
-                          label,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: isSelected ? Colors.white : Colors.black87,
-                            fontSize: 12,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
-            ),
           ],
         ],
-      ],
       ),
     );
   }

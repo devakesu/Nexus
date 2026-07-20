@@ -429,7 +429,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   Future<void> _withdrawSpecialCategoryConsent() async {
     final confirmed = await _showConfirmWithdrawDialog(
       title: 'Withdraw Special Category Consent?',
-      description: 'This will clear your sexuality and religious beliefs on your profile, '
+      description:
+          'This will clear your sexuality and religious beliefs on your profile, '
           'hide these fields from public visibility, and re-lock these settings.',
       icon: LucideIcons.eyeOff,
       iconColor: AppColors.error,
@@ -517,7 +518,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   Future<void> _withdrawSafetyDataConsent() async {
     final confirmed = await _showConfirmWithdrawDialog(
       title: 'Withdraw Safety Data Consent?',
-      description: 'This will terminate any active safety or check-in session and disable '
+      description:
+          'This will terminate any active safety or check-in session and disable '
           'all meetup safety features.',
       icon: LucideIcons.shieldAlert,
       iconColor: AppColors.error,
@@ -590,7 +592,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     VoidCallback? onActionTap,
     bool isFirst = false,
   }) {
-    final isDestructive = actionLabel == 'Delete Account' || actionLabel == 'Withdraw Consent';
+    final isDestructive =
+        actionLabel == 'Delete Account' || actionLabel == 'Withdraw Consent';
     final isInteractive = onActionTap != null;
 
     return Column(
@@ -647,15 +650,22 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
               GestureDetector(
                 onTap: onActionTap,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: isInteractive
-                        ? (isDestructive ? const Color(0xFFFEF2F2) : const Color(0xFFF1F5F9))
+                        ? (isDestructive
+                              ? const Color(0xFFFEF2F2)
+                              : const Color(0xFFF1F5F9))
                         : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isInteractive
-                          ? (isDestructive ? const Color(0xFFFEE2E2) : const Color(0xFFE2E8F0))
+                          ? (isDestructive
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFE2E8F0))
                           : const Color(0xFFF1F5F9),
                     ),
                   ),
@@ -665,7 +675,9 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: isInteractive
-                          ? (isDestructive ? AppColors.error : const Color(0xFF475569))
+                          ? (isDestructive
+                                ? AppColors.error
+                                : const Color(0xFF475569))
                           : const Color(0xFF94A3B8),
                     ),
                   ),
@@ -732,28 +744,48 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       iconColor: const Color(0xFF64748B),
                       iconBgColor: const Color(0xFFF1F5F9),
                       title: 'General Terms & Policies',
-                      subtitle: 'Mandatory to use Nexus. Withdrawing requires account deletion.',
+                      subtitle:
+                          'Mandatory to use Nexus. Withdrawing requires account deletion.',
                       actionLabel: 'Delete Account',
-                      onActionTap: () => context.push('/settings/delete-account'),
+                      onActionTap: () =>
+                          context.push('/settings/delete-account'),
                       isFirst: true,
                     ),
                     _buildConsentTile(
                       icon: LucideIcons.heart,
-                      iconColor: _specialCategoryGranted ? AppColors.error : const Color(0xFF94A3B8),
-                      iconBgColor: _specialCategoryGranted ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                      iconColor: _specialCategoryGranted
+                          ? AppColors.error
+                          : const Color(0xFF94A3B8),
+                      iconBgColor: _specialCategoryGranted
+                          ? const Color(0xFFFEF2F2)
+                          : const Color(0xFFF8FAFC),
                       title: 'Sensitive Profile Data',
-                      subtitle: 'Consent for processing sexual orientation & religious beliefs.',
-                      actionLabel: _specialCategoryGranted ? 'Withdraw Consent' : 'Not Granted',
-                      onActionTap: _specialCategoryGranted ? _withdrawSpecialCategoryConsent : null,
+                      subtitle:
+                          'Consent for processing sexual orientation & religious beliefs.',
+                      actionLabel: _specialCategoryGranted
+                          ? 'Withdraw Consent'
+                          : 'Not Granted',
+                      onActionTap: _specialCategoryGranted
+                          ? _withdrawSpecialCategoryConsent
+                          : null,
                     ),
                     _buildConsentTile(
                       icon: LucideIcons.shieldAlert,
-                      iconColor: _safetyDataGranted ? AppColors.safetyBlue : const Color(0xFF94A3B8),
-                      iconBgColor: _safetyDataGranted ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+                      iconColor: _safetyDataGranted
+                          ? AppColors.safetyBlue
+                          : const Color(0xFF94A3B8),
+                      iconBgColor: _safetyDataGranted
+                          ? const Color(0xFFF0F9FF)
+                          : const Color(0xFFF8FAFC),
                       title: 'Meetup Safety & SOS Data',
-                      subtitle: 'Consent for location sharing, battery, camera & mic during dates.',
-                      actionLabel: _safetyDataGranted ? 'Withdraw Consent' : 'Not Granted',
-                      onActionTap: _safetyDataGranted ? _withdrawSafetyDataConsent : null,
+                      subtitle:
+                          'Consent for location sharing, battery, camera & mic during dates.',
+                      actionLabel: _safetyDataGranted
+                          ? 'Withdraw Consent'
+                          : 'Not Granted',
+                      onActionTap: _safetyDataGranted
+                          ? _withdrawSafetyDataConsent
+                          : null,
                     ),
                   ],
                 ),

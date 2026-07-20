@@ -823,7 +823,6 @@ const List<InterestCategory> interestsCategories = [
   ),
 ];
 
-
 abstract final class FilterOptions {
   static const List<String> drinking = [
     'Never',

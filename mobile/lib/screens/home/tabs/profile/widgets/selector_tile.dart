@@ -31,7 +31,7 @@ class SelectorTile extends StatelessWidget {
   Widget build(BuildContext context) {
     const pulsarPink = AppColors.pulsarPink;
     final isEmpty = value.isEmpty || value.toLowerCase() == 'not specified';
-    
+
     // Layout configurations based on width mode
     final iconSize = isFullWidth ? 15.0 : 13.0;
     final fontSize = isFullWidth ? 12.5 : 12.0;

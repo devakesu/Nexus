@@ -43,216 +43,228 @@ class SpotifyMusicSection extends ConsumerWidget {
       child: Stack(
         children: [
           Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isConnected) ...[
-            // Top Artists Subsection
-            Row(
-              children: [
-                Text(
-                  'TOP ARTISTS',
-                  style: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                if (isSaving) ...[
-                  const SizedBox(width: 8),
-                  const NexusOrbitLoader(size: 20),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: topArtists.map((artist) {
-                return _ArtistChip(
-                  name: artist,
-                  onRemove: () => onArtistRemoved(artist),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-
-            // Playlists Subsection
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'YOUR PLAYLISTS',
-                  style: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isConnected) ...[
+                // Top Artists Subsection
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(LucideIcons.lock, size: 10, color: Colors.black38),
-                    const SizedBox(width: 4),
                     Text(
-                      'Only visible to you',
+                      'TOP ARTISTS',
                       style: TextStyle(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.black.withValues(alpha: 0.45),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                       ),
                     ),
+                    if (isSaving) ...[
+                      const SizedBox(width: 8),
+                      const NexusOrbitLoader(size: 20),
+                    ],
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            statusAsync.when(
-              data: (status) {
-                if (!status.connected) {
-                  return const SizedBox.shrink();
-                }
-                final lastSynced = status.lastSyncedAt;
-                final subtitle = lastSynced == null
-                    ? 'Syncing your playlists…'
-                    : '${status.playlistCount} playlist${status.playlistCount == 1 ? '' : 's'}'
-                        ' · synced ${_relativeTimeShort(lastSynced)}';
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: topArtists.map((artist) {
+                    return _ArtistChip(
+                      name: artist,
+                      onRemove: () => onArtistRemoved(artist),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
 
-                return GestureDetector(
-                  onTap: () => openPlaylistsSheet(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: _spotifyGreen.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _spotifyGreen.withValues(alpha: 0.30),
+                // Playlists Subsection
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'YOUR PLAYLISTS',
+                      style: TextStyle(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    child: Row(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          LucideIcons.listMusic,
-                          size: 16,
-                          color: _spotifyGreen,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            style: const TextStyle(
-                              color: Color(0xFF0F172A),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
+                          LucideIcons.lock,
+                          size: 10,
                           color: Colors.black38,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Only visible to you',
+                          style: TextStyle(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: NexusOrbitLoader(size: 20),
+                  ],
                 ),
-              ),
-              error: (_, _) => Text(
-                "Couldn't load playlists.",
-                style: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ] else ...[
-            const _EmptyState(),
-            const SizedBox(height: 16),
-          ],
+                const SizedBox(height: 10),
+                statusAsync.when(
+                  data: (status) {
+                    if (!status.connected) {
+                      return const SizedBox.shrink();
+                    }
+                    final lastSynced = status.lastSyncedAt;
+                    final subtitle = lastSynced == null
+                        ? 'Syncing your playlists…'
+                        : '${status.playlistCount} playlist${status.playlistCount == 1 ? '' : 's'}'
+                              ' · synced ${_relativeTimeShort(lastSynced)}';
 
-          _ConnectButton(
-            hasArtists: isConnected,
-            isConnecting: isConnecting,
-            onTap: onSpotifyConnect,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Authorizes read-only access to your listening history and playlists. No playback control.',
-            style: TextStyle(
-              color: Colors.black.withValues(alpha: 0.38),
-              fontSize: 10,
-              height: 1.5,
-            ),
-          ),
-          if (isConnected && onSpotifyDisconnect != null) ...[
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: onSpotifyDisconnect,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.red.withValues(alpha: 0.20),
-                      width: 0.8,
+                    return GestureDetector(
+                      onTap: () => openPlaylistsSheet(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _spotifyGreen.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _spotifyGreen.withValues(alpha: 0.30),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.listMusic,
+                              size: 16,
+                              color: _spotifyGreen,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              LucideIcons.chevronRight,
+                              size: 16,
+                              color: Colors.black38,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: NexusOrbitLoader(size: 20),
                     ),
                   ),
-                  child: Text(
-                    'Disconnect Spotify',
+                  error: (_, _) => Text(
+                    "Couldn't load playlists.",
                     style: TextStyle(
-                      color: Colors.red.withValues(alpha: 0.65),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.black.withValues(alpha: 0.45),
+                      fontSize: 12,
                     ),
                   ),
                 ),
+                const SizedBox(height: 20),
+              ] else ...[
+                const _EmptyState(),
+                const SizedBox(height: 16),
+              ],
+
+              _ConnectButton(
+                hasArtists: isConnected,
+                isConnecting: isConnecting,
+                onTap: onSpotifyConnect,
               ),
-            ),
-          ],
-        ],
-      ),
+              const SizedBox(height: 8),
+              Text(
+                'Authorizes read-only access to your listening history and playlists. No playback control.',
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  fontSize: 10,
+                  height: 1.5,
+                ),
+              ),
+              if (isConnected && onSpotifyDisconnect != null) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: onSpotifyDisconnect,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.20),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        'Disconnect Spotify',
+                        style: TextStyle(
+                          color: Colors.red.withValues(alpha: 0.65),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
           // ── Syncing overlay ────────────────────────────────────────────────
           Positioned.fill(
             child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: isConnecting ? 1.0 : 0.0,
-            child: IgnorePointer(
-              ignoring: !isConnecting,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFFAF3).withValues(alpha: 0.88),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const NexusOrbitLoader(size: 36),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Syncing with Spotify…',
-                      style: TextStyle(
-                        color: const Color(0xFF1DB954).withValues(alpha: 0.85),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+              duration: const Duration(milliseconds: 300),
+              opacity: isConnecting ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !isConnecting,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFFAF3).withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const NexusOrbitLoader(size: 36),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Syncing with Spotify…',
+                        style: TextStyle(
+                          color: const Color(
+                            0xFF1DB954,
+                          ).withValues(alpha: 0.85),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           ),
         ],
       ),

@@ -129,7 +129,9 @@ class MeetupSafetySession extends ChangeNotifier {
       // device's real zone couldn't be resolved.
     }
 
-    const androidInit = AndroidInitializationSettings('ic_notification_silhouette');
+    const androidInit = AndroidInitializationSettings(
+      'ic_notification_silhouette',
+    );
     // Not const: DarwinNotificationAction.plain(...) is a non-const factory,
     // so this whole tree can't be a compile-time constant.
     final darwinInit = DarwinInitializationSettings(
@@ -163,7 +165,9 @@ class MeetupSafetySession extends ChangeNotifier {
         onDidReceiveNotificationResponse: _onNotificationResponse,
       );
     } on Object catch (e) {
-      debugPrint('[Safety] Failed to initialize with ic_notification, falling back: $e');
+      debugPrint(
+        '[Safety] Failed to initialize with ic_notification, falling back: $e',
+      );
       const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       await _plugin.initialize(
         settings: InitializationSettings(

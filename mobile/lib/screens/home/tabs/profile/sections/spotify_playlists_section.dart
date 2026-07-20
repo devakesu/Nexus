@@ -25,7 +25,9 @@ Future<void> openPlaylistsSheet(BuildContext context) {
         maxChildSize: 0.95,
         expand: false,
         builder: (dsCtx, scrollController) {
-          return _SpotifyPlaylistsSheetContent(scrollController: scrollController);
+          return _SpotifyPlaylistsSheetContent(
+            scrollController: scrollController,
+          );
         },
       );
     },
@@ -168,7 +170,10 @@ class _PlaylistTile extends StatelessWidget {
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 4,
+            ),
             childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
             leading: Container(
               width: 40,
@@ -252,7 +257,10 @@ class _PlaylistTile extends StatelessWidget {
                   (track) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.02),
                         borderRadius: BorderRadius.circular(12),
@@ -300,7 +308,9 @@ class _PlaylistTile extends StatelessWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.4),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.4,
+                                      ),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -314,11 +324,11 @@ class _PlaylistTile extends StatelessWidget {
                   ),
                 )
                 .toList(),
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _openInSpotify(String url) async {
     if (url.isEmpty) return;

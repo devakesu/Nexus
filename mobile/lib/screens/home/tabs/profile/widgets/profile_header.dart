@@ -218,7 +218,10 @@ class ProfileHeader extends StatelessWidget {
               children: [
                 // Spinning & Pulsing Sparkles status indicator
                 AnimatedBuilder(
-                  animation: Listenable.merge([pulseController, rotationController]),
+                  animation: Listenable.merge([
+                    pulseController,
+                    rotationController,
+                  ]),
                   builder: (context, child) {
                     return Transform.rotate(
                       angle: rotationController.value * 2 * 3.141592653589793,

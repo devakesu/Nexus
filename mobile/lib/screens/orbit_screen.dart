@@ -653,7 +653,8 @@ class _OrbitScreenState extends State<OrbitScreen>
                                   onSelected: (v) {
                                     setPaneState(() {
                                       if (v) {
-                                        if (title == 'Select Religious Beliefs') {
+                                        if (title ==
+                                            'Select Religious Beliefs') {
                                           if (opt == 'Atheist' ||
                                               opt == 'Agnostic') {
                                             localCopy.removeWhere(
@@ -1410,7 +1411,6 @@ class _OrbitScreenState extends State<OrbitScreen>
                     setState(() {});
                   },
                   onHideTap: (ctx) async {
-
                     Navigator.pop(ctx);
                     await _performAction(candidateId, 'hide');
                   },

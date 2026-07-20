@@ -108,7 +108,8 @@ Future<void> startDataExport(BuildContext context) async {
                     ),
                   ),
                   const TextSpan(
-                    text: ' We are not responsible if this file is leaked from you.',
+                    text:
+                        ' We are not responsible if this file is leaked from you.',
                   ),
                 ],
               ),

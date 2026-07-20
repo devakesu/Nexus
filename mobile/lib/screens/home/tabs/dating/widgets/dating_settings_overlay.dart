@@ -248,8 +248,9 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   },
                                 ),
                               ...filteredValues.map((val) {
-                                final isSelected =
-                                    localPartnerValues.contains(val);
+                                final isSelected = localPartnerValues.contains(
+                                  val,
+                                );
                                 return FilterChip(
                                   label: Text(val),
                                   selected: isSelected,
@@ -624,7 +625,6 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       }).toList(),
                 ),
                 const SizedBox(height: 32),
-
 
                 // Partner Values Input Header
                 Row(

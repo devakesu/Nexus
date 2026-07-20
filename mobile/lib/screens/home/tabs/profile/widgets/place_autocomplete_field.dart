@@ -106,7 +106,9 @@ class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
   };
 
   LatLng _getCoordinatesForCity(String city) {
-    if (city.isEmpty) return const LatLng(12.9716, 77.5946); // Bangalore fallback
+    if (city.isEmpty) {
+      return const LatLng(12.9716, 77.5946); // Bangalore fallback
+    }
     final trimmed = city.trim();
     if (_cityCoordinates.containsKey(trimmed)) {
       return _cityCoordinates[trimmed]!;
@@ -219,7 +221,10 @@ class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.all(1.2),
-                padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 13,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
                   color: _isFocused ? Colors.white : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(15),
@@ -236,7 +241,9 @@ class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            valueToShow.isNotEmpty ? valueToShow : widget.hintText,
+                            valueToShow.isNotEmpty
+                                ? valueToShow
+                                : widget.hintText,
                             style: TextStyle(
                               color: valueToShow.isNotEmpty
                                   ? const Color(0xFF0F172A)
@@ -614,7 +621,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                         color: Colors.white.withValues(alpha: 0.4),
                         child: const Center(
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(pulsarPink),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              pulsarPink,
+                            ),
                           ),
                         ),
                       ),

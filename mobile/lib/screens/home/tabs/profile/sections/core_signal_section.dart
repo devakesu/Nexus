@@ -386,7 +386,10 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                           if (imagePath != null) ...[
                             Positioned.fill(
                               child: Opacity(
-                                opacity: widget.removingSlots.contains(slotIndex) ? 0.5 : 1.0,
+                                opacity:
+                                    widget.removingSlots.contains(slotIndex)
+                                    ? 0.5
+                                    : 1.0,
                                 child: StorageImage(imagePath: imagePath),
                               ),
                             ),
@@ -434,7 +437,9 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                     },
                     builder: (context, candidateData, rejectedData) {
                       final isHovered = candidateData.isNotEmpty;
-                      final isRemoving = widget.removingSlots.contains(slotIndex);
+                      final isRemoving = widget.removingSlots.contains(
+                        slotIndex,
+                      );
                       return LongPressDraggable<int>(
                         data: slotIndex,
                         maxSimultaneousDrags: isRemoving ? 0 : 1,

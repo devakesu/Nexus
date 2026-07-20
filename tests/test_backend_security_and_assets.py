@@ -1,0 +1,87 @@
+from typing import Any, cast
+
+from fastapi.testclient import TestClient
+from httpx import Response
+
+from app.main import app
+
+client = cast(Any, TestClient(app))
+
+
+def test_security_headers_present():
+    response = cast(Response, client.get("/"))
+    assert response.status_code == 200
+    headers = response.headers
+
+    assert "Content-Security-Policy" in headers
+    assert "default-src 'self'" in headers["Content-Security-Policy"]
+    assert headers.get("X-Content-Type-Options") == "nosniff"
+    assert headers.get("X-Frame-Options") == "DENY"
+    assert headers.get("X-XSS-Protection") == "1; mode=block"
+    assert headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+    assert "Strict-Transport-Security" in headers
+    assert "Permissions-Policy" in headers
+    assert headers.get("Server") == "Nexus-Engine"
+
+
+def test_favicon_and_manifest_routes():
+    routes = [
+        "/favicon.ico",
+        "/favicon-16x16.png",
+        "/favicon-32x32.png",
+        "/apple-touch-icon.png",
+        "/android-chrome-192x192.png",
+        "/android-chrome-512x512.png",
+        "/site.webmanifest",
+        "/logo.png",
+        "/logo-foreground.png",
+        "/og-image.png",
+        "/nexus-wide-logo.jpg",
+        "/robots.txt",
+        "/sitemap.xml",
+    ]
+    for r in routes:
+        res = cast(Response, client.get(r))
+        assert res.status_code == 200, f"Route {r} failed with status {res.status_code}"
+
+
+def test_landing_page_html_accessibility_and_social():
+    res = cast(Response, client.get("/"))
+    assert res.status_code == 200
+    html = res.text
+
+    # Favicon and metadata check
+    assert 'rel="icon"' in html
+    assert 'href="/favicon.ico"' in html
+    assert 'href="/site.webmanifest"' in html
+    assert 'content="/nexus-wide-logo.jpg"' in html
+
+    # Accessibility (a11y) check
+    assert 'role="banner"' in html
+    assert 'role="main"' in html
+    assert 'role="contentinfo"' in html
+    assert "Skip to main content" in html
+
+    # Social media icons check
+    assert "github.com" in html
+    assert "twitter.com" in html
+    assert "discord.gg" in html
+    assert "instagram.com" in html
+    assert "linkedin.com" in html
+    assert "youtube.com" in html
+    assert "play.google.com" in html
+
+
+def test_request_payload_size_limit():
+    large_headers = {"Content-Length": str(15 * 1024 * 1024)}  # 15 MB
+    res = cast(
+        Response,
+        client.post(
+            "/api/v1/user/update",
+            headers=large_headers,
+            json={"test": "data"},
+        ),
+    )
+    assert res.status_code == 413
+    detail_content = cast(dict[str, Any], res.json())
+    assert "Payload too large" in detail_content["detail"]

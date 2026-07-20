@@ -700,7 +700,7 @@ class RefinedEdgeVisionBroker {
   Future<String> _getLocalModelPath() async {
     final supportDir = await getApplicationSupportDirectory();
     final localFile = File('${supportDir.path}/model.tflite');
-    
+
     // Always overwrite to ensure changes in assets/model.tflite are updated on the device
     final byteData = await rootBundle.load('assets/model.tflite');
     await localFile.writeAsBytes(

@@ -101,8 +101,7 @@ class UniverseSection extends StatelessWidget {
                           ),
                           // The element is a nullable Widget, not a collection, so spread or collection null-aware syntax is not supported by the current compiler here.
                           // ignore: use_null_aware_elements
-                          if (visibilityBadge != null)
-                            visibilityBadge!,
+                          if (visibilityBadge != null) visibilityBadge!,
                         ],
                       ),
                       const SizedBox(height: 2),

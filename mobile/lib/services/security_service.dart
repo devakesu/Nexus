@@ -9,7 +9,8 @@ class SecurityService {
   SecurityService._();
 
   static const _channel = MethodChannel('com.devakesu.apps.nexus/security');
-  static final StreamController<void> _overlayController = StreamController<void>.broadcast();
+  static final StreamController<void> _overlayController =
+      StreamController<void>.broadcast();
 
   /// Stream emitting events when a native UI overlay/touch obscuration is detected.
   static Stream<void> get onOverlayDetected => _overlayController.stream;
@@ -26,7 +27,9 @@ class SecurityService {
   /// Checks if a debugger is currently connected to the application.
   static Future<bool> isDebuggerConnected() async {
     try {
-      final connected = await _channel.invokeMethod<bool>('isDebuggerConnected');
+      final connected = await _channel.invokeMethod<bool>(
+        'isDebuggerConnected',
+      );
       return connected ?? false;
     } on Object catch (_) {
       return false;
@@ -58,7 +61,9 @@ class SecurityService {
   /// Checks if screen recording or mirroring is currently active.
   static Future<bool> isScreenRecordingOrMirroring() async {
     try {
-      final active = await _channel.invokeMethod<bool>('isScreenRecordingOrMirroring');
+      final active = await _channel.invokeMethod<bool>(
+        'isScreenRecordingOrMirroring',
+      );
       return active ?? false;
     } on Object catch (_) {
       return false;

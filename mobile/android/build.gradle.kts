@@ -23,7 +23,7 @@ subprojects {
 // This fixes AAR metadata errors from plugins that still declare compileSdkVersion 33
 // (e.g. app_settings 6.1.1) when their AndroidX dependencies require SDK 34+.
 // The try-catch is intentional: newer plugins using AGP 8+ (e.g. app_links) mark compileSdk
-// as immutable after DSL finalization — those plugins already target SDK 34+, so skipping them is safe.
+// as immutable after DSL finalization - those plugins already target SDK 34+, so skipping them is safe.
 subprojects {
     plugins.withId("com.android.library") {
         val androidComponents = extensions.findByType<com.android.build.api.variant.LibraryAndroidComponentsExtension>()

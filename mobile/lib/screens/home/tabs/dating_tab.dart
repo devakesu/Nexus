@@ -252,7 +252,9 @@ class _DatingTabState extends ConsumerState<DatingTab>
         _savingFields.remove(field);
         if (success) {
           if (field == 'dating_target_buckets') {
-            _datingTargetBuckets = List<String>.from(currentValueToSave as List);
+            _datingTargetBuckets = List<String>.from(
+              currentValueToSave as List,
+            );
           } else if (field == 'dating_for') {
             _datingFor = List<String>.from(currentValueToSave as List);
           } else if (field == 'partner_values') {
@@ -865,7 +867,6 @@ class _DatingTabState extends ConsumerState<DatingTab>
     final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
     final currentProfileFuture = profileFuture;
 
-
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
@@ -881,7 +882,9 @@ class _DatingTabState extends ConsumerState<DatingTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.7,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: NexusOrbitLoader(),
@@ -893,7 +896,9 @@ class _DatingTabState extends ConsumerState<DatingTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.4,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: Text(
@@ -924,50 +929,51 @@ class _DatingTabState extends ConsumerState<DatingTab>
                       showScoreBadge: false,
 
                       actionBar: _buildLikeBackActionBar(
-
-                    dsCtx,
-                    actorId,
-                    name,
-                    themeColor,
-                    matchedProfilePic,
-                    onActioned,
-                  ),
-                  onHideTap: (c) async {
-                    Navigator.pop(c);
-                    await _recordLikeAction(
-                      actorId,
-                      'hide',
-                      session.accessToken,
+                        dsCtx,
+                        actorId,
+                        name,
+                        themeColor,
+                        matchedProfilePic,
+                        onActioned,
+                      ),
+                      onHideTap: (c) async {
+                        Navigator.pop(c);
+                        await _recordLikeAction(
+                          actorId,
+                          'hide',
+                          session.accessToken,
+                        );
+                        onActioned(actorId);
+                      },
+                      onBlockTap: (c) async {
+                        final ok = await showProfileBlockDialog(c, name);
+                        if ((ok ?? false) && c.mounted) {
+                          Navigator.pop(c);
+                          await _recordLikeAction(
+                            actorId,
+                            'block',
+                            session.accessToken,
+                          );
+                          onActioned(actorId);
+                        }
+                      },
+                      onReportTap: (c) => showProfileReportDialog(
+                        c,
+                        themeColor: themeColor,
+                        onConfirmed: (reason, detail) async {
+                          Navigator.pop(c);
+                          await _recordLikeAction(
+                            actorId,
+                            'report',
+                            session.accessToken,
+                            reason: reason,
+                            reasonDetail: detail,
+                          );
+                          onActioned(actorId);
+                        },
+                      ),
                     );
-                    onActioned(actorId);
                   },
-                  onBlockTap: (c) async {
-                    final ok = await showProfileBlockDialog(c, name);
-                    if ((ok ?? false) && c.mounted) {
-                      Navigator.pop(c);
-                      await _recordLikeAction(
-                        actorId,
-                        'block',
-                        session.accessToken,
-                      );
-                      onActioned(actorId);
-                    }
-                  },
-                  onReportTap: (c) => showProfileReportDialog(
-                    c,
-                    themeColor: themeColor,
-                    onConfirmed: (reason, detail) async {
-                      Navigator.pop(c);
-                      await _recordLikeAction(
-                        actorId,
-                        'report',
-                        session.accessToken,
-                        reason: reason,
-                        reasonDetail: detail,
-                      );
-                      onActioned(actorId);
-                    },
-                  ),
                 );
               },
             );
@@ -975,9 +981,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
         );
       },
     );
-  },
-);
-}
+  }
 
   Future<void> _showLikesOverlay() async {
     if (!mounted) return;

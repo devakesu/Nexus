@@ -419,214 +419,220 @@ class ErrorHandler {
             barrierColor: Colors.black.withValues(alpha: 0.75),
             builder: (context) {
               return Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 32,
-              ),
-              child:
-                  Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF161B26),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: dialogAccentColor.withValues(alpha: 0.4),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: dialogAccentColor.withValues(alpha: 0.15),
-                              blurRadius: 32,
-                              spreadRadius: 2,
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
+                child:
+                    Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF161B26),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: dialogAccentColor.withValues(alpha: 0.4),
+                              width: 2,
                             ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Glow icon header
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: dialogAccentColor.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
+                            boxShadow: [
+                              BoxShadow(
+                                color: dialogAccentColor.withValues(
+                                  alpha: 0.15,
+                                ),
+                                blurRadius: 32,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Glow icon header
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
                                       color: dialogAccentColor.withValues(
-                                        alpha: 0.3,
+                                        alpha: 0.1,
                                       ),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    icon,
-                                    color: dialogAccentColor,
-                                    size: 44,
-                                  ),
-                                ).animate().scale(
-                                  begin: const Offset(0.8, 0.8),
-                                  end: const Offset(1, 1),
-                                  duration: 400.ms,
-                                  curve: Curves.elasticOut,
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Title
-                                Text(
-                                  title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-
-                                // Message
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF07080A),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.05,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: dialogAccentColor.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        width: 1.5,
                                       ),
                                     ),
+                                    child: Icon(
+                                      icon,
+                                      color: dialogAccentColor,
+                                      size: 44,
+                                    ),
+                                  ).animate().scale(
+                                    begin: const Offset(0.8, 0.8),
+                                    end: const Offset(1, 1),
+                                    duration: 400.ms,
+                                    curve: Curves.elasticOut,
                                   ),
-                                  child: Text(
-                                    message,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.85,
-                                      ),
-                                      fontSize: 14,
-                                      height: 1.45,
+                                  const SizedBox(height: 20),
+
+                                  // Title
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                ),
-                                const SizedBox(height: 24),
+                                  const SizedBox(height: 12),
 
-                                // Dialog buttons
-                                Column(
-                                  children: [
-                                    if (isCritical) ...[
-                                      // Signal Glow shadow via
-                                      // BoxDecoration, not Material's
-                                      // elevation: prop.
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.pulsarPink
-                                                  .withValues(alpha: 0.3),
-                                              blurRadius: 12,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          height: 48,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              // Action is left as a placeholder for now
-                                              debugPrint(
-                                                'Contact Support tapped.',
-                                              );
-                                            },
-                                            icon: const Icon(
-                                              Icons.support_agent_rounded,
-                                              color: Colors.white,
-                                            ),
-                                            label: const Text(
-                                              'Contact Support',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  AppColors.pulsarPink,
-                                              elevation: 0,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 46,
-                                      child: OutlinedButton(
-                                        onPressed: () {
-                                          if (isCritical) {
-                                            unawaited(SystemNavigator.pop());
-                                          } else {
-                                            Navigator.of(context).pop();
-                                          }
-                                        },
-                                        style: OutlinedButton.styleFrom(
-                                          side: BorderSide(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.2,
-                                            ),
-                                            width: 1.5,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          isCritical ? 'Close App' : 'Dismiss',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                  // Message
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF07080A),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.05,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ],
+                                    child: Text(
+                                      message,
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                        fontSize: 14,
+                                        height: 1.45,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // Dialog buttons
+                                  Column(
+                                    children: [
+                                      if (isCritical) ...[
+                                        // Signal Glow shadow via
+                                        // BoxDecoration, not Material's
+                                        // elevation: prop.
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.pulsarPink
+                                                    .withValues(alpha: 0.3),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            height: 48,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () {
+                                                // Action is left as a placeholder for now
+                                                debugPrint(
+                                                  'Contact Support tapped.',
+                                                );
+                                              },
+                                              icon: const Icon(
+                                                Icons.support_agent_rounded,
+                                                color: Colors.white,
+                                              ),
+                                              label: const Text(
+                                                'Contact Support',
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    AppColors.pulsarPink,
+                                                elevation: 0,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 46,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            if (isCritical) {
+                                              unawaited(SystemNavigator.pop());
+                                            } else {
+                                              Navigator.of(context).pop();
+                                            }
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: BorderSide(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              width: 1.5,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    12,
+                                                  ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isCritical
+                                                ? 'Close App'
+                                                : 'Dismiss',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                      .animate()
-                      .scale(
-                        begin: const Offset(0.9, 0.9),
-                        end: const Offset(1, 1),
-                        duration: 250.ms,
-                        curve: Curves.easeOutBack,
-                      )
-                      .fadeIn(duration: 200.ms),
-            );
-          },
+                        )
+                        .animate()
+                        .scale(
+                          begin: const Offset(0.9, 0.9),
+                          end: const Offset(1, 1),
+                          duration: 250.ms,
+                          curve: Curves.easeOutBack,
+                        )
+                        .fadeIn(duration: 200.ms),
+              );
+            },
+          ),
         ),
-      ));
+      );
     });
   }
 }

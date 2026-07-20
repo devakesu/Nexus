@@ -108,8 +108,18 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     }
 
     final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[localDate.month - 1]} ${localDate.day}, ${localDate.year}';
   }
@@ -142,7 +152,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     if (viewportBox == null) return;
 
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy +
+    final viewportTop =
+        viewportBox.localToGlobal(Offset.zero).dy +
         kToolbarHeight +
         statusBarHeight;
 
@@ -164,7 +175,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       if (itemTop <= viewportTop + 8 && itemBottom >= viewportTop - 8) {
         topMessage = _findMessageById(entry.key);
         break;
-      } else if (itemTop > viewportTop && (itemTop - viewportTop) < minDistance) {
+      } else if (itemTop > viewportTop &&
+          (itemTop - viewportTop) < minDistance) {
         minDistance = itemTop - viewportTop;
         topMessage = _findMessageById(entry.key);
       }
@@ -247,8 +259,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       unawaited(PresenceHeartbeat.beat(isOnline: false));
     }
   }
-
-
 
   void _startHeartbeat() {
     unawaited(PresenceHeartbeat.beat());
@@ -457,12 +467,15 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       _lastViewInsetsBottom = viewInsetsBottom;
       if (isKeyboardOpening) {
         if (_scrollController.hasClients) {
-          final isNearBottom = _scrollController.offset >=
+          final isNearBottom =
+              _scrollController.offset >=
               _scrollController.position.maxScrollExtent - 120;
           if (isNearBottom) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_scrollController.hasClients) {
-                _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                _scrollController.jumpTo(
+                  _scrollController.position.maxScrollExtent,
+                );
               }
             });
           }
@@ -486,178 +499,210 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: SafeArea(
           child: asyncState.when(
-          loading: () => Center(child: _statusMessage(theme, loading: true)),
-          error: (error, stackTrace) => Center(
-            child: _statusMessage(
-              theme,
-              text: 'Could not load this chat. Please try again.',
-              icon: LucideIcons.circleAlert,
-              iconColor: AppColors.error,
+            loading: () => Center(child: _statusMessage(theme, loading: true)),
+            error: (error, stackTrace) => Center(
+              child: _statusMessage(
+                theme,
+                text: 'Could not load this chat. Please try again.',
+                icon: LucideIcons.circleAlert,
+                iconColor: AppColors.error,
+              ),
             ),
-          ),
-          data: (chatState) {
-            final uniqueMessages = <ChatMessageView>[];
-            final seenIds = <String>{};
-            for (final m in chatState.messages) {
-              if (seenIds.add(m.id)) {
-                uniqueMessages.add(m);
+            data: (chatState) {
+              final uniqueMessages = <ChatMessageView>[];
+              final seenIds = <String>{};
+              for (final m in chatState.messages) {
+                if (seenIds.add(m.id)) {
+                  uniqueMessages.add(m);
+                }
               }
-            }
-            _currentMessages = uniqueMessages;
-            _messageKeys.removeWhere((key, _) => !seenIds.contains(key));
+              _currentMessages = uniqueMessages;
+              _messageKeys.removeWhere((key, _) => !seenIds.contains(key));
 
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _scrollToBottom(),
-            );
-            final showNewDeviceBanner =
-                chatState.isNewLocalIdentity &&
-                uniqueMessages.any((m) => m.decryptFailed);
-            return Column(
-              children: [
-                if (showNewDeviceBanner) _newDeviceBanner(theme),
-                if (chatState.conversationClosed)
-                  _conversationClosedBanner(theme),
-                if (chatState.isRevalidating) _syncingIndicator(theme),
-                Expanded(
-                  child: uniqueMessages.isEmpty
-                      ? Center(
-                          child: _statusMessage(
-                            theme,
-                            text: 'Say hi to ${widget.name} 👋',
-                          ),
-                        )
-                      : Stack(
-                          children: [
-                            ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
-                              itemCount:
-                                  uniqueMessages.length +
-                                  (chatState.loadingOlder ? 1 : 0),
-                              itemBuilder: (_, i) {
-                                if (chatState.loadingOlder && i == 0) {
-                                  return const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 12),
-                                    child: Center(
-                                      child: NexusOrbitLoader(
-                                        size: 24,
-                                        lightMode: true,
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final messageIndex = chatState.loadingOlder
-                                    ? i - 1
-                                    : i;
-                                final message = uniqueMessages[messageIndex];
-                                final key = _messageKeys.putIfAbsent(
-                                  message.id,
-                                  GlobalKey.new,
-                                );
-                                final bubble = MessageBubble(
-                                  message: message,
-                                  themeColor: theme.primary,
-                                  conversationId: widget.conversationId,
-                                  peerUserId: widget.matchedUserId,
-                                  onSecurityAlertTapped: _showSafetyNumberDialog,
-                                );
-                                final showDateHeader = messageIndex == 0 ||
-                                    !_isSameDay(
-                                      message.createdAt,
-                                      uniqueMessages[messageIndex - 1].createdAt,
-                                    );
-                                return Container(
-                                  key: key,
-                                  child: showDateHeader
-                                      ? Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            _buildDateDivider(message.createdAt),
-                                            bubble,
-                                          ],
-                                        )
-                                      : bubble,
-                                );
-                              },
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _scrollToBottom(),
+              );
+              final showNewDeviceBanner =
+                  chatState.isNewLocalIdentity &&
+                  uniqueMessages.any((m) => m.decryptFailed);
+              return Column(
+                children: [
+                  if (showNewDeviceBanner) _newDeviceBanner(theme),
+                  if (chatState.conversationClosed)
+                    _conversationClosedBanner(theme),
+                  if (chatState.isRevalidating) _syncingIndicator(theme),
+                  Expanded(
+                    child: uniqueMessages.isEmpty
+                        ? Center(
+                            child: _statusMessage(
+                              theme,
+                              text: 'Say hi to ${widget.name} 👋',
                             ),
-                            Positioned(
-                              top: 10,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: ValueListenableBuilder<double>(
-                                  valueListenable: _floatingDateOpacityNotifier,
-                                  builder: (context, opacity, child) {
-                                    return AnimatedOpacity(
-                                      opacity: opacity,
-                                      duration: const Duration(milliseconds: 200),
-                                      curve: Curves.easeOut,
-                                      child: AnimatedSlide(
-                                        offset: opacity == 0.0
-                                            ? const Offset(0, -0.2)
-                                            : Offset.zero,
-                                        duration: const Duration(milliseconds: 200),
-                                        curve: Curves.easeOut,
-                                        child: ValueListenableBuilder<DateTime?>(
-                                          valueListenable: _floatingDateNotifier,
-                                          builder: (context, date, child) {
-                                            if (date == null) return const SizedBox.shrink();
-                                            return Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 14,
-                                                vertical: 6,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
-                                                borderRadius: BorderRadius.circular(20),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.08),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: Text(
-                                                _formatDateDivider(date),
-                                                style: GoogleFonts.inter(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                          )
+                        : Stack(
+                            children: [
+                              ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  16,
+                                  14,
+                                  8,
+                                ),
+                                itemCount:
+                                    uniqueMessages.length +
+                                    (chatState.loadingOlder ? 1 : 0),
+                                itemBuilder: (_, i) {
+                                  if (chatState.loadingOlder && i == 0) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Center(
+                                        child: NexusOrbitLoader(
+                                          size: 24,
+                                          lightMode: true,
                                         ),
                                       ),
                                     );
-                                  },
+                                  }
+                                  final messageIndex = chatState.loadingOlder
+                                      ? i - 1
+                                      : i;
+                                  final message = uniqueMessages[messageIndex];
+                                  final key = _messageKeys.putIfAbsent(
+                                    message.id,
+                                    GlobalKey.new,
+                                  );
+                                  final bubble = MessageBubble(
+                                    message: message,
+                                    themeColor: theme.primary,
+                                    conversationId: widget.conversationId,
+                                    peerUserId: widget.matchedUserId,
+                                    onSecurityAlertTapped:
+                                        _showSafetyNumberDialog,
+                                  );
+                                  final showDateHeader =
+                                      messageIndex == 0 ||
+                                      !_isSameDay(
+                                        message.createdAt,
+                                        uniqueMessages[messageIndex - 1]
+                                            .createdAt,
+                                      );
+                                  return Container(
+                                    key: key,
+                                    child: showDateHeader
+                                        ? Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              _buildDateDivider(
+                                                message.createdAt,
+                                              ),
+                                              bubble,
+                                            ],
+                                          )
+                                        : bubble,
+                                  );
+                                },
+                              ),
+                              Positioned(
+                                top: 10,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: ValueListenableBuilder<double>(
+                                    valueListenable:
+                                        _floatingDateOpacityNotifier,
+                                    builder: (context, opacity, child) {
+                                      return AnimatedOpacity(
+                                        opacity: opacity,
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
+                                        curve: Curves.easeOut,
+                                        child: AnimatedSlide(
+                                          offset: opacity == 0.0
+                                              ? const Offset(0, -0.2)
+                                              : Offset.zero,
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          curve: Curves.easeOut,
+                                          child: ValueListenableBuilder<DateTime?>(
+                                            valueListenable:
+                                                _floatingDateNotifier,
+                                            builder: (context, date, child) {
+                                              if (date == null) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 6,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFF1E293B,
+                                                  ).withValues(alpha: 0.85),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withValues(
+                                                            alpha: 0.08,
+                                                          ),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(
+                                                        0,
+                                                        4,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Text(
+                                                  _formatDateDivider(date),
+                                                  style: GoogleFonts.inter(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                ),
-                if (!chatState.sessionReady &&
-                    !chatState.conversationClosed &&
-                    !chatState.isRevalidating)
-                  _waitingBanner(theme),
-                ChatComposer(
-                  themeColor: theme.primary,
-                  enabled:
-                      chatState.sessionReady && !chatState.conversationClosed,
-                  sending: chatState.sending,
-                  onSend: _handleSend,
-                  onSendImage: _handleSendImage,
-                  onSendVoice: _handleSendVoice,
-                  onSendLocation: _handleSendLocation,
-                  onPlanEvent: _handlePlanEvent,
-                ),
-              ],
-            );
-          },
+                            ],
+                          ),
+                  ),
+                  if (!chatState.sessionReady &&
+                      !chatState.conversationClosed &&
+                      !chatState.isRevalidating)
+                    _waitingBanner(theme),
+                  ChatComposer(
+                    themeColor: theme.primary,
+                    enabled:
+                        chatState.sessionReady && !chatState.conversationClosed,
+                    sending: chatState.sending,
+                    onSend: _handleSend,
+                    onSendImage: _handleSendImage,
+                    onSendVoice: _handleSendVoice,
+                    onSendLocation: _handleSendLocation,
+                    onPlanEvent: _handlePlanEvent,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-      )),
+      ),
     );
   }
 
@@ -824,7 +869,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                     width: 40,
                     height: 40,
                     child:
-                        widget.profilePic != null && widget.profilePic!.isNotEmpty
+                        widget.profilePic != null &&
+                            widget.profilePic!.isNotEmpty
                         ? StorageImage(imagePath: widget.profilePic!)
                         : ColoredBox(
                             color: theme.primary.withValues(alpha: 0.12),
@@ -925,83 +971,88 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) {
-        return FutureBuilder<Map<String, dynamic>>(
-          future: () async {
-            final results = await Future.wait<dynamic>([
-              _fetchPeerProfile(),
-              Future<void>.delayed(const Duration(milliseconds: 1000)),
-            ]);
-            return results[0] as Map<String, dynamic>;
-          }(),
-          builder: (context, snapshot) {
-            // ── Loading ──────────────────────────────────────────────────────
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Container(
-                width: double.infinity,
-                height: MediaQuery.of(context).size.height * 0.7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF090D1A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      top: 12,
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(2),
+          return FutureBuilder<Map<String, dynamic>>(
+            future: () async {
+              final results = await Future.wait<dynamic>([
+                _fetchPeerProfile(),
+                Future<void>.delayed(const Duration(milliseconds: 1000)),
+              ]);
+              return results[0] as Map<String, dynamic>;
+            }(),
+            builder: (context, snapshot) {
+              // ── Loading ──────────────────────────────────────────────────────
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  width: double.infinity,
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF090D1A),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        top: 12,
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                    ),
-                    ConstellationLoader(
-                      themeColor: theme.primary,
-                      label: 'LOCKING ONTO SIGNAL',
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            // ── Error ────────────────────────────────────────────────────────
-            if (snapshot.hasError || !snapshot.hasData) {
-              return Container(
-                height: MediaQuery.of(context).size.height * 0.4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF090D1A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Unable to load profile.',
-                    style: TextStyle(color: Colors.white38),
+                      ConstellationLoader(
+                        themeColor: theme.primary,
+                        label: 'LOCKING ONTO SIGNAL',
+                      ),
+                    ],
                   ),
-                ),
-              );
-            }
-
-            return DraggableScrollableSheet(
-              initialChildSize: 0.92,
-              minChildSize: 0.5,
-              maxChildSize: 0.97,
-              expand: false,
-              builder: (sheetCtx, scrollController) {
-                return ProfileDetailSheet(
-                  data: snapshot.data!,
-                  themeColor: theme.primary,
-                  scrollController: scrollController,
-                  showScoreBadge: false,
-                  showSafetyActions: false,
                 );
-              },
-            );
-          },
-        );
-      },
-    ));
+              }
+
+              // ── Error ────────────────────────────────────────────────────────
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Container(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF090D1A),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Unable to load profile.',
+                      style: TextStyle(color: Colors.white38),
+                    ),
+                  ),
+                );
+              }
+
+              return DraggableScrollableSheet(
+                initialChildSize: 0.92,
+                minChildSize: 0.5,
+                maxChildSize: 0.97,
+                expand: false,
+                builder: (sheetCtx, scrollController) {
+                  return ProfileDetailSheet(
+                    data: snapshot.data!,
+                    themeColor: theme.primary,
+                    scrollController: scrollController,
+                    showScoreBadge: false,
+                    showSafetyActions: false,
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _showChatActionsSheet(

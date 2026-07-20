@@ -119,9 +119,7 @@ class CoordinatePainter extends CustomPainter {
 
     // Frame 0 (The Anchor): Glowing point coordinates vector drops directly in the mathematical center
     if (progress >= 0.0) {
-      final anchorProgress = math
-          .min(progress / 0.2, 1.0)
-          .clamp(0.0, 1.0);
+      final anchorProgress = math.min(progress / 0.2, 1.0).clamp(0.0, 1.0);
       final pointRadius = 2.5 * anchorProgress;
 
       // Inner sharp point

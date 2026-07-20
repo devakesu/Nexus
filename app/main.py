@@ -1,12 +1,15 @@
 import logging
 from contextlib import asynccontextmanager, suppress
+from os.path import dirname, exists, join
 from typing import Any, cast
 
 import firebase_admin
 import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
@@ -31,6 +34,7 @@ from app.api.well_known import router as well_known_router
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.security import RequestSizeLimitMiddleware, SecurityHeadersMiddleware
 from app.core.sentry_utils import scrub_event
 from app.services.reminder_scheduler import (
     start_reminder_scheduler,
@@ -118,6 +122,9 @@ if "*" in origins:
             "when allow_credentials is True.",
         )
 
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -132,6 +139,10 @@ app.add_middleware(
 )
 
 app.state.limiter = limiter
+
+static_path = join(dirname(__file__), "static")
+if exists(static_path):
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 
 def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:

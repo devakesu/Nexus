@@ -159,7 +159,9 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                           ? const Color(0xFF0F172A)
                                           : Colors.black87,
                                     );
-                                    if (tagIcon == null) return const SizedBox.shrink();
+                                    if (tagIcon == null) {
+                                      return const SizedBox.shrink();
+                                    }
                                     return Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [

@@ -134,13 +134,21 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
             bottom: 0,
             child: Consumer(
               builder: (context, ref, child) {
-                final datingState = ref.watch(discoveryHubControllerProvider('dating'));
-                final friendsState = ref.watch(discoveryHubControllerProvider('friends'));
-                final professionalState = ref.watch(discoveryHubControllerProvider('professional'));
+                final datingState = ref.watch(
+                  discoveryHubControllerProvider('dating'),
+                );
+                final friendsState = ref.watch(
+                  discoveryHubControllerProvider('friends'),
+                );
+                final professionalState = ref.watch(
+                  discoveryHubControllerProvider('professional'),
+                );
 
                 final datingUnseen = (datingState.value?.unseenCount ?? 0) > 0;
-                final friendsUnseen = (friendsState.value?.unseenCount ?? 0) > 0;
-                final professionalUnseen = (professionalState.value?.unseenCount ?? 0) > 0;
+                final friendsUnseen =
+                    (friendsState.value?.unseenCount ?? 0) > 0;
+                final professionalUnseen =
+                    (professionalState.value?.unseenCount ?? 0) > 0;
 
                 return CustomBottomNavBar(
                   currentIndex: _currentTab,

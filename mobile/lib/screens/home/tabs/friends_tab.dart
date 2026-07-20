@@ -249,7 +249,9 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
         _savingFields.remove(field);
         if (success) {
           if (field == 'friends_target_buckets') {
-            _friendsTargetBuckets = List<String>.from(currentValueToSave as List);
+            _friendsTargetBuckets = List<String>.from(
+              currentValueToSave as List,
+            );
           } else if (field == 'causes_supported') {
             _causesSupported = List<String>.from(currentValueToSave as List);
           } else if (field == 'sub_interests') {
@@ -841,7 +843,6 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     final profileFuture = _fetchPeerProfile(actorId, session.accessToken);
     final currentProfileFuture = profileFuture;
 
-
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
@@ -857,7 +858,9 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.7,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: NexusOrbitLoader(),
@@ -869,7 +872,9 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.4,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: Text(

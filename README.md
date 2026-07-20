@@ -1,6 +1,6 @@
 # Nexus
 
-![Nexus](mobile/assets/nexus.png)
+![Nexus](app/static/nexus-wide-logo.jpg)
 
 [![Version](https://img.shields.io/github/v/release/devakesu/Nexus?label=Version)](https://github.com/devakesu/Nexus/releases/latest)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
@@ -32,7 +32,7 @@
 
 ## Overview
 
-**Nexus** is a cosmic-themed, authentic social discovery app built for young adults looking to discover and connect with new people nearby in real-world moments. Unlike conventional swipe-card dating apps, Nexus emphasizes spontaneous, in-the-moment human connections across multiple social dimensions—whether you are looking for new friends, professional connections, or romance.
+**Nexus** is a cosmic-themed, authentic social discovery app built to connect with new people nearby in real-world moments. Unlike conventional swipe-card dating apps, Nexus emphasizes spontaneous, in-the-moment human connections across multiple social dimensions - whether you are looking for new friends, professional connections, or romance.
 
 Nexus ships in two distinct product flavors from a single unified codebase:
 

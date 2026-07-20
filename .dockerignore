@@ -1,21 +1,62 @@
+# Git & Submodules
 .git
 .gitignore
 .gitmodules
+Nexus_Engine/
+
+# Virtual environments
 .venv
-mobile
-supabase
-tests
-.pytest_cache
-.ruff_cache
+
+# Local build / caching
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-.agents
-.agent
-.vscode
-.gemini
+.pytest_cache
+.ruff_cache
+
+# Tests, Mobile & Supabase
+tests
+mobile
+supabase
+.env.test
+
+# Certificates
+.certificates/
+
+# Documentation
+README.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
 CLAUDE.md
 PRODUCT.md
 DESIGN.md
 LICENSE
+
+# Tooling and IDE configs
+.agents
+.agent
+.vscode
+.gemini
+.claude
+.codebuddy
+.codex
+.continue
+.cursor
+.devcontainer
+.githooks
+.impeccable
+.kiro
+.opencode
+.qoder
+.roo
+.trae
+.windsurf
+claude.json
+skills-lock.json
+trivy.yaml
+codecov.yml
+pyrightconfig.json
+pytest.ini
+ruff.toml

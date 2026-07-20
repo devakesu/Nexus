@@ -6,7 +6,7 @@ import 'package:encrypt/encrypt.dart' as enc;
 class EncryptedString {
   /// Creates an encrypted representation of [plainText] in RAM.
   EncryptedString(String plainText)
-      : _encrypted = _encrypter.encrypt(plainText, iv: _iv);
+    : _encrypted = _encrypter.encrypt(plainText, iv: _iv);
 
   static final enc.Key _key = enc.Key.fromSecureRandom(32);
   static final enc.IV _iv = enc.IV.fromSecureRandom(16);

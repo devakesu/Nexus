@@ -264,8 +264,9 @@ class _ProfessionalSettingsOverlayState
                                   },
                                 ),
                               ...filteredSkills.map((val) {
-                                final isSelected =
-                                    localTechSkills.contains(val);
+                                final isSelected = localTechSkills.contains(
+                                  val,
+                                );
                                 return FilterChip(
                                   label: Text(val),
                                   selected: isSelected,

@@ -350,7 +350,10 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
     if (_privacySettingsReviewed) return;
     setState(() => _privacySettingsReviewed = true);
     final prefs = await SecurePreferences.getInstance();
-    await prefs.setBool('safety_privacy_reviewed_$_privacyVersion', value: true);
+    await prefs.setBool(
+      'safety_privacy_reviewed_$_privacyVersion',
+      value: true,
+    );
   }
 
   void _scrollToSection(int index) {

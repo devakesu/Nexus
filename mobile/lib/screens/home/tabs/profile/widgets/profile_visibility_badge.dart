@@ -24,21 +24,21 @@ class ProfileVisibilityBadge extends StatelessWidget {
 
   /// "Only visible in Dating & Friends"
   static Widget datingAndFriends() => const ProfileVisibilityBadge(
-        text: 'Dating & Friends',
-        color: Color(0xFFE67E22),
-      );
+    text: 'Dating & Friends',
+    color: Color(0xFFE67E22),
+  );
 
   /// "Only visible in Dating"
   static Widget datingOnly() => const ProfileVisibilityBadge(
-        text: 'Dating only',
-        color: AppColors.modeDating,
-      );
+    text: 'Dating only',
+    color: AppColors.modeDating,
+  );
 
   /// Visible across all three tabs (Dating, Friends & Professional).
   static Widget allTabs() => const ProfileVisibilityBadge(
-        text: 'All tabs',
-        color: AppColors.success,
-      );
+    text: 'All tabs',
+    color: AppColors.success,
+  );
 
   @override
   Widget build(BuildContext context) {

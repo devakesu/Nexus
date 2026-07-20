@@ -132,7 +132,10 @@ class _ChatComposerState extends State<ChatComposer> {
                         icon: LucideIcons.image,
                         label: 'Media / Photos',
                         value: 'photo',
-                        gradientColors: [const Color(0xFF818CF8), const Color(0xFF6366F1)],
+                        gradientColors: [
+                          const Color(0xFF818CF8),
+                          const Color(0xFF6366F1),
+                        ],
                         delayMs: 0,
                       ),
                       _buildAttachGridItem(
@@ -140,7 +143,10 @@ class _ChatComposerState extends State<ChatComposer> {
                         icon: LucideIcons.mapPin,
                         label: 'Location',
                         value: 'location',
-                        gradientColors: [const Color(0xFF34D399), const Color(0xFF059669)],
+                        gradientColors: [
+                          const Color(0xFF34D399),
+                          const Color(0xFF059669),
+                        ],
                         delayMs: 60,
                       ),
                       _buildAttachGridItem(
@@ -148,7 +154,10 @@ class _ChatComposerState extends State<ChatComposer> {
                         icon: LucideIcons.calendarPlus,
                         label: 'Plan a Date',
                         value: 'event',
-                        gradientColors: [const Color(0xFFFB7185), const Color(0xFFF43F5E)],
+                        gradientColors: [
+                          const Color(0xFFFB7185),
+                          const Color(0xFFF43F5E),
+                        ],
                         delayMs: 120,
                       ),
                     ],
@@ -180,46 +189,46 @@ class _ChatComposerState extends State<ChatComposer> {
     required int delayMs,
   }) {
     return GestureDetector(
-      onTap: () => Navigator.pop(ctx, value),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradientColors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: gradientColors.last.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          onTap: () => Navigator.pop(ctx, value),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradientColors.last.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 26,
-            ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF475569),
-            ),
-          ),
-        ],
-      ),
-    )
+        )
         .animate()
         .scale(
           delay: Duration(milliseconds: delayMs),
@@ -270,13 +279,25 @@ class _ChatComposerState extends State<ChatComposer> {
                 ),
               ),
               ListTile(
-                leading: const Icon(LucideIcons.camera, color: Color(0xFF64748B)),
-                title: Text('Camera', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                leading: const Icon(
+                  LucideIcons.camera,
+                  color: Color(0xFF64748B),
+                ),
+                title: Text(
+                  'Camera',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                ),
                 onTap: () => Navigator.pop(ctx, ImageSource.camera),
               ),
               ListTile(
-                leading: const Icon(LucideIcons.image, color: Color(0xFF64748B)),
-                title: Text('Gallery', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+                leading: const Icon(
+                  LucideIcons.image,
+                  color: Color(0xFF64748B),
+                ),
+                title: Text(
+                  'Gallery',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                ),
                 onTap: () => Navigator.pop(ctx, ImageSource.gallery),
               ),
             ],
@@ -340,7 +361,9 @@ class _ChatComposerState extends State<ChatComposer> {
   Widget build(BuildContext context) {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
-    final safeEmojiHeight = math.max(0, screenHeight - keyboardHeight - 200).toDouble();
+    final safeEmojiHeight = math
+        .max(0, screenHeight - keyboardHeight - 200)
+        .toDouble();
     final emojiHeight = math.min(320, safeEmojiHeight).toDouble();
 
     return Column(
@@ -401,95 +424,128 @@ class _ChatComposerState extends State<ChatComposer> {
           NexusToast.show(context, 'Recording discarded');
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFEF2F2),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFFEE2E2)),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(LucideIcons.trash2, color: Color(0xFFEF4444)),
-              tooltip: 'Discard recording',
-              onPressed: () => unawaited(_stopRecording(send: false)),
-            )
-                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                .shake(hz: 2, duration: 2.seconds),
-            const SizedBox(width: 8),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEF4444),
-                shape: BoxShape.circle,
-              ),
-            )
-                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                .scale(begin: const Offset(0.7, 0.7), end: const Offset(1.2, 1.2), duration: 800.ms)
-                .fadeIn(begin: 0.5, duration: 800.ms),
-            const SizedBox(width: 8),
-            Text(
-              _formatElapsed(_recordingElapsed),
-              style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF1E293B),
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Center(
-                child: AnimatedRecordingWave(),
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.chevronLeft, size: 14, color: Color(0xFF94A3B8))
-                    .animate(onPlay: (controller) => controller.repeat())
-                    .moveX(begin: 4, end: -4, duration: 1.seconds)
-                    .fadeOut(duration: 1.seconds),
-                const SizedBox(width: 2),
-                Text(
-                  'Swipe left to cancel',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF94A3B8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
+      child:
+          Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () => unawaited(_stopRecording(send: true)),
-              child: Container(
-                width: 40,
-                height: 40,
                 decoration: BoxDecoration(
-                  color: widget.themeColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: widget.themeColor.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: const Color(0xFFFEE2E2)),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                          icon: const Icon(
+                            LucideIcons.trash2,
+                            color: Color(0xFFEF4444),
+                          ),
+                          tooltip: 'Discard recording',
+                          onPressed: () =>
+                              unawaited(_stopRecording(send: false)),
+                        )
+                        .animate(
+                          onPlay: (controller) =>
+                              controller.repeat(reverse: true),
+                        )
+                        .shake(hz: 2, duration: 2.seconds),
+                    const SizedBox(width: 8),
+                    Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                        )
+                        .animate(
+                          onPlay: (controller) =>
+                              controller.repeat(reverse: true),
+                        )
+                        .scale(
+                          begin: const Offset(0.7, 0.7),
+                          end: const Offset(1.2, 1.2),
+                          duration: 800.ms,
+                        )
+                        .fadeIn(begin: 0.5, duration: 800.ms),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatElapsed(_recordingElapsed),
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF1E293B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Center(
+                        child: AnimatedRecordingWave(),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                              LucideIcons.chevronLeft,
+                              size: 14,
+                              color: Color(0xFF94A3B8),
+                            )
+                            .animate(
+                              onPlay: (controller) => controller.repeat(),
+                            )
+                            .moveX(begin: 4, end: -4, duration: 1.seconds)
+                            .fadeOut(duration: 1.seconds),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Swipe left to cancel',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => unawaited(_stopRecording(send: true)),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: widget.themeColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.themeColor.withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            LucideIcons.send,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Icon(LucideIcons.send, color: Colors.white, size: 18),
-                ),
-              ),
-            ),
-          ],
-        ),
-      )
-          .animate()
-          .slideX(begin: 0.1, end: 0, duration: 250.ms, curve: Curves.easeOutQuad)
-          .fadeIn(duration: 200.ms),
+              )
+              .animate()
+              .slideX(
+                begin: 0.1,
+                end: 0,
+                duration: 250.ms,
+                curve: Curves.easeOutQuad,
+              )
+              .fadeIn(duration: 200.ms),
     );
   }
 
@@ -499,16 +555,16 @@ class _ChatComposerState extends State<ChatComposer> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         GestureDetector(
-          onTap: widget.enabled ? _toggleEmoji : null,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            child: Icon(
-              _emojiVisible ? LucideIcons.keyboard : LucideIcons.smile,
-              color: const Color(0xFF64748B),
-              size: 22,
-            ),
-          ),
-        )
+              onTap: widget.enabled ? _toggleEmoji : null,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  _emojiVisible ? LucideIcons.keyboard : LucideIcons.smile,
+                  color: const Color(0xFF64748B),
+                  size: 22,
+                ),
+              ),
+            )
             .animate(target: widget.enabled ? 1.0 : 0.5)
             .fade()
             .scale(begin: const Offset(0.9, 0.9), duration: 150.ms),
@@ -557,53 +613,55 @@ class _ChatComposerState extends State<ChatComposer> {
         ),
         const SizedBox(width: 4),
         GestureDetector(
-          onTap: widget.enabled ? () => unawaited(_showAttachMenu()) : null,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            child: const Icon(
-              LucideIcons.paperclip,
-              color: Color(0xFF64748B),
-              size: 22,
-            ),
-          ),
-        )
+              onTap: widget.enabled ? () => unawaited(_showAttachMenu()) : null,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  LucideIcons.paperclip,
+                  color: Color(0xFF64748B),
+                  size: 22,
+                ),
+              ),
+            )
             .animate(target: widget.enabled ? 1.0 : 0.5)
             .fade()
             .scale(begin: const Offset(0.9, 0.9), duration: 150.ms),
         const SizedBox(width: 6),
         GestureDetector(
-          onTap: !widget.enabled
-              ? null
-              : hasText
-              ? _handleSend
-              : () => unawaited(_startRecording()),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: widget.enabled ? widget.themeColor : const Color(0xFFE2E8F0),
-              shape: BoxShape.circle,
-              boxShadow: widget.enabled
-                  ? [
-                      BoxShadow(
-                        color: widget.themeColor.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+              onTap: !widget.enabled
+                  ? null
+                  : hasText
+                  ? _handleSend
+                  : () => unawaited(_startRecording()),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: widget.enabled
+                      ? widget.themeColor
+                      : const Color(0xFFE2E8F0),
+                  shape: BoxShape.circle,
+                  boxShadow: widget.enabled
+                      ? [
+                          BoxShadow(
+                            color: widget.themeColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: widget.sending
+                    ? const Center(child: NexusOrbitLoader(size: 18))
+                    : Center(
+                        child: Icon(
+                          hasText ? LucideIcons.send : LucideIcons.mic,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
-                    ]
-                  : null,
-            ),
-            child: widget.sending
-                ? const Center(child: NexusOrbitLoader(size: 18))
-                : Center(
-                    child: Icon(
-                      hasText ? LucideIcons.send : LucideIcons.mic,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-          ),
-        )
+              ),
+            )
             .animate(target: widget.enabled ? 1.0 : 0.5)
             .fade()
             .scale(begin: const Offset(0.95, 0.95), duration: 150.ms),
@@ -646,7 +704,10 @@ class _AnimatedRecordingWaveState extends State<AnimatedRecordingWave>
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
         // Each bar takes 6 pixels (3 width + 3 margin)
-        final maxBars = (availableWidth / 6).floor().clamp(0, _baseHeights.length);
+        final maxBars = (availableWidth / 6).floor().clamp(
+          0,
+          _baseHeights.length,
+        );
         if (maxBars <= 1) {
           return const SizedBox.shrink();
         }
@@ -657,8 +718,11 @@ class _AnimatedRecordingWaveState extends State<AnimatedRecordingWave>
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(maxBars, (index) {
-                final sineVal = math.sin(_controller.value * 2 * math.pi + (index * 0.8));
-                final height = _baseHeights[index] * (0.3 + 0.7 * (sineVal.abs()));
+                final sineVal = math.sin(
+                  _controller.value * 2 * math.pi + (index * 0.8),
+                );
+                final height =
+                    _baseHeights[index] * (0.3 + 0.7 * (sineVal.abs()));
                 return Container(
                   width: 3,
                   height: height.clamp(4.0, 30.0),

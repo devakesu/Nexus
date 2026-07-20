@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/screens/login/widgets/login_painters.dart';
 import 'package:nexus/services/security_service.dart';
@@ -329,24 +329,42 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final config = AppConfig.current;
-      final googleSignIn = GoogleSignIn(
+      final googleSignIn = gsi.GoogleSignIn.instance;
+      await googleSignIn.initialize(
         clientId: config.googleIosClientId,
         serverClientId: config.googleWebClientId,
       );
 
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
+      final gsi.GoogleSignInAccount googleUser;
+      try {
+        googleUser = await googleSignIn.authenticate();
+      } on gsi.GoogleSignInException catch (e) {
+        if (e.code == gsi.GoogleSignInExceptionCode.canceled) {
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+        rethrow;
       }
 
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
-      if (accessToken == null || idToken == null) {
+      final authz =
+          await googleUser.authorizationClient.authorizationForScopes([
+            'email',
+            'openid',
+            'profile',
+          ]) ??
+          await googleUser.authorizationClient.authorizeScopes([
+            'email',
+            'openid',
+            'profile',
+          ]);
+      final accessToken = authz.accessToken;
+
+      if (idToken == null) {
         throw Exception('Missing authentication tokens from Google.');
       }
 

@@ -71,7 +71,9 @@ class NewChatSheet extends ConsumerWidget {
           const SizedBox(height: 12),
           Expanded(
             child: candidatesAsync.when(
-              loading: () => const Center(child: NexusOrbitLoader(size: 64, lightMode: true)),
+              loading: () => const Center(
+                child: NexusOrbitLoader(size: 64, lightMode: true),
+              ),
               error: (error, stackTrace) => Center(
                 child: Text(
                   'Could not load $pluralNoun',

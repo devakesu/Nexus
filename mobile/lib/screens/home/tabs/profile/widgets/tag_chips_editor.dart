@@ -214,8 +214,11 @@ class TagChipsEditor extends StatelessWidget {
                       ],
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height *
-                              (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.4),
+                          maxHeight:
+                              MediaQuery.of(context).size.height *
+                              (MediaQuery.of(context).viewInsets.bottom > 0
+                                  ? 0.22
+                                  : 0.4),
                         ),
                         child: ShaderMask(
                           shaderCallback: (bounds) {

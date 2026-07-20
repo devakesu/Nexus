@@ -102,21 +102,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
   String _mapPayloadKeyToField(String key) {
     switch (key) {
-      case 'display_gender': return 'displayGender';
-      case 'display_sexuality': return 'displaySexuality';
-      case 'search_bucket': return 'searchBucket';
-      case 'campus_branch': return 'campusBranch';
-      case 'campus_year': return 'campusYear';
-      case 'campus_name': return 'campusName';
-      case 'current_place': return 'currentPlace';
-      case 'religious_beliefs': return 'religiousBeliefs';
-      case 'causes_supported': return 'causesSupported';
-      case 'top_artists': return 'topArtists';
+      case 'display_gender':
+        return 'displayGender';
+      case 'display_sexuality':
+        return 'displaySexuality';
+      case 'search_bucket':
+        return 'searchBucket';
+      case 'campus_branch':
+        return 'campusBranch';
+      case 'campus_year':
+        return 'campusYear';
+      case 'campus_name':
+        return 'campusName';
+      case 'current_place':
+        return 'currentPlace';
+      case 'religious_beliefs':
+        return 'religiousBeliefs';
+      case 'causes_supported':
+        return 'causesSupported';
+      case 'top_artists':
+        return 'topArtists';
       case 'sub_interests':
-      case 'interests': return 'interests';
-      default: return key;
+      case 'interests':
+        return 'interests';
+      default:
+        return key;
     }
   }
+
   String _bio = '';
 
   // Extended profile fields from DB migration
@@ -349,7 +362,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         onSelected: (val) => unawaited(_saveProfileChanges(smoking: val)),
       );
     } else if (label == 'Religious Beliefs') {
-       _openBottomSelectionSheet(
+      _openBottomSelectionSheet(
         title: 'Religious Beliefs',
         options: FilterOptions.religiousBeliefs,
         currentValue: _religiousBeliefs,
@@ -531,12 +544,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         // Show overlay immediately, then wait for backend to finish its
         // OAuth callback before re-fetching.
         setState(() => _isSpotifyConnecting = true);
-        unawaited(Future<void>.delayed(const Duration(seconds: 2)).then((_) async {
-          if (!mounted) return;
-          await _loadProfileData(silent: true);
-          unawaited(ref.refresh(spotifyStatusProvider.future));
-          if (mounted) setState(() => _isSpotifyConnecting = false);
-        }));
+        unawaited(
+          Future<void>.delayed(const Duration(seconds: 2)).then((_) async {
+            if (!mounted) return;
+            await _loadProfileData(silent: true);
+            unawaited(ref.refresh(spotifyStatusProvider.future));
+            if (mounted) setState(() => _isSpotifyConnecting = false);
+          }),
+        );
       } else {
         final pending = ref.read(clientAIImageManagerProvider).pendingUploads;
         if (pending.isNotEmpty || _removingSlots.isNotEmpty) {
@@ -558,7 +573,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return list;
   }
 
-  Future<void> _loadProfileData({bool silent = false, bool isBootstrap = false}) async {
+  Future<void> _loadProfileData({
+    bool silent = false,
+    bool isBootstrap = false,
+  }) async {
     setState(() {
       if (silent) {
         _isRevalidating = true;
@@ -886,7 +904,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     return true;
   }
 
-  bool _areMapsOfListsEqual(Map<String, List<String>>? a, Map<String, List<String>>? b) {
+  bool _areMapsOfListsEqual(
+    Map<String, List<String>>? a,
+    Map<String, List<String>>? b,
+  ) {
     if (a == null && b == null) return true;
     if (a == null || b == null) return false;
     if (a.length != b.length) return false;
@@ -930,26 +951,48 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     var hasChanges = false;
     if (name != null && name != _savedName) hasChanges = true;
     if (age != null && age != _savedAge) hasChanges = true;
-    if (displayGender != null && displayGender != _savedDisplayGender) hasChanges = true;
-    if (displaySexuality != null && displaySexuality != _savedDisplaySexuality) hasChanges = true;
+    if (displayGender != null && displayGender != _savedDisplayGender) {
+      hasChanges = true;
+    }
+    if (displaySexuality != null &&
+        displaySexuality != _savedDisplaySexuality) {
+      hasChanges = true;
+    }
     if (pronouns != null && pronouns != _savedPronouns) hasChanges = true;
     if (bio != null && bio != _savedBio) hasChanges = true;
-    if (searchBucket != null && searchBucket != _savedSearchBucket) hasChanges = true;
+    if (searchBucket != null && searchBucket != _savedSearchBucket) {
+      hasChanges = true;
+    }
     if (campusBranch != null && campusBranch != _savedMajor) hasChanges = true;
     if (campusYear != null && campusYear != _savedYear) hasChanges = true;
     if (clearCampusYear && _savedYear != 0) hasChanges = true;
     if (campusName != null && campusName != _savedCampusName) hasChanges = true;
     if (hometown != null && hometown != _savedHometown) hasChanges = true;
-    if (currentPlace != null && currentPlace != _savedCurrentPlace) hasChanges = true;
-    if (religiousBeliefs != null && religiousBeliefs != _savedReligiousBeliefs) hasChanges = true;
+    if (currentPlace != null && currentPlace != _savedCurrentPlace) {
+      hasChanges = true;
+    }
+    if (religiousBeliefs != null &&
+        religiousBeliefs != _savedReligiousBeliefs) {
+      hasChanges = true;
+    }
     if (lifestyle != null && lifestyle != _savedLifestyle) hasChanges = true;
     if (drinking != null && drinking != _savedDrinking) hasChanges = true;
     if (smoking != null && smoking != _savedSmoking) hasChanges = true;
-    if (causesSupported != null && !_areListsEqual(causesSupported, _savedCausesSupported)) hasChanges = true;
-    if (topArtists != null && !_areListsEqual(topArtists, _savedTopArtists)) hasChanges = true;
-    if (languages != null && !_areListsEqual(languages, _savedLanguages)) hasChanges = true;
+    if (causesSupported != null &&
+        !_areListsEqual(causesSupported, _savedCausesSupported)) {
+      hasChanges = true;
+    }
+    if (topArtists != null && !_areListsEqual(topArtists, _savedTopArtists)) {
+      hasChanges = true;
+    }
+    if (languages != null && !_areListsEqual(languages, _savedLanguages)) {
+      hasChanges = true;
+    }
     if (pets != null && !_areListsEqual(pets, _savedPets)) hasChanges = true;
-    if (subInterests != null && !_areMapsOfListsEqual(subInterests, _savedSubInterests)) hasChanges = true;
+    if (subInterests != null &&
+        !_areMapsOfListsEqual(subInterests, _savedSubInterests)) {
+      hasChanges = true;
+    }
 
     if (!hasChanges) {
       return;
@@ -1010,7 +1053,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       incomingPayload['smoking'] = smoking.isEmpty ? null : smoking;
     }
     if (role != null) incomingPayload['role_at'] = role;
-    if (targetBuckets != null) incomingPayload['target_buckets'] = targetBuckets;
+    if (targetBuckets != null) {
+      incomingPayload['target_buckets'] = targetBuckets;
+    }
     if (lookingFor != null) incomingPayload['looking_for'] = lookingFor;
     if (activities != null) incomingPayload['activities'] = activities;
     if (causesSupported != null) {
@@ -1067,13 +1112,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 _savedAge = _age;
               }
               if (currentPayload.containsKey('display_gender')) {
-                final displayGender = currentPayload['display_gender'] as String;
-                _displayGender = displayGender == 'Prefer not to say' ? '' : displayGender;
+                final displayGender =
+                    currentPayload['display_gender'] as String;
+                _displayGender = displayGender == 'Prefer not to say'
+                    ? ''
+                    : displayGender;
                 _savedDisplayGender = _displayGender;
               }
               if (currentPayload.containsKey('display_sexuality')) {
-                final displaySexuality = currentPayload['display_sexuality'] as String;
-                _displaySexuality = displaySexuality == 'Prefer not to say' ? '' : displaySexuality;
+                final displaySexuality =
+                    currentPayload['display_sexuality'] as String;
+                _displaySexuality = displaySexuality == 'Prefer not to say'
+                    ? ''
+                    : displaySexuality;
                 _savedDisplaySexuality = _displaySexuality;
               }
               if (currentPayload.containsKey('pronouns')) {
@@ -1117,7 +1168,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
               }
               if (currentPayload.containsKey('religious_beliefs')) {
                 final beliefs = currentPayload['religious_beliefs'] as String;
-                _religiousBeliefs = beliefs == 'Prefer not to say' ? '' : beliefs;
+                _religiousBeliefs = beliefs == 'Prefer not to say'
+                    ? ''
+                    : beliefs;
                 _savedReligiousBeliefs = _religiousBeliefs;
               }
               if (currentPayload.containsKey('lifestyle')) {
@@ -1135,15 +1188,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 _savedSmoking = _smoking;
               }
               if (currentPayload.containsKey('causes_supported')) {
-                _causesSupported = List<String>.from(currentPayload['causes_supported'] as List);
+                _causesSupported = List<String>.from(
+                  currentPayload['causes_supported'] as List,
+                );
                 _savedCausesSupported = List<String>.from(_causesSupported);
               }
               if (currentPayload.containsKey('top_artists')) {
-                _topArtists = List<String>.from(currentPayload['top_artists'] as List);
+                _topArtists = List<String>.from(
+                  currentPayload['top_artists'] as List,
+                );
                 _savedTopArtists = List<String>.from(_topArtists);
               }
               if (currentPayload.containsKey('languages')) {
-                _languages = List<String>.from(currentPayload['languages'] as List);
+                _languages = List<String>.from(
+                  currentPayload['languages'] as List,
+                );
                 _savedLanguages = List<String>.from(_languages);
               }
               if (currentPayload.containsKey('pets')) {
@@ -1151,12 +1210,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                 _savedPets = List<String>.from(_pets);
               }
               if (currentPayload.containsKey('sub_interests')) {
-                _subInterests = Map<String, List<String>>.from(currentPayload['sub_interests'] as Map);
-                _savedSubInterests = Map<String, List<String>>.from(_subInterests);
+                _subInterests = Map<String, List<String>>.from(
+                  currentPayload['sub_interests'] as Map,
+                );
+                _savedSubInterests = Map<String, List<String>>.from(
+                  _subInterests,
+                );
               }
             });
             unawaited(SecureProfileCache.write(_currentProfileSnapshot()));
-            if (currentPayload.containsKey('age') || currentPayload.containsKey('name')) {
+            if (currentPayload.containsKey('age') ||
+                currentPayload.containsKey('name')) {
               unawaited(_loadProfileData(silent: true));
             }
 
@@ -1180,22 +1244,44 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           setState(() {
             if (currentPayload.containsKey('name')) _name = _savedName;
             if (currentPayload.containsKey('age')) _age = _savedAge;
-            if (currentPayload.containsKey('display_gender')) _displayGender = _savedDisplayGender;
-            if (currentPayload.containsKey('display_sexuality')) _displaySexuality = _savedDisplaySexuality;
-            if (currentPayload.containsKey('pronouns')) _pronouns = _savedPronouns;
+            if (currentPayload.containsKey('display_gender')) {
+              _displayGender = _savedDisplayGender;
+            }
+            if (currentPayload.containsKey('display_sexuality')) {
+              _displaySexuality = _savedDisplaySexuality;
+            }
+            if (currentPayload.containsKey('pronouns')) {
+              _pronouns = _savedPronouns;
+            }
             if (currentPayload.containsKey('bio')) _bio = _savedBio;
-            if (currentPayload.containsKey('search_bucket')) _searchBucket = _savedSearchBucket;
-            if (currentPayload.containsKey('campus_branch')) _major = _savedMajor;
+            if (currentPayload.containsKey('search_bucket')) {
+              _searchBucket = _savedSearchBucket;
+            }
+            if (currentPayload.containsKey('campus_branch')) {
+              _major = _savedMajor;
+            }
             if (currentPayload.containsKey('campus_year')) {
               _year = _savedYear;
               _isStudying = _savedIsStudying;
             }
-            if (currentPayload.containsKey('campus_name')) _campusName = _savedCampusName;
-            if (currentPayload.containsKey('hometown')) _hometown = _savedHometown;
-            if (currentPayload.containsKey('current_place')) _currentPlace = _savedCurrentPlace;
-            if (currentPayload.containsKey('religious_beliefs')) _religiousBeliefs = _savedReligiousBeliefs;
-            if (currentPayload.containsKey('lifestyle')) _lifestyle = _savedLifestyle;
-            if (currentPayload.containsKey('drinking')) _drinking = _savedDrinking;
+            if (currentPayload.containsKey('campus_name')) {
+              _campusName = _savedCampusName;
+            }
+            if (currentPayload.containsKey('hometown')) {
+              _hometown = _savedHometown;
+            }
+            if (currentPayload.containsKey('current_place')) {
+              _currentPlace = _savedCurrentPlace;
+            }
+            if (currentPayload.containsKey('religious_beliefs')) {
+              _religiousBeliefs = _savedReligiousBeliefs;
+            }
+            if (currentPayload.containsKey('lifestyle')) {
+              _lifestyle = _savedLifestyle;
+            }
+            if (currentPayload.containsKey('drinking')) {
+              _drinking = _savedDrinking;
+            }
             if (currentPayload.containsKey('smoking')) _smoking = _savedSmoking;
             if (currentPayload.containsKey('causes_supported')) {
               _causesSupported = List<String>.from(_savedCausesSupported);
@@ -1206,9 +1292,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             if (currentPayload.containsKey('languages')) {
               _languages = List<String>.from(_savedLanguages);
             }
-            if (currentPayload.containsKey('pets')) _pets = List<String>.from(_savedPets);
-            if (currentPayload.containsKey('sub_interests') || currentPayload.containsKey('interests')) {
-              _subInterests = Map<String, List<String>>.from(_savedSubInterests);
+            if (currentPayload.containsKey('pets')) {
+              _pets = List<String>.from(_savedPets);
+            }
+            if (currentPayload.containsKey('sub_interests') ||
+                currentPayload.containsKey('interests')) {
+              _subInterests = Map<String, List<String>>.from(
+                _savedSubInterests,
+              );
             }
           });
 
@@ -1229,7 +1320,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
     _isProfileSaving = false;
   }
-
 
   int _calculateStability() {
     var filled = 0;
@@ -1348,7 +1438,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         );
         // WidgetsBindingObserver.didChangeAppLifecycleState will fire when
         // the user returns from the browser and auto-reload profile data +
-        // refresh spotifyStatusProvider — no manual dialog needed.
+        // refresh spotifyStatusProvider - no manual dialog needed.
       }
     } on Object catch (e) {
       if (!mounted) return;
@@ -1368,7 +1458,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1E2E),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Disconnect Spotify?', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Disconnect Spotify?',
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           'This deletes your synced playlists and removes your top artists '
           'from your public profile. You can reconnect at any time. You may '
@@ -1378,11 +1471,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white38),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Disconnect', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Disconnect',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -1397,7 +1496,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         _savedTopArtists = [];
       });
       ref.invalidate(spotifyStatusProvider);
-      NexusToast.show(context, 'Spotify disconnected.', type: NexusToastType.success);
+      NexusToast.show(
+        context,
+        'Spotify disconnected.',
+        type: NexusToastType.success,
+      );
     } on Object catch (e) {
       if (!mounted) return;
       NexusToast.show(
@@ -1927,8 +2030,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       ],
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height *
-                              (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.45),
+                          maxHeight:
+                              MediaQuery.of(context).size.height *
+                              (MediaQuery.of(context).viewInsets.bottom > 0
+                                  ? 0.22
+                                  : 0.45),
                         ),
                         child: ShaderMask(
                           shaderCallback: (bounds) {
@@ -2186,8 +2292,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       ],
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height *
-                              (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.4),
+                          maxHeight:
+                              MediaQuery.of(context).size.height *
+                              (MediaQuery.of(context).viewInsets.bottom > 0
+                                  ? 0.22
+                                  : 0.4),
                         ),
                         child: SingleChildScrollView(
                           child: Wrap(
@@ -2208,8 +2317,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                   });
                                   onChanged(localSelected);
                                 },
-                                selectedColor:
-                                    AppColors.pulsarPink.withValues(alpha: 0.15),
+                                selectedColor: AppColors.pulsarPink.withValues(
+                                  alpha: 0.15,
+                                ),
                                 checkmarkColor: AppColors.pulsarPink,
                                 labelStyle: TextStyle(
                                   color: isSelected
@@ -2257,8 +2367,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                     border: InputBorder.none,
                                     hintStyle: TextStyle(fontSize: 13),
                                     isDense: true,
-                                    contentPadding:
-                                        EdgeInsets.symmetric(vertical: 8),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
                                   ),
                                   style: const TextStyle(fontSize: 13),
                                   onSubmitted: (val) {
@@ -2650,10 +2761,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                               _isStudying = false;
                               _year = 0;
                             });
-                            unawaited(_saveProfileChanges(
-                              campusName: '',
-                              clearCampusYear: true,
-                            ));
+                            unawaited(
+                              _saveProfileChanges(
+                                campusName: '',
+                                clearCampusYear: true,
+                              ),
+                            );
                           } else {
                             final lettersCount = trimmed
                                 .replaceAll(RegExp('[^a-zA-Z]'), '')

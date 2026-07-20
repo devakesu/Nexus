@@ -229,7 +229,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     var success = false;
 
     while (true) {
-      success = await _saveProfessionalProfileDetails({field: currentValueToSave});
+      success = await _saveProfessionalProfileDetails({
+        field: currentValueToSave,
+      });
 
       if (_pendingSaves.containsKey(field)) {
         currentValueToSave = _pendingSaves[field];
@@ -245,7 +247,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
         _savingFields.remove(field);
         if (success) {
           if (field == 'professional_target_buckets') {
-            _professionalTargetBuckets = List<String>.from(currentValueToSave as List);
+            _professionalTargetBuckets = List<String>.from(
+              currentValueToSave as List,
+            );
           } else if (field == 'looking_for') {
             _lookingFor = List<String>.from(currentValueToSave as List);
           } else if (field == 'tech_skills') {
@@ -856,7 +860,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.7,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: NexusOrbitLoader(),
@@ -868,7 +874,9 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                     height: MediaQuery.of(sheetCtx).size.height * 0.4,
                     decoration: const BoxDecoration(
                       color: Color(0xFF090D1A),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: const Center(
                       child: Text(
