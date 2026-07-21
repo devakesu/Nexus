@@ -114,22 +114,48 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create CI Firebase Android stub
+      - name: Prepare google-services.json
         working-directory: mobile
         run: |
-          cat > android/app/google-services.json <<'EOF'
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+            echo "✓ Recreated android/app/google-services.json from secret"
+          elif [ -f android/app/google-services.json ]; then
+            echo "✓ Using checked-in android/app/google-services.json"
+          else
+            cat > android/app/google-services.json <<'EOF'
           {
             "project_info": {
-              "project_number": "360032447327",
-              "project_id": "nexus-constellation",
-              "storage_bucket": "nexus-constellation.firebasestorage.app"
+              "project_number": "123456789012",
+              "project_id": "nexus-stub-project",
+              "storage_bucket": "nexus-stub.appspot.com"
             },
             "client": [
               {
                 "client_info": {
-                  "mobilesdk_app_id": "1:360032447327:android:6da2ebee79c242beefe4ea",
+                  "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
                   "android_client_info": {
                     "package_name": "com.devakesu.apps.nexus"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDUMMY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:1111111111111111111111",
+                  "android_client_info": {
+                    "package_name": "com.devakesu.apps.nexus.mec"
                   }
                 },
                 "oauth_client": [],
@@ -148,43 +174,9 @@ jobs:
             "configuration_version": "1"
           }
           EOF
+            echo "✓ Created CI stub android/app/google-services.json"
+          fi
 
-      - name: Create CI Firebase iOS stub
-        working-directory: mobile
-        run: |
-          mkdir -p ios/config/nexus
-          cat > ios/config/nexus/GoogleService-Info.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>API_KEY</key>
-            <string>AIzaSyDUMMY</string>
-            <key>BUNDLE_ID</key>
-            <string>com.devakesu.apps.nexus</string>
-            <key>GCM_SENDER_ID</key>
-            <string>360032447327</string>
-            <key>GOOGLE_APP_ID</key>
-            <string>1:360032447327:ios:fd570810cd58d162efe4ea</string>
-            <key>IS_ADS_ENABLED</key>
-            <false/>
-            <key>IS_ANALYTICS_ENABLED</key>
-            <false/>
-            <key>IS_APPINVITE_ENABLED</key>
-            <false/>
-            <key>IS_GCM_ENABLED</key>
-            <true/>
-            <key>IS_SIGNIN_ENABLED</key>
-            <false/>
-            <key>PLIST_VERSION</key>
-            <string>1</string>
-            <key>PROJECT_ID</key>
-            <string>nexus-constellation</string>
-            <key>STORAGE_BUCKET</key>
-            <string>nexus-constellation.firebasestorage.app</string>
-          </dict>
-          </plist>
-          EOF
 
       - name: Fetch Flutter dependencies
         working-directory: mobile
@@ -237,6 +229,43 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      - name: Create CI Firebase iOS stub
+        working-directory: mobile
+        run: |
+          mkdir -p ios/config/nexus
+          cat > ios/config/nexus/GoogleService-Info.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key>
+            <string>AIzaSyDUMMY</string>
+            <key>BUNDLE_ID</key>
+            <string>com.devakesu.apps.nexus</string>
+            <key>GCM_SENDER_ID</key>
+            <string>123456789012</string>
+            <key>GOOGLE_APP_ID</key>
+            <string>1:123456789012:ios:0000000000000000000000</string>
+            <key>IS_ADS_ENABLED</key>
+            <false/>
+            <key>IS_ANALYTICS_ENABLED</key>
+            <false/>
+            <key>IS_APPINVITE_ENABLED</key>
+            <false/>
+            <key>IS_GCM_ENABLED</key>
+            <true/>
+            <key>IS_SIGNIN_ENABLED</key>
+            <false/>
+            <key>PLIST_VERSION</key>
+            <string>1</string>
+            <key>PROJECT_ID</key>
+            <string>nexus-stub-project</string>
+            <key>STORAGE_BUCKET</key>
+            <string>nexus-stub.appspot.com</string>
+          </dict>
+          </plist>
+          EOF
+
       - name: Cache CocoaPods
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
@@ -244,6 +273,10 @@ jobs:
           key: ${{ runner.os }}-pods-${{ hashFiles('mobile/pubspec.lock', 'mobile/ios/Podfile') }}
           restore-keys: |
             ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods dependencies
+        working-directory: mobile/ios
+        run: pod install
 
       - name: Configure iOS project for simulator build
         working-directory: mobile
