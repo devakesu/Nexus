@@ -71,6 +71,7 @@ jobs:
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
           languages: python
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Autobuild (Python)
         uses: github/codeql-action/autobuild@e58424170fb0262c8d7ed60a2e84b9bffe205c67
@@ -95,7 +96,6 @@ jobs:
           fetch-depth: 0
 
       - name: Download Gradle Wrapper
-        if: github.event_name == 'push'
         run: |
           mkdir -p mobile/android/gradle/wrapper
           curl -fSL -o mobile/android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.0/gradle/wrapper/gradle-wrapper.jar
@@ -103,7 +103,6 @@ jobs:
           curl -fSL -o mobile/android/gradlew https://raw.githubusercontent.com/gradle/gradle/v8.14.0/gradlew
 
       - name: Set up JDK 17
-        if: github.event_name == 'push'
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
         with:
           distribution: "temurin"
@@ -111,14 +110,12 @@ jobs:
           cache: "gradle"
 
       - name: Set up Flutter
-        if: github.event_name == 'push'
         uses: ./.github/actions/flutter-action
         with:
           channel: stable
           cache: true
 
       - name: Prepare google-services.json
-        if: github.event_name == 'push'
         working-directory: mobile
         run: |
           set -euo pipefail
@@ -182,12 +179,10 @@ jobs:
           fi
 
       - name: Fetch Flutter dependencies
-        if: github.event_name == 'push'
         working-directory: mobile
         run: flutter pub get
 
       - name: Install Android SDK (basic)
-        if: github.event_name == 'push'
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
         with:
           accept-android-sdk-licenses: true
@@ -197,10 +192,10 @@ jobs:
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
           languages: java-kotlin
-          build-mode: ${{ github.event_name == 'push' && 'manual' || 'none' }}
+          build-mode: manual
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Build Android app (required for manual CodeQL extraction)
-        if: github.event_name == 'push'
         working-directory: mobile/android
         run: |
           chmod +x ./gradlew
@@ -226,19 +221,16 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Flutter
-        if: github.event_name == 'push'
         uses: ./.github/actions/flutter-action
         with:
           channel: stable
           cache: true
 
       - name: Fetch Flutter dependencies
-        if: github.event_name == 'push'
         working-directory: mobile
         run: flutter pub get
 
       - name: Create CI Firebase iOS stub
-        if: github.event_name == 'push'
         working-directory: mobile
         run: |
           mkdir -p ios/config/nexus
@@ -276,7 +268,6 @@ jobs:
           EOF
 
       - name: Cache CocoaPods
-        if: github.event_name == 'push'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: mobile/ios/Pods
@@ -285,23 +276,17 @@ jobs:
             ${{ runner.os }}-pods-
 
       - name: Install CocoaPods dependencies
-        if: github.event_name == 'push'
         working-directory: mobile/ios
         run: pod install
-
-      - name: Configure iOS project for simulator build
-        if: github.event_name == 'push'
-        working-directory: mobile
-        run: flutter build ios --simulator --no-codesign
 
       - name: Initialize CodeQL (Swift)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
           languages: swift
-          build-mode: ${{ github.event_name == 'push' && 'manual' || 'none' }}
+          build-mode: manual
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Build iOS app
-        if: github.event_name == 'push'
         run: |
           set -o pipefail
           xcodebuild -workspace mobile/ios/Runner.xcworkspace \

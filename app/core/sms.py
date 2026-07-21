@@ -85,7 +85,7 @@ async def send_sms(to: str, body: str) -> ProviderResult:
     """
     masked_to = redact_phone(to)
     if not has_twilio:
-        # codeql[py/clear-text-logging-sensitive-data] (masked by redact_phone)
+        # codeql[py/clear-text-logging-sensitive-data] Phone number is sanitized
         logger.warning("Twilio not configured; skipping SMS to %s", masked_to)
         return ProviderResult(
             success=False,
@@ -95,7 +95,7 @@ async def send_sms(to: str, body: str) -> ProviderResult:
     try:
         return await send_via_twilio(to, body)
     except Exception as e:
-        # codeql[py/clear-text-logging-sensitive-data] (masked by redact_phone)
+        # codeql[py/clear-text-logging-sensitive-data] Phone number is sanitized
         logger.exception("Failed to send SMS via Twilio to %s", masked_to)
         return ProviderResult(success=False, provider="Twilio", error=str(e))
 
