@@ -84,9 +84,10 @@ jobs:
         env:
           INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
         run: |
-          infisical login --method=universal-auth --client-id="$INFISICAL_CLIENT_ID" --client-secret="$INFISICAL_CLIENT_SECRET"
-          infisical export --projectId=2c94b0e4-559c-46a3-833c-1cb66f59c842 --env=prod --path=/public --format=dotenv > .env
+          infisical login --method=universal-auth --client-id="$INFISICAL_CLIENT_ID" --client-secret="$INFISICAL_CLIENT_SECRET" --domain="https://app.infisical.com"
+          infisical export --domain="https://app.infisical.com" --projectId="$INFISICAL_PROJECT_ID" --env=prod --path=/public --format=dotenv > .env
           echo "APP_VERSION=${APP_VERSION}" >> .env
 
       - name: Prepare derived values
@@ -324,12 +325,13 @@ jobs:
         env:
           INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
         run: |
           set -euo pipefail
-          infisical login --method=universal-auth --client-id="$INFISICAL_CLIENT_ID" --client-secret="$INFISICAL_CLIENT_SECRET"
+          infisical login --method=universal-auth --client-id="$INFISICAL_CLIENT_ID" --client-secret="$INFISICAL_CLIENT_SECRET" --domain="https://app.infisical.com"
 
           # Export public secrets to GitHub Env
-          eval $(infisical export --projectId=2c94b0e4-559c-46a3-833c-1cb66f59c842 --env=prod --path=/public --format=export-env)
+          eval $(infisical export --domain="https://app.infisical.com" --projectId="$INFISICAL_PROJECT_ID" --env=prod --path=/public --format=export-env)
 
           # Pass to GITHUB_ENV so they persist across steps
           echo "APP_DOMAIN=$APP_DOMAIN" >> $GITHUB_ENV
