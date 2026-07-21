@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14.6-slim@sha256:sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6
 
 # Force deterministic Python byte compilation
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -10,7 +10,7 @@ WORKDIR /app
 # Install dependencies and Infisical CLI, retaining curl and tar for system dependencies and health checks
 COPY requirements.txt .
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget tar ca-certificates && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --require-hashes -r requirements.txt && \
     wget -qO- https://github.com/Infisical/cli/releases/download/v0.43.84/cli_0.43.84_linux_amd64.tar.gz | tar -xz -C /usr/local/bin infisical && \
     apt-get purge -y --auto-remove wget && \
     rm -rf /var/lib/apt/lists/*

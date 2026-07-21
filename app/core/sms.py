@@ -83,8 +83,10 @@ async def send_sms(to: str, body: str) -> ProviderResult:
     fan-out, which must keep notifying remaining contacts even if one send
     fails) don't need their own try/except around every call.
     """
+    masked_to = redact_phone(to)
     if not has_twilio:
-        logger.warning("Twilio not configured; skipping SMS to %s", redact_phone(to))
+        # codeql[py/clear-text-logging-sensitive-data] (masked by redact_phone)
+        logger.warning("Twilio not configured; skipping SMS to %s", masked_to)
         return ProviderResult(
             success=False,
             provider="Twilio",
@@ -93,7 +95,8 @@ async def send_sms(to: str, body: str) -> ProviderResult:
     try:
         return await send_via_twilio(to, body)
     except Exception as e:
-        logger.exception("Failed to send SMS via Twilio to %s", redact_phone(to))
+        # codeql[py/clear-text-logging-sensitive-data] (masked by redact_phone)
+        logger.exception("Failed to send SMS via Twilio to %s", masked_to)
         return ProviderResult(success=False, provider="Twilio", error=str(e))
 
 

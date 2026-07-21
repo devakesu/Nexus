@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Nexus! This guide will help you u
 
 ### Prerequisites
 
-- **Python**: 3.11+
+- **Python**: 3.14+
 - **Flutter SDK**: 3.12+ (for mobile development)
 - **Dart SDK**: ^3.12.1 (bundled with Flutter)
 - **Git**: Latest version
