@@ -232,9 +232,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
-      - name: Install CocoaPods dependencies
-        working-directory: mobile/ios
-        run: pod install
+      - name: Configure iOS project for simulator build
+        working-directory: mobile
+        run: flutter build ios --simulator --no-codesign
 
       - name: Initialize CodeQL (Swift)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
@@ -252,6 +252,7 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
