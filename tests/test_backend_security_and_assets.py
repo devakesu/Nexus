@@ -1,4 +1,6 @@
+import re
 from typing import Any, cast
+from urllib.parse import urlparse
 
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -63,13 +65,20 @@ def test_landing_page_html_accessibility_and_social():
     assert "Skip to main content" in html
 
     # Social media icons check
-    assert "github.com" in html
-    assert "twitter.com" in html
-    assert "discord.gg" in html
-    assert "instagram.com" in html
-    assert "linkedin.com" in html
-    assert "youtube.com" in html
-    assert "play.google.com" in html
+    href_values = re.findall(r'href="([^"]+)"', html)
+    external_hosts = {
+        urlparse(href).hostname for href in href_values if href.startswith(("http://", "https://"))
+    }
+    expected_hosts = {
+        "github.com",
+        "twitter.com",
+        "discord.gg",
+        "instagram.com",
+        "linkedin.com",
+        "youtube.com",
+        "play.google.com",
+    }
+    assert expected_hosts.issubset(external_hosts)
 
 
 def test_request_payload_size_limit():
