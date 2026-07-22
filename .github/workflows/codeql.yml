@@ -49,6 +49,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Download Gradle Wrapper
+        run: |
+          mkdir -p mobile/android/gradle/wrapper
+          curl -fSL -o mobile/android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.0/gradle/wrapper/gradle-wrapper.jar
+          echo "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172  mobile/android/gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
+          curl -fSL -o mobile/android/gradlew https://raw.githubusercontent.com/gradle/gradle/v8.14.0/gradlew
+          chmod +x mobile/android/gradlew
+
       - name: Set up JDK 17
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
         with:
