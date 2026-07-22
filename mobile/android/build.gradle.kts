@@ -19,6 +19,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    plugins.withId("com.android.library") {
+        if (!plugins.hasPlugin("kotlin-android") && !plugins.hasPlugin("org.jetbrains.kotlin.android")) {
+            plugins.apply("kotlin-android")
+        }
+    }
+}
+
 // Force old-style Android library plugin subprojects to compile against at least SDK 34.
 // This fixes AAR metadata errors from plugins that still declare compileSdkVersion 33
 // (e.g. app_settings 6.1.1) when their AndroidX dependencies require SDK 34+.
