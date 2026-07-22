@@ -147,7 +147,7 @@ jobs:
 
       - name: Build Android Kotlin source (Triggers CodeQL extraction)
         working-directory: mobile/android
-        run: ./gradlew :app:compileDebugSources --no-daemon
+        run: ./gradlew :app:compileNexusDebugSources --no-daemon
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
