@@ -84,7 +84,7 @@ jobs:
           elif [ -f android/app/google-services.json ]; then
             echo "✓ Using checked-in android/app/google-services.json"
           else
-            cat > android/app/google-services.json <<'EOF'
+            cat > android/app/google-services.json <<'            EOF'
           {
             "project_info": {
               "project_number": "123456789012",
@@ -133,7 +133,7 @@ jobs:
             ],
             "configuration_version": "1"
           }
-EOF
+            EOF
             echo "✓ Created CI stub android/app/google-services.json"
           fi
 
