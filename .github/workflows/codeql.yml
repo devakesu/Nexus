@@ -255,6 +255,7 @@ jobs:
             SWIFT_INDEX_STORE_ENABLE=NO \
             DEBUG_INFORMATION_FORMAT=dwarf \
             ONLY_ACTIVE_ARCH=YES \
+            SWIFT_COMPILATION_MODE=singlefile \
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
