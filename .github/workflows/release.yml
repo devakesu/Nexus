@@ -60,7 +60,7 @@ jobs:
         id: version
         run: |
           VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          APP_VERSION="${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
           echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
@@ -291,7 +291,7 @@ jobs:
         id: version
         run: |
           VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          APP_VERSION="${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
           echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
@@ -331,11 +331,11 @@ jobs:
           if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > nexus-release.jks
             cat > key.properties << EOF
-            storePassword=${ANDROID_KEYSTORE_PASSWORD}
-            keyPassword=${ANDROID_KEY_PASSWORD}
-            keyAlias=${ANDROID_KEY_ALIAS}
-            storeFile=nexus-release.jks
-            EOF
+storePassword=${ANDROID_KEYSTORE_PASSWORD}
+keyPassword=${ANDROID_KEY_PASSWORD}
+keyAlias=${ANDROID_KEY_ALIAS}
+storeFile=nexus-release.jks
+EOF
             chmod 600 key.properties nexus-release.jks
             echo "✓ Configured dynamic signing keystore from Infisical /ci"
           else
@@ -547,7 +547,7 @@ jobs:
         id: version
         run: |
           VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}+${{ github.run_number }}"
+          APP_VERSION="${VERSION}"
           if [[ "${APP_VERSION}" != v* ]]; then
             VERSION_TAG="v${APP_VERSION}"
           else
@@ -587,7 +587,7 @@ jobs:
         env:
           VERSION_TAG: ${{ steps.version.outputs.version_tag }}
         run: |
-          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$' | grep -v "^${VERSION_TAG}$" | head -n1 || echo "")
+          PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "^${VERSION_TAG}$" | head -n1 || echo "")
           if [ -z "$PREV_TAG" ]; then
             PREV_REF=$(git rev-list --max-parents=0 HEAD)
             echo "changelog_text=${PREV_REF}...${VERSION_TAG}" >> "$GITHUB_OUTPUT"
@@ -608,40 +608,40 @@ jobs:
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
 
           cat > ./artifacts/VERIFY.md << EOF
-          # Release Verification Instructions
+# Release Verification Instructions
 
-          This release includes signed web and mobile artifacts with attestations for supply chain security.
+This release includes signed web and mobile artifacts with attestations for supply chain security.
 
-          ## Verify Docker Image Signature
-          \`\`\`bash
-          cosign verify \\
-            --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \\
-            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
-            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
-          \`\`\`
+## Verify Docker Image Signature
+\`\`\`bash
+cosign verify \\
+  --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \\
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
+  ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
+\`\`\`
 
-          ## Verify Build Attestation
-          \`\`\`bash
-          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
-          \`\`\`
+## Verify Build Attestation
+\`\`\`bash
+gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
+\`\`\`
 
-          ## Verify SBOM Signature
-          \`\`\`bash
-          cosign verify-blob --bundle sbom.json.bundle sbom.json
-          \`\`\`
+## Verify SBOM Signature
+\`\`\`bash
+cosign verify-blob --bundle sbom.json.bundle sbom.json
+\`\`\`
 
-          ## Verify Checksums
-          \`\`\`bash
-          sha256sum -c checksums.txt
-          sha256sum -c mobile-checksums.txt
-          \`\`\`
+## Verify Checksums
+\`\`\`bash
+sha256sum -c checksums.txt
+sha256sum -c mobile-checksums.txt
+\`\`\`
 
-          ## Verify Mobile APKs
-          \`\`\`bash
-          gh attestation verify nexus-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
-          gh attestation verify nexus-mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
-          \`\`\`
-          EOF
+## Verify Mobile APKs
+\`\`\`bash
+gh attestation verify nexus-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
+gh attestation verify nexus-mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
+\`\`\`
+EOF
 
       - name: Create GitHub Release
         env:
