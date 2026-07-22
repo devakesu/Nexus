@@ -146,10 +146,6 @@ jobs:
           accept-android-sdk-licenses: true
           packages: 'platform-tools build-tools;33.0.2 platforms;android-33'
 
-      - name: Configure Flutter Android plugins & Gradle bindings
-        working-directory: mobile
-        run: flutter build apk --debug --no-pub
-
       - name: Initialize CodeQL (Java + Kotlin)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
@@ -158,10 +154,8 @@ jobs:
           config-file: .github/codeql/codeql-config.yml
 
       - name: Build Android app (required for manual CodeQL extraction)
-        working-directory: mobile/android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon -Pci
+        working-directory: mobile
+        run: flutter build apk --debug --no-pub
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
