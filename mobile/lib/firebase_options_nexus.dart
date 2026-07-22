@@ -50,18 +50,18 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC9hEzsgoLqI-yFmXfxPWGVauNmawQYGUc',
-    appId: '1:360032447327:android:6da2ebee79c242beefe4ea',
-    messagingSenderId: '360032447327',
-    projectId: 'nexus-constellation',
-    storageBucket: 'nexus-constellation.firebasestorage.app',
+    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
+    appId: String.fromEnvironment('FIREBASE_ANDROID_APP_ID_NEXUS'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID'),
+    projectId: String.fromEnvironment('FIREBASE_PROJECT_ID'),
+    storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET'),
   );
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDeHa2U2_o3CdQqZIWrsF0E-GcX6it9VmI',
-    appId: '1:360032447327:ios:fd570810cd58d162efe4ea',
-    messagingSenderId: '360032447327',
-    projectId: 'nexus-constellation',
-    storageBucket: 'nexus-constellation.firebasestorage.app',
-    iosBundleId: 'com.devakesu.apps.nexus',
+    apiKey: String.fromEnvironment('FIREBASE_IOS_API_KEY'),
+    appId: String.fromEnvironment('FIREBASE_IOS_APP_ID_NEXUS'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID'),
+    projectId: String.fromEnvironment('FIREBASE_PROJECT_ID'),
+    storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET'),
+    iosBundleId: String.fromEnvironment('FIREBASE_IOS_BUNDLE_ID_NEXUS'),
   );
 }

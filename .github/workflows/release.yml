@@ -398,7 +398,18 @@ jobs:
               --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="${SPOTIFY_REDIRECT_URI_NEXUS:-}" \
               --dart-define=SPOTIFY_REDIRECT_URI_NEXUS_MEC="${SPOTIFY_REDIRECT_URI_NEXUS_MEC:-}" \
               --dart-define=SENTRY_FLUTTER_DSN="${SENTRY_FLUTTER_DSN:-}" \
-              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
+              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}" \
+              --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID:-}" \
+              --dart-define=FIREBASE_STORAGE_BUCKET="${FIREBASE_STORAGE_BUCKET:-}" \
+              --dart-define=FIREBASE_MESSAGING_SENDER_ID="${FIREBASE_MESSAGING_SENDER_ID:-}" \
+              --dart-define=FIREBASE_ANDROID_API_KEY="${FIREBASE_ANDROID_API_KEY:-}" \
+              --dart-define=FIREBASE_IOS_API_KEY="${FIREBASE_IOS_API_KEY:-}" \
+              --dart-define=FIREBASE_ANDROID_APP_ID_NEXUS="${FIREBASE_ANDROID_APP_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_IOS_APP_ID_NEXUS="${FIREBASE_IOS_APP_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_ANDROID_APP_ID_NEXUS_MEC="${FIREBASE_ANDROID_APP_ID_NEXUS_MEC:-}" \
+              --dart-define=FIREBASE_IOS_APP_ID_NEXUS_MEC="${FIREBASE_IOS_APP_ID_NEXUS_MEC:-}" \
+              --dart-define=FIREBASE_IOS_BUNDLE_ID_NEXUS="${FIREBASE_IOS_BUNDLE_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_IOS_BUNDLE_ID_NEXUS_MEC="${FIREBASE_IOS_BUNDLE_ID_NEXUS_MEC:-}"
 
             # App Bundle
             flutter build appbundle --release --flavor $FLAVOR \
@@ -423,7 +434,18 @@ jobs:
               --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="${SPOTIFY_REDIRECT_URI_NEXUS:-}" \
               --dart-define=SPOTIFY_REDIRECT_URI_NEXUS_MEC="${SPOTIFY_REDIRECT_URI_NEXUS_MEC:-}" \
               --dart-define=SENTRY_FLUTTER_DSN="${SENTRY_FLUTTER_DSN:-}" \
-              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
+              --dart-define=GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}" \
+              --dart-define=FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID:-}" \
+              --dart-define=FIREBASE_STORAGE_BUCKET="${FIREBASE_STORAGE_BUCKET:-}" \
+              --dart-define=FIREBASE_MESSAGING_SENDER_ID="${FIREBASE_MESSAGING_SENDER_ID:-}" \
+              --dart-define=FIREBASE_ANDROID_API_KEY="${FIREBASE_ANDROID_API_KEY:-}" \
+              --dart-define=FIREBASE_IOS_API_KEY="${FIREBASE_IOS_API_KEY:-}" \
+              --dart-define=FIREBASE_ANDROID_APP_ID_NEXUS="${FIREBASE_ANDROID_APP_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_IOS_APP_ID_NEXUS="${FIREBASE_IOS_APP_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_ANDROID_APP_ID_NEXUS_MEC="${FIREBASE_ANDROID_APP_ID_NEXUS_MEC:-}" \
+              --dart-define=FIREBASE_IOS_APP_ID_NEXUS_MEC="${FIREBASE_IOS_APP_ID_NEXUS_MEC:-}" \
+              --dart-define=FIREBASE_IOS_BUNDLE_ID_NEXUS="${FIREBASE_IOS_BUNDLE_ID_NEXUS:-}" \
+              --dart-define=FIREBASE_IOS_BUNDLE_ID_NEXUS_MEC="${FIREBASE_IOS_BUNDLE_ID_NEXUS_MEC:-}"
 
             # Upload debug symbols and obfuscation maps to Sentry
             echo "=== Uploading Sentry Symbols & Source Maps ==="

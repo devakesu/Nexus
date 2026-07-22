@@ -87,21 +87,42 @@ function exportSecrets(secrets) {
   const githubEnvFile = process.env.GITHUB_ENV;
   const outputFile = process.env.OUTPUT_FILE;
 
-  // Masking list
+  // Only mask true secrets, sensitive API keys, tokens, and private credentials in GitHub logs.
+  // Non-sensitive configuration (domains, public URLs, app IDs, bundle IDs, redirect URIs) remain unmasked.
   const keysToMask = [
-    'NEXT_PUBLIC_BACKEND_URL',
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
-    'NEXT_PUBLIC_SUPABASE_CF_PROXY_URL',
-    'NEXT_PUBLIC_SUPABASE_AWS_PROXY_URL',
-    'NEXT_PUBLIC_SENTRY_DSN',
-    'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
-    'NEXT_PUBLIC_GA_ID'
+    // Sensitive API Keys & Service Credentials
+    'GOOGLE_PLACES_API_KEY',
+    'FIREBASE_ANDROID_API_KEY',
+    'FIREBASE_IOS_API_KEY',
+    'SUPABASE_URL',
+    'SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_DEV_URL',
+    'SUPABASE_DEV_PUBLISHABLE_KEY',
+
+    // Telemetry & Security Tokens
+    'SENTRY_FLUTTER_DSN',
+
   ];
 
+  // Explicit non-sensitive public configuration values (IDs, URLs, domains, redirect URIs)
   const keysToOmitFromMasking = [
-    'NEXT_PUBLIC_SUPABASE_DEV_URL',
-    'NEXT_PUBLIC_SUPABASE_DEV_PUBLISHABLE_KEY'
+    'APP_DOMAIN',
+    'BACKEND_URL',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_STORAGE_BUCKET',
+    'FIREBASE_MESSAGING_SENDER_ID',
+    'FIREBASE_ANDROID_APP_ID_NEXUS',
+    'FIREBASE_IOS_APP_ID_NEXUS',
+    'FIREBASE_ANDROID_APP_ID_NEXUS_MEC',
+    'FIREBASE_IOS_APP_ID_NEXUS_MEC',
+    'FIREBASE_IOS_BUNDLE_ID_NEXUS',
+    'FIREBASE_IOS_BUNDLE_ID_NEXUS_MEC',
+    'GOOGLE_WEB_CLIENT_ID',
+    'GOOGLE_IOS_CLIENT_ID_NEXUS',
+    'GOOGLE_IOS_CLIENT_ID_NEXUS_MEC',
+    'SPOTIFY_CLIENT_ID',
+    'SPOTIFY_REDIRECT_URI_NEXUS',
+    'SPOTIFY_REDIRECT_URI_NEXUS_MEC'
   ];
 
   if (outputFile) {
