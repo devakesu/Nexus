@@ -66,6 +66,69 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      - name: Prepare google-services.json
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+            echo "✓ Recreated android/app/google-services.json from secret"
+          elif [ -f android/app/google-services.json ]; then
+            echo "✓ Using checked-in android/app/google-services.json"
+          else
+            cat > android/app/google-services.json <<'EOF'
+          {
+            "project_info": {
+              "project_number": "123456789012",
+              "project_id": "nexus-stub-project",
+              "storage_bucket": "nexus-stub.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.devakesu.apps.nexus"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDUMMY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:1111111111111111111111",
+                  "android_client_info": {
+                    "package_name": "com.devakesu.apps.nexus.mec"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDUMMY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+            echo "✓ Created CI stub android/app/google-services.json"
+          fi
+
       - name: Initialize CodeQL (Java + Kotlin)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
@@ -75,7 +138,7 @@ jobs:
 
       - name: Build Android app (Triggers CodeQL extraction)
         working-directory: mobile
-        run: flutter build apk --debug --no-pub
+        run: flutter build apk --debug --flavor nexus --no-pub
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
