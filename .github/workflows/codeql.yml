@@ -140,15 +140,15 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Configure Flutter Android plugins & Gradle bindings
-        working-directory: mobile
-        run: flutter build apk --debug --no-pub
-
       - name: Install Android SDK (basic)
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
         with:
           accept-android-sdk-licenses: true
           packages: 'platform-tools build-tools;33.0.2 platforms;android-33'
+
+      - name: Configure Flutter Android plugins & Gradle bindings
+        working-directory: mobile
+        run: flutter build apk --debug --no-pub
 
       - name: Initialize CodeQL (Java + Kotlin)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
@@ -238,7 +238,21 @@ jobs:
 
       - name: Configure iOS project & pre-build dependencies
         working-directory: mobile
-        run: flutter build ios --simulator --no-codesign
+        run: |
+          flutter build ios --simulator --no-codesign
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            SWIFT_INDEX_STORE_ENABLE=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf \
+            ONLY_ACTIVE_ARCH=YES \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet build
 
       - name: Initialize CodeQL (Swift)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
@@ -259,7 +273,6 @@ jobs:
             SWIFT_INDEX_STORE_ENABLE=NO \
             DEBUG_INFORMATION_FORMAT=dwarf \
             ONLY_ACTIVE_ARCH=YES \
-            SWIFT_COMPILATION_MODE=singlefile \
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
