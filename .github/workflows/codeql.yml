@@ -137,9 +137,9 @@ jobs:
           build-mode: manual
           config-file: .github/codeql/codeql-config.yml
 
-      - name: Build Android app (Triggers CodeQL extraction)
-        working-directory: mobile
-        run: flutter build apk --debug --flavor nexus --no-pub
+      - name: Build Android Kotlin source (Triggers CodeQL extraction)
+        working-directory: mobile/android
+        run: ./gradlew :app:compileDebugSources --no-daemon
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
