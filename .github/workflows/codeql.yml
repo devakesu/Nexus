@@ -140,10 +140,6 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Pre-build Flutter Android plugins before CodeQL init
-        working-directory: mobile
-        run: flutter build apk --config-only
-
       - name: Install Android SDK (basic)
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
         with:
@@ -161,7 +157,7 @@ jobs:
         working-directory: mobile/android
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:compileDebugSources --no-daemon -Pci -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
+          ./gradlew assembleDebug --no-daemon -Pci
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
