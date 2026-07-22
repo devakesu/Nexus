@@ -65,9 +65,12 @@ def test_landing_page_html_accessibility_and_social():
     assert "Skip to main content" in html
 
     # Social media icons check
-    href_values = re.findall(r'href="([^"]+)"', html)
-    external_hosts = {
-        urlparse(href).hostname for href in href_values if href.startswith(("http://", "https://"))
+    href_values: list[str] = re.findall(r'href="([^"]+)"', html)
+    external_hosts: set[str] = {
+        host
+        for href in href_values
+        if href.startswith(("http://", "https://"))
+        and (host := urlparse(href).hostname) is not None
     }
     expected_hosts = {
         "github.com",

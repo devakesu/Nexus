@@ -140,6 +140,10 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      - name: Pre-build Flutter Android plugins before CodeQL init
+        working-directory: mobile
+        run: flutter build apk --config-only
+
       - name: Install Android SDK (basic)
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
         with:
@@ -157,7 +161,7 @@ jobs:
         working-directory: mobile/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon -Pci
+          ./gradlew :app:compileDebugSources --no-daemon -Pci -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
 
       - name: Run CodeQL analysis (Android)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
@@ -251,9 +255,14 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            SWIFT_INDEX_STORE_ENABLE=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf \
+            ONLY_ACTIVE_ARCH=YES \
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet
 
       - name: Run CodeQL analysis (Swift)
         uses: github/codeql-action/analyze@e58424170fb0262c8d7ed60a2e84b9bffe205c67
