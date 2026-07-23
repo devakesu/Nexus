@@ -84,56 +84,18 @@ jobs:
           elif [ -f android/app/google-services.json ]; then
             echo "✓ Using checked-in android/app/google-services.json"
           else
-            cat > android/app/google-services.json <<'            EOF'
-          {
-            "project_info": {
-              "project_number": "123456789012",
-              "project_id": "nexus-stub-project",
-              "storage_bucket": "nexus-stub.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:123456789012:android:0000000000000000000000",
-                  "android_client_info": {
-                    "package_name": "com.devakesu.apps.nexus"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyDUMMY"
-                  }
+            node -e '
+              const fs = require("fs");
+              const stub = {
+                project_info: { project_number: "123456789012", project_id: "nexus-stub-project", storage_bucket: "nexus-stub.appspot.com" },
+                client: [
+                  { client_info: { mobilesdk_app_id: "1:123456789012:android:0000000000000000000000", android_client_info: { package_name: "com.devakesu.apps.nexus" } }, oauth_client: [], api_key: [{ current_key: "AIzaSyDUMMY" }], services: { appinvite_service: { other_platform_oauth_client: [] } } },
+                  { client_info: { mobilesdk_app_id: "1:123456789012:android:1111111111111111111111", android_client_info: { package_name: "com.devakesu.apps.nexus.mec" } }, oauth_client: [], api_key: [{ current_key: "AIzaSyDUMMY" }], services: { appinvite_service: { other_platform_oauth_client: [] } } }
                 ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
-              },
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:123456789012:android:1111111111111111111111",
-                  "android_client_info": {
-                    "package_name": "com.devakesu.apps.nexus.mec"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyDUMMY"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
-              }
-            ],
-            "configuration_version": "1"
-          }
-            EOF
+                configuration_version: "1"
+              };
+              fs.writeFileSync("android/app/google-services.json", JSON.stringify(stub, null, 2));
+            '
             echo "✓ Created CI stub android/app/google-services.json"
           fi
 
