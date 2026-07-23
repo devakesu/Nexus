@@ -5,13 +5,14 @@ from typing import Any, cast
 
 import firebase_admin
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from app.api.account_deletion import router as account_deletion_router
@@ -23,6 +24,7 @@ from app.api.export import router as export_router
 from app.api.feedback import router as feedback_router
 from app.api.legal import router as legal_router
 from app.api.likes import router as likes_router
+from app.api.root import render_error_page
 from app.api.root import router as root_router
 from app.api.safety import router as safety_router
 from app.api.safety_portal import router as safety_portal_router
@@ -160,6 +162,26 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
     return response
 
 
+async def http_exception_handler(request: Request, exc: Exception) -> Response:
+    status_code = getattr(exc, "status_code", 500)
+    detail = getattr(exc, "detail", None)
+    accept = request.headers.get("accept", "")
+
+    # If request accepts HTML (e.g. browser page navigation), render space error page
+    if "text/html" in accept:
+        msg = detail if isinstance(detail, str) else None
+        return await render_error_page(code=status_code, message=msg)
+
+    # Otherwise fallback to standard JSON error response for API callers
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail or "An error occurred"},
+        headers=getattr(exc, "headers", None),
+    )
+
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 app.include_router(root_router)

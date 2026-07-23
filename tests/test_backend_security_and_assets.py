@@ -97,3 +97,33 @@ def test_request_payload_size_limit():
     assert res.status_code == 413
     detail_content = cast(dict[str, Any], res.json())
     assert "Payload too large" in detail_content["detail"]
+
+
+def test_error_page_rendering():
+    # HTML request to nonexistent endpoint (404)
+    res_html = cast(
+        Response,
+        client.get("/nonexistent-page-url", headers={"Accept": "text/html"}),
+    )
+    assert res_html.status_code == 404
+    assert "HTTP STATUS 404" in res_html.text
+    assert "Signal Lost" in res_html.text
+
+    # JSON request to nonexistent endpoint (404)
+    res_json = cast(
+        Response,
+        client.get("/nonexistent-page-url", headers={"Accept": "application/json"}),
+    )
+    assert res_json.status_code == 404
+    assert res_json.json()["detail"] == "Not Found"
+
+    # Explicit /error route testing with custom parameters
+    res_error = cast(
+        Response,
+        client.get("/error?code=500&message=Database+connection+failed"),
+    )
+    assert res_error.status_code == 500
+    assert "HTTP STATUS 500" in res_error.text
+    assert "Internal Anomaly" in res_error.text
+    assert "Database connection failed" in res_error.text
+
