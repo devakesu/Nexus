@@ -371,6 +371,7 @@ jobs:
 
           for FLAVOR in nexus nexus_mec; do
             echo "=== Building Flavor: ${FLAVOR} ==="
+            RELEASE_FLAVOR="${FLAVOR//_/-}"
             
             # APK
             cd mobile
@@ -452,14 +453,14 @@ jobs:
             cd ..
 
             # Dynamic SBOM
-            npx --yes @cyclonedx/cdxgen -t dart --no-install-deps -o mobile/release-assets/${FLAVOR}-sbom.json mobile
+            npx --yes @cyclonedx/cdxgen -t dart --no-install-deps -o mobile/release-assets/${RELEASE_FLAVOR}-sbom.json mobile
 
             # Attest build provenance
             uses_apk_prov=$(gh attestation verify mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk --owner ${{ github.repository_owner }} 2>/dev/null || true)
             
             # Generate SBOM & provenance checksums
-            cp mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk mobile/release-assets/${FLAVOR}-android-v${{ steps.version.outputs.version }}.apk
-            cp mobile/build/app/outputs/bundle/${FLAVOR}Release/app-${FLAVOR}-release.aab mobile/play-console-assets/${FLAVOR}-app-release.aab
+            cp mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk mobile/release-assets/${RELEASE_FLAVOR}-android-v${{ steps.version.outputs.version }}.apk
+            cp mobile/build/app/outputs/bundle/${FLAVOR}Release/app-${FLAVOR}-release.aab mobile/play-console-assets/${RELEASE_FLAVOR}-app-release.aab
           done
 
       - name: Attest APKs
