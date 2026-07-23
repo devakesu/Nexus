@@ -122,8 +122,16 @@ RUN mkdir -p $HOME/.antigravity-server/data/Machine \
     && echo "$SETTINGS" > $HOME/.vscode-server/data/Machine/settings.json
 
 # 5. Deno Setup
-RUN mkdir -p /tmp/deno_install \
-    && wget -q https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip -O /tmp/deno_install/deno.zip \
+ARG DENO_URL
+ARG DENO_SHA256
+RUN if [ -f /tmp/pinned-artifacts.json ]; then \
+        DENO_URL=${DENO_URL:-$(jq -r '.deno.url // empty' /tmp/pinned-artifacts.json)}; \
+        DENO_SHA256=${DENO_SHA256:-$(jq -r '.deno.sha256 // empty' /tmp/pinned-artifacts.json)}; \
+    fi \
+    && DENO_URL=${DENO_URL:-"https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip"} \
+    && mkdir -p /tmp/deno_install \
+    && wget -q "$DENO_URL" -O /tmp/deno_install/deno.zip \
+    && if [ -n "$DENO_SHA256" ]; then echo "$DENO_SHA256 /tmp/deno_install/deno.zip" | sha256sum -c -; fi \
     && unzip -q /tmp/deno_install/deno.zip -d /tmp/deno_install \
     && mkdir -p $DENO_INSTALL/bin \
     && mv /tmp/deno_install/deno $DENO_INSTALL/bin/deno \
@@ -131,8 +139,16 @@ RUN mkdir -p /tmp/deno_install \
     && rm -rf /tmp/deno_install
 
 # 6. Android SDK Setup
-RUN mkdir -p $ANDROID_HOME/cmdline-tools \
-    && wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip \
+ARG ANDROID_CMDLINE_TOOLS_URL
+ARG ANDROID_CMDLINE_TOOLS_SHA256
+RUN if [ -f /tmp/pinned-artifacts.json ]; then \
+        ANDROID_CMDLINE_TOOLS_URL=${ANDROID_CMDLINE_TOOLS_URL:-$(jq -r '.android_cmdline_tools.url // empty' /tmp/pinned-artifacts.json)}; \
+        ANDROID_CMDLINE_TOOLS_SHA256=${ANDROID_CMDLINE_TOOLS_SHA256:-$(jq -r '.android_cmdline_tools.sha256 // empty' /tmp/pinned-artifacts.json)}; \
+    fi \
+    && ANDROID_CMDLINE_TOOLS_URL=${ANDROID_CMDLINE_TOOLS_URL:-"https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"} \
+    && mkdir -p $ANDROID_HOME/cmdline-tools \
+    && wget "$ANDROID_CMDLINE_TOOLS_URL" -O /tmp/cmdline-tools.zip \
+    && if [ -n "$ANDROID_CMDLINE_TOOLS_SHA256" ]; then echo "$ANDROID_CMDLINE_TOOLS_SHA256 /tmp/cmdline-tools.zip" | sha256sum -c -; fi \
     && unzip -q /tmp/cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools \
     && mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest \
     && rm /tmp/cmdline-tools.zip \
@@ -140,7 +156,23 @@ RUN mkdir -p $ANDROID_HOME/cmdline-tools \
     && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
 # 7. Flutter SDK Pre-cache
-RUN git clone https://github.com/flutter/flutter.git -b stable $FLUTTER_HOME \
+ARG FLUTTER_URL
+ARG FLUTTER_SHA256
+RUN if [ -f /tmp/pinned-artifacts.json ]; then \
+        FLUTTER_URL=${FLUTTER_URL:-$(jq -r '.flutter.url // empty' /tmp/pinned-artifacts.json)}; \
+        FLUTTER_SHA256=${FLUTTER_SHA256:-$(jq -r '.flutter.sha256 // empty' /tmp/pinned-artifacts.json)}; \
+    fi \
+    && if [ -n "$FLUTTER_URL" ]; then \
+        mkdir -p $FLUTTER_HOME \
+        && curl -fSL "$FLUTTER_URL" -o /tmp/flutter.tar.xz \
+        && if [ -n "$FLUTTER_SHA256" ]; then echo "$FLUTTER_SHA256 /tmp/flutter.tar.xz" | sha256sum -c -; fi \
+        && tar -xJf /tmp/flutter.tar.xz -C /tmp \
+        && rm -rf $FLUTTER_HOME \
+        && mv /tmp/flutter $FLUTTER_HOME \
+        && rm -f /tmp/flutter.tar.xz; \
+    else \
+        git clone https://github.com/flutter/flutter.git -b stable $FLUTTER_HOME; \
+    fi \
     && $FLUTTER_HOME/bin/flutter precache \
     && flutter config --android-sdk $ANDROID_HOME
 

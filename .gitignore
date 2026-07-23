@@ -164,7 +164,6 @@ mobile/**/google-services.json
 
 # Android native tooling overrides
 mobile/android/.gradle/
-mobile/android/local.properties
 mobile/android/key.properties
 mobile/.kotlin/
 mobile/android/app/Flutter/Generated.xcconfig

@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Nexus! This guide will help you u
 
 ### Prerequisites
 
-- **Python**: 3.14+
+- **Python**: 3.12.6+
 - **Flutter SDK**: 3.12+ (for mobile development)
 - **Dart SDK**: ^3.12.1 (bundled with Flutter)
 - **Git**: Latest version
@@ -50,13 +50,13 @@ git checkout -b feature/your-feature-name
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install --require-hashes -r requirements.txt
 
 # Start local development server
-uvicorn app.main:app --reload --reload-dir app
+infisical run --env=dev --projectId=xxxx -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
 
 # Run backend test suite
-pytest
+.venv/bin/pytest
 
 # Lint backend code
 ruff check .
@@ -74,7 +74,22 @@ cd mobile
 flutter pub get
 
 # Run on device/emulator
-flutter run
+infisical run --env=prod --projectId=xxxx -- sh -c '
+  export DART_VM_OPTIONS="--bind-address=0.0.0.0"
+  flutter run \
+    --flavor nexus \
+    --host-vmservice-port=8181 \
+    --dart-define=APP_DOMAIN="$APP_DOMAIN" \
+    --dart-define=BACKEND_URL="$BACKEND_URL" \
+    --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="$GOOGLE_IOS_CLIENT_ID_NEXUS" \
+    --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS_MEC="$GOOGLE_IOS_CLIENT_ID_NEXUS_MEC" \
+    --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+    --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+    --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+    --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
+    --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
+    --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
+'
 
 # Run Flutter tests
 flutter test
@@ -210,7 +225,7 @@ chore: bump dependencies
 
 ### Secret Management (Infisical)
 
-- Centralized management via the Infisical Dashboard acts as the single source of truth, organized into `/build-time`, `/runtime`, and `/ci` folders.
+- Centralized management via the Infisical Dashboard acts as the single source of truth, organized into `/public`, `/runtime`, and `/ci` folders.
 - Production environments inject secrets dynamically at boot time using the Infisical CLI wrapper.
 - External contributors don't need access to Infisical to run and develop the app locally.
 

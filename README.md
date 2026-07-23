@@ -8,20 +8,20 @@
 [![CodeQL](https://github.com/devakesu/Nexus/actions/workflows/codeql.yml/badge.svg)](https://github.com/devakesu/Nexus/actions/workflows/codeql.yml)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![Attestations](https://img.shields.io/badge/Attestations-View-brightgreen?logo=github)](https://github.com/devakesu/Nexus/attestations)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11930/badge)](https://www.bestpractices.dev/projects/11930)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13766/badge)](https://www.bestpractices.dev/projects/13766)
 [![Security Scan: Trivy](https://img.shields.io/badge/Security-Trivy%20Scanned-blue)](.github/workflows/release.yml)
 
 <!-- markdownlint-disable MD033 -->
 <p align="center">
   <img src="https://img.shields.io/badge/FastAPI-0.136.6-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Python-3.14+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Python-3.12.6+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/Supabase-2.30.1-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
   <img src="https://img.shields.io/badge/Pydantic-2.13.4-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/Flutter-3.12+-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Android-10+-3DDC84?style=for-the-badge&logo=android&logoColor=black" alt="Android" />
-  <img src="https://img.shields.io/badge/iOS-13+-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iOS" />
+  <img src="https://img.shields.io/badge/Android-13+-3DDC84?style=for-the-badge&logo=android&logoColor=black" alt="Android" />
+  <img src="https://img.shields.io/badge/iOS-15.5+-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iOS" />
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/Pytest-8.4.1-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
@@ -67,11 +67,11 @@ Choose the version that fits your community:
 ## 🎯 Key Vibes
 
 - **Orbit Social Discovery 🌌**: An intuitive visual discovery space ("the Orbit screen") connecting nearby people with mode-specific signal colors: **Dating** (`#FF4F81`), **Friends** (`#A45E00`), and **Professional** (`#007E6D`).
-- **Spotify Taste Signal 🎵**: Express your personality through shared musical vibes with real-time Spotify top tracks and artists, securely encrypted at rest via AES-256-GCM.
+- **Spotify Taste Signal 🎵**: Express your personality through shared musical vibes with real-time Spotify top tracks and artists, securely encrypted.
 - **Signal Protocol E2EE Chat 🔐**: Industry-standard Double Ratchet end-to-end encryption (`libsignal_protocol_dart`) ensuring messaging conversations remain strictly confidential between sender and receiver.
 - **First-Class Safety Center 🛡️**: Comprehensive safety tools including active meetup check-in alerts, emergency contact notifications, crisis helplines, transparent report/block controls, and account deletion flows.
 - **Dual Community Flavors 🏫**: One codebase powering both general-audience (`nexus`) and campus-restricted (`nexus_mec`) experiences under the cohesive **Constellation Social** design system.
-- **Anti-Tapjacking & Hardware Protection 📱**: Android `FLAG_SECURE` integration prevents screen recording, unauthorized overlays, and screenshots during sensitive safety workflows.
+- **Anti-Tapjacking & Hardware Protection 📱**: Android `FLAG_SECURE` integration prevents screen recording, unauthorized overlays, and screenshots during sensitive account operations.
 - **Offline-First & Local Sync ⚡**: High-performance local caching with Drift (SQLite), reactive Flutter Riverpod 3 state management, and seamless background notification schedulers.
 
 ### 🔐 Security & Reliability
@@ -81,7 +81,7 @@ Choose the version that fits your community:
 - **AES-256-GCM Encryption**: OAuth tokens and sensitive credentials stored with hardware-backed encryption at rest.
 - **Row Level Security (RLS)**: Database-level tenant isolation policy enforced across PostgreSQL tables in Supabase.
 - **Rate Limiting & Protection**: Per-IP and per-user rate limiting via SlowAPI backed by Redis caching.
-- **Supply Chain Transparency**: Signed Docker images using Sigstore Cosign (keyless OIDC), SLSA Level 3 provenance attestations, SBOM generation (CycloneDX), and continuous Trivy security scans.
+- **Supply Chain Transparency**: Signed Docker images using Sigstore Cosign (keyless OIDC), SLSA Level 3 provenance attestations, SBOM generation (CycloneDX), and continuous Trivy & CodeQL security scans.
 
 ## 🛠️ Tech Stack
 
@@ -210,14 +210,14 @@ Nexus features a cosmic design system called **Constellation Social** built arou
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install -r requirements.txt
+   pip install --require-hashes -r requirements.txt
    ```
 
 3. **Inject Secrets & Run API**:
 
    ```bash
    infisical login
-   infisical run --path /runtime --env prod -- uvicorn app.main:app --reload --port 8000
+   infisical run --env=dev --projectId=xxxx -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
    ```
 
    Visit `http://localhost:8000/docs` for the interactive Swagger documentation.
@@ -234,13 +234,41 @@ Nexus features a cosmic design system called **Constellation Social** built arou
 2. **Run General Audience Flavor (`nexus`)**:
 
    ```bash
-   flutter run --flavor nexus -t lib/main.dart
+   infisical run --env=prod --projectId=xxxx -- sh -c '
+    export DART_VM_OPTIONS="--bind-address=0.0.0.0"
+    flutter run \
+      --flavor nexus \
+      --host-vmservice-port=8181 \
+      --dart-define=APP_DOMAIN="$APP_DOMAIN" \
+      --dart-define=BACKEND_URL="$BACKEND_URL" \
+      --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="$GOOGLE_IOS_CLIENT_ID_NEXUS" \
+      --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS_MEC="$GOOGLE_IOS_CLIENT_ID_NEXUS_MEC" \
+      --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+      --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+      --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+      --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
+      --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
+      --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
    ```
 
 3. **Run Campus-Gated Flavor (`nexus_mec`)**:
 
    ```bash
-   flutter run --flavor nexus_mec -t lib/main.dart
+   infisical run --env=prod --projectId=xxxx -- sh -c '
+    export DART_VM_OPTIONS="--bind-address=0.0.0.0"
+    flutter run \
+      --flavor nexus_mec \
+      --host-vmservice-port=8181 \
+      --dart-define=APP_DOMAIN="$APP_DOMAIN" \
+      --dart-define=BACKEND_URL="$BACKEND_URL" \
+      --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="$GOOGLE_IOS_CLIENT_ID_NEXUS" \
+      --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS_MEC="$GOOGLE_IOS_CLIENT_ID_NEXUS_MEC" \
+      --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+      --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+      --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+      --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
+      --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
+      --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
    ```
 
 ## ⚡ Performance & Security Optimizations
@@ -248,7 +276,7 @@ Nexus features a cosmic design system called **Constellation Social** built arou
 - **Bytecode Determinism**: Container builds enforce `PYTHONDONTWRITEBYTECODE=1` and `SOURCE_DATE_EPOCH` for 100% reproducible artifacts.
 - **In-Memory Secret Injection**: Secrets are injected directly into process memory at launch via Infisical, preventing credentials from touching the filesystem.
 - **Local Persistence with Drift**: Offloads user profile reads and chat logs to an encrypted local SQLite database, resulting in sub-millisecond screen transitions.
-- **Anti-Tapjacking Hardware Guard**: Prevents malicious Android apps from drawing overlays or capturing touch events over Safety Center and Check-in verification screens.
+- **Anti-Tapjacking Hardware Guard**: Prevents malicious Android apps from drawing overlays or capturing touch events over Account/Login, Safety Center and Check-in verification screens.
 
 ## 🧪 Testing & Quality
 
@@ -259,7 +287,7 @@ Nexus enforces strict testing and code analysis standards across both backend an
 Run the backend unit, integration, and security test suite:
 
 ```bash
-pytest tests/
+.venv/bin/pytest tests/
 ```
 
 Tests cover vector orbit calculations, moderation security, campus email validation, and chat key exchanges.
@@ -283,7 +311,7 @@ Enforces code style and best practices using `very_good_analysis`.
 
 ## 🔒 Security Policy
 
-Security is fundamental to Nexus. If you discover a vulnerability, please disclose it responsibly by contacting **[admin@nexus.devakesu.com](mailto:admin@nexus.devakesu.com)**.
+Security is fundamental to Nexus. If you discover a vulnerability, please disclose it responsibly via **[GitHub Private Vulnerability Reporting](https://github.com/devakesu/Nexus/security/advisories/new)** or by contacting **[admin@nexus.devakesu.com](mailto:admin@nexus.devakesu.com)**.
 
 For complete details on encryption standards, hardware attestation, and script injection protection, read **[SECURITY.md](SECURITY.md)**.
 
@@ -294,8 +322,8 @@ For complete details on encryption standards, hardware attestation, and script i
 Nexus features a reproducible Docker build setup with multi-stage security checks:
 
 ```bash
-docker build -t nexus-api .
-docker run -p 8000:8000 -e INFISICAL_PROJECT_ID="your_project_id" nexus-api
+docker build -t nexus-orbit .
+docker run -p 8000:8000 -e INFISICAL_PROJECT_ID="your_project_id" INFISICAL_TOKEN="your_token" INFISICAL_ENGINE_TOKEN="private_engine" nexus-orbit
 ```
 
 Release builds are automatically signed with Sigstore Cosign and submitted with SLSA Level 3 provenance attestations.
@@ -336,7 +364,7 @@ Contributions are welcome! Please review **[CONTRIBUTING.md](CONTRIBUTING.md)** 
 
 ## 👥 Maintained by
 
-- **[Devanarayanan](https://github.com/devakesu/)**
+- **[Devanarayanan](https://devakesu.com)**
 
 ## 📄 License
 

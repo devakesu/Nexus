@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexus/config/app_config.dart';
+import 'package:nexus/services/security_service.dart';
 import 'package:nexus/theme/app_colors.dart';
 import 'package:nexus/utils/encrypted_string.dart';
 import 'package:nexus/utils/error_handler.dart';
@@ -49,11 +50,34 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
   Timer? _countdownTimer;
   int _resendCountdown = 60;
 
+  StreamSubscription<void>? _overlaySubscription;
+  Timer? _securityCheckTimer;
+  bool _isOverlayDetected = false;
+  bool _isScreenRecordingActive = false;
+
   static const int _codeLength = AppConfig.otpLength;
 
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
+    _overlaySubscription = SecurityService.onOverlayDetected.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isOverlayDetected = true;
+        });
+      }
+    });
+    _securityCheckTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) async {
+      final active = await SecurityService.isScreenRecordingOrMirroring();
+      if (mounted && active != _isScreenRecordingActive) {
+        setState(() {
+          _isScreenRecordingActive = active;
+        });
+      }
+    });
     _startCountdown();
     _otpController.addListener(_updateOtpState);
   }
@@ -87,6 +111,9 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
 
   @override
   void dispose() {
+    unawaited(_overlaySubscription?.cancel());
+    _securityCheckTimer?.cancel();
+    unawaited(SecurityService.exitSensitiveScreen());
     _countdownTimer?.cancel();
     _otpController
       ..removeListener(_updateOtpState)
@@ -188,6 +215,91 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isScreenRecordingActive) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.videocam_off, color: Colors.red, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Screen Recording Detected',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Verification cannot be completed while screen recording or mirroring is active.',
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[400]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isOverlayDetected) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.security, color: Colors.amber, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Screen Overlay Detected',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Another application is drawing an overlay on top of this screen. Please close any overlay applications to continue.',
+                style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[400]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isOverlayDetected = false;
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Dismiss Warning',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),

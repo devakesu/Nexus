@@ -10,20 +10,21 @@ plugins {
 }
 
 
-// Load key.properties
+// Load key.properties & local.properties
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
-// Load local.properties
 val localPropertiesFile = rootProject.file("local.properties")
 val localProperties = Properties()
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
-val mapsApiKey = localProperties.getProperty("mapsApiKey") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+val mapsApiKey = keystoreProperties.getProperty("mapsApiKey")
+    ?: localProperties.getProperty("mapsApiKey")
+    ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
 
 android {
     namespace = "com.devakesu.apps.nexus"

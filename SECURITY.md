@@ -4,7 +4,8 @@
 
 If you discover a security vulnerability in Nexus, please report it responsibly:
 
-**Email**: [admin@nexus.devakesu.com](mailto:admin@nexus.devakesu.com)
+- **GitHub Private Vulnerability Reporting**: Submit a report privately via [GitHub Security Advisories](https://github.com/devakesu/Nexus/security/advisories/new)
+- **Email**: [admin@nexus.devakesu.com](mailto:admin@nexus.devakesu.com)
 
 Please include:
 
@@ -36,7 +37,7 @@ Nexus implements multiple layers of security:
 
 - **Rate Limiting** - SlowAPI rate limiting per IP/user on sensitive endpoints
 - **App Check Attestation (Mobile)** - Firebase App Check with Play Integrity (Android) and DeviceCheck (iOS) to prevent unauthorized API requests
-- **Anti-Tapjacking (Mobile)** - Android `FLAG_SECURE` implementation to prevent screenshot/overlay attacks on sensitive screens (e.g. Meetup-Safety verification and Safety Center)
+- **Anti-Tapjacking & Hardware Protection (Mobile)** - Native Android touch obscuration detection (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) and `FLAG_SECURE` window hardware protection (blocking screenshots and screen recording) enabled across all sensitive user flows: Login & Phone/Email OTP, OTP Re-authentication, Check-in & Alert screens, Safety Center & Meetup Safety screens, Account Deletion flow, Data Export flow, and Sign Out confirmation modal.
 
 ### Supply Chain Security
 
@@ -125,13 +126,20 @@ scoop install cosign
 
 ### Quick Verification
 
-Verify an image using regex pattern (recommended):
+Verify an image using regex pattern via tag or digest (recommended):
 
 ```bash
+# Verify by image tag
 cosign verify \
   --certificate-identity-regexp="^https://github.com/devakesu/Nexus/.github/workflows/" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
   ghcr.io/devakesu/nexus:latest
+
+# Verify by exact SHA256 image digest (recommended)
+cosign verify \
+  --certificate-identity-regexp="^https://github.com/devakesu/Nexus/.github/workflows/" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+  ghcr.io/devakesu/nexus@sha256:IMAGE_SHA256_DIGEST
 ```
 
 ### Strict Verification
@@ -139,30 +147,35 @@ cosign verify \
 For maximum security, verify against specific workflow:
 
 ```bash
-# Latest release (release.yml)
+# Latest release (release.yml) by tag
 cosign verify \
   --certificate-identity="https://github.com/devakesu/Nexus/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
   ghcr.io/devakesu/nexus:latest
 
-# Specific version tag (release.yml)
+# Specific version release by exact image digest
 cosign verify \
   --certificate-identity="https://github.com/devakesu/Nexus/.github/workflows/release.yml@refs/heads/main" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-  ghcr.io/devakesu/nexus:vX.Y.Z
+  ghcr.io/devakesu/nexus@sha256:IMAGE_SHA256_DIGEST
 ```
+
+> **Note**: Container signatures are signed directly against the manifest digest. If `ghcr.io/devakesu/nexus:vX.Y.Z` returns `MANIFEST_UNKNOWN`, use the container digest (`ghcr.io/devakesu/nexus@sha256:<digest>`) listed in the release notes.
 
 ### GitHub Attestations
 
 View build attestations:
 
 ```bash
-# View provenance
+# View provenance by image tag or digest
 gh attestation verify oci://ghcr.io/devakesu/nexus:latest \
   --owner devakesu
 
+gh attestation verify oci://ghcr.io/devakesu/nexus@sha256:IMAGE_SHA256_DIGEST \
+  --owner devakesu
+
 # View SBOM
-gh attestation verify oci://ghcr.io/devakesu/nexus:latest \
+gh attestation verify oci://ghcr.io/devakesu/nexus@sha256:IMAGE_SHA256_DIGEST \
   --owner devakesu \
   --signer-repo devakesu/Nexus
 ```
@@ -188,7 +201,6 @@ Before deploying to production:
 - [ ] Origin validation enabled for CORS
 - [ ] Rate limiting configured on FastAPI
 - [ ] Firebase App Check configured on Google Cloud / Firebase Console
-- [ ] JWE secrets rotated appropriately
 
 ### Monitoring & Logging
 

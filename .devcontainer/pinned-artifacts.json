@@ -18,5 +18,17 @@
   "infisical": {
     "url": "https://registry.npmjs.org/@infisical/cli/-/cli-0.43.84.tgz",
     "shasum": "1be194be8a50c38706d3bd1f5852d22bc393827d"
+  },
+  "deno": {
+    "url": "https://github.com/denoland/deno/releases/download/v2.9.4/deno-x86_64-unknown-linux-gnu.zip",
+    "sha256": "c24f955d9fbfe0ea5ae2b501c8e71ae76e31e4c9782390a54a284b3364fda725"
+  },
+  "android_cmdline_tools": {
+    "url": "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip",
+    "sha256": "2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258"
+  },
+  "flutter": {
+    "url": "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.44.7-stable.tar.xz",
+    "sha256": "a0edd646c159c0e816788c0e46a4f071199c1320495898f5a679599b583a05a4"
   }
 }

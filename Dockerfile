@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget tar ca-certificates build-essential && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
     wget -qO- https://github.com/Infisical/cli/releases/download/v0.43.84/cli_0.43.84_linux_amd64.tar.gz | tar -xz -C /usr/local/bin infisical && \
-    apt-get purge -y --auto-remove wget build-essential && \
+    apt-get purge -y --auto-remove build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy application source code (filtered by .dockerignore)
@@ -25,8 +25,8 @@ COPY mocks/Nexus_Engine/engine.py /app/Nexus_Engine/engine.py
 # Create a non-root user and set ownership
 RUN chmod +x /app/entrypoint.sh && \
     groupadd -g 10001 appgroup && \
-    useradd -u 10001 -g appgroup -s /sbin/nologin -c "Nexus User" appuser && \
-    chown -R appuser:appgroup /app
+    useradd -u 10001 -g appgroup -m -s /sbin/nologin -c "Nexus User" appuser && \
+    chown -R appuser:appgroup /app /home/appuser
 
 USER appuser
 
