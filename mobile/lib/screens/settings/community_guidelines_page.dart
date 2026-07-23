@@ -1375,7 +1375,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
             accentColor: AppColors.modeSettings,
             children: [
               _bullet(
-                'Every report enters our Trust & Safety queue and is reviewed by a human team member within 24–72 hours for standard reports, and within hours for urgent safety flags.',
+                'Every report enters our Trust & Safety queue and is reviewed by a human team member within 24-72 hours for standard reports, and within hours for urgent safety flags.',
               ),
               _bullet(
                 'We may ask follow-up questions via the Feedback ticket system - please check your tickets under Settings → Feedback.',

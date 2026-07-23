@@ -35,7 +35,7 @@ String getEmojiForTag(String tag) {
 }
 
 // ===========================================================================
-// EMOJI MAP  –  items that have a meaningful emoji representation
+// EMOJI MAP  -  items that have a meaningful emoji representation
 // ===========================================================================
 const Map<String, String> _emojiMap = {
   // ── Gender ──────────────────────────────────────────────────────────────
@@ -332,7 +332,7 @@ const Map<String, String> _emojiMap = {
   'Alpaca / Llama': '🦙',
   'No Pets': '🚫',
 
-  // ── Interests – Tech & Science ────────────────────────────────────────────
+  // ── Interests - Tech & Science ────────────────────────────────────────────
   'Python': '🐍',
   'Flutter & Dart': '💙',
   'Rust': '🦀',
@@ -371,7 +371,7 @@ const Map<String, String> _emojiMap = {
   'Algorithms': '🧮',
   'Chess & Strategy Games': '♟️',
 
-  // ── Interests – Entertainment & Media ─────────────────────────────────────
+  // ── Interests - Entertainment & Media ─────────────────────────────────────
   'Horror Shows': '👻',
   'Sci-Fi & Fantasy': '🚀',
   'Documentaries': '📽️',
@@ -449,7 +449,7 @@ const Map<String, String> _emojiMap = {
   'Interview Shows': '🎙️',
   'Audiobooks': '🎧',
 
-  // ── Interests – Sports & Outdoors ─────────────────────────────────────────
+  // ── Interests - Sports & Outdoors ─────────────────────────────────────────
   'Weightlifting': '🏋️',
   'Powerlifting': '💪',
   'CrossFit': '🤸',
@@ -533,7 +533,7 @@ const Map<String, String> _emojiMap = {
   'Olympic Sports': '🏅',
   'Fantasy Leagues': '🏆',
 
-  // ── Interests – Creative & Arts ────────────────────────────────────────────
+  // ── Interests - Creative & Arts ────────────────────────────────────────────
   'Watercolor Painting': '🎨',
   'Oil & Acrylics': '🖌️',
   'Sketching & Charcoal': '✏️',
@@ -594,7 +594,7 @@ const Map<String, String> _emojiMap = {
   'Resin Art': '🎨',
   'Home Renovation & DIY': '🔨',
 
-  // ── Interests – Books & Reading ────────────────────────────────────────────
+  // ── Interests - Books & Reading ────────────────────────────────────────────
   'Fantasy': '🧙',
   'Science Fiction': '🚀',
   'Literary Fiction': '📖',
@@ -621,7 +621,7 @@ const Map<String, String> _emojiMap = {
   'Reading Challenges': '🏆',
   'Rare & Antique Books': '📜',
 
-  // ── Interests – Food & Drink ───────────────────────────────────────────────
+  // ── Interests - Food & Drink ───────────────────────────────────────────────
   'Baking & Pastry': '🥐',
   'Sourdough Bread': '🍞',
   'BBQ & Grilling': '🍖',
@@ -651,7 +651,7 @@ const Map<String, String> _emojiMap = {
   'Farmers Markets': '🥕',
   'Food Festivals': '🎪',
 
-  // ── Interests – Travel & Adventure ────────────────────────────────────────
+  // ── Interests - Travel & Adventure ────────────────────────────────────────
   'Solo Travel': '🎒',
   'Luxury Travel': '✈️',
   'Budget Travel': '💰',
@@ -682,7 +682,7 @@ const Map<String, String> _emojiMap = {
   'Language Immersion': '💬',
   'Voluntourism': '🤝',
 
-  // ── Interests – Lifestyle & Wellness ──────────────────────────────────────
+  // ── Interests - Lifestyle & Wellness ──────────────────────────────────────
   'Meditation': '🧘',
   'Mindfulness': '🍃',
   'Breathwork': '🌬️',
@@ -722,7 +722,7 @@ const Map<String, String> _emojiMap = {
   'Animal Rescue & Fostering': '🐾',
   'Wildlife Photography': '📸',
 
-  // ── Interests – Finance & Business ────────────────────────────────────────
+  // ── Interests - Finance & Business ────────────────────────────────────────
   'Stock Market': '📈',
   'Index Funds & ETFs': '📊',
   'Cryptocurrency': '₿',
@@ -745,7 +745,7 @@ const Map<String, String> _emojiMap = {
   'Passive Income': '💸',
   'Financial Independence': '🏖️',
 
-  // ── Interests – Social & Activism ─────────────────────────────────────────
+  // ── Interests - Social & Activism ─────────────────────────────────────────
   'Volunteering': '🤝',
   'Community Organising': '🏘️',
   'Mutual Aid': '🤝',
@@ -769,7 +769,7 @@ const Map<String, String> _emojiMap = {
   'Pen Pals & Letter Writing': '✉️',
   'Anthropology': '🏛️',
 
-  // ── Interests – Spirituality & Esoteric ───────────────────────────────────
+  // ── Interests - Spirituality & Esoteric ───────────────────────────────────
   'Yoga Philosophy': '🧘',
   'Buddhism': '☸️',
   'Hinduism & Vedanta': '🕉️',
@@ -789,7 +789,7 @@ const Map<String, String> _emojiMap = {
   'Cryptids': '👁️',
   'Near-Death Experiences': '✨',
 
-  // ── Interests – Cars & Motors ─────────────────────────────────────────────
+  // ── Interests - Cars & Motors ─────────────────────────────────────────────
   'Car Culture & Shows': '🚗',
   'Classic & Vintage Cars': '🚘',
   'JDM (Japanese Domestic Market)': '🇯🇵',
@@ -812,7 +812,7 @@ const Map<String, String> _emojiMap = {
 };
 
 // ===========================================================================
-// LUCIDE ICON MAP  –  items where emoji don't exist or would be misleading
+// LUCIDE ICON MAP  -  items where emoji don't exist or would be misleading
 // ===========================================================================
 const Map<String, IconData> _lucideMap = {
   // ── Gender (no good emoji) ────────────────────────────────────────────────

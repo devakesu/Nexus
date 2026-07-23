@@ -45,10 +45,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' "
-            "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' "
             "https://fonts.googleapis.com https://cdn.jsdelivr.net "
-            "https://cdnjs.cloudflare.com; "
+            "https://cdnjs.cloudflare.com https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com "
             "https://cdnjs.cloudflare.com data:; "
             "img-src 'self' data: https: blob:; "

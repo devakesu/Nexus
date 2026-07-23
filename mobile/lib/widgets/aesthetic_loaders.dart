@@ -350,11 +350,11 @@ class _StarfieldPainter extends CustomPainter {
       return _Star(
         x: rng.nextDouble(),
         y: rng.nextDouble(),
-        // Radius in logical pixels: mostly tiny (0.8–1.8) with ~10% larger
+        // Radius in logical pixels: mostly tiny (0.8-1.8) with ~10% larger
         radius: rng.nextDouble() < 0.1
             ? 1.8 + rng.nextDouble() * 0.6
             : 0.8 + rng.nextDouble() * 1.0,
-        phase: rng.nextDouble(), // twinkle phase offset 0–1
+        phase: rng.nextDouble(), // twinkle phase offset 0-1
         speed: 0.4 + rng.nextDouble() * 0.6, // relative twinkle speed
       );
     });

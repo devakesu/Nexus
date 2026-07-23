@@ -506,7 +506,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
                 ),
               ),
               child: Text(
-                '${_ageRange.start.round()} – ${_ageRange.end.round()}',
+                '${_ageRange.start.round()} - ${_ageRange.end.round()}',
                 style: TextStyle(
                   color: theme,
                   fontSize: 11,
