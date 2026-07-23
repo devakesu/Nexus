@@ -9,10 +9,10 @@ WORKDIR /app
 
 # Install dependencies and Infisical CLI, retaining curl and tar for system dependencies and health checks
 COPY requirements.txt .
-RUN apt-get update && apt-get install -y --no-install-recommends curl wget tar ca-certificates && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl wget tar ca-certificates build-essential && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
     wget -qO- https://github.com/Infisical/cli/releases/download/v0.43.84/cli_0.43.84_linux_amd64.tar.gz | tar -xz -C /usr/local/bin infisical && \
-    apt-get purge -y --auto-remove wget && \
+    apt-get purge -y --auto-remove wget build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy application source code (filtered by .dockerignore)

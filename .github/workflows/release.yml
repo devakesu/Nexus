@@ -330,12 +330,10 @@ jobs:
           set -euo pipefail
           if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > nexus-release.jks
-            cat > key.properties << '            EOF'
-            storePassword=${ANDROID_KEYSTORE_PASSWORD}
-            keyPassword=${ANDROID_KEY_PASSWORD}
-            keyAlias=${ANDROID_KEY_ALIAS}
-            storeFile=nexus-release.jks
-            EOF
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=nexus-release.jks\n' \
+              "${ANDROID_KEYSTORE_PASSWORD}" \
+              "${ANDROID_KEY_PASSWORD}" \
+              "${ANDROID_KEY_ALIAS}" > key.properties
             chmod 600 key.properties nexus-release.jks
             echo "✓ Configured dynamic signing keystore from Infisical /ci"
           else
@@ -607,41 +605,51 @@ jobs:
           IMAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           PLATFORM_LIST=$(echo "${PLATFORMS}" | sed 's/linux\///g; s/,/, /g')
 
-          cat > ./artifacts/VERIFY.md << '          EOF'
-          # Release Verification Instructions
+          node -e '
+            const fs = require("fs");
+            const repo = process.env.REPOSITORY;
+            const owner = process.env.REPOSITORY_OWNER;
+            const tag = process.env.VERSION_TAG;
+            const ver = process.env.VERSION;
+            const img = repo.split("/")[1].toLowerCase();
 
-          This release includes signed web and mobile artifacts with attestations for supply chain security.
+            const content = `# Release Verification Instructions
 
-          ## Verify Docker Image Signature
-          ```bash
-          cosign verify \
-            --certificate-identity-regexp="^https://github.com/${REPOSITORY}" \
-            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-            ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG}
-          ```
+            This release includes signed web and mobile artifacts with attestations for supply chain security.
 
-          ## Verify Build Attestation
-          ```bash
-          gh attestation verify oci://ghcr.io/${REPOSITORY_OWNER}/${IMAGE_NAME}:${VERSION_TAG} --owner ${REPOSITORY_OWNER}
-          ```
+            ## Verify Docker Image Signature
+            \`\`\`bash
+            cosign verify \\
+              --certificate-identity-regexp="^https://github.com/${repo}" \\
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \\
+              ghcr.io/${owner}/${img}:${tag}
+            \`\`\`
 
-          ## Verify SBOM Signature
-          ```bash
-          cosign verify-blob --bundle sbom.json.bundle sbom.json
-          ```
+            ## Verify Build Attestation
+            \`\`\`bash
+            gh attestation verify oci://ghcr.io/${owner}/${img}:${tag} --owner ${owner}
+            \`\`\`
 
-          ## Verify Checksums
-          ```bash
-          sha256sum -c checksums.txt
-          sha256sum -c mobile-checksums.txt
-          ```
+            ## Verify SBOM Signature
+            \`\`\`bash
+            cosign verify-blob --bundle sbom.json.bundle sbom.json
+            \`\`\`
 
-          ## Verify Mobile APKs
-          ```bash
-          gh attestation verify nexus-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
-          gh attestation verify nexus-mec-android-v${VERSION}.apk --owner ${REPOSITORY_OWNER}
-          ```
-          EOF
+            ## Verify Checksums
+            \`\`\`bash
+            sha256sum -c checksums.txt
+            sha256sum -c mobile-checksums.txt
+            \`\`\`
+
+            ## Verify Mobile APKs
+            \`\`\`bash
+            gh attestation verify nexus-android-v${ver}.apk --owner ${owner}
+            gh attestation verify nexus-mec-android-v${ver}.apk --owner ${owner}
+            \`\`\`
+            `;
+            fs.mkdirSync("./artifacts", { recursive: true });
+            fs.writeFileSync("./artifacts/VERIFY.md", content);
+          '
 
       - name: Create GitHub Release
         env:
