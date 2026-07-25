@@ -274,6 +274,17 @@ if [ -d "/nexus" ]; then
             /nexus/.venv/bin/pip install -r /nexus/requirements.txt
         fi
         echo "✅ Python virtual environment ready."
+
+        # 👇 PLACE IT HERE 👇
+        BASHRC="/home/vscode/.bashrc"
+        if ! grep -qF "/nexus/.venv/bin/activate" "$BASHRC" 2>/dev/null; then
+            echo "" >> "$BASHRC"
+            echo "# Auto-activate /nexus venv on interactive terminal launch" >> "$BASHRC"
+            echo 'if [ -f /nexus/.venv/bin/activate ]; then source /nexus/.venv/bin/activate; fi' >> "$BASHRC"
+            echo "⚡ Added venv auto-activation to $BASHRC"
+        fi
+        # 👆 ------------------ 👆
+
     else
         echo "⚠️ Failed to create virtual environment or pip binary missing."
     fi
