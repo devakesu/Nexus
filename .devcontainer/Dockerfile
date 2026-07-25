@@ -1,45 +1,49 @@
 # syntax=docker/dockerfile:1.4
 
-# Base Image
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04@sha256:81380e4c9c14e8a629ff39029639e4b7893e67400246fa7782a0fe7dc193a02a
+# Main Base Image (Ubuntu 24.04 GLIBC compatible)
+FROM mcr.microsoft.com/devcontainers/base:2.1.7-ubuntu24.04@sha256:4bcb1b466771b1ba1ea110e2a27daea2f6093f9527fb75ee59703ec89b5561cb
 
 USER root
 
-# Copy pinned artifacts if available
+# 1. Consolidated System Dependencies & Docker Repos
+# Includes build dependencies for compiling Python from source
+RUN apt-get update && apt-get install -y \
+    ca-certificates gnupg socat curl git unzip wget adb openjdk-17-jdk-headless jq acl \
+    build-essential libssl-dev zlib1g-dev libncurses5-dev libncursesw5-dev libreadline-dev \
+    libsqlite3-dev libgdbm-dev libdb5.3-dev libbz2-dev libexpat1-dev liblzma-dev tk-dev libffi-dev \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && chmod 644 /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod 644 /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update && apt-get install -y nodejs docker-ce-cli docker-buildx-plugin docker-compose-plugin \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 2. Compile Python 3.12.13 from Source
+ARG PYTHON_VERSION="3.12.13"
+ARG PYTHON_SHA256="0816c4761c97ecdb3f50a3924de0a93fd78cb63ee8e6c04201ddfaedca500b0b"
+
+RUN curl -fSL "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" -o /tmp/python.tgz \
+    && echo "${PYTHON_SHA256}  /tmp/python.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/python.tgz -C /tmp \
+    && cd /tmp/Python-${PYTHON_VERSION} \
+    && ./configure --enable-optimizations --with-lto \
+    && make -j$(nproc) \
+    && make altinstall \
+    && ln -s /usr/local/bin/python3.12 /usr/local/bin/python \
+    && ln -s /usr/local/bin/pip3.12 /usr/local/bin/pip \
+    && python -m ensurepip --upgrade \
+    && rm -rf /tmp/Python-${PYTHON_VERSION} /tmp/python.tgz \
+    && ldconfig
+
+# Moved down to protect system dependency and compilation cache
 COPY pinned-artifacts.json /tmp/pinned-artifacts.json
 
-# 1. System Dependencies, Java 17, Python 3, and SSH Setup
-RUN apt-get update && apt-get install -y \
-    openssh-server curl git unzip wget adb openjdk-17-jdk-headless apt-transport-https jq \
-    python3 python3-pip python3-venv python-is-python3 \
-    && mkdir /var/run/sshd \
-    && echo 'vscode:root' | chpasswd \
-    && echo 'root:root' | chpasswd \
-    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
-    && sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config \
-    && echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config \
-    && echo "StrictModes no" >> /etc/ssh/sshd_config
-
-# 2. Node.js + npm
+# 3. CLI Tools (Npm, Supabase, Playwright, Firebase, Infisical)
 ARG NPM_TARBALL_URL
 ARG NPM_SHASUM
-
-RUN mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install -y nodejs \
-    && if [ -f /tmp/pinned-artifacts.json ]; then \
-        NPM_TARBALL_URL=${NPM_TARBALL_URL:-$(jq -r '.npm.url' /tmp/pinned-artifacts.json)}; \
-        NPM_SHASUM=${NPM_SHASUM:-$(jq -r '.npm.shasum' /tmp/pinned-artifacts.json)}; \
-    fi \
-    && if [ -z "$NPM_TARBALL_URL" ] || [ -z "$NPM_SHASUM" ]; then echo "Missing URL or SHASUM for npm" >&2; exit 1; fi \
-    && curl -fSL "$NPM_TARBALL_URL" -o /tmp/npm.tgz \
-    && rm -rf /usr/lib/node_modules/npm \
-    && mkdir -p /usr/lib/node_modules/npm \
-    && tar -xz --strip-components=1 -C /usr/lib/node_modules/npm -f /tmp/npm.tgz \
-    && rm -f /tmp/npm.tgz
-
-# 3. Docker CLI, Supabase CLI, Playwright, Firebase CLI, and Infisical CLI
 ARG PLAYWRIGHT_TARBALL_URL
 ARG PLAYWRIGHT_SHASUM
 ARG FIREBASE_TARBALL_URL
@@ -49,36 +53,37 @@ ARG INFISICAL_SHASUM
 ARG SUPABASE_TARBALL_URL
 ARG SUPABASE_SHA256
 
-RUN apt-get update && apt-get install -y ca-certificates gnupg \
-     && install -m 0755 -d /etc/apt/keyrings \
-     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-     && chmod a+r /etc/apt/keyrings/docker.gpg \
-     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-     && apt-get update && apt-get install -y docker-ce-cli docker-buildx-plugin docker-compose-plugin \
-     && if [ -f /tmp/pinned-artifacts.json ]; then \
-            PLAYWRIGHT_TARBALL_URL=${PLAYWRIGHT_TARBALL_URL:-$(jq -r '.playwright.url' /tmp/pinned-artifacts.json)}; \
-            PLAYWRIGHT_SHASUM=${PLAYWRIGHT_SHASUM:-$(jq -r '.playwright.shasum' /tmp/pinned-artifacts.json)}; \
-            FIREBASE_TARBALL_URL=${FIREBASE_TARBALL_URL:-$(jq -r '.firebase.url' /tmp/pinned-artifacts.json)}; \
-            FIREBASE_SHASUM=${FIREBASE_SHASUM:-$(jq -r '.firebase.shasum' /tmp/pinned-artifacts.json)}; \
-            INFISICAL_TARBALL_URL=${INFISICAL_TARBALL_URL:-$(jq -r '.infisical.url' /tmp/pinned-artifacts.json)}; \
-            INFISICAL_SHASUM=${INFISICAL_SHASUM:-$(jq -r '.infisical.shasum' /tmp/pinned-artifacts.json)}; \
-            SUPABASE_TARBALL_URL=${SUPABASE_TARBALL_URL:-$(jq -r '.supabase.url' /tmp/pinned-artifacts.json)}; \
-            SUPABASE_SHA256=${SUPABASE_SHA256:-$(jq -r '.supabase.sha256' /tmp/pinned-artifacts.json)}; \
-        fi \
-     && curl -fSL "$SUPABASE_TARBALL_URL" -o /tmp/supabase.tar.gz \
-     && tar -xzf /tmp/supabase.tar.gz -C /tmp \
-     && mv /tmp/supabase /usr/local/bin/ && chmod +x /usr/local/bin/supabase && rm -f /tmp/supabase.tar.gz \
-     && for NAME in "playwright" "firebase-tools" "infisical"; do \
+RUN if [ -f /tmp/pinned-artifacts.json ]; then \
+        NPM_TARBALL_URL=${NPM_TARBALL_URL:-$(jq -r '.npm.url' /tmp/pinned-artifacts.json)}; \
+        NPM_SHASUM=${NPM_SHASUM:-$(jq -r '.npm.shasum' /tmp/pinned-artifacts.json)}; \
+        PLAYWRIGHT_TARBALL_URL=${PLAYWRIGHT_TARBALL_URL:-$(jq -r '.playwright.url' /tmp/pinned-artifacts.json)}; \
+        PLAYWRIGHT_SHASUM=${PLAYWRIGHT_SHASUM:-$(jq -r '.playwright.shasum' /tmp/pinned-artifacts.json)}; \
+        FIREBASE_TARBALL_URL=${FIREBASE_TARBALL_URL:-$(jq -r '.firebase.url' /tmp/pinned-artifacts.json)}; \
+        FIREBASE_SHASUM=${FIREBASE_SHASUM:-$(jq -r '.firebase.shasum' /tmp/pinned-artifacts.json)}; \
+        INFISICAL_TARBALL_URL=${INFISICAL_TARBALL_URL:-$(jq -r '.infisical.url' /tmp/pinned-artifacts.json)}; \
+        INFISICAL_SHASUM=${INFISICAL_SHASUM:-$(jq -r '.infisical.shasum' /tmp/pinned-artifacts.json)}; \
+        SUPABASE_TARBALL_URL=${SUPABASE_TARBALL_URL:-$(jq -r '.supabase.url' /tmp/pinned-artifacts.json)}; \
+        SUPABASE_SHA256=${SUPABASE_SHA256:-$(jq -r '.supabase.sha256' /tmp/pinned-artifacts.json)}; \
+    fi \
+    && curl -fSL "$NPM_TARBALL_URL" -o /tmp/npm.tgz \
+    && npm install -g /tmp/npm.tgz \
+    && rm -f /tmp/npm.tgz \
+    && curl -fSL "$SUPABASE_TARBALL_URL" -o /tmp/supabase.tar.gz \
+    && tar -xzf /tmp/supabase.tar.gz -C /tmp \
+    && mv /tmp/supabase /usr/local/bin/ && chmod +x /usr/local/bin/supabase && rm -f /tmp/supabase.tar.gz \
+    && for NAME in "playwright" "firebase-tools" "infisical"; do \
             case "$NAME" in \
-                playwright) URL="$PLAYWRIGHT_TARBALL_URL"; SUM="$PLAYWRIGHT_SHASUM";; \
-                firebase-tools) URL="$FIREBASE_TARBALL_URL"; SUM="$FIREBASE_SHASUM";; \
-                infisical) URL="$INFISICAL_TARBALL_URL"; SUM="$INFISICAL_SHASUM";; \
+                playwright) URL="$PLAYWRIGHT_TARBALL_URL";; \
+                firebase-tools) URL="$FIREBASE_TARBALL_URL";; \
+                infisical) URL="$INFISICAL_TARBALL_URL";; \
             esac; \
             curl -fSL "$URL" -o /tmp/$NAME.tgz; \
-            node /usr/lib/node_modules/npm/bin/npm-cli.js install -g /tmp/$NAME.tgz; \
+            npm install -g /tmp/$NAME.tgz; \
             rm -f /tmp/$NAME.tgz; \
         done \
-     && playwright install-deps
+    && npx playwright install-deps \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && npm cache clean --force
 
 # Switch to vscode user for user-space SDKs
 USER vscode
@@ -89,11 +94,15 @@ ENV DENO_INSTALL="$HOME/.deno"
 ENV NODE_OPTIONS="--max-old-space-size=9216"
 ENV PATH="$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$DENO_INSTALL/bin:$HOME/.pub-cache/bin"
 
-# 4. Bake IDE Settings & Fix Background Workspace Diagnostic Errors Across All Paths
+# 4. Bake IDE Settings & Cross-IDE Extension Symlinks
 RUN mkdir -p $HOME/.antigravity-server/data/Machine \
              $HOME/.antigravity-ide-server/data/Machine \
              $HOME/.vscode-server/data/Machine \
+             $HOME/.vscode-server/extensions \
+    && ln -s $HOME/.vscode-server/extensions $HOME/.antigravity-server/extensions \
+    && ln -s $HOME/.vscode-server/extensions $HOME/.antigravity-ide-server/extensions \
     && SETTINGS='{ \
+        "remote.forwardAgent": false, \
         "python.defaultInterpreterPath": "/nexus/.venv/bin/python", \
         "python.analysis.diagnosticMode": "workspace", \
         "python.analysis.typeCheckingMode": "strict", \
@@ -176,47 +185,83 @@ RUN if [ -f /tmp/pinned-artifacts.json ]; then \
     && $FLUTTER_HOME/bin/flutter precache \
     && flutter config --android-sdk $ANDROID_HOME
 
-# 8. Initialization Script
+# 8. Initialization Script Creation
 USER root
-COPY --chown=vscode:vscode <<"EOF" /home/vscode/init_workspace.sh
+COPY --chown=vscode:vscode --chmod=755 <<"EOF" /home/vscode/init_workspace.sh
 #!/bin/bash
 echo "🚀 Starting Fullstack Workspace Setup..."
 
-# Git config global diversion
-export GIT_CONFIG_GLOBAL="/home/vscode/.gitconfig_local"
-if [ -f "/home/vscode/.gitconfig" ] && [ ! -f "$GIT_CONFIG_GLOBAL" ]; then
-    cp /home/vscode/.gitconfig "$GIT_CONFIG_GLOBAL"
+# --- 1. GIT CONFIG DIVERSION ---
+if [ ! -L "/home/vscode/.gitconfig" ]; then
+    if [ -f "/home/vscode/.gitconfig" ]; then
+        mv /home/vscode/.gitconfig /home/vscode/.gitconfig_local
+    else
+        touch /home/vscode/.gitconfig_local
+    fi
+    ln -sf /home/vscode/.gitconfig_local /home/vscode/.gitconfig
 fi
-chmod 644 "$GIT_CONFIG_GLOBAL" 2>/dev/null || true
+chmod 644 /home/vscode/.gitconfig_local 2>/dev/null || true
 
-# Secure SSH Setup
-if [ -f "/tmp/mounted_ssh/id_ed25519" ]; then
-    cp "/tmp/mounted_ssh/id_ed25519" "/home/vscode/.ssh/id_ed25519"
-    chmod 700 /home/vscode/.ssh
-    chmod 600 /home/vscode/.ssh/id_ed25519
-    chown -R vscode:vscode /home/vscode/.ssh
-    
-    git config --global user.signingkey "/home/vscode/.ssh/id_ed25519"
+# --- 2. SSH AGENT & COMMIT SIGNING ---
+echo "🔑 Checking SSH Agent Forwarding..."
+
+if [ -S "$SSH_AUTH_SOCK" ] && ssh-add -L >/dev/null 2>&1; then
+    SIGNING_KEY=$(ssh-add -L 2>/dev/null | grep -i "ghost" | head -n 1)
+    if [ -z "$SIGNING_KEY" ]; then
+        SIGNING_KEY=$(ssh-add -L 2>/dev/null | head -n 1)
+    fi
+
+    git config --global user.signingkey "$SIGNING_KEY"
     git config --global gpg.format ssh
     git config --global commit.gpgsign true
+    echo "✅ SSH commit signing active."
 else
-    echo "⚠️ Mounted key template missing from /tmp/mounted_ssh/id_ed25519"
+    echo "⚠️ SSH Agent is not active or has no keys loaded."
+fi
+
+# --- 3. GIT IDENTITY ---
+CURRENT_NAME=$(git config --global user.name 2>/dev/null)
+CURRENT_EMAIL=$(git config --global user.email 2>/dev/null)
+
+if [ -z "$CURRENT_NAME" ] || [ -z "$CURRENT_EMAIL" ]; then
+    if [ -t 0 ]; then
+        echo "👤 Setting up Git identity..."
+        [ -z "$CURRENT_NAME" ] && read -rp "Enter Git Name: " CURRENT_NAME && git config --global user.name "$CURRENT_NAME"
+        [ -z "$CURRENT_EMAIL" ] && read -rp "Enter Git Email: " CURRENT_EMAIL && git config --global user.email "$CURRENT_EMAIL"
+    else
+        AUTO_EMAIL=$(ssh-add -L 2>/dev/null | awk '{print $3}' | grep "@" | head -n 1)
+        [ -z "$CURRENT_NAME" ] && git config --global user.name "${GIT_NAME:-User}"
+        [ -z "$CURRENT_EMAIL" ] && git config --global user.email "${GIT_EMAIL:-${AUTO_EMAIL:-dev@example.com}}"
+        echo "ℹ️ Auto-configured Git identity: $(git config --global user.name) <$(git config --global user.email)>"
+    fi
 fi
 
 git config --global --add safe.directory /nexus
 
-# Python Environment
-if [ ! -d "/nexus/.venv" ] && [ -d "/nexus" ]; then
-    echo "🐍 Setting up Python Environment..."
-    python3 -m venv /nexus/.venv
-    /nexus/.venv/bin/pip install --upgrade pip
-    /nexus/.venv/bin/pip install firebase-admin supabase
-    if [ -f "/nexus/requirements.txt" ]; then
-        /nexus/.venv/bin/pip install -r /nexus/requirements.txt
+# --- 4. PYTHON ENVIRONMENT ---
+if [ -d "/nexus" ]; then
+    echo "🐍 Checking Python Environment..."
+
+    if [ ! -d "/nexus/.venv" ] || ! /nexus/.venv/bin/python --version >/dev/null 2>&1; then
+        echo "♻️ Creating Python 3.12 virtual environment..."
+        rm -rf /nexus/.venv
+        python -m venv /nexus/.venv
+    fi
+
+    if [ -x "/nexus/.venv/bin/pip" ]; then
+        echo "📦 Synchronizing Python packages..."
+        /nexus/.venv/bin/pip install --upgrade pip --quiet
+        /nexus/.venv/bin/pip install pyright firebase-admin supabase --quiet
+        if [ -f "/nexus/requirements.txt" ]; then
+            /nexus/.venv/bin/pip install -r /nexus/requirements.txt
+        fi
+        echo "✅ Python virtual environment ready."
+    else
+        echo "⚠️ Failed to create virtual environment or pip binary missing."
     fi
 fi
 
-# NPM & Flutter Workspace Setup
+# --- 5. NPM & FLUTTER SETUP ---
 if [ -f "/nexus/package.json" ]; then 
     echo "📦 Synchronizing NPM packages..."
     cd /nexus && npm ci --legacy-peer-deps
@@ -226,85 +271,65 @@ if [ -d "/nexus/mobile" ]; then
     cd /nexus/mobile && flutter pub get
 fi
 
-# --- UNIVERSAL IDE & ANTIGRAVITY EXTENSION INSTALLER ---
-echo "📦 Insulating Extension Folders..."
-mkdir -p ~/.vscode-server/extensions
-mkdir -p ~/.antigravity-server/extensions
-mkdir -p ~/.antigravity-ide-server/extensions
-mkdir -p ~/.cursor-server/extensions
-
+# --- 6. UNIVERSAL IDE EXTENSION INSTALLER ---
 EXTENSIONS=(
-  "ms-python.python" "ms-python.vscode-pylance" "ms-python.debugpy" 
+  "ms-python.python" "ms-pyright.pyright" "ms-python.debugpy" 
   "ms-python.vscode-python-envs" "kevinrose.vsc-python-indent"
   "charliermarsh.ruff"
   "Dart-Code.flutter" "Dart-Code.dart-code" "dsznajder.es7-react-js-snippets"
   "esbenp.prettier-vscode" "bradlc.vscode-tailwindcss" "formulahendry.auto-rename-tag"
   "christian-kohler.path-intellisense" "christian-kohler.npm-intellisense" "vitest.explorer"
   "ms-playwright.playwright" "davidanson.vscode-markdownlint"
-  "meezilla.json" "ms-vscode.vscode-typescript-next" "oderwat.indent-rainbow"
-  "dbaeumer.vscode-eslint" "usernamehw.errorlens" "supabase.vscode-supabase-extension"
+  "ms-vscode.vscode-typescript-next" "oderwat.indent-rainbow"
+  "dbaeumer.vscode-eslint" "usernamehw.errorlens"
   "denoland.vscode-deno"
 )
 
-echo "🔍 Scanning for active server binaries..."
-CLI_PATHS=()
+echo "🔍 Searching for valid IDE server binaries..."
+VALID_CLIS=()
 
-# A. Standard wrapper profile checks
-command -v code >/dev/null 2>&1 && CLI_PATHS+=("code")
-command -v antigravity >/dev/null 2>&1 && CLI_PATHS+=("antigravity")
-
-# B. UNRESTRICTED DEEP SEARCH FOR NESTED HASH RUNNERS
 while IFS= read -r binary_path; do
     if [ -n "$binary_path" ]; then
-        CLI_PATHS+=("$binary_path")
+        if "$binary_path" --version >/dev/null 2>&1; then
+            VALID_CLIS+=("$binary_path")
+        fi
     fi
-done < <(find ~ -type f -executable \( -name "code-server" -o -name "antigravity-server" -o -name "cursor-server" \) -not -path "*/.venv/*" -not -path "*/node_modules/*" 2>/dev/null || true)
+done < <(find ~ -type f -executable \( -name "code-server" -o -name "antigravity-server" -o -name "antigravity-ide-server" -o -name "cursor-server" \) -not -path "*/.venv/*" -not -path "*/node_modules/*" 2>/dev/null || true)
 
-if [ ${#CLI_PATHS[@]} -eq 0 ]; then
-    echo "⚠️ Command wrappers not caught via search loop. Falling back to symlink cluster..."
+if [ ${#VALID_CLIS[@]} -eq 0 ]; then
+    echo "⚠️ No active IDE server binaries found yet."
 else
-    UNIQUE_CLIS=($(echo "${CLI_PATHS[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+    UNIQUE_CLIS=($(echo "${VALID_CLIS[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
     for CLI in "${UNIQUE_CLIS[@]}"; do
-        echo "🔧 Executing forced toolchain delivery via: $CLI"
+        echo "🔧 Synchronizing extensions via binary: $CLI"
+        
+        INSTALLED_EXTS=$("$CLI" --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')
+
         for ext in "${EXTENSIONS[@]}"; do
-            "$CLI" --install-extension "$ext" --force || true
+            EXT_LOWER=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
+            
+            if echo "$INSTALLED_EXTS" | grep -q "^${EXT_LOWER}$"; then
+                echo "  🔹 $ext is already installed."
+            else
+                "$CLI" --install-extension "$ext" >/dev/null 2>&1
+                
+                UPDATED_EXTS=$("$CLI" --list-extensions 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                if echo "$UPDATED_EXTS" | grep -q "^${EXT_LOWER}$"; then
+                    echo "  ✅ Installed $ext"
+                else
+                    echo "  ❌ Failed to install $ext"
+                fi
+            fi
         done
     done
 fi
 
-# C. THE EXTENSION REGISTRY SYMLINK MATRIX (Locks in compatibility)
-echo "🔗 Hard-linking cross-platform extension targets..."
-for TARGET_DIR in "$HOME/.antigravity-server" "$HOME/.antigravity-ide-server" "$HOME/.cursor-server"; do
-    if [ -d "$TARGET_DIR" ]; then
-        rm -rf "$TARGET_DIR/extensions"
-        ln -s "$HOME/.vscode-server/extensions" "$TARGET_DIR/extensions" 2>/dev/null || true
-        echo "✅ Linked $TARGET_DIR/extensions -> .vscode-server/extensions"
-    fi
-done
-
 echo "🎯 Initialization Complete!"
 EOF
+RUN sed -i 's/\r$//' /home/vscode/init_workspace.sh
 
-RUN chmod +x /home/vscode/init_workspace.sh && chown vscode:vscode /home/vscode/init_workspace.sh
-
-# 9. Auto-Trigger Script on First Terminal Open & Map Writable Git Config
+# 9. User Environment Defaults & Entrypoint
 USER vscode
-RUN echo 'export GIT_CONFIG_GLOBAL="/home/vscode/.gitconfig_local"' >> ~/.bashrc
-
-# 10. Ultimate Cross-User Keys-Sync Orchestrator
-USER root
 WORKDIR /nexus
-EXPOSE 22 3000 8000 8080 4000 5001 8081 8085 9099 54321 54322 54323
-CMD bash -c "\
-sed -i 's/\r$//' /home/vscode/init_workspace.sh && \
-mkdir -p /home/vscode/.ssh /root/.ssh && \
-chmod 700 /home/vscode/.ssh /root/.ssh && \
-if [ -f '/tmp/mounted_ssh/id_ed25519' ]; then \
-    ssh-keygen -y -f /tmp/mounted_ssh/id_ed25519 > /tmp/keys_tmp && \
-    cat /tmp/keys_tmp > /home/vscode/.ssh/authorized_keys && \
-    cat /tmp/keys_tmp > /root/.ssh/authorized_keys && \
-    rm -f /tmp/keys_tmp && \
-    chmod 600 /home/vscode/.ssh/authorized_keys /root/.ssh/authorized_keys && \
-    chown -R vscode:vscode /home/vscode/.ssh; \
-fi && \
-exec /usr/sbin/sshd -D"
+EXPOSE 3000 8000 8080 4000 5001 8081 8085 9099 54321 54322 54323
+CMD bash -c "socat TCP-LISTEN:8181,bind=0.0.0.0,fork TCP:127.0.0.1:8181 & exec sleep infinity"
