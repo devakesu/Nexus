@@ -190,7 +190,6 @@ USER root
 COPY --chown=vscode:vscode --chmod=755 <<"EOF" /home/vscode/init_workspace.sh
 #!/bin/bash
 echo "🚀 Starting Fullstack Workspace Setup..."
-
 # --- 1. GIT CONFIG DIVERSION ---
 if [ ! -L "/home/vscode/.gitconfig" ]; then
     if [ -f "/home/vscode/.gitconfig" ]; then
@@ -202,19 +201,23 @@ if [ ! -L "/home/vscode/.gitconfig" ]; then
 fi
 chmod 644 /home/vscode/.gitconfig_local 2>/dev/null || true
 
-# --- 2. SSH AGENT & COMMIT SIGNING ---
+# --- 2. SSH AGENT & SIGNING SETUP ---
 echo "🔑 Checking SSH Agent Forwarding..."
 
+HAS_SSH_KEY=false
 if [ -S "$SSH_AUTH_SOCK" ] && ssh-add -L >/dev/null 2>&1; then
-    SIGNING_KEY=$(ssh-add -L 2>/dev/null | grep -i "ghost" | head -n 1)
-    if [ -z "$SIGNING_KEY" ]; then
-        SIGNING_KEY=$(ssh-add -L 2>/dev/null | head -n 1)
+    CLEAN_KEY=$(ssh-add -L 2>/dev/null | tr -d '\r' | grep -i "ghost" | head -n 1)
+    if [ -z "$CLEAN_KEY" ]; then
+        CLEAN_KEY=$(ssh-add -L 2>/dev/null | tr -d '\r' | head -n 1)
     fi
 
-    git config --global user.signingkey "$SIGNING_KEY"
-    git config --global gpg.format ssh
-    git config --global commit.gpgsign true
-    echo "✅ SSH commit signing active."
+    if [ -n "$CLEAN_KEY" ]; then
+        HAS_SSH_KEY=true
+        git config --global user.signingkey "$CLEAN_KEY"
+        git config --global gpg.format ssh
+        git config --global commit.gpgsign true
+        echo "✅ SSH signing enabled."
+    fi
 else
     echo "⚠️ SSH Agent is not active or has no keys loaded."
 fi
@@ -234,6 +237,21 @@ if [ -z "$CURRENT_NAME" ] || [ -z "$CURRENT_EMAIL" ]; then
         [ -z "$CURRENT_EMAIL" ] && git config --global user.email "${GIT_EMAIL:-${AUTO_EMAIL:-dev@example.com}}"
         echo "ℹ️ Auto-configured Git identity: $(git config --global user.name) <$(git config --global user.email)>"
     fi
+fi
+
+# --- 4. POPULATE ALLOWED SIGNERS (AFTER IDENTITY IS FINALIZED) ---
+if [ "$HAS_SSH_KEY" = true ]; then
+    FINAL_EMAIL=$(git config --global user.email)
+    ALLOWED_SIGNERS_FILE="/home/vscode/.ssh/allowed_signers"
+    
+    mkdir -p /home/vscode/.ssh && chmod 700 /home/vscode/.ssh
+    
+    # Prepend the finalized email to the clean public key
+    echo "${FINAL_EMAIL:-*} ${CLEAN_KEY}" > "$ALLOWED_SIGNERS_FILE"
+    chmod 600 "$ALLOWED_SIGNERS_FILE"
+    
+    git config --global gpg.ssh.allowedSignersFile "$ALLOWED_SIGNERS_FILE"
+    echo "✅ Local SSH signature verification configured for ${FINAL_EMAIL:-*}"
 fi
 
 git config --global --add safe.directory /nexus
