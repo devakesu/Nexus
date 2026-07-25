@@ -11,6 +11,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 permissions: {}
+
 jobs:
   guard:
     name: Build Guard
@@ -20,6 +21,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Import GPG public keys
+        run: |
+          curl -sL "https://github.com/${{ github.actor }}.gpg" | gpg --import || true
+          curl -sL "https://github.com/${{ github.repository_owner }}.gpg" | gpg --import || true
 
       - name: Verify commit is signed
         run: |

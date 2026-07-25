@@ -265,23 +265,14 @@ jobs:
             provenance.intoto.jsonl
 
   # Build mobile Flutter application for nexus and nexus_mec flavors
-  build-mobile:
-    name: Build Flutter App
+  build-release-mobile:
+    name: Build & Release Mobile APKs & AABs
     needs: guard
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
       attestations: write
-    env:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_S3_PRIVATE_BUCKET: ${{ secrets.AWS_S3_PRIVATE_BUCKET }}
 
     steps:
       - name: Checkout
@@ -326,6 +317,11 @@ jobs:
 
       - name: Prepare Android signing key
         working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
@@ -342,6 +338,8 @@ jobs:
 
       - name: Prepare google-services.json
         working-directory: mobile/android
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           set -euo pipefail
           if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
@@ -356,6 +354,9 @@ jobs:
         env:
           BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_PRIVATE_BUCKET: ${{ secrets.AWS_S3_PRIVATE_BUCKET }}
         run: |
           set -euo pipefail
 
@@ -376,6 +377,7 @@ jobs:
             # APK
             cd mobile
             flutter build apk --release --flavor $FLAVOR \
+              -Pdart_symbol_map_path=build/debug-info \
               --obfuscate \
               --split-debug-info=build/debug-info \
               --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
@@ -412,6 +414,7 @@ jobs:
 
             # App Bundle
             flutter build appbundle --release --flavor $FLAVOR \
+              -Pdart_symbol_map_path=build/debug-info \
               --obfuscate \
               --split-debug-info=build/debug-info \
               --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
@@ -493,12 +496,17 @@ jobs:
             echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           } > mobile-checksums.txt
 
-      - name: Upload mobile APK artifacts
+      - name: Upload Nexus APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: mobile-apk-artifacts
-          path: |
-            mobile/release-assets/*.apk
+          name: nexus-android-v${{ steps.version.outputs.version }}.apk
+          path: mobile/release-assets/nexus-android-v${{ steps.version.outputs.version }}.apk
+
+      - name: Upload Nexus MEC APK artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: nexus-mec-android-v${{ steps.version.outputs.version }}.apk
+          path: mobile/release-assets/nexus-mec-android-v${{ steps.version.outputs.version }}.apk
 
       - name: Upload mobile security metadata artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -531,7 +539,7 @@ jobs:
   # Create GitHub Release with artifacts
   create-github-release:
     name: Create GitHub Release
-    needs: [build-and-release, build-mobile]
+    needs: [build-and-release, build-release-mobile]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -562,10 +570,16 @@ jobs:
           name: web-release-artifacts
           path: ./artifacts/web
 
-      - name: Download mobile APK artifacts
+      - name: Download Nexus APK artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: mobile-apk-artifacts
+          name: nexus-android-v${{ steps.version.outputs.version }}.apk
+          path: ./artifacts/mobile
+
+      - name: Download Nexus MEC APK artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: nexus-mec-android-v${{ steps.version.outputs.version }}.apk
           path: ./artifacts/mobile
 
       - name: Download mobile metadata artifacts

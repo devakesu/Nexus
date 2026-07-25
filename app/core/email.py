@@ -7,7 +7,7 @@ from typing import Any, Literal, cast
 
 import httpx
 import sentry_sdk
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.core.config import settings
 
@@ -261,8 +261,7 @@ class ProvidersConfig(BaseModel):
     p_name: Literal["SendPulse", "Brevo"]
     s_name: Literal["Brevo", "SendPulse"]
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def get_providers(use_sp: bool) -> ProvidersConfig:

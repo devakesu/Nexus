@@ -2,11 +2,11 @@
 
 Thank you for your interest in contributing to Nexus! This guide will help you understand our development workflow and contribution process.
 
-> **👋 For External Contributors**: You do not need GPG keys, PAT tokens, or any special setup! Just fork, code, and submit a PR. The Git version hooks will automatically validate and sync your branch versions. See [Quick Setup](#quick-setup) below.
-
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+- [Dev Container Setup (WSL2 / Windows)](#dev-container-setup-wsl2--windows)
+- [Secret Management & Database Initialization](#secret-management--database-initialization)
 - [Development Workflow](#development-workflow)
 - [Versioning System](#versioning-system)
 - [Pull Request Process](#pull-request-process)
@@ -19,25 +19,145 @@ Thank you for your interest in contributing to Nexus! This guide will help you u
 
 ### Prerequisites
 
-- **Python**: 3.12.6+
-- **Flutter SDK**: 3.12+ (for mobile development)
-- **Dart SDK**: ^3.12.1 (bundled with Flutter)
-- **Git**: Latest version
+- **Docker Desktop** (with WSL2 integration enabled)
+- **WSL2** (Linux distribution such as Ubuntu/Debian)
+- **VS Code or Antigravity IDE** (with Dev Containers extension)
 
-**That's it!** External contributors don't need GPG keys, GitHub PAT tokens, or access to secrets.
+> **Note**: All language runtime SDKs (Python 3.12, Flutter 3.44, Node 24, Deno 2.9, Pyright, Ruff, Supabase CLI, Firebase Tools) are pre-installed inside the Dev Container image. External contributors do not need GPG keys, PAT tokens, or manual local SDK installations!
 
-### Quick Setup
+### Dev Container Setup (WSL2 / Windows)
+
+For an isolated, reproducible development environment with pre-configured SDKs (Python 3.12, Flutter 3.44, Node 24, Deno 2.9, CLI tools, and automatic IDE extension syncing), follow these steps to build and run the dev container:
+
+#### 1. Enable SSH Agent in Windows PowerShell
+
+Ensure your SSH and commit-signing keys are loaded into the Windows SSH Agent:
+
+```powershell
+Set-Service -Name ssh-agent -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519
+```
+
+#### 2. Bridge Windows SSH Agent to WSL2
+
+In WSL2, install `socat`, download `npiperelay`, and bridge the Windows SSH named pipe to a Linux UNIX socket:
 
 ```bash
-# 1. Fork and clone
-git clone https://github.com/YOUR_USERNAME/Nexus.git
+sudo apt update && sudo apt install -y socat
+
+# Download npiperelay to bridge Windows named pipes to Linux sockets
+curl -s https://api.github.com/repos/jstarks/npiperelay/releases/latest \
+| grep "browser_download_url.*zip" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+| wget -qi - -O /tmp/npiperelay.zip
+
+sudo unzip -o /tmp/npiperelay.zip npiperelay.exe -d /usr/local/bin/
+sudo chmod +x /usr/local/bin/npiperelay.exe
+rm /tmp/npiperelay.zip
+
+# Bridge Windows SSH Agent Pipe to Linux Socket
+export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+
+# Check if socket is active by attempting to communicate with it
+if ! socat -u /dev/null UNIX-CONNECT:"$SSH_AUTH_SOCK" 2>/dev/null; then
+    rm -f "$SSH_AUTH_SOCK"
+    mkdir -p "$HOME/.ssh"
+    (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+fi
+```
+
+#### 3. Clone Repository in WSL2
+
+Clone the repository in your WSL2 environment first:
+
+```bash
+git clone https://github.com/devakesu/Nexus.git
 cd Nexus
+```
 
-# 2. Configure local git hooks for auto-formatting and version checking
-git config core.hooksPath .githooks
+#### 4. Build & Run Sandbox Container
 
-# 3. Create feature branch
+Build the dev container image and run the container with volume mounts, exposed ports, Docker socket access, and SSH agent socket forwarding:
+
+```bash
+# Build dev container image
+docker build -t nexus-sandbox .devcontainer
+
+# Run sandbox container
+docker run -d --name Nexus_Sandbox \
+  --restart unless-stopped \
+  -v "$(pwd):/nexus" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
+  -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
+  -p 3000:3000 \
+  -p 8000:8000 \
+  -p 8080:8080 \
+  -p 4000:4000 \
+  -p 5001:5001 \
+  -p 8081:8081 \
+  -p 8085:8085 \
+  -p 8181:8181 \
+  -p 9099:9099 \
+  -p 54321:54321 \
+  -p 54322:54322 \
+  -p 54323:54323 \
+  nexus-sandbox
+```
+
+#### 5. Attach IDE & Initialize Workspace
+
+1. Open **VS Code** or **Antigravity IDE**.
+2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P`) and choose **Attach to Running Container** $\rightarrow$ select **`Nexus_Sandbox`**.
+3. Open folder **`/nexus`** inside the attached container.
+4. Run workspace initialization script in the container terminal:
+
+   ```bash
+   ~/init_workspace.sh
+   ```
+
+   *(Enter Git Name and Email when prompted to configure local commit identity and SSH key signing).*
+5. Run **`Developer: Reload Window`** in VS Code / Antigravity to refresh environment variables, PATH, and extension integrations.
+
+#### 6. Create Feature Branch
+
+Inside the container terminal (or repository root), create and checkout your working feature branch:
+
+```bash
 git checkout -b feature/your-feature-name
+```
+
+#### Automated Features of `~/init_workspace.sh`
+
+- **SSH Key & Signature Verification**: Configures `git config --global gpg.format ssh` using forwarded SSH keys and sets up `~/.ssh/allowed_signers` for local signature verification.
+- **Git Identity**: Prompts for Name and Email if not set, storing them safely in `~/.gitconfig_local`.
+- **Python Environment**: Automatically creates `/nexus/.venv` (Python 3.12), installs dependencies from `requirements.txt`, and configures auto-activation in `/home/vscode/.bashrc`.
+- **NPM & Flutter Dependencies**: Automatically synchronizes Node packages (`npm ci`) and Flutter packages (`flutter pub get`).
+- **Universal Extension Installer**: Automatically detects active IDE server binaries (VS Code, Antigravity IDE, Cursor) and installs required extensions (Python, Pyright, Ruff, Flutter, Dart, Prettier, Tailwind, ESLint, ErrorLens, Deno, etc.).
+
+### Secret Management & Database Initialization
+
+Before starting local development or testing, authenticate with Infisical CLI and link your Supabase instance:
+
+#### 1. Infisical Authentication
+
+```bash
+infisical login
+```
+
+#### 2. Supabase Initialization & Linking
+
+```bash
+# Log in to Supabase CLI
+supabase login
+
+# Link repository workspace to remote Supabase project
+supabase link --project-ref <your-supabase-project-ref>
+
+# Apply local schema migrations
+supabase db push
 ```
 
 **That's all you need to start developing!** For advanced maintainer setup (Infisical, deployment), see [For Maintainers Only](#for-maintainers-only) at the bottom of this guide.

@@ -33,6 +33,10 @@ jobs:
           results_format: sarif
           publish_results: true
 
+      - name: Sanitize SARIF URIs
+        run: |
+          sed -i 's/"no file associated with this alert"/"."/g' results.sarif
+          
       - name: Upload SARIF results to GitHub Security
         uses: github/codeql-action/upload-sarif@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:

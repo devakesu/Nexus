@@ -1205,6 +1205,7 @@ async def render_landing_page():
         <div class="nebula-blob nb-4" aria-hidden="true"></div>
 
         <!-- ═══════════════════════ NAV ═══════════════════════ -->
+        <header role="banner">
         <nav class="nav-pill" role="navigation" aria-label="Primary navigation">
             <!-- Brand -->
             <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Nexus home">
@@ -1236,9 +1237,10 @@ async def render_landing_page():
                 Get App
             </a>
         </nav>
+        </header>
 
         <!-- ═══════════════════════ MAIN ═══════════════════════ -->
-        <main id="main-content">
+        <main id="main-content" role="main">
 
         <!-- ─────────────── HERO ─────────────── -->
         <section id="hero" style="min-height: 100svh; display: flex; align-items: center; padding-top: 7rem; padding-bottom: 4rem;">
@@ -1994,6 +1996,21 @@ async def render_landing_page():
                 <a href="https://github.com/devakesu/Nexus" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="GitHub repository">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
                     GitHub
+                </a>
+                <a href="https://twitter.com/devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Twitter">
+                    Twitter
+                </a>
+                <a href="https://discord.gg/nexus" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Discord">
+                    Discord
+                </a>
+                <a href="https://instagram.com/devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Instagram">
+                    Instagram
+                </a>
+                <a href="https://linkedin.com/company/nexus" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="LinkedIn">
+                    LinkedIn
+                </a>
+                <a href="https://youtube.com/@devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="YouTube">
+                    YouTube
                 </a>
             </div>
         </section>

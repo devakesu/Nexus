@@ -74,6 +74,21 @@ jobs:
       - name: Run static analysis (Audit)
         run: flutter analyze --fatal-infos --fatal-warnings
 
+      - name: Include all lib files in coverage
+        run: |
+          mkdir -p test
+          cat << 'EOF' > test/all_files_coverage_test.dart
+          // Auto-generated helper to include all lib files in LCOV calculation
+          import 'package:flutter_test/flutter_test.dart';
+          EOF
+
+          find lib -name "*.dart" ! -name "*.g.dart" ! -name "*.freezed.dart" | while read -r file; do
+            pkg_path=$(echo "$file" | sed 's|^lib/|package:nexus/|')
+            echo "import '$pkg_path';" >> test/all_files_coverage_test.dart
+          done
+
+          echo "void main() { test('include all lib files', () {}); }" >> test/all_files_coverage_test.dart
+
       - name: Run unit tests with coverage
         run: flutter test --coverage
 

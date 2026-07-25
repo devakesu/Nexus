@@ -13,9 +13,9 @@
 
 <!-- markdownlint-disable MD033 -->
 <p align="center">
-  <img src="https://img.shields.io/badge/FastAPI-0.136.6-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/FastAPI-0.139.2-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/Python-3.12.6+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/Supabase-2.30.1-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Supabase-2.31.0-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
   <img src="https://img.shields.io/badge/Pydantic-2.13.4-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
 </p>
 <p align="center">
@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/iOS-15.5+-000000?style=for-the-badge&logo=apple&logoColor=white" alt="iOS" />
 </p>
 <p align="center">
-  <img src="https://img.shields.io/badge/Pytest-8.4.1-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
+  <img src="https://img.shields.io/badge/Pytest-9.1.1-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
   <img src="https://img.shields.io/badge/Docker-Reproducible-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Cosign-Signed-FF6B6B?style=for-the-badge&logo=sigstore&logoColor=white" alt="Cosign" />
 </p>
@@ -49,7 +49,7 @@ Choose the version that fits your community:
 <table align="center" border="0" cellpadding="10">
   <tr>
     <td align="center">
-      <strong>Nexus (General)</strong><br />
+      <strong>Nexus (Coming SOON)</strong><br />
       <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus" target="_blank" rel="noopener noreferrer">
         <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get Nexus on Google Play" width="240" />
       </a>
@@ -87,39 +87,39 @@ Choose the version that fits your community:
 
 ### Backend & API Framework
 
-- **FastAPI 0.136.3** - High-performance Python web framework with async support
-- **Uvicorn 0.48.0** - Lightning-fast ASGI server implementation
+- **FastAPI 0.139.2** - High-performance Python web framework with async support
+- **Uvicorn 0.51.0** - Lightning-fast ASGI server implementation
 - **Python 3.11+** - Modern Python with strict typing and bytecode determinism
 - **Pydantic 2.13.4** - Data validation and settings management using Python type annotations
 - **PyJWT 2.13.0** - Secure JSON Web Token handling
-- **SlowAPI 0.1.9** - IP/user-based rate limiting middleware
+- **SlowAPI 0.1.10** - IP/user-based rate limiting middleware
 - **APScheduler 3.11.3** - Background notification and reminder scheduler
-- **Sentry SDK 2.5.1** - Real-time error tracking and telemetry with PII scrubbing
+- **Sentry SDK 2.66.0** - Real-time error tracking and telemetry with PII scrubbing
 
 ### Database & Auth
 
 - **Supabase (PostgreSQL 15+)** - Database backend with Row Level Security (RLS) and pgvector
 - **Supabase Auth** - JWT authentication system
-- **Redis / Upstash 8.0.0** - Fast in-memory caching and rate-limiting storage
+- **Redis / Upstash 8.0.1** - Fast in-memory caching and rate-limiting storage
 
 ### Mobile Framework & State
 
 - **Flutter SDK ^3.12.1** - Cross-platform mobile development for Android & iOS
-- **Flutter Riverpod v3.3.1** - Reactive state management with code generation (`riverpod_annotation`)
-- **GoRouter v17.1.0** - Declarative routing engine
-- **Drift v2.34.0** - Reactive persistence library for SQLite in Flutter
-- **Flutter Secure Storage v10.0.0** - Hardware-backed secret storage (Android Keystore / iOS Keychain)
+- **Flutter Riverpod v3.3.2** - Reactive state management with code generation (`riverpod_annotation`)
+- **GoRouter v17.3.0** - Declarative routing engine
+- **Drift v2.34.2** - Reactive persistence library for SQLite in Flutter
+- **Flutter Secure Storage v10.3.1** - Hardware-backed secret storage (Android Keystore / iOS Keychain)
 
 ### UI & Aesthetics
 
 - **Constellation Social Design System** - Cosmic design language with curated color system
 - **Google Fonts** - *Orbitron* (Display), *Manrope* (Headlines/Titles), *Inter* (Body), *JetBrains Mono* (Technical labels)
-- **Lucide Icons Flutter v3.1.14** - Modern, cohesive icon system
+- **Lucide Icons Flutter v3.1.15** - Modern, cohesive icon system
 - **Flutter Animate v4.5.2** - Micro-animations and subtle visual state transitions
 
 ### Security & Native Integrations
 
-- **Firebase App Check v0.4.3** - Play Integrity & DeviceCheck device attestation
+- **Firebase App Check v0.4.5+2** - Play Integrity & DeviceCheck device attestation
 - **`libsignal_protocol_dart` 0.8.2** - Signal Protocol end-to-end encryption for chat
 - **Cryptography & Encrypt** - Native cryptographic primitives and AES-256-GCM encryption
 - **Google ML Kit Image Labeling** - On-device AI image detection and tagging
@@ -134,7 +134,7 @@ Choose the version that fits your community:
 - **SLSA Level 3** - Supply chain security with provenance attestation
 - **Trivy Scanner** - Container image vulnerability scanning
 - **CodeQL & OpenSSF Scorecard** - Continuous security and code quality analysis
-- **Pytest 8.4.1** - Automated unit and integration test suite
+- **Pytest 9.1.1** - Automated unit and integration test suite
 
 ## 📁 Project Structure
 
@@ -191,38 +191,146 @@ Nexus features a cosmic design system called **Constellation Social** built arou
 
 ### Prerequisites
 
-- **Python** - 3.11 or higher
-- **Flutter SDK** - 3.12.1+ (Dart 3.12+)
-- **Docker** - For containerized deployments
-- **Infisical CLI** - For secret management
+- **Docker Desktop** (with WSL2 backend enabled)
+- **WSL2** (Linux distribution such as Ubuntu/Debian)
+- **VS Code or Antigravity IDE** (with Dev Containers extension)
 
-### Quick Start (Backend API)
+### 🐳 Dev Container Environment Setup (Recommended)
 
-1. **Clone Repository**:
+Nexus provides an isolated, reproducible Dev Container (`.devcontainer/Dockerfile`) equipped with pre-compiled Python 3.12, Flutter SDK 3.44, Node 24, Deno 2.9, CLI tools, and automatic IDE extension syncing.
+
+#### 1. Enable Windows SSH Agent (Host)
+
+Run PowerShell as Administrator or user to enable the OpenSSH agent service and load your SSH/signing keys:
+
+```powershell
+Set-Service -Name ssh-agent -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519
+```
+
+#### 2. Bridge SSH Agent to WSL2
+
+In WSL2, install `socat`, download `npiperelay`, and bridge the Windows SSH pipe to Linux:
+
+```bash
+sudo apt update && sudo apt install -y socat
+
+# Download npiperelay to bridge Windows named pipes to Linux sockets
+curl -s https://api.github.com/repos/jstarks/npiperelay/releases/latest \
+| grep "browser_download_url.*zip" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+| wget -qi - -O /tmp/npiperelay.zip
+
+sudo unzip -o /tmp/npiperelay.zip npiperelay.exe -d /usr/local/bin/
+sudo chmod +x /usr/local/bin/npiperelay.exe
+rm /tmp/npiperelay.zip
+
+# Bridge Windows SSH Agent Pipe to Linux Socket
+export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+
+# Check if socket is active by attempting to communicate with it
+if ! socat -u /dev/null UNIX-CONNECT:"$SSH_AUTH_SOCK" 2>/dev/null; then
+    rm -f "$SSH_AUTH_SOCK"
+    mkdir -p "$HOME/.ssh"
+    (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+fi
+```
+
+#### 3. Clone Repository in WSL2
+
+Clone the repository in your WSL2 home or projects directory:
+
+```bash
+git clone https://github.com/devakesu/Nexus.git
+cd Nexus
+```
+
+#### 4. Build & Run Sandbox Container
+
+Build the dev container image and launch the sandbox container with mapped ports and volume mounts:
+
+```bash
+# Build dev container image
+docker build -t nexus-sandbox .devcontainer
+
+# Launch sandbox container
+docker run -d --name Nexus_Sandbox \
+  --restart unless-stopped \
+  -v "$(pwd):/nexus" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
+  -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
+  -p 3000:3000 \
+  -p 8000:8000 \
+  -p 8080:8080 \
+  -p 4000:4000 \
+  -p 5001:5001 \
+  -p 8081:8081 \
+  -p 8085:8085 \
+  -p 8181:8181 \
+  -p 9099:9099 \
+  -p 54321:54321 \
+  -p 54322:54322 \
+  -p 54323:54323 \
+  nexus-sandbox
+```
+
+#### 5. Attach IDE & Initialize Workspace
+
+1. Open **VS Code** or **Antigravity IDE**.
+2. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) $\rightarrow$ select **Attach to Running Container** $\rightarrow$ **`Nexus_Sandbox`**.
+3. Open directory **`/nexus`** inside the container.
+4. Run workspace initialization script in the integrated terminal:
 
    ```bash
-   git clone https://github.com/devakesu/Nexus.git
-   cd Nexus
+   ~/init_workspace.sh
    ```
 
-2. **Setup Environment**:
+   *(Enter Git Name and Email when prompted to configure local commit signing and SSH identity).*
+5. Run **`Developer: Reload Window`** in VS Code / Antigravity to refresh environment variables and extension integrations.
+
+### 🔐 Secret Management & Database Initialization
+
+Before starting the API backend or mobile client, authenticate with Infisical and link your Supabase database project:
+
+#### 1. Infisical CLI Login
+
+Authenticate Infisical CLI to allow runtime secret injection:
+
+```bash
+infisical login
+```
+
+#### 2. Supabase Project Setup & Linking
+
+Authenticate Supabase CLI and link the repository schema to your Supabase project:
+
+```bash
+# Log in to Supabase CLI
+supabase login
+
+# Link your workspace to your Supabase project instance
+supabase link --project-ref <your-supabase-project-ref>
+
+# Push local schema migrations to database
+supabase db push
+```
+
+### Running Backend API
+
+Once Infisical and Supabase are authenticated:
+
+1. **Run API Server with Injected Secrets**:
 
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install --require-hashes -r requirements.txt
-   ```
-
-3. **Inject Secrets & Run API**:
-
-   ```bash
-   infisical login
    infisical run --env=dev --projectId=xxxx -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
    ```
 
    Visit `http://localhost:8000/docs` for the interactive Swagger documentation.
 
-### Quick Start (Mobile App)
+### Running Mobile App
 
 1. **Navigate to Mobile Directory**:
 
@@ -249,6 +357,7 @@ Nexus features a cosmic design system called **Constellation Social** built arou
       --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
       --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
       --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
+   '
    ```
 
 3. **Run Campus-Gated Flavor (`nexus_mec`)**:
@@ -269,6 +378,7 @@ Nexus features a cosmic design system called **Constellation Social** built arou
       --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
       --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
       --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
+   '
    ```
 
 ## ⚡ Performance & Security Optimizations
