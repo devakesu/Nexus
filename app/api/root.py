@@ -437,9 +437,14 @@ async def sitemap_xml():
         <priority>0.5</priority>
     </url>
     <url>
+        <loc>{settings.backend_url}/help</loc>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
         <loc>{settings.backend_url}/faq</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.5</priority>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
     </url>
 </urlset>"""
     return Response(content=xml_content, media_type="application/xml")
@@ -2636,6 +2641,15 @@ async def render_landing_page():
     )
 
 
+@router.get("/help", response_class=FileResponse)
+@router.get("/faq", response_class=FileResponse)
+async def render_help_page():
+    return FileResponse(
+        os.path.join(STATIC_DIR, "help.html"),
+        media_type="text/html",
+    )
+
+
 @router.get("/contact", response_class=HTMLResponse)
 async def render_contact_page():
     turnstile_site_key = settings.turnstile_site_key or ""
@@ -2798,9 +2812,16 @@ async def render_contact_page():
                 color: var(--ink-2);
                 text-decoration: none;
                 font-size: 0.875rem;
-                transition: color 0.2s;
+                transition: all 0.2s;
+                position: relative;
+                padding-bottom: 2px;
             }
             .footer-link:hover { color: var(--ink-1); }
+            .footer-link.active {
+                color: var(--starlight) !important;
+                font-weight: 700 !important;
+                border-bottom: 2px solid var(--starlight);
+            }
         </style>
     </head>
     <body>
@@ -2817,7 +2838,7 @@ async def render_contact_page():
                     <a href="/" class="footer-link">Home</a>
                     <a href="/help" class="footer-link">Help Center</a>
                     <a href="/legal" class="footer-link">Legal & Privacy</a>
-                    <a href="/contact" class="footer-link" style="color:var(--starlight);font-weight:600;">Contact Us</a>
+                    <a href="/contact" class="footer-link active">Contact Us</a>
                 </nav>
             </div>
         </header>
@@ -2843,7 +2864,7 @@ async def render_contact_page():
                 <!-- Category Selection -->
                 <div style="margin-bottom:2.5rem;">
                     <label class="f-display" style="display:block;font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2);margin-bottom:1rem;">
-                        1. Select Inquiry Topic
+                        Select Inquiry Topic
                     </label>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;">
                         <div class="category-card selected" onclick="selectCategory('suspended', this)">
@@ -3017,17 +3038,19 @@ async def render_contact_page():
         </main>
 
         <!-- Footer -->
-        <footer style="background:var(--void-mid);border-top:1px solid var(--border);padding:3rem 1.5rem;position:relative;z-index:10;">
-            <div style="max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.5rem;">
-                <div style="display:flex;align-items:center;gap:0.75rem;">
-                    <img src="/logo.png" alt="Nexus" width="24" height="24" style="border-radius:0.4rem;">
-                    <span class="f-display" style="font-weight:800;font-size:1rem;">NEXUS</span>
-                    <span style="font-size:0.8rem;color:var(--ink-3);">© 2026 <a href="https://devakesu.com" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;font-weight:600;">@devakesu</a></span>
+        <footer style="border-top: 1px solid var(--border); background: oklch(0.06 0.015 265); padding: 2.5rem 1.5rem; margin-top: auto; position: relative; z-index: 10;">
+            <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <img src="/logo.png" alt="Nexus Engine" style="width: 24px; height: 24px; opacity: 0.8;">
+                    <span class="f-display" style="font-weight: 700; font-size: 0.9rem; color: #fff;">Nexus Engine</span>
+                    <span style="font-size: 0.75rem; color: var(--ink-3);">&copy; 2026 <a href="https://devakesu.com" target="_blank" rel="noopener noreferrer" style="color: var(--ink-2); text-decoration: none; font-weight: 600;">@devakesu</a>. All rights reserved.</span>
                 </div>
-                <div style="display:flex;gap:1.5rem;">
-                    <a href="/legal" class="footer-link">Legal & Privacy</a>
-                    <a href="/contact" class="footer-link">Contact Us</a>
+
+                <div style="display: flex; align-items: center; gap: 1.5rem; font-size: 0.825rem;">
+                    <a href="/" class="footer-link">Home</a>
                     <a href="/help" class="footer-link">Help Center</a>
+                    <a href="/contact" class="footer-link active">Contact Us</a>
+                    <a href="https://github.com/devakesu/Nexus" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
                 </div>
             </div>
         </footer>

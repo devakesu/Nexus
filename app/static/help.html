@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#04060f">
+    <meta name="description" content="Nexus Help Center & FAQ - Answers to questions about Orbit discovery, Signal E2EE messaging, Safety Check-ins, profile controls, and campus verification.">
+    <meta name="keywords" content="Nexus Help, Nexus FAQ, Orbit Discovery Help, E2EE Security, Safety Check-In, Account Settings, Campus Orbit">
+    <meta name="author" content="@devakesu (https://devakesu.com)">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://nexus-engine.app/help">
+    <meta property="og:title" content="Nexus Help Center & FAQ">
+    <meta property="og:description" content="Everything you need to know about Nexus: Orbit discovery, E2EE chat, meetup safety tools, privacy settings, and account options.">
+    <meta property="og:image" content="/nexus-wide-logo.jpg">
+    <meta property="og:site_name" content="Nexus Platform">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://nexus-engine.app/help">
+    <meta property="twitter:title" content="Nexus Help Center & FAQ">
+    <meta property="twitter:description" content="Everything you need to know about Nexus: Orbit discovery, E2EE chat, meetup safety tools, privacy settings, and account options.">
+    <meta property="twitter:image" content="/nexus-wide-logo.jpg">
+
+    <title>Help Center & FAQ - Nexus</title>
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+
+    <!-- Fonts: Sora (display) + JetBrains Mono (mono) + Nunito Sans (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Nunito+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Schema.org Structured Data for FAQPage -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is Nexus?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Nexus brings three ways to connect into one app - Dating, Friends, and Professional - all built around a single profile. Switch tabs any time; who you meet changes, but your profile stays yours."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is Orbit?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Orbit is our discovery screen - instead of a flat swipe stack, potential matches appear as nodes arranged in concentric tiers around you, positioned by how closely you match."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Are my chats actually private?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes - every conversation on Nexus is end-to-end encrypted using the Signal Protocol, the same technology behind Signal's encrypted messaging."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a Safety Check-in, and when should I use it?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Safety Check-in keeps you accountable during a date or meetup. Pick a check-in interval and optional label so your trusted contacts have context if anything is ever sent to them."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <style>
+        /* ── Design Tokens (Exact OKLCH palette from root /) ─────────── */
+        :root {
+            --font-display: 'Sora', sans-serif;
+            --font-body: 'Nunito Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            /* Deep-space palette */
+            --void:        oklch(0.07 0.018 265);
+            --void-mid:    oklch(0.10 0.022 265);
+            --surface:     oklch(0.13 0.026 265);
+            --surface-2:   oklch(0.16 0.024 265);
+            --border:      oklch(0.22 0.020 265);
+            --border-glow: oklch(0.38 0.045 265);
+
+            /* Signal colors */
+            --starlight:   oklch(0.74 0.18 205);   /* cyan-sky */
+            --pulsar:      oklch(0.71 0.22 0);      /* rose-pink */
+            --nebula:      oklch(0.68 0.20 280);    /* indigo-violet */
+            --nova:        oklch(0.80 0.19 85);     /* amber */
+            --aurora:      oklch(0.74 0.20 165);    /* emerald */
+
+            /* Text */
+            --ink-1: oklch(0.97 0.005 265);
+            --ink-2: oklch(0.78 0.012 265);
+            --ink-3: oklch(0.58 0.015 265);
+        }
+
+        /* ── Base Reset & Setup ───────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--void);
+            color: var(--ink-1);
+            min-height: 100vh;
+            line-height: 1.5;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .f-display { font-family: var(--font-display); letter-spacing: -0.025em; }
+        .f-mono    { font-family: var(--font-mono); }
+
+        /* Canvas background */
+        #cosmos-canvas {
+            position: fixed; inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Container Layout */
+        .page-wrap {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* Navigation Header */
+        .header-nav {
+            position: sticky; top: 0; z-index: 50;
+            background: oklch(0.07 0.018 265 / 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+        }
+        .nav-inner {
+            display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+        }
+        .brand-link {
+            display: flex; align-items: center; gap: 0.85rem; text-decoration: none;
+        }
+        .logo-box {
+            width: 42px; height: 42px; border-radius: 12px;
+            background: linear-gradient(135deg, var(--starlight), var(--nebula), var(--pulsar));
+            padding: 1px; display: flex; align-items: center; justify-content: center;
+        }
+        .logo-box-inner {
+            width: 100%; height: 100%; background: oklch(0.09 0.02 265); border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .brand-title {
+            font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; color: #fff; line-height: 1.1;
+        }
+        .brand-subtitle {
+            font-family: var(--font-mono); font-size: 0.65rem; color: var(--nebula); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;
+        }
+
+        .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+        .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+        .nav-link { color: var(--ink-2); text-decoration: none; font-size: 0.9rem; font-weight: 600; transition: color 0.2s; }
+        .nav-link:hover { color: #fff; }
+        .nav-link.active { color: var(--starlight); border-bottom: 2px solid var(--starlight); padding-bottom: 2px; }
+
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.85rem; border-radius: 2rem;
+            background: oklch(0.74 0.20 165 / 0.1); border: 1px solid oklch(0.74 0.20 165 / 0.25);
+            color: var(--aurora); font-size: 0.75rem; font-weight: 600;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--aurora);
+            box-shadow: 0 0 10px var(--aurora);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, oklch(0.74 0.18 205), oklch(0.68 0.20 280));
+            border: none; border-radius: 0.85rem;
+            font-family: var(--font-display); font-weight: 700; font-size: 0.875rem;
+            color: #fff; text-decoration: none; cursor: pointer;
+            box-shadow: 0 4px 20px oklch(0.74 0.18 205 / 0.3);
+            transition: transform 0.18s, box-shadow 0.18s;
+            white-space: nowrap;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px oklch(0.74 0.18 205 / 0.45);
+        }
+
+        .btn-ghost {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: oklch(0.14 0.026 265 / 0.8);
+            border: 1px solid var(--border); border-radius: 0.85rem;
+            font-family: var(--font-body); font-weight: 600; font-size: 0.875rem;
+            color: var(--ink-2); text-decoration: none; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-ghost:hover {
+            border-color: var(--starlight); color: #fff; background: oklch(0.18 0.026 265);
+        }
+
+        /* Eyebrow & Badges */
+        .eyebrow-tag {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 1rem; border-radius: 2rem;
+            background: oklch(0.74 0.18 205 / 0.1); border: 1px solid oklch(0.74 0.18 205 / 0.25);
+            color: var(--starlight); font-family: var(--font-mono); font-size: 0.75rem;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            padding: 4.5rem 1.5rem 3.5rem;
+            text-align: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .hero-title {
+            font-family: var(--font-display); font-size: clamp(2.4rem, 5.5vw, 4rem);
+            font-weight: 800; color: #fff; line-height: 1.15; margin-bottom: 1.25rem;
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, var(--starlight), var(--nebula), var(--pulsar));
+            background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero-desc {
+            color: var(--ink-2); font-size: clamp(1rem, 2vw, 1.15rem);
+            max-width: 680px; margin: 0 auto 2.5rem; line-height: 1.6;
+        }
+
+        /* Search Bar */
+        .search-wrapper {
+            position: relative; max-width: 680px; margin: 0 auto;
+        }
+        .search-box {
+            display: flex; align-items: center; gap: 0.85rem;
+            background: oklch(0.12 0.024 265 / 0.95);
+            border: 1.5px solid var(--border);
+            border-radius: 1.25rem;
+            padding: 0.95rem 1.35rem;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .search-box:focus-within {
+            border-color: var(--starlight);
+            box-shadow: 0 0 35px oklch(0.74 0.18 205 / 0.25);
+        }
+        .search-icon { color: var(--starlight); flex-shrink: 0; }
+        .search-input {
+            width: 100%; background: transparent; border: none; outline: none;
+            color: #fff; font-family: var(--font-body); font-size: 1rem;
+        }
+        .search-input::placeholder { color: var(--ink-3); }
+        .search-clear {
+            background: none; border: none; color: var(--ink-3); cursor: pointer;
+            display: none; padding: 0.2rem;
+        }
+        .search-clear:hover { color: #fff; }
+        .search-stats {
+            margin-top: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem;
+            color: var(--ink-3); display: none;
+        }
+        .search-stats span { color: var(--starlight); font-weight: 700; }
+
+        /* Quick Action Cards Grid */
+        .quick-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem; margin-bottom: 3.5rem;
+        }
+        .quick-card {
+            background: linear-gradient(135deg, oklch(0.14 0.025 265 / 0.85), oklch(0.10 0.02 265 / 0.95));
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border); border-radius: 1.25rem;
+            padding: 1.4rem; text-decoration: none; color: inherit;
+            display: flex; flex-direction: column; justify-content: space-between;
+            transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+        }
+        .quick-card:hover {
+            transform: translateY(-4px); border-color: var(--border-glow);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+        }
+        .quick-card-head {
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;
+        }
+        .quick-card-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .qc-red { background: oklch(0.71 0.22 0 / 0.12); color: var(--pulsar); border: 1px solid oklch(0.71 0.22 0 / 0.25); }
+        .qc-purple { background: oklch(0.68 0.20 280 / 0.12); color: var(--nebula); border: 1px solid oklch(0.68 0.20 280 / 0.25); }
+        .qc-teal { background: oklch(0.74 0.20 165 / 0.12); color: var(--aurora); border: 1px solid oklch(0.74 0.20 165 / 0.25); }
+        .qc-cyan { background: oklch(0.74 0.18 205 / 0.12); color: var(--starlight); border: 1px solid oklch(0.74 0.18 205 / 0.25); }
+
+        .quick-card-title {
+            font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: #fff; margin-bottom: 0.35rem;
+        }
+        .quick-card-desc {
+            color: var(--ink-2); font-size: 0.825rem; line-height: 1.45;
+        }
+
+        /* Filter Pills & Bar */
+        .filter-bar {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+            gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; margin-bottom: 2.5rem;
+        }
+        .pill-list {
+            display: flex; align-items: center; gap: 0.6rem; overflow-x: auto; padding-bottom: 0.25rem;
+            scrollbar-width: none;
+        }
+        .pill-list::-webkit-scrollbar { display: none; }
+        .pill-btn {
+            background: oklch(0.12 0.02 265); border: 1px solid var(--border);
+            color: var(--ink-2); font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+            padding: 0.55rem 1.15rem; border-radius: 2rem; cursor: pointer; white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .pill-btn:hover { border-color: var(--starlight); color: #fff; }
+        .pill-btn.active {
+            background: var(--starlight); color: oklch(0.08 0.02 265); font-weight: 700; border-color: var(--starlight);
+        }
+
+        .controls-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+        /* Category Accordion Section */
+        .category-block { margin-bottom: 3.5rem; }
+        .category-header {
+            display: flex; align-items: center; gap: 0.85rem;
+            border-bottom: 1px solid oklch(0.18 0.02 265); padding-bottom: 0.85rem; margin-bottom: 1.35rem;
+        }
+        .category-icon-box {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .category-title { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: #fff; }
+        .category-desc { color: var(--ink-3); font-size: 0.825rem; margin-top: 0.15rem; }
+        .category-count {
+            margin-left: auto; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700;
+            padding: 0.3rem 0.85rem; border-radius: 1rem;
+            background: oklch(0.14 0.026 265); border: 1px solid var(--border); color: var(--starlight);
+        }
+
+        /* FAQ Accordion Cards */
+        .faq-card {
+            background: linear-gradient(135deg, oklch(0.13 0.026 265 / 0.9), oklch(0.10 0.02 265 / 0.95));
+            border: 1px solid var(--border); border-radius: 1.15rem;
+            margin-bottom: 0.85rem; overflow: hidden;
+            transition: border-color 0.25s, background 0.25s;
+        }
+        .faq-card[open] {
+            border-color: oklch(0.38 0.06 245);
+            background: oklch(0.125 0.028 265);
+        }
+        .faq-summary {
+            padding: 1.25rem 1.5rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+            cursor: pointer; user-select: none; list-style: none;
+        }
+        .faq-summary::-webkit-details-marker { display: none; }
+        .faq-q-text {
+            font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: #fff;
+            line-height: 1.35;
+        }
+        .faq-chevron {
+            transition: transform 0.25s ease; color: var(--ink-3); flex-shrink: 0;
+        }
+        .faq-card[open] .faq-chevron { transform: rotate(180deg); color: var(--starlight); }
+
+        .faq-content {
+            padding: 1.25rem 1.5rem 1.5rem;
+            border-top: 1px solid oklch(0.18 0.02 265);
+            color: var(--ink-2); font-size: 0.95rem; line-height: 1.65;
+        }
+        .faq-content strong { color: #fff; }
+
+        /* Roadmap Section */
+        .roadmap-card {
+            background: linear-gradient(135deg, oklch(0.14 0.03 265), oklch(0.09 0.02 265));
+            border: 1px solid oklch(0.28 0.03 265); border-radius: 1.5rem;
+            padding: 2.5rem 2rem; margin-bottom: 3.5rem; position: relative; overflow: hidden;
+        }
+        .roadmap-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 1.75rem;
+        }
+        .roadmap-item {
+            background: oklch(0.12 0.02 265 / 0.8); border: 1px solid var(--border); border-radius: 1.15rem; padding: 1.35rem;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .roadmap-badge {
+            font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+            padding: 0.25rem 0.65rem; border-radius: 1rem; background: oklch(0.68 0.20 280 / 0.2);
+            border: 1px solid oklch(0.68 0.20 280 / 0.35); color: var(--nebula); letter-spacing: 0.08em;
+        }
+
+        /* CTA Banner (End of Page) */
+        .cta-banner {
+            background: linear-gradient(135deg, oklch(0.14 0.03 265 / 0.9), oklch(0.10 0.02 265 / 0.95));
+            border: 1.5px solid var(--border); border-radius: 1.75rem;
+            padding: 3.5rem 2rem; text-align: center; margin-bottom: 4rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; overflow: hidden;
+        }
+        .cta-icon-box {
+            width: 64px; height: 64px; border-radius: 20px; margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--starlight), var(--nebula));
+            display: flex; align-items: center; justify-content: center; color: #fff;
+            box-shadow: 0 8px 30px oklch(0.74 0.18 205 / 0.4);
+        }
+        .cta-title {
+            font-family: var(--font-display); font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+            font-weight: 800; color: #fff; margin-bottom: 0.75rem;
+        }
+        .cta-desc {
+            color: var(--ink-2); font-size: 1rem; max-width: 600px; margin: 0 auto 2rem; line-height: 1.6;
+        }
+        .cta-btn-group {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem;
+        }
+
+        /* Footer */
+        .site-footer {
+            border-top: 1px solid var(--border); background: oklch(0.06 0.015 265);
+            padding: 2.5rem 0; margin-top: auto;
+        }
+        .footer-inner {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem;
+        }
+
+        /* Responsive Overrides */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero-section { padding: 2.5rem 1rem 2rem; }
+            .faq-summary { padding: 1rem 1.15rem; }
+            .faq-content { padding: 1rem 1.15rem 1.25rem; }
+            .cta-banner { padding: 2.5rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="cosmos-canvas"></canvas>
+
+    <div class="page-wrap">
+        <!-- Navigation Header -->
+        <header class="header-nav">
+            <div class="container nav-inner">
+                <a href="/" class="brand-link">
+                    <div class="logo-box">
+                        <div class="logo-box-inner">
+                            <img src="/logo-foreground.png" alt="Nexus" style="width:24px; height:24px; object-fit:contain;" onerror="this.onerror=null; this.src='/logo.png';">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="brand-title">Nexus</div>
+                        <div class="brand-subtitle">Help Center</div>
+                    </div>
+                </a>
+
+                <div class="nav-right">
+                    <div class="status-pill">
+                        <div class="status-dot"></div>
+                        All Systems Operational
+                    </div>
+
+                    <nav class="nav-links">
+                        <a href="/" class="nav-link">Home</a>
+                        <a href="/#safety" class="nav-link">Safety Center</a>
+                        <a href="/help" class="nav-link active">Help & FAQ</a>
+                    </nav>
+
+                    <a href="/contact" class="btn-primary">
+                        <i data-lucide="headphones" style="width:16px; height:16px;"></i>
+                        Contact Support
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="eyebrow-tag">
+                <i data-lucide="life-buoy" style="width:14px; height:14px;"></i>
+                Knowledge Base & Support Guide
+            </div>
+
+            <h1 class="hero-title">
+                How can we help your <span class="hero-gradient">Orbit?</span>
+            </h1>
+
+            <p class="hero-desc">
+                Search instant answers for Orbit discovery, Signal E2EE messaging, Safety Check-in alerts, profile controls, and campus verification.
+            </p>
+
+            <div class="search-wrapper">
+                <div class="search-box">
+                    <i data-lucide="search" class="search-icon" style="width:22px; height:22px;"></i>
+                    <input type="text" id="faq-search" class="search-input" placeholder="Search FAQs, features, settings (e.g., Orbit, E2EE, Safety Check-in)...">
+                    <button id="search-clear" class="search-clear">
+                        <i data-lucide="x-circle" style="width:20px; height:20px;"></i>
+                    </button>
+                </div>
+                <div id="search-stats" class="search-stats">
+                    Showing <span id="match-count">0</span> matching articles
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <main class="container" style="flex-grow: 1;">
+            <!-- Quick Action Cards Grid -->
+            <div class="quick-grid">
+                <a href="#safety-checkin" onclick="filterCategory('safety-checkin')" class="quick-card">
+                    <div class="quick-card-head">
+                        <div class="quick-card-icon qc-red">
+                            <i data-lucide="shield-alert" style="width:22px; height:22px;"></i>
+                        </div>
+                        <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+                    </div>
+                    <div>
+                        <div class="quick-card-title">Safety Check-In & SOS</div>
+                        <div class="quick-card-desc">Meetup safety timer, trusted contacts, Digital Witness & emergency alerts.</div>
+                    </div>
+                </a>
+
+                <a href="#orbit" onclick="filterCategory('orbit')" class="quick-card">
+                    <div class="quick-card-head">
+                        <div class="quick-card-icon qc-purple">
+                            <i data-lucide="orbit" style="width:22px; height:22px;"></i>
+                        </div>
+                        <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+                    </div>
+                    <div>
+                        <div class="quick-card-title">Orbit & Discovery</div>
+                        <div class="quick-card-desc">Concentric match tiers, Orbit filters, age caps, and multi-tab activation.</div>
+                    </div>
+                </a>
+
+                <a href="#messaging" onclick="filterCategory('messaging')" class="quick-card">
+                    <div class="quick-card-head">
+                        <div class="quick-card-icon qc-teal">
+                            <i data-lucide="message-square-lock" style="width:22px; height:22px;"></i>
+                        </div>
+                        <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+                    </div>
+                    <div>
+                        <div class="quick-card-title">Signal E2EE Chat</div>
+                        <div class="quick-card-desc">Signal Protocol encryption, voice notes, chat events, read receipts.</div>
+                    </div>
+                </a>
+
+                <a href="#getting-started" onclick="filterCategory('getting-started')" class="quick-card">
+                    <div class="quick-card-head">
+                        <div class="quick-card-icon qc-cyan">
+                            <i data-lucide="rocket" style="width:22px; height:22px;"></i>
+                        </div>
+                        <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+                    </div>
+                    <div>
+                        <div class="quick-card-title">Campus & Onboarding</div>
+                        <div class="quick-card-desc">Nexus MEC campus export, demographic buckets, profile setup.</div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Filter Bar & Accordion Controls -->
+            <div class="filter-bar">
+                <div class="pill-list" id="topic-pills">
+                    <button onclick="filterCategory('all')" class="pill-btn active" data-cat="all">All Topics (44)</button>
+                    <button onclick="filterCategory('getting-started')" class="pill-btn" data-cat="getting-started">Getting Started</button>
+                    <button onclick="filterCategory('orbit')" class="pill-btn" data-cat="orbit">Orbit Discovery</button>
+                    <button onclick="filterCategory('messaging')" class="pill-btn" data-cat="messaging">Messaging</button>
+                    <button onclick="filterCategory('profile')" class="pill-btn" data-cat="profile">Profile & Photos</button>
+                    <button onclick="filterCategory('safety')" class="pill-btn" data-cat="safety">Privacy & Safety</button>
+                    <button onclick="filterCategory('safety-checkin')" class="pill-btn" data-cat="safety-checkin">Safety Check-In & SOS</button>
+                    <button onclick="filterCategory('account')" class="pill-btn" data-cat="account">Account & Data</button>
+                    <button onclick="filterCategory('troubleshooting')" class="pill-btn" data-cat="troubleshooting">Troubleshooting</button>
+                </div>
+
+                <div class="controls-right">
+                    <button onclick="setAllAccordions(true)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
+                        <i data-lucide="chevrons-down" style="width:14px; height:14px;"></i> Expand All
+                    </button>
+                    <button onclick="setAllAccordions(false)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
+                        <i data-lucide="chevrons-up" style="width:14px; height:14px;"></i> Collapse All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Category 1: Getting Started -->
+            <div id="getting-started" class="category-block" data-category="getting-started">
+                <div class="category-header">
+                    <div class="category-icon-box qc-cyan"><i data-lucide="rocket" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Getting Started</div>
+                        <div class="category-desc">Core concepts, multi-tab profiles, and Nexus MEC campus export.</div>
+                    </div>
+                    <div class="category-count">6 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="what is nexus dating friends professional profile">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What is Nexus?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Nexus brings three ways to connect into one app &mdash; <strong>Dating</strong>, <strong>Friends</strong>, and <strong>Professional</strong> &mdash; all built around a single profile. Switch tabs any time; who you meet changes, but your profile stays yours.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="set up profile onboarding display name age demographic bucket Spotify bio">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I set up my profile?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        During onboarding you'll pick your display name, age, and demographic bucket (for the main Nexus app) or your major/branch and study year (for Nexus MEC). You'll also verify your phone number with an OTP. After onboarding, you can fill in your bio, location, lifestyle details, interests, and linked Spotify artists from the Profile tab at any time.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="active toggle dating friends professional discoverable">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Can Dating, Friends, and Professional all be active at once?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Yes. Each context has its own activation toggle, so you can be discoverable for Dating and Professional networking at the same time, or focus on just one &mdash; entirely up to you.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="Nexus MEC campus workspace email google institutional university export">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What's Nexus MEC?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Nexus MEC is our campus-community flavor. It verifies you with a campus Google Workspace email (only approved institutional domains can sign in) and lets you export your profile to the main Nexus app via a one-time code &mdash; built for closed university communities.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="move export profile Nexus MEC code onboarding">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I move my profile from Nexus MEC to the main Nexus app?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        From your Nexus MEC Profile tab, tap the <strong>Export Profile Data</strong> card to generate a 6-character code &mdash; it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="demographic bucket men women non-binary community identification">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What is a Demographic Bucket?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        On the main Nexus app, you pick a demographic bucket during onboarding &mdash; it's your primary community identification (e.g. Men, Women, Non-Binary). This helps surface you to the right people without exposing personal details. You can update it later from your Profile tab.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 2: Orbit & Discovery -->
+            <div id="orbit" class="category-block" data-category="orbit">
+                <div class="category-header">
+                    <div class="category-icon-box qc-purple"><i data-lucide="orbit" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Orbit & Discovery</div>
+                        <div class="category-desc">Spatial 2D orbit radar, tier proximity, age filters, and active toggles.</div>
+                    </div>
+                    <div class="category-count">6 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="orbit discovery screen swipe nodes concentric tiers match">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What is Orbit?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Orbit is our discovery screen &mdash; instead of a flat swipe stack, potential matches appear as nodes arranged in concentric tiers around you, positioned by how closely you match. Open it from the Dating, Friends, or Professional tab.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="tiers shared interests preferences activity prioritize">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why do the tiers matter?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Closer tiers generally mean a stronger match on shared interests, preferences, and activity &mdash; so you can prioritize who to check out first, without losing the rest of the field.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="filter Orbit preferences fine tune dating friends professional">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Can I filter who shows up in my Orbit?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Yes &mdash; each Orbit has its own filters panel, so you can fine-tune preferences separately for Dating, Friends, and Professional.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="empty Orbit pause matching refresh connection">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why does my Orbit look empty?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Make sure the relevant Orbit is activated and matching isn't paused (Settings &rarr; Pause Matching), check your connection, and try pulling down to refresh &mdash; new profiles roll in continuously.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="age filter capped 80 27 Nexus MEC university campus">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why is my Orbit's age filter capped at a different number?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        It depends on which Nexus app you're using &mdash; the main Nexus app lets you filter ages up to 80, while Nexus MEC (our campus flavor) caps it at 27 to match its university-community focus.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="activate deactivate toggle pause matching settings resume">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I activate or deactivate an Orbit?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Each mode tab (Dating, Friends, Professional) has its own activation toggle at the top. You can also deactivate all three at once using Pause Matching in Settings. To resume after pausing, open any mode tab and activate its Orbit individually &mdash; there's no single 'resume all' button.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 3: Messaging & Chat -->
+            <div id="messaging" class="category-block" data-category="messaging">
+                <div class="category-header">
+                    <div class="category-icon-box qc-teal"><i data-lucide="message-square-lock" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Messaging & Chat</div>
+                        <div class="category-desc">Signal E2EE encryption, media sharing, chat events, and read receipts.</div>
+                    </div>
+                    <div class="category-count">5 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="chats private encrypted signal protocol end-to-end e2ee">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Are my chats actually private?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Yes &mdash; every conversation on Nexus is end-to-end encrypted using the Signal Protocol, the same technology behind Signal's encrypted messaging. Only you and the other person can ever read what's sent.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="photos voice notes media encrypted text">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Can I send more than text?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        You can share photos and voice notes, both encrypted the same way as your messages.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="chat events schedule meetup location reminders coffee call">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What are chat events?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Chat events let you schedule a meetup right inside a conversation, with optional location sharing and reminders &mdash; handy for planning a first coffee or call.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="read receipts presence online last active privacy settings">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Do people know when I've read their message?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Read receipts and presence indicators (online / last active) show when enabled &mdash; you're always in control of what's visible from your Privacy Settings.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="message after matching mutual match like inbox spam">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why can I only message someone after matching?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        You need a mutual match (both of you liking each other) to start a conversation. This keeps your inbox focused and prevents unwanted messages.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 4: Profile & Photos -->
+            <div id="profile" class="category-block" data-category="profile">
+                <div class="category-header">
+                    <div class="category-icon-box qc-red"><i data-lucide="user-round" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Profile & Photos</div>
+                        <div class="category-desc">Editing, photo uploads, field visibility, age/name limits, and consent rules.</div>
+                    </div>
+                    <div class="category-count">8 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="edit profile name age bio gender sexuality lifestyle Spotify">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I edit my profile?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Open the Profile tab to update your display name, age, bio, gender, sexuality, pronouns, location, lifestyle details (drinking, smoking, children plans, religious beliefs), interests, causes, pets, languages, and linked Spotify artists. Each section saves individually when you close or confirm it.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="AI photo tool suggestions style best profile photos">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What's the AI photo tool?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Built into your Profile tab, it offers AI-assisted suggestions to help you pick and style your best profile photos.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="photos count max 5 upload primary gallery">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How many photos can I add?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        You can upload up to 5 photos: 1 primary profile picture and 4 gallery slots. Your profile picture is the first thing other users see in Orbit.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="photo verification live selfie blue badge roadmap">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How does photo verification work?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        It's on our roadmap, not live yet &mdash; the plan is a quick live selfie scan matched against your profile photos, earning you a blue verified badge plus ongoing duplicate and deepfake scans once it ships. We'll let you know the moment it's live.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="hide specific profile fields privacy settings toggle visibility">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Can I hide specific profile fields from others?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Yes &mdash; Settings &rarr; Privacy Settings lets you individually toggle visibility for: Gender, Sexuality, Pronouns, Hometown, Current Place, Major/Branch, Religious Beliefs, Pets, Top Artists, and Causes Supported. You can also control whether others see your active status and read receipts.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="change age limit 2 times 365 days window exception">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How often can I change my age?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Age can be changed twice within a rolling 365-day window &mdash; the value you set during onboarding counts as the first change. Once both are used, the change sheet shows the exact date you're next eligible. Need it sooner? File a ticket via Settings &rarr; Help, Feedback & Bug Report to request an exception.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="change display name limit 2 times 365 days language rules">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How often can I change my display name?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        You get 2 name changes every rolling 365-day window, and the name set at registration counts as the first change. Once both are used, the sheet shows when you can change it again. Names can't contain numbers, titles (e.g. Dr.), or offensive language. Need it sooner? File a ticket via Settings &rarr; Help, Feedback & Bug Report.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="sexuality religious beliefs locked consent special category">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why is my sexuality or religious beliefs field locked?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        These are special-category (sensitive) fields. You need to grant explicit consent to store and display them. If the field appears locked or empty, look for the consent prompt when you tap it &mdash; granting consent unlocks the field for the current session.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 5: Privacy & Safety -->
+            <div id="safety" class="category-block" data-category="safety">
+                <div class="category-header">
+                    <div class="category-icon-box qc-teal"><i data-lucide="shield-check" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Privacy & Safety</div>
+                        <div class="category-desc">Data protection, Safety Center hub, community rules, blocking & reporting.</div>
+                    </div>
+                    <div class="category-count">7 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="data protected session field level encryption e2ee messages server">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How is my data protected?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Your session and sensitive profile fields are encrypted both at rest and in transit, with strong field-level encryption for particularly sensitive data (sexuality, religious beliefs). Messages are end-to-end encrypted and never stored on our servers.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="Safety Center safety score quiz red flag helpline meetup alert">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What's in the Safety Center?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        A full safety hub &mdash; a personal safety score checklist, red-flag awareness cards, an interactive safety quiz, meetup safety tools (trusted contacts and check-ins), crisis helpline resources, and links to Privacy Settings, Blocked/Hidden users, and reporting.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="Community Guidelines standards rules enforcement safety">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What are the Community Guidelines?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Our Community Guidelines are live and browsable inside the app &mdash; Settings &rarr; Community Guidelines. They cover what's allowed, what isn't, and what happens when rules are broken.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="block hide report profile chat orbit match remove">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I block, hide, or report someone?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        From any profile or chat, one tap blocks, hides, or reports them. Blocking removes them from your matches and Orbit permanently. Hiding removes them from your Orbit without affecting their visibility to others. You can manage blocked and hidden users from Settings &rarr; Blocked Users / Hidden Users.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="after report review trust safety team confidential">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What happens after I report someone?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Our Trust & Safety team reviews every report, 24/7. It's completely confidential &mdash; the reported user is never told who reported them.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="report detail other reason minimum 5 letters 200 characters">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Why does my report need more detail when I choose "Other"?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        When "Other" is selected, the details field needs a valid reason (min. 5 letters) before Report & Block unlocks &mdash; just enough for our Trust & Safety team to have something to go on. You can add up to 200 characters if you want to explain further.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="Safety Check in emergency alert SOS trusted contacts meetup safety">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Where do I find Safety Check-in and SOS/Emergency tools?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        They live in their own dedicated section &mdash; <strong>Safety Check-In & Emergency Alerts</strong> &mdash; covering meetup check-ins, trusted contacts, and exactly what SOS does. You can also open the same tools from Safety Center &rarr; Meetup Safety Alert.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 6: Safety Check-In & Emergency Alerts -->
+            <div id="safety-checkin" class="category-block" data-category="safety-checkin">
+                <div class="category-header">
+                    <div class="category-icon-box qc-red"><i data-lucide="shield-alert" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Safety Check-In & Emergency Alerts</div>
+                        <div class="category-desc">Meetup accountability, trusted contacts, Silent/Loud SOS, Digital Witness & 112.</div>
+                    </div>
+                    <div class="category-count">8 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="Safety Check in meetup alert interval contacts coffee date">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What is a Safety Check-in, and when should I use it?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        A Safety Check-in &mdash; called Meetup Safety Alert in the Safety Center &mdash; keeps you accountable during a date or meetup. Pick a check-in interval (15 / 30 / 60 / 120 minutes) and an optional label, like "Coffee with Jordan at Bloom Cafe", so your trusted contacts have context if anything's ever sent to them. You'll need at least one trusted contact on file before you can start one.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="trusted contacts count max 3 notify sms verification link">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How many trusted contacts can I add, and do they get notified right away?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        You can add up to 3, typed in manually or picked from your address book &mdash; and adding someone doesn't notify them. They only hear from Nexus the moment a real alert actually fires, and that message includes a link where they can verify their own phone number to view your session's live status, last known location, and any evidence clips &mdash; no Nexus account needed on their end.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="miss check in 5 minutes unreachable battery location 3 times">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What happens if I miss a check-in?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        If you don't check in within about 5 minutes of your scheduled time, Nexus texts your trusted contacts that you're unreachable &mdash; including your last known battery level, connection type, and the meetup label if you set one &mdash; plus a link they can tap to cancel the alert themselves, no account needed. This repeats up to 3 times, spaced by your check-in interval, until you check in or a contact cancels it.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="SOS silent loud cancel 5 seconds location alarm call 112 digital witness">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What does SOS actually do, and what's the difference between Silent and Loud?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Both give you a 5-second window to cancel, then grab your location if it's available and text every trusted contact an emergency alert with a map link, the meetup label if any, and a nudge to consider contacting local authorities. Loud SOS plays a full-volume alarm with a one-tap Stop Alarm & Call 112 button; Silent SOS instead starts Digital Witness, a visible on-screen recording, with no sound at all. Either way, Nexus only texts your own trusted contacts &mdash; it doesn't call the police or alert a Nexus safety team for you, so Call 112 is always a separate, manual tap.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="Digital Witness camera mic recording private silent sos encryption">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">What is Digital Witness, and is that recording private?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Digital Witness is Silent SOS's camera-and-mic recording &mdash; always visible on your screen while it runs, by design, so it's never a secret recording. Segments are encrypted and access-controlled, but unlike your end-to-end encrypted chats, the decryption key isn't held solely on your device, so treat it as protected rather than as airtight-private as a message only you and your match can read. If your camera or mic isn't available, Silent SOS still sends the alert text &mdash; you'll just be missing the footage.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="location tracking continuous background track SOS map link">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Does a Safety Check-in or SOS track my location the whole time?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        No &mdash; Nexus doesn't run continuous background location tracking. The only moment it captures your location is if you trigger SOS, and even then it's best-effort: if location access isn't available at that moment, the alert still goes out to your trusted contacts, just without a map link.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="wake up phone alarm iOS Android notification time sensitive focus mode">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Will the check-in alert always wake up my phone?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        We do our best, but it isn't a guaranteed alarm, especially on iOS. On iPhone the reminder is a Time-Sensitive notification that can break through Focus and silent mode, but you'll still need to tap it open; on Android, make sure to grant the lock-screen and full-screen-alert permissions the app asks for, or you may only see it after you've already unlocked your phone.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="retention keep check in SOS data retention account deletion investigation">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How long does Nexus keep my check-in and SOS data?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Safety Check-in, SOS, and Digital Witness data isn't tied to the normal account-deletion timeline &mdash; even after your account is deleted, we keep it a little longer in case it's ever needed for a safety investigation, then remove it permanently.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 7: Account & Data -->
+            <div id="account" class="category-block" data-category="account">
+                <div class="category-header">
+                    <div class="category-icon-box qc-purple"><i data-lucide="user-cog" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Account & Data</div>
+                        <div class="category-desc">Signing out, account deletion, JSON data export, notifications & pause matching.</div>
+                    </div>
+                    <div class="category-count">7 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="sign out account actions clear encryption keys">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I sign out?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Account Actions (at the bottom of Settings) &rarr; Sign Out. This also securely clears your local encryption keys from the device.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="delete account email OTP grace period anonymized permanent">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Can I delete my account?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Account Actions &rarr; Delete Account. You'll be asked to type DELETE and verify via an email OTP before the request is submitted. You're signed out immediately and hidden from Orbit, but you have a grace period (shown on the deletion screen) to log back in and cancel. After that, your account is permanently anonymized.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="export data JSON file OTP match history chat metadata support tickets">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I export my data?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Account Actions &rarr; Export My Data. After an email OTP verification, your data is packaged as a JSON file and handed to your device's native share/save sheet. The export includes your profile details, match history, chat metadata, safety sessions, and support tickets &mdash; but not message contents (end-to-end encrypted and never stored on our servers).
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="manage push notifications permission settings device">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I manage push notifications?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Notifications &rarr; Push Notifications. If permissions are denied, a dialog will guide you to your device's notification settings for Nexus.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="manage email notifications matches likes messages digest updates promotions">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I manage email notifications?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Notifications &rarr; Email Notifications. You can independently toggle: New Matches & Likes, New Messages, Weekly Activity Digest, Product News & Updates, and Promotions & Offers.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="pause visibility pause matching invisible discovery resume">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I pause my visibility without deleting anything?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Privacy & Safety &rarr; Pause Matching deactivates all three Orbits at once, making you invisible to discovery. You can still chat with people you've already matched with. To resume, activate individual Orbits from their respective tabs &mdash; there is no single 'resume all' shortcut.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="manage blocked hidden users unblock hide settings">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">How do I manage blocked or hidden users?</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Privacy & Safety &rarr; Blocked Users shows everyone you've blocked, with the option to unblock. Settings &rarr; Privacy & Safety &rarr; Hidden Users shows everyone you've hidden from your Orbit.
+                    </div>
+                </details>
+            </div>
+
+            <!-- Category 8: Troubleshooting -->
+            <div id="troubleshooting" class="category-block" data-category="troubleshooting">
+                <div class="category-header">
+                    <div class="category-icon-box qc-red"><i data-lucide="wrench" style="width:20px; height:20px;"></i></div>
+                    <div>
+                        <div class="category-title">Troubleshooting</div>
+                        <div class="category-desc">Resolving Orbit issues, photo uploads, notifications & export codes.</div>
+                    </div>
+                    <div class="category-count">8 articles</div>
+                </div>
+
+                <details class="faq-card" data-keywords="orbit empty load profiles pause matching pull down refresh force close">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">Orbit won't load any profiles.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Check your connection, confirm at least one Orbit is activated and matching is not paused (Settings &rarr; Pause Matching), and try pulling down to refresh. If the problem persists, force-close and reopen the app.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="notifications push status disabled do not disturb focus mode">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">I'm not getting notifications.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Settings &rarr; Notifications &rarr; Push Notifications to check your permission status. If it shows Disabled, tap it to open a dialog guiding you to your device settings. Also check that Do Not Disturb / Focus Mode is not blocking the app.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="photo upload failed connection oversized permissions camera photo library">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">A photo isn't uploading.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Usually a connection hiccup or an oversized image &mdash; try again on Wi-Fi, or crop/resize the image first. Make sure the app has camera and photo library permissions in your device settings. Still stuck? Contact support below.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="app slow crash closing force close app store play store update">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">The app is slow or keeps closing.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Force close and reopen the app, and make sure you're on the latest version from the App Store or Play Store &mdash; most stability issues are fixed in updates.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="session expired login error token sign out sign in">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">I see a "Session expired" or login error.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Your session token has expired or been revoked. Sign out from Settings &rarr; Account Actions &rarr; Sign Out, then sign back in. If you see this repeatedly, check your internet connection.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="profile changes not saving toast connection consent special category">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">My profile changes aren't saving.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Each profile section saves automatically when you close it or tap the confirm button. If a save fails, a toast message will appear. Make sure you have a stable connection and try again. If a field like sexuality or religious beliefs appears locked, you may need to grant special-category consent first.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="export code Nexus MEC 15 minutes expired generate export code onboarding">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">The export code for Nexus MEC is not working.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Export codes are valid for 15 minutes and can only be used once. If yours expired, open your Nexus MEC Profile tab and tap Generate Export Code again to get a new one. Make sure you're entering it in the main Nexus app during onboarding, not in Nexus MEC itself.
+                    </div>
+                </details>
+
+                <details class="faq-card" data-keywords="cannot change age display name limit 2 times 365 days urgent ticket">
+                    <summary class="faq-summary">
+                        <span class="faq-q-text">I can't change my age or display name.</span>
+                        <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+                    </summary>
+                    <div class="faq-content">
+                        Both are limited to 2 changes per rolling 365-day window, and the values set at registration count as the first change. If you've used both, the change sheet shows the exact date you're next eligible. For urgent corrections, file a ticket via Settings &rarr; Help, Feedback & Bug Report.
+                    </div>
+                </details>
+            </div>
+
+            <!-- What's Coming Section -->
+            <div class="roadmap-card">
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+                    <i data-lucide="sparkles" style="width:20px; height:20px; color:var(--nebula);"></i>
+                    <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--nebula); font-weight:700; text-transform:uppercase;">FUTURE ROADMAP</span>
+                </div>
+                <div style="font-family:var(--font-display); font-size:1.75rem; font-weight:800; color:#fff; margin-bottom:0.35rem;">What's Coming to Nexus</div>
+                <div style="color:var(--ink-2); font-size:0.9rem;">A few things we're actively building &mdash; this is a living list, not a promise of dates.</div>
+
+                <div class="roadmap-grid">
+                    <div class="roadmap-item">
+                        <div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                                <i data-lucide="sparkles" style="width:24px; height:24px; color:var(--nebula);"></i>
+                                <span class="roadmap-badge">PLANNED</span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-weight:700; color:#fff; font-size:1rem; margin-bottom:0.35rem;">Nexus+ Premium</div>
+                            <div style="color:var(--ink-2); font-size:0.8rem; line-height:1.45;">
+                                Gravity Pull (music orbit sync), Stardust Messages (icebreakers), Dark Nebula (invisible mode), Retrograde (undo), Chroma Orbit & Verified Badge.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="roadmap-item">
+                        <div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                                <i data-lucide="link" style="width:24px; height:24px; color:var(--starlight);"></i>
+                                <span class="roadmap-badge">PLANNED</span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-weight:700; color:#fff; font-size:1rem; margin-bottom:0.35rem;">Linked Accounts</div>
+                            <div style="color:var(--ink-2); font-size:0.8rem; line-height:1.45;">
+                                Connect Instagram, Spotify, and other social platforms to enrich your profile nodes and match accuracy.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="roadmap-item">
+                        <div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                                <i data-lucide="badge-check" style="width:24px; height:24px; color:var(--aurora);"></i>
+                                <span class="roadmap-badge">PLANNED</span>
+                            </div>
+                            <div style="font-family:var(--font-display); font-weight:700; color:#fff; font-size:1rem; margin-bottom:0.35rem;">Photo Verification</div>
+                            <div style="color:var(--ink-2); font-size:0.8rem; line-height:1.45;">
+                                A quick live selfie scan and blue verified badge to confirm it's really you, backed by deepfake detection scans.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Still Need Help? CTA Banner -->
+            <div class="cta-banner">
+                <div class="cta-icon-box">
+                    <i data-lucide="headphones" style="width:32px; height:32px;"></i>
+                </div>
+
+                <h2 class="cta-title">Still need help with your account or safety?</h2>
+                <p class="cta-desc">
+                    Couldn't find your answer above? Submit a ticket directly to our support portal or file an issue on GitHub. Our Trust & Safety team is ready to help.
+                </p>
+
+                <div class="cta-btn-group">
+                    <!-- Button to /contact as explicitly requested -->
+                    <a href="/contact" id="btn-contact-support" class="btn-primary" style="padding: 1rem 2rem; font-size: 1rem;">
+                        <i data-lucide="message-square-plus" style="width:20px; height:20px;"></i>
+                        Contact Support & Submit Ticket &rarr;
+                    </a>
+
+                    <a href="https://github.com/devakesu/Nexus/issues" target="_blank" class="btn-ghost" style="padding: 1rem 1.75rem; font-size: 1rem;">
+                        <i data-lucide="github" style="width:20px; height:20px;"></i>
+                        Report Issue on GitHub ↗
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="container footer-inner">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <img src="/logo.png" alt="Nexus" style="width:24px; height:24px; opacity:0.8;">
+                    <span style="font-family:var(--font-display); font-weight:700; font-size:0.9rem; color:#fff;">Nexus Engine</span>
+                    <span style="font-size:0.75rem; color:var(--ink-3);">&copy; 2026 <a href="https://devakesu.com" target="_blank" rel="noopener noreferrer" style="color:var(--ink-2); text-decoration:none; font-weight:600;">@devakesu</a>. All rights reserved.</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:1.5rem; font-size:0.825rem;">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/help" class="nav-link active">Help Center</a>
+                    <a href="/contact" class="nav-link">Contact Us</a>
+                    <a href="https://github.com/devakesu/Nexus" target="_blank" class="nav-link">GitHub</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+            setupCosmosCanvas();
+            setupSearch();
+            handleHashNav();
+        });
+
+        function setAllAccordions(open) {
+            document.querySelectorAll('.faq-card').forEach(card => {
+                card.open = open;
+            });
+        }
+
+        function filterCategory(cat) {
+            document.querySelectorAll('.pill-btn').forEach(btn => {
+                if (btn.getAttribute('data-cat') === cat) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            document.querySelectorAll('.category-block').forEach(sec => {
+                if (cat === 'all' || sec.getAttribute('data-category') === cat) {
+                    sec.style.display = 'block';
+                } else {
+                    sec.style.display = 'none';
+                }
+            });
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('faq-search');
+            const searchClear = document.getElementById('search-clear');
+            const searchStats = document.getElementById('search-stats');
+            const matchCount = document.getElementById('match-count');
+            const categoryBlocks = document.querySelectorAll('.category-block');
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+
+                if (query.length > 0) {
+                    searchClear.style.display = 'block';
+                    searchStats.style.display = 'block';
+                } else {
+                    searchClear.style.display = 'none';
+                    searchStats.style.display = 'none';
+                }
+
+                let matches = 0;
+
+                categoryBlocks.forEach(sec => {
+                    let secMatches = 0;
+                    const items = sec.querySelectorAll('.faq-card');
+
+                    items.forEach(item => {
+                        const summaryText = item.querySelector('.faq-q-text').textContent.toLowerCase();
+                        const contentText = item.querySelector('.faq-content').textContent.toLowerCase();
+                        const keywords = (item.getAttribute('data-keywords') || '').toLowerCase();
+
+                        if (query === '' || summaryText.includes(query) || contentText.includes(query) || keywords.includes(query)) {
+                            item.style.display = 'block';
+                            secMatches++;
+                            matches++;
+                            if (query !== '') {
+                                item.open = true;
+                            }
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+
+                    if (secMatches > 0 || query === '') {
+                        sec.style.display = 'block';
+                    } else {
+                        sec.style.display = 'none';
+                    }
+                });
+
+                matchCount.textContent = matches;
+            });
+
+            searchClear.addEventListener('click', () => {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.focus();
+            });
+        }
+
+        function handleHashNav() {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) {
+                const target = document.getElementById(hash);
+                if (target) {
+                    filterCategory(hash);
+                    setTimeout(() => {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                }
+            }
+        }
+
+        function setupCosmosCanvas() {
+            const canvas = document.getElementById('cosmos-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            let width = canvas.width = window.innerWidth;
+            let height = canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            });
+
+            const particles = [];
+            const particleCount = Math.floor(Math.min(width, height) / 18);
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random() * 0.6 + 0.2,
+                    speed: Math.random() * 0.3 + 0.1,
+                    color: Math.random() > 0.6 ? '186, 230, 253' : (Math.random() > 0.5 ? '196, 181, 253' : '253, 164, 175')
+                });
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, width, height);
+
+                particles.forEach(p => {
+                    p.y -= p.speed;
+                    if (p.y < 0) {
+                        p.y = height;
+                        p.x = Math.random() * width;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${p.color}, ${p.alpha})`;
+                    ctx.shadowBlur = p.radius * 4;
+                    ctx.shadowColor = `rgba(${p.color}, 0.8)`;
+                    ctx.fill();
+                });
+
+                requestAnimationFrame(render);
+            }
+
+            render();
+        }
+    </script>
+</body>
+</html>
