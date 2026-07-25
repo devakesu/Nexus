@@ -173,7 +173,7 @@ supabase db push
 pip install --require-hashes -r requirements.txt
 
 # Start local development server
-infisical run --env=dev --projectId=xxxx -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
+infisical run --env=dev --projectId=xxxx --path /public --path /runtime -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
 
 # Run backend test suite
 .venv/bin/pytest
@@ -194,7 +194,7 @@ cd mobile
 flutter pub get
 
 # Run on device/emulator
-infisical run --env=prod --projectId=xxxx -- sh -c '
+infisical run --env=prod --projectId=xxxx --path /public -- sh -c '
   export DART_VM_OPTIONS="--bind-address=0.0.0.0"
   flutter run \
     --flavor nexus \

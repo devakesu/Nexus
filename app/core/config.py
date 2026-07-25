@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     # Falls back to admin@{app_domain} when unset (see app/core/email.py).
     feedback_notify_email: str | None = None
 
+    # --- Cloudflare Turnstile ---
+    turnstile_site_key: str | None = None
+    turnstile_secret_key: str | None = None
+
     # --- SMS / Twilio ---
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None

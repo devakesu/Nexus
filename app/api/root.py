@@ -1997,21 +1997,6 @@ async def render_landing_page():
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
                     GitHub
                 </a>
-                <a href="https://twitter.com/devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Twitter">
-                    Twitter
-                </a>
-                <a href="https://discord.gg/nexus" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Discord">
-                    Discord
-                </a>
-                <a href="https://instagram.com/devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="Instagram">
-                    Instagram
-                </a>
-                <a href="https://linkedin.com/company/nexus" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="LinkedIn">
-                    LinkedIn
-                </a>
-                <a href="https://youtube.com/@devakesu" target="_blank" rel="noopener noreferrer" class="glass glass-hover" style="padding:0.875rem 1.5rem;border-radius:1rem;display:flex;align-items:center;gap:0.625rem;text-decoration:none;color:var(--ink-2);font-weight:600;font-size:0.875rem;transition:color 0.2s;" aria-label="YouTube">
-                    YouTube
-                </a>
             </div>
         </section>
 
@@ -2191,7 +2176,7 @@ async def render_landing_page():
                     <p style="font-size:0.85rem;color:oklch(0.85 0.01 265);line-height:1.65;max-width:28ch;font-weight:500;text-shadow:0 2px 10px rgba(0,0,0,0.95);">
                         Cosmic-themed, authentic social discovery app for spontaneous, in-the-moment human connections across multiple social dimensions: whether you are looking for new friends, professional connections, or romance. ✨
                     </p>
-                    <p style="font-size:0.75rem;color:oklch(0.65 0.012 265);font-weight:500;text-shadow:0 2px 8px rgba(0,0,0,0.95);">© 2026 @devakesu</p>
+                    <p style="font-size:0.75rem;color:oklch(0.65 0.012 265);font-weight:500;text-shadow:0 2px 8px rgba(0,0,0,0.95);">© 2026 <a href="https://devakesu.com" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;font-weight:600;">@devakesu</a></p>
                 </div>
 
                 <!-- Privacy -->
@@ -2649,3 +2634,632 @@ async def render_landing_page():
             backend_url,
         ),
     )
+
+
+@router.get("/contact", response_class=HTMLResponse)
+async def render_contact_page():
+    turnstile_site_key = settings.turnstile_site_key or ""
+    backend_url = str(settings.backend_url or f"https://{settings.app_domain}")
+
+    html_content = """<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="theme-color" content="#04060f">
+        <meta name="description" content="Nexus Support & Contact Portal. Submit support requests, account suspension appeals, bug reports, product feedback, and security disclosures.">
+        <title>Contact Us & Support Portal - Nexus</title>
+
+        <!-- Favicons -->
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+        <!-- Fonts: Sora + JetBrains Mono + Nunito Sans -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Nunito+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+        <!-- Tailwind v4 & Lucide Icons -->
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+        <!-- Cloudflare Turnstile -->
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+        <style>
+            :root {
+                --font-display: 'Sora', sans-serif;
+                --font-body: 'Nunito Sans', sans-serif;
+                --font-mono: 'JetBrains Mono', monospace;
+
+                --void:        oklch(0.07 0.018 265);
+                --void-mid:    oklch(0.10 0.022 265);
+                --surface:     oklch(0.13 0.026 265);
+                --surface-2:   oklch(0.16 0.024 265);
+                --border:      oklch(0.22 0.020 265);
+
+                --starlight:   oklch(0.74 0.18 205);
+                --pulsar:      oklch(0.71 0.22 0);
+                --nebula:      oklch(0.68 0.20 280);
+                --nova:        oklch(0.80 0.19 85);
+                --aurora:      oklch(0.74 0.20 165);
+
+                --ink-1: oklch(0.97 0.005 265);
+                --ink-2: oklch(0.78 0.012 265);
+                --ink-3: oklch(0.58 0.015 265);
+            }
+
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            html { scroll-behavior: smooth; }
+            body {
+                font-family: var(--font-body);
+                background: var(--void);
+                color: var(--ink-1);
+                overflow-x: hidden;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            .f-display { font-family: var(--font-display); letter-spacing: -0.025em; }
+            .f-mono    { font-family: var(--font-mono); }
+
+            #cosmos-canvas {
+                position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            }
+
+            .glass-card {
+                background: rgba(16, 20, 38, 0.7);
+                backdrop-filter: blur(16px);
+                border: 1px solid var(--border);
+                border-radius: 1.25rem;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+                transition: border-color 0.3s ease, transform 0.3s ease;
+            }
+
+            .category-card {
+                cursor: pointer;
+                border: 1px solid var(--border);
+                background: rgba(22, 27, 48, 0.6);
+                border-radius: 1rem;
+                padding: 1.25rem;
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .category-card:hover {
+                border-color: var(--starlight);
+                transform: translateY(-2px);
+                background: rgba(30, 38, 66, 0.8);
+            }
+            .category-card.selected {
+                border-color: var(--nebula);
+                background: linear-gradient(135deg, rgba(79, 70, 229, 0.25), rgba(124, 58, 237, 0.25));
+                box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+            }
+
+            .input-field {
+                width: 100%;
+                background: rgba(10, 14, 28, 0.8);
+                border: 1px solid var(--border);
+                border-radius: 0.75rem;
+                padding: 0.875rem 1rem;
+                color: var(--ink-1);
+                font-family: var(--font-body);
+                font-size: 0.95rem;
+                outline: none;
+                transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            .input-field:focus {
+                border-color: var(--starlight);
+                box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15);
+            }
+
+            .btn-primary {
+                background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+                color: #FFFFFF;
+                font-weight: 700;
+                border-radius: 0.75rem;
+                padding: 0.875rem 1.75rem;
+                border: none;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                font-family: var(--font-display);
+            }
+            .btn-primary:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+            }
+            .btn-primary:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.35rem 0.85rem;
+                border-radius: 9999px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                border: 1px solid rgba(124, 58, 237, 0.3);
+                background: rgba(124, 58, 237, 0.15);
+                color: #A78BFA;
+            }
+
+            .footer-link {
+                color: var(--ink-2);
+                text-decoration: none;
+                font-size: 0.875rem;
+                transition: color 0.2s;
+            }
+            .footer-link:hover { color: var(--ink-1); }
+        </style>
+    </head>
+    <body>
+        <canvas id="cosmos-canvas"></canvas>
+
+        <!-- Navbar -->
+        <header style="position:sticky;top:0;z-index:50;background:rgba(7,9,20,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);">
+            <div style="max-width:1200px;margin:0 auto;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
+                <a href="/" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;">
+                    <img src="/logo.png" alt="Nexus Logo" width="32" height="32" style="border-radius:0.5rem;">
+                    <span class="f-display" style="font-weight:800;font-size:1.25rem;color:var(--ink-1);">NEXUS</span>
+                </a>
+                <nav style="display:flex;align-items:center;gap:1.75rem;">
+                    <a href="/" class="footer-link">Home</a>
+                    <a href="/help" class="footer-link">Help Center</a>
+                    <a href="/legal" class="footer-link">Legal & Privacy</a>
+                    <a href="/contact" class="footer-link" style="color:var(--starlight);font-weight:600;">Contact Us</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content Container -->
+        <main style="position:relative;z-index:10;max-width:1100px;margin:3rem auto;padding:0 1.5rem 6rem;">
+            <!-- Hero Header -->
+            <div style="text-align:center;margin-bottom:3.5rem;">
+                <div class="badge" style="margin-bottom:1rem;">
+                    <i data-lucide="shield-alert" style="width:14px;height:14px;"></i>
+                    NEXUS SUPPORT & CONTACT PORTAL
+                </div>
+                <h1 class="f-display" style="font-size:2.75rem;font-weight:800;line-height:1.2;margin-bottom:1rem;">
+                    How can we help your <span style="background:linear-gradient(135deg,var(--starlight),var(--nebula));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">orbit</span>?
+                </h1>
+                <p style="color:var(--ink-2);font-size:1.1rem;max-width:650px;margin:0 auto;line-height:1.6;">
+                    Whether you are appealing an account suspension, reporting a bug, providing feedback, or asking a support question, our team is here for you.
+            </div>
+
+            <!-- Main Form Card -->
+            <div class="glass-card" style="padding:2.5rem;">
+
+                <!-- Category Selection -->
+                <div style="margin-bottom:2.5rem;">
+                    <label class="f-display" style="display:block;font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2);margin-bottom:1rem;">
+                        1. Select Inquiry Topic
+                    </label>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;">
+                        <div class="category-card selected" onclick="selectCategory('suspended', this)">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                                <i data-lucide="shield-off" style="color:var(--pulsar);width:20px;height:20px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">Suspended Account</span>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Appeal an active suspension, restriction, or block on your account.</p>
+                        </div>
+
+                        <div class="category-card" onclick="selectCategory('help', this)">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                                <i data-lucide="help-circle" style="color:var(--starlight);width:20px;height:20px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">General Support</span>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Get help with account settings, orbits, discovery, or profile management.</p>
+                        </div>
+
+                        <div class="category-card" onclick="selectCategory('feedback', this)">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                                <i data-lucide="lightbulb" style="color:var(--nova);width:20px;height:20px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">Product Feedback</span>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Share suggestions, new feature requests, or UI improvements.</p>
+                        </div>
+
+                        <div class="category-card" onclick="selectCategory('bug_report', this)">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                                <i data-lucide="bug" style="color:#F43F5E;width:20px;height:20px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">Bug Report</span>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Report crashes, technical glitches, or broken app functionality.</p>
+                        </div>
+
+                        <div class="category-card" onclick="selectCategory('security', this)">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                                <i data-lucide="lock" style="color:var(--aurora);width:20px;height:20px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">Security & Privacy</span>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Responsible vulnerability disclosure, privacy requests, or safety.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Form Inputs -->
+                <form id="contact-form" onsubmit="event.preventDefault();">
+                    <input type="hidden" id="selected-query-type" value="suspended">
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1.25rem;margin-bottom:1.25rem;">
+                        <div>
+                            <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">Full Name (Optional)</label>
+                            <input type="text" id="input-name" class="input-field" placeholder="e.g. Alex Morgan">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">Email Address <span style="color:var(--pulsar);">*</span></label>
+                            <input type="email" id="input-email" class="input-field" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:1.25rem;">
+                        <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">Registered Phone Number (Optional)</label>
+                        <input type="text" id="input-account-id" class="input-field" placeholder="e.g. +1234567890 (Recommended for account appeals)">
+                    </div>
+
+                    <div style="margin-bottom:1.25rem;">
+                        <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">Subject <span style="color:var(--pulsar);">*</span></label>
+                        <input type="text" id="input-subject" class="input-field" placeholder="Brief summary of your inquiry" required minlength="3" maxlength="150">
+                    </div>
+
+                    <div id="github-url-group" style="display:none;margin-bottom:1.25rem;">
+                        <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">Linked GitHub Issue URL (Optional)</label>
+                        <input type="url" id="input-github-url" class="input-field" placeholder="https://github.com/devakesu/Nexus/issues/123">
+                    </div>
+
+                    <div style="margin-bottom:1.5rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                            <label style="font-size:0.85rem;font-weight:600;color:var(--ink-2);">Detailed Message <span style="color:var(--pulsar);">*</span></label>
+                            <span id="char-counter" class="f-mono" style="font-size:0.75rem;color:var(--ink-3);">0 / 5000</span>
+                        </div>
+                        <textarea id="input-message" class="input-field" rows="6" placeholder="Please describe your issue or question in detail..." required minlength="10" maxlength="5000" oninput="updateCharCounter(this)"></textarea>
+                    </div>
+
+                    <!-- Cloudflare Turnstile Widget (If Turnstile key configured) -->
+                    __TURNSTILE_WIDGET_HTML__
+
+                    <!-- OTP Gating Section -->
+                    <div style="border-top:1px solid var(--border);padding-top:1.5rem;margin-top:1.5rem;">
+                        <div id="otp-request-step">
+                            <p style="font-size:0.875rem;color:var(--ink-2);margin-bottom:1rem;">
+                                Security Check: Request a 6-digit verification code sent to your email before submitting.
+                            </p>
+                            <button type="button" id="btn-send-otp" class="btn-primary" onclick="requestOtp()">
+                                <i data-lucide="mail-check" style="width:18px;height:18px;"></i>
+                                Send Email Verification Code
+                            </button>
+                        </div>
+
+                        <!-- OTP Verification Step (Hidden until OTP requested) -->
+                        <div id="otp-verify-step" style="display:none;background:rgba(10,14,28,0.6);border:1px solid var(--border);border-radius:1rem;padding:1.5rem;margin-top:1rem;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;color:var(--starlight);margin-bottom:0.75rem;">
+                                <i data-lucide="key-round" style="width:18px;height:18px;"></i>
+                                <span class="f-display" style="font-weight:700;font-size:0.95rem;">Enter 6-Digit Verification Code</span>
+                            </div>
+                            <p style="font-size:0.85rem;color:var(--ink-2);margin-bottom:1rem;">
+                                We've sent a verification code to <span id="sent-email-display" style="color:var(--ink-1);font-weight:600;"></span>.
+                            </p>
+                            <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1.25rem;">
+                                <input type="text" id="input-otp" class="input-field f-mono" placeholder="123456" maxlength="6" style="max-width:200px;letter-spacing:0.25em;font-size:1.2rem;text-align:center;">
+                                <button type="button" id="btn-submit-ticket" class="btn-primary" onclick="submitForm()">
+                                    <i data-lucide="send" style="width:18px;height:18px;"></i>
+                                    Submit Ticket
+                                </button>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-3);">
+                                Didn't receive the code? <a href="#" id="resend-link" onclick="requestOtp(); return false;" style="color:var(--starlight);text-decoration:none;font-weight:600;">Resend OTP</a> <span id="resend-timer" class="f-mono"></span>
+                            </p>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Feedback Status Message Box -->
+                <div id="status-box" style="display:none;margin-top:1.5rem;padding:1rem;border-radius:0.75rem;font-size:0.9rem;"></div>
+
+                <!-- Success Screen (Hidden by default) -->
+                <div id="success-screen" style="display:none;text-align:center;padding:2rem 1rem;">
+                    <div style="width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;color:var(--aurora);">
+                        <i data-lucide="check-circle" style="width:36px;height:36px;"></i>
+                    </div>
+                    <h2 class="f-display" style="font-size:1.75rem;font-weight:800;margin-bottom:0.75rem;">Support Ticket Created!</h2>
+                    <p style="color:var(--ink-2);font-size:1rem;max-width:500px;margin:0 auto 1.5rem;line-height:1.6;">
+                        Your ticket <span id="ticket-id-tag" class="f-mono" style="color:var(--starlight);font-weight:700;"></span> has been successfully logged. A confirmation receipt has been sent to your email.
+                    </p>
+                    <div style="background:rgba(10,14,28,0.8);border:1px solid var(--border);border-radius:1rem;padding:1.25rem;max-width:480px;margin:0 auto 2rem;text-align:left;">
+                        <div style="font-size:0.8rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;" class="f-mono">Ticket Summary</div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:0.4rem;">
+                            <span style="color:var(--ink-2);">Category:</span>
+                            <span id="summary-category" style="color:var(--ink-1);font-weight:600;text-transform:capitalize;"></span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.9rem;">
+                            <span style="color:var(--ink-2);">Estimated Review:</span>
+                            <span style="color:var(--aurora);font-weight:600;">24–48 Hours</span>
+                        </div>
+                    </div>
+                    <button class="btn-primary" onclick="resetForm()">
+                        <i data-lucide="plus-circle" style="width:18px;height:18px;"></i>
+                        Submit Another Inquiry
+                    </button>
+                </div>
+            </div>
+
+            <!-- Self-Service FAQ Section -->
+            <div style="margin-top:5rem;">
+                <h3 class="f-display" style="font-size:1.5rem;font-weight:800;margin-bottom:1.5rem;text-align:center;">
+                    Frequently Asked Questions
+                </h3>
+                <div style="display:flex;flex-direction:column;gap:1rem;max-width:800px;margin:0 auto;">
+                    <div class="glass-card" style="padding:1.25rem;">
+                        <h4 class="f-display" style="font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:var(--starlight);">How do account suspension appeals work?</h4>
+                        <p style="font-size:0.9rem;color:var(--ink-2);line-height:1.6;">If your account was suspended or restricted, select 'Suspended Account' as your topic. Submit your registered email or phone number along with details regarding your appeal. Our safety team reviews every appeal within 24-48 hours.</p>
+                    </div>
+                    <div class="glass-card" style="padding:1.25rem;">
+                        <h4 class="f-display" style="font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:var(--starlight);">Why is email OTP verification required?</h4>
+                        <p style="font-size:0.9rem;color:var(--ink-2);line-height:1.6;">Email OTP verification prevents spam and ensures that ticket update notifications reach a valid, accessible inbox.</p>
+                    </div>
+                    <div class="glass-card" style="padding:1.25rem;">
+                        <h4 class="f-display" style="font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:var(--starlight);">How can I track my ticket status?</h4>
+                        <p style="font-size:0.9rem;color:var(--ink-2);line-height:1.6;">Log into the Nexus Mobile App and visit <strong>Settings → Help, Feedback & Bug Report</strong> to view ticket progress, read staff comments, or add follow-up details.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer style="background:var(--void-mid);border-top:1px solid var(--border);padding:3rem 1.5rem;position:relative;z-index:10;">
+            <div style="max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.5rem;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <img src="/logo.png" alt="Nexus" width="24" height="24" style="border-radius:0.4rem;">
+                    <span class="f-display" style="font-weight:800;font-size:1rem;">NEXUS</span>
+                    <span style="font-size:0.8rem;color:var(--ink-3);">© 2026 <a href="https://devakesu.com" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;font-weight:600;">@devakesu</a></span>
+                </div>
+                <div style="display:flex;gap:1.5rem;">
+                    <a href="/legal" class="footer-link">Legal & Privacy</a>
+                    <a href="/contact" class="footer-link">Contact Us</a>
+                    <a href="/help" class="footer-link">Help Center</a>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            lucide.createIcons();
+
+            let turnstileToken = null;
+            let resendTimer = null;
+
+            function selectCategory(type, element) {
+                document.querySelectorAll('.category-card').forEach(el => el.classList.remove('selected'));
+                element.classList.add('selected');
+                document.getElementById('selected-query-type').value = type;
+
+                const githubGroup = document.getElementById('github-url-group');
+                if (type === 'bug_report') {
+                    githubGroup.style.display = 'block';
+                } else {
+                    githubGroup.style.display = 'none';
+                }
+            }
+
+            function updateCharCounter(textarea) {
+                const count = textarea.value.length;
+                document.getElementById('char-counter').innerText = `${count} / 5000`;
+            }
+
+            function showStatus(message, isError = false) {
+                const box = document.getElementById('status-box');
+                box.style.display = 'block';
+                box.style.background = isError ? 'rgba(244,63,94,0.15)' : 'rgba(16,185,129,0.15)';
+                box.style.border = isError ? '1px solid rgba(244,63,94,0.4)' : '1px solid rgba(16,185,129,0.4)';
+                box.style.color = isError ? '#FDA4AF' : '#A7F3D0';
+                box.innerText = message;
+            }
+
+            function clearStatus() {
+                const box = document.getElementById('status-box');
+                box.style.display = 'none';
+            }
+
+            async function requestOtp() {
+                clearStatus();
+                const email = document.getElementById('input-email').value.trim();
+                if (!email || !email.includes('@')) {
+                    showStatus('Please enter a valid email address.', true);
+                    return;
+                }
+
+                const btn = document.getElementById('btn-send-otp');
+                btn.disabled = true;
+                btn.innerText = 'Sending OTP...';
+
+                try {
+                    const resp = await fetch('/api/v1/contact/otp/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: email,
+                            turnstile_token: turnstileToken
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        throw new Error(data.detail || 'Failed to send verification email.');
+                    }
+
+                    document.getElementById('sent-email-display').innerText = email;
+                    document.getElementById('otp-verify-step').style.display = 'block';
+                    document.getElementById('otp-request-step').style.display = 'none';
+                    showStatus('Verification code sent! Please check your email inbox.', false);
+                    startResendTimer();
+                } catch (err) {
+                    showStatus(err.message, true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = 'Send Email Verification Code';
+                }
+            }
+
+            function startResendTimer() {
+                let seconds = 60;
+                const link = document.getElementById('resend-link');
+                const timerSpan = document.getElementById('resend-timer');
+                link.style.pointerEvents = 'none';
+                link.style.opacity = '0.5';
+
+                if (resendTimer) clearInterval(resendTimer);
+                resendTimer = setInterval(() => {
+                    seconds--;
+                    timerSpan.innerText = `(${seconds}s)`;
+                    if (seconds <= 0) {
+                        clearInterval(resendTimer);
+                        timerSpan.innerText = '';
+                        link.style.pointerEvents = 'auto';
+                        link.style.opacity = '1';
+                    }
+                }, 1000);
+            }
+
+            async function submitForm() {
+                clearStatus();
+                const email = document.getElementById('input-email').value.trim();
+                const otpCode = document.getElementById('input-otp').value.trim();
+                const queryType = document.getElementById('selected-query-type').value;
+                const subject = document.getElementById('input-subject').value.trim();
+                const message = document.getElementById('input-message').value.trim();
+                const name = document.getElementById('input-name').value.trim();
+                const accountId = document.getElementById('input-account-id').value.trim();
+                const githubUrl = document.getElementById('input-github-url').value.trim();
+
+                if (!otpCode || otpCode.length !== 6) {
+                    showStatus('Please enter the 6-digit verification code.', true);
+                    return;
+                }
+                if (!subject || subject.length < 3) {
+                    showStatus('Subject must be at least 3 characters long.', true);
+                    return;
+                }
+                if (!message || message.length < 10) {
+                    showStatus('Message must be at least 10 characters long.', true);
+                    return;
+                }
+
+                const submitBtn = document.getElementById('btn-submit-ticket');
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'Submitting...';
+
+                try {
+                    const resp = await fetch('/api/v1/contact/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: email,
+                            otp_code: otpCode,
+                            query_type: queryType,
+                            subject: subject,
+                            message: message,
+                            name: name || null,
+                            account_id_or_phone: accountId || null,
+                            github_issue_url: githubUrl || null,
+                            turnstile_token: turnstileToken
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        throw new Error(data.detail || 'Failed to submit ticket.');
+                    }
+
+                    document.getElementById('contact-form').style.display = 'none';
+                    document.getElementById('success-screen').style.display = 'block';
+                    document.getElementById('ticket-id-tag').innerText = '#' + (data.ticket_id ? data.ticket_id.substring(0,8).toUpperCase() : 'NEXUS-TICKET');
+                    document.getElementById('summary-category').innerText = queryType.replace('_', ' ');
+                } catch (err) {
+                    showStatus(err.message, true);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Submit Ticket';
+                }
+            }
+
+            function resetForm() {
+                document.getElementById('contact-form').reset();
+                document.getElementById('contact-form').style.display = 'block';
+                document.getElementById('success-screen').style.display = 'none';
+                document.getElementById('otp-verify-step').style.display = 'none';
+                document.getElementById('otp-request-step').style.display = 'block';
+                clearStatus();
+            }
+
+            // Turnstile Callback if present
+            window.onTurnstileSuccess = function(token) {
+                turnstileToken = token;
+            };
+
+            // Cosmos Canvas Animation
+            const canvas = document.getElementById('cosmos-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                let width = canvas.width = window.innerWidth;
+                let height = canvas.height = window.innerHeight;
+
+                window.addEventListener('resize', () => {
+                    width = canvas.width = window.innerWidth;
+                    height = canvas.height = window.innerHeight;
+                });
+
+                const stars = Array.from({ length: 45 }, () => ({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.5 + 0.5,
+                    vx: (Math.random() - 0.5) * 0.2,
+                    vy: (Math.random() - 0.5) * 0.2,
+                    alpha: Math.random() * 0.6 + 0.2
+                }));
+
+                function drawUniverse() {
+                    ctx.clearRect(0, 0, width, height);
+                    stars.forEach(s => {
+                        s.x += s.vx;
+                        s.y += s.vy;
+                        if (s.x < 0) s.x = width;
+                        if (s.x > width) s.x = 0;
+                        if (s.y < 0) s.y = height;
+                        if (s.y > height) s.y = 0;
+
+                        ctx.beginPath();
+                        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(167, 139, 250, ${s.alpha})`;
+                        ctx.fill();
+                    });
+                    requestAnimationFrame(drawUniverse);
+                }
+                drawUniverse();
+            }
+        </script>
+    </body>
+</html>
+"""
+
+    turnstile_widget_html = ""
+    if turnstile_site_key:
+        turnstile_widget_html = f"""
+        <div class="my-4 flex justify-center">
+            <div class="cf-turnstile" data-sitekey="{turnstile_site_key}" data-callback="onTurnstileSuccess" data-theme="dark"></div>
+        </div>
+        """
+
+    return HTMLResponse(
+        content=html_content.replace("__TURNSTILE_WIDGET_HTML__", turnstile_widget_html).replace(
+            "https://nexus-engine.app", backend_url
+        )
+    )
+

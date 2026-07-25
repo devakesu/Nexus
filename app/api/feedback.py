@@ -4,6 +4,7 @@ import secrets
 import string
 from typing import Any
 
+import httpx
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -51,6 +52,31 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def verify_turnstile_token(
+    token: str | None, client_ip: str | None = None
+) -> bool:
+    """Verifies a Cloudflare Turnstile token if turnstile_secret_key is set."""
+    if not settings.turnstile_secret_key:
+        return True
+    if not token:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data={
+                    "secret": settings.turnstile_secret_key,
+                    "response": token,
+                    "remoteip": client_ip or "",
+                },
+            )
+            data = resp.json()
+            return bool(data.get("success", False))
+    except Exception as err:
+        logger.exception("Failed to verify Turnstile token: %s", err)
+        return False
+
+
 def _assemble_ticket_detail(
     user_id: str,
     report: dict[str, Any],
@@ -91,10 +117,6 @@ async def submit_feedback(
 ) -> FeedbackSubmitResponse:
     _ = request
 
-    # Attachments must live under the caller's own folder in the
-    # feedback_attachments bucket (storage RLS also enforces this on
-    # upload) - reject anything else outright rather than trusting the
-    # client-supplied path list at face value.
     own_prefix = f"{user_id}/"
     for path in payload.attachment_paths:
         if not path.startswith(own_prefix):
@@ -315,47 +337,44 @@ async def close_feedback_ticket(
         ) from err
 
 
-class SupportAppealOtpRequest(BaseModel):
-    email: str = Field(..., description="Email address of the account to appeal")
+class ContactOtpRequest(BaseModel):
+    email: str = Field(..., description="Email address for verification")
+    turnstile_token: str | None = Field(default=None, description="Cloudflare Turnstile token")
 
 
-class SupportAppealSubmitRequest(BaseModel):
-    email: str = Field(..., description="Email address of the account")
+class ContactSubmitRequest(BaseModel):
+    email: str = Field(..., description="Email address of the submitter")
     otp_code: str = Field(
         ..., min_length=6, max_length=6, description="6-digit verification OTP code",
     )
+    query_type: str = Field(
+        default="help",
+        description="Category: help, feedback, bug_report, suspended, security, or other",
+    )
     subject: str = Field(..., min_length=3, max_length=150)
     message: str = Field(..., min_length=10, max_length=5000)
+    name: str | None = Field(default=None, max_length=100)
+    account_id_or_phone: str | None = Field(default=None, max_length=100)
+    github_issue_url: str | None = Field(default=None, max_length=300)
+    turnstile_token: str | None = Field(default=None)
 
 
-@router.post("/api/v1/feedback/appeal-otp/send")
+@router.post("/api/v1/contact/otp/send")
 @limiter.limit(settings.rate_limit_auth)
-async def send_appeal_otp(
+async def send_contact_otp(
     request: Request,
-    payload: SupportAppealOtpRequest = Body(...),  # noqa: B008
+    payload: ContactOtpRequest = Body(...),  # noqa: B008
 ) -> dict[str, bool]:
-    _ = request
-    email = payload.email.strip().lower()
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required.")
-
-    try:
-        rpc_res = await asyncio.to_thread(
-            lambda: supabase_client.rpc(
-                "get_user_id_by_email", {"email_addr": email},
-            ).execute()
-        )
-        user_id = rpc_res.data
-    except Exception as err:
-        logger.exception("Failed to resolve user ID by email via RPC")
+    client_ip = request.client.host if request.client else None
+    if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Support service temporarily unavailable.",
-        ) from err
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security verification failed. Please refresh and try again.",
+        )
 
-    if not user_id:
-        logger.info("Appeal OTP requested for non-existent email: %s", email)
-        return {"success": True}
+    email = payload.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="A valid email is required.")
 
     otp_code = "".join(secrets.choice(string.digits) for _ in range(6))
     otp_key = f"appeal:otp:{email}"
@@ -379,14 +398,20 @@ async def send_appeal_otp(
     return {"success": True}
 
 
-@router.post("/api/v1/feedback/appeal/submit")
+@router.post("/api/v1/contact/submit")
 @limiter.limit(settings.rate_limit_auth)
-async def submit_appeal_ticket(
+async def submit_contact_ticket(
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: SupportAppealSubmitRequest = Body(...),  # noqa: B008
+    payload: ContactSubmitRequest = Body(...),  # noqa: B008
 ) -> dict[str, Any]:
-    _ = request
+    client_ip = request.client.host if request.client else None
+    if not await verify_turnstile_token(payload.turnstile_token, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security verification failed. Please refresh and try again.",
+        )
+
     email = payload.email.strip().lower()
     otp_code = payload.otp_code.strip()
 
@@ -411,29 +436,33 @@ async def submit_appeal_ticket(
     except Exception as err:
         logger.warning("Failed to delete appeal OTP key %s: %s", otp_key, err)
 
+    user_id: str | None = None
     try:
         rpc_res = await asyncio.to_thread(
             lambda: supabase_client.rpc(
                 "get_user_id_by_email", {"email_addr": email},
             ).execute()
         )
-        user_id = rpc_res.data
+        if rpc_res.data and isinstance(rpc_res.data, str):
+            user_id = rpc_res.data
     except Exception as err:
-        logger.exception("Failed to resolve user ID by email via RPC")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Support service temporarily unavailable.",
-        ) from err
+        logger.warning("Optional user lookup by email failed: %s", err)
 
-    if not user_id or not isinstance(user_id, str):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No account associated with this email address.",
-        )
+    valid_types = {"help", "feedback", "bug_report", "suspended", "security", "other"}
+    query_type = payload.query_type.strip().lower()
+    if query_type not in valid_types:
+        query_type = "help"
 
-    query_type = "help"
     subject = payload.subject.strip()
     message = payload.message.strip()
+
+    metadata: dict[str, Any] = {
+        "source": "web_contact_form",
+    }
+    if payload.name:
+        metadata["submitter_name"] = payload.name.strip()
+    if payload.account_id_or_phone:
+        metadata["account_id_or_phone"] = payload.account_id_or_phone.strip()
 
     try:
         report_row = await asyncio.to_thread(
@@ -442,19 +471,19 @@ async def submit_appeal_ticket(
             query_type=query_type,
             subject=subject,
             message=message,
-            github_issue_url=None,
+            github_issue_url=payload.github_issue_url,
             attachment_paths=[],
             app_version=None,
             platform=None,
             device_info={},
             contact_email=email,
-            metadata={"source": "unauthenticated_appeal"},
+            metadata=metadata,
         )
     except Exception as err:
-        logger.exception("Failed to record support appeal ticket in DB")
+        logger.exception("Failed to record contact ticket in DB")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to submit appeal ticket. Please try again.",
+            detail="Failed to submit support ticket. Please try again.",
         ) from err
 
     report_id = str(report_row["id"])
@@ -471,11 +500,14 @@ async def submit_appeal_ticket(
         query_type=query_type,
         subject=subject,
         message=message,
-        user_id=user_id,
+        user_id=user_id or "unauthenticated_guest",
         submitter_email=email,
+        github_issue_url=payload.github_issue_url,
     )
 
     return {
         "success": True,
         "ticket_id": report_id,
+        "status": str(report_row.get("status", "open")),
     }
+

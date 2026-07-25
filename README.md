@@ -325,7 +325,7 @@ Once Infisical and Supabase are authenticated:
 1. **Run API Server with Injected Secrets**:
 
    ```bash
-   infisical run --env=dev --projectId=xxxx -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
+   infisical run --env=dev --projectId=xxxx --path /public --path /runtime -- .venv/bin/uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000 --ssl-certfile .certificates/localhost.pem --ssl-keyfile .certificates/localhost-key.pem
    ```
 
    Visit `http://localhost:8000/docs` for the interactive Swagger documentation.
@@ -342,7 +342,7 @@ Once Infisical and Supabase are authenticated:
 2. **Run General Audience Flavor (`nexus`)**:
 
    ```bash
-   infisical run --env=prod --projectId=xxxx -- sh -c '
+   infisical run --env=prod --projectId=xxxx --path /public -- sh -c '
     export DART_VM_OPTIONS="--bind-address=0.0.0.0"
     flutter run \
       --flavor nexus \
@@ -363,7 +363,7 @@ Once Infisical and Supabase are authenticated:
 3. **Run Campus-Gated Flavor (`nexus_mec`)**:
 
    ```bash
-   infisical run --env=prod --projectId=xxxx -- sh -c '
+   infisical run --env=prod --projectId=xxxx --path /public -- sh -c '
     export DART_VM_OPTIONS="--bind-address=0.0.0.0"
     flutter run \
       --flavor nexus_mec \
@@ -454,7 +454,7 @@ flutter build ipa --flavor nexus -t lib/main.dart
 
 Direct Google Play Links:
 
-- [Nexus (General Audience)](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus)
+- [Nexus (General Audience - Coming SOON!)](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus)
 - [Nexus MEC (Campus-Gated)](https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec)
 
 ## ❓ Frequently Asked Questions
@@ -474,7 +474,7 @@ Contributions are welcome! Please review **[CONTRIBUTING.md](CONTRIBUTING.md)** 
 
 ## 👥 Maintained by
 
-- **[Devanarayanan](https://devakesu.com)**
+- **[Devanarayanan](https://devakesu.com) - [GitHub](https://github.com/devakesu)**
 
 ## 📄 License
 

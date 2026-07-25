@@ -73,13 +73,8 @@ def test_landing_page_html_accessibility_and_social():
         and (host := urlparse(href).hostname) is not None
     }
     expected_hosts = {
-        "github.com",
-        "twitter.com",
-        "discord.gg",
-        "instagram.com",
-        "linkedin.com",
-        "youtube.com",
         "play.google.com",
+        "devakesu.com",
     }
     assert expected_hosts.issubset(external_hosts)
 

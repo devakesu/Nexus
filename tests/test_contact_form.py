@@ -1,0 +1,144 @@
+from typing import Any
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
+
+from fastapi import HTTPException, Request
+import pytest
+
+from app.api.feedback import (
+    ContactOtpRequest,
+    ContactSubmitRequest,
+    send_contact_otp,
+    submit_contact_ticket,
+    verify_turnstile_token,
+)
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.redis_client")
+@patch("app.api.feedback.send_support_appeal_otp_email")
+async def test_send_contact_otp_flow(
+    mock_send_email: MagicMock,
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    _ = mock_supabase
+    mock_redis.set = AsyncMock()
+    mock_send_email.return_value.success = True
+
+    payload = ContactOtpRequest(email="user@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/otp/send",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    res = await send_contact_otp(request=request, payload=payload)
+
+    assert res == {"success": True}
+    mock_redis.set.assert_called_once()
+    mock_send_email.assert_called_once_with("user@example.com", ANY)
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.redis_client")
+@patch("app.api.feedback.record_feedback_submission")
+@patch("app.api.feedback.send_feedback_confirmation_email")
+@patch("app.api.feedback.send_feedback_admin_notification_email")
+async def test_submit_contact_ticket_guest_flow(
+    mock_admin_email: MagicMock,
+    mock_conf_email: MagicMock,
+    mock_record_sub: MagicMock,
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    _ = mock_conf_email
+    _ = mock_admin_email
+    mock_redis.get = AsyncMock(return_value="654321")
+    mock_redis.delete = AsyncMock()
+
+    # RPC returns None (unregistered email / guest visitor)
+    mock_rpc_exec = MagicMock()
+    mock_rpc_exec.execute.return_value.data = None
+    mock_supabase.rpc.return_value = mock_rpc_exec
+
+    mock_record_sub.return_value = {"id": "ticket-uuid-789", "status": "open"}
+
+    payload = ContactSubmitRequest(
+        email="guest@example.com",
+        otp_code="654321",
+        query_type="suspended",
+        subject="Account Appeal Query",
+        message="I would like to request an appeal for my account.",
+        name="Guest User",
+        account_id_or_phone="@guest_user",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    res = await submit_contact_ticket(
+        request=request,
+        background_tasks=bg_tasks,
+        payload=payload,
+    )
+
+    assert res["success"] is True
+    assert res["ticket_id"] == "ticket-uuid-789"
+    assert res["status"] == "open"
+
+    # Verify user_id was passed as None for guest submission
+    mock_record_sub.assert_called_once()
+    call_kwargs = mock_record_sub.call_args.kwargs
+    assert call_kwargs["user_id"] is None
+    assert call_kwargs["query_type"] == "suspended"
+    assert call_kwargs["contact_email"] == "guest@example.com"
+    assert call_kwargs["metadata"]["submitter_name"] == "Guest User"
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.redis_client")
+async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
+    mock_redis.get = AsyncMock(return_value="111222")
+
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="999999",
+        subject="Test Subject",
+        message="Test Message Details",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_contact_ticket(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Invalid or expired" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_turnstile_verification_disabled_by_default() -> None:
+    # When turnstile_secret_key is None (default in config), verify returns True
+    res = await verify_turnstile_token(token=None, client_ip="127.0.0.1")
+    assert res is True

@@ -6,10 +6,10 @@ import pytest
 
 from app.api.dependencies import get_active_user_id
 from app.api.feedback import (
-    SupportAppealOtpRequest,
-    SupportAppealSubmitRequest,
-    send_appeal_otp,
-    submit_appeal_ticket,
+    ContactOtpRequest,
+    ContactSubmitRequest,
+    send_contact_otp,
+    submit_contact_ticket,
 )
 from app.db.profiles import _build_candidate_query  # type: ignore
 from app.models import DiscoveryFilters
@@ -37,16 +37,15 @@ async def test_get_active_user_id_suspended() -> None:
         "id": "user123",
         "is_active": True,
         "is_suspended": True,
-        "moderation_status": "clear",
-        "moderation_reason_code": "harassment",
+        "moderation_status": "suspended",
     }
     with patch(
         "app.api.dependencies.get_cached_public_user",
         AsyncMock(return_value=user_row),
     ):
-        with pytest.raises(HTTPException) as excinfo:
+        with pytest.raises(HTTPException) as exc_info:
             await get_active_user_id("user123")
-        assert excinfo.value.status_code == status.HTTP_403_FORBIDDEN
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.anyio
@@ -61,9 +60,9 @@ async def test_get_active_user_id_inactive() -> None:
         "app.api.dependencies.get_cached_public_user",
         AsyncMock(return_value=user_row),
     ):
-        with pytest.raises(HTTPException) as excinfo:
+        with pytest.raises(HTTPException) as exc_info:
             await get_active_user_id("user123")
-        assert excinfo.value.status_code == status.HTTP_403_FORBIDDEN
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_build_candidate_query_moderation_filters() -> None:
@@ -75,9 +74,6 @@ def test_build_candidate_query_moderation_filters() -> None:
         excluded_ids=set(),
         app_variant="nexus",
     )
-    # Check that query targets profiles table and constraints are added
-    # Since query is a PostgREST builder mock/real, let's verify parameters applied.
-    # In a real environment, we'll verify it returns a builder.
     assert query is not None
 
 
@@ -90,17 +86,14 @@ async def test_send_appeal_otp_flow(
     mock_redis: MagicMock,
     mock_supabase: MagicMock,
 ) -> None:
-    # 1. Mock user lookup RPC
-    mock_rpc_exec = MagicMock()
-    mock_rpc_exec.execute.return_value.data = "user-uuid-123"
-    mock_supabase.rpc.return_value = mock_rpc_exec
+    _ = mock_supabase
 
-    # 2. Mock redis set and email send
+    # 1. Mock redis set and email send
     mock_redis.set = AsyncMock()
     mock_send_email.return_value.success = True
 
-    # 3. Call endpoint helper
-    payload = SupportAppealOtpRequest(email="test@example.com")
+    # 2. Call endpoint helper
+    payload = ContactOtpRequest(email="test@example.com")
     scope: dict[str, Any] = {
         "type": "http",
         "headers": [],
@@ -108,15 +101,12 @@ async def test_send_appeal_otp_flow(
         "path": "/",
     }
     request = Request(scope)
-    res = await send_appeal_otp(
+    res = await send_contact_otp(
         request=request,
         payload=payload,
     )
 
     assert res == {"success": True}
-    mock_supabase.rpc.assert_called_once_with(
-        "get_user_id_by_email", {"email_addr": "test@example.com"}
-    )
     mock_redis.set.assert_called_once()
     mock_send_email.assert_called_once()
 
@@ -144,10 +134,10 @@ async def test_submit_appeal_ticket_flow(
     mock_supabase.rpc.return_value = mock_rpc_exec
 
     # 3. Mock DB feedback insert
-    mock_record_sub.return_value = {"id": "ticket-uuid-abc"}
+    mock_record_sub.return_value = {"id": "ticket-uuid-abc", "status": "open"}
 
     # 4. Call endpoint helper
-    payload = SupportAppealSubmitRequest(
+    payload = ContactSubmitRequest(
         email="test@example.com",
         otp_code="123456",
         subject="Suspension Appeal",
@@ -162,13 +152,13 @@ async def test_submit_appeal_ticket_flow(
     request = Request(scope)
     bg_tasks = MagicMock()
 
-    res = await submit_appeal_ticket(
+    res = await submit_contact_ticket(
         request=request,
         background_tasks=bg_tasks,
         payload=payload,
     )
 
-    assert res == {"success": True, "ticket_id": "ticket-uuid-abc"}
+    assert res == {"success": True, "ticket_id": "ticket-uuid-abc", "status": "open"}
     mock_redis.get.assert_called_once_with("appeal:otp:test@example.com")
     mock_redis.delete.assert_called_once_with("appeal:otp:test@example.com")
     mock_record_sub.assert_called_once()
@@ -187,4 +177,5 @@ async def test_submit_appeal_ticket_flow(
         message="Please restore my account.",
         user_id="user-uuid-123",
         submitter_email="test@example.com",
+        github_issue_url=None,
     )

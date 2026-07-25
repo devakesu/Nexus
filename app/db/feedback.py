@@ -19,7 +19,7 @@ _STATUS_SORT_PRIORITY = {"open": 0, "in_progress": 0, "resolved": 1, "closed": 1
 
 
 def _build_feedback_payload(
-    user_id: str,
+    user_id: str | None,
     query_type: str,
     subject: str,
     message: str,
@@ -51,10 +51,10 @@ def _build_feedback_payload(
 
 
 def record_feedback_submission(
-    user_id: str,
-    query_type: str,
-    subject: str,
-    message: str,
+    user_id: str | None = None,
+    query_type: str = "help",
+    subject: str = "",
+    message: str = "",
     github_issue_url: str | None = None,
     attachment_paths: list[str] | None = None,
     app_version: str | None = None,
