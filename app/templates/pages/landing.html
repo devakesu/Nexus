@@ -278,8 +278,31 @@
     .grid-2col { display: grid; grid-template-columns: 1fr; gap: 2.5rem; align-items: center; width: 100%; }
     @media (min-width: 992px) { .grid-2col { grid-template-columns: 1fr 1fr; gap: 3.5rem; } }
 
-    .floating-stat-right { position: absolute; top: -1rem; right: -1rem; padding: 0.45rem 0.85rem; border-radius: 0.6rem; box-shadow: 0 8px 24px oklch(0 0 0 / 0.55); z-index: 25; }
-    .floating-stat-left { position: absolute; bottom: 2rem; left: -2rem; padding: 0.45rem 0.85rem; border-radius: 0.6rem; box-shadow: 0 8px 24px oklch(0 0 0 / 0.55); z-index: 25; }
+    .floating-stat-right { position: absolute; top: -0.5rem; right: -0.75rem; padding: 0.45rem 0.85rem; border-radius: 0.6rem; box-shadow: 0 8px 24px oklch(0 0 0 / 0.55); z-index: 25; }
+    .floating-stat-left { position: absolute; bottom: -0.75rem; left: -0.75rem; padding: 0.45rem 0.85rem; border-radius: 0.6rem; box-shadow: 0 8px 24px oklch(0 0 0 / 0.55); z-index: 25; }
+
+    @media (max-width: 768px) {
+        .floating-stat-right { right: 0.25rem !important; top: -0.5rem !important; transform: scale(0.85); }
+        .floating-stat-left { left: 0.25rem !important; bottom: -0.5rem !important; transform: scale(0.85); }
+    }
+
+    /* ── Nebula Glow Background Blobs ───────────────── */
+    .nebula-glow-layer {
+        position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
+    }
+    .nebula-blob {
+        position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.35;
+        animation: nebula-pulse 12s ease-in-out infinite alternate;
+    }
+    .nebula-1 { top: 5%; left: 10%; width: 550px; height: 550px; background: radial-gradient(circle, oklch(0.68 0.20 280), oklch(0.74 0.18 205 / 0.2)); }
+    .nebula-2 { top: 35%; right: 5%; width: 650px; height: 650px; background: radial-gradient(circle, oklch(0.74 0.18 205), oklch(0.78 0.20 85 / 0.15)); animation-delay: -4s; }
+    .nebula-3 { bottom: 15%; left: 20%; width: 600px; height: 600px; background: radial-gradient(circle, oklch(0.78 0.20 85), oklch(0.68 0.20 280 / 0.2)); animation-delay: -8s; }
+
+    @keyframes nebula-pulse {
+        0% { transform: scale(0.9) translate(0, 0); opacity: 0.25; }
+        50% { transform: scale(1.15) translate(30px, -20px); opacity: 0.42; }
+        100% { transform: scale(1.0) translate(-20px, 20px); opacity: 0.30; }
+    }
 
     @keyframes constellation-twinkle { 0%, 100% { opacity: 0.4; transform: scale(0.9); } 50% { opacity: 1.0; transform: scale(1.5); } }
     .star-twinkle-1 { animation: constellation-twinkle 3s ease-in-out infinite; }
@@ -288,21 +311,24 @@
     .star-twinkle-4 { animation: constellation-twinkle 2.8s ease-in-out 0.6s infinite; }
 
     @keyframes comet-fly {
-        0% { transform: translateX(120px) translateY(-80px) rotate(-32deg); opacity: 0; }
+        0% { transform: translateX(140px) translateY(-90px) rotate(-32deg); opacity: 0; }
         12% { opacity: 1; }
         75% { opacity: 0.9; }
-        100% { transform: translateX(-550px) translateY(320px) rotate(-32deg); opacity: 0; }
+        100% { transform: translateX(-650px) translateY(380px) rotate(-32deg); opacity: 0; }
     }
     .footer-comet {
-        position: absolute; width: 160px; height: 2px;
-        background: linear-gradient(90deg, oklch(0.98 0.05 205), oklch(0.72 0.19 205 / 0.5), transparent);
-        border-radius: 999px; box-shadow: 0 0 10px oklch(0.72 0.19 205 / 0.5), 0 0 20px oklch(0.68 0.20 280 / 0.4);
-        pointer-events: none; z-index: 1; opacity: 0.45;
+        position: absolute; width: 180px; height: 2px;
+        background: linear-gradient(90deg, #ffffff, oklch(0.98 0.05 205), oklch(0.72 0.19 205 / 0.5), transparent);
+        border-radius: 999px; box-shadow: 0 0 12px oklch(0.72 0.19 205 / 0.6), 0 0 24px oklch(0.68 0.20 280 / 0.5);
+        pointer-events: none; z-index: 1; opacity: 0.55;
     }
-    .footer-comet::before { content: ''; position: absolute; left: 0; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: #ffffff; box-shadow: 0 0 8px oklch(0.98 0.05 205), 0 0 16px oklch(0.72 0.19 205); }
-    .comet-1 { top: 10%; right: 5%; animation: comet-fly 6.5s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
-    .comet-2 { top: 35%; right: 25%; animation: comet-fly 8.5s cubic-bezier(0.25, 1, 0.5, 1) 2.5s infinite; }
-    .comet-3 { top: 15%; right: 50%; animation: comet-fly 7.5s cubic-bezier(0.25, 1, 0.5, 1) 4.8s infinite; }
+    .footer-comet::before { content: ''; position: absolute; left: 0; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: #ffffff; box-shadow: 0 0 10px oklch(0.98 0.05 205), 0 0 20px oklch(0.72 0.19 205); }
+    .comet-1 { top: 8%; right: 5%; animation: comet-fly 5.5s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
+    .comet-2 { top: 28%; right: 20%; animation: comet-fly 7.5s cubic-bezier(0.25, 1, 0.5, 1) 1.8s infinite; }
+    .comet-3 { top: 48%; right: 45%; animation: comet-fly 6.8s cubic-bezier(0.25, 1, 0.5, 1) 3.5s infinite; }
+    .comet-4 { top: 68%; right: 15%; animation: comet-fly 8.0s cubic-bezier(0.25, 1, 0.5, 1) 4.2s infinite; }
+    .comet-5 { top: 18%; right: 65%; animation: comet-fly 6.2s cubic-bezier(0.25, 1, 0.5, 1) 2.2s infinite; }
+    .comet-6 { top: 82%; right: 35%; animation: comet-fly 7.2s cubic-bezier(0.25, 1, 0.5, 1) 5.8s infinite; }
 
     @keyframes footer-orbit-spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
     .footer-orbit-ring {
@@ -331,23 +357,25 @@
 {% endblock %}
 
 {% block content %}
-<!-- Nebula blobs -->
-<div class="nebula-blob nb-1" aria-hidden="true"></div>
-<div class="nebula-blob nb-2" aria-hidden="true"></div>
-<div class="nebula-blob nb-3" aria-hidden="true"></div>
-<div class="nebula-blob nb-4" aria-hidden="true"></div>
+<!-- Nebula & Comet background layers -->
+<div class="nebula-glow-layer" aria-hidden="true">
+    <div class="nebula-blob nebula-1"></div>
+    <div class="nebula-blob nebula-2"></div>
+    <div class="nebula-blob nebula-3"></div>
+    <div class="footer-comet comet-1"></div>
+    <div class="footer-comet comet-2"></div>
+    <div class="footer-comet comet-3"></div>
+    <div class="footer-comet comet-4"></div>
+    <div class="footer-comet comet-5"></div>
+    <div class="footer-comet comet-6"></div>
+</div>
 
 <!-- ─────────────── HERO ─────────────── -->
-<section id="hero" style="min-height: 100svh; display: flex; align-items: center; padding-top: 7rem; padding-bottom: 4rem;">
+<section id="hero" style="scroll-margin-top: 0 !important; padding-top: 7.75rem; padding-bottom: 2.5rem;">
     <div class="section" style="padding-top: 0; padding-bottom: 0; width: 100%;">
         <div class="grid-2col">
             <!-- Left: Copy -->
-            <div style="animation: reveal-up 0.8s cubic-bezier(0.16,1,0.3,1) both;">
-                <div class="badge badge-soon" style="padding:0.45rem 1rem;font-size:0.7rem;margin-bottom:1.75rem;border-radius:0.6rem;background:oklch(0.12 0.025 265 / 0.95);border:1px solid oklch(0.72 0.19 205 / 0.4);box-shadow:0 0 20px oklch(0.72 0.19 205 / 0.15);">
-                    <span class="beacon-orbit" style="color:oklch(0.74 0.19 205);" aria-hidden="true"></span>
-                    <span style="color:oklch(0.92 0.12 205);">COMING SOON - NEXUS</span>
-                </div>
-
+            <div style="animation: reveal-up 0.8s cubic-bezier(0.16,1,0.3,1) both; padding-bottom: 2.5rem;">
                 <h1 class="f-display" style="font-size:clamp(2.6rem,5.5vw,4.25rem);font-weight:800;line-height:1.08;letter-spacing:-0.03em;color:var(--ink-1);text-wrap:balance;margin-bottom:1.5rem;">
                     You're already<br>
                     in someone's<br>
@@ -363,8 +391,8 @@
                     <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus"
                     target="_blank" rel="noopener noreferrer"
                     class="btn-primary btn-nexus">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;flex-shrink:0;">
+                            <path d="M4 20V4l12 16V4"/>
                         </svg>
                         <span>
                             <span style="display:block;font-size:0.6rem;font-family:var(--font-mono);letter-spacing:0.07em;opacity:0.85;font-weight:500;">NEXUS - COMING SOON</span>
@@ -375,9 +403,7 @@
                     <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec"
                     target="_blank" rel="noopener noreferrer"
                     class="btn-primary btn-campus">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/>
-                        </svg>
+                        <i data-lucide="graduation-cap" style="width:18px;height:18px;display:inline-block;flex-shrink:0;"></i>
                         <span>
                             <span style="display:block;font-size:0.6rem;font-family:var(--font-mono);letter-spacing:0.07em;opacity:0.75;font-weight:500;">NEXUS MEC - CAMPUS VERIFIED</span>
                             <span style="display:block;font-size:0.9rem;">Get on Google Play</span>
@@ -473,7 +499,7 @@
             </div>
         </div>
 
-        <div class="reveal" style="margin-top:4rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;border-top:1px solid oklch(0.22 0.020 265 / 0.5);padding-top:2rem;">
+        <div class="reveal" style="margin-top:1.75rem;display:flex;flex-wrap:wrap;gap:1rem 2rem;justify-content:center;border-top:1px solid oklch(0.22 0.020 265 / 0.5);padding-top:1.25rem;">
             <div style="display:flex;align-items:center;gap:0.6rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.74 0.20 165)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span style="font-size:0.8125rem;color:var(--ink-2);">E2EE on every message</span>
@@ -495,7 +521,7 @@
 </section>
 
 <!-- ─────────────── ORBIT RADAR ─────────────── -->
-<section id="orbit" class="section section-divider">
+<section id="orbit" class="section section-divider" style="padding-top: 3rem;">
     <div class="grid-2col">
         <div class="reveal-l" style="display:flex;flex-direction:column;gap:1rem;">
             <div class="glass glass-rose" style="padding:1.5rem;border-radius:1.25rem;">
@@ -892,7 +918,7 @@
         <div class="glass glass-hover reveal" style="padding:2rem;border-radius:1.5rem;display:flex;flex-direction:column;gap:1.25rem;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                 <div style="width:3rem;height:3rem;border-radius:1rem;background:oklch(0.72 0.19 205 / 0.12);border:1px solid oklch(0.72 0.19 205 / 0.25);display:flex;align-items:center;justify-content:center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="oklch(0.72 0.19 205)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="oklch(0.72 0.19 205)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V4l12 16V4"/></svg>
                 </div>
                 <span class="badge badge-soon"><span class="beacon-orbit" aria-hidden="true"></span>COMING SOON</span>
             </div>
@@ -923,9 +949,9 @@
             </div>
             <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec"
             target="_blank" rel="noopener noreferrer"
-            class="btn-primary btn-campus" style="align-self:flex-start; padding: 0.625rem 1.25rem; font-size: 0.875rem;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/></svg>
-                Get on Google Play
+            class="btn-primary btn-campus" style="align-self:flex-start; padding: 0.625rem 1.25rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+                <i data-lucide="graduation-cap" style="width:16px;height:16px;display:inline-block;flex-shrink:0;"></i>
+                <span>Get on Google Play</span>
             </a>
         </div>
     </div>
@@ -1135,15 +1161,17 @@
             <div style="display:flex;flex-wrap:wrap;gap:0.875rem;justify-content:center;">
                 <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec"
                 target="_blank" rel="noopener noreferrer"
-                class="btn-primary btn-campus">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/></svg>
-                    Download Nexus MEC
+                class="btn-primary btn-campus" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="graduation-cap" style="width:20px;height:20px;display:inline-block;flex-shrink:0;"></i>
+                    <span>Download Nexus MEC</span>
                 </a>
                 <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus"
                 target="_blank" rel="noopener noreferrer"
-                class="btn-ghost">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:oklch(0.72 0.19 205)" aria-hidden="true"><path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/></svg>
-                    Nexus (Coming Soon)
+                class="btn-ghost" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="oklch(0.72 0.19 205)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;flex-shrink:0;">
+                        <path d="M4 20V4l12 16V4"/>
+                    </svg>
+                    <span>Nexus (Coming Soon)</span>
                 </a>
             </div>
         </div>

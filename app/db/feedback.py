@@ -31,6 +31,10 @@ def _build_feedback_payload(
     contact_email: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    final_metadata = dict(metadata or {})
+    if contact_email:
+        final_metadata["contact_email"] = contact_email.strip().lower()
+
     payload: dict[str, Any] = {
         "user_id": user_id,
         "query_type": query_type,
@@ -43,8 +47,7 @@ def _build_feedback_payload(
         "app_version": app_version.strip() if app_version else None,
         "platform": platform or None,
         "device_info": device_info or None,
-        "contact_email": contact_email.strip().lower() if contact_email else None,
-        "metadata": metadata or None,
+        "metadata": final_metadata or None,
     }
     payload.update({k: v for k, v in optional_fields.items() if v is not None})
     return payload

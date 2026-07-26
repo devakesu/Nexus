@@ -676,6 +676,10 @@ FEEDBACK_QUERY_TYPE_LABELS: dict[str, str] = {
     "help": "Help Request",
     "feedback": "Feedback",
     "bug_report": "Bug Report",
+    "suspended": "Suspended Account Appeal",
+    "security": "Security & Privacy",
+    "legal_grievance": "Legal Grievance",
+    "grievance": "Legal Grievance",
 }
 
 

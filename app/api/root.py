@@ -163,6 +163,9 @@ async def render_help_page():
 
 
 @router.get("/contact", response_class=HTMLResponse)
+@router.get("/appeal", response_class=HTMLResponse)
+@router.get("/grievance", response_class=HTMLResponse)
+@router.get("/support", response_class=HTMLResponse)
 async def render_contact_page():
     turnstile_site_key = settings.turnstile_site_key or ""
     return HTMLResponse(render_contact(turnstile_site_key=turnstile_site_key))

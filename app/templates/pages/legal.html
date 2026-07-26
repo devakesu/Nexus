@@ -6,201 +6,918 @@
 
 {% block extra_head %}
 <style>
-:root {
+  :root {
     --ink: #0F172A;
-    --ink-muted: #64748B;
-    --ink-faint: #94A3B8;
+    --ink-muted: #475569;
+    --ink-faint: #64748B;
     --border: #E2E8F0;
+    --border-hover: #CBD5E1;
     --surface: #FFFFFF;
-    --canvas: #F4F6FA;
-    --pink: #FF7597;
-    --pink-soft: #FF759714;
+    --surface-elevated: #F8FAFC;
+    --canvas: #F1F5F9;
+    --pink: #DB2777;
+    --pink-soft: rgba(219, 39, 119, 0.08);
     --teal: #0891B2;
-    --teal-soft: #0891B214;
+    --teal-soft: rgba(8, 145, 178, 0.08);
     --safety-blue: #0284C7;
-    --safety-teal: #0D9488;
-    --safety-soft: #0284C712;
-    --warn: #F59E0B;
-    --warn-soft: #F59E0B14;
-    --error: #EF4444;
-    --error-soft: #EF444414;
-    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 28px -14px rgba(15,23,42,.14);
+    --safety-soft: rgba(2, 132, 199, 0.08);
+    --warn: #D97706;
+    --warn-soft: rgba(217, 119, 6, 0.08);
+    --error: #DC2626;
+    --error-soft: rgba(220, 38, 38, 0.08);
+    --starlight: oklch(0.74 0.18 205);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 12px 32px -4px rgba(15, 23, 42, 0.12);
     color-scheme: light;
   }
+
   @media (prefers-color-scheme: dark) {
     :root {
-      --ink: #EDEFF4; --ink-muted: #9AA3B5; --ink-faint: #6B7385;
-      --border: #232838; --surface: #161B26; --canvas: #0B0D13;
-      --pink: #FF89A5; --pink-soft: #FF89A51c; --teal: #4FD1E0; --teal-soft: #4FD1E01c;
-      --safety-blue: #5EC2F0; --safety-teal: #5EEAD4; --safety-soft: #5EC2F01c;
-      --warn: #FBBF24; --warn-soft: #FBBF241c; --error: #F87171; --error-soft: #F871711c;
+      --ink: #F8FAFC;
+      --ink-muted: #94A3B8;
+      --ink-faint: #64748B;
+      --border: #1E293B;
+      --border-hover: #334155;
+      --surface: #0F172A;
+      --surface-elevated: #182238;
+      --canvas: #07090E;
+      --pink: #F472B6;
+      --pink-soft: rgba(244, 114, 182, 0.12);
+      --teal: #22D3EE;
+      --teal-soft: rgba(34, 211, 238, 0.12);
+      --safety-blue: #38BDF8;
+      --safety-soft: rgba(56, 189, 248, 0.12);
+      --warn: #FBBF24;
+      --warn-soft: rgba(251, 191, 36, 0.12);
+      --error: #F87171;
+      --error-soft: rgba(248, 113, 113, 0.12);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
       color-scheme: dark;
     }
   }
+
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body {
-    background: var(--canvas); color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
   }
-  ::selection { background: var(--pink-soft); }
-  a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 2px; }
-  a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 3px; }
-  h1, h2, h3 { font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-weight: 600; text-wrap: balance; color: var(--ink); }
-  code, .mono { font-family: "SF Mono", "JetBrains Mono", Consolas, monospace; font-size: 0.85em; background: var(--canvas); border: 1px solid var(--border); border-radius: 3px; padding: 0.05em 0.4em; }
 
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 28px 100px; }
+  /* Reading Progress Bar */
+  #reading-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--teal), var(--pink), var(--starlight));
+    z-index: 1000;
+    transition: width 0.1s ease-out;
+  }
 
-  header.masthead { border-bottom: 1px solid var(--border); background: var(--surface); }
-  .masthead-inner { max-width: 1160px; margin: 0 auto; padding: 44px 28px 30px; display: flex; flex-direction: column; gap: 12px; }
-  .eyebrow { font-family: "SF Mono", monospace; font-size: 0.72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--pink); font-weight: 700; }
-  .eyebrow-links { font-family: "SF Mono", monospace; font-size: 0.72rem; }
-  .eyebrow-links a { color: var(--ink-muted); }
-  h1.title { font-size: 2.1rem; line-height: 1.15; margin: 0; max-width: 26ch; }
-  .subtitle { color: var(--ink-muted); font-size: 1.02rem; max-width: 68ch; margin: 0; }
-  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 4px; font-size: 0.84rem; color: var(--ink-muted); }
-  .meta-row strong { color: var(--ink); font-weight: 600; }
+  ::selection { background: var(--pink-soft); color: var(--ink); }
+  
+  a {
+    color: var(--teal);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color 0.2s, text-decoration-color 0.2s;
+  }
+  a:hover {
+    color: var(--pink);
+    text-decoration-color: var(--pink);
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--starlight);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display), "Sora", sans-serif;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  
+  code, .mono {
+    font-family: var(--font-mono), "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85em;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    border-radius: 4px;
+    padding: 0.15em 0.4em;
+  }
+
+  .wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 100px;
+  }
+
+  /* Masthead Hero */
+  header.masthead {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    padding-top: 100px; /* spacing below fixed navbar */
+  }
+  .masthead-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .eyebrow-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pink);
+    font-weight: 700;
+    background: var(--pink-soft);
+    border: 1px solid rgba(219, 39, 119, 0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+
+  h1.title {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.15;
+    margin: 0;
+    max-width: 30ch;
+  }
+
+  .subtitle {
+    color: var(--ink-muted);
+    font-size: 1.05rem;
+    max-width: 72ch;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .jump-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .jump-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .jump-pill:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border);
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta-item strong { color: var(--ink); font-weight: 600; }
+
   .placeholder-banner {
-    margin-top: 16px; display: flex; gap: 10px; align-items: flex-start;
-    background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 8px; padding: 12px 16px; font-size: 0.86rem;
+    margin-top: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: var(--warn-soft);
+    border: 1px solid var(--warn);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 0.88rem;
+    color: var(--ink);
   }
-  .placeholder-banner .tag { font-weight: 800; color: var(--warn); flex: none; font-family: "SF Mono", monospace; font-size: 0.7rem; letter-spacing: .05em; text-transform: uppercase; padding-top: 2px; }
+  .placeholder-banner .tag {
+    font-weight: 800;
+    color: var(--warn);
+    flex: none;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(217, 119, 6, 0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
 
-  .layout { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 56px; margin-top: 40px; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position: static !important; order: 2; } }
-  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 0.85rem; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 48px); overflow-y: auto; }
-  nav.toc .toc-group { border-left: 2px solid var(--border); padding-left: 14px; display: flex; flex-direction: column; gap: 7px; }
-  nav.toc .toc-h { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--pink); margin-bottom: 2px; font-weight: 700; }
-  nav.toc a { color: var(--ink-muted); display: block; }
-  nav.toc a:hover { color: var(--ink); }
+  /* Main Layout Grid */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 48px;
+    margin-top: 40px;
+  }
 
-  main { min-width: 0; }
-  .doc-part { margin-bottom: 20px; }
-  .doc-part-head { display: flex; align-items: baseline; gap: 12px; margin: 64px 0 6px; }
-  .doc-part-head h2 { font-size: 1.9rem; margin: 0; }
-  .doc-part-head .part-eyebrow { font-family: "SF Mono", monospace; font-size: 0.72rem; color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase; }
-  .doc-part-intro { color: var(--ink-muted); max-width: 70ch; margin: 0 0 8px; font-size: 0.95rem; }
+  /* Mobile Quick Drawer Header */
+  .mobile-toc-bar {
+    display: none;
+    position: sticky;
+    top: 76px;
+    z-index: 40;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-top: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(12px);
+  }
+  .mobile-toc-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.92rem;
+    cursor: pointer;
+    padding: 0;
+  }
 
-  section.clause { scroll-margin-top: 20px; margin: 28px 0; }
-  section.clause h3 { font-size: 1.18rem; margin: 0 0 10px; display: flex; align-items: baseline; gap: 10px; }
-  section.clause h3 .num { font-family: "SF Mono", monospace; font-size: 0.8rem; color: var(--ink-faint); font-weight: 500; }
-  .prose { max-width: 72ch; font-size: 0.98rem; }
-  .prose p { margin: 0 0 13px; }
-  .prose ul, .prose ol { margin: 0 0 13px; padding-left: 22px; }
-  .prose li { margin-bottom: 7px; }
-  .prose strong { color: var(--ink); }
+  /* Left Navigation Sidebar (TOC) */
+  nav.toc {
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: calc(100vh - 120px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
 
-  .callout { border-radius: 10px; padding: 18px 20px; margin: 18px 0; font-size: 0.94rem; max-width: 72ch; box-shadow: var(--shadow); }
-  .callout-head { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; font-size: 0.9rem; }
-  .callout-head .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .callout.safety { background: var(--safety-soft); border: 1px solid var(--safety-blue); }
+  .toc-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toc-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .toc-title {
+    font-family: var(--font-display), sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+
+  /* TOC Document Part Tabs */
+  .toc-tabs {
+    display: flex;
+    background: var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .toc-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 6px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .toc-tab:hover { color: var(--ink); }
+  .toc-tab.active {
+    background: var(--surface);
+    color: var(--teal);
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* TOC Search Box */
+  .toc-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .toc-search-wrap svg {
+    position: absolute;
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .toc-search-input {
+    width: 100%;
+    padding: 7px 10px 7px 32px;
+    font-size: 0.82rem;
+    background: var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--ink);
+    transition: border-color 0.2s;
+  }
+  .toc-search-input:focus {
+    border-color: var(--teal);
+    outline: none;
+    background: var(--surface);
+  }
+  .toc-search-clear {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    padding: 2px;
+    display: none;
+  }
+
+  /* TOC Navigation Scrollable List */
+  .toc-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-right: -4px;
+    scroll-behavior: smooth;
+  }
+  .toc-nav-list::-webkit-scrollbar { width: 4px; }
+  .toc-nav-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .toc-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .toc-group-title {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pink);
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .toc-group-count {
+    font-size: 0.68rem;
+    background: var(--pink-soft);
+    color: var(--pink);
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    border-left: 2px solid transparent;
+  }
+  .toc-item:hover {
+    color: var(--ink);
+    background: var(--canvas);
+  }
+  .toc-item.active {
+    color: var(--teal);
+    font-weight: 700;
+    background: var(--teal-soft);
+    border-left-color: var(--teal);
+  }
+  .toc-item .num-badge {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    min-width: 18px;
+  }
+  .toc-item.active .num-badge {
+    color: var(--teal);
+    font-weight: 700;
+  }
+
+  .toc-no-results {
+    display: none;
+    padding: 16px 8px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+  }
+
+  /* Document Body Content */
+  .doc-body { min-width: 0; }
+  .doc-part { margin-bottom: 48px; }
+  .doc-part-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 40px 0 12px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  .doc-part-head h2 { font-size: 1.8rem; margin: 0; }
+  .doc-part-head .part-badge {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    color: var(--teal);
+    background: var(--teal-soft);
+    border: 1px solid rgba(8, 145, 178, 0.2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+  .doc-part-intro {
+    color: var(--ink-muted);
+    max-width: 72ch;
+    margin: 0 0 24px;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* Clauses */
+  section.clause {
+    scroll-margin-top: 110px;
+    margin: 32px 0;
+    padding: 20px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  section.clause:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+  }
+  section.clause:target {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 2px var(--teal-soft), var(--shadow-md);
+  }
+
+  section.clause h3 {
+    font-size: 1.2rem;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .clause-title-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  section.clause h3 .num {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.8rem;
+    color: var(--pink);
+    background: var(--pink-soft);
+    border: 1px solid rgba(219, 39, 119, 0.2);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+  .clause-copy-btn {
+    opacity: 0.5;
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  section.clause:hover .clause-copy-btn { opacity: 1; }
+  .clause-copy-btn:hover { color: var(--teal); background: var(--teal-soft); }
+
+  .prose { max-width: 76ch; font-size: 0.98rem; color: var(--ink); }
+  .prose p { margin: 0 0 14px; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose ul, .prose ol { margin: 0 0 14px; padding-left: 24px; }
+  .prose li { margin-bottom: 8px; }
+  .prose strong { color: var(--ink); font-weight: 700; }
+
+  /* Callouts */
+  .callout {
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 22px 0;
+    font-size: 0.95rem;
+    max-width: 76ch;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid transparent;
+  }
+  .callout-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    font-family: var(--font-display), sans-serif;
+  }
+  .callout-head svg { width: 18px; height: 18px; flex: none; }
+  .callout.safety {
+    background: var(--safety-soft);
+    border-color: rgba(2, 132, 199, 0.3);
+  }
   .callout.safety .callout-head { color: var(--safety-blue); }
-  .callout.safety .callout-head .dot { background: var(--safety-blue); }
-  .callout.consent { background: var(--pink-soft); border: 1px solid var(--pink); }
+
+  .callout.consent {
+    background: var(--pink-soft);
+    border-color: rgba(219, 39, 119, 0.3);
+  }
   .callout.consent .callout-head { color: var(--pink); }
-  .callout.consent .callout-head .dot { background: var(--pink); }
-  .callout.license { background: var(--teal-soft); border: 1px solid var(--teal); }
+
+  .callout.license {
+    background: var(--teal-soft);
+    border-color: rgba(8, 145, 178, 0.3);
+  }
   .callout.license .callout-head { color: var(--teal); }
-  .callout.license .callout-head .dot { background: var(--teal); }
+
   .callout p, .callout ul { margin: 0 0 10px; }
   .callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
   .callout ul { padding-left: 20px; }
   .callout li { margin-bottom: 6px; }
 
-  .field { display: inline-block; background: var(--error-soft); border: 1px dashed var(--error); color: var(--error); border-radius: 4px; padding: 0 6px; font-family: "SF Mono", monospace; font-size: 0.82em; }
+  .field {
+    display: inline-block;
+    background: var(--error-soft);
+    border: 1px dashed var(--error);
+    color: var(--error);
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.84em;
+    font-weight: 600;
+  }
 
-  .subproc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: 14px; margin: 18px 0; }
-  .subproc-card { border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 16px 18px; box-shadow: var(--shadow); }
-  .subproc-card h4 { margin: 0 0 8px; font-size: 0.98rem; font-family: -apple-system, sans-serif; font-weight: 700; }
-  .subproc-card .row { font-size: 0.83rem; color: var(--ink-muted); margin-bottom: 5px; }
+  /* Sub-processor Grid */
+  .subproc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .subproc-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .subproc-card:hover {
+    border-color: var(--teal);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .subproc-card h4 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+    font-family: var(--font-display), sans-serif;
+    color: var(--ink);
+  }
+  .subproc-card .row {
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
   .subproc-card .row b { color: var(--ink); font-weight: 600; }
-  .subproc-card a { font-size: 0.8rem; }
+  .subproc-card a {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-top: auto;
+    padding-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 
-  .data-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin: 16px 0; box-shadow: var(--shadow); }
-  table.data-table { width: 100%; border-collapse: collapse; min-width: 560px; background: var(--surface); font-size: 0.86rem; }
-  table.data-table th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-muted); padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--canvas); }
-  table.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  /* Data Tables */
+  .data-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 20px 0;
+    box-shadow: var(--shadow-sm);
+    background: var(--surface);
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 500px;
+    font-size: 0.88rem;
+  }
+  table.data-table th {
+    text-align: left;
+    font-family: var(--font-display), sans-serif;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-elevated);
+    font-weight: 700;
+  }
+  table.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--ink);
+  }
   table.data-table tr:last-child td { border-bottom: none; }
+  table.data-table tr:hover td { background: var(--canvas); }
 
-  footer.colophon { max-width: 1160px; margin: 40px auto 0; padding: 28px 28px 60px; color: var(--ink-faint); font-size: 0.8rem; border-top: 1px solid var(--border); }
-  hr.rule { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  /* Colophon Footer */
+  footer.colophon {
+    max-width: 1200px;
+    margin: 40px auto 0;
+    padding: 28px 24px 60px;
+    color: var(--ink-faint);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 56px 0;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; gap: 24px; }
+    nav.toc { display: none; }
+    nav.toc.mobile-open {
+      display: flex;
+      position: fixed;
+      inset: 70px 16px 16px;
+      z-index: 100;
+      max-height: none;
+      box-shadow: var(--shadow-lg);
+    }
+    .mobile-toc-bar { display: flex; top: 60px; }
+    header.masthead { padding-top: 20px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px 60px; }
+    .masthead-inner { padding: 24px 16px 24px; }
+    .placeholder-banner { flex-direction: column; align-items: flex-start; gap: 6px; }
+    section.clause { padding: 16px; }
+    section.clause h3 { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Top Reading Progress Indicator -->
+<div id="reading-progress-bar" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100"></div>
+
 <header class="masthead">
   <div class="masthead-inner">
-    <div class="eyebrow">Legal · Nexus &amp; Nexus MEC</div>
-    <h1 class="title">Terms of Service &amp; Privacy Policy</h1>
-    <p class="subtitle">Covers both app flavors - the general-audience <code>nexus</code> app and the campus-gated <code>nexus_mec</code> app - one backend, one privacy/security architecture. Content is derived directly from the live application code and database schema.</p>
-    <div class="eyebrow-links"><a href="#terms">Jump to Terms of Service</a> &nbsp;·&nbsp; <a href="#privacy">Jump to Privacy Policy</a></div>
-    <div class="meta-row">
-      <span><strong>Effective date:</strong> {{ effective_date }}</span>
-      <span><strong>Terms version:</strong> {{ terms_version }}</span>
-      <span><strong>Prepared under:</strong> India's DPDP Act 2023, with GDPR coverage where it asks for more</span>
+    <div class="eyebrow-badge">
+      <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+      <span>Legal &amp; Trust · Nexus Engine</span>
     </div>
+    <h1 class="title">Terms of Service &amp; Privacy Policy</h1>
+    <p class="subtitle">Covers both app flavors - the general-audience <code>nexus</code> app and the campus-gated <code>nexus_mec</code> app - one unified backend, one privacy/security architecture. Content is derived directly from live application code and database schema.</p>
+    
+    <div class="jump-pills" role="navigation" aria-label="Quick jumps">
+      <a href="#terms" class="jump-pill">
+        <i data-lucide="file-text" class="w-4 h-4 text-pink-500"></i>
+        <span>Terms of Service</span>
+      </a>
+      <a href="#privacy" class="jump-pill">
+        <i data-lucide="lock" class="w-4 h-4 text-cyan-500"></i>
+        <span>Privacy Policy</span>
+      </a>
+      <a href="#pp-9" class="jump-pill">
+        <i data-lucide="server" class="w-4 h-4 text-emerald-500"></i>
+        <span>Sub-processors</span>
+      </a>
+      <a href="#pp-16" class="jump-pill">
+        <i data-lucide="mail" class="w-4 h-4 text-amber-500"></i>
+        <span>Grievance Officer</span>
+      </a>
+    </div>
+
+    <div class="meta-row">
+      <div class="meta-item">
+        <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+        <span><strong>Effective Date:</strong> {{ effective_date }}</span>
+      </div>
+      <div class="meta-item">
+        <i data-lucide="tag" class="w-4 h-4 text-slate-400"></i>
+        <span><strong>Terms Version:</strong> {{ terms_version }}</span>
+      </div>
+      <div class="meta-item">
+        <i data-lucide="globe" class="w-4 h-4 text-slate-400"></i>
+        <span><strong>Compliance Standard:</strong> India DPDP Act 2023 &amp; EU GDPR</span>
+      </div>
+    </div>
+    
     {{ placeholder_banner | safe if placeholder_banner else "" }}
   </div>
 </header>
 
 <div class="wrap">
+  <!-- Mobile Drawer Toggle Bar (<960px) -->
+  <div class="mobile-toc-bar">
+    <button type="button" class="mobile-toc-trigger" id="mobile-toc-toggle" aria-expanded="false" aria-controls="sidebar-toc">
+      <span class="flex items-center gap-2">
+        <i data-lucide="list" class="w-4 h-4 text-cyan-500"></i>
+        <span>Document Outline &amp; Search</span>
+      </span>
+      <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" id="mobile-toc-chevron"></i>
+    </button>
+  </div>
+
   <div class="layout">
-    <nav class="toc" aria-label="Table of contents">
-      <div class="toc-group">
-        <div class="toc-h">Terms of Service</div>
-        <a href="#tos-1">1. Acceptance</a>
-        <a href="#tos-2">2. Eligibility</a>
-        <a href="#tos-3">3. Two flavors</a>
-        <a href="#tos-4">4. How you sign in</a>
-        <a href="#tos-5">5. AGPLv3 license</a>
-        <a href="#tos-6">6. Acceptable use</a>
-        <a href="#tos-7">7. Meetup Safety disclaimer</a>
-        <a href="#tos-8">8. Your content</a>
-        <a href="#tos-9">9. Termination &amp; deletion</a>
-        <a href="#tos-10">10. Third-party services</a>
-        <a href="#tos-11">11. Warranty disclaimer</a>
-        <a href="#tos-12">12. Limitation of liability</a>
-        <a href="#tos-13">13. Indemnification</a>
-        <a href="#tos-14">14. Changes to these terms</a>
-        <a href="#tos-15">15. Governing law</a>
-        <a href="#tos-16">16. Contact</a>
+    <!-- Left Navigation Sidebar (TOC) -->
+    <nav class="toc" id="sidebar-toc" aria-label="Legal document navigator">
+      <div class="toc-header">
+        <div class="toc-title-row">
+          <span class="toc-title">Document Outline</span>
+          <span class="text-xs font-mono text-slate-400" id="toc-count-badge">32 clauses</span>
+        </div>
+
+        <!-- Part Filter Tabs -->
+        <div class="toc-tabs" role="tablist" aria-label="Document view options">
+          <button type="button" class="toc-tab active" data-filter="all" role="tab" aria-selected="true">All</button>
+          <button type="button" class="toc-tab" data-filter="tos" role="tab" aria-selected="false">Terms (16)</button>
+          <button type="button" class="toc-tab" data-filter="pp" role="tab" aria-selected="false">Privacy (16)</button>
+        </div>
+
+        <!-- Filter Search Box -->
+        <div class="toc-search-wrap">
+          <i data-lucide="search"></i>
+          <input type="search" id="toc-search" class="toc-search-input" placeholder="Filter clauses (e.g. SOS, Signal)..." aria-label="Search legal clauses" />
+          <button type="button" id="toc-search-clear" class="toc-search-clear" aria-label="Clear search">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </div>
-      <div class="toc-group">
-        <div class="toc-h">Privacy Policy</div>
-        <a href="#pp-1">1. Who we are</a>
-        <a href="#pp-2">2. Information we collect</a>
-        <a href="#pp-3">3. What we never collect</a>
-        <a href="#pp-4">4. Non-user trusted contacts</a>
-        <a href="#pp-5">5. How we use your data</a>
-        <a href="#pp-6">6. Consent</a>
-        <a href="#pp-7">7. How we protect data</a>
-        <a href="#pp-8">8. Automated matching</a>
-        <a href="#pp-9">9. Sub-processors</a>
-        <a href="#pp-10">10. International transfers</a>
-        <a href="#pp-11">11. Retention &amp; deletion</a>
-        <a href="#pp-12">12. Your rights</a>
-        <a href="#pp-13">13. Children's privacy</a>
-        <a href="#pp-14">14. Marketing email</a>
-        <a href="#pp-15">15. Policy changes</a>
-        <a href="#pp-16">16. Grievance Officer</a>
+
+      <div class="toc-nav-list" id="toc-nav-list" role="list">
+        <!-- Terms Group -->
+        <div class="toc-group" id="toc-group-tos">
+          <div class="toc-group-title">
+            <span>Part I · Terms</span>
+            <span class="toc-group-count">16</span>
+          </div>
+          <a href="#tos-1" class="toc-item" data-clause="tos-1"><span class="num-badge">1</span>Acceptance</a>
+          <a href="#tos-2" class="toc-item" data-clause="tos-2"><span class="num-badge">2</span>Eligibility</a>
+          <a href="#tos-3" class="toc-item" data-clause="tos-3"><span class="num-badge">3</span>Two Flavors</a>
+          <a href="#tos-4" class="toc-item" data-clause="tos-4"><span class="num-badge">4</span>Sign-in &amp; Phone</a>
+          <a href="#tos-5" class="toc-item" data-clause="tos-5"><span class="num-badge">5</span>AGPLv3 License</a>
+          <a href="#tos-6" class="toc-item" data-clause="tos-6"><span class="num-badge">6</span>Acceptable Use</a>
+          <a href="#tos-7" class="toc-item" data-clause="tos-7"><span class="num-badge">7</span>Meetup Safety</a>
+          <a href="#tos-8" class="toc-item" data-clause="tos-8"><span class="num-badge">8</span>Your Content</a>
+          <a href="#tos-9" class="toc-item" data-clause="tos-9"><span class="num-badge">9</span>Termination &amp; Deletion</a>
+          <a href="#tos-10" class="toc-item" data-clause="tos-10"><span class="num-badge">10</span>Third-Party Services</a>
+          <a href="#tos-11" class="toc-item" data-clause="tos-11"><span class="num-badge">11</span>Warranty Disclaimer</a>
+          <a href="#tos-12" class="toc-item" data-clause="tos-12"><span class="num-badge">12</span>Limitation of Liability</a>
+          <a href="#tos-13" class="toc-item" data-clause="tos-13"><span class="num-badge">13</span>Indemnification</a>
+          <a href="#tos-14" class="toc-item" data-clause="tos-14"><span class="num-badge">14</span>Terms Changes</a>
+          <a href="#tos-15" class="toc-item" data-clause="tos-15"><span class="num-badge">15</span>Governing Law</a>
+          <a href="#tos-16" class="toc-item" data-clause="tos-16"><span class="num-badge">16</span>Contact &amp; Grievance</a>
+        </div>
+
+        <!-- Privacy Group -->
+        <div class="toc-group" id="toc-group-pp">
+          <div class="toc-group-title">
+            <span>Part II · Privacy</span>
+            <span class="toc-group-count">16</span>
+          </div>
+          <a href="#pp-1" class="toc-item" data-clause="pp-1"><span class="num-badge">1</span>Who We Are</a>
+          <a href="#pp-2" class="toc-item" data-clause="pp-2"><span class="num-badge">2</span>Data We Collect</a>
+          <a href="#pp-3" class="toc-item" data-clause="pp-3"><span class="num-badge">3</span>What We Never Collect</a>
+          <a href="#pp-4" class="toc-item" data-clause="pp-4"><span class="num-badge">4</span>Trusted Contacts</a>
+          <a href="#pp-5" class="toc-item" data-clause="pp-5"><span class="num-badge">5</span>How We Use Data</a>
+          <a href="#pp-6" class="toc-item" data-clause="pp-6"><span class="num-badge">6</span>Consent Options</a>
+          <a href="#pp-7" class="toc-item" data-clause="pp-7"><span class="num-badge">7</span>Data Protection</a>
+          <a href="#pp-8" class="toc-item" data-clause="pp-8"><span class="num-badge">8</span>Automated Matching</a>
+          <a href="#pp-9" class="toc-item" data-clause="pp-9"><span class="num-badge">9</span>Sub-processors</a>
+          <a href="#pp-10" class="toc-item" data-clause="pp-10"><span class="num-badge">10</span>Cross-border Transfers</a>
+          <a href="#pp-11" class="toc-item" data-clause="pp-11"><span class="num-badge">11</span>Retention &amp; Deletion</a>
+          <a href="#pp-12" class="toc-item" data-clause="pp-12"><span class="num-badge">12</span>Your Rights</a>
+          <a href="#pp-13" class="toc-item" data-clause="pp-13"><span class="num-badge">13</span>Children's Privacy</a>
+          <a href="#pp-14" class="toc-item" data-clause="pp-14"><span class="num-badge">14</span>Marketing Email</a>
+          <a href="#pp-15" class="toc-item" data-clause="pp-15"><span class="num-badge">15</span>Policy Changes</a>
+          <a href="#pp-16" class="toc-item" data-clause="pp-16"><span class="num-badge">16</span>Grievance Officer</a>
+        </div>
+
+        <div class="toc-no-results" id="toc-no-results">
+          No matching clauses found.
+        </div>
       </div>
     </nav>
 
-    <main>
+    <!-- Document Content Body -->
+    <div class="doc-body" id="legal-doc-body">
       <!-- =================== TERMS OF SERVICE =================== -->
       <div class="doc-part" id="terms">
-        <div class="doc-part-head"><span class="part-eyebrow">Part One</span></div>
-        <h2>Terms of Service</h2>
-        <p class="doc-part-intro">Applies to the <code>nexus</code> app and the <code>nexus_mec</code> campus flavor together, unless a section says otherwise.</p>
+        <div class="doc-part-head">
+          <h2>Terms of Service</h2>
+          <span class="part-badge">Part One · 16 Clauses</span>
+        </div>
+        <p class="doc-part-intro">Applies to the <code>nexus</code> app and the <code>nexus_mec</code> campus flavor together, unless a specific section indicates otherwise.</p>
 
         <section class="clause" id="tos-1">
-          <h3><span class="num">1</span>Acceptance of Terms</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">1</span>
+              <span>Acceptance of Terms</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-1" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>By creating an account, browsing, or otherwise using Nexus - the mobile app, its backend APIs, the trusted-contact web portal, and related services - you agree to be bound by these Terms of Service and by our <a href="#privacy">Privacy Policy</a>, incorporated by reference. If you don't agree, don't use the Service.</p></div>
         </section>
 
         <section class="clause" id="tos-2">
-          <h3><span class="num">2</span>Eligibility</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">2</span>
+              <span>Eligibility</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-2" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p>You must be <strong>at least 18 years old</strong> to use Nexus, in either flavor. There's no upper age limit on the main <code>nexus</code> app; <code>nexus_mec</code> is additionally capped at 27, matching its campus scope. Age is <strong>self-attested</strong> at signup - a slider, not an ID check - and enforced server-side against your variant's range at every layer (API validation plus a database trigger as a backstop), but we do not verify identity or run age-estimation on photos. If you're aware of an account misrepresenting its age, report it in-app (Report → "Underage"); we act on that the same way we act on any other Trust &amp; Safety report.</p>
             <p><code>nexus_mec</code> additionally requires a verified email address on that flavor's configured campus domain - the main <code>nexus</code> app has no email-domain restriction.</p>
@@ -208,12 +925,28 @@
         </section>
 
         <section class="clause" id="tos-3">
-          <h3><span class="num">3</span>Two Flavors, One Service</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">3</span>
+              <span>Two Flavors, One Service</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-3" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p><code>nexus</code> and <code>nexus_mec</code> share one backend and one privacy/security architecture. A <code>nexus_mec</code> account can generate a one-time export code to migrate into the main <code>nexus</code> app; the reverse isn't supported. Your flavor determines which age range, email-domain rule, and Spotify OAuth redirect apply - it never changes how your data is stored, encrypted, or protected.</p></div>
         </section>
 
         <section class="clause" id="tos-4">
-          <h3><span class="num">4</span>No Passwords - How You Sign In</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">4</span>
+              <span>No Passwords - How You Sign In</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-4" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p>Nexus has no password-based login. You sign in with <strong>Google Sign-In</strong> or a <strong>passwordless one-time email code</strong>. We never ask for, store, or have access to a password for your account.</p>
             <p><strong>A phone number is required to complete signup</strong> - the app verifies it by SMS one-time code before it will finish creating your profile. This exists specifically to make it harder to spin up large numbers of duplicate accounts off disposable email addresses alone; it is not a login credential by itself, and sign-in itself remains Google/email-OTP only.</p>
@@ -221,9 +954,20 @@
         </section>
 
         <section class="clause" id="tos-5">
-          <h3><span class="num">5</span>Open-Source License</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">5</span>
+              <span>Open-Source License</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-5" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="callout license">
-            <div class="callout-head"><span class="dot"></span>AGPLv3 - not the more common GPL or MIT</div>
+            <div class="callout-head">
+              <i data-lucide="code"></i>
+              <span>AGPLv3 - not the more common GPL or MIT</span>
+            </div>
             <p>Nexus's source is free software under the <strong>GNU Affero General Public License v3</strong>, published at <a href="https://github.com/devakesu/Nexus" target="_blank" rel="noopener">github.com/devakesu/Nexus</a>.</p>
             <ul>
               <li><strong>Your freedoms:</strong> run, study, redistribute, and modify the software.</li>
@@ -234,7 +978,15 @@
         </section>
 
         <section class="clause" id="tos-6">
-          <h3><span class="num">6</span>Hosted Service - Acceptable Use</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">6</span>
+              <span>Hosted Service - Acceptable Use</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-6" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p>The <em>source</em> is free; using <em>our</em> hosted instance is a privilege - one that comes with real people's intimate profile data and emergency-safety information riding on it. You agree <strong>not</strong> to:</p>
             <ul>
@@ -252,9 +1004,20 @@
         </section>
 
         <section class="clause" id="tos-7">
-          <h3><span class="num">7</span>Meetup Safety - Read This Before You Rely On It</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">7</span>
+              <span>Meetup Safety - Read This Before You Rely On It</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-7" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="callout safety">
-            <div class="callout-head"><span class="dot"></span>Not a substitute for emergency services</div>
+            <div class="callout-head">
+              <i data-lucide="shield-alert"></i>
+              <span>Not a substitute for emergency services</span>
+            </div>
             <p>Trusted contacts, scheduled check-ins, Silent/Loud SOS, Digital Witness recording, and the dead-man's-switch escalation are designed to make in-person meetups safer - they cannot guarantee it. You understand and agree:</p>
             <ul>
               <li><strong>We are not a security or emergency-response company.</strong> In immediate danger, call your local emergency number first. Nexus notifying a trusted contact is not the same as dispatching help, and there's no guaranteed response time.</li>
@@ -268,48 +1031,120 @@
         </section>
 
         <section class="clause" id="tos-8">
-          <h3><span class="num">8</span>Your Content</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">8</span>
+              <span>Your Content</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-8" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>You retain ownership of what you post. By posting it, you grant Nexus a license to store, display, and process it as needed to run the Service - e.g. showing your photo to a match, running it through discovery/matching. You're responsible for having the rights to anything you upload and for it not violating §6 or applicable law.</p></div>
         </section>
 
         <section class="clause" id="tos-9">
-          <h3><span class="num">9</span>Suspension, Termination &amp; Account Deletion</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">9</span>
+              <span>Suspension, Termination &amp; Account Deletion</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-9" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>We may suspend or terminate access for a Terms violation, at our discretion, with or without notice. You may delete your own account any time from Settings → Delete Account - see Privacy Policy §11 for exactly what happens to your data, including the recoverable grace window and what's retained under a time-boxed legal hold for safety-incident records.</p></div>
         </section>
 
         <section class="clause" id="tos-10">
-          <h3><span class="num">10</span>Third-Party Services</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">10</span>
+              <span>Third-Party Services</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-10" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Nexus integrates Google Sign-In, optional Spotify music-taste sync, and the other services in Privacy Policy §9. Your use of those is also subject to that provider's own terms - we're not responsible for their availability, changes, or any enforcement action against your account with them.</p></div>
         </section>
 
         <section class="clause" id="tos-11">
-          <h3><span class="num">11</span>Disclaimer of Warranties</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">11</span>
+              <span>Disclaimer of Warranties</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-11" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Beyond the AGPLv3 disclaimer in §5, the hosted Service is provided "as is" and "as available." We don't guarantee discovery/matching will produce compatible matches, that the Service will be uninterrupted or error-free, or that any safety feature will prevent harm. Your use of the Service - including any decision to meet another user in person - is at your own risk and judgment.</p></div>
         </section>
 
         <section class="clause" id="tos-12">
-          <h3><span class="num">12</span>Limitation of Liability</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">12</span>
+              <span>Limitation of Liability</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-12" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>To the maximum extent permitted by law, Nexus and its creators, maintainers, and contributors are not liable for indirect, incidental, special, consequential, or punitive damages arising from your use of the Service - including harm arising from an in-person meetup, a failed or delayed safety alert, or reliance on another user's profile information.</p></div>
         </section>
 
         <section class="clause" id="tos-13">
-          <h3><span class="num">13</span>Indemnification</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">13</span>
+              <span>Indemnification</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-13" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>You agree to defend, indemnify, and hold harmless Nexus's creators, maintainers, and contributors from claims, damages, and reasonable legal fees arising from (i) your use of the Service, (ii) your breach of these Terms, or (iii) your violation of any law or a third party's rights (including a campus's own policies, for <code>nexus_mec</code> users).</p></div>
         </section>
 
         <section class="clause" id="tos-14">
-          <h3><span class="num">14</span>Changes to These Terms</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">14</span>
+              <span>Changes to These Terms</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-14" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>We version these Terms (current version: <code>{{ terms_version }}</code>). When we ship a materially updated version, you'll see a full-page re-consent screen the next time you open the app - accept the update or delete your account; there's no silent-continue path. Every acceptance and decline is logged with a timestamp, visible in your own data export.</p></div>
         </section>
 
         <section class="clause" id="tos-15">
-          <h3><span class="num">15</span>Governing Law</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">15</span>
+              <span>Governing Law</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-15" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>These Terms are governed by the laws of <strong>India</strong>, without regard to conflict-of-law principles. Disputes are subject to the exclusive jurisdiction of the courts at {{ city }}, India.</p></div>
         </section>
 
         <section class="clause" id="tos-16">
-          <h3><span class="num">16</span>Contact &amp; Grievance Officer</h3>
-          <div class="prose"><p>For legal inquiries, Terms violations, or data requests: <strong>legal@{{ domain }}</strong>. Per DPDP §13, our Grievance Officer is named in Privacy Policy §16.</p></div>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">16</span>
+              <span>Contact &amp; Grievance Officer</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#tos-16" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
+          <div class="prose"><p>For legal inquiries, Terms violations, or data requests: <a href="mailto:legal@{{ domain }}"><strong>legal@{{ domain }}</strong></a>. Per DPDP §13, our Grievance Officer is named in Privacy Policy §16.</p></div>
         </section>
       </div>
 
@@ -317,23 +1152,44 @@
 
       <!-- =================== PRIVACY POLICY =================== -->
       <div class="doc-part" id="privacy">
-        <div class="doc-part-head"><span class="part-eyebrow">Part Two</span></div>
-        <h2>Privacy Policy</h2>
-        <p class="doc-part-intro">Prepared with reference to India's DPDP Act 2023 and, where it asks for more, GDPR. Every table/column name below is the literal name in our live database schema - this document can be checked against the code, not just trusted.</p>
+        <div class="doc-part-head">
+          <h2>Privacy Policy</h2>
+          <span class="part-badge">Part Two · 16 Clauses</span>
+        </div>
+        <p class="doc-part-intro">Prepared with reference to India's DPDP Act 2023 and, where it asks for more, GDPR. Every table/column name below is the literal name in our live database schema - this document can be checked against code, not just trusted.</p>
 
         <section class="clause" id="pp-1">
-          <h3><span class="num">1</span>Who We Are</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">1</span>
+              <span>Who We Are</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-1" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Nexus is a social-discovery app - browse, like, match, and chat, with real in-person meetups as the point, which is why intimate profile data and physical-safety data are both first-class here, not footnotes. Under DPDP, Nexus is the "Data Fiduciary" for the data described below; you - and, in one specific case (§4), the people you list as trusted contacts - are the "Data Principal(s)."</p></div>
         </section>
 
         <section class="clause" id="pp-2">
-          <h3><span class="num">2</span>Information We Collect</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">2</span>
+              <span>Information We Collect</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-2" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p><strong>Account &amp; identity</strong> - sign-in via Google or passwordless email OTP (never a password); a phone number, <strong>verified by SMS one-time code as part of completing signup</strong> - an anti-abuse measure so duplicate accounts can't be created off disposable emails alone, encrypted at rest and never a login credential itself; name and self-attested age (range-checked per flavor); campus year/branch/institute name on <code>nexus_mec</code> (encrypted); which flavor your account is on.</p>
           </div>
 
           <div class="callout consent">
-            <div class="callout-head"><span class="dot"></span>Special-category data - sexual orientation &amp; religious belief (optional)</div>
+            <div class="callout-head">
+              <i data-lucide="lock"></i>
+              <span>Special-category data - sexual orientation &amp; religious belief (optional)</span>
+            </div>
             <p>Your profile can include pronouns, bio, hometown, current place, sexual orientation, gender, religious beliefs, lifestyle (drinking/smoking), children plans, partner values, interests, causes, pets, languages, tech skills, career context, on-device AI-generated aesthetic "vibe tags" (below), and up to 5 photos - every field <strong>encrypted at rest</strong>, and every one of them, including sexual orientation and religious belief, is optional and individually hideable from other users.</p>
             <p>Because GDPR names both explicitly as special-category data and DPDP expects genuinely specific consent, we ask for this category <strong>separately</strong> from general Terms acceptance - its own screen, its own checkbox. Unlike general consent, <strong>this one is optional</strong>: declining it doesn't touch your account or any other feature, it just keeps those two fields locked (no real value selectable) until you turn it on - any time, from an inline prompt right where you'd fill them in. Choosing "Prefer not to say" / "Not specified" never needs this consent. See §6.</p>
             <p><strong>On-device AI photo tagging:</strong> your uploaded photos are analyzed on your device - never sent to a server for this - to generate aesthetic "vibe tags" (style descriptors like <em>analog</em>, <em>organic</em>, <em>celestial</em>) that feed matching. This is local aesthetic-style classification, not facial recognition or biometric identification, and only the resulting tags reach our servers.</p>
@@ -365,14 +1221,33 @@
         </section>
 
         <section class="clause" id="pp-3">
-          <h3><span class="num">3</span>What We Never Collect</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">3</span>
+              <span>What We Never Collect</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-3" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>No <strong>server-side</strong> AI/ML content moderation, image scanning, or biometric/facial-recognition analysis on your photos - the only AI processing your photos ever undergo is the on-device aesthetic vibe-tagging in §2, which runs locally on your phone, never on our servers. No advertising trackers or third-party analytics SDKs. We do not sell your data, to anyone, for any reason.</p></div>
         </section>
 
         <section class="clause" id="pp-4">
-          <h3><span class="num">4</span>Non-Users: Your Trusted Contacts' Data</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">4</span>
+              <span>Non-Users: Your Trusted Contacts' Data</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-4" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="callout safety">
-            <div class="callout-head"><span class="dot"></span>They never signed up - here's what we still owe them</div>
+            <div class="callout-head">
+              <i data-lucide="shield-check"></i>
+              <span>They never signed up - here's what we still owe them</span>
+            </div>
             <p>Your trusted contacts almost certainly never saw this policy or consented to anything with us directly - their name and phone number reach us because <em>you</em> entered them. So:</p>
             <ul>
               <li><strong>One-time notice</strong> - the first time a phone number is added, we SMS it a one-time explanation and a link to manage that.</li>
@@ -386,7 +1261,15 @@
         </section>
 
         <section class="clause" id="pp-5">
-          <h3><span class="num">5</span>How We Use Your Information</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">5</span>
+              <span>How We Use Your Information</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-5" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <ul>
               <li><strong>Discovery &amp; matching</strong> - the core service; see §8 for exactly what drives it.</li>
@@ -401,7 +1284,15 @@
         </section>
 
         <section class="clause" id="pp-6">
-          <h3><span class="num">6</span>Consent - What's Mandatory, What's Optional</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">6</span>
+              <span>Consent - What's Mandatory, What's Optional</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-6" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Not one bundled checkbox. The first time you use Nexus, and again whenever a consent version changes, you're shown three separate choices:</p></div>
           <div class="data-table-wrap">
             <table class="data-table">
@@ -417,7 +1308,15 @@
         </section>
 
         <section class="clause" id="pp-7">
-          <h3><span class="num">7</span>How We Protect Your Information</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">7</span>
+              <span>How We Protect Your Information</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-7" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <ul>
               <li><strong>Encryption at rest</strong> - sensitive fields (profile attributes, phone numbers, chat-event scheduling data, Spotify tokens, safety contacts/alerts/evidence keys) Fernet-encrypted with rotation support - an old key can be retired without a hard cutover.</li>
@@ -435,102 +1334,142 @@
         </section>
 
         <section class="clause" id="pp-8">
-          <h3><span class="num">8</span>Automated Matching - What Drives It</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">8</span>
+              <span>Automated Matching - What Drives It</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-8" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p>Discovery across Dating, Friends, and Professional is powered by a scoring engine we can describe, not a black box. It blends structured profile fields (values, interests, lifestyle, career/identity signal, location, age) with AI-derived semantic similarity on your bio/career/identity text (pseudonymized, §7), weighted differently per tab. Two hard exclusion rules exist on Dating (drinking/smoking mismatches), applied before scoring, not learned.</p>
           </div>
           <div class="callout consent">
-            <div class="callout-head"><span class="dot"></span>Sexual orientation &amp; religious belief are not scoring inputs today</div>
+            <div class="callout-head">
+              <i data-lucide="info"></i>
+              <span>Sexual orientation &amp; religious belief are not scoring inputs today</span>
+            </div>
             <p>Both are collected and shown on your profile (§2) as core parts of how you present yourself, but the matching engine does not currently read either field to weight or rank candidates - no orientation- or religion-aware scoring logic is live in the ranking pipeline. We still ask for separate, explicit consent to collect this data at all (§6), independent of whether it's algorithmically used, since GDPR's special-category protections cover collection and storage, not only automated use. If that changes, this section gets updated before it ships. Matching never makes a binding decision about you with legal or similarly significant effect - it ranks and surfaces candidates; a match only forms if both people like each other.</p>
           </div>
         </section>
 
         <section class="clause" id="pp-9">
-          <h3><span class="num">9</span>Who Else Sees Your Data - Sub-processors</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">9</span>
+              <span>Who Else Sees Your Data - Sub-processors</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-9" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>None of the providers below see your data for anything beyond the specific job listed.</p></div>
           <div class="subproc-grid">
             <div class="subproc-card">
               <h4>Supabase</h4>
-              <div class="row"><b>Purpose:</b> database, auth, file storage</div>
-              <div class="row"><b>Data:</b> essentially everything in §2, encrypted as described in §7</div>
+              <div class="row"><b>Purpose:</b> Database, auth, file storage</div>
+              <div class="row"><b>Data:</b> Essentially everything in §2, encrypted as described in §7</div>
               <div class="row"><b>Location:</b> Mumbai, India (AWS ap-south-1)</div>
-              <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Twilio</h4>
               <div class="row"><b>Purpose:</b> SMS - OTP, Meetup Safety alerts, trusted-contact notices</div>
-              <div class="row"><b>Data:</b> phone number &amp; message body at send time</div>
+              <div class="row"><b>Data:</b> Phone number &amp; message body at send time</div>
               <div class="row"><b>Location:</b> Global</div>
-              <a href="https://www.twilio.com/en-us/privacy" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.twilio.com/en-us/privacy" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Brevo</h4>
-              <div class="row"><b>Purpose:</b> transactional email (also marketing/promotional if allowed in settings)</div>
-              <div class="row"><b>Data:</b> your email &amp; the message being sent</div>
+              <div class="row"><b>Purpose:</b> Transactional email (also marketing/promotional if allowed in settings)</div>
+              <div class="row"><b>Data:</b> Your email &amp; the message being sent</div>
               <div class="row"><b>Location:</b> EU (France)</div>
-              <a href="https://www.brevo.com/legal/privacypolicy/" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.brevo.com/legal/privacypolicy/" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Hetzner</h4>
-              <div class="row"><b>Purpose:</b> compute hosting for our application servers</div>
-              <div class="row"><b>Data:</b> ephemeral request processing; Supabase is the durable data store, not the server itself</div>
+              <div class="row"><b>Purpose:</b> Compute hosting for our application servers</div>
+              <div class="row"><b>Data:</b> Ephemeral request processing; Supabase is the durable data store, not the server itself</div>
               <div class="row"><b>Location:</b> Germany / Finland (EU)</div>
-              <a href="https://www.hetzner.com/legal/privacy-policy" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.hetzner.com/legal/privacy-policy" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Cloudflare</h4>
               <div class="row"><b>Purpose:</b> DNS, edge network, DDoS/WAF in front of our backend &amp; the trusted-contact portal</div>
-              <div class="row"><b>Data:</b> connection metadata (IP, headers) inherent to routing traffic - never profile/message content</div>
+              <div class="row"><b>Data:</b> Connection metadata (IP, headers) inherent to routing traffic - never profile/message content</div>
               <div class="row"><b>Location:</b> Global (edge)</div>
-              <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Google - Sign-In, App Check, FCM</h4>
-              <div class="row"><b>Purpose:</b> auth, device attestation, push delivery</div>
+              <div class="row"><b>Purpose:</b> Auth, device attestation, push delivery</div>
               <div class="row"><b>Data:</b> Google account id (if used), Play Integrity tokens, push token</div>
               <div class="row"><b>Location:</b> Global</div>
-              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Apple - App Attest</h4>
               <div class="row"><b>Purpose:</b> iOS device-integrity attestation</div>
-              <div class="row"><b>Data:</b> attestation tokens, device integrity signals</div>
+              <div class="row"><b>Data:</b> Attestation tokens, device integrity signals</div>
               <div class="row"><b>Location:</b> Global</div>
-              <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Spotify (optional)</h4>
-              <div class="row"><b>Purpose:</b> music-taste sync, only if connected</div>
-              <div class="row"><b>Data:</b> top artists, playlist track/artist names - read-only</div>
+              <div class="row"><b>Purpose:</b> Music-taste sync, only if connected</div>
+              <div class="row"><b>Data:</b> Top artists, playlist track/artist names - read-only</div>
               <div class="row"><b>Location:</b> Global (EU-HQ)</div>
-              <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Sentry</h4>
-              <div class="row"><b>Purpose:</b> backend error monitoring (no-op unless configured)</div>
-              <div class="row"><b>Data:</b> scrubbed errors - emails/tokens redacted, message content never in scope</div>
+              <div class="row"><b>Purpose:</b> Backend error monitoring (no-op unless configured)</div>
+              <div class="row"><b>Data:</b> Scrubbed errors - emails/tokens redacted, message content never in scope</div>
               <div class="row"><b>Location:</b> Global</div>
-              <a href="https://sentry.io/privacy/" target="_blank" rel="noopener">Privacy Policy →</a>
+              <a href="https://sentry.io/privacy/" target="_blank" rel="noopener">Privacy Policy <i data-lucide="external-link" class="w-3.5 h-3.5"></i></a>
             </div>
             <div class="subproc-card">
               <h4>Redis</h4>
-              <div class="row"><b>Purpose:</b> short-lived cache, rate-limit &amp; OTP state only</div>
-              <div class="row"><b>Data:</b> nothing outlives its TTL (typically minutes) - not a system of record</div>
+              <div class="row"><b>Purpose:</b> Short-lived cache, rate-limit &amp; OTP state only</div>
+              <div class="row"><b>Data:</b> Nothing outlives its TTL (typically minutes) - not a system of record</div>
             </div>
           </div>
         </section>
 
         <section class="clause" id="pp-10">
-          <h3><span class="num">10</span>International Data Transfers</h3>
-          <div class="prose"><p>Your data is stored in Mumbai, India. Twilio, Brevo, Google/Firebase, Apple, Spotify, and Sentry are each headquartered (and process data) outside India, so parts of the flow above cross borders in the ordinary course of sending an SMS, a push notification, or a monitored error. If you're in the EU: India has no European Commission adequacy decision, so a formal transfer mechanism (e.g. Standard Contractual Clauses) may be required for your data specifically - this is under review rather than something we assert is already fully in place.</p>
-          <p><strong>If you're in the EU</strong>, two more things are under active review rather than settled: whether GDPR Art. 37 requires formally designating a Data Protection Officer (plausible, given the scale of special-category processing in §2 and §8), and naming an EU representative under Art. 27 if we have no EU establishment. Separately, where DPDP treats nearly everything here as consent-based, GDPR offers other legal bases - core matching plausibly sits on "necessary for performance of a contract" (Art. 6(1)(b)) rather than withdrawable consent, while special-category data and marketing (§14) stay consent-based either way. This mapping is being finalized, not asserted as complete today.</p></div>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">10</span>
+              <span>International Data Transfers</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-10" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
+          <div class="prose">
+            <p>Your data is stored in Mumbai, India. Twilio, Brevo, Google/Firebase, Apple, Spotify, and Sentry are each headquartered (and process data) outside India, so parts of the flow above cross borders in the ordinary course of sending an SMS, a push notification, or a monitored error. If you're in the EU: India has no European Commission adequacy decision, so a formal transfer mechanism (e.g. Standard Contractual Clauses) may be required for your data specifically - this is under review rather than something we assert is already fully in place.</p>
+            <p><strong>If you're in the EU</strong>, two more things are under active review rather than settled: whether GDPR Art. 37 requires formally designating a Data Protection Officer (plausible, given the scale of special-category processing in §2 and §8), and naming an EU representative under Art. 27 if we have no EU establishment. Separately, where DPDP treats nearly everything here as consent-based, GDPR offers other legal bases - core matching plausibly sits on "necessary for performance of a contract" (Art. 6(1)(b)) rather than withdrawable consent, while special-category data and marketing (§14) stay consent-based either way. This mapping is being finalized, not asserted as complete today.</p>
+          </div>
         </section>
 
         <section class="clause" id="pp-11">
-          <h3><span class="num">11</span>Data Retention &amp; Deletion</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">11</span>
+              <span>Data Retention &amp; Deletion</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-11" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Deleting your account starts a <strong>14-day recoverable grace window</strong> - sign back in and it's fully reversed, matches and chats intact. After that, your account is anonymized in place (every profile field wiped, email/phone unlinked) rather than row-deleted, so your former matches' own chat history stays intact on their end. A phone-number hash is added to a re-signup blocklist <strong>only if your account was actually flagged</strong> at deletion time - a good-standing account leaves no such trace. Three years after anonymization, the account is hard-deleted for good.</p></div>
           <div class="callout safety">
-            <div class="callout-head"><span class="dot"></span>Meetup Safety data - shorter, separate timers</div>
+            <div class="callout-head">
+              <i data-lucide="clock"></i>
+              <span>Meetup Safety data - shorter, separate timers</span>
+            </div>
             <ul>
               <li><strong>Digital Witness recordings</strong> hard-deleted after <strong>365 days</strong>, for every account, active or deleted - a hard cap, not a default you can extend.</li>
               <li><strong>Alerts/evidence tied to a deleted account</strong> kept under a <strong>180-day legal hold</strong> (in case of a live safety investigation), then purged for good.</li>
@@ -540,10 +1479,18 @@
         </section>
 
         <section class="clause" id="pp-12">
-          <h3><span class="num">12</span>Your Rights</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">12</span>
+              <span>Your Rights</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-12" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <ul>
-              <li><strong>Access &amp; export</strong> - Settings → Export My Data: a structured export of your profile, matches, chat metadata (never content), safety data (evidence via signed link, never the raw key), and consent history. OTP-verified, rate-limited.</li>
+              <li><strong>Access &amp; export</strong> - Settings → Export My Data: a structured export of your profile, matches, chat metadata (never content), safety data (evidence via signed link, never raw key), and consent history. OTP-verified, rate-limited.</li>
               <li><strong>Correction</strong> - edit your profile directly, any time.</li>
               <li><strong>Erasure</strong> - delete your account (§11).</li>
               <li><strong>Withdraw consent</strong> - decline an updated Terms version (routes to deletion, since general consent is structurally required to use Nexus at all); turn special-category consent or Meetup Safety data off any time - neither requires deleting anything, both just lock their respective fields/features until re-granted.</li>
@@ -555,37 +1502,271 @@
         </section>
 
         <section class="clause" id="pp-13">
-          <h3><span class="num">13</span>Children's Privacy</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">13</span>
+              <span>Children's Privacy</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-13" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Nexus is not for anyone under 18, on either flavor. We do not knowingly collect data from minors. Age is self-attested, not ID-verified (Terms §2) - an accepted residual risk of the product category rather than something we pretend doesn't exist. "Underage" reports are handled the same as any other Trust &amp; Safety report.</p></div>
         </section>
 
         <section class="clause" id="pp-14">
-          <h3><span class="num">14</span>Marketing Communications</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">14</span>
+              <span>Marketing Communications</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-14" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Five independently toggleable email categories: new matches/likes, new messages, an activity digest, product updates, promotions/offers. <strong>All five currently default to on</strong> for a new account - turn any off any time, no justification required. Security and account-lifecycle email is never gated by these toggles.</p></div>
         </section>
 
         <section class="clause" id="pp-15">
-          <h3><span class="num">15</span>Changes to This Policy</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">15</span>
+              <span>Changes to This Policy</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-15" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose"><p>Versioned alongside the Terms of Service. A materially updated version triggers the same full-page re-consent flow described in Terms §14 - you'll always know when something changed and get a real choice about it.</p></div>
         </section>
 
         <section class="clause" id="pp-16">
-          <h3><span class="num">16</span>Grievance Officer &amp; Contact</h3>
+          <h3>
+            <div class="clause-title-wrap">
+              <span class="num">16</span>
+              <span>Grievance Officer &amp; Contact</span>
+            </div>
+            <button type="button" class="clause-copy-btn" data-href="#pp-16" title="Copy section link" aria-label="Copy section link">
+              <i data-lucide="link" class="w-4 h-4"></i>
+            </button>
+          </h3>
           <div class="prose">
             <p>Per DPDP §13, our designated Grievance Officer:</p>
             <p><strong>{{ grievance_name }}</strong><br/>
-            Email: {{ grievance_email }}<br/>
-            Phone: {{ grievance_phone }}<br/>
-            Website: {{ grievance_website }}</p>
-            <p>General privacy questions: <strong>privacy@{{ domain }}</strong>.</p>
+            Email: <a href="mailto:{{ grievance_email }}">{{ grievance_email }}</a><br/>
+            Phone: <a href="tel:{{ grievance_phone }}">{{ grievance_phone }}</a><br/>
+            Website: <a href="{{ grievance_website }}" target="_blank" rel="noopener noreferrer">{{ grievance_website }}</a></p>
+            <p>General privacy questions: <a href="mailto:privacy@{{ domain }}"><strong>privacy@{{ domain }}</strong></a>.</p>
           </div>
         </section>
       </div>
-    </main>
+    </div>
   </div>
 </div>
+{% endblock %}
 
-<footer class="colophon">
-  Nexus - Terms of Service &amp; Privacy Policy · generated from the live application code and database schema · not a substitute for review by qualified counsel before publication.
-</footer>
+{% block extra_scripts %}
+<script>
+  (function () {
+    'use strict';
+
+    // 1. Reading Progress Bar
+    const progressBar = document.getElementById('reading-progress-bar');
+    function updateProgress() {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight <= 0) return;
+      const progress = (window.scrollY / totalHeight) * 100;
+      if (progressBar) {
+        progressBar.style.width = Math.min(100, Math.max(0, progress)) + '%';
+        progressBar.setAttribute('aria-valuenow', Math.round(progress));
+      }
+    }
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    // 2. Mobile Drawer Toggle
+    const mobileToggle = document.getElementById('mobile-toc-toggle');
+    const mobileChevron = document.getElementById('mobile-toc-chevron');
+    const sidebarToc = document.getElementById('sidebar-toc');
+
+    if (mobileToggle && sidebarToc) {
+      mobileToggle.addEventListener('click', function () {
+        const isExpanded = mobileToggle.getAttribute('aria-expanded') === 'true';
+        mobileToggle.setAttribute('aria-expanded', !isExpanded);
+        sidebarToc.classList.toggle('mobile-open');
+        if (mobileChevron) {
+          mobileChevron.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+      });
+
+      // Close drawer on clause click (mobile)
+      sidebarToc.addEventListener('click', function (e) {
+        if (e.target.closest('.toc-item') && sidebarToc.classList.contains('mobile-open')) {
+          sidebarToc.classList.remove('mobile-open');
+          mobileToggle.setAttribute('aria-expanded', 'false');
+          if (mobileChevron) mobileChevron.style.transform = 'rotate(0deg)';
+        }
+      });
+    }
+
+    // 3. TOC Part Filtering Tabs
+    const tabs = document.querySelectorAll('.toc-tab');
+    const groupTos = document.getElementById('toc-group-tos');
+    const groupPp = document.getElementById('toc-group-pp');
+    const countBadge = document.getElementById('toc-count-badge');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', function () {
+        tabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        this.classList.add('active');
+        this.setAttribute('aria-selected', 'true');
+
+        const filter = this.getAttribute('data-filter');
+        if (filter === 'all') {
+          if (groupTos) groupTos.style.display = 'flex';
+          if (groupPp) groupPp.style.display = 'flex';
+          if (countBadge) countBadge.textContent = '32 clauses';
+        } else if (filter === 'tos') {
+          if (groupTos) groupTos.style.display = 'flex';
+          if (groupPp) groupPp.style.display = 'none';
+          if (countBadge) countBadge.textContent = '16 clauses';
+        } else if (filter === 'pp') {
+          if (groupTos) groupTos.style.display = 'none';
+          if (groupPp) groupPp.style.display = 'flex';
+          if (countBadge) countBadge.textContent = '16 clauses';
+        }
+      });
+    });
+
+    // 4. TOC Live Search Filter
+    const searchInput = document.getElementById('toc-search');
+    const searchClear = document.getElementById('toc-search-clear');
+    const tocItems = document.querySelectorAll('.toc-item');
+    const noResults = document.getElementById('toc-no-results');
+
+    function filterToc() {
+      const query = (searchInput.value || '').toLowerCase().trim();
+      let visibleCount = 0;
+
+      if (searchClear) {
+        searchClear.style.display = query ? 'block' : 'none';
+      }
+
+      tocItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const clauseId = item.getAttribute('data-clause');
+        const targetSection = document.getElementById(clauseId);
+        const sectionContent = targetSection ? targetSection.textContent.toLowerCase() : '';
+
+        if (!query || text.includes(query) || sectionContent.includes(query)) {
+          item.style.display = 'flex';
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      if (noResults) {
+        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+      }
+      if (countBadge) {
+        countBadge.textContent = visibleCount + ' clauses';
+      }
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', filterToc);
+      searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          this.value = '';
+          filterToc();
+        }
+      });
+    }
+    if (searchClear) {
+      searchClear.addEventListener('click', function () {
+        if (searchInput) {
+          searchInput.value = '';
+          filterToc();
+          searchInput.focus();
+        }
+      });
+    }
+
+    // 5. IntersectionObserver Scrollspy for Left Navigator
+    const clauses = document.querySelectorAll('section.clause');
+    const navItems = document.querySelectorAll('.toc-item');
+    const tocNavList = document.getElementById('toc-nav-list');
+
+    if ('IntersectionObserver' in window && clauses.length > 0) {
+      const observerOptions = {
+        root: null,
+        rootMargin: '-10% 0px -75% 0px',
+        threshold: 0
+      };
+
+      const activeObserved = new Set();
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            activeObserved.add(entry.target.id);
+          } else {
+            activeObserved.delete(entry.target.id);
+          }
+        });
+
+        // Determine current active clause (first visible one)
+        let activeId = null;
+        clauses.forEach(clause => {
+          if (!activeId && activeObserved.has(clause.id)) {
+            activeId = clause.id;
+          }
+        });
+
+        if (activeId) {
+          navItems.forEach(item => {
+            const matches = item.getAttribute('data-clause') === activeId;
+            item.classList.toggle('active', matches);
+            if (matches) {
+              item.setAttribute('aria-current', 'location');
+              // Smooth scroll sidebar into view if necessary
+              if (tocNavList && tocNavList.scrollHeight > tocNavList.clientHeight) {
+                const itemTop = item.offsetTop - tocNavList.offsetTop;
+                const itemBottom = itemTop + item.offsetHeight;
+                if (itemTop < tocNavList.scrollTop || itemBottom > tocNavList.scrollTop + tocNavList.clientHeight) {
+                  tocNavList.scrollTop = itemTop - 20;
+                }
+              }
+            } else {
+              item.removeAttribute('aria-current');
+            }
+          });
+        }
+      }, observerOptions);
+
+      clauses.forEach(clause => observer.observe(clause));
+    }
+
+    // 6. Section Anchor Link Copying
+    document.querySelectorAll('.clause-copy-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const href = this.getAttribute('data-href');
+        const url = window.location.origin + window.location.pathname + href;
+        navigator.clipboard.writeText(url).then(() => {
+          const originalHTML = this.innerHTML;
+          this.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+          if (window.lucide) lucide.createIcons();
+          setTimeout(() => {
+            this.innerHTML = originalHTML;
+            if (window.lucide) lucide.createIcons();
+          }, 2000);
+        });
+      });
+    });
+  })();
+</script>
 {% endblock %}

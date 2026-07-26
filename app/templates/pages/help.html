@@ -27,7 +27,7 @@
     }
     .hero-gradient {
         background: linear-gradient(135deg, var(--starlight), var(--nebula), var(--pulsar));
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     }
     .hero-desc {
         color: var(--ink-2); font-size: clamp(1.05rem, 1.8vw, 1.25rem);
@@ -65,38 +65,115 @@
     }
 
     .quick-grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 1.25rem; margin-bottom: 3.5rem;
     }
     .quick-card {
-        background: oklch(0.12 0.024 265 / 0.6);
-        border: 1px solid var(--border); border-radius: 1.25rem;
-        padding: 1.5rem; text-decoration: none; display: flex;
-        flex-direction: column; gap: 1.25rem; transition: all 0.25s ease;
+        background: linear-gradient(145deg, oklch(0.16 0.032 265 / 0.9), oklch(0.11 0.025 265 / 0.96));
+        border: 1px solid oklch(0.32 0.035 265 / 0.85);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        position: relative;
     }
     .quick-card:hover {
-        transform: translateY(-4px); border-color: var(--starlight);
-        background: oklch(0.15 0.026 265 / 0.8);
-        box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+        transform: translateY(-4px);
+        border-color: var(--starlight);
+        background: linear-gradient(145deg, oklch(0.20 0.038 265 / 0.95), oklch(0.14 0.03 265 / 0.98));
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55), 0 0 25px oklch(0.74 0.18 205 / 0.22);
     }
     .quick-card-head { display: flex; align-items: center; justify-content: space-between; }
     .quick-card-icon {
-        width: 44px; height: 44px; border-radius: 12px;
+        width: 46px; height: 46px; border-radius: 14px;
         display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     }
-    .qc-red    { background: oklch(0.71 0.22 0 / 0.15); color: var(--pulsar); border: 1px solid oklch(0.71 0.22 0 / 0.3); }
-    .qc-purple { background: oklch(0.68 0.20 280 / 0.15); color: var(--nebula); border: 1px solid oklch(0.68 0.20 280 / 0.3); }
-    .qc-teal   { background: oklch(0.74 0.20 165 / 0.15); color: var(--aurora); border: 1px solid oklch(0.74 0.20 165 / 0.3); }
-    .qc-cyan   { background: oklch(0.74 0.18 205 / 0.15); color: var(--starlight); border: 1px solid oklch(0.74 0.18 205 / 0.3); }
-    .qc-amber  { background: oklch(0.80 0.19 85 / 0.15); color: var(--nova); border: 1px solid oklch(0.80 0.19 85 / 0.3); }
+    .qc-red    { background: oklch(0.71 0.22 0 / 0.2); color: var(--pulsar); border: 1px solid oklch(0.71 0.22 0 / 0.45); }
+    .qc-purple { background: oklch(0.68 0.20 280 / 0.2); color: var(--nebula); border: 1px solid oklch(0.68 0.20 280 / 0.45); }
+    .qc-teal   { background: oklch(0.74 0.20 165 / 0.2); color: var(--aurora); border: 1px solid oklch(0.74 0.20 165 / 0.45); }
+    .qc-cyan   { background: oklch(0.74 0.18 205 / 0.2); color: var(--starlight); border: 1px solid oklch(0.74 0.18 205 / 0.45); }
+    .qc-amber  { background: oklch(0.80 0.19 85 / 0.2); color: var(--nova); border: 1px solid oklch(0.80 0.19 85 / 0.45); }
 
     .quick-card-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: #fff; }
     .quick-card-desc { color: var(--ink-2); font-size: 0.875rem; line-height: 1.5; }
 
     .filter-bar {
         display: flex; align-items: center; justify-content: space-between;
-        gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2.5rem;
+        gap: 1.25rem; flex-wrap: wrap; margin-bottom: 2.5rem;
         padding-bottom: 1.25rem; border-bottom: 1px solid var(--border);
+    }
+    .btn-control-filled {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        padding: 0.55rem 1.15rem;
+        background: linear-gradient(135deg, oklch(0.18 0.035 265 / 0.95), oklch(0.14 0.03 265 / 0.95));
+        border: 1px solid oklch(0.35 0.035 265 / 0.9);
+        border-radius: 2rem;
+        color: var(--ink-1);
+        font-family: var(--font-body);
+        font-weight: 700;
+        font-size: 0.8125rem;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .btn-control-filled:hover {
+        background: linear-gradient(135deg, oklch(0.24 0.04 265), oklch(0.18 0.035 265));
+        border-color: var(--starlight);
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px oklch(0.74 0.18 205 / 0.25);
+    }
+    .btn-control-filled i, .btn-control-filled svg {
+        display: inline-block;
+        flex-shrink: 0;
+        vertical-align: middle;
+    }
+
+    @media (max-width: 640px) {
+        .hero-section { padding: 1.5rem 1rem 2rem; }
+        .help-container { padding: 0 1rem 4rem !important; }
+        .search-box { padding: 0.4rem 0.5rem 0.4rem 0.875rem; }
+        .search-input { font-size: 0.925rem; }
+        .pill-list { overflow-x: auto; padding-bottom: 0.5rem; max-width: 100%; -webkit-overflow-scrolling: touch; }
+        .filter-bar {
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+        .controls-right {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        .btn-control-filled {
+            flex: 1;
+            max-width: 160px;
+        }
+        .cta-banner { padding: 2.25rem 1.25rem; margin: 2.5rem 0; }
+        .cta-btn-group {
+            flex-direction: column;
+            width: 100%;
+            gap: 0.875rem;
+            align-items: center;
+        }
+        .cta-btn-filled-primary, .cta-btn-filled-secondary {
+            width: 100%;
+            max-width: 320px;
+        }
     }
     .pill-list { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
     .pill-btn {
@@ -147,10 +224,10 @@
     }
 
     .cta-banner {
-        background: linear-gradient(135deg, oklch(0.14 0.03 265), oklch(0.18 0.04 280));
-        border: 1px solid oklch(0.74 0.18 205 / 0.3); border-radius: 1.75rem;
+        background: linear-gradient(145deg, oklch(0.15 0.035 265 / 0.95), oklch(0.11 0.025 280 / 0.98));
+        border: 1px solid oklch(0.74 0.18 205 / 0.35); border-radius: 1.75rem;
         padding: 3.5rem 2rem; text-align: center; margin: 4rem 0;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     .cta-title {
         font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.5rem);
@@ -158,6 +235,71 @@
     }
     .cta-desc { color: var(--ink-2); font-size: 1rem; max-width: 600px; margin: 0 auto 2rem; line-height: 1.6; }
     .cta-btn-group { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+
+    .cta-btn-filled-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        padding: 0.875rem 1.75rem;
+        background: linear-gradient(135deg, oklch(0.74 0.18 205), oklch(0.68 0.20 280));
+        border: 1px solid oklch(0.74 0.18 205 / 0.5);
+        border-radius: 1rem;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #ffffff !important;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 6px 24px oklch(0.72 0.19 205 / 0.35);
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .cta-btn-filled-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 32px oklch(0.72 0.19 205 / 0.5);
+        color: #ffffff !important;
+    }
+    .cta-btn-filled-primary i, .cta-btn-filled-primary svg {
+        display: inline-block;
+        flex-shrink: 0;
+        margin: 0;
+        vertical-align: middle;
+    }
+
+    .cta-btn-filled-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        padding: 0.875rem 1.75rem;
+        background: linear-gradient(135deg, oklch(0.18 0.035 265 / 0.95), oklch(0.14 0.03 265 / 0.95));
+        border: 1px solid oklch(0.38 0.035 265);
+        border-radius: 1rem;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--ink-1) !important;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        white-space: nowrap;
+        line-height: 1;
+    }
+    .cta-btn-filled-secondary:hover {
+        transform: translateY(-2px);
+        border-color: var(--starlight);
+        color: #ffffff !important;
+        box-shadow: 0 10px 32px oklch(0.74 0.18 205 / 0.25);
+    }
+    .cta-btn-filled-secondary i, .cta-btn-filled-secondary svg {
+        display: inline-block;
+        flex-shrink: 0;
+        margin: 0;
+        vertical-align: middle;
+    }
 </style>
 {% endblock %}
 
@@ -251,7 +393,7 @@
     <!-- Filter Bar & Accordion Controls -->
     <div class="filter-bar">
         <div class="pill-list" id="topic-pills">
-            <button onclick="filterCategory('all')" class="pill-btn active" data-cat="all">All Topics (44)</button>
+            <button onclick="filterCategory('all')" class="pill-btn active" data-cat="all">All Topics</button>
             <button onclick="filterCategory('getting-started')" class="pill-btn" data-cat="getting-started">Getting Started</button>
             <button onclick="filterCategory('orbit')" class="pill-btn" data-cat="orbit">Orbit Discovery</button>
             <button onclick="filterCategory('messaging')" class="pill-btn" data-cat="messaging">Messaging</button>
@@ -262,12 +404,14 @@
             <button onclick="filterCategory('troubleshooting')" class="pill-btn" data-cat="troubleshooting">Troubleshooting</button>
         </div>
 
-        <div class="controls-right" style="display:flex;gap:0.5rem;">
-            <button onclick="setAllAccordions(true)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
-                <i data-lucide="chevrons-down" style="width:14px; height:14px;"></i> Expand All
+        <div class="controls-right">
+            <button type="button" onclick="setAllAccordions(true)" class="btn-control-filled" aria-label="Expand all FAQ sections">
+                <i data-lucide="chevrons-down" style="width:14px; height:14px; display:inline-block; flex-shrink:0;"></i>
+                <span>Expand All</span>
             </button>
-            <button onclick="setAllAccordions(false)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
-                <i data-lucide="chevrons-up" style="width:14px; height:14px;"></i> Collapse All
+            <button type="button" onclick="setAllAccordions(false)" class="btn-control-filled" aria-label="Collapse all FAQ sections">
+                <i data-lucide="chevrons-up" style="width:14px; height:14px; display:inline-block; flex-shrink:0;"></i>
+                <span>Collapse All</span>
             </button>
         </div>
     </div>
@@ -280,7 +424,6 @@
                 <div class="category-title">Getting Started</div>
                 <div class="category-desc">Core concepts, multi-tab profiles, and Nexus MEC campus export.</div>
             </div>
-            <div class="category-count">6 articles</div>
         </div>
 
         <details class="faq-card" data-keywords="what is nexus dating friends professional profile">
@@ -352,7 +495,6 @@
                 <div class="category-title">Orbit & Discovery</div>
                 <div class="category-desc">Spatial 2D orbit radar, tier proximity, age filters, and active toggles.</div>
             </div>
-            <div class="category-count">6 articles</div>
         </div>
 
         <details class="faq-card" data-keywords="orbit discovery screen swipe nodes concentric tiers match">
@@ -404,7 +546,6 @@
                 <div class="category-title">Safety Check-In & SOS</div>
                 <div class="category-desc">Automated timers, emergency contacts, PIN disarm, and Safety Web Portal.</div>
             </div>
-            <div class="category-count">5 articles</div>
         </div>
 
         <details class="faq-card" data-keywords="safety checkin timer meetup alert pin disarm trusted contacts">
@@ -446,7 +587,6 @@
                 <div class="category-title">Signal E2EE Messaging</div>
                 <div class="category-desc">End-to-end encryption, prekey bundles, media attachments, and read receipts.</div>
             </div>
-            <div class="category-count">5 articles</div>
         </div>
 
         <details class="faq-card" data-keywords="E2EE signal protocol encryption private secure prekey ECDH">
@@ -475,13 +615,13 @@
         <h2 class="cta-title">Still need help with your Orbit?</h2>
         <p class="cta-desc">Our support team is available 24/7 for account appeals, safety reports, bug reports, and feedback.</p>
         <div class="cta-btn-group">
-            <a href="/contact" class="btn-primary">
-                <i data-lucide="headphones" style="width:18px; height:18px;"></i>
-                Contact Support Portal
+            <a href="/contact" class="cta-btn-filled-primary">
+                <i data-lucide="headphones" style="width:18px; height:18px; display:inline-block; flex-shrink:0;"></i>
+                <span>Contact Support Portal</span>
             </a>
-            <a href="/legal" class="btn-ghost">
-                <i data-lucide="file-text" style="width:18px; height:18px;"></i>
-                Terms & Privacy Policy
+            <a href="/legal" class="cta-btn-filled-secondary">
+                <i data-lucide="file-text" style="width:18px; height:18px; display:inline-block; flex-shrink:0;"></i>
+                <span>Terms & Privacy Policy</span>
             </a>
         </div>
     </div>

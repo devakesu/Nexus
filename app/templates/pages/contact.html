@@ -20,6 +20,29 @@
         transition: border-color 0.3s ease, transform 0.3s ease;
     }
 
+    .contact-container {
+        position: relative; z-index: 10; max-width: 1100px;
+        margin: 3rem auto; padding: 0 1.5rem 6rem;
+    }
+    .form-card { padding: 2.5rem; }
+    .category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    @media (max-width: 640px) {
+        .contact-container { margin: 1rem auto; padding: 0 1rem 4rem; }
+        .form-card { padding: 1.25rem; }
+        .category-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+        .category-card { padding: 0.875rem; }
+    }
+
     .category-card {
         cursor: pointer;
         border: 1px solid var(--border);
@@ -101,39 +124,31 @@
 
 {% block content %}
 <!-- Main Content Container -->
-<div style="position:relative;z-index:10;max-width:1100px;margin:3rem auto;padding:0 1.5rem 6rem;">
+<div class="contact-container">
     <!-- Hero Header -->
     <div style="text-align:center;margin-bottom:3.5rem;">
         <div class="badge" style="margin-bottom:1rem;">
             <i data-lucide="shield-alert" style="width:14px;height:14px;"></i>
             NEXUS SUPPORT & CONTACT PORTAL
         </div>
-        <h1 class="f-display" style="font-size:2.75rem;font-weight:800;line-height:1.2;margin-bottom:1rem;">
-            How can we help your <span style="background:linear-gradient(135deg,var(--starlight),var(--nebula));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">orbit</span>?
+        <h1 class="f-display" style="font-size:clamp(2rem, 5vw, 2.75rem);font-weight:800;line-height:1.2;margin-bottom:1rem;">
+            How can we help your <span style="background:linear-gradient(135deg,var(--starlight),var(--nebula));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">orbit</span>?
         </h1>
-        <p style="color:var(--ink-2);font-size:1.1rem;max-width:650px;margin:0 auto;line-height:1.6;">
+        <p style="color:var(--ink-2);font-size:clamp(0.95rem, 2vw, 1.1rem);max-width:650px;margin:0 auto;line-height:1.6;">
             Whether you are appealing an account suspension, reporting a bug, providing feedback, or asking a support question, our team is here for you.
         </p>
     </div>
 
     <!-- Main Form Card -->
-    <div class="glass-card" style="padding:2.5rem;">
+    <div class="glass-card form-card">
 
         <!-- Category Selection -->
         <div style="margin-bottom:2.5rem;">
             <label class="f-display" style="display:block;font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-2);margin-bottom:1rem;">
                 Select Inquiry Topic
             </label>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;">
-                <div class="category-card selected" onclick="selectCategory('suspended', this)">
-                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
-                        <i data-lucide="shield-off" style="color:var(--pulsar);width:20px;height:20px;"></i>
-                        <span class="f-display" style="font-weight:700;font-size:0.95rem;">Suspended Account</span>
-                    </div>
-                    <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Appeal an active suspension, restriction, or block on your account.</p>
-                </div>
-
-                <div class="category-card" onclick="selectCategory('help', this)">
+            <div class="category-grid">
+                <div class="category-card selected" data-type="help" onclick="selectCategory('help', this)">
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
                         <i data-lucide="help-circle" style="color:var(--starlight);width:20px;height:20px;"></i>
                         <span class="f-display" style="font-weight:700;font-size:0.95rem;">General Support</span>
@@ -141,7 +156,23 @@
                     <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Get help with account settings, orbits, discovery, or profile management.</p>
                 </div>
 
-                <div class="category-card" onclick="selectCategory('feedback', this)">
+                <div class="category-card" data-type="suspended" onclick="selectCategory('suspended', this)">
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                        <i data-lucide="shield-off" style="color:var(--pulsar);width:20px;height:20px;"></i>
+                        <span class="f-display" style="font-weight:700;font-size:0.95rem;">Suspended Account</span>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Appeal an active suspension, restriction, or block on your account.</p>
+                </div>
+
+                <div class="category-card" data-type="legal_grievance" onclick="selectCategory('legal_grievance', this)">
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                        <i data-lucide="scale" style="color:#F59E0B;width:20px;height:20px;"></i>
+                        <span class="f-display" style="font-weight:700;font-size:0.95rem;">Legal Grievances</span>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">File a formal legal complaint, statutory grievance, or IP request.</p>
+                </div>
+
+                <div class="category-card" data-type="feedback" onclick="selectCategory('feedback', this)">
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
                         <i data-lucide="lightbulb" style="color:var(--nova);width:20px;height:20px;"></i>
                         <span class="f-display" style="font-weight:700;font-size:0.95rem;">Product Feedback</span>
@@ -149,7 +180,7 @@
                     <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Share suggestions, new feature requests, or UI improvements.</p>
                 </div>
 
-                <div class="category-card" onclick="selectCategory('bug_report', this)">
+                <div class="category-card" data-type="bug_report" onclick="selectCategory('bug_report', this)">
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
                         <i data-lucide="bug" style="color:#F43F5E;width:20px;height:20px;"></i>
                         <span class="f-display" style="font-weight:700;font-size:0.95rem;">Bug Report</span>
@@ -157,7 +188,7 @@
                     <p style="font-size:0.8rem;color:var(--ink-3);line-height:1.4;">Report crashes, technical glitches, or broken app functionality.</p>
                 </div>
 
-                <div class="category-card" onclick="selectCategory('security', this)">
+                <div class="category-card" data-type="security" onclick="selectCategory('security', this)">
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
                         <i data-lucide="lock" style="color:var(--aurora);width:20px;height:20px;"></i>
                         <span class="f-display" style="font-weight:700;font-size:0.95rem;">Security & Privacy</span>
@@ -169,7 +200,21 @@
 
         <!-- Form Inputs -->
         <form id="contact-form" onsubmit="event.preventDefault();">
-            <input type="hidden" id="selected-query-type" value="suspended">
+            <input type="hidden" id="selected-query-type" value="help">
+
+            <!-- Security & Privacy Vulnerability Advisory Alert Banner -->
+            <div id="security-advisory-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:0.75rem;padding:1rem 1.25rem;margin-bottom:1.5rem;color:#FDE68A;font-size:0.875rem;line-height:1.5;">
+                <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+                    <i data-lucide="shield-alert" style="width:20px;height:20px;color:#F59E0B;flex-shrink:0;margin-top:0.1rem;"></i>
+                    <div>
+                        <strong style="color:#FFF;font-weight:700;display:block;margin-bottom:0.25rem;">Reporting a Security Vulnerability?</strong>
+                        If you are submitting a security vulnerability report and have technical details or a proof of concept, please report it via our official GitHub Security Advisories portal:
+                        <a href="https://github.com/devakesu/Nexus/security/advisories/new" target="_blank" rel="noopener noreferrer" style="color:var(--starlight);font-weight:600;text-decoration:underline;word-break:break-all;display:inline-block;margin-top:0.35rem;">
+                            https://github.com/devakesu/Nexus/security/advisories/new
+                        </a>
+                    </div>
+                </div>
+            </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1.25rem;margin-bottom:1.25rem;">
                 <div>
@@ -203,6 +248,20 @@
                     <span id="char-counter" class="f-mono" style="font-size:0.75rem;color:var(--ink-3);">0 / 5000</span>
                 </div>
                 <textarea id="input-message" class="input-field" rows="6" placeholder="Please describe your issue or question in detail..." required minlength="10" maxlength="5000" oninput="updateCharCounter(this)"></textarea>
+            </div>
+
+            <!-- Attachments UI -->
+            <div style="margin-bottom:1.5rem;">
+                <label style="display:block;font-size:0.85rem;font-weight:600;color:var(--ink-2);margin-bottom:0.5rem;">
+                    Attachments (Optional - Max 5 files, 8MB each)
+                </label>
+                <div id="attachment-dropzone" onclick="document.getElementById('input-file-attachment').click()" style="border:2px dashed var(--border);border-radius:0.75rem;padding:1.25rem;text-align:center;cursor:pointer;background:rgba(255,255,255,0.02);transition:border-color 0.2s, background 0.2s;">
+                    <i data-lucide="paperclip" style="width:24px;height:24px;color:var(--starlight);margin-bottom:0.5rem;"></i>
+                    <p style="font-size:0.85rem;color:var(--ink-2);margin:0;">Click or drag & drop files here to attach</p>
+                    <p style="font-size:0.75rem;color:var(--ink-3);margin-top:0.25rem;">Supported: JPG, PNG, WEBP, GIF, PDF, TXT, LOG (Max 8MB per file)</p>
+                    <input type="file" id="input-file-attachment" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.txt,.log" style="display:none;" onchange="handleFileSelect(this.files)">
+                </div>
+                <div id="attachment-list" style="margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
             </div>
 
             {% if turnstile_site_key %}
@@ -304,6 +363,35 @@
     let turnstileToken = null;
     let resendTimer = null;
 
+    function autoSelectCategoryFromURL() {
+        const path = window.location.pathname.toLowerCase();
+        const hash = window.location.hash.toLowerCase().replace('#', '');
+        const search = window.location.search.toLowerCase();
+        
+        let targetType = 'help';
+
+        if (path.includes('/appeal') || hash.includes('appeal') || hash.includes('suspended') || search.includes('topic=appeal') || search.includes('type=appeal')) {
+            targetType = 'suspended';
+        } else if (path.includes('/grievance') || hash.includes('grievance') || search.includes('topic=grievance') || search.includes('type=grievance')) {
+            targetType = 'legal_grievance';
+        } else if (path.includes('/bug') || hash.includes('bug') || search.includes('topic=bug')) {
+            targetType = 'bug_report';
+        } else if (path.includes('/security') || hash.includes('security') || search.includes('topic=security')) {
+            targetType = 'security';
+        } else if (path.includes('/feedback') || hash.includes('feedback') || search.includes('topic=feedback')) {
+            targetType = 'feedback';
+        } else if (path.includes('/contact') || path.includes('/support') || hash.includes('contact') || hash.includes('help')) {
+            targetType = 'help';
+        }
+
+        const card = document.querySelector(`.category-card[data-type="${targetType}"]`) || document.querySelector('.category-card');
+        if (card) {
+            selectCategory(targetType, card);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', autoSelectCategoryFromURL);
+
     function selectCategory(type, element) {
         document.querySelectorAll('.category-card').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
@@ -314,6 +402,11 @@
             githubGroup.style.display = 'block';
         } else {
             githubGroup.style.display = 'none';
+        }
+
+        const securityBanner = document.getElementById('security-advisory-banner');
+        if (securityBanner) {
+            securityBanner.style.display = (type === 'security') ? 'block' : 'none';
         }
     }
 
@@ -338,6 +431,9 @@
 
     async function requestOtp() {
         clearStatus();
+        const otpInput = document.getElementById('input-otp');
+        if (otpInput) otpInput.value = '';
+
         const email = document.getElementById('input-email').value.trim();
         if (!email || !email.includes('@')) {
             showStatus('Please enter a valid email address.', true);
@@ -395,6 +491,139 @@
         }, 1000);
     }
 
+    let selectedFiles = [];
+    let uploadSessionId = crypto.randomUUID().replace(/-/g, '');
+    const MAX_ATTACHMENT_SIZE = 8 * 1024 * 1024; // 8MB per file
+    const MAX_ATTACHMENTS = 5;
+    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'txt', 'log'];
+
+    function handleFileSelect(files) {
+        clearStatus();
+        if (!files || !files.length) return;
+
+        let addedCount = 0;
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (selectedFiles.length >= MAX_ATTACHMENTS) {
+                showStatus(`Maximum ${MAX_ATTACHMENTS} attachments allowed.`, true);
+                break;
+            }
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(ext)) {
+                showStatus(`"${file.name}" has an unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`, true);
+                continue;
+            }
+            if (file.size > MAX_ATTACHMENT_SIZE) {
+                showStatus(`"${file.name}" exceeds maximum allowed size of 8MB.`, true);
+                continue;
+            }
+            if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                continue;
+            }
+            selectedFiles.push({
+                file: file,
+                name: file.name,
+                size: file.size,
+                progress: 0,
+                status: 'ready'
+            });
+            addedCount++;
+        }
+
+        renderAttachmentList();
+
+        // Simulate fast upload validation progress bar for user feedback
+        if (addedCount > 0) {
+            simulateUploadProgress();
+        }
+    }
+
+    function simulateUploadProgress() {
+        const pending = selectedFiles.filter(item => item.progress < 100);
+        if (!pending.length) return;
+
+        let step = 0;
+        const interval = setInterval(() => {
+            step += 25;
+            let allDone = true;
+            selectedFiles.forEach(item => {
+                if (item.progress < 100) {
+                    item.progress = Math.min(100, item.progress + 25);
+                    if (item.progress < 100) allDone = false;
+                }
+            });
+            renderAttachmentList();
+            if (allDone || step >= 100) {
+                clearInterval(interval);
+            }
+        }, 120);
+    }
+
+    function removeAttachment(index) {
+        selectedFiles.splice(index, 1);
+        renderAttachmentList();
+    }
+
+    function renderAttachmentList() {
+        const listEl = document.getElementById('attachment-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        selectedFiles.forEach((item, index) => {
+            const fileObj = item.file || item;
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex;flex-direction:column;gap:0.35rem;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:0.5rem;padding:0.4rem 0.65rem;font-size:0.8rem;color:var(--ink-1);min-width:210px;position:relative;overflow:hidden;';
+            const sizeMb = (item.size / (1024 * 1024)).toFixed(2);
+            const isComplete = item.progress >= 100;
+            card.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+                    <div style="display:flex;align-items:center;gap:0.4rem;overflow:hidden;">
+                        <i data-lucide="${isComplete ? 'check-circle-2' : 'file'}" style="width:14px;height:14px;color:${isComplete ? 'var(--aurora)' : 'var(--starlight)'};flex-shrink:0;"></i>
+                        <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${item.name}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.4rem;">
+                        <span class="f-mono" style="color:var(--ink-3);font-size:0.72rem;">${item.progress}%</span>
+                        <button type="button" onclick="removeAttachment(${index})" style="background:none;border:none;color:var(--pulsar);cursor:pointer;padding:0;display:flex;align-items:center;">
+                            <i data-lucide="x" style="width:14px;height:14px;"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Small thin progress bar -->
+                <div style="width:100%;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+                    <div style="width:${item.progress}%;height:100%;background:linear-gradient(90deg, var(--starlight), var(--nebula));transition:width 0.15s ease-in-out;border-radius:2px;"></div>
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+        if (window.lucide) lucide.createIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropzone = document.getElementById('attachment-dropzone');
+        if (!dropzone) return;
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = 'var(--starlight)';
+                dropzone.style.background = 'rgba(255,255,255,0.05)';
+            }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = 'var(--border)';
+                dropzone.style.background = 'rgba(255,255,255,0.02)';
+            }, false);
+        });
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files) {
+                handleFileSelect(dt.files);
+            }
+        });
+    });
+
     async function submitForm() {
         clearStatus();
         const email = document.getElementById('input-email').value.trim();
@@ -421,7 +650,45 @@
 
         const submitBtn = document.getElementById('btn-submit-ticket');
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Submitting...';
+        submitBtn.innerText = 'Uploading Attachments...';
+
+        // 1. Upload files to storage bucket via API, grouped under a unique session subfolder
+        const uploadedStoragePaths = [];
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const fileItem = selectedFiles[i];
+            const rawFile = fileItem.file;
+            if (!rawFile) continue;
+
+            const formData = new FormData();
+            formData.append('file', rawFile);
+
+            try {
+                const uploadResp = await fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const uploadData = await uploadResp.json();
+                if (!uploadResp.ok) {
+                    throw new Error(uploadData.detail || `Failed to upload "${rawFile.name}"`);
+                }
+                uploadedStoragePaths.push(uploadData.storage_path);
+            } catch (err) {
+                // Clean up any files already uploaded in this batch
+                if (uploadedStoragePaths.length > 0) {
+                    fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paths: uploadedStoragePaths })
+                    }).catch(() => {});
+                }
+                showStatus(err.message, true);
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Submit Ticket';
+                return;
+            }
+        }
+
+        submitBtn.innerText = 'Submitting Ticket...';
 
         try {
             const resp = await fetch('/api/v1/contact/submit', {
@@ -436,6 +703,7 @@
                     name: name || null,
                     account_id_or_phone: accountId || null,
                     github_issue_url: githubUrl || null,
+                    attachment_paths: uploadedStoragePaths,
                     turnstile_token: turnstileToken
                 })
             });
@@ -445,19 +713,40 @@
             }
 
             document.getElementById('contact-form').style.display = 'none';
-            document.getElementById('success-screen').style.display = 'block';
+            const successScreen = document.getElementById('success-screen');
+            successScreen.style.display = 'block';
             document.getElementById('ticket-id-tag').innerText = '#' + (data.ticket_id ? data.ticket_id.substring(0,8).toUpperCase() : 'NEXUS-TICKET');
             document.getElementById('summary-category').innerText = queryType.replace('_', ' ');
+
+            // Smoothly scroll window to the success screen so the user sees ticket details
+            const card = document.querySelector('.form-card');
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         } catch (err) {
             showStatus(err.message, true);
+            // Clean up uploaded files from bucket since ticket submit failed
+            if (uploadedStoragePaths.length > 0) {
+                fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paths: uploadedStoragePaths })
+                }).catch(() => {});
+            }
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerText = 'Submit Ticket';
+            // Rotate session ID so next attempt uses a fresh subfolder
+            uploadSessionId = crypto.randomUUID().replace(/-/g, '');
         }
     }
 
     function resetForm() {
         document.getElementById('contact-form').reset();
+        selectedFiles = [];
+        renderAttachmentList();
         document.getElementById('contact-form').style.display = 'block';
         document.getElementById('success-screen').style.display = 'none';
         document.getElementById('otp-verify-step').style.display = 'none';

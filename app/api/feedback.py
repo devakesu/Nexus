@@ -10,12 +10,14 @@ from fastapi import (
     BackgroundTasks,
     Body,
     Depends,
+    File,
     HTTPException,
     Query,
     Request,
+    UploadFile,
     status,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.cache import redis_client
@@ -356,7 +358,130 @@ class ContactSubmitRequest(BaseModel):
     name: str | None = Field(default=None, max_length=100)
     account_id_or_phone: str | None = Field(default=None, max_length=100)
     github_issue_url: str | None = Field(default=None, max_length=300)
+    attachment_paths: list[str] = Field(
+        default_factory=list,
+        description="Optional attachment storage paths (max 5)",
+    )
     turnstile_token: str | None = Field(default=None)
+
+    @field_validator("attachment_paths")
+    @classmethod
+    def validate_attachment_paths(cls, v: list[str]) -> list[str]:
+        if len(v) > 5:
+            raise ValueError("attachment_paths supports at most 5 files")
+        # Validate path format to prevent directory traversal and invalid paths
+        for path in v:
+            path_str = str(path).strip()
+            if ".." in path_str or path_str.startswith("/") or "\\" in path_str:
+                raise ValueError("Invalid attachment path format")
+            ext = path_str.split(".")[-1].lower() if "." in path_str else ""
+            allowed_exts = {"jpg", "jpeg", "png", "webp", "gif", "pdf", "txt", "log"}
+            if ext not in allowed_exts:
+                raise ValueError(f"File extension .{ext} is not allowed")
+        return v
+
+
+@router.post("/api/v1/contact/upload")
+@limiter.limit(settings.rate_limit_feedback)
+async def upload_contact_attachment(
+    request: Request,
+    file: UploadFile = File(...),  # noqa: B008
+    session_id: str = Query(default=""),  # noqa: B008
+) -> dict[str, str]:
+    _ = request
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required.")
+
+    # Validate session_id to prevent path traversal
+    clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
+    if not clean_session:
+        clean_session = secrets.token_hex(8)
+
+    filename = file.filename.strip()
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    allowed_exts = {"jpg", "jpeg", "png", "webp", "gif", "pdf", "txt", "log"}
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type .{ext} is not allowed.",
+        )
+
+    content = await file.read()
+    if len(content) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File size exceeds maximum allowed limit of 8MB.",
+        )
+
+    file_id = secrets.token_hex(6)
+    clean_name = "".join(c for c in filename if c.isalnum() or c in (".", "_", "-"))
+    # Scoped to a unique session subfolder to avoid filename collisions across users
+    storage_path = f"web_contact/{clean_session}/{file_id}_{clean_name}"
+
+    try:
+        # Map extensions to the MIME types allowed by the feedback_attachments bucket policy.
+        _ext_to_mime = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "gif": "image/gif",
+            "pdf": "application/pdf",
+            "txt": "text/plain",
+            "log": "text/plain",
+        }
+        content_type = _ext_to_mime.get(ext, "application/octet-stream")
+        await asyncio.to_thread(
+            lambda: supabase_client.storage.from_("feedback_attachments").upload(
+                path=storage_path,
+                file=content,
+                file_options={"content-type": content_type},
+            )
+        )
+    except Exception as err:
+        logger.exception("Failed to upload contact attachment to bucket")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to store attachment file.",
+        ) from err
+
+    return {"storage_path": storage_path, "filename": filename}
+
+
+@router.delete("/api/v1/contact/upload")
+@limiter.limit(settings.rate_limit_feedback)
+async def delete_contact_attachments(
+    request: Request,
+    session_id: str = Query(...),  # noqa: B008
+    paths: list[str] = Body(..., embed=True),  # noqa: B008
+) -> dict[str, bool]:
+    """Delete orphaned attachments from storage when ticket submission fails.
+
+    Only paths scoped to the provided session_id subfolder are deleted —
+    callers cannot delete files from other sessions.
+    """
+    _ = request
+    # Sanitize the caller-supplied session_id the same way the upload endpoint does
+    clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
+    if not clean_session:
+        raise HTTPException(status_code=400, detail="Invalid session_id.")
+
+    # Only allow deleting paths that belong to this specific session subfolder
+    allowed_prefix = f"web_contact/{clean_session}/"
+    safe_paths = [
+        p for p in paths
+        if p.startswith(allowed_prefix) and ".." not in p
+    ]
+    if not safe_paths:
+        return {"success": True}
+    try:
+        await asyncio.to_thread(
+            lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths)
+        )
+    except Exception:
+        logger.warning("Failed to clean up orphaned contact attachments: %s", safe_paths)
+        # Best-effort; don't fail the response
+    return {"success": True}
 
 
 @router.post("/api/v1/contact/otp/send")
@@ -448,7 +573,7 @@ async def submit_contact_ticket(
     except Exception as err:
         logger.warning("Optional user lookup by email failed: %s", err)
 
-    valid_types = {"help", "feedback", "bug_report", "suspended", "security", "other"}
+    valid_types = {"help", "feedback", "bug_report", "suspended", "security", "legal_grievance", "grievance", "other"}
     query_type = payload.query_type.strip().lower()
     if query_type not in valid_types:
         query_type = "help"
@@ -472,7 +597,7 @@ async def submit_contact_ticket(
             subject=subject,
             message=message,
             github_issue_url=payload.github_issue_url,
-            attachment_paths=[],
+            attachment_paths=payload.attachment_paths,
             app_version=None,
             platform=None,
             device_info={},
@@ -481,6 +606,18 @@ async def submit_contact_ticket(
         )
     except Exception as err:
         logger.exception("Failed to record contact ticket in DB")
+        # Clean up uploaded files from storage since the ticket wasn't recorded
+        if payload.attachment_paths:
+            try:
+                safe_paths = [
+                    p for p in payload.attachment_paths
+                    if p.startswith("web_contact/") and ".." not in p
+                ]
+                await asyncio.to_thread(
+                    lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths)
+                )
+            except Exception:
+                logger.warning("Failed to clean up attachments after ticket insert failure")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to submit support ticket. Please try again.",

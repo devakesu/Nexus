@@ -21,33 +21,94 @@
             <a href="#faq"      class="nav-link">FAQ</a>
         </div>
 
-        <!-- CTA -->
-        <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus"
-        target="_blank" rel="noopener noreferrer"
-        class="btn-primary btn-nexus shrink-0" style="padding: 0.5rem 1rem !important; font-size: 0.75rem !important; border-radius: 0.75rem !important; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M3.18 23.5a1.5 1.5 0 0 1-.94-1.41V1.91A1.5 1.5 0 0 1 3.18.5l11.52 11.52zm1.32-20.1v17.2l9.26-8.6zM21.32 13.5l-2.88 1.66-2.88-2.88 2.88-2.88 2.88 1.66a1.5 1.5 0 0 1 0 2.44zM3.18.5l11.52 11.52-2.88 2.88L3.18.5z"/>
-            </svg>
-            Get App
-        </a>
+        <div class="flex items-center gap-2 shrink-0">
+            <!-- Single Get App Button with Dropdown Popover -->
+            <div style="position:relative;display:inline-block;">
+                <button type="button" id="get-app-dropdown-btn" onclick="toggleGetAppDropdown(event)" class="btn-primary btn-nexus shrink-0" style="padding: 0.5rem 0.875rem !important; font-size: 0.75rem !important; border-radius: 0.75rem !important; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;" aria-expanded="false" aria-haspopup="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;flex-shrink:0;">
+                        <path d="M4 20V4l12 16V4"/>
+                    </svg>
+                    <span>Get App</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="get-app-chevron" style="transition:transform 0.2s;margin-left:0.1rem;" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+
+                <!-- Dropdown Menu showing both variants -->
+                <div id="get-app-dropdown-menu" style="display:none;position:absolute;top:calc(100% + 0.625rem);right:0;width:230px;background:oklch(0.11 0.025 265 / 0.96);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid oklch(0.28 0.025 265 / 0.9);border-radius:1rem;padding:0.625rem;box-shadow:0 16px 40px rgba(0,0,0,0.65), 0 0 30px oklch(0.74 0.18 205 / 0.2);z-index:100;flex-direction:column;gap:0.5rem;">
+                    <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:0.6rem;padding:0.625rem 0.875rem;border-radius:0.75rem;background:linear-gradient(135deg, oklch(0.74 0.18 205), oklch(0.68 0.20 280));color:#fff;text-decoration:none;font-weight:700;font-size:0.8rem;box-shadow:0 4px 14px oklch(0.72 0.19 205 / 0.3);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;flex-shrink:0;">
+                            <path d="M4 20V4l12 16V4"/>
+                        </svg>
+                        <span>Nexus (Main App)</span>
+                    </a>
+                    <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:0.6rem;padding:0.625rem 0.875rem;border-radius:0.75rem;background:linear-gradient(135deg, oklch(0.78 0.20 85), oklch(0.68 0.22 60));color:oklch(0.10 0.01 85);text-decoration:none;font-weight:700;font-size:0.8rem;box-shadow:0 4px 14px oklch(0.78 0.20 85 / 0.3);">
+                        <i data-lucide="graduation-cap" style="width:15px;height:15px;color:oklch(0.10 0.01 85);"></i>
+                        <span>Nexus MEC (Campus)</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mobile Hamburger Toggle -->
+            <button type="button" id="mobile-menu-toggle-btn" class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu" aria-expanded="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
     </nav>
 </header>
+
+<!-- Mobile Drawer Overlay & Menu -->
+<div id="mobile-nav-backdrop" class="mobile-drawer-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
+<div id="mobile-nav-drawer" class="mobile-menu-drawer" role="dialog" aria-label="Mobile Navigation">
+    <a href="#orbit" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="radar" style="width:16px;height:16px;color:var(--starlight);"></i>Orbit Radar</a>
+    <a href="#spotify" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="music" style="width:16px;height:16px;color:var(--pink);"></i>Vibe Sync</a>
+    <a href="#safety" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="shield-check" style="width:16px;height:16px;color:var(--aurora);"></i>Safety</a>
+    <a href="#modes" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="sparkles" style="width:16px;height:16px;color:var(--nebula);"></i>Modes</a>
+    <a href="#campus" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="graduation-cap" style="width:16px;height:16px;color:var(--nova);"></i>Campus</a>
+    <a href="#how" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="layers" style="width:16px;height:16px;color:var(--starlight);"></i>How It Works</a>
+    <a href="#faq" class="mobile-drawer-link" onclick="closeMobileMenu()"><i data-lucide="help-circle" style="width:16px;height:16px;color:var(--teal);"></i>FAQ</a>
+    
+    <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.35rem;padding-top:0.625rem;border-top:1px solid oklch(0.28 0.025 265 / 0.6);">
+        <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus" target="_blank" rel="noopener noreferrer" class="mobile-drawer-link" style="background:linear-gradient(135deg, oklch(0.74 0.18 205), oklch(0.68 0.20 280)); color:#fff; justify-content:center; font-weight:700;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;flex-shrink:0;">
+                <path d="M4 20V4l12 16V4"/>
+            </svg>
+            <span>Get Nexus App</span>
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.devakesu.apps.nexus.mec" target="_blank" rel="noopener noreferrer" class="mobile-drawer-link" style="background:linear-gradient(135deg, oklch(0.78 0.20 85), oklch(0.68 0.22 60)); color:oklch(0.10 0.01 85); justify-content:center; font-weight:700;">
+            <i data-lucide="graduation-cap" style="width:16px;height:16px;color:oklch(0.10 0.01 85);"></i>
+            <span>Get Nexus MEC (Campus)</span>
+        </a>
+    </div>
+</div>
 {% else %}
-<header style="position:sticky;top:0;z-index:50;background:rgba(7,9,20,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);" role="banner">
-    <div style="max-width:1200px;margin:0 auto;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
-        <a href="/" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;" aria-label="Nexus home">
-            <img src="/logo.png" alt="Nexus Logo" width="32" height="32" style="border-radius:0.5rem;">
-            <span class="f-display" style="font-weight:800;font-size:1.25rem;color:var(--ink-1);">NEXUS</span>
+<header class="header-secondary" role="banner">
+    <div class="header-secondary-inner">
+        <a href="/" style="display:flex;align-items:center;gap:0.625rem;text-decoration:none;" aria-label="Nexus home">
+            <img src="/logo.png" alt="Nexus Logo" width="30" height="30" style="border-radius:0.5rem;flex-shrink:0;">
+            <span class="f-display" style="font-weight:800;font-size:1.15rem;color:var(--ink-1);white-space:nowrap;">NEXUS</span>
             {% if brand_subtitle %}
-            <span class="f-display" style="font-weight:600;font-size:0.9rem;color:var(--starlight);border-left:1px solid var(--border);padding-left:0.75rem;">{{ brand_subtitle }}</span>
+            <span class="f-display" style="font-weight:600;font-size:0.85rem;color:var(--starlight);border-left:1px solid var(--border);padding-left:0.625rem;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;">{{ brand_subtitle }}</span>
             {% endif %}
         </a>
-        <nav style="display:flex;align-items:center;gap:1.75rem;" aria-label="Secondary navigation">
-            <a href="/" class="footer-link {% if active_page == 'home' %}active{% endif %}">Home</a>
-            <a href="/help" class="footer-link {% if active_page == 'help' %}active{% endif %}">Help Center</a>
-            <a href="/legal" class="footer-link {% if active_page == 'legal' %}active{% endif %}">Legal & Privacy</a>
-            <a href="/contact" class="footer-link {% if active_page == 'contact' %}active{% endif %}">Contact Us</a>
+        <nav class="header-secondary-nav" aria-label="Secondary navigation">
+            <a href="/" class="nav-secondary-link {% if active_page == 'home' %}active{% endif %}">Home</a>
+            <a href="/help" class="nav-secondary-link {% if active_page == 'help' %}active{% endif %}">Help Center</a>
+            <a href="/legal" class="nav-secondary-link {% if active_page == 'legal' %}active{% endif %}">Legal & Privacy</a>
+            <a href="/contact" class="nav-secondary-link {% if active_page == 'contact' %}active{% endif %}">Contact Us</a>
         </nav>
+        <button type="button" id="mobile-menu-toggle-btn" class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu" aria-expanded="false">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>
+            </svg>
+        </button>
     </div>
 </header>
+<div id="mobile-nav-backdrop" class="mobile-drawer-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
+<div id="mobile-nav-drawer" class="mobile-menu-drawer" role="dialog" aria-label="Mobile Navigation">
+    <a href="/" class="mobile-drawer-link {% if active_page == 'home' %}active{% endif %}" onclick="closeMobileMenu()"><i data-lucide="home" style="width:16px;height:16px;color:var(--starlight);"></i>Home</a>
+    <a href="/help" class="mobile-drawer-link {% if active_page == 'help' %}active{% endif %}" onclick="closeMobileMenu()"><i data-lucide="help-circle" style="width:16px;height:16px;color:var(--teal);"></i>Help Center</a>
+    <a href="/legal" class="mobile-drawer-link {% if active_page == 'legal' %}active{% endif %}" onclick="closeMobileMenu()"><i data-lucide="shield-check" style="width:16px;height:16px;color:var(--pink);"></i>Legal & Privacy</a>
+    <a href="/contact" class="mobile-drawer-link {% if active_page == 'contact' %}active{% endif %}" onclick="closeMobileMenu()"><i data-lucide="mail" style="width:16px;height:16px;color:var(--nova);"></i>Contact Us</a>
+</div>
 {% endif %}
