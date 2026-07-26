@@ -1625,7 +1625,16 @@ _GITHUB_ISSUE_URL_RE = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+/issues/
 class FeedbackSubmitRequest(BaseModel):
     """Submit a Help, Feedback & Bug Report ticket."""
 
-    query_type: Literal["help", "feedback", "bug_report"]
+    query_type: Literal[
+        "help",
+        "feedback",
+        "bug_report",
+        "suspended",
+        "security",
+        "legal_grievance",
+        "grievance",
+        "other",
+    ]
     subject: str = Field(..., min_length=3, max_length=150)
     message: str = Field(..., min_length=10, max_length=5000)
     github_issue_url: str | None = Field(

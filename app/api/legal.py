@@ -34,11 +34,9 @@ def _placeholder_banner(missing: list[str]) -> str:
     """
 
 
-def render_legal_page() -> str:
-    """Builds the combined Terms of Service + Privacy Policy page served at
-    /legal and /legal/privacy using the template architecture.
-    """
-    domain = settings.app_domain
+def render_legal_page(*, is_embed: bool = False) -> str:
+    """Renders the legal.html template with variables filled in."""
+    domain = settings.email_domain or ""
     terms_version = settings.current_terms_version.strip()
 
     missing: list[str] = []
@@ -68,17 +66,19 @@ def render_legal_page() -> str:
         grievance_phone=grievance_phone,
         grievance_website=grievance_website,
         placeholder_banner=_placeholder_banner(missing),
+        is_embed=is_embed,
     )
 
 
 @router.get("/legal")
 @limiter.limit(settings.rate_limit_health)
-def legal_terms_page(request: Request) -> HTMLResponse:
+def legal_terms_page(request: Request, embed: bool = False) -> HTMLResponse:
     """Public, unauthenticated - reachable before signup/login, and this is
     the URL the Flutter app's WebView (legal_terms_page.dart) points at.
+    When embed=true (or embed=1), header and footer are omitted for clean in-app rendering.
     """
-    _ = request
-    return HTMLResponse(render_legal_page())
+    is_embed = embed or request.query_params.get("embed") in ("1", "true")
+    return HTMLResponse(render_legal_page(is_embed=is_embed))
 
 
 @router.get("/legal/privacy")

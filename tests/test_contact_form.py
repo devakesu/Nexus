@@ -138,6 +138,28 @@ async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
 
 
 @pytest.mark.anyio
+async def test_feedback_submit_request_all_query_types() -> None:
+    from app.models import FeedbackSubmitRequest
+
+    categories = [
+        "help",
+        "feedback",
+        "bug_report",
+        "suspended",
+        "security",
+        "legal_grievance",
+        "grievance",
+        "other",
+    ]
+    for cat in categories:
+        req = FeedbackSubmitRequest(
+            query_type=cat,  # type: ignore[arg-type]
+            subject="Test subject for category",
+            message="This is a test message long enough to pass validation.",
+        )
+        assert req.query_type == cat
+
+@pytest.mark.anyio
 async def test_turnstile_verification_disabled_by_default() -> None:
     # When turnstile_secret_key is None (default in config), verify returns True
     res = await verify_turnstile_token(token=None, client_ip="127.0.0.1")

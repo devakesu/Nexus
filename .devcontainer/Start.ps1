@@ -45,74 +45,93 @@ if (-not $Mode) {
 }
 
 if ($Mode -ne "Skip") {
-    docker exec -u root $ContainerName bash -c "adb kill-server"
+    # Reset ADB on container to start fresh
+    docker exec -u $User $ContainerName adb kill-server 2>$null
 
     if ($Mode -eq "Physical") {
+        Write-Host "📱 Preparing Physical Device via USB/Wi-Fi..." -ForegroundColor Cyan
         adb start-server | Out-Null
-        adb tcpip 5555 | Out-Null
-        Start-Sleep -Seconds 2
-
-        $DeviceIp = (adb shell ip route 2>$null) -match "src\s+(\d+\.\d+\.\d+\.\d+)" | % { $Matches[1] }
         
+        # 1. Fetch Wi-Fi IP while USB is attached
+        $RouteOutput = adb shell ip route 2>$null
+        $DeviceIp = ($RouteOutput | Select-String -Pattern 'src\s+(\d+\.\d+\.\d+\.\d+)').Matches.Groups[1].Value
+
         if (-not $DeviceIp) {
-            Write-Host "❌ Could not determine device's Wi-Fi IP." -ForegroundColor Red
+            Write-Host "❌ Could not determine device's Wi-Fi IP. Is USB plugged in and authorized?" -ForegroundColor Red
             exit 1
         }
 
-        Write-Host "📱 Connecting container directly to Device IP: $DeviceIp" -ForegroundColor Green
+        # 2. Switch phone to TCP mode on host
+        Write-Host "📡 Switching device ADB to TCP mode (Port 5555)..." -ForegroundColor Cyan
+        adb tcpip 5555 | Out-Null
+        Start-Sleep -Seconds 3
+
+        # 3. Connect Host ADB over Wi-Fi first to authenticate key pair
+        Write-Host "🤝 Connecting Windows Host ADB to ${DeviceIp}:5555..." -ForegroundColor Cyan
+        adb connect "${DeviceIp}:5555" | Out-Null
+        Start-Sleep -Seconds 2
+
+        Write-Host "📱 Connecting Container ADB to Device IP: ${DeviceIp}:5555" -ForegroundColor Green
         docker exec -u $User $ContainerName adb connect "${DeviceIp}:5555" | Out-Null
-        
+
     } else {
-        Write-Host "📱 Launching Local Emulator..."
+        Write-Host "📱 Launching Local Emulator..." -ForegroundColor Cyan
         $EmulatorProc = Start-Process emulator -ArgumentList "-avd Pixel_10_Pro_XL -netdelay none -netspeed full" -PassThru -WindowStyle Hidden
-        Start-Sleep -Seconds 15
+        
+        # Wait for emulator to fully register on Windows ADB
+        Write-Host "⏳ Waiting for Emulator ADB boot..." -ForegroundColor Cyan
+        $emuBooted = $false
+        for ($i = 0; $i -lt 20; $i++) {
+            $emuState = (adb -e get-state 2>$null)
+            if ($emuState -eq "device") { $emuBooted = $true; break }
+            Start-Sleep -Seconds 2
+        }
 
-        Write-Host "🛡️ Bridging Windows Emulator to Docker Network..." -ForegroundColor Cyan
-        $RelayCmd = "netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5555 connectaddress=127.0.0.1 connectport=5555"
-        Start-Process powershell -ArgumentList "-WindowStyle Hidden -Command `"$RelayCmd`"" -Verb RunAs -Wait
+        if (-not $emuBooted) {
+            Write-Host "❌ Emulator failed to boot or register ADB on host." -ForegroundColor Red
+            exit 1
+        }
 
-        Write-Host "🔌 Connecting container to host emulator..."
+        # Force Host ADB server to listen on all interfaces (0.0.0.0:5037 or forward local 5555)
+        Write-Host "🔌 Bridging Container ADB to host.docker.internal..." -ForegroundColor Cyan
         docker exec -u $User $ContainerName adb connect host.docker.internal:5555 | Out-Null
     }
 
     $retryCount = 0
+    $Target = if ($Mode -eq "Physical") { "${DeviceIp}:5555" } else { "host.docker.internal:5555" }
+    
     while ($retryCount -lt 15) {
-        # If checking a physical device, match the exact IP. If emulator, match host.docker.internal.
-        $Target = if ($Mode -eq "Physical") { "${DeviceIp}:5555" } else { "host.docker.internal:5555" }
-        
-        if ((docker exec -u $User $ContainerName adb -s $Target get-state 2>$null) -eq "device") {
-            Write-Host "✅ ADB Connected & Authorized!" -ForegroundColor Green
+        $containerState = (docker exec -u $User $ContainerName adb -s $Target get-state 2>$null)
+        if ($containerState -eq "device") {
+            Write-Host "✅ Container ADB Connected & Authorized to $Target!" -ForegroundColor Green
             break
         }
         Start-Sleep -Seconds 2
         $retryCount++
+    }
+
+    if ($retryCount -ge 15) {
+        Write-Host "⚠️ Warning: ADB connection timed out inside container. You may need to accept an RSA auth prompt on phone screen." -ForegroundColor Yellow
     }
 } else {
     Write-Host "⏭️ Skipping ADB configuration." -ForegroundColor Cyan
 }
 
 Write-Host "`n🎯 All systems go!" -ForegroundColor Magenta
-Write-Host "💡 App Port 8000 and Dart VM Port 8181 are natively exposed via Docker."
-Write-Host "   flutter run --host-vmservice-port=$VmServicePort" -ForegroundColor Cyan
 Read-Host "🛑 PRESS ENTER TO TEARDOWN ENVIRONMENT 🛑"
 
 Write-Host "🗑️ Tearing down..." -ForegroundColor Cyan
 
 if ($Mode -eq "Emulator") {
     Write-Host "🛑 Terminating emulator..." -ForegroundColor Cyan
-    # Send graceful shutdown signal to the emulator before killing the ADB server
     adb -e emu kill 2>$null
-    Start-Sleep -Seconds 5
-
+    Start-Sleep -Seconds 3
     if ($EmulatorProc) { Stop-Process -Id $EmulatorProc.Id -Force -ErrorAction SilentlyContinue }
-    $RelayCleanupCmd = "netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5555"
-    Start-Process powershell -ArgumentList "-WindowStyle Hidden -Command `"$RelayCleanupCmd`"" -Verb RunAs
 } elseif ($Mode -eq "Physical") {
-    adb usb 2>$null | Out-Null
+    adb disconnect 2>$null | Out-Null
 }
 
 if ($Mode -ne "Skip") {
-    adb kill-server 2>$null
     docker exec -u $User $ContainerName adb kill-server 2>$null
 }
 
@@ -121,8 +140,8 @@ Write-Host "✅ Environment sanitized. gg." -ForegroundColor Green
 # SIG # Begin signature block
 # MIIFfQYJKoZIhvcNAQcCoIIFbjCCBWoCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAy5AQBWxJv76/0
-# hV1kkDwiiSdXv68i8iwXTXkNHWIRcKCCAvowggL2MIIB3qADAgECAhAmKGzz2Y/i
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC39O/AP13dGZKu
+# aMPKB3B9ff7VOHp8ZHlU+voDuJP9jaCCAvowggL2MIIB3qADAgECAhAmKGzz2Y/i
 # k00s+ReTOHmTMA0GCSqGSIb3DQEBCwUAMBMxETAPBgNVBAMMCGRldmFrZXN1MB4X
 # DTI2MDYwNzEzNTA0MloXDTI3MDYwNzE0MTA0MlowEzERMA8GA1UEAwwIZGV2YWtl
 # c3UwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDEoLmTS8czHXtaQFpw
@@ -141,12 +160,12 @@ Write-Host "✅ Environment sanitized. gg." -ForegroundColor Green
 # 05EwtDcUqVGObcNhvsYrTipXJR0xggHZMIIB1QIBATAnMBMxETAPBgNVBAMMCGRl
 # dmFrZXN1AhAmKGzz2Y/ik00s+ReTOHmTMA0GCWCGSAFlAwQCAQUAoIGEMBgGCisG
 # AQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQw
-# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIF0f
-# LbWwVdXFPFbmkCg9krK3+sII2m5+zU658JQBojeBMA0GCSqGSIb3DQEBAQUABIIB
-# ADN+v2Yx28YAOJkUYf3DGI72usPLmzlxN4rbqsjySdooR8tPqP+uzy5pK4yCKtpX
-# 7Ewxg/UKMPZRAc6eLC25Ar9qTjbtQkqxIRIptQu+2ky7AhOm2T6P0HMoSc5NlpX4
-# bPoxZEG20QYmv1sw/TmDpRWckRcw7A/Cla2LTJTIh2VydnO3cy9tVW9RZ7faInWO
-# lX73TGTcqJAK2GBjKVE68hhcsj4nKLJKAaNZTuM84YyIPTq/VBpzlT91kgTd3xPS
-# qCiltsXpwB43u9I1C4E87MsRuiGDYysTzUIUiZPd59g433IFMuMncuIRIh2xpp3T
-# cZV1/ba1+cgevtSFacP+tXk=
+# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIIue
+# Mw8IpsBt4qIPjPa9nP8TjVUb2etj2qwwgbrEz8DqMA0GCSqGSIb3DQEBAQUABIIB
+# ACmqR/MQFPT1lt0qOws84qx/OtFBJpsijGbHZSLbRciKhKkHEVjT9S78IgPl6uGg
+# Nh6J+lBFjPkWDafVo/yqifKkdbqUt79e3IJAlrg5YleQI0dNckMH1fEpzGcTr41C
+# YsL0XSPE6CWgL4A9z44T8HTuQISiRwJVanH8m9NlqwZbEvLSNI2W9FGejAFEuQT9
+# aTfoQY5FHOw7J1BXIMb88Sao4emEJBNZE8mCA24oP5/J7bHWkQpsMJ1vXJWYNInz
+# kHbsBjdOd0JmK0nMe7uFbottGxWOCLmmiqTTGugCAoL9fpcvRyVmp9fg3iUA+LY/
+# bFS+6M0C72ejZftPEBSWrFU=
 # SIG # End signature block

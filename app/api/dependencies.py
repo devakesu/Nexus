@@ -175,7 +175,7 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 "Account is inactive. Please contact support at "
-                f"support@{settings.app_domain} for assistance."
+                f"support@{settings.email_domain} for assistance."
             ),
         )
 
@@ -208,13 +208,13 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
                 formatted_time = str(suspended_until)
             detail = (
                 f"Your Account is suspended until {formatted_time}{reason_suffix}. "
-                f"Please contact support at support@{settings.app_domain} for "
+                f"Please contact support at support@{settings.email_domain} for "
                 "assistance."
             )
         else:
             detail = (
                 f"Your Account is suspended indefinitely{reason_suffix}. Please "
-                f"contact support at support@{settings.app_domain} for assistance."
+                f"contact support at support@{settings.email_domain} for assistance."
             )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -73,6 +73,7 @@ def render_legal(
     grievance_phone: str = "+91-80-45678900",
     grievance_website: str = "https://nexus.devakesu.com",
     placeholder_banner: str = "",
+    is_embed: bool = False,
 ) -> str:
     """Renders the Legal & Privacy Policy page template."""
     return render_template(
@@ -87,6 +88,7 @@ def render_legal(
             "grievance_phone": grievance_phone,
             "grievance_website": grievance_website,
             "placeholder_banner": placeholder_banner,
+            "is_embed": is_embed,
             "footer_type": "secondary",
             "header_mode": "secondary",
             "active_page": "legal",

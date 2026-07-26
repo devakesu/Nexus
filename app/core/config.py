@@ -99,8 +99,6 @@ class Settings(BaseSettings):
     email_domain: str | None = None
     sendpulse_client_id: str | None = None
     sendpulse_client_secret: str | None = None
-    # Falls back to admin@{app_domain} when unset (see app/core/email.py).
-    feedback_notify_email: str | None = None
 
     # --- Cloudflare Turnstile ---
     turnstile_site_key: str | None = None
@@ -284,8 +282,45 @@ class Settings(BaseSettings):
                 existing.append(production_origin)
                 self.allowed_origins = ",".join(existing)
 
-        if not self.email_domain and self.app_domain:
-            self.email_domain = self.app_domain
+        # Resolve email_domain based on validity of app_domain
+        app_domain_clean = self.app_domain.strip().rstrip("/") if self.app_domain else ""
+        # Remove protocol if user included it
+        if "://" in app_domain_clean:
+            app_domain_clean = app_domain_clean.split("://", 1)[1]
+        if ":" in app_domain_clean:
+            app_domain_clean = app_domain_clean.split(":", 1)[0]
+
+        def is_valid_app_domain(domain: str) -> bool:
+            if not domain:
+                return False
+            import ipaddress
+            try:
+                ipaddress.ip_address(domain)
+                return False  # IP address is considered invalid for email domain
+            except ValueError:
+                pass
+            
+            d_lower = domain.lower()
+            if d_lower in ("localhost", "local") or d_lower.endswith(".local") or d_lower.endswith(".internal") or d_lower.endswith(".test") or d_lower.endswith(".example") or d_lower.endswith(".invalid") or d_lower.endswith(".localhost"):
+                return False
+            
+            # Simple domain structure check (must contain dot and valid characters)
+            if "." in domain and all(part and part.isalnum() or "-" in part for part in domain.split(".")):
+                return True
+            return False
+
+        if is_valid_app_domain(app_domain_clean):
+            self.email_domain = app_domain_clean
+        elif self.debug:
+            if self.email_domain:
+                self.email_domain = self.email_domain.strip().rstrip("/")
+            else:
+                self.email_domain = app_domain_clean
+        else:
+            raise ValueError(
+                f"Invalid app_domain '{self.app_domain}' in production mode (debug=False). "
+                "Production requires a valid domain name for email resolution."
+            )
         return self
 
     model_config = SettingsConfigDict(

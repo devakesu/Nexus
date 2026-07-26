@@ -7,54 +7,105 @@ import 'package:nexus/theme/app_colors.dart';
 // Query type (help / feedback / bug report)
 // ---------------------------------------------------------------------------
 
-enum FeedbackQueryType { help, feedback, bugReport }
+enum FeedbackQueryType {
+  help,
+  suspended,
+  legalGrievance,
+  feedback,
+  bugReport,
+  security,
+  other,
+}
 
 extension FeedbackQueryTypeX on FeedbackQueryType {
   String get apiValue => switch (this) {
     FeedbackQueryType.help => 'help',
+    FeedbackQueryType.suspended => 'suspended',
+    FeedbackQueryType.legalGrievance => 'legal_grievance',
     FeedbackQueryType.feedback => 'feedback',
     FeedbackQueryType.bugReport => 'bug_report',
+    FeedbackQueryType.security => 'security',
+    FeedbackQueryType.other => 'other',
   };
 
   String get label => switch (this) {
-    FeedbackQueryType.help => 'Help',
-    FeedbackQueryType.feedback => 'Feedback',
+    FeedbackQueryType.help => 'General Support',
+    FeedbackQueryType.suspended => 'Suspended Account',
+    FeedbackQueryType.legalGrievance => 'Legal Grievance',
+    FeedbackQueryType.feedback => 'Product Feedback',
     FeedbackQueryType.bugReport => 'Bug Report',
+    FeedbackQueryType.security => 'Security & Privacy',
+    FeedbackQueryType.other => 'Other Inquiry',
   };
 
   String get description => switch (this) {
-    FeedbackQueryType.help => "I'm stuck on something",
-    FeedbackQueryType.feedback => 'I have a suggestion',
-    FeedbackQueryType.bugReport => 'Something is broken',
+    FeedbackQueryType.help => 'Get help with account, orbits or settings',
+    FeedbackQueryType.suspended => 'Appeal account suspension or restriction',
+    FeedbackQueryType.legalGrievance => 'File formal complaint or legal notice',
+    FeedbackQueryType.feedback => 'Share suggestions or feature requests',
+    FeedbackQueryType.bugReport => 'Report crashes or broken functionality',
+    FeedbackQueryType.security => 'Vulnerability disclosure or privacy',
+    FeedbackQueryType.other => 'Questions or general inquiries',
   };
 
   IconData get icon => switch (this) {
     FeedbackQueryType.help => LucideIcons.circleHelp,
+    FeedbackQueryType.suspended => LucideIcons.shieldOff,
+    FeedbackQueryType.legalGrievance => LucideIcons.scale,
     FeedbackQueryType.feedback => LucideIcons.lightbulb,
     FeedbackQueryType.bugReport => LucideIcons.bug,
+    FeedbackQueryType.security => LucideIcons.lock,
+    FeedbackQueryType.other => LucideIcons.messageSquare,
+  };
+
+  Color get accentColor => switch (this) {
+    FeedbackQueryType.help => const Color(0xFF3B82F6), // Blue
+    FeedbackQueryType.suspended => const Color(0xFFEF4444), // Red
+    FeedbackQueryType.legalGrievance => const Color(0xFF8B5CF6), // Purple
+    FeedbackQueryType.feedback => const Color(0xFFF59E0B), // Amber
+    FeedbackQueryType.bugReport => const Color(0xFFEC4899), // Pink
+    FeedbackQueryType.security => const Color(0xFF10B981), // Emerald
+    FeedbackQueryType.other => const Color(0xFF6366F1), // Indigo
   };
 
   String get subjectHint => switch (this) {
     FeedbackQueryType.help => 'e.g. How do I pause my Orbits?',
+    FeedbackQueryType.suspended => 'e.g. Appeal for suspended account',
+    FeedbackQueryType.legalGrievance =>
+      'e.g. Formal grievance regarding privacy',
     FeedbackQueryType.feedback => 'e.g. Add a dark mode toggle',
     FeedbackQueryType.bugReport => 'e.g. Chat crashes when sending a photo',
+    FeedbackQueryType.security => 'e.g. Security advisory or privacy question',
+    FeedbackQueryType.other => 'e.g. Inquiry about Nexus services',
   };
 
   String get messageHint => switch (this) {
     FeedbackQueryType.help =>
       'Tell us what you were trying to do and where you got stuck.',
+    FeedbackQueryType.suspended =>
+      'Provide details and context for your account suspension appeal.',
+    FeedbackQueryType.legalGrievance =>
+      'Describe your formal legal complaint or statutory grievance in detail.',
     FeedbackQueryType.feedback =>
       "Share what's on your mind - we read every word.",
     FeedbackQueryType.bugReport =>
       'What did you expect to happen, and what happened instead? '
           'Steps to reproduce help a lot.',
+    FeedbackQueryType.security =>
+      'Describe the security vulnerability or privacy concern in detail.',
+    FeedbackQueryType.other =>
+      'Please describe your issue or question in detail.',
   };
 }
 
 FeedbackQueryType feedbackQueryTypeFromApiValue(String value) {
   return switch (value) {
+    'suspended' => FeedbackQueryType.suspended,
+    'legal_grievance' || 'grievance' => FeedbackQueryType.legalGrievance,
+    'security' => FeedbackQueryType.security,
     'feedback' => FeedbackQueryType.feedback,
     'bug_report' => FeedbackQueryType.bugReport,
+    'other' => FeedbackQueryType.other,
     _ => FeedbackQueryType.help,
   };
 }

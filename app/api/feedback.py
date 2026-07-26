@@ -24,6 +24,8 @@ from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import (
     send_feedback_admin_notification_email,
+    send_feedback_closed_admin_notification_email,
+    send_feedback_comment_admin_notification_email,
     send_feedback_confirmation_email,
     send_support_appeal_otp_email,
 )
@@ -254,6 +256,7 @@ async def get_feedback_ticket(
 async def add_feedback_comment(
     request: Request,
     report_id: str,
+    background_tasks: BackgroundTasks,
     payload: FeedbackCommentRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
@@ -292,6 +295,18 @@ async def add_feedback_comment(
             detail="Service temporarily unavailable.",
         ) from err
 
+    account_email = await asyncio.to_thread(fetch_user_email, user_id)
+
+    background_tasks.add_task(
+        send_feedback_comment_admin_notification_email,
+        report_id=report_id,
+        query_type=str(report.get("query_type", "help")),
+        subject=str(report.get("subject", "")),
+        comment_body=payload.body,
+        user_id=user_id,
+        submitter_email=account_email,
+    )
+
     return FeedbackCommentEntry(**row, is_own=True)
 
 
@@ -300,6 +315,7 @@ async def add_feedback_comment(
 async def close_feedback_ticket(
     request: Request,
     report_id: str,
+    background_tasks: BackgroundTasks,
     payload: FeedbackCloseRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
@@ -329,6 +345,18 @@ async def close_feedback_ticket(
         if existing is None:
             raise HTTPException(status_code=404, detail="Ticket not found.")
         raise HTTPException(status_code=400, detail="This ticket is already closed.")
+
+    account_email = await asyncio.to_thread(fetch_user_email, user_id)
+
+    background_tasks.add_task(
+        send_feedback_closed_admin_notification_email,
+        report_id=report_id,
+        query_type=str(report.get("query_type", "help")),
+        subject=str(report.get("subject", "")),
+        reason=payload.reason,
+        user_id=user_id,
+        submitter_email=account_email,
+    )
 
     try:
         return await asyncio.to_thread(_assemble_ticket_detail, user_id, report)
@@ -640,6 +668,13 @@ async def submit_contact_ticket(
         user_id=user_id or "unauthenticated_guest",
         submitter_email=email,
         github_issue_url=payload.github_issue_url,
+        attachment_count=len(payload.attachment_paths),
+        attachment_names=[
+            p.split("/")[-1]
+            for p in payload.attachment_paths
+        ] if payload.attachment_paths else None,
+        submitter_name=payload.name.strip() if payload.name else None,
+        account_id_or_phone=payload.account_id_or_phone.strip() if payload.account_id_or_phone else None,
     )
 
     return {

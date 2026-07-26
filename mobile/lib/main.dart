@@ -76,21 +76,33 @@ Future<void> main() async {
       ? nexus_mec_opts.DefaultFirebaseOptions.currentPlatform
       : nexus_opts.DefaultFirebaseOptions.currentPlatform;
 
-  // Initialize Firebase and Supabase in parallel to speed up app startup
-  await Future.wait([
-    Firebase.initializeApp(
-      options: firebaseOptions,
-    ).then((_) {
-      // Initialize Firebase App Check on app open to prevent delays
-      return FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode
-            ? const AndroidDebugProvider()
-            : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode
-            ? const AppleDebugProvider()
-            : const AppleAppAttestWithDeviceCheckFallbackProvider(),
+  // Initialize Firebase sequentially with a safety check
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: firebaseOptions,
       );
-    }),
+    }
+  } catch (e) {
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow;
+    }
+  }
+
+  // Ensure App Check only runs once Firebase is confirmed active
+  if (Firebase.apps.isNotEmpty) {
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleAppAttestWithDeviceCheckFallbackProvider(),
+    );
+  }
+
+  // Initialize remaining async services in parallel to speed up app startup
+  await Future.wait([
     Supabase.initialize(
       url: config.supabaseUrl,
       publishableKey: config.supabasePublishableKey,

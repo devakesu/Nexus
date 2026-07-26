@@ -110,7 +110,6 @@ class AppConfig {
   );
   static const String _appVersion = String.fromEnvironment(
     'APP_VERSION',
-    defaultValue: '1.0.0',
   );
 
   static const AppConfig nexus = AppConfig(

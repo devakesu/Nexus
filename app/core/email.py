@@ -74,19 +74,18 @@ has_brevo = bool(settings.brevo_api_key)
 has_sendpulse = bool(settings.sendpulse_client_id and settings.sendpulse_client_secret)
 
 
+def get_support_email() -> str:
+    """Centralized support email address for notifications and system routing."""
+    return f"support@{settings.email_domain}"
+
+
 def get_sender_email() -> str:
-    return f"admin@{settings.email_domain}"
+    return get_support_email()
 
 
 def get_feedback_notify_email() -> str:
-    """Where "Help, Feedback & Bug Report" admin notifications are routed.
-
-    Falls back to admin@{app_domain} when settings.feedback_notify_email
-    is not explicitly configured.
-    """
-    if settings.feedback_notify_email and settings.feedback_notify_email.strip():
-        return settings.feedback_notify_email.strip()
-    return f"admin@{settings.email_domain}"
+    """Where "Help, Feedback & Bug Report" admin notifications are routed."""
+    return get_support_email()
 
 
 def get_sender_name(from_name: str | None = None) -> str:
@@ -357,13 +356,14 @@ def render_email_template(
     empty string to omit the footer row entirely.
     """
     app_domain = settings.app_domain
+    email_domain = settings.email_domain
     if footer_html is None:
         footer_html = f"""
               You are receiving this mandatory service-related communication
               because a Nexus account was created using this
               email address. If you did not initiate this action, please contact
-              support at <a href="mailto:support@{app_domain}" style="color: pink;">
-              support@{app_domain}</a>
+              support at <a href="mailto:support@{email_domain}" style="color: pink;">
+              support@{email_domain}</a>
               <br>
               <a href="https://{app_domain}/legal" target="_blank"
                  style="color: white">Privacy, Terms & Legal</a>
@@ -680,6 +680,7 @@ FEEDBACK_QUERY_TYPE_LABELS: dict[str, str] = {
     "security": "Security & Privacy",
     "legal_grievance": "Legal Grievance",
     "grievance": "Legal Grievance",
+    "other": "Other Inquiry",
 }
 
 
@@ -769,9 +770,11 @@ async def send_feedback_confirmation_email(
           </tr>
     """
 
+    email_subject = f"[#{ticket_ref}] We've received your {label.lower()} - Nexus Support"
+
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3,
-        subject=f"We've received your {label.lower()} - Nexus Support",
+        subject=email_subject,
         preheader_category="SUPPORT",
         preheader_action=f"TICKET_{ticket_ref}_OPEN",
         footer_html=footer_html,
@@ -785,7 +788,7 @@ async def send_feedback_confirmation_email(
 
     props = SendEmailProps(
         to=email,
-        subject=f"We've received your {label.lower()} - Nexus Support",
+        subject=email_subject,
         html=html_content,
         text=text_content,
         sender_email=f"support@{settings.email_domain}",
@@ -822,8 +825,11 @@ async def send_feedback_admin_notification_email(
     submitter_email: str | None,
     github_issue_url: str | None = None,
     attachment_count: int = 0,
+    attachment_names: list[str] | None = None,
     app_version: str | None = None,
     platform: str | None = None,
+    submitter_name: str | None = None,
+    account_id_or_phone: str | None = None,
 ) -> ProviderResult:
     """
     Notifies the admin/support inbox of a newly submitted Help, Feedback &
@@ -853,14 +859,25 @@ async def send_feedback_admin_notification_email(
     detail_lines = [
         _detail_row("TICKET", f"#{ticket_ref}"),
         _detail_row("CATEGORY", label.upper()),
+        _detail_row("SUBJECT", subject),
         _detail_row("USER_ID", user_id),
         _detail_row("CONTACT", contact_display),
     ]
+    if submitter_name:
+        detail_lines.append(_detail_row("NAME", submitter_name))
+    if account_id_or_phone:
+        detail_lines.append(_detail_row("PHONE_OR_ID", account_id_or_phone))
     if platform:
         detail_lines.append(_detail_row("PLATFORM", platform))
     if app_version:
         detail_lines.append(_detail_row("APP_VERSION", app_version))
-    if attachment_count:
+    if attachment_names:
+        names_display = ", ".join(
+            name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            for name in attachment_names
+        )
+        detail_lines.append(_detail_row("ATTACHMENTS", f"{len(attachment_names)}: {names_display}"))
+    elif attachment_count:
         detail_lines.append(_detail_row("ATTACHMENTS", str(attachment_count)))
     if github_issue_url:
         issue_link = (
@@ -915,23 +932,35 @@ async def send_feedback_admin_notification_email(
           </tr>
     """
 
+    email_subject = f"[#{ticket_ref}] [Nexus {label}] {subject}"
+
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3,
-        subject=f"[Nexus {label}] {subject}",
+        subject=email_subject,
         preheader_category="ADMIN",
         preheader_action=f"NEW_{query_type.upper()}",
         footer_html="",
     )
 
+    name_line = f"Name: {submitter_name}\n" if submitter_name else ""
+    phone_line = f"Phone/ID: {account_id_or_phone}\n" if account_id_or_phone else ""
+    attach_line: str
+    if attachment_names:
+        attach_line = f"Attachments ({len(attachment_names)}): {', '.join(attachment_names)}\n"
+    elif attachment_count:
+        attach_line = f"Attachments: {attachment_count}\n"
+    else:
+        attach_line = ""
     text_content = (
         f"New {label} - #{ticket_ref}\nSubject: {subject}\n"
-        f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n\n"
+        f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n"
+        f"{name_line}{phone_line}{attach_line}\n"
         f"{message}"
     )
 
     props = SendEmailProps(
         to=recipient,
-        subject=f"[Nexus {label}] {subject}",
+        subject=email_subject,
         html=html_content,
         text=text_content,
         sender_email=f"support@{settings.email_domain}",
@@ -956,6 +985,276 @@ async def send_feedback_admin_notification_email(
     except Exception as err:
         logger.exception(
             "Unexpected exception sending feedback admin notification for ticket #%s",
+            ticket_ref,
+        )
+        use_sp = should_use_sendpulse(recipient)
+        provider_name = "SendPulse" if use_sp else "Brevo"
+        return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+
+async def send_feedback_comment_admin_notification_email(
+    report_id: str,
+    query_type: str,
+    subject: str,
+    comment_body: str,
+    user_id: str,
+    submitter_email: str | None,
+) -> ProviderResult:
+    """
+    Notifies the admin/support inbox when a user adds a new comment to an existing
+    Help, Feedback & Bug Report ticket. Uses the exact same email subject line
+    as the submission email so thread grouping occurs in email clients.
+    """
+    label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
+    ticket_ref = _short_report_id(report_id)
+    recipient = get_feedback_notify_email()
+
+    escaped_comment = (
+        comment_body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+
+    def _detail_row(field: str, value: str) -> str:
+        return f'<span style="color: #6B7280;">{field}:</span> {value}'
+
+    contact_display = (
+        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
+        f"{submitter_email}</a>"
+        if submitter_email
+        else "(none on file)"
+    )
+    detail_lines = [
+        _detail_row("TICKET", f"#{ticket_ref}"),
+        _detail_row("ACTION", "NEW COMMENT"),
+        _detail_row("CATEGORY", label.upper()),
+        _detail_row("SUBJECT", subject),
+        _detail_row("USER_ID", user_id),
+        _detail_row("CONTACT", contact_display),
+    ]
+
+    row_1 = f"""
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 22px; font-weight: 300;
+                         letter-spacing: 0.1em; color: #FFFFFF;
+                         text-transform: uppercase;">
+                New Comment on {label}
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                        color: #9CA3AF; font-weight: 400;">
+                {subject}
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = f"""
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(255,255,255,0.01);
+                     border-left: 2px solid #00ADB5;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 12px; line-height: 1.7; color: #4ECCA3;">
+                    {"<br />".join(detail_lines)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = f"""
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #E5E7EB;
+                       white-space: pre-wrap;">
+              {escaped_comment}
+            </td>
+          </tr>
+    """
+
+    email_subject = f"[New Comment] [#{ticket_ref}] [Nexus {label}] {subject}"
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3,
+        subject=email_subject,
+        preheader_category="ADMIN",
+        preheader_action=f"COMMENT_{query_type.upper()}",
+        footer_html="",
+    )
+
+    text_content = (
+        f"New Comment on {label} - #{ticket_ref}\nSubject: {subject}\n"
+        f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n\n"
+        f"{comment_body}"
+    )
+
+    props = SendEmailProps(
+        to=recipient,
+        subject=email_subject,
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.email_domain}",
+        from_name="Nexus Support",
+        reply_to=submitter_email or None,
+    )
+
+    try:
+        logger.info(
+            "Sending feedback comment admin notification to %s for ticket #%s",
+            redact_email(recipient),
+            ticket_ref,
+        )
+        result = await send_email(props)
+        if not result.success:
+            logger.error(
+                "Failed to send feedback comment admin notification for ticket #%s: %s",
+                ticket_ref,
+                result.error,
+            )
+        return result
+    except Exception as err:
+        logger.exception(
+            "Unexpected exception sending feedback comment admin notification for ticket #%s",
+            ticket_ref,
+        )
+        use_sp = should_use_sendpulse(recipient)
+        provider_name = "SendPulse" if use_sp else "Brevo"
+        return ProviderResult(success=False, provider=provider_name, error=str(err))
+
+
+async def send_feedback_closed_admin_notification_email(
+    report_id: str,
+    query_type: str,
+    subject: str,
+    reason: str,
+    user_id: str,
+    submitter_email: str | None,
+) -> ProviderResult:
+    """
+    Notifies the admin/support inbox when a user closes a Help, Feedback &
+    Bug Report ticket. Uses the exact same email subject line as the submission
+    email so thread grouping occurs in email clients.
+    """
+    label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
+    ticket_ref = _short_report_id(report_id)
+    recipient = get_feedback_notify_email()
+
+    escaped_reason = (
+        reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+
+    def _detail_row(field: str, value: str) -> str:
+        return f'<span style="color: #6B7280;">{field}:</span> {value}'
+
+    contact_display = (
+        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
+        f"{submitter_email}</a>"
+        if submitter_email
+        else "(none on file)"
+    )
+    detail_lines = [
+        _detail_row("TICKET", f"#{ticket_ref}"),
+        _detail_row("STATUS", "CLOSED BY USER"),
+        _detail_row("CATEGORY", label.upper()),
+        _detail_row("SUBJECT", subject),
+        _detail_row("USER_ID", user_id),
+        _detail_row("CONTACT", contact_display),
+    ]
+
+    row_1 = f"""
+          <tr>
+            <td style="padding: 40px 32px 24px 32px;">
+              <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
+                         BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+                         sans-serif; font-size: 22px; font-weight: 300;
+                         letter-spacing: 0.1em; color: #FFFFFF;
+                         text-transform: uppercase;">
+                {label} Closed #{ticket_ref}
+              </h1>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;
+                        color: #9CA3AF; font-weight: 400;">
+                {subject}
+              </p>
+            </td>
+          </tr>
+    """
+
+    row_2 = f"""
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                     style="background-color: rgba(255,255,255,0.01);
+                     border-left: 2px solid #00ADB5;">
+                <tr>
+                  <td style="padding: 16px; font-family: ui-monospace,
+                             SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                             font-size: 12px; line-height: 1.7; color: #4ECCA3;">
+                    {"<br />".join(detail_lines)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+
+    row_3 = f"""
+          <tr>
+            <td style="padding: 0 32px 40px 32px; font-size: 14px;
+                       line-height: 1.6; color: #E5E7EB;
+                       white-space: pre-wrap;">
+              Reason for closing: {escaped_reason}
+            </td>
+          </tr>
+    """
+
+    email_subject = f"[Closed] [#{ticket_ref}] [Nexus {label}] {subject}"
+
+    html_content = render_email_template(
+        rows_html=row_1 + row_2 + row_3,
+        subject=email_subject,
+        preheader_category="ADMIN",
+        preheader_action=f"CLOSE_{query_type.upper()}",
+        footer_html="",
+    )
+
+    text_content = (
+        f"Ticket Closed by User - {label} #{ticket_ref}\nSubject: {subject}\n"
+        f"User: {user_id}\nContact: {submitter_email or '(none on file)'}\n\n"
+        f"Reason for closing:\n{reason}"
+    )
+
+    props = SendEmailProps(
+        to=recipient,
+        subject=email_subject,
+        html=html_content,
+        text=text_content,
+        sender_email=f"support@{settings.email_domain}",
+        from_name="Nexus Support",
+        reply_to=submitter_email or None,
+    )
+
+    try:
+        logger.info(
+            "Sending feedback closed admin notification to %s for ticket #%s",
+            redact_email(recipient),
+            ticket_ref,
+        )
+        result = await send_email(props)
+        if not result.success:
+            logger.error(
+                "Failed to send feedback closed admin notification for ticket #%s: %s",
+                ticket_ref,
+                result.error,
+            )
+        return result
+    except Exception as err:
+        logger.exception(
+            "Unexpected exception sending feedback closed admin notification for ticket #%s",
             ticket_ref,
         )
         use_sp = should_use_sendpulse(recipient)
@@ -1113,8 +1412,8 @@ async def send_account_deletion_otp_email(email: str, otp_code: str) -> Provider
           You are receiving this security-related communication because an
           account deletion request was initiated for your Nexus account.
           If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.app_domain}" style="color: #EF4444;">
-          support@{settings.app_domain}</a>.
+          <a href="mailto:support@{settings.email_domain}" style="color: #EF4444;">
+          support@{settings.email_domain}</a>.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
              style="color: white">Privacy, Terms & Legal</a>
@@ -1222,8 +1521,8 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
           You are receiving this security-related communication because a
           personal data export request was initiated for your Nexus account.
           If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.app_domain}" style="color: #3B82F6;">
-          support@{settings.app_domain}</a>.
+          <a href="mailto:support@{settings.email_domain}" style="color: #3B82F6;">
+          support@{settings.email_domain}</a>.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
              style="color: white">Privacy, Terms & Legal</a>
@@ -1334,8 +1633,8 @@ async def send_support_appeal_otp_email(
           You are receiving this communication to verify your identity for a
           support request on your Nexus account.
           If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.app_domain}" style="color: #7C3AED;">
-          support@{settings.app_domain}</a>.
+          <a href="mailto:support@{settings.email_domain}" style="color: #7C3AED;">
+          support@{settings.email_domain}</a>.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
              style="color: white">Privacy, Terms & Legal</a>

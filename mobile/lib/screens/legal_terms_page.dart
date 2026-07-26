@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/config/app_config.dart';
 import 'package:nexus/widgets/aesthetic_loaders.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Terms of Service & Privacy Policy - a WebView pointed at the same
@@ -22,7 +23,7 @@ class LegalTermsPage extends StatefulWidget {
 
 class _LegalTermsPageState extends State<LegalTermsPage> {
   late final Uri _legalUri = Uri.parse(
-    '${AppConfig.current.backendUrl}/legal',
+    '${AppConfig.current.backendUrl}/legal?embed=true',
   );
 
   late final WebViewController _controller;
@@ -45,6 +46,36 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
       NavigationDelegate(
         onPageFinished: (_) async {
           if (mounted) setState(() => _isLoading = false);
+        },
+        onNavigationRequest: (request) async {
+          final uri = Uri.parse(request.url);
+          final scheme = uri.scheme.toLowerCase();
+
+          // If it's tel:, mailto:, sms:, or other non-HTTP URI scheme
+          if (scheme != 'http' && scheme != 'https') {
+            try {
+              final launched = await launchUrl(
+                uri,
+                mode: LaunchMode.externalApplication,
+              );
+              if (!launched && await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+            } on Exception catch (_) {
+              // Ignore launch errors if no handler app installed
+            }
+            return NavigationDecision.prevent;
+          }
+
+          // If it's an external HTTP/HTTPS link outside of the terms backend host
+          if (uri.host != _legalUri.host) {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+            return NavigationDecision.prevent;
+          }
+
+          return NavigationDecision.navigate;
         },
         onWebResourceError: (_) {
           if (mounted) {

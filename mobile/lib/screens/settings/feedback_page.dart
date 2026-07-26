@@ -17,6 +17,7 @@ import 'package:nexus/widgets/aesthetic_loaders.dart';
 import 'package:nexus/widgets/nexus_toast.dart';
 import 'package:nexus/widgets/scale_pressable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 class _PendingAttachment {
@@ -635,6 +636,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
     FeedbackTicketSummary ticket, {
     required bool showDivider,
   }) {
+    final accent = ticket.queryType.accentColor;
     return Column(
       children: [
         ScalePressable(
@@ -643,12 +645,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(
-                  ticket.queryType.icon,
-                  size: 16,
-                  color: const Color(0xFF94A3B8),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(
+                    ticket.queryType.icon,
+                    size: 16,
+                    color: accent,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,7 +678,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         feedbackRelativeTime(ticket.createdAt),
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: const Color(0xFF475569),
+                          color: const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -691,75 +701,119 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 
   Widget _buildQueryTypeSelector() {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: FeedbackQueryType.values.map((type) {
-          final selected = _queryType == type;
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                right: type == FeedbackQueryType.values.last ? 0 : 10,
-              ),
-              child: ScalePressable(
-                onTap: () => setState(() => _queryType = type),
-                child: AnimatedContainer(
-                  duration: 200.ms,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 8,
+    const types = FeedbackQueryType.values;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SELECT INQUIRY TOPIC',
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF64748B),
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: types.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: 94,
+          ),
+          itemBuilder: (context, index) {
+            final type = types[index];
+            final selected = _queryType == type;
+            final accent = type.accentColor;
+            return ScalePressable(
+              onTap: () => setState(() => _queryType = type),
+              child: AnimatedContainer(
+                duration: 200.ms,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.08)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected ? accent : const Color(0xFFE2E8F0),
+                    width: selected ? 1.8 : 1,
                   ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _gradientEnd.withValues(alpha: 0.08)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selected ? _gradientEnd : const Color(0xFFE2E8F0),
-                      width: selected ? 1.5 : 1,
+                  boxShadow: [
+                    if (selected)
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      )
+                    else
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.015),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? accent
+                                : accent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            type.icon,
+                            size: 14,
+                            color: selected ? Colors.white : accent,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            type.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: selected
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        type.icon,
-                        size: 20,
-                        color: selected
-                            ? _gradientEnd
-                            : const Color(0xFF94A3B8),
+                    const SizedBox(height: 6),
+                    Text(
+                      type.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 10.5,
+                        color: const Color(0xFF64748B),
+                        height: 1.25,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        type.label,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: selected
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        type.description,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: const Color(0xFF475569),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          );
-        }).toList(),
-      ),
+            );
+          },
+        ),
+      ],
     ).animate().fadeIn(delay: 60.ms, duration: 300.ms);
   }
 
@@ -781,6 +835,94 @@ class _FeedbackPageState extends State<FeedbackPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AnimatedSize(
+                duration: 200.ms,
+                child: _queryType == FeedbackQueryType.security
+                    ? Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFCD34D)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              LucideIcons.shieldAlert,
+                              size: 18,
+                              color: Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Reporting a Security Vulnerability?',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF92400E),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'For security vulnerabilities, please consider using our official GitHub Security Advisories portal:',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: const Color(0xFFB45309),
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final uri = Uri.parse(
+                                        'https://github.com/devakesu/Nexus/security/advisories/new',
+                                      );
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      }
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'https://github.com/devakesu/Nexus/security/advisories/new',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFFB45309),
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: const Color(
+                                                0xFFB45309,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          LucideIcons.externalLink,
+                                          size: 12,
+                                          color: Color(0xFFB45309),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               _buildLabel('SUBJECT'),
               const SizedBox(height: 8),
               _buildTextField(

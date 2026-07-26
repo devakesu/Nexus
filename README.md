@@ -281,7 +281,7 @@ docker run -d --name Nexus_Sandbox \
   -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
   -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
   -p 3000:3000 -p 8000:8000 -p 8080:8080 -p 4000:4000 -p 5001:5001 \
-  -p 8081:8081 -p 8085:8085 -p 8181:8181 -p 9099:9099 \
+  -p 8081:8081 -p 8085:8085 -p 9099:9099 \
   -p 54321:54321 -p 54322:54322 -p 54323:54323 \
   nexus-sandbox
 ```
