@@ -184,14 +184,13 @@ def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_public_user(user_id: str) -> dict[str, Any] | None:
-    """Fetch public user.
+    """Executes fetch public user operation.
 
         Args:
-            user_id: fetch public user.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         result = (
             supabase_client.table("users")
@@ -353,15 +352,14 @@ def upsert_public_user(
     user_id: str,
     app_variant: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    """Upsert public user.
+    """Executes upsert public user operation.
 
         Args:
-            user_id: upsert public user.
-            app_variant: upsert public user.
+            user_id: Unique UUID string of the authenticated user.
+            app_variant: Input app variant parameter.
 
         Returns:
-            tuple[dict[str, Any], bool]: Result value.
-        """
+            tuple[dict[str, Any], bool]: Response payload or result."""
     payload: dict[str, Any] = {
         "id": user_id,
     }
@@ -421,14 +419,13 @@ def upsert_public_user(
 
 
 def fetch_profile(user_id: str) -> dict[str, Any] | None:
-    """Fetch profile.
+    """Executes fetch profile operation.
 
         Args:
-            user_id: fetch profile.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         result = (
             supabase_client.table("profiles")
@@ -653,14 +650,13 @@ def _validate_import(
     """Validate import.
 
         Args:
-            source: validate import.
-            target: validate import.
-            target_variant: validate import.
-            source_user: validate import.
+            source: Input source parameter.
+            target: Input target parameter.
+            target_variant: Input target variant parameter.
+            source_user: Input source user parameter.
 
         Returns:
-            tuple[str, str]: Result value.
-        """
+            tuple[str, str]: Response payload or result."""
     # --- 2. Validate expiry ---
     now = datetime.now(timezone.utc)
     expires_raw = source.get("import_sync_expires_at")
@@ -713,12 +709,11 @@ def _fetch_import_profiles(
     """Fetch import profiles.
 
         Args:
-            sync_code: fetch import profiles.
-            target_user_id: fetch import profiles.
+            sync_code: Input sync code parameter.
+            target_user_id: UUID string of the target user profile.
 
         Returns:
-            tuple[dict[str, Any], dict[str, Any]]: Result value.
-        """
+            tuple[dict[str, Any], dict[str, Any]]: Response payload or result."""
     # --- 1. Fetch source profile by sync code ---
     try:
         source_res = (
@@ -859,11 +854,10 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
     """Parse terms timestamp.
 
         Args:
-            ts_raw: parse terms timestamp.
+            ts_raw: Input ts raw parameter.
 
         Returns:
-            datetime: Result value.
-        """
+            datetime: Response payload or result."""
     try:
         if isinstance(ts_raw, (str, datetime)):
             return parse_utc_datetime(ts_raw)
@@ -882,11 +876,7 @@ def _validate_terms_versions(version: str) -> None:
     """Validate terms versions.
 
         Args:
-            version: validate terms versions.
-
-        Returns:
-            None: Result value.
-        """
+            version: Input version parameter."""
     current_version = settings.current_terms_version.strip()
     cleaned_version = version.strip()
     try:
@@ -922,13 +912,12 @@ def _fetch_existing_consent_pair(
     """Fetch existing consent pair.
 
         Args:
-            user_id: fetch existing consent pair.
-            version_column: fetch existing consent pair.
-            timestamp_column: fetch existing consent pair.
+            user_id: Unique UUID string of the authenticated user.
+            version_column: Input version column parameter.
+            timestamp_column: Input timestamp column parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         existing_result = (
             supabase_client.table("users")
@@ -1104,16 +1093,15 @@ def update_user_terms(
     accepted_terms_version: str,
     granted: bool = True,
 ) -> tuple[str, datetime] | None:
-    """Update user terms.
+    """Executes update user terms operation.
 
         Args:
-            user_id: update user terms.
-            accepted_terms_version: update user terms.
-            granted: update user terms.
+            user_id: Unique UUID string of the authenticated user.
+            accepted_terms_version: Input accepted terms version parameter.
+            granted: Input granted parameter.
 
         Returns:
-            tuple[str, datetime] | None: Result value.
-        """
+            tuple[str, datetime] | None: Response payload or result."""
     cleaned_version = accepted_terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:
@@ -1132,16 +1120,15 @@ def update_special_category_consent(
     terms_version: str,
     granted: bool,
 ) -> tuple[str, datetime] | None:
-    """Update special category consent.
+    """Executes update special category consent operation.
 
         Args:
-            user_id: update special category consent.
-            terms_version: update special category consent.
-            granted: update special category consent.
+            user_id: Unique UUID string of the authenticated user.
+            terms_version: Input terms version parameter.
+            granted: Input granted parameter.
 
         Returns:
-            tuple[str, datetime] | None: Result value.
-        """
+            tuple[str, datetime] | None: Response payload or result."""
     cleaned_version = terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:
@@ -1165,16 +1152,15 @@ def update_safety_data_consent(
     terms_version: str,
     granted: bool,
 ) -> tuple[str, datetime] | None:
-    """Update safety data consent.
+    """Executes update safety data consent operation.
 
         Args:
-            user_id: update safety data consent.
-            terms_version: update safety data consent.
-            granted: update safety data consent.
+            user_id: Unique UUID string of the authenticated user.
+            terms_version: Input terms version parameter.
+            granted: Input granted parameter.
 
         Returns:
-            tuple[str, datetime] | None: Result value.
-        """
+            tuple[str, datetime] | None: Response payload or result."""
     cleaned_version = terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:

@@ -49,14 +49,13 @@ async def get_discovery_orbit(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
-    """Get discovery orbit.
+    """Executes get discovery orbit operation.
 
         Args:
-            request: get discovery orbit.
-            payload: get discovery orbit.
-            _device: get discovery orbit.
-            user_id: get discovery orbit.
-        """
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user."""
     _ = request
     active_tab = payload.tab
     filters = payload.filters
@@ -142,14 +141,13 @@ async def get_discovery_node_detail(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
-    """Get discovery node detail.
+    """Executes get discovery node detail operation.
 
         Args:
-            request: get discovery node detail.
-            payload: get discovery node detail.
-            _device: get discovery node detail.
-            user_id: get discovery node detail.
-        """
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user."""
     _ = request
 
     try:
@@ -222,14 +220,13 @@ async def get_discovery_viewport(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
-    """Get discovery viewport.
+    """Executes get discovery viewport operation.
 
         Args:
-            request: get discovery viewport.
-            payload: get discovery viewport.
-            _device: get discovery viewport.
-            user_id: get discovery viewport.
-        """
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user."""
     _ = request
 
     try:
@@ -303,12 +300,8 @@ async def _validate_discovery_action(
     """Validate discovery action.
 
         Args:
-            user_id: validate discovery action.
-            payload: validate discovery action.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user.
+            payload: Validated request body model containing parameters."""
     from app.db.exclusions import has_active_discovery_action
     from app.db.sessions import is_candidate_in_active_session
 
@@ -354,14 +347,19 @@ async def handle_discovery_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
-    """Handle discovery action.
+    """Records user swipe interaction (like, pass, superlike) on a discovery candidate.
 
         Args:
-            request: handle discovery action.
-            payload: handle discovery action.
-            _device: handle discovery action.
-            user_id: handle discovery action.
-        """
+            request: FastAPI HTTP request object used for rate limiting.
+            payload: Interaction payload with candidate ID, action type, and tab.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of swiping user.
+
+        Returns:
+            DiscoveryActionResponse: Match status boolean and mutual match details if created.
+
+        Raises:
+            HTTPException: 400 on invalid action, 503 on database failure."""
     _ = request
     try:
         await _validate_discovery_action(user_id, payload)

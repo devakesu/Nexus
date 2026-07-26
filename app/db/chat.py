@@ -97,14 +97,14 @@ def fetch_started_match_ids(user_id: str, tab: DiscoveryTab = "Dating") -> set[s
 
 
 def fetch_conversation_for_match(match_id: str) -> dict[str, Any] | None:
-    """Fetch conversation for match.
+    """Fetch the chat conversation record associated with a specific match ID.
 
-        Args:
-            match_id: fetch conversation for match.
+    Args:
+        match_id: Unique string UUID identifier of the match.
 
-        Returns:
-            dict[str, Any] | None: Result value.
-        """
+    Returns:
+        dict[str, Any] | None: Dictionary representing the conversation row, or None if not found.
+    """
     try:
         res = (
             supabase_client.table("chat_conversations")
@@ -241,14 +241,13 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
 
 
 def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:
-    """Fetch conversation participants.
+    """Executes fetch conversation participants operation.
 
         Args:
-            conversation_id: fetch conversation participants.
+            conversation_id: Input conversation id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_conversations")
@@ -273,18 +272,17 @@ def insert_message(
     ciphertext: str,
     ciphertext_metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    """Insert message.
+    """Executes insert message operation.
 
         Args:
-            conversation_id: insert message.
-            sender_id: insert message.
-            message_type: insert message.
-            ciphertext: insert message.
-            ciphertext_metadata: insert message.
+            conversation_id: Input conversation id parameter.
+            sender_id: Input sender id parameter.
+            message_type: Input message type parameter.
+            ciphertext: Input ciphertext parameter.
+            ciphertext_metadata: Input ciphertext metadata parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_messages")
@@ -312,14 +310,13 @@ def insert_message(
 
 
 def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
-    """Fetch user share flags.
+    """Executes fetch user share flags operation.
 
         Args:
-            user_id: fetch user share flags.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Response payload or result."""
     try:
         res = (
             supabase_client.table("profiles")
@@ -341,15 +338,11 @@ def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
 
 
 def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
-    """Upsert presence heartbeat.
+    """Executes upsert presence heartbeat operation.
 
         Args:
-            user_id: upsert presence heartbeat.
-            is_online: upsert presence heartbeat.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user.
+            is_online: Input is online parameter."""
     now = utcnow()
     try:
         supabase_client.table("chat_presence").upsert(
@@ -368,14 +361,13 @@ def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
 
 
 def fetch_presence(user_id: str) -> dict[str, Any] | None:
-    """Fetch presence.
+    """Executes fetch presence operation.
 
         Args:
-            user_id: fetch presence.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_presence")
@@ -416,11 +408,10 @@ def _decrypt_float_field(val: Any) -> float | None:
     """Decrypt float field.
 
         Args:
-            val: decrypt float field.
+            val: Input val parameter.
 
         Returns:
-            float | None: Result value.
-        """
+            float | None: Response payload or result."""
     if not val:
         return None
     from app.core.crypto import DecryptFailedError
@@ -435,11 +426,10 @@ def _decrypt_str_field(val: Any) -> str | None:
     """Decrypt str field.
 
         Args:
-            val: decrypt str field.
+            val: Input val parameter.
 
         Returns:
-            str | None: Result value.
-        """
+            str | None: Response payload or result."""
     if not val:
         return None
     from app.core.crypto import DecryptFailedError
@@ -449,14 +439,13 @@ def _decrypt_str_field(val: Any) -> str | None:
 
 
 def decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Decrypt event row.
+    """Executes decrypt event row operation.
 
         Args:
-            row: decrypt event row.
+            row: Input row parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     if row is None:
         return None
     from app.core.crypto import DecryptFailedError
@@ -553,14 +542,13 @@ def create_event_with_message(
 
 
 def fetch_event(event_id: str) -> dict[str, Any] | None:
-    """Fetch event.
+    """Executes fetch event operation.
 
         Args:
-            event_id: fetch event.
+            event_id: Input event id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_events")
@@ -582,15 +570,14 @@ def fetch_event(event_id: str) -> dict[str, Any] | None:
 
 
 def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
-    """Update event status.
+    """Executes update event status operation.
 
         Args:
-            event_id: update event status.
-            status: update event status.
+            event_id: Input event id parameter.
+            status: Input status parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_events")
@@ -642,14 +629,10 @@ def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
 
 
 def mark_reminder_sent(event_id: str) -> None:
-    """Mark reminder sent.
+    """Executes mark reminder sent operation.
 
         Args:
-            event_id: mark reminder sent.
-
-        Returns:
-            None: Result value.
-        """
+            event_id: Input event id parameter."""
     try:
         supabase_client.table("chat_events").update(
             {"reminder_sent_at": utcnow().isoformat()},
@@ -698,14 +681,10 @@ def fetch_due_safety_reminders(window_minutes: int = 35) -> list[dict[str, Any]]
 
 
 def mark_safety_reminder_sent(event_id: str) -> None:
-    """Mark safety reminder sent.
+    """Executes mark safety reminder sent operation.
 
         Args:
-            event_id: mark safety reminder sent.
-
-        Returns:
-            None: Result value.
-        """
+            event_id: Input event id parameter."""
     try:
         supabase_client.table("chat_events").update(
             {"safety_reminder_sent_at": utcnow().isoformat()},

@@ -31,16 +31,19 @@ def get_or_validate_session(
     user_id: str,
     active_tab: DiscoveryTab | None = None,
 ) -> tuple[str, datetime]:
-    """Get or validate session.
+    """Retrieve and validate an existing discovery session for expiration and viewer ownership.
 
-        Args:
-            session_id: get or validate session.
-            user_id: get or validate session.
-            active_tab: get or validate session.
+    Args:
+        session_id: Unique string UUID identifier of the session.
+        user_id: Unique UUID string identifier of the authenticated viewer.
+        active_tab: Active discovery tab category ('Dating', 'Friends', or 'Professional').
 
-        Returns:
-            tuple[str, datetime]: Result value.
-        """
+    Returns:
+        tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
+
+    Raises:
+        HTTPException: 404 if session not found, 410 if session expired, 500 if timestamp malformed.
+    """
     if active_tab is not None:
         session = get_discovery_session(
             session_id=session_id,
@@ -78,16 +81,16 @@ def create_new_discovery_session(
     active_tab: DiscoveryTab,
     filters: DiscoveryFilters,
 ) -> tuple[str, datetime]:
-    """Create new discovery session.
+    """Fetch candidate pool, run matchmaking engine, and persist a new discovery session.
 
-        Args:
-            user_id: create new discovery session.
-            active_tab: create new discovery session.
-            filters: create new discovery session.
+    Args:
+        user_id: Unique UUID string identifier of the requesting user.
+        active_tab: Active discovery tab category ('Dating', 'Friends', or 'Professional').
+        filters: Discovery search filter preferences.
 
-        Returns:
-            tuple[str, datetime]: Result value.
-        """
+    Returns:
+        tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
+    """
     viewer, candidate_pool = fetch_stage_1_candidates(
         viewer_id=user_id,
         active_tab=active_tab,

@@ -66,11 +66,10 @@ def _parse_matched_at(raw_ts: Any) -> datetime:
     """Parse matched at.
 
         Args:
-            raw_ts: parse matched at.
+            raw_ts: Input raw ts parameter.
 
         Returns:
-            datetime: Result value.
-        """
+            datetime: Response payload or result."""
     with suppress(Exception):
         if isinstance(raw_ts, (str, datetime)):
             return parse_utc_datetime(raw_ts)
@@ -85,17 +84,17 @@ async def get_likes_inbox(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> LikesListResponse:
-    """Get likes inbox.
+    """Fetches incoming likes received by the caller filtered by discovery tab.
 
         Args:
-            request: get likes inbox.
-            tab: get likes inbox.
-            _device: get likes inbox.
-            user_id: get likes inbox.
+            request: FastAPI HTTP request object used for rate limiting.
+            tab: Discovery tab category ('Dating', 'BFF', 'Networking').
+            limit: Maximum number of incoming likes to return.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of authenticated recipient.
 
         Returns:
-            LikesListResponse: Result value.
-        """
+            LikesInboxResponse: List of liker profile cards and timestamps."""
     _ = request
     try:
         like_rows = await asyncio.to_thread(fetch_likes_for_user, user_id, tab)
@@ -170,17 +169,16 @@ async def mark_likes_as_seen(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Mark likes as seen.
+    """Marks unseen incoming likes as viewed in the user inbox.
 
         Args:
-            request: mark likes as seen.
-            payload: mark likes as seen.
-            _device: mark likes as seen.
-            user_id: mark likes as seen.
+            request: FastAPI HTTP request object used for rate limiting.
+            tab: Discovery tab category.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of authenticated recipient.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Success status dict."""
     _ = request
     try:
         actor_ids: list[str] | None = (
@@ -207,13 +205,12 @@ async def _verify_peer_access_and_infer_tab(
     """Verify peer access and infer tab.
 
         Args:
-            target_id: verify peer access and infer tab.
-            user_id_normalized: verify peer access and infer tab.
-            default_tab: verify peer access and infer tab.
+            target_id: Input target id parameter.
+            user_id_normalized: Input user id normalized parameter.
+            default_tab: Input default tab parameter.
 
         Returns:
-            DiscoveryTab: Result value.
-        """
+            DiscoveryTab: Response payload or result."""
     query_like = supabase_client.table(
         "profile_discovery_actions",
     ).select("id, tab")
@@ -265,17 +262,20 @@ async def get_peer_profile(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> OrbitNodeDetailResponse:
-    """Get peer profile.
+    """Retrieves decrypted profile information of a peer with verified access control.
 
         Args:
-            request: get peer profile.
-            payload: get peer profile.
-            _device: get peer profile.
-            user_id: get peer profile.
+            request: FastAPI HTTP request object used for rate limiting.
+            target_user_id: UUID string of peer candidate or match.
+            tab: Optional discovery tab filter.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of requesting user.
 
         Returns:
-            OrbitNodeDetailResponse: Result value.
-        """
+            dict[str, Any]: Decrypted peer profile payload.
+
+        Raises:
+            HTTPException: 403 if access permission is denied, 404 if profile missing."""
     _ = request
     try:
         target_id = str(uuid.UUID(payload.target_id)).lower()
@@ -373,17 +373,16 @@ async def record_like_back_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> LikeActionResponse:
-    """Record like back action.
+    """Processes a response swipe to an incoming like (accepting into match or rejecting).
 
         Args:
-            request: record like back action.
-            payload: record like back action.
-            _device: record like back action.
-            user_id: record like back action.
+            request: FastAPI HTTP request object used for rate limiting.
+            payload: Like back action payload.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of swiping user.
 
         Returns:
-            LikeActionResponse: Result value.
-        """
+            dict[str, Any]: Match creation outcome payload."""
     _ = request
     try:
         if payload.action == "report":
@@ -468,17 +467,16 @@ async def get_matches(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> MatchesListResponse:
-    """Get matches.
+    """Retrieves active mutual matches for the user across discovery tabs.
 
         Args:
-            request: get matches.
-            tab: get matches.
-            _device: get matches.
-            user_id: get matches.
+            request: FastAPI HTTP request object used for rate limiting.
+            tab: Discovery tab category filter.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of authenticated user.
 
         Returns:
-            MatchesListResponse: Result value.
-        """
+            MatchesListResponse: List of active match summaries."""
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_matches_for_user, user_id, tab)
@@ -543,17 +541,16 @@ async def record_match_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> MatchActionResponse:
-    """Record match action.
+    """Executes match management actions such as unmatching or blocking a matched user.
 
         Args:
-            request: record match action.
-            payload: record match action.
-            _device: record match action.
-            user_id: record match action.
+            request: FastAPI HTTP request object used for rate limiting.
+            payload: Match action payload specifying target user and action type.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of caller.
 
         Returns:
-            MatchActionResponse: Result value.
-        """
+            dict[str, bool]: Success status dict."""
     _ = request
     try:
         if payload.action == "report":

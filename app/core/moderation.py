@@ -95,15 +95,12 @@ class NameModerationError(Exception):
     """
 
     def __init__(self, reason: str, detail: str) -> None:
-        """Init  .
+        """Initialize NameModerationError with rejection reason and detailed message.
 
-            Args:
-                reason: init  .
-                detail: init  .
-
-            Returns:
-                None: Result value.
-            """
+        Args:
+            reason: Category of moderation failure ("digits", "title", or "profanity").
+            detail: Safe, human-readable error explanation for client display.
+        """
         self.reason = reason  # "digits" | "title" | "profanity"
         self.detail = detail
         super().__init__(detail)

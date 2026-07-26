@@ -127,8 +127,7 @@ def _get_anchor_vecs() -> dict[str, NDArray[np.float32]]:
     """Get anchor vecs.
 
         Returns:
-            dict[str, NDArray[np.float32]]: Result value.
-        """
+            dict[str, NDArray[np.float32]]: Response payload or result."""
     global _anchor_vecs
     if _anchor_vecs is None:
         model = get_embedding_model()
@@ -147,14 +146,13 @@ def _get_anchor_vecs() -> dict[str, NDArray[np.float32]]:
 
 
 def _sim_to_score(sim: float) -> int:
-    """Sim to score.
+    """Executes sim to score operation.
 
         Args:
-            sim: sim to score.
+            sim: Input sim parameter.
 
         Returns:
-            int: Result value.
-        """
+            int: Response payload or result."""
     clamped = max(_SIM_FLOOR, min(_SIM_CEIL, sim))
     return round((clamped - _SIM_FLOOR) / (_SIM_CEIL - _SIM_FLOOR) * 9)
 
@@ -292,14 +290,10 @@ def derive_value_dimensions(
 
 
 def recompile_value_dimensions(user_id: str) -> None:
-    """Recompile value dimensions.
+    """Executes recompile value dimensions operation.
 
         Args:
-            user_id: recompile value dimensions.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     try:
         res = (
             supabase_client.table("profiles")

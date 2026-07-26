@@ -37,14 +37,17 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def get_bearer_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> str:
-    """Get bearer token.
+    """Extract and validate the required HTTP Bearer token from request headers.
 
-        Args:
-            credentials: get bearer token.
+    Args:
+        credentials: Captured Authorization header credentials.
 
-        Returns:
-            str: Result value.
-        """
+    Returns:
+        str: Raw JWT Bearer token string.
+
+    Raises:
+        HTTPException: 401 Unauthorized if Authorization header is missing or non-Bearer.
+    """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,14 +59,14 @@ def get_bearer_token(
 def get_optional_bearer_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> str | None:
-    """Get optional bearer token.
+    """Extract optional HTTP Bearer token from request headers if present.
 
-        Args:
-            credentials: get optional bearer token.
+    Args:
+        credentials: Captured Authorization header credentials.
 
-        Returns:
-            str | None: Result value.
-        """
+    Returns:
+        str | None: Raw JWT Bearer token string if present, or None.
+    """
     if credentials is None or credentials.scheme.lower() != "bearer":
         return None
     return credentials.credentials
@@ -74,22 +77,24 @@ def get_optional_bearer_token(
 # ---------------------------------------------------------------------------
 
 
-
 def _decode_jwt(
     token: str,
     secret: str | dict[str, Any],
     public_key: Any,
 ) -> dict[str, Any]:
-    """Decode jwt.
+    """Decode and verify a JWT payload using configured ES256 (JWKS) or HS256 algorithm.
 
-        Args:
-            token: decode jwt.
-            secret: decode jwt.
-            public_key: decode jwt.
+    Args:
+        token: Raw JWT string.
+        secret: Symmetric HS256 secret or JWKS dict fallback.
+        public_key: Verified JWKS ES256 public key object.
 
-        Returns:
-            dict[str, Any]: Result value.
-        """
+    Returns:
+        dict[str, Any]: Decoded JWT claims dictionary.
+
+    Raises:
+        jwt.InvalidTokenError: If token signature or claim verification fails.
+    """
     if settings.is_jwks:
         return jwt.decode(
             token,
@@ -112,14 +117,13 @@ def _decode_jwt(
 async def get_authenticated_user_payload(
     token: str = Depends(get_bearer_token),
 ) -> dict[str, Any]:
-    """Get authenticated user payload.
+    """Executes get authenticated user payload operation.
 
         Args:
-            token: get authenticated user payload.
+            token: Input token parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         secret = settings.supabase_jwt_secret
         public_key = None
@@ -173,14 +177,13 @@ async def _update_presence_if_needed(user_id: str) -> None:
 async def get_authenticated_user_id(
     payload: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> str:
-    """Get authenticated user id.
+    """Executes get authenticated user id operation.
 
         Args:
-            payload: get authenticated user id.
+            payload: Validated request body model containing parameters.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     user_id = payload["sub"]
     task = asyncio.create_task(_update_presence_if_needed(user_id))
     _background_tasks.add(task)
@@ -191,14 +194,13 @@ async def get_authenticated_user_id(
 async def get_optional_authenticated_user_id(
     token: str | None = Depends(get_optional_bearer_token),
 ) -> str | None:
-    """Get optional authenticated user id.
+    """Executes get optional authenticated user id operation.
 
         Args:
-            token: get optional authenticated user id.
+            token: Input token parameter.
 
         Returns:
-            str | None: Result value.
-        """
+            str | None: Response payload or result."""
     if not token:
         return None
     try:
@@ -215,14 +217,13 @@ async def get_optional_authenticated_user_id(
 
 
 async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
-    """Get cached public user.
+    """Executes get cached public user operation.
 
         Args:
-            user_id: get cached public user.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     redis_key = f"user:status:{user_id}"
     try:
         cached = await redis_client.get(redis_key)
@@ -245,14 +246,13 @@ async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
 async def get_active_user_id(
     user_id: str = Depends(get_authenticated_user_id),
 ) -> str:
-    """Get active user id.
+    """Executes get active user id operation.
 
         Args:
-            user_id: get active user id.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     user_row = await get_cached_public_user(user_id)
     if not user_row:
         raise HTTPException(
@@ -413,14 +413,10 @@ def assert_special_category_consent(user_row: dict[str, Any]) -> None:
 def verify_app_check_token(
     x_firebase_appcheck: str | None = Header(None),
 ) -> None:
-    """Verify app check token.
+    """Executes verify app check token operation.
 
         Args:
-            x_firebase_appcheck: verify app check token.
-
-        Returns:
-            None: Result value.
-        """
+            x_firebase_appcheck: Input x firebase appcheck parameter."""
     if not settings.enforce_app_check:
         return
 

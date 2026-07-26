@@ -89,15 +89,14 @@ def _safe_select(
 
 
 def _sign_urls(bucket: str, paths: list[str]) -> dict[str, str]:
-    """Sign urls.
+    """Executes sign urls operation.
 
         Args:
-            bucket: sign urls.
-            paths: sign urls.
+            bucket: Input bucket parameter.
+            paths: Input paths parameter.
 
         Returns:
-            dict[str, str]: Result value.
-        """
+            dict[str, str]: Response payload or result."""
     unique_paths = list(dict.fromkeys(p for p in paths if p))
     if not unique_paths:
         return {}
@@ -121,11 +120,10 @@ def _build_profile_section(user_id: str) -> dict[str, Any]:
     """Build profile section.
 
         Args:
-            user_id: build profile section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         res = (
             supabase_client.table("profiles")
@@ -171,11 +169,10 @@ def _build_account_section(user_id: str) -> dict[str, Any]:
     """Build account section.
 
         Args:
-            user_id: build account section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         res = (
             supabase_client.table("users")
@@ -199,11 +196,10 @@ def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
     """Build matches and discovery.
 
         Args:
-            user_id: build matches and discovery.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         matches_res = (
             supabase_client.table("matches")
@@ -235,11 +231,10 @@ def _build_chat_section(user_id: str) -> dict[str, Any]:
     """Build chat section.
 
         Args:
-            user_id: build chat section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         conv_res = (
             supabase_client.table("chat_conversations")
@@ -325,11 +320,10 @@ def _build_reports_section(user_id: str) -> dict[str, Any]:
     """Build reports section.
 
         Args:
-            user_id: build reports section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     filed_by_you: list[dict[str, Any]] = []
     against_you: list[dict[str, Any]] = []
     try:
@@ -385,11 +379,10 @@ def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
     """Build feedback section.
 
         Args:
-            user_id: build feedback section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     tickets = _safe_select(
         "feedback_reports",
         "id, query_type, subject, message, status, created_at, updated_at",
@@ -434,11 +427,10 @@ def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
     """Build safety alerts.
 
         Args:
-            user_id: build safety alerts.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     alerts: list[dict[str, Any]] = []
     try:
         alerts_res = (
@@ -469,11 +461,10 @@ def _build_safety_evidence(user_id: str) -> list[dict[str, Any]]:
     """Build safety evidence.
 
         Args:
-            user_id: build safety evidence.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     evidence: list[dict[str, Any]] = []
     try:
         evidence_res = (
@@ -514,11 +505,10 @@ def _build_safety_section(user_id: str) -> dict[str, Any]:
     """Build safety section.
 
         Args:
-            user_id: build safety section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         contacts = fetch_safety_contacts(user_id)
     except Exception:
@@ -546,11 +536,10 @@ def _build_spotify_section(user_id: str) -> list[dict[str, Any]]:
     """Build spotify section.
 
         Args:
-            user_id: build spotify section.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     try:
         return fetch_playlists_for_owner(user_id)
     except Exception:
@@ -565,11 +554,10 @@ def _build_consent_history(user_id: str) -> list[dict[str, Any]]:
     """Build consent history.
 
         Args:
-            user_id: build consent history.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     return _safe_select(
         "terms_consent_log",
         "category, granted, terms_version, created_at",

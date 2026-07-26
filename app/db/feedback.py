@@ -40,21 +40,20 @@ def _build_feedback_payload(
     """Build feedback payload.
 
         Args:
-            user_id: build feedback payload.
-            query_type: build feedback payload.
-            subject: build feedback payload.
-            message: build feedback payload.
-            github_issue_url: build feedback payload.
-            attachment_paths: build feedback payload.
-            app_version: build feedback payload.
-            platform: build feedback payload.
-            device_info: build feedback payload.
-            contact_email: build feedback payload.
-            metadata: build feedback payload.
+            user_id: Unique UUID string of the authenticated user.
+            query_type: Input query type parameter.
+            subject: Input subject parameter.
+            message: Input message parameter.
+            github_issue_url: Input github issue url parameter.
+            attachment_paths: Input attachment paths parameter.
+            app_version: Input app version parameter.
+            platform: Operating system platform identifier ('android' or 'ios').
+            device_info: Input device info parameter.
+            contact_email: Input contact email parameter.
+            metadata: Input metadata parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     final_metadata = dict(metadata or {})
     if contact_email:
         final_metadata["contact_email"] = contact_email.strip().lower()
@@ -199,14 +198,13 @@ def fetch_ticket_report(user_id: str, report_id: str) -> dict[str, Any] | None:
 
 
 def fetch_ticket_status_history(report_id: str) -> list[dict[str, Any]]:
-    """Fetch ticket status history.
+    """Executes fetch ticket status history operation.
 
         Args:
-            report_id: fetch ticket status history.
+            report_id: Input report id parameter.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     try:
         res = (
             supabase_client.table("feedback_report_status_history")
@@ -225,14 +223,13 @@ def fetch_ticket_status_history(report_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_ticket_comments(report_id: str) -> list[dict[str, Any]]:
-    """Fetch ticket comments.
+    """Executes fetch ticket comments operation.
 
         Args:
-            report_id: fetch ticket comments.
+            report_id: Input report id parameter.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     try:
         res = (
             supabase_client.table("feedback_report_comments")
@@ -251,16 +248,15 @@ def fetch_ticket_comments(report_id: str) -> list[dict[str, Any]]:
 
 
 def add_ticket_comment(report_id: str, author_id: str, body: str) -> dict[str, Any]:
-    """Add ticket comment.
+    """Executes add ticket comment operation.
 
         Args:
-            report_id: add ticket comment.
-            author_id: add ticket comment.
-            body: add ticket comment.
+            report_id: Input report id parameter.
+            author_id: Input author id parameter.
+            body: Input body parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     try:
         comment_payload = {
             "report_id": report_id,

@@ -32,11 +32,7 @@ def safe_create_task(
         import anyio.from_thread
 
         async def _schedule() -> None:
-            """Schedule.
-
-                Returns:
-                    None: Result value.
-                """
+            """Schedule the target coroutine onto the running event loop."""
             safe_create_task(coro)
 
         with suppress(Exception):
@@ -46,14 +42,11 @@ def safe_create_task(
     task = asyncio.create_task(coro)
 
     def done_callback(t: asyncio.Task[Any]) -> None:
-        """Done callback.
+        """Callback invoked upon task completion to capture and report unhandled exceptions to Sentry.
 
-            Args:
-                t: done callback.
-
-            Returns:
-                None: Result value.
-            """
+        Args:
+            t: The completed asyncio.Task instance.
+        """
         try:
             exc = t.exception()
             if exc:

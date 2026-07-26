@@ -104,17 +104,16 @@ async def put_safety_contacts(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyContactsSyncResponse:
-    """Put safety contacts.
+    """Updates the caller's trusted contact list for Meetup Safety monitoring.
 
         Args:
-            request: put safety contacts.
-            payload: put safety contacts.
-            _device: put safety contacts.
-            user_id: put safety contacts.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            SafetyContactsSyncResponse: Result value.
-        """
+            SafetyContactsSyncResponse: Response payload or result."""
     _ = request
     try:
         blocked, newly_notified = await asyncio.to_thread(
@@ -398,17 +397,16 @@ async def end_session(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, bool]:
-    """End session.
+    """Concludes an active Meetup Safety check-in monitoring session.
 
         Args:
-            request: end session.
-            payload: end session.
-            _device: end session.
-            user_id: end session.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Response payload or result."""
     _ = request
     try:
         await asyncio.to_thread(end_safety_session, user_id, payload.session_id)

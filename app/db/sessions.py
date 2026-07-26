@@ -38,18 +38,17 @@ def create_discovery_session(
     ranked_items: list[dict[str, Any]],
     expires_in_minutes: int = 60,
 ) -> tuple[str, datetime]:
-    """Create discovery session.
+    """Executes create discovery session operation.
 
         Args:
-            viewer_id: create discovery session.
-            active_tab: create discovery session.
-            filters: create discovery session.
-            ranked_items: create discovery session.
-            expires_in_minutes: create discovery session.
+            viewer_id: Input viewer id parameter.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
+            filters: Input filters parameter.
+            ranked_items: Input ranked items parameter.
+            expires_in_minutes: Input expires in minutes parameter.
 
         Returns:
-            tuple[str, datetime]: Result value.
-        """
+            tuple[str, datetime]: Response payload or result."""
     expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
 
     positioned_items = assign_orbit_positions(
@@ -129,16 +128,15 @@ def get_discovery_session(
     viewer_id: str,
     active_tab: DiscoveryTab,
 ) -> dict[str, Any] | None:
-    """Get discovery session.
+    """Executes get discovery session operation.
 
         Args:
-            session_id: get discovery session.
-            viewer_id: get discovery session.
-            active_tab: get discovery session.
+            session_id: Input session id parameter.
+            viewer_id: Input viewer id parameter.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("discovery_sessions")
@@ -179,15 +177,14 @@ def get_discovery_session_by_id(
     session_id: str,
     viewer_id: str,
 ) -> dict[str, Any] | None:
-    """Get discovery session by id.
+    """Executes get discovery session by id operation.
 
         Args:
-            session_id: get discovery session by id.
-            viewer_id: get discovery session by id.
+            session_id: Input session id parameter.
+            viewer_id: Input viewer id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         response = (
             supabase_client.table("discovery_sessions")
@@ -239,15 +236,14 @@ async def _filter_and_sort_viewport_items(
     """Filter and sort viewport items.
 
         Args:
-            rows: filter and sort viewport items.
-            viewer_id: filter and sort viewport items.
-            center_x: filter and sort viewport items.
-            center_y: filter and sort viewport items.
-            radius: filter and sort viewport items.
+            rows: Input rows parameter.
+            viewer_id: Input viewer id parameter.
+            center_x: Input center x parameter.
+            center_y: Input center y parameter.
+            radius: Input radius parameter.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     # Note: Double exclusion filtering is intentional here. Exclusions (hide,
     # pass, like, superlike) are pre-filtered at session generation time.
     # However, we re-fetch and re-check block IDs from Redis here to catch
@@ -316,12 +312,11 @@ def _fetch_total_session_items_count(session_id: str, viewer_id: str) -> int:
     """Fetch total session items count.
 
         Args:
-            session_id: fetch total session items count.
-            viewer_id: fetch total session items count.
+            session_id: Input session id parameter.
+            viewer_id: Input viewer id parameter.
 
         Returns:
-            int: Result value.
-        """
+            int: Response payload or result."""
     try:
         count_res = (
             supabase_client.table("discovery_session_items")
@@ -454,11 +449,10 @@ def _verify_session_not_expired(session: dict[str, Any]) -> bool:
     """Verify session not expired.
 
         Args:
-            session: verify session not expired.
+            session: Input session parameter.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     expires_at_raw = session.get("expires_at")
     if not isinstance(expires_at_raw, (str, datetime)):
         return False
@@ -476,16 +470,15 @@ def _build_node_detail_payload(
     """Build node detail payload.
 
         Args:
-            row: build node detail payload.
-            profile: build node detail payload.
-            cid: build node detail payload.
-            session_id: build node detail payload.
-            viewer_id: build node detail payload.
-            candidate_id: build node detail payload.
+            row: Input row parameter.
+            profile: Input profile parameter.
+            cid: Input cid parameter.
+            session_id: Input session id parameter.
+            viewer_id: Input viewer id parameter.
+            candidate_id: Input candidate id parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     from app.core.crypto import DecryptFailedError
 
     try:
@@ -691,12 +684,11 @@ async def _validate_discovery_node_data(
     """Validate discovery node data.
 
         Args:
-            row: validate discovery node data.
-            viewer_id: validate discovery node data.
+            row: Input row parameter.
+            viewer_id: Input viewer id parameter.
 
         Returns:
-            tuple[DiscoveryTab, dict[str, Any], str] | None: Result value.
-        """
+            tuple[DiscoveryTab, dict[str, Any], str] | None: Response payload or result."""
     session_raw = row.get("discovery_sessions")
     session = (
         cast(dict[str, Any], session_raw) if isinstance(session_raw, dict) else None
@@ -730,15 +722,14 @@ async def _validate_discovery_node_data(
 
 
 def is_candidate_in_active_session(viewer_id: str, candidate_id: str) -> bool:
-    """Is candidate in active session.
+    """Executes is candidate in active session operation.
 
         Args:
-            viewer_id: is candidate in active session.
-            candidate_id: is candidate in active session.
+            viewer_id: Input viewer id parameter.
+            candidate_id: Input candidate id parameter.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     try:
         now = utcnow()
         res = (

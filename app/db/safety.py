@@ -44,11 +44,10 @@ def _phone_blind_index(phone: str) -> str:
     """Phone blind index.
 
         Args:
-            phone: phone blind index.
+            phone: Input phone parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return compute_blind_index(normalize_phone(phone))
 
 
@@ -135,14 +134,13 @@ def sync_safety_contacts(
 
 
 def fetch_safety_contacts(user_id: str) -> list[dict[str, Any]]:
-    """Fetch safety contacts.
+    """Executes fetch safety contacts operation.
 
         Args:
-            user_id: fetch safety contacts.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     try:
         res = (
             supabase_client.table("safety_contacts")
@@ -194,14 +192,13 @@ def fetch_safety_contacts_with_id(user_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_safety_contact_by_id(contact_id: str) -> dict[str, Any] | None:
-    """Fetch safety contact by id.
+    """Executes fetch safety contact by id operation.
 
         Args:
-            contact_id: fetch safety contact by id.
+            contact_id: Input contact id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("safety_contacts")
@@ -306,17 +303,16 @@ def record_safety_alert(
     current_location: dict[str, float] | None,
     session_id: str | None = None,
 ) -> dict[str, Any]:
-    """Record safety alert.
+    """Executes record safety alert operation.
 
         Args:
-            user_id: record safety alert.
-            alert_type: record safety alert.
-            current_location: record safety alert.
-            session_id: record safety alert.
+            user_id: Unique UUID string of the authenticated user.
+            alert_type: Input alert type parameter.
+            current_location: Input current location parameter.
+            session_id: Input session id parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     payload: dict[str, Any] = {"user_id": user_id, "alert_type": alert_type}
     if current_location is not None:
         payload["current_location"] = encrypt_to_hex(json.dumps(current_location))
@@ -343,14 +339,13 @@ def record_safety_alert(
 
 
 def fetch_safety_alert(alert_id: str) -> dict[str, Any] | None:
-    """Fetch safety alert.
+    """Executes fetch safety alert operation.
 
         Args:
-            alert_id: fetch safety alert.
+            alert_id: Input alert id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("safety_alerts")
@@ -368,15 +363,11 @@ def fetch_safety_alert(alert_id: str) -> dict[str, Any] | None:
 
 
 def update_alert_contacts_notified(alert_id: str, count: int) -> None:
-    """Update alert contacts notified.
+    """Executes update alert contacts notified operation.
 
         Args:
-            alert_id: update alert contacts notified.
-            count: update alert contacts notified.
-
-        Returns:
-            None: Result value.
-        """
+            alert_id: Input alert id parameter.
+            count: Input count parameter."""
     try:
         supabase_client.table("safety_alerts").update(
             {"contacts_notified": count},
@@ -399,19 +390,18 @@ def register_safety_evidence(
     content_type: str,
     duration_seconds: float | None,
 ) -> dict[str, Any]:
-    """Register safety evidence.
+    """Executes register safety evidence operation.
 
         Args:
-            user_id: register safety evidence.
-            alert_id: register safety evidence.
-            storage_path: register safety evidence.
-            media_key_base64: register safety evidence.
-            content_type: register safety evidence.
-            duration_seconds: register safety evidence.
+            user_id: Unique UUID string of the authenticated user.
+            alert_id: Input alert id parameter.
+            storage_path: Input storage path parameter.
+            media_key_base64: Input media key base64 parameter.
+            content_type: Input content type parameter.
+            duration_seconds: Input duration seconds parameter.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     # media_key_base64 (the per-file AES-GCM decryption key) is
     # Fernet-encrypted at rest, same pattern already used for
     # safety_contacts.name/phone and safety_alerts.current_location in this
@@ -548,15 +538,11 @@ def heartbeat_safety_session(
 
 
 def end_safety_session(user_id: str, session_id: str) -> None:
-    """End safety session.
+    """Executes end safety session operation.
 
         Args:
-            user_id: end safety session.
-            session_id: end safety session.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user.
+            session_id: Input session id parameter."""
     try:
         supabase_client.table("safety_sessions").update(
             {"status": "ended"},
@@ -594,15 +580,11 @@ def fetch_overdue_safety_sessions(grace_seconds: int) -> list[dict[str, Any]]:
 
 
 def record_safety_escalation_sent(session_id: str, new_count: int) -> None:
-    """Record safety escalation sent.
+    """Executes record safety escalation sent operation.
 
         Args:
-            session_id: record safety escalation sent.
-            new_count: record safety escalation sent.
-
-        Returns:
-            None: Result value.
-        """
+            session_id: Input session id parameter.
+            new_count: Input new count parameter."""
     try:
         supabase_client.table("safety_sessions").update(
             {
@@ -619,14 +601,13 @@ def record_safety_escalation_sent(session_id: str, new_count: int) -> None:
 
 
 def fetch_safety_session(session_id: str) -> dict[str, Any] | None:
-    """Fetch safety session.
+    """Executes fetch safety session operation.
 
         Args:
-            session_id: fetch safety session.
+            session_id: Input session id parameter.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("safety_sessions")
@@ -722,14 +703,13 @@ def fetch_alerts_for_session(session_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_evidence_for_alert_ids(alert_ids: list[str]) -> list[dict[str, Any]]:
-    """Fetch evidence for alert ids.
+    """Executes fetch evidence for alert ids operation.
 
         Args:
-            alert_ids: fetch evidence for alert ids.
+            alert_ids: Input alert ids parameter.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     if not alert_ids:
         return []
     try:

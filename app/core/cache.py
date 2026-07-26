@@ -43,11 +43,7 @@ def invalidate_user_status_cache(user_id: str) -> None:
         from app.core.tasks import safe_create_task
 
         async def _delete_key() -> None:
-            """Delete key.
-
-                Returns:
-                    None: Result value.
-                """
+            """Asynchronously delete the cached user status key from Redis."""
             await redis_client.delete(f"user:status:{user_id}")
 
         safe_create_task(_delete_key())

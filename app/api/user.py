@@ -137,13 +137,9 @@ async def _validate_auth_user_allowed(
     """Validate auth user allowed.
 
         Args:
-            email: validate auth user allowed.
-            user_id: validate auth user allowed.
-            app_variant: validate auth user allowed.
-
-        Returns:
-            None: Result value.
-        """
+            email: Email address string.
+            user_id: Unique UUID string of the authenticated user.
+            app_variant: Input app variant parameter."""
     if email:
         is_disposable = await run_in_threadpool(is_disposable_email, email)
         if is_disposable:
@@ -196,15 +192,19 @@ async def auth_bootstrap(
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
     x_app_variant: str | None = Header(None, alias="X-App-Variant"),
 ):
-    """Auth bootstrap.
+    """Bootstraps caller account record upon authentication and enforces initial terms acceptance checks.
 
         Args:
-            request: auth bootstrap.
-            background_tasks: auth bootstrap.
-            _device: auth bootstrap.
-            auth_user: auth bootstrap.
-            x_app_variant: auth bootstrap.
-        """
+            request: FastAPI HTTP request object used for rate limiting.
+            background_tasks: Background task queue for welcome email dispatch.
+            _device: App Check attestation token dependency guard.
+            auth_payload: Decoded Supabase JWT auth payload.
+
+        Returns:
+            AuthBootstrapResponse: User account bootstrap details including active status and terms acceptance.
+
+        Raises:
+            HTTPException: 403 if account is suspended or email domain is unauthorized."""
     _ = request
 
     user_id = str(auth_user.get("id") or "").strip()
@@ -403,11 +403,10 @@ def _account_otp_key(user_id: str) -> str:
     """Account otp key.
 
         Args:
-            user_id: account otp key.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"account_phone_otp:otp:{user_id}"
 
 
@@ -415,11 +414,10 @@ def _account_otp_attempts_key(user_id: str) -> str:
     """Account otp attempts key.
 
         Args:
-            user_id: account otp attempts key.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"account_phone_otp:attempts:{user_id}"
 
 
@@ -427,11 +425,10 @@ def _account_otp_resend_key(user_id: str) -> str:
     """Account otp resend key.
 
         Args:
-            user_id: account otp resend key.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"account_phone_otp:resend:{user_id}"
 
 
@@ -446,17 +443,16 @@ async def request_account_phone_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> AccountPhoneOtpRequestResponse:
-    """Request account phone otp.
+    """Executes request account phone otp operation.
 
         Args:
-            request: request account phone otp.
-            payload: request account phone otp.
-            _device: request account phone otp.
-            auth_user: request account phone otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            auth_user: Input auth user parameter.
 
         Returns:
-            AccountPhoneOtpRequestResponse: Result value.
-        """
+            AccountPhoneOtpRequestResponse: Response payload or result."""
     _ = request
     user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
@@ -497,17 +493,16 @@ async def verify_account_phone_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> AccountPhoneOtpVerifyResponse:
-    """Verify account phone otp.
+    """Executes verify account phone otp operation.
 
         Args:
-            request: verify account phone otp.
-            payload: verify account phone otp.
-            _device: verify account phone otp.
-            auth_user: verify account phone otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            auth_user: Input auth user parameter.
 
         Returns:
-            AccountPhoneOtpVerifyResponse: Result value.
-        """
+            AccountPhoneOtpVerifyResponse: Response payload or result."""
     _ = request
     user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
@@ -561,11 +556,10 @@ def _login_by_phone_resend_key(phone_norm: str) -> str:
     """Login by phone resend key.
 
         Args:
-            phone_norm: login by phone resend key.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"login_by_phone:resend:{phone_norm}"
 
 
@@ -579,16 +573,15 @@ async def request_login_by_phone(
     payload: LoginByPhoneRequestRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> LoginByPhoneRequestResponse:
-    """Request login by phone.
+    """Executes request login by phone operation.
 
         Args:
-            request: request login by phone.
-            payload: request login by phone.
-            _device: request login by phone.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
 
         Returns:
-            LoginByPhoneRequestResponse: Result value.
-        """
+            LoginByPhoneRequestResponse: Response payload or result."""
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -625,16 +618,15 @@ async def verify_login_by_phone(
     payload: LoginByPhoneVerifyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> LoginByPhoneVerifyResponse:
-    """Verify login by phone.
+    """Executes verify login by phone operation.
 
         Args:
-            request: verify login by phone.
-            payload: verify login by phone.
-            _device: verify login by phone.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
 
         Returns:
-            LoginByPhoneVerifyResponse: Result value.
-        """
+            LoginByPhoneVerifyResponse: Response payload or result."""
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -667,11 +659,7 @@ def _unhide_special_category_fields(user_id: str) -> None:
     """Unhide special category fields.
 
         Args:
-            user_id: unhide special category fields.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     try:
         res = (
             supabase_client.table("profiles")
@@ -705,14 +693,16 @@ def accept_terms(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ):
-    """Records the itemized consents shown on TermsConsentPage. Only
-    general is mandatory - a decline is still logged (via the granted=False
-    path in update_user_terms) before this 400s, so decline events stay
-    auditable in terms_consent_log even though the request fails.
-    special_category and safety_data are both optional and independently
-    togglable; omitting either (None) leaves that category unchanged rather
-    than declining it.
-    """
+    """Records user acceptance of application Terms of Service and Privacy Policy.
+
+        Args:
+            request: FastAPI HTTP request object.
+            payload: Terms acceptance model with version identifier.
+            _device: App Check attestation token guard.
+            user_id: Verified caller user ID.
+
+        Returns:
+            dict[str, bool]: Success indicator."""
     _ = request
 
     user_id = str(auth_user.get("id") or "").strip()
@@ -786,14 +776,13 @@ async def update_profile_media_and_tags(
     user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ):
-    """Update profile media and tags.
+    """Executes update profile media and tags operation.
 
         Args:
-            request: update profile media and tags.
-            payload: update profile media and tags.
-            user_id: update profile media and tags.
-            _device: update profile media and tags.
-        """
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            user_id: Unique UUID string of the authenticated user.
+            _device: App Check attestation token dependency guard."""
     _ = request
     try:
         await update_profile_images_and_metadata(
@@ -821,11 +810,7 @@ def _assert_no_decryption_failures(profile: dict[str, Any]) -> None:
     """Assert no decryption failures.
 
         Args:
-            profile: assert no decryption failures.
-
-        Returns:
-            None: Result value.
-        """
+            profile: Input profile parameter."""
     for val in profile.values():
         if (
             val == "__DECRYPTION_FAILED__"
@@ -887,11 +872,10 @@ def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
     """Build ordered images.
 
         Args:
-            profile: build ordered images.
+            profile: Input profile parameter.
 
         Returns:
-            list[str]: Result value.
-        """
+            list[str]: Response payload or result."""
     profile_pic = profile.get("profile_pic")
     normal_pics = profile.get("normal_pics")
     ordered_images: list[str] = []
@@ -908,14 +892,15 @@ def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
 def get_profile_details(
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
-    """Get profile details.
+    """Retrieves the caller's complete decrypted profile details.
 
         Args:
-            user_id: get profile details.
+            request: FastAPI HTTP request object.
+            _device: App Check attestation token guard.
+            user_id: Verified caller user ID.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            ProfileDetailsResponse: Decrypted profile data transfer model."""
     try:
         select_cols = (
             "id, name, age, campus_year, campus_branch, campus_name, "
@@ -1115,16 +1100,15 @@ def _resolve_field(
     payload: ProfileDetailsUpdate,
     field_name: str,
 ) -> Any:
-    """Resolve field.
+    """Executes resolve field operation.
 
         Args:
-            profile: resolve field.
-            payload: resolve field.
-            field_name: resolve field.
+            profile: Input profile parameter.
+            payload: Validated request body model containing parameters.
+            field_name: Input field name parameter.
 
         Returns:
-            Any: Result value.
-        """
+            Any: Response payload or result."""
     payload_val = getattr(payload, field_name, None)
     return payload_val if payload_val is not None else profile.get(field_name)
 
@@ -1137,13 +1121,9 @@ def _validate_common_activation(
     """Validate common activation.
 
         Args:
-            profile: validate common activation.
-            payload: validate common activation.
-            missing: validate common activation.
-
-        Returns:
-            None: Result value.
-        """
+            profile: Input profile parameter.
+            payload: Validated request body model containing parameters.
+            missing: Input missing parameter."""
     val_name = _resolve_field(profile, payload, "name")
     val_age = _resolve_field(profile, payload, "age")
     val_sub_interests = _resolve_field(profile, payload, "sub_interests")
@@ -1187,13 +1167,9 @@ def _validate_dating_activation(
     """Validate dating activation.
 
         Args:
-            profile: validate dating activation.
-            payload: validate dating activation.
-            missing: validate dating activation.
-
-        Returns:
-            None: Result value.
-        """
+            profile: Input profile parameter.
+            payload: Validated request body model containing parameters.
+            missing: Input missing parameter."""
     val_drinking = _resolve_field(profile, payload, "drinking")
     val_smoking = _resolve_field(profile, payload, "smoking")
     val_dating_target_buckets = _resolve_field(
@@ -1230,13 +1206,9 @@ def _validate_friends_activation(
     """Validate friends activation.
 
         Args:
-            profile: validate friends activation.
-            payload: validate friends activation.
-            missing: validate friends activation.
-
-        Returns:
-            None: Result value.
-        """
+            profile: Input profile parameter.
+            payload: Validated request body model containing parameters.
+            missing: Input missing parameter."""
     val_friends_target_buckets = _resolve_field(
         profile,
         payload,
@@ -1272,13 +1244,9 @@ def _validate_professional_activation(
     """Validate professional activation.
 
         Args:
-            profile: validate professional activation.
-            payload: validate professional activation.
-            missing: validate professional activation.
-
-        Returns:
-            None: Result value.
-        """
+            profile: Input profile parameter.
+            payload: Validated request body model containing parameters.
+            missing: Input missing parameter."""
     val_professional_target_buckets = _resolve_field(
         profile,
         payload,
@@ -1339,11 +1307,10 @@ def _sets_special_category_data(payload: ProfileDetailsUpdate) -> bool:
     """Sets special category data.
 
         Args:
-            payload: sets special category data.
+            payload: Validated request body model containing parameters.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     return any(
         (val := getattr(payload, field, None)) is not None and val != opt_out
         for field, opt_out in _SPECIAL_CATEGORY_OPT_OUT_VALUES.items()
@@ -1357,17 +1324,17 @@ def update_profile_details(  # noqa: C901
     user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
-    """Update profile details.
+    """Updates existing user profile fields and re-indexes discovery vectors.
 
         Args:
-            background_tasks: update profile details.
-            payload: update profile details.
-            user_id: update profile details.
-            _device: update profile details.
+            request: FastAPI HTTP request object.
+            background_tasks: Background task queue for vector embedding re-compilation.
+            payload: Profile update request model containing fields to modify.
+            _device: App Check attestation token guard.
+            user_id: Verified caller user ID.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            ProfileUpdateResponse: Updated profile response model."""
     # Sexual orientation / religious belief are optional profile fields, but
     # DPDP/GDPR ask for separate, explicit consent before we accept a real
     # disclosed value for either - see TermsConsentPage's now-optional third
@@ -1864,11 +1831,10 @@ def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsRespon
     """To privacy settings response.
 
         Args:
-            data: to privacy settings response.
+            data: Input data parameter.
 
         Returns:
-            PrivacySettingsResponse: Result value.
-        """
+            PrivacySettingsResponse: Response payload or result."""
     raw: list[str] = list(data.get("hidden_profile_fields") or [])
     # Defensively strip any field names that are no longer in the allowed set.
     hidden: list[str] = [f for f in raw if f in ALLOWED_HIDDEN_FIELDS]
@@ -1886,14 +1852,13 @@ def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsRespon
 def get_privacy_settings(
     user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
-    """Get privacy settings.
+    """Executes get privacy settings operation.
 
         Args:
-            user_id: get privacy settings.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            PrivacySettingsResponse: Result value.
-        """
+            PrivacySettingsResponse: Response payload or result."""
     try:
         res = (
             supabase_client.table("profiles")
@@ -1921,15 +1886,14 @@ def update_privacy_settings(
     payload: PrivacySettingsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
-    """Update privacy settings.
+    """Executes update privacy settings operation.
 
         Args:
-            payload: update privacy settings.
-            user_id: update privacy settings.
+            payload: Validated request body model containing parameters.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            PrivacySettingsResponse: Result value.
-        """
+            PrivacySettingsResponse: Response payload or result."""
     update_data: dict[str, Any] = {}
     if payload.hidden_fields is not None:
         update_data["hidden_profile_fields"] = payload.hidden_fields
@@ -1971,11 +1935,10 @@ def _to_email_notification_settings_response(
     """To email notification settings response.
 
         Args:
-            data: to email notification settings response.
+            data: Input data parameter.
 
         Returns:
-            EmailNotificationSettingsResponse: Result value.
-        """
+            EmailNotificationSettingsResponse: Response payload or result."""
     return EmailNotificationSettingsResponse(
         email_notify_matches=bool(data.get("email_notify_matches", True)),
         email_notify_messages=bool(data.get("email_notify_messages", True)),
@@ -1994,14 +1957,13 @@ def _to_email_notification_settings_response(
 def get_email_notification_settings(
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
-    """Get email notification settings.
+    """Executes get email notification settings operation.
 
         Args:
-            user_id: get email notification settings.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            EmailNotificationSettingsResponse: Result value.
-        """
+            EmailNotificationSettingsResponse: Response payload or result."""
     try:
         res = (
             supabase_client.table("profiles")
@@ -2032,15 +1994,14 @@ def update_email_notification_settings(
     payload: EmailNotificationSettingsUpdate = Body(...),  # noqa: B008
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
-    """Update email notification settings.
+    """Executes update email notification settings operation.
 
         Args:
-            payload: update email notification settings.
-            user_id: update email notification settings.
+            payload: Validated request body model containing parameters.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            EmailNotificationSettingsResponse: Result value.
-        """
+            EmailNotificationSettingsResponse: Response payload or result."""
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update.")

@@ -56,16 +56,13 @@ def _from_bytea(raw: Any) -> bytes:
 def upsert_identity_key(
     user_id: str, identity_public_key: bytes, registration_id: int,
 ) -> None:
-    """Upsert identity key.
+    """Store or update a user's E2EE Signal identity public key and registration ID.
 
-        Args:
-            user_id: upsert identity key.
-            identity_public_key: upsert identity key.
-            registration_id: upsert identity key.
-
-        Returns:
-            None: Result value.
-        """
+    Args:
+        user_id: Unique UUID string identifier of the user.
+        identity_public_key: 32-byte public key payload for the identity key.
+        registration_id: 32-bit unsigned integer registration ID generated during client init.
+    """
     try:
         supabase_client.table("chat_identity_keys").upsert(
             {
@@ -108,15 +105,11 @@ def upsert_signed_prekey(
 def bulk_insert_one_time_prekeys(
     user_id: str, prekeys: list[dict[str, Any]],
 ) -> None:
-    """Bulk insert one time prekeys.
+    """Executes bulk insert one time prekeys operation.
 
         Args:
-            user_id: bulk insert one time prekeys.
-            prekeys: bulk insert one time prekeys.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user.
+            prekeys: Input prekeys parameter."""
     if not prekeys:
         return
     rows = [
@@ -139,14 +132,13 @@ def bulk_insert_one_time_prekeys(
 
 
 def count_unused_one_time_prekeys(user_id: str) -> int:
-    """Count unused one time prekeys.
+    """Executes count unused one time prekeys operation.
 
         Args:
-            user_id: count unused one time prekeys.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            int: Result value.
-        """
+            int: Response payload or result."""
     try:
         res = (
             supabase_client.table("chat_one_time_prekeys")

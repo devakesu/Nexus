@@ -36,14 +36,14 @@ def _is_firebase_initialized() -> bool:
 
 
 def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
-    """Fetch user fcm tokens.
+    """Retrieve all active FCM device tokens for a given user.
 
-        Args:
-            user_id: fetch user fcm tokens.
+    Args:
+        user_id: Unique UUID string identifier of the target user.
 
-        Returns:
-            list[str]: Result value.
-        """
+    Returns:
+        list[str]: List of active FCM registration token strings.
+    """
     res = (
         supabase_client.table("user_devices")
         .select("fcm_token")
@@ -56,14 +56,14 @@ def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
 
 
 def _fetch_profile_name(user_id: str) -> str | None:
-    """Fetch profile name.
+    """Retrieve the display name of a user from their profile record.
 
-        Args:
-            user_id: fetch profile name.
+    Args:
+        user_id: Unique UUID string identifier of the target user.
 
-        Returns:
-            str | None: Result value.
-        """
+    Returns:
+        str | None: User's display name string, or None if profile not found.
+    """
     res = (
         supabase_client.table("profiles")
         .select("name")
@@ -79,14 +79,11 @@ def _fetch_profile_name(user_id: str) -> str | None:
 
 
 def _deactivate_fcm_token(token: str) -> None:
-    """Deactivate fcm token.
+    """Mark an invalid or expired FCM registration token as inactive in user_devices.
 
-        Args:
-            token: deactivate fcm token.
-
-        Returns:
-            None: Result value.
-        """
+    Args:
+        token: Stale FCM registration token string to deactivate.
+    """
     try:
         supabase_client.table("user_devices").update({"is_active": False}).eq(
             "fcm_token",
@@ -97,14 +94,14 @@ def _deactivate_fcm_token(token: str) -> None:
 
 
 def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
-    """Fetch profile details.
+    """Retrieve display name and avatar photo URL for notification payloads.
 
-        Args:
-            user_id: fetch profile details.
+    Args:
+        user_id: Unique UUID string identifier of the target user.
 
-        Returns:
-            tuple[str | None, str | None]: Result value.
-        """
+    Returns:
+        tuple[str | None, str | None]: Tuple of (display_name, avatar_photo_url).
+    """
     try:
         from app.db.profiles import fetch_peer_profile_by_id
 
@@ -129,15 +126,11 @@ def _send_to_tokens(
     """Send to tokens.
 
         Args:
-            tokens: send to tokens.
-            title: send to tokens.
-            body: send to tokens.
-            data: send to tokens.
-            channel_id: send to tokens.
-
-        Returns:
-            None: Result value.
-        """
+            tokens: Input tokens parameter.
+            title: Input title parameter.
+            body: Input body parameter.
+            data: Input data parameter.
+            channel_id: Input channel id parameter."""
     if not tokens:
         return
     notification = (

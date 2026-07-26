@@ -120,12 +120,11 @@ def _reason_code_for_flag(
     """Reason code for flag.
 
         Args:
-            user_row: reason code for flag.
-            has_unresolved_report: reason code for flag.
+            user_row: Input user row parameter.
+            has_unresolved_report: Input has unresolved report parameter.
 
         Returns:
-            str | None: Result value.
-        """
+            str | None: Response payload or result."""
     moderation_status = str(user_row.get("moderation_status") or "clear")
     if moderation_status == "banned":
         return "banned"
@@ -209,14 +208,13 @@ def is_phone_blocklisted(blind_index: str) -> bool:
 
 
 def fetch_deletion_status(user_id: str) -> dict[str, Any] | None:
-    """Fetch deletion status.
+    """Executes fetch deletion status operation.
 
         Args:
-            user_id: fetch deletion status.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            dict[str, Any] | None: Result value.
-        """
+            dict[str, Any] | None: Response payload or result."""
     try:
         res = (
             supabase_client.table("users")
@@ -238,11 +236,7 @@ def _close_all_conversations(user_id: str) -> None:
     """Close all conversations.
 
         Args:
-            user_id: close all conversations.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     for tab in _TABS:
         for match in fetch_matches_for_user(user_id, tab):
             close_conversation_for_match_action(
@@ -363,8 +357,7 @@ def _fetch_accounts_due_for_purge() -> list[dict[str, Any]]:
     """Fetch accounts due for purge.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     try:
         res = (
             supabase_client.table("users")
@@ -384,11 +377,7 @@ def _permanently_unmatch_all(user_id: str) -> None:
     """Permanently unmatch all.
 
         Args:
-            user_id: permanently unmatch all.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     for tab in _TABS:
         for match in fetch_matches_for_user(user_id, tab):
             set_match_unmatched(user_id, match["matched_user_id"], tab)
@@ -398,12 +387,8 @@ def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
     """Anonymize profile and user.
 
         Args:
-            user_id: anonymize profile and user.
-            now: anonymize profile and user.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user.
+            now: Input now parameter."""
     profile_payload: dict[str, Any] = {col: None for col in _PROFILE_PII_COLUMNS}
     profile_payload.update({col: None for col in _PROFILE_BLIND_INDEX_COLUMNS})
     profile_payload["name"] = _ANONYMIZED_NAME
@@ -427,11 +412,7 @@ def _delete_no_retention_rows(user_id: str) -> None:
     """Delete no retention rows.
 
         Args:
-            user_id: delete no retention rows.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     for table in _NO_RETENTION_TABLES:
         try:
             supabase_client.table(table).delete().eq("user_id", user_id).execute()
@@ -463,11 +444,7 @@ def _delete_user_media_objects(user_id: str) -> None:
     """Delete user media objects.
 
         Args:
-            user_id: delete user media objects.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     try:
         objects = supabase_client.storage.from_(_MEDIA_BUCKET).list(user_id)
     except Exception:
@@ -490,11 +467,7 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
     """Ban and scrub auth user.
 
         Args:
-            user_id: ban and scrub auth user.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     try:
         supabase_client.auth.admin.update_user_by_id(
             user_id,
@@ -548,11 +521,7 @@ def purge_due_accounts() -> None:
 
 
 def expire_blocklist_entries() -> None:
-    """Expire blocklist entries.
-
-        Returns:
-            None: Result value.
-        """
+    """Executes expire blocklist entries operation."""
     try:
         supabase_client.table("deleted_account_blocklist").delete().lte(
             "cooldown_expires_at", utcnow().isoformat(),
@@ -582,11 +551,7 @@ def _archive_account_history(user_id: str) -> None:
     """Archive account history.
 
         Args:
-            user_id: archive account history.
-
-        Returns:
-            None: Result value.
-        """
+            user_id: Unique UUID string of the authenticated user."""
     for source in _ARCHIVE_SOURCE_TABLES:
         table, or_filter_template, reason_field, outcome_field = source
         try:
@@ -631,8 +596,7 @@ def _fetch_accounts_due_for_long_tail_purge() -> list[str]:
     """Fetch accounts due for long tail purge.
 
         Returns:
-            list[str]: Result value.
-        """
+            list[str]: Response payload or result."""
     cutoff = utcnow() - timedelta(days=settings.account_deletion_long_tail_purge_days)
     try:
         res = (

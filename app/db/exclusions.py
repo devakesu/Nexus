@@ -41,14 +41,13 @@ def _block_ids_cache_key(viewer_id: str) -> str:
 
 
 async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
-    """Get cached active block ids.
+    """Executes get cached active block ids operation.
 
         Args:
-            viewer_id: get cached active block ids.
+            viewer_id: Input viewer id parameter.
 
         Returns:
-            set[str]: Result value.
-        """
+            set[str]: Response payload or result."""
     key = _block_ids_cache_key(viewer_id)
 
     cached = await redis_client.get(key)
@@ -75,12 +74,11 @@ def _collect_blocked_counterparty_ids(rows: object, viewer_id: str) -> set[str]:
     """Collect blocked counterparty ids.
 
         Args:
-            rows: collect blocked counterparty ids.
-            viewer_id: collect blocked counterparty ids.
+            rows: Input rows parameter.
+            viewer_id: Input viewer id parameter.
 
         Returns:
-            set[str]: Result value.
-        """
+            set[str]: Response payload or result."""
     excluded: set[str] = set()
 
     if not isinstance(rows, list):
@@ -112,14 +110,10 @@ def _check_pass_expiry(
     """Check pass expiry.
 
         Args:
-            expires_at_raw: check pass expiry.
-            target_id: check pass expiry.
-            now: check pass expiry.
-            excluded: check pass expiry.
-
-        Returns:
-            None: Result value.
-        """
+            expires_at_raw: Input expires at raw parameter.
+            target_id: Input target id parameter.
+            now: Input now parameter.
+            excluded: Input excluded parameter."""
     if expires_at_raw and isinstance(expires_at_raw, str):
         with contextlib.suppress(Exception):
             expires_at = parse_utc_datetime(expires_at_raw)
@@ -137,15 +131,11 @@ def _process_exclusion_row(
     """Process exclusion row.
 
         Args:
-            row: process exclusion row.
-            viewer_id: process exclusion row.
-            active_tab: process exclusion row.
-            now: process exclusion row.
-            excluded: process exclusion row.
-
-        Returns:
-            None: Result value.
-        """
+            row: Input row parameter.
+            viewer_id: Input viewer id parameter.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
+            now: Input now parameter.
+            excluded: Input excluded parameter."""
     action = row.get("action")
     actor_id = row.get("actor_id")
     target_id = row.get("target_id")
@@ -323,18 +313,14 @@ def record_discovery_action(
     tab: DiscoveryTab | None = None,
     expires_days: int | None = None,
 ) -> None:
-    """Record discovery action.
+    """Executes record discovery action operation.
 
         Args:
-            actor_id: record discovery action.
-            target_id: record discovery action.
-            action: record discovery action.
-            tab: record discovery action.
-            expires_days: record discovery action.
-
-        Returns:
-            None: Result value.
-        """
+            actor_id: Input actor id parameter.
+            target_id: Input target id parameter.
+            action: Input action parameter.
+            tab: Discovery category tab ('Dating', 'BFF', or 'Networking').
+            expires_days: Input expires days parameter."""
     now = utcnow()
     is_reversal = action.startswith("un")
     base_action = action[2:] if is_reversal else action
@@ -495,15 +481,11 @@ def fetch_expired_pass_candidates(
 
 
 async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
-    """Invalidate block cache.
+    """Executes invalidate block cache operation.
 
         Args:
-            viewer_id: invalidate block cache.
-            target_id: invalidate block cache.
-
-        Returns:
-            None: Result value.
-        """
+            viewer_id: Input viewer id parameter.
+            target_id: Input target id parameter."""
     try:
         await redis_client.delete(f"discovery:block_ids:{viewer_id}")
         await redis_client.delete(f"discovery:block_ids:{target_id}")

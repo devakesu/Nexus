@@ -40,11 +40,10 @@ def _otp_verified_key(user_id: str) -> str:
     """Otp verified key.
 
         Args:
-            user_id: otp verified key.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"data_export:otp_verified:{user_id}"
 
 
@@ -55,12 +54,11 @@ async def _resolve_data_export_user(
     """Resolve data export user.
 
         Args:
-            auth_user_id: resolve data export user.
-            email: resolve data export user.
+            auth_user_id: Verified user ID string extracted from authentication token.
+            email: Email address string.
 
         Returns:
-            tuple[str, str]: Result value.
-        """
+            tuple[str, str]: Response payload or result."""
     if auth_user_id:
         user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
         if not user_email:
@@ -97,17 +95,16 @@ async def request_data_export_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpRequestResponse:
-    """Request data export otp.
+    """Executes request data export otp operation.
 
         Args:
-            request: request data export otp.
-            payload: request data export otp.
-            _device: request data export otp.
-            auth_user_id: request data export otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            auth_user_id: Verified user ID string extracted from authentication token.
 
         Returns:
-            DataExportOtpRequestResponse: Result value.
-        """
+            DataExportOtpRequestResponse: Response payload or result."""
     _ = request
     email_in = payload.email if payload else None
     user_id, email = await _resolve_data_export_user(auth_user_id, email_in)
@@ -134,17 +131,16 @@ async def verify_data_export_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpVerifyResponse:
-    """Verify data export otp.
+    """Executes verify data export otp operation.
 
         Args:
-            request: verify data export otp.
-            payload: verify data export otp.
-            _device: verify data export otp.
-            auth_user_id: verify data export otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            auth_user_id: Verified user ID string extracted from authentication token.
 
         Returns:
-            DataExportOtpVerifyResponse: Result value.
-        """
+            DataExportOtpVerifyResponse: Response payload or result."""
     _ = request
     user_id, _ = await _resolve_data_export_user(auth_user_id, payload.email)
 
@@ -172,17 +168,16 @@ async def export_account_data(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> dict[str, Any]:
-    """Export account data.
+    """Executes export account data operation.
 
         Args:
-            request: export account data.
-            payload: export account data.
-            _device: export account data.
-            auth_user_id: export account data.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            auth_user_id: Verified user ID string extracted from authentication token.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     _ = request
     email_in = payload.email if payload else None
     user_id, _ = await _resolve_data_export_user(auth_user_id, email_in)

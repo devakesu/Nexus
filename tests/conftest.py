@@ -1,3 +1,8 @@
+"""Pytest test configuration and environment setup fixture module.
+
+Sets up default fallback environment variables for offline test discovery and execution.
+"""
+
 import os
 
 # app.core.config.Settings validates required secrets at import time (it's

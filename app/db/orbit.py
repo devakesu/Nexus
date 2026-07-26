@@ -23,63 +23,59 @@ class DeterministicRNG:
     """A deterministic linear congruential generator (LCG) for reproducible pseudo-random positioning."""
 
     def __init__(self, seed: int) -> None:
-        """Init  .
+        """Initialize the RNG state with an integer seed.
 
-            Args:
-                seed: init  .
-
-            Returns:
-                None: Result value.
-            """
+        Args:
+            seed: Integer seed value for pseudo-random number generation.
+        """
         self.state = seed
 
     def _next(self) -> float:
-        """Next.
+        """Advance the LCG state and return a pseudo-random float in [0, 1).
 
-            Returns:
-                float: Result value.
-            """
+        Returns:
+            float: Pseudo-random float value between 0.0 (inclusive) and 1.0 (exclusive).
+        """
         self.state = (1103515245 * self.state + 12345) & 0x7FFFFFFF
         return self.state / 2147483647.0
 
-
     def uniform(self, a: float, b: float) -> float:
-        """Uniform.
+        """Return a pseudo-random float uniformly distributed in the interval [a, b).
 
-            Args:
-                a: uniform.
-                b: uniform.
+        Args:
+            a: Lower bound of the interval.
+            b: Upper bound of the interval.
 
-            Returns:
-                float: Result value.
-            """
+        Returns:
+            float: Pseudo-random float between a and b.
+        """
         return a + (b - a) * self._next()
 
 
 def coerce_score(value: Any) -> float:
-    """Coerce score.
+    """Safely coerce an arbitrary input value into a normalized float score.
 
-        Args:
-            value: coerce score.
+    Args:
+        value: Candidate score value (bool, int, float, str, or None).
 
-        Returns:
-            float: Result value.
-        """
+    Returns:
+        float: Coerced floating-point value.
+    """
     if isinstance(value, bool):
         return 1.0 if value else 0.0
     return coerce_float(value, 0.0)
 
 
 def coerce_float(value: Any, default: float = 0.0) -> float:
-    """Coerce float.
+    """Safely convert a numeric or string value to float, returning default on failure.
 
-        Args:
-            value: coerce float.
-            default: coerce float.
+    Args:
+        value: Value to convert to float.
+        default: Fallback float value if conversion fails.
 
-        Returns:
-            float: Result value.
-        """
+    Returns:
+        float: Converted float value or default fallback.
+    """
     if isinstance(value, bool):
         return default
     if isinstance(value, (int, float)):
@@ -169,16 +165,15 @@ def build_tab_aware_orbit_node_detail(
     | OrbitNodeDetailFriendsOut
     | OrbitNodeDetailProfessionalOut
 ):
-    """Build tab aware orbit node detail.
+    """Executes build tab aware orbit node detail operation.
 
         Args:
-            session_tab: build tab aware orbit node detail.
-            payload: build tab aware orbit node detail.
-            hidden_fields: build tab aware orbit node detail.
+            session_tab: Input session tab parameter.
+            payload: Validated request body model containing parameters.
+            hidden_fields: Input hidden fields parameter.
 
         Returns:
-            OrbitNodeDetailDatingOut | OrbitNodeDetailFriendsOut | OrbitNodeDetailProfessionalOut: Result value.
-        """
+            OrbitNodeDetailDatingOut | OrbitNodeDetailFriendsOut | OrbitNodeDetailProfessionalOut: Response payload or result."""
     p = _apply_field_visibility(payload, hidden_fields or set())
 
     grade_val = p.get("music_match_grade")
@@ -416,16 +411,15 @@ def assign_orbit_positions(
     active_tab: DiscoveryTab,
     ranked_items: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Assign orbit positions.
+    """Executes assign orbit positions operation.
 
         Args:
-            viewer_id: assign orbit positions.
-            active_tab: assign orbit positions.
-            ranked_items: assign orbit positions.
+            viewer_id: Input viewer id parameter.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
+            ranked_items: Input ranked items parameter.
 
         Returns:
-            list[dict[str, Any]]: Result value.
-        """
+            list[dict[str, Any]]: Response payload or result."""
     candidate_ids = _extract_candidate_ids(ranked_items)
     seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
     seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)

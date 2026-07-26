@@ -94,12 +94,11 @@ def _assemble_ticket_detail(
     """Assemble ticket detail.
 
         Args:
-            user_id: assemble ticket detail.
-            report: assemble ticket detail.
+            user_id: Unique UUID string of the authenticated user.
+            report: Input report parameter.
 
         Returns:
-            FeedbackTicketDetail: Result value.
-        """
+            FeedbackTicketDetail: Response payload or result."""
     history = fetch_ticket_status_history(report["id"])
     comments = fetch_ticket_comments(report["id"])
 
@@ -134,18 +133,17 @@ async def submit_feedback(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackSubmitResponse:
-    """Submit feedback.
+    """Submits a new user support ticket, bug report, or feature request.
 
         Args:
-            request: submit feedback.
-            background_tasks: submit feedback.
-            payload: submit feedback.
-            _device: submit feedback.
-            user_id: submit feedback.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            background_tasks: FastAPI BackgroundTasks queue for asynchronous task execution.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            FeedbackSubmitResponse: Result value.
-        """
+            FeedbackSubmitResponse: Response payload or result."""
     _ = request
 
     own_prefix = f"{user_id}/"
@@ -226,18 +224,17 @@ async def list_my_feedback_tickets(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> list[FeedbackTicketSummary]:
-    """List my feedback tickets.
+    """Lists all support and feedback tickets created by the caller.
 
         Args:
-            request: list my feedback tickets.
-            limit: list my feedback tickets.
-            offset: list my feedback tickets.
-            _device: list my feedback tickets.
-            user_id: list my feedback tickets.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            limit: Input limit parameter.
+            offset: Input offset parameter.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            list[FeedbackTicketSummary]: Result value.
-        """
+            list[FeedbackTicketSummary]: Response payload or result."""
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_user_tickets, user_id, limit, offset)
@@ -258,17 +255,16 @@ async def get_feedback_ticket(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
-    """Get feedback ticket.
+    """Fetches detailed status, history, and comments for a specific feedback ticket.
 
         Args:
-            request: get feedback ticket.
-            report_id: get feedback ticket.
-            _device: get feedback ticket.
-            user_id: get feedback ticket.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            report_id: Input report id parameter.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            FeedbackTicketDetail: Result value.
-        """
+            FeedbackTicketDetail: Response payload or result."""
     _ = request
     try:
         report = await asyncio.to_thread(fetch_ticket_report, user_id, report_id)
@@ -311,19 +307,18 @@ async def add_feedback_comment(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackCommentEntry:
-    """Add feedback comment.
+    """Appends a new user or administrative comment to an open feedback ticket.
 
         Args:
-            request: add feedback comment.
-            report_id: add feedback comment.
-            background_tasks: add feedback comment.
-            payload: add feedback comment.
-            _device: add feedback comment.
-            user_id: add feedback comment.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            report_id: Input report id parameter.
+            background_tasks: FastAPI BackgroundTasks queue for asynchronous task execution.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            FeedbackCommentEntry: Result value.
-        """
+            FeedbackCommentEntry: Response payload or result."""
     _ = request
     try:
         report = await asyncio.to_thread(fetch_ticket_report, user_id, report_id)
@@ -383,19 +378,18 @@ async def close_feedback_ticket(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
-    """Close feedback ticket.
+    """Closes an active feedback ticket and marks it resolved.
 
         Args:
-            request: close feedback ticket.
-            report_id: close feedback ticket.
-            background_tasks: close feedback ticket.
-            payload: close feedback ticket.
-            _device: close feedback ticket.
-            user_id: close feedback ticket.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            report_id: Input report id parameter.
+            background_tasks: FastAPI BackgroundTasks queue for asynchronous task execution.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            FeedbackTicketDetail: Result value.
-        """
+            FeedbackTicketDetail: Response payload or result."""
     _ = request
     try:
         report = await asyncio.to_thread(
@@ -473,14 +467,13 @@ class ContactSubmitRequest(BaseModel):
     @field_validator("attachment_paths")
     @classmethod
     def validate_attachment_paths(cls, v: list[str]) -> list[str]:
-        """Validate attachment paths.
+        """Executes validate attachment paths operation.
 
             Args:
-                v: validate attachment paths.
+                v: Input v parameter.
 
             Returns:
-                list[str]: Result value.
-            """
+                list[str]: Response payload or result."""
         if len(v) > 5:
             raise ValueError("attachment_paths supports at most 5 files")
         # Validate path format to prevent directory traversal and invalid paths
@@ -502,16 +495,15 @@ async def upload_contact_attachment(
     file: UploadFile = File(...),  # noqa: B008
     session_id: str = Query(default=""),  # noqa: B008
 ) -> dict[str, str]:
-    """Upload contact attachment.
+    """Uploads a screenshot or file attachment for a support ticket.
 
         Args:
-            request: upload contact attachment.
-            file: upload contact attachment.
-            session_id: upload contact attachment.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            file: Input file parameter.
+            session_id: Input session id parameter.
 
         Returns:
-            dict[str, str]: Result value.
-        """
+            dict[str, str]: Response payload or result."""
     _ = request
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -614,15 +606,14 @@ async def send_contact_otp(
     request: Request,
     payload: ContactOtpRequest = Body(...),  # noqa: B008
 ) -> dict[str, bool]:
-    """Send contact otp.
+    """Dispatches an email OTP code to verify contact form submission identity.
 
         Args:
-            request: send contact otp.
-            payload: send contact otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            payload: Validated request body model containing parameters.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Response payload or result."""
     client_ip = request.client.host if request.client else None
     if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(
@@ -663,16 +654,15 @@ async def submit_contact_ticket(
     background_tasks: BackgroundTasks,
     payload: ContactSubmitRequest = Body(...),  # noqa: B008
 ) -> dict[str, Any]:
-    """Submit contact ticket.
+    """Submits a public contact form inquiry after verifying the email OTP.
 
         Args:
-            request: submit contact ticket.
-            background_tasks: submit contact ticket.
-            payload: submit contact ticket.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            background_tasks: FastAPI BackgroundTasks queue for asynchronous task execution.
+            payload: Validated request body model containing parameters.
 
         Returns:
-            dict[str, Any]: Result value.
-        """
+            dict[str, Any]: Response payload or result."""
     client_ip = request.client.host if request.client else None
     if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(

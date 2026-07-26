@@ -142,11 +142,10 @@ def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
     """Get completion flag column.
 
         Args:
-            active_tab: get completion flag column.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     if active_tab == "Dating":
         return "is_dating_active"
     if active_tab == "Friends":
@@ -160,11 +159,10 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
     """Get target bucket column.
 
         Args:
-            active_tab: get target bucket column.
+            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     if active_tab == "Dating":
         return "dating_target_buckets"
     if active_tab == "Friends":
@@ -178,11 +176,10 @@ def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
     """Expand target buckets.
 
         Args:
-            buckets: expand target buckets.
+            buckets: Input buckets parameter.
 
         Returns:
-            list[str]: Result value.
-        """
+            list[str]: Response payload or result."""
     if not buckets:
         return []
     # Normalize to list[str]
@@ -196,12 +193,8 @@ def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
     """Parse encrypted scalar.
 
         Args:
-            row: parse encrypted scalar.
-            field: parse encrypted scalar.
-
-        Returns:
-            None: Result value.
-        """
+            row: Input row parameter.
+            field: Input field parameter."""
     raw = row.get(field)
     if raw is None:
         row[field] = None
@@ -217,12 +210,8 @@ def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
     """Parse encrypted list.
 
         Args:
-            row: parse encrypted list.
-            field: parse encrypted list.
-
-        Returns:
-            None: Result value.
-        """
+            row: Input row parameter.
+            field: Input field parameter."""
     raw = row.get(field)
     if raw is None:
         row[field] = []
@@ -254,12 +243,8 @@ def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
     """Parse encrypted dict.
 
         Args:
-            row: parse encrypted dict.
-            field: parse encrypted dict.
-
-        Returns:
-            None: Result value.
-        """
+            row: Input row parameter.
+            field: Input field parameter."""
     raw = row.get(field)
     if raw is None:
         row[field] = {}
@@ -369,11 +354,7 @@ def _attach_empty_embeddings(record: dict[str, Any]) -> None:
     """Attach empty embeddings.
 
         Args:
-            record: attach empty embeddings.
-
-        Returns:
-            None: Result value.
-        """
+            record: Input record parameter."""
     record["bio_embedding"] = None
     record["career_embedding"] = None
     record["identity_embedding"] = None
@@ -593,15 +574,14 @@ _POST_FETCH_FIELDS: frozenset[str] = frozenset(
 
 
 def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
-    """List overlap.
+    """Executes list overlap operation.
 
         Args:
-            cand_list: list overlap.
-            allowed: list overlap.
+            cand_list: Input cand list parameter.
+            allowed: Input allowed parameter.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     return bool(set(cand_list) & set(allowed))
 
 
@@ -609,12 +589,11 @@ def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     """Check basic overlap.
 
         Args:
-            c: check basic overlap.
-            filters: check basic overlap.
+            c: Input c parameter.
+            filters: Input filters parameter.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     if filters.languages and not _list_overlap(
         c.get("languages") or [],
         filters.languages,
@@ -639,13 +618,12 @@ def _check_candidate_match(
     """Check candidate match.
 
         Args:
-            c: check candidate match.
-            filters: check candidate match.
-            dealbreakers: check candidate match.
+            c: Input c parameter.
+            filters: Input filters parameter.
+            dealbreakers: Input dealbreakers parameter.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     if not _check_basic_overlap(c, filters):
         return False
 

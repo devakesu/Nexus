@@ -63,14 +63,13 @@ class SpotifyTokenBundle:
 
 
 def _auth_header(access_token: str) -> dict[str, str]:
-    """Auth header.
+    """Executes auth header operation.
 
         Args:
-            access_token: auth header.
+            access_token: Raw JWT access token string.
 
         Returns:
-            dict[str, str]: Result value.
-        """
+            dict[str, str]: Response payload or result."""
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -78,11 +77,10 @@ def _parse_retry_after(resp: httpx.Response) -> float:
     """Parse retry after.
 
         Args:
-            resp: parse retry after.
+            resp: Input resp parameter.
 
         Returns:
-            float: Result value.
-        """
+            float: Response payload or result."""
     try:
         return min(
             float(resp.headers.get("Retry-After", "1")),
@@ -559,15 +557,11 @@ def blend_artist_affinity(
     combined: dict[str, float] = {}
 
     def _accumulate(source: dict[str, float], source_weight: float) -> None:
-        """Accumulate.
+        """Executes accumulate operation.
 
             Args:
-                source: accumulate.
-                source_weight: accumulate.
-
-            Returns:
-                None: Result value.
-            """
+                source: Input source parameter.
+                source_weight: Input source weight parameter."""
         for name, weight in source.items():
             key = name.strip().lower()
             if not key:

@@ -22,11 +22,7 @@ BATCH = 50
 
 
 def main() -> None:
-    """Main.
-
-        Returns:
-            None: Result value.
-        """
+    """Executes main operation."""
     offset = 0
     total_updated = 0
     total_skipped = 0

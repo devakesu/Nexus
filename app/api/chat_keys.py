@@ -44,17 +44,16 @@ async def upload_identity_key(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Upload identity key.
+    """Stores caller's long-term Signal E2EE identity public key.
 
         Args:
-            request: upload identity key.
-            payload: upload identity key.
-            _device: upload identity key.
-            user_id: upload identity key.
+            request: FastAPI HTTP request object.
+            payload: Identity key payload containing base64 public key.
+            _device: App Check attestation guard.
+            user_id: Verified user ID string.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Success status dict."""
     _ = request
     try:
         await asyncio.to_thread(
@@ -88,17 +87,16 @@ async def upload_signed_prekey(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Upload signed prekey.
+    """Stores caller's signed prekey for Signal protocol session establishment.
 
         Args:
-            request: upload signed prekey.
-            payload: upload signed prekey.
-            _device: upload signed prekey.
-            user_id: upload signed prekey.
+            request: FastAPI HTTP request object.
+            payload: Signed prekey payload containing public key and signature.
+            _device: App Check attestation guard.
+            user_id: Verified user ID string.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Success status dict."""
     _ = request
     try:
         await asyncio.to_thread(
@@ -133,17 +131,16 @@ async def upload_one_time_prekeys(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Upload one time prekeys.
+    """Uploads a batch of one-time prekeys to maintain E2EE session pool.
 
         Args:
-            request: upload one time prekeys.
-            payload: upload one time prekeys.
-            _device: upload one time prekeys.
-            user_id: upload one time prekeys.
+            request: FastAPI HTTP request object.
+            payload: Batch prekey upload model containing key list.
+            _device: App Check attestation guard.
+            user_id: Verified user ID string.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, int]: Count of prekeys stored."""
     _ = request
     try:
         await asyncio.to_thread(
@@ -183,16 +180,15 @@ async def get_one_time_prekey_count(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> OneTimePrekeyCountResponse:
-    """Get one time prekey count.
+    """Returns remaining count of unconsumed one-time prekeys for caller.
 
         Args:
-            request: get one time prekey count.
-            _device: get one time prekey count.
-            user_id: get one time prekey count.
+            request: FastAPI HTTP request object.
+            _device: App Check attestation guard.
+            user_id: Verified user ID string.
 
         Returns:
-            OneTimePrekeyCountResponse: Result value.
-        """
+            PrekeyCountResponse: Remaining prekey count."""
     _ = request
     try:
         count = await asyncio.to_thread(count_unused_one_time_prekeys, user_id)
@@ -217,17 +213,19 @@ async def get_key_bundle(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> KeyBundleResponse:
-    """Get key bundle.
+    """Retrieves E2EE public key bundle for establishing encrypted chat session with peer.
 
         Args:
-            request: get key bundle.
-            target_user_id: get key bundle.
-            _device: get key bundle.
-            user_id: get key bundle.
+            request: FastAPI HTTP request object.
+            target_user_id: UUID string of target recipient user.
+            _device: App Check attestation guard.
+            user_id: Verified caller user ID.
 
         Returns:
-            KeyBundleResponse: Result value.
-        """
+            KeyBundleResponse: Signal protocol prekey bundle model.
+
+        Raises:
+            HTTPException: 404 if peer key bundle is unavailable."""
     _ = request
     try:
         if not await asyncio.to_thread(has_active_match, user_id, target_user_id):

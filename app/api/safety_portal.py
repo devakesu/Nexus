@@ -70,41 +70,38 @@ _EVIDENCE_URL_TTL_SECONDS = 600
 
 
 def _otp_key(session_id: str, phone_norm: str) -> str:
-    """Otp key.
+    """Executes otp key operation.
 
         Args:
-            session_id: otp key.
-            phone_norm: otp key.
+            session_id: Input session id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_portal:otp:{session_id}:{phone_norm}"
 
 
 def _attempts_key(session_id: str, phone_norm: str) -> str:
-    """Attempts key.
+    """Executes attempts key operation.
 
         Args:
-            session_id: attempts key.
-            phone_norm: attempts key.
+            session_id: Input session id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_portal:otp_attempts:{session_id}:{phone_norm}"
 
 
 def _resend_key(session_id: str, phone_norm: str) -> str:
-    """Resend key.
+    """Executes resend key operation.
 
         Args:
-            session_id: resend key.
-            phone_norm: resend key.
+            session_id: Input session id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_portal:otp_resend:{session_id}:{phone_norm}"
 
 
@@ -118,12 +115,14 @@ async def request_portal_otp(
     session_id: str,
     payload: SafetyPortalOtpRequestRequest = Body(...),  # noqa: B008
 ) -> SafetyPortalOtpRequestResponse:
-    """Sends a 6-digit OTP if (and only if) the phone matches one of this
-    session's trusted contacts - but always responds the same way either
-    way, so the portal never confirms or denies which numbers are trusted
-    contacts for a given session (same anti-enumeration principle as a
-    password-reset endpoint).
-    """
+    """Dispatches phone OTP to a trusted contact attempting portal login.
+
+        Args:
+            request: FastAPI HTTP request object.
+            payload: Portal OTP request model containing phone number.
+
+        Returns:
+            dict[str, bool]: Delivery success status."""
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -193,16 +192,14 @@ async def verify_portal_otp(
     session_id: str,
     payload: SafetyPortalOtpVerifyRequest = Body(...),  # noqa: B008
 ) -> SafetyPortalOtpVerifyResponse:
-    """Verify portal otp.
+    """Verifies trusted contact phone OTP and issues a portal access token.
 
         Args:
-            request: verify portal otp.
-            session_id: verify portal otp.
-            payload: verify portal otp.
+            request: FastAPI HTTP request object.
+            payload: Portal OTP verification model.
 
         Returns:
-            SafetyPortalOtpVerifyResponse: Result value.
-        """
+            dict[str, str]: Portal access JWT token string."""
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -246,16 +243,15 @@ async def get_portal_details(
     session_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyPortalDetailsResponse:
-    """Get portal details.
+    """Executes get portal details operation.
 
         Args:
-            request: get portal details.
-            session_id: get portal details.
-            authorization: get portal details.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            session_id: Input session id parameter.
+            authorization: Bearer HTTP authorization header string containing Supabase JWT.
 
         Returns:
-            SafetyPortalDetailsResponse: Result value.
-        """
+            SafetyPortalDetailsResponse: Response payload or result."""
     _ = request
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(session_id, token) is None:
@@ -340,11 +336,10 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
     """Extract bearer token.
 
         Args:
-            authorization: extract bearer token.
+            authorization: Bearer HTTP authorization header string containing Supabase JWT.
 
         Returns:
-            str | None: Result value.
-        """
+            str | None: Response payload or result."""
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
     return authorization.split(" ", 1)[1].strip() or None
@@ -367,12 +362,11 @@ def _contact_otp_key(contact_id: str, phone_norm: str) -> str:
     """Contact otp key.
 
         Args:
-            contact_id: contact otp key.
-            phone_norm: contact otp key.
+            contact_id: Input contact id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_contact_portal:otp:{contact_id}:{phone_norm}"
 
 
@@ -380,12 +374,11 @@ def _contact_attempts_key(contact_id: str, phone_norm: str) -> str:
     """Contact attempts key.
 
         Args:
-            contact_id: contact attempts key.
-            phone_norm: contact attempts key.
+            contact_id: Input contact id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_contact_portal:otp_attempts:{contact_id}:{phone_norm}"
 
 
@@ -393,12 +386,11 @@ def _contact_resend_key(contact_id: str, phone_norm: str) -> str:
     """Contact resend key.
 
         Args:
-            contact_id: contact resend key.
-            phone_norm: contact resend key.
+            contact_id: Input contact id parameter.
+            phone_norm: Input phone norm parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"safety_contact_portal:otp_resend:{contact_id}:{phone_norm}"
 
 
@@ -472,16 +464,15 @@ async def verify_contact_portal_otp(
     contact_id: str,
     payload: SafetyContactPortalOtpVerifyRequest = Body(...),  # noqa: B008
 ) -> SafetyContactPortalOtpVerifyResponse:
-    """Verify contact portal otp.
+    """Executes verify contact portal otp operation.
 
         Args:
-            request: verify contact portal otp.
-            contact_id: verify contact portal otp.
-            payload: verify contact portal otp.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            contact_id: Input contact id parameter.
+            payload: Validated request body model containing parameters.
 
         Returns:
-            SafetyContactPortalOtpVerifyResponse: Result value.
-        """
+            SafetyContactPortalOtpVerifyResponse: Response payload or result."""
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -523,16 +514,15 @@ async def get_contact_portal_details(
     contact_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyContactPortalDetailsResponse:
-    """Get contact portal details.
+    """Executes get contact portal details operation.
 
         Args:
-            request: get contact portal details.
-            contact_id: get contact portal details.
-            authorization: get contact portal details.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            contact_id: Input contact id parameter.
+            authorization: Bearer HTTP authorization header string containing Supabase JWT.
 
         Returns:
-            SafetyContactPortalDetailsResponse: Result value.
-        """
+            SafetyContactPortalDetailsResponse: Response payload or result."""
     _ = request
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(contact_id, token) is None:

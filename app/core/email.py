@@ -47,11 +47,7 @@ class HTMLStripper(HTMLParser):
     """HTML parser utility to extract plain text from HTML markup."""
 
     def __init__(self) -> None:
-        """Init  .
-
-            Returns:
-                None: Result value.
-            """
+        """Initialize the HTML parser state and accumulator buffer."""
         super().__init__()
         self.reset()
         self.strict = False
@@ -59,22 +55,19 @@ class HTMLStripper(HTMLParser):
         self.text: list[str] = []
 
     def handle_data(self, data: str) -> None:
-        """Handle data.
+        """Append extracted text node data to the internal text buffer.
 
-            Args:
-                data: handle data.
-
-            Returns:
-                None: Result value.
-            """
+        Args:
+            data: Raw text content from an HTML text node.
+        """
         self.text.append(data)
 
     def get_data(self) -> str:
-        """Get data.
+        """Concatenate buffered text data into a single plain text string.
 
-            Returns:
-                str: Result value.
-            """
+        Returns:
+            str: Accumulated plain text string.
+        """
         return "".join(self.text)
 
 
@@ -113,15 +106,14 @@ def redact_email(email: str) -> str:
 
 
 def redact(type_: str, val: str) -> str:
-    """Redact.
+    """Executes redact operation.
 
         Args:
-            type_: redact.
-            val: redact.
+            type_: Input type  parameter.
+            val: Input val parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     if type_ == "email":
         return redact_email(val)
     return val
@@ -137,11 +129,10 @@ def get_support_email() -> str:
 
 
 def get_sender_email() -> str:
-    """Get sender email.
+    """Executes get sender email operation.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return get_support_email()
 
 
@@ -151,25 +142,23 @@ def get_feedback_notify_email() -> str:
 
 
 def get_sender_name(from_name: str | None = None) -> str:
-    """Get sender name.
+    """Executes get sender name operation.
 
         Args:
-            from_name: get sender name.
+            from_name: Input from name parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     if from_name and from_name.strip():
         return from_name.strip()
     return settings.app_name
 
 
 async def get_sendpulse_token() -> str:
-    """Get sendpulse token.
+    """Executes get sendpulse token operation.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     if not has_sendpulse:
         raise ValueError("SendPulse credentials not configured")
 
@@ -197,14 +186,13 @@ async def get_sendpulse_token() -> str:
 
 
 async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
-    """Send via sendpulse.
+    """Executes send via sendpulse operation.
 
         Args:
-            props: send via sendpulse.
+            props: Input props parameter.
 
         Returns:
-            ProviderResult: Result value.
-        """
+            ProviderResult: Response payload or result."""
     if not has_sendpulse:
         raise ValueError("SendPulse not configured")
 
@@ -266,14 +254,13 @@ async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
 
 
 async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
-    """Send via brevo.
+    """Executes send via brevo operation.
 
         Args:
-            props: send via brevo.
+            props: Input props parameter.
 
         Returns:
-            ProviderResult: Result value.
-        """
+            ProviderResult: Response payload or result."""
     if not has_brevo:
         raise ValueError("Brevo not configured")
 
@@ -331,14 +318,13 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
 
 
 def should_use_sendpulse(email: str | None = None) -> bool:
-    """Should use sendpulse.
+    """Executes should use sendpulse operation.
 
         Args:
-            email: should use sendpulse.
+            email: Email address string.
 
         Returns:
-            bool: Result value.
-        """
+            bool: Response payload or result."""
     if has_brevo and has_sendpulse:
         if email:
             import hashlib
@@ -364,14 +350,13 @@ class ProvidersConfig(BaseModel):
 
 
 def get_providers(use_sp: bool) -> ProvidersConfig:
-    """Get providers.
+    """Executes get providers operation.
 
         Args:
-            use_sp: get providers.
+            use_sp: Input use sp parameter.
 
         Returns:
-            ProvidersConfig: Result value.
-        """
+            ProvidersConfig: Response payload or result."""
     if use_sp:
         return ProvidersConfig(
             primary=send_via_sendpulse,
@@ -393,17 +378,16 @@ async def execute_failover(
     s_name: Literal["Brevo", "SendPulse"],
     err: Exception,
 ) -> ProviderResult:
-    """Execute failover.
+    """Executes execute failover operation.
 
         Args:
-            secondary: execute failover.
-            props: execute failover.
-            s_name: execute failover.
-            err: execute failover.
+            secondary: Input secondary parameter.
+            props: Input props parameter.
+            s_name: Input s name parameter.
+            err: Input err parameter.
 
         Returns:
-            ProviderResult: Result value.
-        """
+            ProviderResult: Response payload or result."""
     err_msg = str(err)
     try:
         return await secondary(props)
@@ -424,14 +408,13 @@ async def execute_failover(
 
 
 async def send_email(props: SendEmailProps) -> ProviderResult:
-    """Send email.
+    """Executes send email operation.
 
         Args:
-            props: send email.
+            props: Input props parameter.
 
         Returns:
-            ProviderResult: Result value.
-        """
+            ProviderResult: Response payload or result."""
     if not has_brevo and not has_sendpulse:
         err = RuntimeError("No provider configured")
         sentry_sdk.capture_exception(err, tags={"location": "send_email"})
@@ -471,17 +454,17 @@ def render_email_template(
     preheader_action: str = "VERIFIED",
     footer_html: str | None = None,
 ) -> str:
-    """
-    Renders a unified HTML wrapper using standard Nexus branding.
+    """Renders a unified HTML wrapper using standard Nexus branding.
 
-    This enables reusing styling, fonts, layouts, and footer information
-    across all transactional emails.
+        Args:
+            rows_html: Input rows html parameter.
+            subject: Input subject parameter.
+            preheader_category: Input preheader category parameter.
+            preheader_action: Input preheader action parameter.
+            footer_html: Input footer html parameter.
 
-    footer_html: custom footer row content. Defaults (None) to the standard
-    "a Nexus account was created" notice, which is only accurate for
-    account/auth emails - pass an explicit string for anything else, or an
-    empty string to omit the footer row entirely.
-    """
+        Returns:
+            str: Response payload or result."""
     app_domain = settings.app_domain
     email_domain = settings.email_domain
     if footer_html is None:
@@ -815,11 +798,10 @@ def _short_report_id(report_id: str) -> str:
     """Short report id.
 
         Args:
-            report_id: short report id.
+            report_id: Input report id parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return report_id.split("-")[0].upper()
 
 
@@ -980,15 +962,14 @@ async def send_feedback_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
-        """Detail row.
+        """Executes detail row operation.
 
             Args:
-                field: detail row.
-                value: detail row.
+                field: Input field parameter.
+                value: Input value parameter.
 
             Returns:
-                str: Result value.
-            """
+                str: Response payload or result."""
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     # Explicit color + anchor tag rather than bare text: several mail
@@ -1158,15 +1139,14 @@ async def send_feedback_comment_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
-        """Detail row.
+        """Executes detail row operation.
 
             Args:
-                field: detail row.
-                value: detail row.
+                field: Input field parameter.
+                value: Input value parameter.
 
             Returns:
-                str: Result value.
-            """
+                str: Response payload or result."""
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (
@@ -1302,15 +1282,14 @@ async def send_feedback_closed_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
-        """Detail row.
+        """Executes detail row operation.
 
             Args:
-                field: detail row.
-                value: detail row.
+                field: Input field parameter.
+                value: Input value parameter.
 
             Returns:
-                str: Result value.
-            """
+                str: Response payload or result."""
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (

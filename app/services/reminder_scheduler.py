@@ -60,11 +60,7 @@ _POLL_INTERVAL_MINUTES = 15
 
 
 async def _check_due_reminders() -> None:
-    """Check due reminders.
-
-        Returns:
-            None: Result value.
-        """
+    """Check due reminders."""
     try:
         due_events = await asyncio.to_thread(
             fetch_due_event_reminders, _REMINDER_WINDOW_MINUTES,
@@ -105,11 +101,7 @@ _SAFETY_EVENT_REMINDER_POLL_MINUTES = 10
 
 
 async def _check_upcoming_safety_reminders() -> None:
-    """Check upcoming safety reminders.
-
-        Returns:
-            None: Result value.
-        """
+    """Check upcoming safety reminders."""
     try:
         due_events = await asyncio.to_thread(
             fetch_due_safety_reminders, _SAFETY_EVENT_REMINDER_WINDOW_MINUTES,
@@ -175,11 +167,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
     """Escalate safety session.
 
         Args:
-            session: escalate safety session.
-
-        Returns:
-            None: Result value.
-        """
+            session: Input session parameter."""
     session_id = str(session.get("id") or "")
     escalations_sent = int(session.get("escalations_sent") or 0)
 
@@ -243,11 +231,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
 
 
 async def _check_overdue_safety_sessions() -> None:
-    """Check overdue safety sessions.
-
-        Returns:
-            None: Result value.
-        """
+    """Check overdue safety sessions."""
     try:
         overdue = await asyncio.to_thread(
             fetch_overdue_safety_sessions, _SAFETY_ESCALATION_GRACE_SECONDS,
@@ -272,11 +256,7 @@ _ACCOUNT_DELETION_POLL_HOURS = 24
 
 
 async def _run_account_deletion_purge() -> None:
-    """Run account deletion purge.
-
-        Returns:
-            None: Result value.
-        """
+    """Run account deletion purge."""
     try:
         await asyncio.to_thread(purge_due_accounts)
     except DatabaseAccessError:
@@ -284,11 +264,7 @@ async def _run_account_deletion_purge() -> None:
 
 
 async def _run_blocklist_expiry() -> None:
-    """Run blocklist expiry.
-
-        Returns:
-            None: Result value.
-        """
+    """Run blocklist expiry."""
     try:
         await asyncio.to_thread(expire_blocklist_entries)
     except DatabaseAccessError:
@@ -296,11 +272,7 @@ async def _run_blocklist_expiry() -> None:
 
 
 async def _run_account_deletion_long_tail_purge() -> None:
-    """Run account deletion long tail purge.
-
-        Returns:
-            None: Result value.
-        """
+    """Run account deletion long tail purge."""
     try:
         await asyncio.to_thread(hard_purge_long_tail_accounts)
     except DatabaseAccessError:
@@ -311,11 +283,7 @@ async def _run_account_deletion_long_tail_purge() -> None:
 # behind each window. Same 24h cadence as the account deletion jobs above;
 # both are cheap, bounded batch scans.
 async def _run_safety_evidence_retention_purge() -> None:
-    """Run safety evidence retention purge.
-
-        Returns:
-            None: Result value.
-        """
+    """Run safety evidence retention purge."""
     try:
         await asyncio.to_thread(purge_expired_safety_evidence)
     except DatabaseAccessError:
@@ -323,11 +291,7 @@ async def _run_safety_evidence_retention_purge() -> None:
 
 
 async def _run_safety_data_legal_hold_purge() -> None:
-    """Run safety data legal hold purge.
-
-        Returns:
-            None: Result value.
-        """
+    """Run safety data legal hold purge."""
     try:
         await asyncio.to_thread(purge_safety_data_for_purged_accounts)
     except DatabaseAccessError:
@@ -335,11 +299,10 @@ async def _run_safety_data_legal_hold_purge() -> None:
 
 
 def start_reminder_scheduler() -> AsyncIOScheduler:
-    """Start reminder scheduler.
+    """Executes start reminder scheduler operation.
 
         Returns:
-            AsyncIOScheduler: Result value.
-        """
+            AsyncIOScheduler: Response payload or result."""
     global _scheduler
     if _scheduler is not None:
         return _scheduler
@@ -402,11 +365,7 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
 
 
 def stop_reminder_scheduler() -> None:
-    """Stop reminder scheduler.
-
-        Returns:
-            None: Result value.
-        """
+    """Executes stop reminder scheduler operation."""
     global _scheduler
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)

@@ -74,17 +74,19 @@ async def get_chats(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> ChatsListResponse:
-    """Get chats.
+    """Fetches active chat conversations for the caller in the specified discovery tab.
 
         Args:
-            request: get chats.
-            tab: get chats.
-            _device: get chats.
-            user_id: get chats.
+            request: FastAPI HTTP request object used for rate limiting and state tracking.
+            tab: Discovery tab category ('Dating', 'BFF', 'Networking') to filter conversations.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of the authenticated user.
 
         Returns:
-            ChatsListResponse: Result value.
-        """
+            ChatsListResponse: Collection of active conversation summaries, peer profiles, and unread counts.
+
+        Raises:
+            HTTPException: 503 if database access fails."""
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_conversations_for_user, user_id, tab)
@@ -170,7 +172,19 @@ async def get_new_chat_candidates(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> ChatCandidatesResponse:
-    """Matches in this tab that have no conversation started yet."""
+    """Retrieves mutual matches in the specified discovery tab that do not have an active chat conversation yet.
+
+        Args:
+            request: FastAPI HTTP request object used for rate limiting.
+            tab: Discovery tab category ('Dating', 'BFF', 'Networking').
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of the authenticated user.
+
+        Returns:
+            ChatCandidatesResponse: List of available match candidates ready for first message initiation.
+
+        Raises:
+            HTTPException: 503 if database access fails."""
     _ = request
     try:
         matches, started_match_ids = await asyncio.gather(
@@ -243,7 +257,19 @@ async def create_chat(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> CreateChatResponse:
-    """Idempotently create (or fetch) the conversation for a match."""
+    """Idempotently creates or retrieves an active E2EE conversation for a mutual match.
+
+        Args:
+            request: FastAPI HTTP request object used for rate limiting.
+            payload: Request model containing target match_id.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of the authenticated user.
+
+        Returns:
+            CreateChatResponse: Details of the created or existing conversation record.
+
+        Raises:
+            HTTPException: 403 if user is not a match participant, 503 on database failure."""
     _ = request
     try:
         conversation = await asyncio.to_thread(
@@ -287,18 +313,20 @@ async def send_message(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> SendMessageResponse:
-    """Send message.
+    """Sends an end-to-end encrypted message in an active conversation and triggers push notifications.
 
         Args:
-            request: send message.
-            conversation_id: send message.
-            payload: send message.
-            _device: send message.
-            user_id: send message.
+            request: FastAPI HTTP request object used for rate limiting.
+            conversation_id: Unique UUID string of target conversation.
+            payload: Send message request model containing ciphertext and metadata.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of the authenticated sender.
 
         Returns:
-            SendMessageResponse: Result value.
-        """
+            SendMessageResponse: Message ID and creation timestamp.
+
+        Raises:
+            HTTPException: 404 if conversation missing, 403 if closed or unauthorized, 503 on DB error."""
     _ = request
     try:
         conversation = await asyncio.to_thread(
@@ -369,17 +397,19 @@ async def send_presence_heartbeat(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Send presence heartbeat.
+    """Records user online presence status and updates last active timestamp.
 
         Args:
-            request: send presence heartbeat.
-            payload: send presence heartbeat.
-            _device: send presence heartbeat.
-            user_id: send presence heartbeat.
+            request: FastAPI HTTP request object used for rate limiting.
+            payload: Presence heartbeat payload indicating online status boolean.
+            _device: App Check attestation token dependency guard.
+            user_id: Verified UUID string of the authenticated user.
 
         Returns:
-            dict[str, bool]: Result value.
-        """
+            dict[str, bool]: Success indicator object.
+
+        Raises:
+            HTTPException: 503 if database update fails."""
     _ = request
     try:
         await asyncio.to_thread(upsert_presence_heartbeat, user_id, payload.is_online)
@@ -605,14 +635,10 @@ def _validate_event_status_transition(
     """Validate event status transition.
 
         Args:
-            current_status: validate event status transition.
-            new_status: validate event status transition.
-            user_id: validate event status transition.
-            created_by: validate event status transition.
-
-        Returns:
-            None: Result value.
-        """
+            current_status: Input current status parameter.
+            new_status: Input new status parameter.
+            user_id: Unique UUID string of the authenticated user.
+            created_by: Input created by parameter."""
     if current_status == "cancelled":
         raise HTTPException(
             status_code=400,
@@ -645,19 +671,18 @@ async def update_chat_event(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
-    """Update chat event.
+    """Executes update chat event operation.
 
         Args:
-            request: update chat event.
-            conversation_id: update chat event.
-            event_id: update chat event.
-            payload: update chat event.
-            _device: update chat event.
-            user_id: update chat event.
+            request: FastAPI HTTP request object used for rate limiting and connection state.
+            conversation_id: Input conversation id parameter.
+            event_id: Input event id parameter.
+            payload: Validated request body model containing parameters.
+            _device: App Check attestation token dependency guard.
+            user_id: Unique UUID string of the authenticated user.
 
         Returns:
-            EventResponse: Result value.
-        """
+            EventResponse: Response payload or result."""
     _ = request
     try:
         event = await asyncio.to_thread(fetch_event, event_id)

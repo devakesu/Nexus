@@ -91,11 +91,19 @@ elif settings.enforce_app_check:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Lifespan.
+    """Manage application startup and shutdown lifecycle events.
 
-        Args:
-            _app: lifespan.
-        """
+    On startup:
+    - Verifies Redis connectivity if replay protection is enabled.
+    - Starts the account deletion reminder scheduler.
+
+    On shutdown:
+    - Stops the reminder scheduler.
+    - Gracefully closes the Redis connection pool.
+
+    Args:
+        _app: FastAPI application instance.
+    """
     if settings.enable_replay_protection:
         try:
             ping_func = cast(Any, redis_client).ping
@@ -160,15 +168,17 @@ if exists(static_path):
 
 
 def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
-    """Custom rate limit handler.
+    """Handle RateLimitExceeded exceptions by returning a 429 JSON response.
 
-        Args:
-            request: custom rate limit handler.
-            exc: custom rate limit handler.
+    Injects standard SlowAPI rate limit headers into the response if available.
 
-        Returns:
-            Response: Result value.
-        """
+    Args:
+        request: Incoming FastAPI HTTP request.
+        exc: The RateLimitExceeded exception instance.
+
+    Returns:
+        Response: A 429 JSONResponse containing the rate limit details and headers.
+    """
     detail = getattr(exc, "detail", "")
     response = JSONResponse(
         {"error": f"Rate limit exceeded: {detail}"},
@@ -184,15 +194,18 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> Response:
-    """Http exception handler.
+    """Handle HTTP exceptions for both API requests and browser HTML requests.
 
-        Args:
-            request: http exception handler.
-            exc: http exception handler.
+    Renders a styled HTML error page if the Accept header indicates 'text/html',
+    otherwise returns a standard JSON error response.
 
-        Returns:
-            Response: Result value.
-        """
+    Args:
+        request: Incoming FastAPI HTTP request.
+        exc: The HTTP exception object.
+
+    Returns:
+        Response: HTML error response or JSONResponse with status code and detail.
+    """
     status_code = getattr(exc, "status_code", 500)
     detail = getattr(exc, "detail", None)
     accept = request.headers.get("accept", "")

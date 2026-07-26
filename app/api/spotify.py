@@ -79,24 +79,19 @@ def _state_redis_key(state: str) -> str:
     """State redis key.
 
         Args:
-            state: state redis key.
+            state: Input state parameter.
 
         Returns:
-            str: Result value.
-        """
+            str: Response payload or result."""
     return f"spotify:oauth:state:{state}"
 
 
 async def _store_state(state: str, user_id: str) -> None:
-    """Store state.
+    """Executes store state operation.
 
         Args:
-            state: store state.
-            user_id: store state.
-
-        Returns:
-            None: Result value.
-        """
+            state: Input state parameter.
+            user_id: Unique UUID string of the authenticated user."""
     await redis_client.setex(_state_redis_key(state), _STATE_TTL_SECONDS, user_id)
 
 
@@ -265,7 +260,15 @@ async def spotify_connect(
     request: Request,
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, str]:
-    """Return a Spotify authorization URL for the current user."""
+    """Initiates Spotify OAuth authorization flow by generating state token and auth URL.
+
+        Args:
+            request: FastAPI HTTP request object.
+            _device: App Check attestation guard.
+            user_id: Verified caller user ID.
+
+        Returns:
+            dict[str, str]: Spotify authorization URL and state token."""
     _ = request
     redirect_uri = settings.spotify_redirect_uri
     if not settings.spotify_client_id or not redirect_uri:
@@ -296,12 +299,16 @@ async def spotify_callback(
     state: str | None = None,
     error: str | None = None,
 ) -> HTMLResponse:
-    """
-    OAuth callback invoked by Spotify after the user grants (or denies) access.
+    """Public OAuth callback handler receiving Spotify authorization code.
 
-    Public endpoint - no JWT or App Check - because it is called by Spotify's
-    servers, not the app. Security comes from the one-time Redis state token.
-    """
+        Args:
+            request: FastAPI HTTP request object.
+            code: Authorization code parameter.
+            state: State token parameter.
+            error: Optional error code parameter from Spotify.
+
+        Returns:
+            HTMLResponse: HTML redirect or status landing page."""
     _ = request
     if error or not code or not state:
         reason = error or "missing parameters"
@@ -398,9 +405,15 @@ async def spotify_status(
     request: Request,
     user_id: str = Depends(get_active_user_id),
 ) -> SpotifyStatusResponse:
-    """Cheap connected/last-synced/counts summary for the Profile tab's
-    initial render - avoids pulling the full playlist payload just to decide
-    whether to show a Connect or Manage button."""
+    """Returns caller's current Spotify connection and sync status.
+
+        Args:
+            request: FastAPI HTTP request object.
+            _device: App Check attestation guard.
+            user_id: Verified caller user ID.
+
+        Returns:
+            SpotifyStatusResponse: Connection status, linked profile name, and last sync timestamp."""
     _ = request
     connection = get_connection(user_id)
     if connection is None or connection.get("disconnected_at"):
@@ -418,11 +431,10 @@ def _track_out_from_row(raw: dict[str, Any]) -> SpotifyTrackOut:
     """Track out from row.
 
         Args:
-            raw: track out from row.
+            raw: Input raw parameter.
 
         Returns:
-            SpotifyTrackOut: Result value.
-        """
+            SpotifyTrackOut: Response payload or result."""
     raw_artists = raw.get("artists")
     artists: list[Any] = (
         cast(list[Any], raw_artists) if isinstance(raw_artists, list) else []
@@ -438,11 +450,10 @@ def _playlist_out_from_row(raw: dict[str, Any]) -> SpotifyPlaylistOut:
     """Playlist out from row.
 
         Args:
-            raw: playlist out from row.
+            raw: Input raw parameter.
 
         Returns:
-            SpotifyPlaylistOut: Result value.
-        """
+            SpotifyPlaylistOut: Response payload or result."""
     raw_tracks = raw.get("tracks")
     tracks: list[Any] = (
         cast(list[Any], raw_tracks) if isinstance(raw_tracks, list) else []
@@ -553,11 +564,15 @@ async def spotify_disconnect(
     request: Request,
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Fully revoke a Spotify connection: deletes the stored refresh token
-    and all synced playlists, and clears artist_affinity/top_artists/
-    music_taste_synced_at from the profile. Spotify has no public revoke
-    endpoint, so the app should also point users to
-    open.spotify.com/account/apps to revoke access on Spotify's side."""
+    """Revokes Spotify integration, deleting stored access tokens and artist affinity data.
+
+        Args:
+            request: FastAPI HTTP request object.
+            _device: App Check attestation guard.
+            user_id: Verified caller user ID.
+
+        Returns:
+            dict[str, bool]: Success indicator."""
     _ = request
     try:
         disconnect_connection(user_id)
@@ -577,11 +592,10 @@ def _html_result(
     message: str,
     artists: list[str] | None = None,
 ) -> HTMLResponse:
-    """Html result.
+    """Executes html result operation.
 
         Returns:
-            HTMLResponse: Result value.
-        """
+            HTMLResponse: Response payload or result."""
     accent = "#1DB954" if success else "#FF4B4B"
     icon = "✓" if success else "✕"
     artist_html = ""

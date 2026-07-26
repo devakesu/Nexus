@@ -197,11 +197,10 @@ class Settings(BaseSettings):
 
     @property
     def is_jwks(self) -> bool:
-        """Is jwks.
+        """Executes is jwks operation.
 
             Returns:
-                bool: Result value.
-            """
+                bool: Response payload or result."""
         secret = self.supabase_jwt_secret
         return isinstance(secret, dict) or (
             secret.strip().startswith("{") and "keys" in secret
@@ -213,14 +212,13 @@ class Settings(BaseSettings):
         cls,
         v: Any,
     ) -> dict[str, Any] | None:
-        """Parse firebase service account.
+        """Executes parse firebase service account operation.
 
             Args:
-                v: parse firebase service account.
+                v: Input v parameter.
 
             Returns:
-                dict[str, Any] | None: Result value.
-            """
+                dict[str, Any] | None: Response payload or result."""
         import base64
         import json
         from contextlib import suppress
@@ -254,14 +252,13 @@ class Settings(BaseSettings):
         cls,
         v: Any,
     ) -> dict[str, list[str]]:
-        """Parse allowed signup domains.
+        """Executes parse allowed signup domains operation.
 
             Args:
-                v: parse allowed signup domains.
+                v: Input v parameter.
 
             Returns:
-                dict[str, list[str]]: Result value.
-            """
+                dict[str, list[str]]: Response payload or result."""
         import json
         from contextlib import suppress
 
@@ -291,11 +288,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_dynamic_defaults(self) -> "Settings":
-        """Resolve dynamic defaults.
+        """Executes resolve dynamic defaults operation.
 
             Returns:
-                'Settings': Result value.
-            """
+                'Settings': Response payload or result."""
         if self.app_domain:
             domain = self.app_domain.rstrip("/")
             # Set default backend public URL if not set
@@ -324,14 +320,13 @@ class Settings(BaseSettings):
             app_domain_clean = app_domain_clean.split(":", 1)[0]
 
         def is_valid_app_domain(domain: str) -> bool:
-            """Is valid app domain.
+            """Executes is valid app domain operation.
 
                 Args:
-                    domain: is valid app domain.
+                    domain: Input domain parameter.
 
                 Returns:
-                    bool: Result value.
-                """
+                    bool: Response payload or result."""
             if not domain:
                 return False
             import ipaddress
@@ -378,18 +373,17 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Settings customise sources.
+        """Executes settings customise sources operation.
 
             Args:
-                settings_cls: settings customise sources.
-                init_settings: settings customise sources.
-                env_settings: settings customise sources.
-                dotenv_settings: settings customise sources.
-                file_secret_settings: settings customise sources.
+                settings_cls: Input settings cls parameter.
+                init_settings: Input init settings parameter.
+                env_settings: Input env settings parameter.
+                dotenv_settings: Input dotenv settings parameter.
+                file_secret_settings: Input file secret settings parameter.
 
             Returns:
-                tuple[PydanticBaseSettingsSource, ...]: Result value.
-            """
+                tuple[PydanticBaseSettingsSource, ...]: Response payload or result."""
         class FilteredDotenvSource(PydanticBaseSettingsSource):
             """Filtereddotenvsource class representation."""
             def get_field_value(
@@ -397,25 +391,23 @@ class Settings(BaseSettings):
                 field: FieldInfo,
                 field_name: str,
             ) -> tuple[Any, str, bool]:
-                """Get field value.
+                """Executes get field value operation.
 
                     Args:
-                        field: get field value.
-                        field_name: get field value.
+                        field: Input field parameter.
+                        field_name: Input field name parameter.
 
                     Returns:
-                        tuple[Any, str, bool]: Result value.
-                    """
+                        tuple[Any, str, bool]: Response payload or result."""
                 if field_name in BLOCKED_DOTENV_KEYS:
                     return None, field_name, False
                 return dotenv_settings.get_field_value(field, field_name)
 
             def __call__(self) -> dict[str, Any]:
-                """Call  .
+                """Executes call   operation.
 
                     Returns:
-                        dict[str, Any]: Result value.
-                    """
+                        dict[str, Any]: Response payload or result."""
                 raw_data = dotenv_settings()
                 return {
                     k: v for k, v in raw_data.items()
