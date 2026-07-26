@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="theme-color" content="#04060f">
+        {% if meta_description %}<meta name="description" content="{{ meta_description }}">{% endif %}
+        {% if meta_keywords %}<meta name="keywords" content="{{ meta_keywords }}">{% endif %}
+        {% if meta_author %}<meta name="author" content="{{ meta_author }}">{% endif %}
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ og_url or 'https://nexus-engine.app/' }}">
+        <meta property="og:title" content="{{ og_title or page_title or 'Nexus' }}">
+        <meta property="og:description" content="{{ og_description or meta_description or '' }}">
+        <meta property="og:image" content="{{ og_image or '/nexus-wide-logo.jpg' }}">
+        <meta property="og:site_name" content="Nexus Platform">
+
+        <!-- Twitter -->
+        <meta property="twitter:card" content="summary_large_image">
+        <meta property="twitter:url" content="{{ og_url or 'https://nexus-engine.app/' }}">
+        <meta property="twitter:title" content="{{ og_title or page_title or 'Nexus' }}">
+        <meta property="twitter:description" content="{{ og_description or meta_description or '' }}">
+        <meta property="twitter:image" content="{{ og_image or '/nexus-wide-logo.jpg' }}">
+
+        <title>{{ page_title or 'Nexus - Discover People In Your Real-Life Orbit' }}</title>
+
+        <!-- Favicons -->
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+        <link rel="manifest" href="/site.webmanifest">
+
+        <!-- Fonts: Sora (display) + JetBrains Mono (mono) + Nunito Sans (body) -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Nunito+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+        <!-- Tailwind v4 CDN & Lucide Icons -->
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+        <style>
+            /* ── Common Design Tokens ─────────────────────────── */
+            :root {
+                --font-display: 'Sora', sans-serif;
+                --font-body: 'Nunito Sans', sans-serif;
+                --font-mono: 'JetBrains Mono', monospace;
+
+                --void:        oklch(0.07 0.018 265);
+                --void-mid:    oklch(0.10 0.022 265);
+                --surface:     oklch(0.13 0.026 265);
+                --surface-2:   oklch(0.16 0.024 265);
+                --border:      oklch(0.22 0.020 265);
+
+                --starlight:   oklch(0.74 0.18 205);
+                --pulsar:      oklch(0.71 0.22 0);
+                --nebula:      oklch(0.68 0.20 280);
+                --nova:        oklch(0.80 0.19 85);
+                --aurora:      oklch(0.74 0.20 165);
+
+                --ink-1: oklch(0.97 0.005 265);
+                --ink-2: oklch(0.78 0.012 265);
+                --ink-3: oklch(0.58 0.015 265);
+
+                --z-canvas: 0;
+                --z-glow: 1;
+                --z-content: 10;
+                --z-nav: 50;
+                --z-modal: 100;
+            }
+
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+            body {
+                font-family: var(--font-body);
+                background: var(--void);
+                color: var(--ink-1);
+                overflow-x: hidden;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
+            .f-display { font-family: var(--font-display); letter-spacing: -0.025em; }
+            .f-mono    { font-family: var(--font-mono); }
+
+            #cosmos-canvas {
+                position: fixed; inset: 0;
+                pointer-events: none;
+                z-index: var(--z-canvas);
+            }
+
+            .footer-link {
+                color: var(--ink-2);
+                text-decoration: none;
+                font-size: 0.875rem;
+                transition: all 0.2s;
+                position: relative;
+                padding-bottom: 4px;
+            }
+            .footer-link:hover { color: var(--ink-1); }
+            .footer-link.active {
+                color: var(--starlight) !important;
+                font-weight: 700 !important;
+                border-bottom: 2px solid var(--starlight) !important;
+                box-shadow: 0 4px 12px oklch(0.74 0.18 205 / 0.35);
+            }
+
+            /* ── Nav Header Pill Styles ───────────────────────── */
+            .nav-pill {
+                position: fixed;
+                top: 1.25rem; left: 50%;
+                transform: translateX(-50%);
+                z-index: var(--z-nav, 50);
+                width: min(1100px, calc(100vw - 2rem));
+                background: oklch(0.10 0.022 265 / 0.82);
+                backdrop-filter: blur(20px) saturate(1.5);
+                -webkit-backdrop-filter: blur(20px) saturate(1.5);
+                border: 1px solid oklch(0.28 0.025 265 / 0.7);
+                border-radius: 2rem;
+                padding: 0.75rem 1.5rem;
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 1rem;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            }
+
+            .nav-link {
+                font-size: 0.8125rem; font-weight: 600;
+                color: var(--ink-2);
+                text-decoration: none;
+                transition: color 0.2s;
+                white-space: nowrap;
+            }
+            .nav-link:hover { color: var(--ink-1); }
+
+            @media (max-width: 768px) {
+                .nav-desktop { display: none !important; }
+                .nav-pill { padding: 0.5rem 0.875rem !important; width: calc(100vw - 1.25rem) !important; top: 0.75rem !important; }
+            }
+
+            a:focus-visible, button:focus-visible {
+                outline: 2px solid var(--starlight);
+                outline-offset: 3px;
+                border-radius: 6px;
+            }
+        </style>
+
+        {% block extra_head %}{% endblock %}
+    </head>
+    <body>
+        {% if show_cosmos_canvas is not defined or show_cosmos_canvas %}
+        <canvas id="cosmos-canvas"></canvas>
+        {% endif %}
+
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black focus:rounded-md">Skip to main content</a>
+
+        {% block header %}
+            {% include "components/header.html" %}
+        {% endblock %}
+
+        <main id="main-content" role="main">
+            {% block content %}{% endblock %}
+        </main>
+
+        {% block footer %}
+            {% if footer_type == 'main' %}
+                {% include "components/footer_main.html" %}
+            {% else %}
+                {% include "components/footer_secondary.html" %}
+            {% endif %}
+        {% endblock %}
+
+        {% if show_cosmos_canvas is not defined or show_cosmos_canvas %}
+        <script>
+            (function () {
+                const canvas = document.getElementById('cosmos-canvas');
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                let W = canvas.width  = window.innerWidth;
+                let H = canvas.height = window.innerHeight;
+
+                window.addEventListener('resize', () => {
+                    W = canvas.width  = window.innerWidth;
+                    H = canvas.height = window.innerHeight;
+                }, { passive: true });
+
+                const N = Math.min(160, Math.floor(W * H / 7500));
+                let mx = W / 2, my = H / 2;
+                window.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
+
+                const stars = Array.from({ length: N }, () => ({
+                    x: Math.random() * W, y: Math.random() * H,
+                    r: Math.random() * 1.4 + 0.3,
+                    vx: (Math.random() - 0.5) * 0.18,
+                    vy: (Math.random() - 0.5) * 0.18,
+                    alpha: Math.random() * 0.7 + 0.2,
+                    phase: Math.random() * Math.PI * 2,
+                    freq: Math.random() * 0.018 + 0.005,
+                    hue: Math.random() > 0.8 ? 205 : (Math.random() > 0.5 ? 280 : 265),
+                }));
+
+                const CLUSTERS = [
+                    { cx: W * 0.25, cy: H * 0.22, pts: [[0,0],[80,-30],[40,60],[-50,40],[90,20]] },
+                    { cx: W * 0.75, cy: H * 0.65, pts: [[0,0],[-70,25],[30,70],[80,10],[-20,80]] },
+                    { cx: W * 0.60, cy: H * 0.15, pts: [[0,0],[50,-20],[-30,50],[60,30]] },
+                ];
+
+                function draw() {
+                    ctx.clearRect(0, 0, W, H);
+                    ctx.save();
+                    CLUSTERS.forEach(cl => {
+                        const pts = cl.pts.map(([dx, dy]) => ({ x: cl.cx + dx, y: cl.cy + dy }));
+                        ctx.beginPath();
+                        pts.forEach((p, i) => { i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); });
+                        ctx.closePath();
+                        ctx.strokeStyle = 'oklch(0.72 0.19 205 / 0.08)';
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    });
+                    ctx.restore();
+
+                    for (let i = 0; i < stars.length; i++) {
+                        for (let j = i + 1; j < stars.length; j++) {
+                            const dx = stars[i].x - stars[j].x;
+                            const dy = stars[i].y - stars[j].y;
+                            const d2 = dx * dx + dy * dy;
+                            if (d2 < 9800) {
+                                const a = (1 - Math.sqrt(d2) / 99) * 0.12;
+                                ctx.beginPath();
+                                ctx.moveTo(stars[i].x, stars[i].y);
+                                ctx.lineTo(stars[j].x, stars[j].y);
+                                ctx.strokeStyle = `oklch(0.72 0.19 205 / ${a.toFixed(3)})`;
+                                ctx.lineWidth = 0.4;
+                                ctx.stroke();
+                            }
+                        }
+                    }
+
+                    stars.forEach(s => {
+                        const dx = mx - s.x, dy = my - s.y;
+                        const d = Math.sqrt(dx * dx + dy * dy);
+                        if (d < 120) {
+                            ctx.beginPath();
+                            ctx.moveTo(s.x, s.y);
+                            ctx.lineTo(mx, my);
+                            ctx.strokeStyle = `oklch(0.72 0.19 205 / ${(1 - d / 120) * 0.25})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+
+                        s.x += s.vx; s.y += s.vy;
+                        if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+                        if (s.y < 0) s.y = H; if (s.y > H) s.y = 0;
+
+                        const tw = Math.sin(Date.now() * s.freq + s.phase) * 0.25 + 0.75;
+                        ctx.beginPath();
+                        ctx.arc(s.x, s.y, s.r * tw, 0, Math.PI * 2);
+                        ctx.fillStyle = `oklch(0.72 0.19 ${s.hue} / ${(s.alpha * tw).toFixed(3)})`;
+                        ctx.fill();
+                    });
+
+                    requestAnimationFrame(draw);
+                }
+                draw();
+            })();
+        </script>
+        {% endif %}
+
+        <script>
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        </script>
+
+        {% block extra_scripts %}{% endblock %}
+    </body>
+</html>

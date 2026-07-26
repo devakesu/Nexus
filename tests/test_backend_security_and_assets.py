@@ -122,3 +122,28 @@ def test_error_page_rendering():
     assert "Internal Anomaly" in res_error.text
     assert "Database connection failed" in res_error.text
 
+
+def test_footers_and_active_page_bars():
+    # 1. Home page must use main cosmic constellation footer and QR modal
+    res_home = cast(Response, client.get("/"))
+    assert res_home.status_code == 200
+    assert 'id="qr-modal"' in res_home.text
+    assert "footer-grid" in res_home.text
+
+    # 2. Sub-pages must use secondary footer with active page highlight
+    res_help = cast(Response, client.get("/help"))
+    assert res_help.status_code == 200
+    assert 'class="footer-link active"' in res_help.text
+    assert 'href="/help" class="footer-link active"' in res_help.text
+
+    res_legal = cast(Response, client.get("/legal"))
+    assert res_legal.status_code == 200
+    assert 'class="footer-link active"' in res_legal.text
+    assert 'href="/legal" class="footer-link active"' in res_legal.text
+
+    res_contact = cast(Response, client.get("/contact"))
+    assert res_contact.status_code == 200
+    assert 'class="footer-link active"' in res_contact.text
+    assert 'href="/contact" class="footer-link active"' in res_contact.text
+
+

@@ -1,0 +1,597 @@
+{% extends "layouts/base.html" %}
+{% set footer_type = 'secondary' %}
+{% set header_mode = 'secondary' %}
+{% set active_page = 'help' %}
+{% set brand_subtitle = 'Help Center' %}
+
+{% block extra_head %}
+<style>
+    /* ── Help Center Specific Styles ─────────────────────────── */
+    .hero-section {
+        padding: 2rem 1.5rem 2.5rem;
+        text-align: center;
+        max-width: 900px;
+        margin: 0 auto 3rem;
+    }
+    .eyebrow-tag {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.4rem 1rem; border-radius: 2rem;
+        background: oklch(0.74 0.18 205 / 0.1); border: 1px solid oklch(0.74 0.18 205 / 0.25);
+        color: var(--starlight); font-family: var(--font-mono); font-size: 0.75rem;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+        margin-bottom: 1.5rem;
+    }
+    .hero-title {
+        font-family: var(--font-display); font-size: clamp(2.4rem, 5.5vw, 4rem);
+        font-weight: 800; color: #fff; line-height: 1.15; margin-bottom: 1.25rem;
+    }
+    .hero-gradient {
+        background: linear-gradient(135deg, var(--starlight), var(--nebula), var(--pulsar));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+        color: var(--ink-2); font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+        max-width: 680px; margin: 0 auto 2.5rem; line-height: 1.6;
+    }
+
+    .search-wrapper { max-width: 680px; margin: 0 auto; position: relative; }
+    .search-box {
+        position: relative; display: flex; align-items: center;
+        background: oklch(0.12 0.026 265 / 0.9);
+        border: 1px solid oklch(0.28 0.03 265);
+        border-radius: 1.25rem; padding: 0.5rem 0.75rem 0.5rem 1.25rem;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.4), 0 0 30px oklch(0.74 0.18 205 / 0.1);
+        transition: all 0.25s ease;
+    }
+    .search-box:focus-within {
+        border-color: var(--starlight);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 40px oklch(0.74 0.18 205 / 0.25);
+        background: oklch(0.14 0.026 265);
+    }
+    .search-icon { color: var(--starlight); margin-right: 0.85rem; flex-shrink: 0; }
+    .search-input {
+        width: 100%; background: transparent; border: none; outline: none;
+        color: #fff; font-family: var(--font-body); font-size: 1.05rem; font-weight: 500;
+    }
+    .search-input::placeholder { color: var(--ink-3); }
+    .search-clear {
+        background: transparent; border: none; color: var(--ink-3); cursor: pointer;
+        padding: 0.5rem; display: none; transition: color 0.2s;
+    }
+    .search-clear:hover { color: #fff; }
+    .search-stats {
+        margin-top: 0.85rem; font-size: 0.85rem; color: var(--ink-3);
+        font-family: var(--font-mono); display: none;
+    }
+
+    .quick-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem; margin-bottom: 3.5rem;
+    }
+    .quick-card {
+        background: oklch(0.12 0.024 265 / 0.6);
+        border: 1px solid var(--border); border-radius: 1.25rem;
+        padding: 1.5rem; text-decoration: none; display: flex;
+        flex-direction: column; gap: 1.25rem; transition: all 0.25s ease;
+    }
+    .quick-card:hover {
+        transform: translateY(-4px); border-color: var(--starlight);
+        background: oklch(0.15 0.026 265 / 0.8);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+    }
+    .quick-card-head { display: flex; align-items: center; justify-content: space-between; }
+    .quick-card-icon {
+        width: 44px; height: 44px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .qc-red    { background: oklch(0.71 0.22 0 / 0.15); color: var(--pulsar); border: 1px solid oklch(0.71 0.22 0 / 0.3); }
+    .qc-purple { background: oklch(0.68 0.20 280 / 0.15); color: var(--nebula); border: 1px solid oklch(0.68 0.20 280 / 0.3); }
+    .qc-teal   { background: oklch(0.74 0.20 165 / 0.15); color: var(--aurora); border: 1px solid oklch(0.74 0.20 165 / 0.3); }
+    .qc-cyan   { background: oklch(0.74 0.18 205 / 0.15); color: var(--starlight); border: 1px solid oklch(0.74 0.18 205 / 0.3); }
+    .qc-amber  { background: oklch(0.80 0.19 85 / 0.15); color: var(--nova); border: 1px solid oklch(0.80 0.19 85 / 0.3); }
+
+    .quick-card-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: #fff; }
+    .quick-card-desc { color: var(--ink-2); font-size: 0.875rem; line-height: 1.5; }
+
+    .filter-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2.5rem;
+        padding-bottom: 1.25rem; border-bottom: 1px solid var(--border);
+    }
+    .pill-list { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .pill-btn {
+        background: oklch(0.12 0.02 265); border: 1px solid var(--border);
+        border-radius: 2rem; padding: 0.5rem 1.1rem; color: var(--ink-2);
+        font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .pill-btn:hover { color: #fff; border-color: var(--starlight); }
+    .pill-btn.active {
+        background: linear-gradient(135deg, var(--starlight), var(--nebula));
+        color: #fff; border-color: transparent; box-shadow: 0 4px 16px oklch(0.74 0.18 205 / 0.3);
+    }
+
+    .category-block { margin-bottom: 3.5rem; scroll-margin-top: 6rem; }
+    .category-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .category-icon-box {
+        width: 38px; height: 38px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .category-title { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; color: #fff; }
+    .category-desc { font-size: 0.875rem; color: var(--ink-3); }
+    .category-count {
+        margin-left: auto; font-family: var(--font-mono); font-size: 0.75rem;
+        color: var(--ink-3); background: oklch(0.12 0.02 265);
+        padding: 0.25rem 0.75rem; border-radius: 1rem; border: 1px solid var(--border);
+    }
+
+    .faq-card {
+        background: oklch(0.11 0.02 265 / 0.7);
+        border: 1px solid var(--border); border-radius: 1.1rem;
+        margin-bottom: 0.85rem; overflow: hidden; transition: all 0.2s ease;
+    }
+    .faq-card:hover { border-color: var(--border-glow); background: oklch(0.13 0.024 265 / 0.9); }
+    .faq-card[open] { border-color: var(--starlight); background: oklch(0.13 0.024 265); }
+    .faq-summary {
+        padding: 1.25rem 1.5rem; cursor: pointer; display: flex;
+        align-items: center; justify-content: space-between; gap: 1rem;
+        font-family: var(--font-display); font-weight: 700; font-size: 1.025rem; color: #fff;
+        user-select: none;
+    }
+    .faq-summary::-webkit-details-marker { display: none; }
+    .faq-chevron { color: var(--starlight); transition: transform 0.25s ease; flex-shrink: 0; }
+    .faq-card[open] .faq-chevron { transform: rotate(180deg); }
+    .faq-content {
+        padding: 0 1.5rem 1.5rem; color: var(--ink-2); font-size: 0.95rem;
+        line-height: 1.7; border-top: 1px solid oklch(0.2 0.02 265); padding-top: 1.25rem;
+    }
+
+    .cta-banner {
+        background: linear-gradient(135deg, oklch(0.14 0.03 265), oklch(0.18 0.04 280));
+        border: 1px solid oklch(0.74 0.18 205 / 0.3); border-radius: 1.75rem;
+        padding: 3.5rem 2rem; text-align: center; margin: 4rem 0;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .cta-title {
+        font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+        font-weight: 800; color: #fff; margin-bottom: 1rem;
+    }
+    .cta-desc { color: var(--ink-2); font-size: 1rem; max-width: 600px; margin: 0 auto 2rem; line-height: 1.6; }
+    .cta-btn-group { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="eyebrow-tag">
+        <i data-lucide="life-buoy" style="width:14px; height:14px;"></i>
+        Knowledge Base & Support Guide
+    </div>
+
+    <h1 class="hero-title">
+        How can we help your <span class="hero-gradient">Orbit?</span>
+    </h1>
+
+    <p class="hero-desc">
+        Search instant answers for Orbit discovery, Signal E2EE messaging, Safety Check-in alerts, profile controls, and campus verification.
+    </p>
+
+    <div class="search-wrapper">
+        <div class="search-box">
+            <i data-lucide="search" class="search-icon" style="width:22px; height:22px;"></i>
+            <input type="text" id="faq-search" class="search-input" placeholder="Search FAQs, features, settings (e.g., Orbit, E2EE, Safety Check-in)...">
+            <button id="search-clear" class="search-clear">
+                <i data-lucide="x-circle" style="width:20px; height:20px;"></i>
+            </button>
+        </div>
+        <div id="search-stats" class="search-stats">
+            Showing <span id="match-count">0</span> matching articles
+        </div>
+    </div>
+</section>
+
+<!-- Main Content Container -->
+<div class="help-container" style="max-width: 1200px; margin: 2rem auto 0; padding: 0 1.5rem 6rem; position: relative; z-index: 10;">
+    <!-- Quick Action Cards Grid -->
+    <div class="quick-grid">
+        <a href="#safety-checkin" onclick="filterCategory('safety-checkin')" class="quick-card">
+            <div class="quick-card-head">
+                <div class="quick-card-icon qc-red">
+                    <i data-lucide="shield-alert" style="width:22px; height:22px;"></i>
+                </div>
+                <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+            </div>
+            <div>
+                <div class="quick-card-title">Safety Check-In & SOS</div>
+                <div class="quick-card-desc">Meetup safety timer, trusted contacts, Digital Witness & emergency alerts.</div>
+            </div>
+        </a>
+
+        <a href="#orbit" onclick="filterCategory('orbit')" class="quick-card">
+            <div class="quick-card-head">
+                <div class="quick-card-icon qc-purple">
+                    <i data-lucide="orbit" style="width:22px; height:22px;"></i>
+                </div>
+                <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+            </div>
+            <div>
+                <div class="quick-card-title">Orbit & Discovery</div>
+                <div class="quick-card-desc">Concentric match tiers, Orbit filters, age caps, and multi-tab activation.</div>
+            </div>
+        </a>
+
+        <a href="#messaging" onclick="filterCategory('messaging')" class="quick-card">
+            <div class="quick-card-head">
+                <div class="quick-card-icon qc-teal">
+                    <i data-lucide="message-square-lock" style="width:22px; height:22px;"></i>
+                </div>
+                <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+            </div>
+            <div>
+                <div class="quick-card-title">Signal E2EE Chat</div>
+                <div class="quick-card-desc">Signal Protocol encryption, voice notes, chat events, read receipts.</div>
+            </div>
+        </a>
+
+        <a href="#getting-started" onclick="filterCategory('getting-started')" class="quick-card">
+            <div class="quick-card-head">
+                <div class="quick-card-icon qc-cyan">
+                    <i data-lucide="rocket" style="width:22px; height:22px;"></i>
+                </div>
+                <i data-lucide="arrow-up-right" style="width:16px; height:16px; color: var(--ink-3);"></i>
+            </div>
+            <div>
+                <div class="quick-card-title">Campus & Onboarding</div>
+                <div class="quick-card-desc">Nexus MEC campus export, demographic buckets, profile setup.</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Filter Bar & Accordion Controls -->
+    <div class="filter-bar">
+        <div class="pill-list" id="topic-pills">
+            <button onclick="filterCategory('all')" class="pill-btn active" data-cat="all">All Topics (44)</button>
+            <button onclick="filterCategory('getting-started')" class="pill-btn" data-cat="getting-started">Getting Started</button>
+            <button onclick="filterCategory('orbit')" class="pill-btn" data-cat="orbit">Orbit Discovery</button>
+            <button onclick="filterCategory('messaging')" class="pill-btn" data-cat="messaging">Messaging</button>
+            <button onclick="filterCategory('profile')" class="pill-btn" data-cat="profile">Profile & Photos</button>
+            <button onclick="filterCategory('safety')" class="pill-btn" data-cat="safety">Privacy & Safety</button>
+            <button onclick="filterCategory('safety-checkin')" class="pill-btn" data-cat="safety-checkin">Safety Check-In & SOS</button>
+            <button onclick="filterCategory('account')" class="pill-btn" data-cat="account">Account & Data</button>
+            <button onclick="filterCategory('troubleshooting')" class="pill-btn" data-cat="troubleshooting">Troubleshooting</button>
+        </div>
+
+        <div class="controls-right" style="display:flex;gap:0.5rem;">
+            <button onclick="setAllAccordions(true)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
+                <i data-lucide="chevrons-down" style="width:14px; height:14px;"></i> Expand All
+            </button>
+            <button onclick="setAllAccordions(false)" class="btn-ghost" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">
+                <i data-lucide="chevrons-up" style="width:14px; height:14px;"></i> Collapse All
+            </button>
+        </div>
+    </div>
+
+    <!-- Category 1: Getting Started -->
+    <div id="getting-started" class="category-block" data-category="getting-started">
+        <div class="category-header">
+            <div class="category-icon-box qc-cyan"><i data-lucide="rocket" style="width:20px; height:20px;"></i></div>
+            <div>
+                <div class="category-title">Getting Started</div>
+                <div class="category-desc">Core concepts, multi-tab profiles, and Nexus MEC campus export.</div>
+            </div>
+            <div class="category-count">6 articles</div>
+        </div>
+
+        <details class="faq-card" data-keywords="what is nexus dating friends professional profile">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What is Nexus?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Nexus brings three ways to connect into one app &mdash; <strong>Dating</strong>, <strong>Friends</strong>, and <strong>Professional</strong> &mdash; all built around a single profile. Switch tabs any time; who you meet changes, but your profile stays yours.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="set up profile onboarding display name age demographic bucket Spotify bio">
+            <summary class="faq-summary">
+                <span class="faq-q-text">How do I set up my profile?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                During onboarding you'll pick your display name, age, and demographic bucket (for the main Nexus app) or your major/branch and study year (for Nexus MEC). You'll also verify your phone number with an OTP. After onboarding, you can fill in your bio, location, lifestyle details, interests, and linked Spotify artists from the Profile tab at any time.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="active toggle dating friends professional discoverable">
+            <summary class="faq-summary">
+                <span class="faq-q-text">Can Dating, Friends, and Professional all be active at once?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Yes. Each context has its own activation toggle, so you can be discoverable for Dating and Professional networking at the same time, or focus on just one &mdash; entirely up to you.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="Nexus MEC campus workspace email google institutional university export">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What's Nexus MEC?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Nexus MEC is our campus-community flavor. It verifies you with a campus Google Workspace email (only approved institutional domains can sign in) and lets you export your profile to the main Nexus app via a one-time code &mdash; built for closed university communities.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="move export profile Nexus MEC code onboarding">
+            <summary class="faq-summary">
+                <span class="faq-q-text">How do I move my profile from Nexus MEC to the main Nexus app?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                From your Nexus MEC Profile tab, tap the <strong>Export Profile Data</strong> card to generate a 6-character code &mdash; it's valid for 15 minutes and works only once. Enter that code during onboarding in the main Nexus app to pull your profile across.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="demographic bucket men women non-binary community identification">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What is a Demographic Bucket?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                On the main Nexus app, you pick a demographic bucket during onboarding &mdash; it's your primary community identification (e.g. Men, Women, Non-Binary). This helps surface you to the right people without exposing personal details. You can update it later from your Profile tab.
+            </div>
+        </details>
+    </div>
+
+    <!-- Category 2: Orbit & Discovery -->
+    <div id="orbit" class="category-block" data-category="orbit">
+        <div class="category-header">
+            <div class="category-icon-box qc-purple"><i data-lucide="orbit" style="width:20px; height:20px;"></i></div>
+            <div>
+                <div class="category-title">Orbit & Discovery</div>
+                <div class="category-desc">Spatial 2D orbit radar, tier proximity, age filters, and active toggles.</div>
+            </div>
+            <div class="category-count">6 articles</div>
+        </div>
+
+        <details class="faq-card" data-keywords="orbit discovery screen swipe nodes concentric tiers match">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What is Orbit?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Orbit is our discovery screen. Instead of a flat swipe deck, nearby profiles appear as interactive nodes arranged in concentric tiers around you on a 2D spatial radar canvas &mdash; positioned by match closeness and real proximity vectors.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="orbit tiers concentric inner outer distance score">
+            <summary class="faq-summary">
+                <span class="faq-q-text">How do Orbit Tiers work?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Profiles appear across 3 concentric orbital rings: <strong>Tier 1 (Immediate - 50m)</strong>, <strong>Tier 2 (Block - 250m)</strong>, and <strong>Tier 3 (Neighbourhood - 500m)</strong>. Node size and glow intensity reflect overall match compatibility.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="filter orbit distance age interests spotify match ratio">
+            <summary class="faq-summary">
+                <span class="faq-q-text">Can I filter my Orbit view?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Yes. Tap the filter icon on the Orbit screen to adjust maximum distance (up to 500m), age ranges, minimum Spotify vibe match ratio, or specific interests. Filters apply instantly without reloading.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="inactive profile discovery hide turn off toggle">
+            <summary class="faq-summary">
+                <span class="faq-q-text">How do I pause or hide my profile from Orbit?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Toggle off Dating, Friends, or Professional in your Profile tab or enable <strong>Ghost Mode</strong>. When Ghost Mode is active, your node vanishes from all nearby radars while your existing matches and chats remain untouched.
+            </div>
+        </details>
+    </div>
+
+    <!-- Category 3: Safety Check-In & SOS -->
+    <div id="safety-checkin" class="category-block" data-category="safety-checkin">
+        <div class="category-header">
+            <div class="category-icon-box qc-red"><i data-lucide="shield-alert" style="width:20px; height:20px;"></i></div>
+            <div>
+                <div class="category-title">Safety Check-In & SOS</div>
+                <div class="category-desc">Automated timers, emergency contacts, PIN disarm, and Safety Web Portal.</div>
+            </div>
+            <div class="category-count">5 articles</div>
+        </div>
+
+        <details class="faq-card" data-keywords="safety checkin timer meetup alert pin disarm trusted contacts">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What is a Safety Check-in?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                A Safety Check-in is a countdown timer you arm before meeting someone in person. If you don't enter your secret PIN to extend or disarm the timer before it expires, Nexus automatically dispatches emergency alerts and a live Web Portal link to your designated Emergency Contacts.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="trusted emergency contacts phone SMS alert notification link">
+            <summary class="faq-summary">
+                <span class="faq-q-text">Who receives my Safety Check-in alerts?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Only the Emergency Contacts you explicitly designate in <strong>Settings → Safety Center → Emergency Contacts</strong>. They receive an SMS and email with your meetup location notes and a link to your live Safety Web Portal.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="disarm pin forget wrong pin emergency alert trigger">
+            <summary class="faq-summary">
+                <span class="faq-q-text">What happens if I forget my disarm PIN?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                If an incorrect PIN is entered 3 times or the timer runs out, the emergency alert sequence triggers automatically. You can also request a PIN reset via email OTP if you still have active phone connectivity.
+            </div>
+        </details>
+    </div>
+
+    <!-- Category 4: Signal E2EE Messaging -->
+    <div id="messaging" class="category-block" data-category="messaging">
+        <div class="category-header">
+            <div class="category-icon-box qc-teal"><i data-lucide="message-square-lock" style="width:20px; height:20px;"></i></div>
+            <div>
+                <div class="category-title">Signal E2EE Messaging</div>
+                <div class="category-desc">End-to-end encryption, prekey bundles, media attachments, and read receipts.</div>
+            </div>
+            <div class="category-count">5 articles</div>
+        </div>
+
+        <details class="faq-card" data-keywords="E2EE signal protocol encryption private secure prekey ECDH">
+            <summary class="faq-summary">
+                <span class="faq-q-text">How does end-to-end encryption work on Nexus?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Nexus uses an asymmetric ECDH prekey bundle exchange (Signal Protocol architecture). Every message and voice note is encrypted directly on your device before transmission. The backend server stores and relays ciphertext only &mdash; it never has access to plaintext message contents.
+            </div>
+        </details>
+
+        <details class="faq-card" data-keywords="voice notes media images photos encrypted E2EE">
+            <summary class="faq-summary">
+                <span class="faq-q-text">Are voice notes and photos also encrypted?</span>
+                <i data-lucide="chevron-down" class="faq-chevron" style="width:20px; height:20px;"></i>
+            </summary>
+            <div class="faq-content">
+                Yes. Media attachments and voice notes are encrypted symmetrically using per-message AES keys before being uploaded. The key is transmitted inside the E2EE signal payload, so only the intended recipient can decrypt the file.
+            </div>
+        </details>
+    </div>
+
+    <!-- CTA Banner -->
+    <div class="cta-banner">
+        <h2 class="cta-title">Still need help with your Orbit?</h2>
+        <p class="cta-desc">Our support team is available 24/7 for account appeals, safety reports, bug reports, and feedback.</p>
+        <div class="cta-btn-group">
+            <a href="/contact" class="btn-primary">
+                <i data-lucide="headphones" style="width:18px; height:18px;"></i>
+                Contact Support Portal
+            </a>
+            <a href="/legal" class="btn-ghost">
+                <i data-lucide="file-text" style="width:18px; height:18px;"></i>
+                Terms & Privacy Policy
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function setAllAccordions(open) {
+        document.querySelectorAll('.faq-card').forEach(card => {
+            card.open = open;
+        });
+    }
+
+    function filterCategory(cat) {
+        document.querySelectorAll('.pill-btn').forEach(btn => {
+            if (btn.getAttribute('data-cat') === cat) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        document.querySelectorAll('.category-block').forEach(sec => {
+            if (cat === 'all' || sec.getAttribute('data-category') === cat) {
+                sec.style.display = 'block';
+            } else {
+                sec.style.display = 'none';
+            }
+        });
+    }
+
+    function setupSearch() {
+        const searchInput = document.getElementById('faq-search');
+        const searchClear = document.getElementById('search-clear');
+        const searchStats = document.getElementById('search-stats');
+        const matchCount = document.getElementById('match-count');
+        const categoryBlocks = document.querySelectorAll('.category-block');
+
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+
+            if (query.length > 0) {
+                searchClear.style.display = 'block';
+                searchStats.style.display = 'block';
+            } else {
+                searchClear.style.display = 'none';
+                searchStats.style.display = 'none';
+            }
+
+            let matches = 0;
+
+            categoryBlocks.forEach(sec => {
+                let secMatches = 0;
+                const items = sec.querySelectorAll('.faq-card');
+
+                items.forEach(item => {
+                    const summaryText = item.querySelector('.faq-q-text').textContent.toLowerCase();
+                    const contentText = item.querySelector('.faq-content').textContent.toLowerCase();
+                    const keywords = (item.getAttribute('data-keywords') || '').toLowerCase();
+
+                    if (query === '' || summaryText.includes(query) || contentText.includes(query) || keywords.includes(query)) {
+                        item.style.display = 'block';
+                        secMatches++;
+                        matches++;
+                        if (query !== '') {
+                            item.open = true;
+                        }
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                if (secMatches > 0 || query === '') {
+                    sec.style.display = 'block';
+                } else {
+                    sec.style.display = 'none';
+                }
+            });
+
+            if (matchCount) matchCount.textContent = matches;
+        });
+
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.focus();
+            });
+        }
+    }
+
+    function handleHashNav() {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+            const target = document.getElementById(hash);
+            if (target) {
+                filterCategory(hash);
+                setTimeout(() => {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupSearch();
+        handleHashNav();
+    });
+</script>
+{% endblock %}

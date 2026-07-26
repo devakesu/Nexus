@@ -39,9 +39,9 @@ Start-Service ssh-agent
 ssh-add $env:USERPROFILE\.ssh\id_ed25519
 ```
 
-#### 2. Bridge Windows SSH Agent to WSL2
+#### 2. Bridge SSH Agent to WSL2
 
-In WSL2, install `socat`, download `npiperelay`, and bridge the Windows SSH named pipe to a Linux UNIX socket:
+In WSL2, install `socat`, download `npiperelay`, and bridge the Windows SSH pipe to Linux:
 
 ```bash
 sudo apt update && sudo apt install -y socat
@@ -57,20 +57,35 @@ sudo unzip -o /tmp/npiperelay.zip npiperelay.exe -d /usr/local/bin/
 sudo chmod +x /usr/local/bin/npiperelay.exe
 rm /tmp/npiperelay.zip
 
-# Bridge Windows SSH Agent Pipe to Linux Socket
+# Self-healing SSH relay script to your ~/.bashrc
+cat << 'EOF' >> ~/.bashrc
+# --- SSH AGENT RELAY ---
 export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 
-# Check if socket is active by attempting to communicate with it
-if ! socat -u /dev/null UNIX-CONNECT:"$SSH_AUTH_SOCK" 2>/dev/null; then
-    rm -f "$SSH_AUTH_SOCK"
+# Test if SSH agent is actually responding end-to-end
+ssh-add -l >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+    # Kill stale relay processes and clean up socket/directory glitches
+    pkill -f "npiperelay.exe" 2>/dev/null || true
+    pkill -f "$SSH_AUTH_SOCK" 2>/dev/null || true
+    rm -rf "$SSH_AUTH_SOCK"
     mkdir -p "$HOME/.ssh"
-    (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+
+    # Spawn fresh relay
+    if command -v npiperelay.exe >/dev/null 2>&1; then
+        (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+    fi
 fi
+EOF
+
+# Clean up potential Docker dummy directories & init socket
+rm -rf ~/.ssh/agent.sock
+source ~/.bashrc
 ```
 
 #### 3. Clone Repository in WSL2
 
-Clone the repository in your WSL2 environment first:
+Clone the repository in your WSL2 home or projects directory:
 
 ```bash
 git clone https://github.com/devakesu/Nexus.git
@@ -79,31 +94,25 @@ cd Nexus
 
 #### 4. Build & Run Sandbox Container
 
-Build the dev container image and run the container with volume mounts, exposed ports, Docker socket access, and SSH agent socket forwarding:
+Build the dev container image and launch the sandbox container with mapped ports and volume mounts:
 
 ```bash
-# Build dev container image
-docker build -t nexus-sandbox .devcontainer
+# 1. Verify SSH agent connection (must return your keys, not an error)
+ssh-add -l
 
-# Run sandbox container
+# 2. Build dev container image
+docker build -t nexus-sandbox -f .devcontainer/Dockerfile .
+
+# 3. Launch sandbox container
 docker run -d --name Nexus_Sandbox \
   --restart unless-stopped \
   -v "$(pwd):/nexus" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
   -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
-  -p 3000:3000 \
-  -p 8000:8000 \
-  -p 8080:8080 \
-  -p 4000:4000 \
-  -p 5001:5001 \
-  -p 8081:8081 \
-  -p 8085:8085 \
-  -p 8181:8181 \
-  -p 9099:9099 \
-  -p 54321:54321 \
-  -p 54322:54322 \
-  -p 54323:54323 \
+  -p 3000:3000 -p 8000:8000 -p 8080:8080 -p 4000:4000 -p 5001:5001 \
+  -p 8081:8081 -p 8085:8085 -p 8181:8181 -p 9099:9099 \
+  -p 54321:54321 -p 54322:54322 -p 54323:54323 \
   nexus-sandbox
 ```
 
@@ -121,7 +130,26 @@ docker run -d --name Nexus_Sandbox \
    *(Enter Git Name and Email when prompted to configure local commit identity and SSH key signing).*
 5. Run **`Developer: Reload Window`** in VS Code / Antigravity to refresh environment variables, PATH, and extension integrations.
 
-#### 6. Create Feature Branch
+#### 6. Android Emulator Setup & Subsequent Development Startups
+
+To run and debug the mobile application using an Android Emulator:
+
+1. **Android Emulator Configuration**:
+   - Create an Android Virtual Device (AVD) named **`Pixel_10_Pro_XL`** in Android Studio's AVD Manager.
+   - *(Note: If using a different AVD name, edit line 67 in [.devcontainer/Start.ps1](file:///.devcontainer/Start.ps1) to match your custom AVD name).*
+
+2. **Subsequent Starts via `Start.ps1` (Windows Host)**:
+   - On subsequent development startups (after initial `docker run` setup), execute the environment launcher script from Windows PowerShell on the host:
+
+     ```powershell
+     .\.devcontainer\Start.ps1
+     ```
+
+   - Choose **`[1] Emulator`** (or pass `-Mode Emulator`).
+   - The script will automatically verify Docker Desktop, start the `Nexus_Sandbox` container if stopped, launch the `Pixel_10_Pro_XL` host emulator, bridge Windows ADB (`5555`) to Docker network (`host.docker.internal:5555`), and open Dart VM service port (`8181`).
+   - When finished, press `ENTER` in the PowerShell window to cleanly tear down the emulator and remove port proxies.
+
+#### 7. Create Feature Branch
 
 Inside the container terminal (or repository root), create and checkout your working feature branch:
 

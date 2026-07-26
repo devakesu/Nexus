@@ -227,15 +227,30 @@ sudo unzip -o /tmp/npiperelay.zip npiperelay.exe -d /usr/local/bin/
 sudo chmod +x /usr/local/bin/npiperelay.exe
 rm /tmp/npiperelay.zip
 
-# Bridge Windows SSH Agent Pipe to Linux Socket
+# Self-healing SSH relay script to your ~/.bashrc
+cat << 'EOF' >> ~/.bashrc
+# --- SSH AGENT RELAY ---
 export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 
-# Check if socket is active by attempting to communicate with it
-if ! socat -u /dev/null UNIX-CONNECT:"$SSH_AUTH_SOCK" 2>/dev/null; then
-    rm -f "$SSH_AUTH_SOCK"
+# Test if SSH agent is actually responding end-to-end
+ssh-add -l >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+    # Kill stale relay processes and clean up socket/directory glitches
+    pkill -f "npiperelay.exe" 2>/dev/null || true
+    pkill -f "$SSH_AUTH_SOCK" 2>/dev/null || true
+    rm -rf "$SSH_AUTH_SOCK"
     mkdir -p "$HOME/.ssh"
-    (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+
+    # Spawn fresh relay
+    if command -v npiperelay.exe >/dev/null 2>&1; then
+        (nohup socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"npiperelay.exe -ei -s //./pipe/openssh-ssh-agent",nofork >/dev/null 2>&1 &)
+    fi
 fi
+EOF
+
+# Clean up potential Docker dummy directories & init socket
+rm -rf ~/.ssh/agent.sock
+source ~/.bashrc
 ```
 
 #### 3. Clone Repository in WSL2
@@ -252,28 +267,22 @@ cd Nexus
 Build the dev container image and launch the sandbox container with mapped ports and volume mounts:
 
 ```bash
-# Build dev container image
-docker build -t nexus-sandbox .devcontainer
+# 1. Verify SSH agent connection (must return your keys, not an error)
+ssh-add -l
 
-# Launch sandbox container
+# 2. Build dev container image
+docker build -t nexus-sandbox -f .devcontainer/Dockerfile .
+
+# 3. Launch sandbox container
 docker run -d --name Nexus_Sandbox \
   --restart unless-stopped \
   -v "$(pwd):/nexus" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
   -e SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock" \
-  -p 3000:3000 \
-  -p 8000:8000 \
-  -p 8080:8080 \
-  -p 4000:4000 \
-  -p 5001:5001 \
-  -p 8081:8081 \
-  -p 8085:8085 \
-  -p 8181:8181 \
-  -p 9099:9099 \
-  -p 54321:54321 \
-  -p 54322:54322 \
-  -p 54323:54323 \
+  -p 3000:3000 -p 8000:8000 -p 8080:8080 -p 4000:4000 -p 5001:5001 \
+  -p 8081:8081 -p 8085:8085 -p 8181:8181 -p 9099:9099 \
+  -p 54321:54321 -p 54322:54322 -p 54323:54323 \
   nexus-sandbox
 ```
 
@@ -290,6 +299,25 @@ docker run -d --name Nexus_Sandbox \
 
    *(Enter Git Name and Email when prompted to configure local commit signing and SSH identity).*
 5. Run **`Developer: Reload Window`** in VS Code / Antigravity to refresh environment variables and extension integrations.
+
+#### 6. Android Emulator Setup & Subsequent Development Startups
+
+To run and debug the mobile app on an Android Emulator:
+
+1. **Android Emulator Setup**:
+   - Create an Android Virtual Device (AVD) named **`Pixel_10_Pro_XL`** in Android Studio's AVD Manager.
+   - *(Note: If using a different AVD name, edit the `-avd` target on line 67 of [.devcontainer/Start.ps1](file:///.devcontainer/Start.ps1)).*
+
+2. **Subsequent Starts via `Start.ps1` (Windows Host)**:
+   - On subsequent development startups (after initial `docker run`), execute the startup script from a Windows PowerShell terminal on the host:
+
+     ```powershell
+     .\.devcontainer\Start.ps1
+     ```
+
+   - Select **`[1] Emulator`** (or pass `-Mode Emulator`).
+   - The script automatically ensures `Nexus_Sandbox` container is running, launches the host Android emulator (`Pixel_10_Pro_XL`), bridges Windows ADB (`5555`) to Docker network (`host.docker.internal:5555`), and tunnels Dart VM Service port (`8181`).
+   - Press `ENTER` in the PowerShell terminal when finished to gracefully shut down the emulator and clean up portproxy rules.
 
 ### 🔐 Secret Management & Database Initialization
 
@@ -318,7 +346,7 @@ supabase link --project-ref <your-supabase-project-ref>
 supabase db push
 ```
 
-### Running Backend API
+### 🐍 Running Backend API
 
 Once Infisical and Supabase are authenticated:
 
@@ -330,7 +358,7 @@ Once Infisical and Supabase are authenticated:
 
    Visit `http://localhost:8000/docs` for the interactive Swagger documentation.
 
-### Running Mobile App
+### 📱 Running Mobile App
 
 1. **Navigate to Mobile Directory**:
 
