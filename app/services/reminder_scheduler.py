@@ -30,7 +30,6 @@ from app.db.chat import (
     mark_reminder_sent,
     mark_safety_reminder_sent,
 )
-
 from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.safety import (
     fetch_overdue_safety_sessions,

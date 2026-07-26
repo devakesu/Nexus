@@ -97,8 +97,8 @@ async def _store_state(state: str, user_id: str) -> None:
 
 async def _consume_state(state: str) -> str | None:
     """Atomically retrieve and delete the state token. Returns the user_id or None."""
-    result: str | None = await redis_client.getdel(_state_redis_key(state))  # type: ignore[assignment]
-    return result
+    raw_res = await redis_client.getdel(_state_redis_key(state))
+    return cast(str | None, raw_res)
 
 
 async def _seed_and_queue_sync(

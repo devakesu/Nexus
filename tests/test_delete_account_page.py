@@ -36,13 +36,14 @@ def test_delete_account_page_embed_hides_header_and_footer() -> None:
 
 
 def test_account_deletion_otp_request_missing_email_returns_400() -> None:
-    response = cast(Response, client.post("/api/v1/account/deletion/otp/request", json={}))
+    response = cast(
+        Response, client.post("/api/v1/account/deletion/otp/request", json={}),
+    )
     assert response.status_code == 400
 
 
 def test_account_export_otp_request_missing_email_returns_400() -> None:
-    response = cast(Response, client.post("/api/v1/account/export/otp/request", json={}))
+    response = cast(
+        Response, client.post("/api/v1/account/export/otp/request", json={}),
+    )
     assert response.status_code == 400
-
-
-

@@ -29,7 +29,7 @@ from app.db.spotify import mark_sync_result, persist_artist_signals, replace_pla
 
 logger = logging.getLogger(__name__)
 
-_SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"  # noqa: S105
+_SPOTIFY_AUTH_ENDPOINT = "https://accounts.spotify.com/api/token"
 _SPOTIFY_ME_URL = "https://api.spotify.com/v1/me"
 _SPOTIFY_TOP_ARTISTS_URL = "https://api.spotify.com/v1/me/top/artists"
 _SPOTIFY_PLAYLISTS_URL = "https://api.spotify.com/v1/me/playlists"
@@ -118,7 +118,7 @@ async def exchange_code(code: str, redirect_uri: str) -> SpotifyTokenBundle:
     """Exchange an OAuth authorization code for an access + refresh token."""
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
         resp = await client.post(
-            _SPOTIFY_TOKEN_ENDPOINT,
+            _SPOTIFY_AUTH_ENDPOINT,
             data={
                 "grant_type": "authorization_code",
                 "code": code,
@@ -150,7 +150,7 @@ async def refresh_access_token(refresh_token: str) -> SpotifyTokenBundle:
     """
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
         resp = await client.post(
-            _SPOTIFY_TOKEN_ENDPOINT,
+            _SPOTIFY_AUTH_ENDPOINT,
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,

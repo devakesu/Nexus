@@ -91,7 +91,7 @@ async def _resolve_data_export_user(
 @limiter.limit(settings.rate_limit_data_export_otp)
 async def request_data_export_otp(
     request: Request,
-    payload: DataExportOtpRequestRequest | None = Body(None),  # noqa: B008
+    payload: DataExportOtpRequestRequest | None = Body(None),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpRequestResponse:
@@ -127,7 +127,7 @@ async def request_data_export_otp(
 @limiter.limit(settings.rate_limit_data_export_otp)
 async def verify_data_export_otp(
     request: Request,
-    payload: DataExportOtpVerifyRequest = Body(...),  # noqa: B008
+    payload: DataExportOtpVerifyRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpVerifyResponse:
@@ -164,7 +164,7 @@ async def verify_data_export_otp(
 @limiter.limit(settings.rate_limit_data_export)
 async def export_account_data(
     request: Request,
-    payload: DataExportRequestRequest | None = Body(None),  # noqa: B008
+    payload: DataExportRequestRequest | None = Body(None),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> dict[str, Any]:

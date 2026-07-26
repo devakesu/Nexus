@@ -29,7 +29,6 @@ from app.api.dependencies import (
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
-
 from app.core.account_phone_otp import (
     generate_otp_code,
     hash_otp,
@@ -145,7 +144,7 @@ async def _validate_auth_user_allowed(
         if is_disposable:
             try:
                 await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
-            except Exception as err:  # noqa: BLE001
+            except (APIError, RuntimeError, ValueError) as err:
                 logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -163,7 +162,7 @@ async def _validate_auth_user_allowed(
     if email and not is_allowed:
         try:
             await run_in_threadpool(supabase_client.auth.admin.delete_user, user_id)
-        except Exception as err:  # noqa: BLE001
+        except (APIError, RuntimeError, ValueError) as err:
             logger.error("Failed to delete unauthorized user %s: %s", user_id, err)
         allowed_domains = settings.allowed_signup_domains.get(app_variant)
         if allowed_domains:
@@ -189,7 +188,7 @@ async def auth_bootstrap(
     request: Request,
     background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
     x_app_variant: str | None = Header(None, alias="X-App-Variant"),
 ):
     """Bootstraps caller account record upon authentication and enforces initial terms acceptance checks.
@@ -291,9 +290,9 @@ async def auth_bootstrap(
 @limiter.limit(settings.rate_limit_auth)
 def complete_onboarding(
     request: Request,
-    payload: OnboardingPayload = Body(...),  # noqa: B008
+    payload: OnboardingPayload = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
 ):
     """
     Complete the onboarding flow.
@@ -439,9 +438,9 @@ def _account_otp_resend_key(user_id: str) -> str:
 @limiter.limit(settings.rate_limit_account_phone_otp)
 async def request_account_phone_otp(
     request: Request,
-    payload: AccountPhoneOtpRequestRequest = Body(...),  # noqa: B008
+    payload: AccountPhoneOtpRequestRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
 ) -> AccountPhoneOtpRequestResponse:
     """Executes request account phone otp operation.
 
@@ -489,9 +488,9 @@ async def request_account_phone_otp(
 @limiter.limit(settings.rate_limit_account_phone_otp)
 async def verify_account_phone_otp(
     request: Request,
-    payload: AccountPhoneOtpVerifyRequest = Body(...),  # noqa: B008
+    payload: AccountPhoneOtpVerifyRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
 ) -> AccountPhoneOtpVerifyResponse:
     """Executes verify account phone otp operation.
 
@@ -570,7 +569,7 @@ def _login_by_phone_resend_key(phone_norm: str) -> str:
 @limiter.limit(settings.rate_limit_login_by_phone)
 async def request_login_by_phone(
     request: Request,
-    payload: LoginByPhoneRequestRequest = Body(...),  # noqa: B008
+    payload: LoginByPhoneRequestRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> LoginByPhoneRequestResponse:
     """Executes request login by phone operation.
@@ -615,7 +614,7 @@ async def request_login_by_phone(
 @limiter.limit(settings.rate_limit_login_by_phone)
 async def verify_login_by_phone(
     request: Request,
-    payload: LoginByPhoneVerifyRequest = Body(...),  # noqa: B008
+    payload: LoginByPhoneVerifyRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> LoginByPhoneVerifyResponse:
     """Executes verify login by phone operation.
@@ -689,9 +688,9 @@ def _unhide_special_category_fields(user_id: str) -> None:
 @limiter.limit(settings.rate_limit_auth)
 def accept_terms(
     request: Request,
-    payload: ConsentUpdateRequest = Body(...),  # noqa: B008
+    payload: ConsentUpdateRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
 ):
     """Records user acceptance of application Terms of Service and Privacy Policy.
 
@@ -772,7 +771,7 @@ def accept_terms(
 @limiter.limit("5/minute")
 async def update_profile_media_and_tags(
     request: Request,
-    payload: ProfileImagesAndTagsUpdate = Body(...),  # noqa: B008
+    payload: ProfileImagesAndTagsUpdate = Body(...),
     user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ):
@@ -1026,7 +1025,7 @@ def get_profile_details(
     response_model=list[ModerationSubjectItem],
 )
 def get_moderation_subjects(
-    payload: ModerationSubjectsRequest = Body(...),  # noqa: B008
+    payload: ModerationSubjectsRequest = Body(...),
     user_id: str = Depends(get_active_user_id),
 ) -> list[dict[str, Any]]:
     """
@@ -1073,7 +1072,7 @@ def get_moderation_subjects(
             try:
                 decrypted = decrypt_profile_record(dict(row))
                 decrypted = sanitize_decrypted_profile(decrypted)
-            except Exception:  # noqa: BLE001
+            except (ValueError, KeyError, TypeError, AttributeError):
                 decrypted = sanitize_decrypted_profile(dict(row))
             results.append(
                 {
@@ -1320,7 +1319,7 @@ def _sets_special_category_data(payload: ProfileDetailsUpdate) -> bool:
 @router.patch("/api/v1/profile/details", response_model=ProfileUpdateResponse)
 def update_profile_details(  # noqa: C901
     background_tasks: BackgroundTasks,
-    payload: ProfileDetailsUpdate = Body(...),  # noqa: B008
+    payload: ProfileDetailsUpdate = Body(...),
     user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
@@ -1883,7 +1882,7 @@ def get_privacy_settings(
     response_model=PrivacySettingsResponse,
 )
 def update_privacy_settings(
-    payload: PrivacySettingsUpdate = Body(...),  # noqa: B008
+    payload: PrivacySettingsUpdate = Body(...),
     user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
     """Executes update privacy settings operation.
@@ -1991,7 +1990,7 @@ def get_email_notification_settings(
     response_model=EmailNotificationSettingsResponse,
 )
 def update_email_notification_settings(
-    payload: EmailNotificationSettingsUpdate = Body(...),  # noqa: B008
+    payload: EmailNotificationSettingsUpdate = Body(...),
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
     """Executes update email notification settings operation.

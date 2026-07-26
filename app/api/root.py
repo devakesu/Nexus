@@ -182,7 +182,7 @@ async def render_landing_page() -> HTMLResponse:
         render_landing(
             turnstile_site_key=turnstile_site_key,
             app_version=settings.app_version,
-        )
+        ),
     )
 
 
@@ -222,7 +222,7 @@ async def render_delete_account_page(request: Request, embed: bool = False) -> H
             domain=domain,
             effective_date=effective_date,
             is_embed=is_embed,
-        )
+        ),
     )
 
 

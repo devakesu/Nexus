@@ -1,8 +1,8 @@
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from fastapi import Request
 import pytest
+from fastapi import Request
 
 from app.api.feedback import add_feedback_comment, close_feedback_ticket
 from app.core.email import (
@@ -31,7 +31,10 @@ async def test_send_feedback_comment_admin_notification_email_subject(
     assert res.success is True
     mock_send_email.assert_called_once()
     props = mock_send_email.call_args[0][0]
-    assert props.subject == "[New Comment] [#12345678] [Nexus Bug Report] App crashes on open"
+    assert (
+        props.subject
+        == "[New Comment] [#12345678] [Nexus Bug Report] App crashes on open"
+    )
     assert props.reply_to == "user@example.com"
     assert "Here is more info about the crash." in props.text
 
@@ -55,7 +58,10 @@ async def test_send_feedback_closed_admin_notification_email_subject(
     assert res.success is True
     mock_send_email.assert_called_once()
     props = mock_send_email.call_args[0][0]
-    assert props.subject == "[Closed] [#12345678] [Nexus Help Request] Need login assistance"
+    assert (
+        props.subject
+        == "[Closed] [#12345678] [Nexus Help Request] Need login assistance"
+    )
     assert props.reply_to == "user@example.com"
     assert "Resolved the issue myself." in props.text
 
@@ -87,7 +93,12 @@ async def test_add_feedback_comment_endpoint_admin_email(
 
     bg_tasks = MagicMock()
     payload = FeedbackCommentRequest(body="Another suggestion here")
-    scope: dict[str, Any] = {"type": "http", "headers": [], "query_string": b"", "path": "/"}
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
     request = Request(scope)
 
     res = await add_feedback_comment(
@@ -132,7 +143,12 @@ async def test_close_feedback_ticket_endpoint_admin_email(
 
     bg_tasks = MagicMock()
     payload = FeedbackCloseRequest(reason="Issue fixed in update")
-    scope: dict[str, Any] = {"type": "http", "headers": [], "query_string": b"", "path": "/"}
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
     request = Request(scope)
 
     await close_feedback_ticket(

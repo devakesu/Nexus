@@ -1,8 +1,8 @@
 from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-from fastapi import HTTPException, Request
 import pytest
+from fastapi import HTTPException, Request
 
 from app.api.feedback import (
     ContactOtpRequest,
@@ -141,7 +141,7 @@ async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
 async def test_feedback_submit_request_all_query_types() -> None:
     from app.models import FeedbackSubmitRequest
 
-    categories = [
+    categories: list[Any] = [
         "help",
         "feedback",
         "bug_report",
@@ -153,11 +153,12 @@ async def test_feedback_submit_request_all_query_types() -> None:
     ]
     for cat in categories:
         req = FeedbackSubmitRequest(
-            query_type=cat,  # type: ignore[arg-type]
+            query_type=cat,
             subject="Test subject for category",
             message="This is a test message long enough to pass validation.",
         )
         assert req.query_type == cat
+
 
 @pytest.mark.anyio
 async def test_turnstile_verification_disabled_by_default() -> None:

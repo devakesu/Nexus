@@ -113,7 +113,7 @@ def _resend_key(session_id: str, phone_norm: str) -> str:
 async def request_portal_otp(
     request: Request,
     session_id: str,
-    payload: SafetyPortalOtpRequestRequest = Body(...),  # noqa: B008
+    payload: SafetyPortalOtpRequestRequest = Body(...),
 ) -> SafetyPortalOtpRequestResponse:
     """Dispatches phone OTP to a trusted contact attempting portal login.
 
@@ -190,7 +190,7 @@ async def request_portal_otp(
 async def verify_portal_otp(
     request: Request,
     session_id: str,
-    payload: SafetyPortalOtpVerifyRequest = Body(...),  # noqa: B008
+    payload: SafetyPortalOtpVerifyRequest = Body(...),
 ) -> SafetyPortalOtpVerifyResponse:
     """Verifies trusted contact phone OTP and issues a portal access token.
 
@@ -402,7 +402,7 @@ def _contact_resend_key(contact_id: str, phone_norm: str) -> str:
 async def request_contact_portal_otp(
     request: Request,
     contact_id: str,
-    payload: SafetyContactPortalOtpRequestRequest = Body(...),  # noqa: B008
+    payload: SafetyContactPortalOtpRequestRequest = Body(...),
 ) -> SafetyContactPortalOtpRequestResponse:
     """Sends a 6-digit OTP only if the phone matches this specific contact
     row - always responds the same way either way (anti-enumeration, same
@@ -462,7 +462,7 @@ async def request_contact_portal_otp(
 async def verify_contact_portal_otp(
     request: Request,
     contact_id: str,
-    payload: SafetyContactPortalOtpVerifyRequest = Body(...),  # noqa: B008
+    payload: SafetyContactPortalOtpVerifyRequest = Body(...),
 ) -> SafetyContactPortalOtpVerifyResponse:
     """Executes verify contact portal otp operation.
 

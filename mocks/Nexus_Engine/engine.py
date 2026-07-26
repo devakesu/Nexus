@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 class EngineInputError(Exception):
     """Raised when matchmaking inputs are malformed."""
+
     pass
 
 
@@ -25,13 +26,15 @@ def discover_orbit(
     _ = (viewer, active_tab, now)
     orbit_payload: list[dict[str, Any]] = []
     for candidate in global_pool[:orbit_limit]:
-        orbit_payload.append({
-            "profile": candidate,
-            "score": 1.0,
-            "music_match_grade": 5,
-            "viewer_spotify_connected": True,
-            "candidate_spotify_connected": True,
-        })
+        orbit_payload.append(
+            {
+                "profile": candidate,
+                "score": 1.0,
+                "music_match_grade": 5,
+                "viewer_spotify_connected": True,
+                "candidate_spotify_connected": True,
+            },
+        )
     return orbit_payload
 
 

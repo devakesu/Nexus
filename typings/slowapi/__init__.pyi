@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 class Limiter:
     def __init__(self, key_func: Callable[..., str], enabled: bool = True) -> None: ...

@@ -8,6 +8,7 @@ Run once after the 20260614000000_filter_indexes.sql migration:
 Requires the app environment to be loaded (SUPABASE_URL, SUPABASE_KEY,
 ENCRYPTION_KEY, BLIND_INDEX_KEY set via .env or environment).
 """
+
 import os
 import sys
 from typing import Any, cast
@@ -55,12 +56,12 @@ def main() -> None:
 
             if update:
                 supabase_client.table("profiles").update(update).eq(
-                    "id", profile["id"],
+                    "id",
+                    profile["id"],
                 ).execute()
                 total_updated += 1
 
         offset += BATCH
-
 
 
 if __name__ == "__main__":

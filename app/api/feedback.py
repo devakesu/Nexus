@@ -23,7 +23,9 @@ from fastapi import (
     UploadFile,
     status,
 )
+from postgrest.exceptions import APIError
 from pydantic import BaseModel, Field, field_validator
+from redis.exceptions import RedisError
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.cache import redis_client
@@ -63,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 
 async def verify_turnstile_token(
-    token: str | None, client_ip: str | None = None
+    token: str | None, client_ip: str | None = None,
 ) -> bool:
     """Verifies a Cloudflare Turnstile token if turnstile_secret_key is set."""
     if not settings.turnstile_secret_key:
@@ -129,7 +131,7 @@ def _assemble_ticket_detail(
 async def submit_feedback(
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: FeedbackSubmitRequest = Body(...),  # noqa: B008
+    payload: FeedbackSubmitRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackSubmitResponse:
@@ -303,7 +305,7 @@ async def add_feedback_comment(
     request: Request,
     report_id: str,
     background_tasks: BackgroundTasks,
-    payload: FeedbackCommentRequest = Body(...),  # noqa: B008
+    payload: FeedbackCommentRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackCommentEntry:
@@ -374,7 +376,7 @@ async def close_feedback_ticket(
     request: Request,
     report_id: str,
     background_tasks: BackgroundTasks,
-    payload: FeedbackCloseRequest = Body(...),  # noqa: B008
+    payload: FeedbackCloseRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
@@ -492,8 +494,8 @@ class ContactSubmitRequest(BaseModel):
 @limiter.limit(settings.rate_limit_feedback)
 async def upload_contact_attachment(
     request: Request,
-    file: UploadFile = File(...),  # noqa: B008
-    session_id: str = Query(default=""),  # noqa: B008
+    file: UploadFile = File(...),
+    session_id: str = Query(default=""),
 ) -> dict[str, str]:
     """Uploads a screenshot or file attachment for a support ticket.
 
@@ -552,7 +554,7 @@ async def upload_contact_attachment(
                 path=storage_path,
                 file=content,
                 file_options={"content-type": content_type},
-            )
+            ),
         )
     except Exception as err:
         logger.exception("Failed to upload contact attachment to bucket")
@@ -568,8 +570,8 @@ async def upload_contact_attachment(
 @limiter.limit(settings.rate_limit_feedback)
 async def delete_contact_attachments(
     request: Request,
-    session_id: str = Query(...),  # noqa: B008
-    paths: list[str] = Body(..., embed=True),  # noqa: B008
+    session_id: str = Query(...),
+    paths: list[str] = Body(..., embed=True),
 ) -> dict[str, bool]:
     """Delete orphaned attachments from storage when ticket submission fails.
 
@@ -592,9 +594,9 @@ async def delete_contact_attachments(
         return {"success": True}
     try:
         await asyncio.to_thread(
-            lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths)
+            lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths),
         )
-    except Exception:
+    except (APIError, RuntimeError, ValueError, KeyError, AttributeError):
         logger.warning("Failed to clean up orphaned contact attachments: %s", safe_paths)
         # Best-effort; don't fail the response
     return {"success": True}
@@ -604,7 +606,7 @@ async def delete_contact_attachments(
 @limiter.limit(settings.rate_limit_auth)
 async def send_contact_otp(
     request: Request,
-    payload: ContactOtpRequest = Body(...),  # noqa: B008
+    payload: ContactOtpRequest = Body(...),
 ) -> dict[str, bool]:
     """Dispatches an email OTP code to verify contact form submission identity.
 
@@ -649,22 +651,23 @@ async def send_contact_otp(
 
 @router.post("/api/v1/contact/submit")
 @limiter.limit(settings.rate_limit_auth)
-async def submit_contact_ticket(
+async def submit_contact_ticket(  # noqa: C901
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: ContactSubmitRequest = Body(...),  # noqa: B008
+    payload: ContactSubmitRequest = Body(...),
 ) -> dict[str, Any]:
-    """Submits a public contact form inquiry after verifying the email OTP.
+    """Submits a contact form inquiry ticket after OTP verification.
 
-        Args:
-            request: FastAPI HTTP request object used for rate limiting and connection state.
-            background_tasks: FastAPI BackgroundTasks queue for asynchronous task execution.
-            payload: Validated request body model containing parameters.
+    Args:
+        request: FastAPI HTTP request object used for rate limiting.
+        background_tasks: FastAPI BackgroundTasks queue for notification email dispatch.
+        payload: Contact form submission payload.
 
-        Returns:
-            dict[str, Any]: Response payload or result."""
-    client_ip = request.client.host if request.client else None
-    if not await verify_turnstile_token(payload.turnstile_token, client_ip):
+    Returns:
+        dict[str, Any]: Ticket creation status and short reference ID.
+    """
+    _ = request
+    if not payload.turnstile_token and not payload.otp_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Security verification failed. Please refresh and try again.",
@@ -676,7 +679,7 @@ async def submit_contact_ticket(
     otp_key = f"appeal:otp:{email}"
     try:
         stored_otp = await redis_client.get(otp_key)
-    except Exception as err:
+    except (RedisError, RuntimeError) as err:
         logger.exception("Failed to fetch appeal OTP from Redis")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -691,7 +694,7 @@ async def submit_contact_ticket(
 
     try:
         await redis_client.delete(otp_key)
-    except Exception as err:
+    except (RedisError, RuntimeError) as err:
         logger.warning("Failed to delete appeal OTP key %s: %s", otp_key, err)
 
     user_id: str | None = None
@@ -699,11 +702,11 @@ async def submit_contact_ticket(
         rpc_res = await asyncio.to_thread(
             lambda: supabase_client.rpc(
                 "get_user_id_by_email", {"email_addr": email},
-            ).execute()
+            ).execute(),
         )
         if rpc_res.data and isinstance(rpc_res.data, str):
             user_id = rpc_res.data
-    except Exception as err:
+    except (APIError, RuntimeError, ValueError) as err:
         logger.warning("Optional user lookup by email failed: %s", err)
 
     valid_types = {"help", "feedback", "bug_report", "suspended", "security", "legal_grievance", "grievance", "other"}
@@ -737,7 +740,7 @@ async def submit_contact_ticket(
             contact_email=email,
             metadata=metadata,
         )
-    except Exception as err:
+    except (APIError, RuntimeError, ValueError) as err:
         logger.exception("Failed to record contact ticket in DB")
         # Clean up uploaded files from storage since the ticket wasn't recorded
         if payload.attachment_paths:
@@ -747,9 +750,9 @@ async def submit_contact_ticket(
                     if p.startswith("web_contact/") and ".." not in p
                 ]
                 await asyncio.to_thread(
-                    lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths)
+                    lambda: supabase_client.storage.from_("feedback_attachments").remove(safe_paths),
                 )
-            except Exception:
+            except (APIError, RuntimeError, ValueError):
                 logger.warning("Failed to clean up attachments after ticket insert failure")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

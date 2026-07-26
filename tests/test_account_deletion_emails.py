@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi import Request
 import pytest
+from fastapi import Request
 
 from app.api.account_deletion import cancel_account_deletion, request_account_deletion
 from app.core.email import (
@@ -35,7 +35,9 @@ async def test_send_account_deletion_scheduled_email_props(
     assert "2026-08-09 12:00 UTC" in props.html
     assert "14-day grace period" in props.html
     assert "Security Alert:" in props.html
-    assert "testuser@example.com" not in props.html  # Check template renders without error
+    assert (
+        "testuser@example.com" not in props.html
+    )  # Check template renders without error
 
 
 @pytest.mark.anyio
@@ -86,7 +88,12 @@ async def test_request_account_deletion_queues_email(
         email="user@example.com",
         confirmation_text="DELETE",
     )
-    scope: dict[str, Any] = {"type": "http", "headers": [], "query_string": b"", "path": "/"}
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
     request = Request(scope)
 
     res = await request_account_deletion(
@@ -124,7 +131,12 @@ async def test_cancel_account_deletion_queues_email(
     mock_get_email.return_value = "user@example.com"
 
     bg_tasks = MagicMock()
-    scope: dict[str, Any] = {"type": "http", "headers": [], "query_string": b"", "path": "/"}
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
     request = Request(scope)
 
     res = await cancel_account_deletion(

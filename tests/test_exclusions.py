@@ -13,7 +13,9 @@ def mock_supabase() -> Any:
         yield mock
 
 
-def test_fetch_active_discovery_excluded_ids_blocks_and_actions(mock_supabase: MagicMock) -> None:
+def test_fetch_active_discovery_excluded_ids_blocks_and_actions(
+    mock_supabase: MagicMock,
+) -> None:
     viewer_id = str(uuid.uuid4())
     blocked_user_id = str(uuid.uuid4())
     blocker_user_id = str(uuid.uuid4())
@@ -32,7 +34,7 @@ def test_fetch_active_discovery_excluded_ids_blocks_and_actions(mock_supabase: M
             "tab": None,
             "expires_at": None,
         },
-        # Blocker (target_id = viewer_id)
+        # Blocker record where target_id is equal to viewer_id
         {
             "actor_id": blocker_user_id,
             "target_id": viewer_id,
@@ -87,7 +89,7 @@ def test_fetch_active_discovery_excluded_ids_blocks_and_actions(mock_supabase: M
     def side_effect(table_name: str) -> Any:
         if table_name == "profile_discovery_actions":
             return mock_actions_query
-        elif table_name == "matches":
+        if table_name == "matches":
             return mock_matches_query
         return MagicMock()
 
@@ -143,7 +145,7 @@ def test_fetch_active_discovery_excluded_ids_matches(mock_supabase: MagicMock) -
     def side_effect(table_name: str) -> Any:
         if table_name == "profile_discovery_actions":
             return mock_actions_query
-        elif table_name == "matches":
+        if table_name == "matches":
             return mock_matches_query
         return MagicMock()
 

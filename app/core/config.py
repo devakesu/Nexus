@@ -14,7 +14,6 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-
 # Keys that must NOT be loaded from .env/statically under any circumstances.
 # They are only allowed to be loaded from the runtime environment.
 BLOCKED_DOTENV_KEYS: set[str] = {
@@ -63,13 +62,13 @@ class Settings(BaseSettings):
     """
 
     # --- Required Configurations (No defaults) ---
-    app_domain: str
-    redis_url: str
-    pii_encryption_key: str
-    blind_index_key: str
-    supabase_url: str
-    supabase_service_role_key: str
-    supabase_jwt_secret: str | dict[str, Any]
+    app_domain: str = ""
+    redis_url: str = ""
+    pii_encryption_key: str = ""
+    blind_index_key: str = ""
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_jwt_secret: str | dict[str, Any] = ""
 
     # --- General / Application Settings ---
     app_name: str = "Nexus Orbit"
@@ -287,7 +286,7 @@ class Settings(BaseSettings):
         )
 
     @model_validator(mode="after")
-    def resolve_dynamic_defaults(self) -> "Settings":
+    def resolve_dynamic_defaults(self) -> "Settings":  # noqa: C901
         """Executes resolve dynamic defaults operation.
 
             Returns:
@@ -335,15 +334,13 @@ class Settings(BaseSettings):
                 return False  # IP address is considered invalid for email domain
             except ValueError:
                 pass
-            
+
             d_lower = domain.lower()
             if d_lower in ("localhost", "local") or d_lower.endswith(".local") or d_lower.endswith(".internal") or d_lower.endswith(".test") or d_lower.endswith(".example") or d_lower.endswith(".invalid") or d_lower.endswith(".localhost"):
                 return False
-            
+
             # Simple domain structure check (must contain dot and valid characters)
-            if "." in domain and all(part and part.isalnum() or "-" in part for part in domain.split(".")):
-                return True
-            return False
+            return bool("." in domain and all((part and part.isalnum()) or "-" in part for part in domain.split(".")))
 
         if is_valid_app_domain(app_domain_clean):
             self.email_domain = app_domain_clean
@@ -355,7 +352,7 @@ class Settings(BaseSettings):
         else:
             raise ValueError(
                 f"Invalid app_domain '{self.app_domain}' in production mode (debug=False). "
-                "Production requires a valid domain name for email resolution."
+                "Production requires a valid domain name for email resolution.",
             )
         return self
 
@@ -425,7 +422,7 @@ class Settings(BaseSettings):
 try:
     # Settings are validated at import time so the application fails fast
     # when required secrets are missing or malformed.
-    settings = Settings()  # type: ignore[call-arg]
+    settings = Settings()
 except Exception as e:
     raise RuntimeError(
         "CRITICAL: Failed to validate application secrets block.\n"

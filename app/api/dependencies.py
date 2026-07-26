@@ -1,7 +1,7 @@
 """FastAPI request dependency injection components and authentication guards.
 
-Provides FastAPI dependencies for Bearer token extraction, ES256 JWT cryptographic verification,
-user account status checks (suspension/deletion), and Firebase App Check device attestation.
+Provides FastAPI dependencies for Bearer token extraction, ES256 JWT
+cryptographic verification, user account status checks, and Firebase App Check.
 """
 
 import asyncio
@@ -15,6 +15,7 @@ import jwt
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
+from redis.exceptions import RedisError
 from starlette.concurrency import run_in_threadpool
 
 from app.core.cache import redis_client
@@ -35,29 +36,30 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_bearer_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> str:
     """Extract and validate the required HTTP Bearer token from request headers.
 
     Args:
-        credentials: Captured Authorization header credentials.
+        credentials: HTTP Bearer authorization credentials.
 
     Returns:
-        str: Raw JWT Bearer token string.
+        str: Raw Bearer token string.
 
     Raises:
-        HTTPException: 401 Unauthorized if Authorization header is missing or non-Bearer.
+        HTTPException: 401 Unauthorized if Authorization header is missing.
     """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing bearer token.",
+            detail="Missing or invalid Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     return credentials.credentials
 
 
 def get_optional_bearer_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> str | None:
     """Extract optional HTTP Bearer token from request headers if present.
 
@@ -170,12 +172,19 @@ async def _update_presence_if_needed(user_id: str) -> None:
         if was_set:
             from app.db.chat import upsert_presence_heartbeat
             await run_in_threadpool(upsert_presence_heartbeat, user_id, True)
-    except Exception as e:  # noqa: BLE001
+    except (
+        RedisError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+    ) as e:
         logger.warning("Failed to update general presence heartbeat: %s", e)
 
 
 async def get_authenticated_user_id(
-    payload: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
+    payload: dict[str, Any] = Depends(get_authenticated_user_payload),
 ) -> str:
     """Executes get authenticated user id operation.
 
@@ -211,7 +220,7 @@ async def get_optional_authenticated_user_id(
         payload = _decode_jwt(token, secret, public_key)
         user_uuid: str | None = payload.get("sub")
         return user_uuid
-    except Exception:
+    except (jwt.PyJWTError, HTTPException, ValueError, AttributeError, KeyError):
         return None
 
 

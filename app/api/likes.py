@@ -165,7 +165,7 @@ async def get_likes_inbox(
 @limiter.limit(settings.rate_limit_discover)
 async def mark_likes_as_seen(
     request: Request,
-    payload: MarkLikesSeenRequest = Body(...),  # noqa: B008
+    payload: MarkLikesSeenRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -258,7 +258,7 @@ async def _verify_peer_access_and_infer_tab(
 @limiter.limit(settings.rate_limit_discover)
 async def get_peer_profile(
     request: Request,
-    payload: PeerProfileRequest = Body(...),  # noqa: B008
+    payload: PeerProfileRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> OrbitNodeDetailResponse:
@@ -367,9 +367,9 @@ _LIKES_PASS_EXPIRY_DAYS = 14  # 2 weeks (same as orbit pass)
 
 @router.post("/api/v1/likes/action", response_model=LikeActionResponse)
 @limiter.limit(settings.rate_limit_discover)
-async def record_like_back_action(
+async def record_like_back_action(  # noqa: C901
     request: Request,
-    payload: LikeActionRequest = Body(...),  # noqa: B008
+    payload: LikeActionRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> LikeActionResponse:
@@ -537,7 +537,7 @@ async def get_matches(
 @limiter.limit(settings.rate_limit_discover)
 async def record_match_action(
     request: Request,
-    payload: MatchActionRequest = Body(...),  # noqa: B008
+    payload: MatchActionRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> MatchActionResponse:

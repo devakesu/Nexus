@@ -21,7 +21,6 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
-
 from app.api.account_deletion import router as account_deletion_router
 from app.api.chat import router as chat_router
 from app.api.chat_keys import router as chat_keys_router

@@ -100,7 +100,7 @@ async def _notify_newly_added_contacts(
 @limiter.limit(settings.rate_limit_safety)
 async def put_safety_contacts(
     request: Request,
-    payload: SafetyContactsSyncRequest = Body(...),  # noqa: B008
+    payload: SafetyContactsSyncRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyContactsSyncResponse:
@@ -143,7 +143,7 @@ async def put_safety_contacts(
 @limiter.limit(settings.rate_limit_safety)
 async def send_safety_alert(
     request: Request,
-    payload: SafetyAlertRequest = Body(...),  # noqa: B008
+    payload: SafetyAlertRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyAlertResponse:
@@ -241,7 +241,7 @@ async def send_safety_alert(
 @limiter.limit(settings.rate_limit_safety)
 async def register_evidence(
     request: Request,
-    payload: SafetyEvidenceRegisterRequest = Body(...),  # noqa: B008
+    payload: SafetyEvidenceRegisterRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyEvidenceRegisterResponse:
@@ -311,7 +311,7 @@ async def register_evidence(
 @limiter.limit(settings.rate_limit_safety)
 async def start_session(
     request: Request,
-    payload: SafetySessionStartRequest = Body(...),  # noqa: B008
+    payload: SafetySessionStartRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetySessionStartResponse:
@@ -352,7 +352,7 @@ async def start_session(
 @limiter.limit(settings.rate_limit_safety)
 async def checkin_session(
     request: Request,
-    payload: SafetySessionCheckinRequest = Body(...),  # noqa: B008
+    payload: SafetySessionCheckinRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, bool]:
@@ -393,7 +393,7 @@ async def checkin_session(
 @limiter.limit(settings.rate_limit_safety)
 async def end_session(
     request: Request,
-    payload: SafetySessionEndRequest = Body(...),  # noqa: B008
+    payload: SafetySessionEndRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, bool]:

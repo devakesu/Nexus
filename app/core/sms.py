@@ -296,7 +296,7 @@ def compose_unreachable_message(
     return "\n".join(lines)
 
 
-_ESCALATION_TOKEN_CONTEXT = "safety_escalation_cancel"
+_ESCALATION_LABEL_DOMAIN = "safety_escalation_cancel"
 
 
 def make_escalation_cancel_token(session_id: str) -> str:
@@ -309,7 +309,7 @@ def make_escalation_cancel_token(session_id: str) -> str:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
     key = settings.blind_index_key.encode()
-    message = f"{_ESCALATION_TOKEN_CONTEXT}:{session_id}".encode()
+    message = f"{_ESCALATION_LABEL_DOMAIN}:{session_id}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 

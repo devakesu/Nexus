@@ -4,11 +4,11 @@ Provides scoped Supabase client instances for sending and verifying email OTPs
 during login flows without mutating shared singleton session state.
 """
 
-from supabase import Client, create_client
 from supabase.lib.client_options import SyncClientOptions
 from supabase_auth import AuthResponse
 
 from app.core.config import settings
+from supabase import Client, create_client
 
 
 def _scoped_auth_client() -> Client:

@@ -1,7 +1,7 @@
 """Static Web Asset Generation Script.
 
-Generates favicons, app icons, OpenGraph images, and wide banners from mobile source assets
-using Pillow (PIL).
+Generates favicons, app icons, OpenGraph images, and wide banners from mobile
+source assets using Pillow (PIL).
 """
 
 import os

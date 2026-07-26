@@ -38,7 +38,7 @@ RUN curl -fSL "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTH
     && rm -rf /tmp/Python-${PYTHON_VERSION} /tmp/python.tgz \
     && ldconfig
 
-# Moved down to protect system dependency and compilation cache
+
 COPY pinned-artifacts.json /tmp/pinned-artifacts.json
 
 # 3. CLI Tools (Npm, Supabase, Playwright, Firebase, Infisical)
@@ -256,7 +256,7 @@ fi
 
 git config --global --add safe.directory /nexus
 
-# --- 4. PYTHON ENVIRONMENT ---
+# --- 5. PYTHON ENVIRONMENT ---
 if [ -d "/nexus" ]; then
     echo "🐍 Checking Python Environment..."
 
@@ -288,7 +288,7 @@ if [ -d "/nexus" ]; then
     fi
 fi
 
-# --- 5. NPM & FLUTTER SETUP ---
+# --- 6. NPM & FLUTTER SETUP ---
 if [ -f "/nexus/package.json" ]; then 
     echo "📦 Synchronizing NPM packages..."
     cd /nexus && npm ci --legacy-peer-deps
@@ -298,7 +298,7 @@ if [ -d "/nexus/mobile" ]; then
     cd /nexus/mobile && flutter pub get
 fi
 
-# --- 6. UNIVERSAL IDE EXTENSION INSTALLER ---
+# --- 7. UNIVERSAL IDE EXTENSION INSTALLER ---
 EXTENSIONS=(
   "ms-python.python" "ms-pyright.pyright" "ms-python.debugpy" 
   "ms-python.vscode-python-envs" "kevinrose.vsc-python-indent"
@@ -359,4 +359,4 @@ RUN sed -i 's/\r$//' /home/vscode/init_workspace.sh
 USER vscode
 WORKDIR /nexus
 EXPOSE 3000 8000 8080 4000 5001 8081 8085 9099 54321 54322 54323
-CMD bash -c "socat TCP-LISTEN:8181,bind=0.0.0.0,fork TCP:127.0.0.1:8181 & exec sleep infinity"
+CMD ["sleep", "infinity"]

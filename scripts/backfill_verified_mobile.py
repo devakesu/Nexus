@@ -14,6 +14,7 @@ supabase_client.table("auth.users"), which PostgREST doesn't expose) to read
 phone/phone_confirmed_at, since auth.users data isn't purged by disabling the
 provider - only future API behavior changes.
 """
+
 import logging
 import os
 import sys

@@ -62,7 +62,7 @@ def _deactivate_device_token(user_id: str, fcm_token: str) -> None:
 @limiter.limit(settings.rate_limit_auth)
 async def register_device(
     request: Request,
-    payload: RegisterDeviceRequest = Body(...),  # noqa: B008
+    payload: RegisterDeviceRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -102,7 +102,7 @@ async def register_device(
 @limiter.limit(settings.rate_limit_auth)
 async def unregister_device(
     request: Request,
-    payload: RegisterDeviceRequest = Body(...),  # noqa: B008
+    payload: RegisterDeviceRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:

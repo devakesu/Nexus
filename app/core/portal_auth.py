@@ -1,7 +1,7 @@
 """Safety portal authentication and temporary access token utilities.
 
-Handles phone number normalization for trusted contacts, OTP token generation and HMAC hashing,
-and signed stateless access token creation and verification for the safety portal.
+Handles phone number normalization for trusted contacts, OTP token generation,
+HMAC hashing, and signed stateless access token creation and verification.
 """
 
 import base64
@@ -13,8 +13,8 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 
 _OTP_LENGTH = 6
-_OTP_TOKEN_CONTEXT = "safety_portal_otp"  # domain-separation label
-_ACCESS_TOKEN_CONTEXT = "safety_portal_access"  # domain-separation label
+_OTP_DOMAIN_LABEL = "safety_portal_otp"  # domain-separation label
+_ACCESS_DOMAIN_LABEL = "safety_portal_access"  # domain-separation label
 _ACCESS_TOKEN_TTL_SECONDS = 30 * 60
 
 
@@ -52,7 +52,7 @@ def hash_otp(session_id: str, phone_norm: str, code: str) -> str:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
     key = settings.blind_index_key.encode()
-    message = f"{_OTP_TOKEN_CONTEXT}:{session_id}:{phone_norm}:{code}".encode()
+    message = f"{_OTP_DOMAIN_LABEL}:{session_id}:{phone_norm}:{code}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
@@ -86,7 +86,7 @@ def _sign_access_payload(payload: str) -> str:
         str: Hex-encoded HMAC signature.
     """
     key = settings.blind_index_key.encode()
-    message = f"{_ACCESS_TOKEN_CONTEXT}:{payload}".encode()
+    message = f"{_ACCESS_DOMAIN_LABEL}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
@@ -119,7 +119,7 @@ def verify_portal_access_token(session_id: str, token: str) -> str | None:
         token: Bearer access token string.
 
     Returns:
-        str | None: Verified normalized phone number, or None if token is invalid or expired.
+        str | None: Verified phone number, or None if token invalid/expired.
     """
     try:
         payload_b64, signature = token.split(".", 1)

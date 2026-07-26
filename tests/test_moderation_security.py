@@ -1,8 +1,8 @@
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi import HTTPException, Request, status
 import pytest
+from fastapi import HTTPException, Request, status
 
 from app.api.dependencies import get_active_user_id
 from app.api.feedback import (
@@ -11,7 +11,9 @@ from app.api.feedback import (
     send_contact_otp,
     submit_contact_ticket,
 )
-from app.db.profiles import _build_candidate_query  # type: ignore
+from app.db.profiles import (
+    _build_candidate_query,
+)
 from app.models import DiscoveryFilters
 
 

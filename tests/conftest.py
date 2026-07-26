@@ -20,6 +20,7 @@ os.environ.setdefault(
     "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
 )
 os.environ.setdefault("BLIND_INDEX_KEY", "test-blind-index-key")
-os.environ.setdefault("APP_DOMAIN", "localhost")
+os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("APP_DOMAIN", "test.com")
 os.environ.setdefault("BACKEND_PUBLIC_URL", "http://localhost:8000")
 os.environ.setdefault("ENFORCE_APP_CHECK", "false")

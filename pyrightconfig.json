@@ -3,6 +3,7 @@
   "venvPath": ".",
   "venv": ".venv",
   "reportMissingTypeStubs": false,
+  "reportPrivateUsage": "none",
   "exclude": [
     "**/node_modules",
     "**/__pycache__",

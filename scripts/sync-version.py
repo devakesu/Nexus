@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Mobile app version synchronization and git pre-commit/post-checkout hook utility.
 
-Synchronizes semantic version numbers across pubspec.yaml and Android local.properties based on release branch names.
+Synchronizes semantic version numbers across pubspec.yaml and Android
+local.properties based on release branch names.
 """
 
 import re
@@ -27,7 +28,7 @@ def get_current_branch() -> str | None:
     """
     git_path = shutil.which("git") or "git"
     try:
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             [git_path, "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
             text=True,
@@ -45,7 +46,8 @@ def parse_version(version_str: str) -> tuple[tuple[int, int, int], int] | None:
         version_str: Raw version string (e.g. '1.2.3+4').
 
     Returns:
-        tuple[tuple[int, int, int], int] | None: Version tuple and build number, or None.
+        tuple[tuple[int, int, int], int] | None:
+            Version tuple and build number, or None.
     """
     match = VERSION_PATTERN.match(version_str)
     if not match:
@@ -62,7 +64,7 @@ def read_pubspec_version() -> tuple[str | None, str]:
         tuple[str | None, str]: Extracted version string and entire pubspec content.
     """
     if not PUBSPEC_PATH.exists():
-        print(f"Error: {PUBSPEC_PATH} not found.")  # noqa: T201
+        print(f"Error: {PUBSPEC_PATH} not found.")
         sys.exit(1)
 
     content = PUBSPEC_PATH.read_text()
@@ -101,7 +103,7 @@ def write_pubspec_version(content: str, new_version_str: str) -> bool:
 
 
 def update_local_properties(new_version_str: str) -> None:
-    """Updates flutter.versionName and flutter.versionCode in mobile/android/local.properties.
+    """Updates flutter.versionName and flutter.versionCode in local.properties.
 
     Args:
         new_version_str: Target version string.
@@ -139,62 +141,72 @@ def update_local_properties(new_version_str: str) -> None:
     LOCAL_PROPERTIES_PATH.write_text("\n".join(lines) + "\n")
 
 
-def main() -> None:  # noqa: C901
+def _resolve_branch_bump(
+    branch_version_str: str,
+    pubspec_version_str: str,
+    original_content: str,
+    pre_commit: bool,
+    post_checkout: bool,
+) -> str:
+    parsed_branch = parse_version(branch_version_str)
+    parsed_pubspec = parse_version(pubspec_version_str)
+
+    if not (parsed_branch and parsed_pubspec):
+        return pubspec_version_str
+
+    branch_ver, _ = parsed_branch
+    pubspec_ver, _ = parsed_pubspec
+
+    if branch_ver < pubspec_ver:
+        err_msg = (
+            f"Error: Branch version ({branch_version_str}) cannot be "
+            f"less than current app version ({pubspec_version_str})."
+        )
+        print(err_msg)
+        sys.exit(1)
+
+    if branch_ver > pubspec_ver:
+        new_version_str = f"{branch_version_str}+1"
+        git_path = shutil.which("git") or "git"
+        if pre_commit:
+            msg = f"Auto-bumping version in pubspec.yaml to {new_version_str}..."
+            print(msg)
+            write_pubspec_version(original_content, new_version_str)
+            cmd = [git_path, "add", str(PUBSPEC_PATH), str(LOCAL_PROPERTIES_PATH)]
+            subprocess.run(cmd, check=True)
+        elif post_checkout:
+            msg = f"Auto-bumping pubspec to {new_version_str}..."
+            print(msg)
+            write_pubspec_version(original_content, new_version_str)
+        else:
+            write_pubspec_version(original_content, new_version_str)
+        return new_version_str
+
+    return pubspec_version_str
+
+
+def main() -> None:
     """Main execution function for version synchronization across mobile build files."""
     pre_commit = "--pre-commit" in sys.argv
     post_checkout = "--post-checkout" in sys.argv
 
     pubspec_version_str, original_content = read_pubspec_version()
     if not pubspec_version_str:
-        print("Error: Could not parse version from pubspec.yaml")  # noqa: T201
+        print("Error: Could not parse version from pubspec.yaml")
         sys.exit(1)
 
     effective_version = pubspec_version_str
-
     branch = get_current_branch()
     if branch and branch not in ("HEAD", "main", "master", "dev", "develop"):
         match = RELEASE_BRANCH_PATTERN.match(branch)
         if match:
-            branch_version_str = match.group(1)
-            parsed_branch = parse_version(branch_version_str)
-            parsed_pubspec = parse_version(pubspec_version_str)
-
-            if parsed_branch and parsed_pubspec:
-                branch_ver, _ = parsed_branch
-                pubspec_ver, _ = parsed_pubspec
-
-                if branch_ver < pubspec_ver:
-                    err_msg = (
-                        f"Error: Branch version ({branch_version_str}) cannot be "
-                        f"less than current app version ({pubspec_version_str})."
-                    )
-                    print(err_msg)  # noqa: T201
-                    sys.exit(1)
-
-                if branch_ver > pubspec_ver:
-                    new_version_str = f"{branch_version_str}+1"
-                    effective_version = new_version_str
-                    git_path = shutil.which("git") or "git"
-                    if pre_commit:
-                        msg = (
-                            "Auto-bumping version in pubspec.yaml to "
-                            f"{new_version_str}..."
-                        )
-                        print(msg)  # noqa: T201
-                        write_pubspec_version(original_content, new_version_str)
-                        cmd = [
-                            git_path,
-                            "add",
-                            str(PUBSPEC_PATH),
-                            str(LOCAL_PROPERTIES_PATH),
-                        ]
-                        subprocess.run(cmd, check=True)  # noqa: S603
-                    elif post_checkout:
-                        msg = f"Auto-bumping pubspec to {new_version_str}..."
-                        print(msg)  # noqa: T201
-                        write_pubspec_version(original_content, new_version_str)
-                    else:
-                        write_pubspec_version(original_content, new_version_str)
+            effective_version = _resolve_branch_bump(
+                match.group(1),
+                pubspec_version_str,
+                original_content,
+                pre_commit,
+                post_checkout,
+            )
 
     update_local_properties(effective_version)
 

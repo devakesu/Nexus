@@ -45,7 +45,7 @@ router = APIRouter()
 @limiter.limit(settings.rate_limit_discover)
 async def get_discovery_orbit(
     request: Request,
-    payload: DiscoveryRequest = Body(...),  # noqa: B008
+    payload: DiscoveryRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
@@ -137,7 +137,7 @@ async def get_discovery_orbit(
 @limiter.limit(settings.rate_limit_discover)
 async def get_discovery_node_detail(
     request: Request,
-    payload: OrbitNodeDetailRequest = Body(...),  # noqa: B008
+    payload: OrbitNodeDetailRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
@@ -216,7 +216,7 @@ async def get_discovery_node_detail(
 @limiter.limit(settings.rate_limit_discover)
 async def get_discovery_viewport(
     request: Request,
-    payload: DiscoveryViewportRequest = Body(...),  # noqa: B008
+    payload: DiscoveryViewportRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
@@ -343,7 +343,7 @@ async def _validate_discovery_action(
 @limiter.limit(settings.rate_limit_discover)
 async def handle_discovery_action(
     request: Request,
-    payload: DiscoveryActionRequest = Body(...),  # noqa: B008
+    payload: DiscoveryActionRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):

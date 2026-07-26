@@ -24,8 +24,6 @@ from app.api.dependencies import (
     get_optional_bearer_token,
     verify_app_check_with_replay_protection,
 )
-
-
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import (
@@ -119,7 +117,7 @@ async def _resolve_account_deletion_user(
 @limiter.limit(settings.rate_limit_account_deletion_otp)
 async def request_account_deletion_otp(
     request: Request,
-    payload: AccountDeletionOtpRequestRequest | None = Body(None),  # noqa: B008
+    payload: AccountDeletionOtpRequestRequest | None = Body(None),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpRequestResponse:
@@ -156,7 +154,7 @@ async def request_account_deletion_otp(
 @limiter.limit(settings.rate_limit_account_deletion_otp)
 async def verify_account_deletion_otp(
     request: Request,
-    payload: AccountDeletionOtpVerifyRequest = Body(...),  # noqa: B008
+    payload: AccountDeletionOtpVerifyRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpVerifyResponse:
@@ -198,7 +196,7 @@ async def verify_account_deletion_otp(
 async def request_account_deletion(
     request: Request,
     background_tasks: BackgroundTasks,
-    payload: AccountDeletionRequestRequest = Body(...),  # noqa: B008
+    payload: AccountDeletionRequestRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
     access_token: str | None = Depends(get_optional_bearer_token),

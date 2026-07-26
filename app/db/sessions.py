@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
+from postgrest.types import CountMethod
 
 from app.core.config import DiscoveryTab
 from app.db.client import (
@@ -320,7 +321,7 @@ def _fetch_total_session_items_count(session_id: str, viewer_id: str) -> int:
     try:
         count_res = (
             supabase_client.table("discovery_session_items")
-            .select("candidate_id, discovery_sessions!inner(viewer_id)", count="exact")  # type: ignore[arg-type]
+            .select("candidate_id, discovery_sessions!inner(viewer_id)", count=CountMethod.exact)
             .eq("session_id", session_id)
             .eq("discovery_sessions.viewer_id", viewer_id)
             .limit(1)

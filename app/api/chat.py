@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/api/v1/chats", response_model=ChatsListResponse)
 @limiter.limit(settings.rate_limit_discover)
-async def get_chats(
+async def get_chats(  # noqa: C901
     request: Request,
     tab: Annotated[DiscoveryTab, Query()] = "Dating",
     _device: None = Depends(verify_app_check_token),
@@ -253,7 +253,7 @@ async def get_new_chat_candidates(
 @limiter.limit(settings.rate_limit_discover)
 async def create_chat(
     request: Request,
-    payload: CreateChatRequest = Body(...),  # noqa: B008
+    payload: CreateChatRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> CreateChatResponse:
@@ -309,7 +309,7 @@ async def create_chat(
 async def send_message(
     request: Request,
     conversation_id: str = Path(...),
-    payload: SendMessageRequest = Body(...),  # noqa: B008
+    payload: SendMessageRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> SendMessageResponse:
@@ -393,7 +393,7 @@ async def send_message(
 @limiter.limit(settings.rate_limit_discover)
 async def send_presence_heartbeat(
     request: Request,
-    payload: PresenceHeartbeatRequest = Body(default=PresenceHeartbeatRequest()),  # noqa: B008
+    payload: PresenceHeartbeatRequest = Body(default=PresenceHeartbeatRequest()),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -536,7 +536,7 @@ async def mark_conversation_messages_read(
 async def create_chat_event(
     request: Request,
     conversation_id: str = Path(...),
-    payload: CreateEventRequest = Body(...),  # noqa: B008
+    payload: CreateEventRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
@@ -667,7 +667,7 @@ async def update_chat_event(
     request: Request,
     conversation_id: str = Path(...),
     event_id: str = Path(...),
-    payload: UpdateEventStatusRequest = Body(...),  # noqa: B008
+    payload: UpdateEventStatusRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:

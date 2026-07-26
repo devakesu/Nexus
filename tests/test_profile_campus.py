@@ -135,7 +135,7 @@ def test_update_profile_details_endpoint_campus_validation(
 @patch("app.db.profiles.supabase_client")
 def test_build_candidate_query_open_bucket_expansion(mock_supabase: MagicMock) -> None:
     from app.db.profiles import (
-        _build_candidate_query,  # pyright: ignore[reportPrivateUsage]
+        _build_candidate_query,
     )
     from app.models import DiscoveryFilters
 

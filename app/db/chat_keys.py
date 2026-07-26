@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import sentry_sdk
 from postgrest.exceptions import APIError
+from postgrest.types import CountMethod
 
 from app.db.client import (
     DatabaseAccessError,
@@ -142,7 +143,7 @@ def count_unused_one_time_prekeys(user_id: str) -> int:
     try:
         res = (
             supabase_client.table("chat_one_time_prekeys")
-            .select("id", count="exact")  # type: ignore[arg-type]
+            .select("id", count=CountMethod.exact)
             .eq("user_id", user_id)
             .is_("used_at", "null")
             .execute()

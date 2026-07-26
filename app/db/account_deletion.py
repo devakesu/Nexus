@@ -23,8 +23,8 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.config import DiscoveryTab, settings
 from app.core.cache import invalidate_user_status_cache
+from app.core.config import DiscoveryTab, settings
 from app.db.chat import (
     close_conversation_for_match_action,
     reopen_conversations_for_reactivation,

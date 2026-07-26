@@ -53,7 +53,7 @@ def safe_create_task(
                 sentry_sdk.capture_exception(exc)
         except asyncio.CancelledError:
             pass
-        except Exception as e:  # noqa: BLE001
+        except asyncio.InvalidStateError as e:
             sentry_sdk.capture_exception(e)
 
     task.add_done_callback(done_callback)

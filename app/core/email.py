@@ -5,11 +5,10 @@ HTML-to-text fallback generation, PII sanitization for email logs, and HTML emai
 """
 
 import base64
+import logging
 from collections.abc import Callable, Coroutine
 from datetime import datetime
 from html.parser import HTMLParser
-import logging
-import random
 from typing import Any, Literal, cast
 
 import httpx
@@ -332,7 +331,9 @@ def should_use_sendpulse(email: str | None = None) -> bool:
             encoded_email = email.lower().encode("utf-8")
             hash_val = int(hashlib.sha256(encoded_email).hexdigest(), 16)
             return hash_val % 2 == 0
-        return random.random() < 0.5  # noqa: S311
+        import secrets
+
+        return secrets.randbelow(100) < 50
     return has_sendpulse
 
 
@@ -425,7 +426,7 @@ async def send_email(props: SendEmailProps) -> ProviderResult:
 
     try:
         return await config.primary(props)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         err_msg = str(err)
         logger.warning(
             f"{config.p_name} failed: {err_msg}",
@@ -933,7 +934,7 @@ async def send_feedback_confirmation_email(
         return ProviderResult(success=False, provider=provider_name, error=str(err))
 
 
-async def send_feedback_admin_notification_email(
+async def send_feedback_admin_notification_email(  # noqa: C901
     report_id: str,
     query_type: str,
     subject: str,

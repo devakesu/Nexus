@@ -11,7 +11,7 @@ import secrets
 from app.core.config import settings
 
 _OTP_LENGTH = 6
-_OTP_TOKEN_CONTEXT = "account_phone_otp"  # domain-separation label
+_OTP_DOMAIN_LABEL = "account_phone_otp"  # domain-separation label
 
 
 def normalize_phone(raw: str) -> str:
@@ -50,7 +50,7 @@ def hash_otp(user_id: str, phone_norm: str, code: str) -> str:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
     key = settings.blind_index_key.encode()
-    message = f"{_OTP_TOKEN_CONTEXT}:{user_id}:{phone_norm}:{code}".encode()
+    message = f"{_OTP_DOMAIN_LABEL}:{user_id}:{phone_norm}:{code}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 

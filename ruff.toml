@@ -48,5 +48,12 @@ max-complexity = 8
 # Test files: `assert` is the standard pytest idiom (not a production
 # assertion that could be optimized away), and `random`/non-crypto RNG is
 # fine for generating synthetic layout/fixture data - no security purpose.
-"tests/*.py" = ["S101", "S311"]
-"Nexus_Engine/tests/*.py" = ["S101", "S311"]
+"tests/*.py" = ["S101", "S311", "S106", "E501"]
+"Nexus_Engine/tests/*.py" = ["S101", "S311", "S106", "E501"]
+# FastAPI route parameter defaults use Body(), Depends(), Query(), File()
+"app/api/*.py" = ["B008"]
+# Command-line utility scripts print output and invoke subprocess
+"scripts/*.py" = ["T201", "S603"]
+# Backend app and engine code docstrings line length
+"app/**/*.py" = ["E501"]
+"Nexus_Engine/**/*.py" = ["E501"]

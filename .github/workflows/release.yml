@@ -145,7 +145,7 @@ jobs:
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
 
-      # Download SLSA provenance attestation for OpenSSF Scorecard
+      # Download SLSA provenance attestation
       - name: Download SLSA provenance attestation
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

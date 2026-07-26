@@ -31,7 +31,6 @@ from app.models import (
     UploadSignedPrekeyRequest,
 )
 
-
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 @limiter.limit(settings.rate_limit_discover)
 async def upload_identity_key(
     request: Request,
-    payload: UploadIdentityKeyRequest = Body(...),  # noqa: B008
+    payload: UploadIdentityKeyRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -83,7 +82,7 @@ async def upload_identity_key(
 @limiter.limit(settings.rate_limit_discover)
 async def upload_signed_prekey(
     request: Request,
-    payload: UploadSignedPrekeyRequest = Body(...),  # noqa: B008
+    payload: UploadSignedPrekeyRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -127,7 +126,7 @@ async def upload_signed_prekey(
 @limiter.limit(settings.rate_limit_discover)
 async def upload_one_time_prekeys(
     request: Request,
-    payload: UploadOneTimePrekeysRequest = Body(...),  # noqa: B008
+    payload: UploadOneTimePrekeysRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
@@ -272,7 +271,7 @@ async def get_key_bundle(
 @limiter.limit(settings.rate_limit_discover)
 async def establish_session(
     request: Request,
-    payload: EstablishSessionRequest = Body(...),  # noqa: B008
+    payload: EstablishSessionRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
