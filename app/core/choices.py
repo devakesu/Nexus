@@ -1,4 +1,11 @@
+"""Predefined validation choice sets and taxonomy mappings.
+
+Contains canonical sets for user profile options including gender identities, sexualities,
+pronouns, spoken languages, supported causes, pets, lifestyle habits, and structured interest taxonomies.
+"""
+
 GENDER_CHOICES = {
+
     # Binary / cisgender
     "Man",
     "Woman",

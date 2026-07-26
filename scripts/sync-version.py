@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Mobile app version synchronization and git pre-commit/post-checkout hook utility.
+
+Synchronizes semantic version numbers across pubspec.yaml and Android local.properties based on release branch names.
+"""
+
 import re
 import shutil
 import subprocess
@@ -15,6 +20,11 @@ RELEASE_BRANCH_PATTERN = re.compile(r"^(?:release/|v)?(\d+\.\d+\.\d+)$")
 
 
 def get_current_branch() -> str | None:
+    """Retrieves the active git branch name.
+
+    Returns:
+        str | None: Active branch name string or None if not in a git repository.
+    """
     git_path = shutil.which("git") or "git"
     try:
         result = subprocess.run(  # noqa: S603
@@ -29,6 +39,14 @@ def get_current_branch() -> str | None:
 
 
 def parse_version(version_str: str) -> tuple[tuple[int, int, int], int] | None:
+    """Parses a semantic version string into major/minor/patch tuple and build number.
+
+    Args:
+        version_str: Raw version string (e.g. '1.2.3+4').
+
+    Returns:
+        tuple[tuple[int, int, int], int] | None: Version tuple and build number, or None.
+    """
     match = VERSION_PATTERN.match(version_str)
     if not match:
         return None
@@ -38,6 +56,11 @@ def parse_version(version_str: str) -> tuple[tuple[int, int, int], int] | None:
 
 
 def read_pubspec_version() -> tuple[str | None, str]:
+    """Reads current version string from mobile/pubspec.yaml.
+
+    Returns:
+        tuple[str | None, str]: Extracted version string and entire pubspec content.
+    """
     if not PUBSPEC_PATH.exists():
         print(f"Error: {PUBSPEC_PATH} not found.")  # noqa: T201
         sys.exit(1)
@@ -54,6 +77,15 @@ LOCAL_PROPERTIES_PATH = Path("mobile/android/local.properties")
 
 
 def write_pubspec_version(content: str, new_version_str: str) -> bool:
+    """Writes updated version string to mobile/pubspec.yaml and local.properties.
+
+    Args:
+        content: Original pubspec.yaml file content.
+        new_version_str: Target version string to write.
+
+    Returns:
+        bool: True if updated, False otherwise.
+    """
     lines: list[str] = []
     updated = False
     for line in content.splitlines():
@@ -69,10 +101,14 @@ def write_pubspec_version(content: str, new_version_str: str) -> bool:
 
 
 def update_local_properties(new_version_str: str) -> None:
+    """Updates flutter.versionName and flutter.versionCode in mobile/android/local.properties.
+
+    Args:
+        new_version_str: Target version string.
+    """
     if not LOCAL_PROPERTIES_PATH.exists():
         return
 
-    # Parse build name (versionName) and build number (versionCode)
     match = VERSION_PATTERN.match(new_version_str)
     if not match:
         return
@@ -104,7 +140,7 @@ def update_local_properties(new_version_str: str) -> None:
 
 
 def main() -> None:  # noqa: C901
-    # Detect running mode
+    """Main execution function for version synchronization across mobile build files."""
     pre_commit = "--pre-commit" in sys.argv
     post_checkout = "--post-checkout" in sys.argv
 
@@ -160,7 +196,6 @@ def main() -> None:  # noqa: C901
                     else:
                         write_pubspec_version(original_content, new_version_str)
 
-    # Always ensure local.properties matches the final effective pubspec.yaml version
     update_local_properties(effective_version)
 
 

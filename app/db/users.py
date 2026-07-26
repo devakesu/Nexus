@@ -1,3 +1,9 @@
+"""Database user authentication, profile creation, and account status persistence layer.
+
+Provides database interaction functions for user registration, encrypted PII management,
+disposable email domain checks, account status verification, and deletion handling.
+"""
+
 import logging
 import secrets
 import string
@@ -21,9 +27,12 @@ from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)
 
+
 def _load_disposable_domains() -> set[str]:
-    """
-    Load disposable email domains blocklist from the resources directory.
+    """Loads disposable email domains blocklist from the resources directory.
+
+    Returns:
+        set[str]: Lowercased set of prohibited disposable email domain names.
     """
     resources_dir = Path(__file__).resolve().parent.parent / "resources"
     blocklist_file = resources_dir / "disposable_email_blocklist.txt"
@@ -39,10 +48,16 @@ DISPOSABLE_DOMAINS: set[str] = _load_disposable_domains()
 
 
 def is_disposable_email(email: str) -> bool:
-    """
-    Check if the email domain is listed in the disposable email blocklist.
+    """Verifies whether an email domain is present in the disposable email blocklist.
+
+    Args:
+        email: Email address string to check.
+
+    Returns:
+        bool: True if disposable email domain, False otherwise.
     """
     normalized_email = email.strip().lower()
+
     if "@" in normalized_email:
         domain = normalized_email.split("@")[-1]
         return domain in DISPOSABLE_DOMAINS
@@ -78,6 +93,17 @@ def is_allowed_email(email: str, app_variant: str = "nexus") -> bool:
 
 
 def _dump_user_object(user: User | dict[str, Any] | object) -> dict[str, Any]:
+    """Converts a Supabase User object or dictionary into a normalized dictionary representation.
+
+    Args:
+        user: Supabase User model, dictionary, or duck-typed object.
+
+    Returns:
+        dict[str, Any]: Normalized user attribute dictionary.
+
+    Raises:
+        HTTPException: If payload structure cannot be dumped into dictionary.
+    """
     if isinstance(user, User):
         return user.model_dump()
 
@@ -98,6 +124,17 @@ def _dump_user_object(user: User | dict[str, Any] | object) -> dict[str, Any]:
 
 
 def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
+    """Verifies a Supabase JWT access token and returns user details.
+
+    Args:
+        access_token: Raw Supabase JWT access token string.
+
+    Returns:
+        dict[str, Any]: Decoded user dictionary payload.
+
+    Raises:
+        HTTPException: 401 Unauthorized if token is invalid or user is not found.
+    """
     try:
         response = supabase_client.auth.get_user(access_token)
     except Exception as e:
@@ -125,6 +162,7 @@ def get_supabase_user_from_jwt(access_token: str) -> dict[str, Any]:
     return _dump_user_object(user)
 
 
+
 def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
     """Decrypts the mobile column in place, leaving it as None if never set
     or if decryption fails (e.g. stale key) rather than raising - a
@@ -146,6 +184,14 @@ def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_public_user(user_id: str) -> dict[str, Any] | None:
+    """Fetch public user.
+
+        Args:
+            user_id: fetch public user.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         result = (
             supabase_client.table("users")
@@ -307,6 +353,15 @@ def upsert_public_user(
     user_id: str,
     app_variant: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
+    """Upsert public user.
+
+        Args:
+            user_id: upsert public user.
+            app_variant: upsert public user.
+
+        Returns:
+            tuple[dict[str, Any], bool]: Result value.
+        """
     payload: dict[str, Any] = {
         "id": user_id,
     }
@@ -366,6 +421,14 @@ def upsert_public_user(
 
 
 def fetch_profile(user_id: str) -> dict[str, Any] | None:
+    """Fetch profile.
+
+        Args:
+            user_id: fetch profile.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         result = (
             supabase_client.table("profiles")
@@ -587,6 +650,17 @@ def _validate_import(
     target_variant: str,
     source_user: dict[str, Any] | None,
 ) -> tuple[str, str]:
+    """Validate import.
+
+        Args:
+            source: validate import.
+            target: validate import.
+            target_variant: validate import.
+            source_user: validate import.
+
+        Returns:
+            tuple[str, str]: Result value.
+        """
     # --- 2. Validate expiry ---
     now = datetime.now(timezone.utc)
     expires_raw = source.get("import_sync_expires_at")
@@ -636,6 +710,15 @@ def _fetch_import_profiles(
     sync_code: str,
     target_user_id: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Fetch import profiles.
+
+        Args:
+            sync_code: fetch import profiles.
+            target_user_id: fetch import profiles.
+
+        Returns:
+            tuple[dict[str, Any], dict[str, Any]]: Result value.
+        """
     # --- 1. Fetch source profile by sync code ---
     try:
         source_res = (
@@ -773,6 +856,14 @@ def execute_import(
 
 
 def _parse_terms_timestamp(ts_raw: Any) -> datetime:
+    """Parse terms timestamp.
+
+        Args:
+            ts_raw: parse terms timestamp.
+
+        Returns:
+            datetime: Result value.
+        """
     try:
         if isinstance(ts_raw, (str, datetime)):
             return parse_utc_datetime(ts_raw)
@@ -788,6 +879,14 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
 
 
 def _validate_terms_versions(version: str) -> None:
+    """Validate terms versions.
+
+        Args:
+            version: validate terms versions.
+
+        Returns:
+            None: Result value.
+        """
     current_version = settings.current_terms_version.strip()
     cleaned_version = version.strip()
     try:
@@ -820,6 +919,16 @@ def _fetch_existing_consent_pair(
     version_column: str,
     timestamp_column: str,
 ) -> dict[str, Any]:
+    """Fetch existing consent pair.
+
+        Args:
+            user_id: fetch existing consent pair.
+            version_column: fetch existing consent pair.
+            timestamp_column: fetch existing consent pair.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         existing_result = (
             supabase_client.table("users")
@@ -995,6 +1104,16 @@ def update_user_terms(
     accepted_terms_version: str,
     granted: bool = True,
 ) -> tuple[str, datetime] | None:
+    """Update user terms.
+
+        Args:
+            user_id: update user terms.
+            accepted_terms_version: update user terms.
+            granted: update user terms.
+
+        Returns:
+            tuple[str, datetime] | None: Result value.
+        """
     cleaned_version = accepted_terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:
@@ -1013,6 +1132,16 @@ def update_special_category_consent(
     terms_version: str,
     granted: bool,
 ) -> tuple[str, datetime] | None:
+    """Update special category consent.
+
+        Args:
+            user_id: update special category consent.
+            terms_version: update special category consent.
+            granted: update special category consent.
+
+        Returns:
+            tuple[str, datetime] | None: Result value.
+        """
     cleaned_version = terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:
@@ -1036,6 +1165,16 @@ def update_safety_data_consent(
     terms_version: str,
     granted: bool,
 ) -> tuple[str, datetime] | None:
+    """Update safety data consent.
+
+        Args:
+            user_id: update safety data consent.
+            terms_version: update safety data consent.
+            granted: update safety data consent.
+
+        Returns:
+            tuple[str, datetime] | None: Result value.
+        """
     cleaned_version = terms_version.strip()
     _validate_terms_versions(cleaned_version)
     if not granted:

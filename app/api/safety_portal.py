@@ -1,3 +1,9 @@
+"""FastAPI router for trusted contact portal authentication, alert viewing, and self-service opt-out.
+
+Exposes web and API endpoints for non-user trusted contacts to authenticate via phone OTP,
+view active safety alerts, inspect location history/audio evidence, and remove themselves as contacts.
+"""
+
 import asyncio
 import logging
 from typing import Any, cast
@@ -64,14 +70,41 @@ _EVIDENCE_URL_TTL_SECONDS = 600
 
 
 def _otp_key(session_id: str, phone_norm: str) -> str:
+    """Otp key.
+
+        Args:
+            session_id: otp key.
+            phone_norm: otp key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_portal:otp:{session_id}:{phone_norm}"
 
 
 def _attempts_key(session_id: str, phone_norm: str) -> str:
+    """Attempts key.
+
+        Args:
+            session_id: attempts key.
+            phone_norm: attempts key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_portal:otp_attempts:{session_id}:{phone_norm}"
 
 
 def _resend_key(session_id: str, phone_norm: str) -> str:
+    """Resend key.
+
+        Args:
+            session_id: resend key.
+            phone_norm: resend key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_portal:otp_resend:{session_id}:{phone_norm}"
 
 
@@ -160,6 +193,16 @@ async def verify_portal_otp(
     session_id: str,
     payload: SafetyPortalOtpVerifyRequest = Body(...),  # noqa: B008
 ) -> SafetyPortalOtpVerifyResponse:
+    """Verify portal otp.
+
+        Args:
+            request: verify portal otp.
+            session_id: verify portal otp.
+            payload: verify portal otp.
+
+        Returns:
+            SafetyPortalOtpVerifyResponse: Result value.
+        """
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -203,6 +246,16 @@ async def get_portal_details(
     session_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyPortalDetailsResponse:
+    """Get portal details.
+
+        Args:
+            request: get portal details.
+            session_id: get portal details.
+            authorization: get portal details.
+
+        Returns:
+            SafetyPortalDetailsResponse: Result value.
+        """
     _ = request
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(session_id, token) is None:
@@ -284,6 +337,14 @@ async def get_portal_details(
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
+    """Extract bearer token.
+
+        Args:
+            authorization: extract bearer token.
+
+        Returns:
+            str | None: Result value.
+        """
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
     return authorization.split(" ", 1)[1].strip() or None
@@ -303,14 +364,41 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
 
 
 def _contact_otp_key(contact_id: str, phone_norm: str) -> str:
+    """Contact otp key.
+
+        Args:
+            contact_id: contact otp key.
+            phone_norm: contact otp key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_contact_portal:otp:{contact_id}:{phone_norm}"
 
 
 def _contact_attempts_key(contact_id: str, phone_norm: str) -> str:
+    """Contact attempts key.
+
+        Args:
+            contact_id: contact attempts key.
+            phone_norm: contact attempts key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_contact_portal:otp_attempts:{contact_id}:{phone_norm}"
 
 
 def _contact_resend_key(contact_id: str, phone_norm: str) -> str:
+    """Contact resend key.
+
+        Args:
+            contact_id: contact resend key.
+            phone_norm: contact resend key.
+
+        Returns:
+            str: Result value.
+        """
     return f"safety_contact_portal:otp_resend:{contact_id}:{phone_norm}"
 
 
@@ -384,6 +472,16 @@ async def verify_contact_portal_otp(
     contact_id: str,
     payload: SafetyContactPortalOtpVerifyRequest = Body(...),  # noqa: B008
 ) -> SafetyContactPortalOtpVerifyResponse:
+    """Verify contact portal otp.
+
+        Args:
+            request: verify contact portal otp.
+            contact_id: verify contact portal otp.
+            payload: verify contact portal otp.
+
+        Returns:
+            SafetyContactPortalOtpVerifyResponse: Result value.
+        """
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
@@ -425,6 +523,16 @@ async def get_contact_portal_details(
     contact_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyContactPortalDetailsResponse:
+    """Get contact portal details.
+
+        Args:
+            request: get contact portal details.
+            contact_id: get contact portal details.
+            authorization: get contact portal details.
+
+        Returns:
+            SafetyContactPortalDetailsResponse: Result value.
+        """
     _ = request
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(contact_id, token) is None:

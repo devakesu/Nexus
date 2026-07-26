@@ -1,3 +1,9 @@
+"""FastAPI router for Meetup Safety, trusted contacts, emergency SOS, and evidence upload.
+
+Handles user endpoints for managing trusted contact lists, creating safety check-ins,
+triggering emergency SOS alerts (silent/loud), and uploading safety audio evidence.
+"""
+
 import asyncio
 import logging
 
@@ -98,6 +104,17 @@ async def put_safety_contacts(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyContactsSyncResponse:
+    """Put safety contacts.
+
+        Args:
+            request: put safety contacts.
+            payload: put safety contacts.
+            _device: put safety contacts.
+            user_id: put safety contacts.
+
+        Returns:
+            SafetyContactsSyncResponse: Result value.
+        """
     _ = request
     try:
         blocked, newly_notified = await asyncio.to_thread(
@@ -381,6 +398,17 @@ async def end_session(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> dict[str, bool]:
+    """End session.
+
+        Args:
+            request: end session.
+            payload: end session.
+            _device: end session.
+            user_id: end session.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         await asyncio.to_thread(end_safety_session, user_id, payload.session_id)

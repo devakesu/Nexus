@@ -1,4 +1,9 @@
-# app/core/crypto.py
+"""Field-level cryptography and deterministic blind index utilities.
+
+Provides multi-key Fernet symmetric encryption and decryption for PII fields,
+as well as HMAC-SHA256 blind indexing for secure, searchable database lookups.
+"""
+
 import hashlib
 import hmac
 from typing import Any
@@ -9,7 +14,7 @@ from app.core.config import settings
 
 
 class DecryptFailedError(Exception):
-    """Raised when decryption of PII fails."""
+    """Raised when decryption of encrypted PII fails."""
 
     pass
 
@@ -23,12 +28,18 @@ _cipher_suite = MultiFernet([Fernet(k) for k in _keys])
 
 
 def _get_cipher_suite() -> MultiFernet:
+    """Returns the globally configured MultiFernet cipher suite instance."""
     return _cipher_suite
 
 
 def encrypt_pii(plaintext: str | None) -> bytes:
-    """
-    Encrypt a plaintext string into Fernet ciphertext bytes for BYTEA storage.
+    """Encrypts a plaintext string into Fernet ciphertext bytes.
+
+    Args:
+        plaintext: Raw input string to be encrypted, or None.
+
+    Returns:
+        bytes: Encrypted Fernet token bytes, or empty bytes if input is empty or None.
     """
     if plaintext is None or plaintext == "":
         return b""
@@ -36,10 +47,18 @@ def encrypt_pii(plaintext: str | None) -> bytes:
 
 
 def decrypt_pii(ciphertext: Any) -> str:
-    """
-    Decrypt BYTEA/PostgREST-returned ciphertext into plaintext.
-    Supports raw bytes and PostgREST hex strings beginning with '\\x'.
-    Raises DecryptFailedError if decryption fails.
+    """Decrypts raw or hex-encoded ciphertext into plaintext.
+
+    Supports raw bytes, memoryviews, and PostgREST hex strings starting with '\\x'.
+
+    Args:
+        ciphertext: Ciphertext as bytes, memoryview, or hex string.
+
+    Returns:
+        str: Decrypted UTF-8 plaintext string.
+
+    Raises:
+        DecryptFailedError: If key is invalid, token is corrupted, or hex conversion fails.
     """
     if ciphertext is None or ciphertext == b"" or ciphertext == "":
         return ""
@@ -65,8 +84,15 @@ def decrypt_pii(ciphertext: Any) -> str:
 
 
 def compute_blind_index(value: str | None) -> str:
-    """
-    Compute a deterministic HMAC-SHA256 blind index for equality lookups.
+    """Computes a deterministic HMAC-SHA256 blind index for exact match database lookups.
+
+    Values are lowercased and stripped before hashing for case-insensitive matching.
+
+    Args:
+        value: Input string to generate blind index for.
+
+    Returns:
+        str: Hex-encoded HMAC-SHA256 digest string, or empty string if input is empty/None.
     """
     if value is None or value == "":
         return ""
@@ -80,8 +106,14 @@ def compute_blind_index(value: str | None) -> str:
 
 
 def encrypt_to_hex(value: str | None) -> str | None:
-    """
-    Encrypt a plaintext string and return a hex-prefixed BYTEA literal for storage.
+    """Encrypts plaintext string and formats as a PostgREST bytea hex string literal ('\\x...').
+
+    Args:
+        value: Plaintext string to encrypt.
+
+    Returns:
+        str | None: PostgREST hex string '\\x<hex>' or None if input is empty/None.
     """
     enc = encrypt_pii(value)
     return f"\\x{enc.hex()}" if enc else None
+

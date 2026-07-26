@@ -1,3 +1,8 @@
+"""FastAPI router for push notification device registration and token lifecycle management.
+
+Provides endpoints to register and unregister Firebase Cloud Messaging (FCM) device tokens.
+"""
+
 import asyncio
 import logging
 import uuid
@@ -20,6 +25,14 @@ def _upsert_device_token(
     platform: str,
     device_id: str | None,
 ) -> None:
+    """Upserts FCM device token record in database.
+
+    Args:
+        user_id: Target user ID string.
+        fcm_token: FCM device token string.
+        platform: Operating system platform string ('android' | 'ios').
+        device_id: Optional client device ID string.
+    """
     supabase_client.table("user_devices").upsert(
         {
             "user_id": user_id,
@@ -34,6 +47,12 @@ def _upsert_device_token(
 
 
 def _deactivate_device_token(user_id: str, fcm_token: str) -> None:
+    """Deactivates an active FCM device token record.
+
+    Args:
+        user_id: Target user ID string.
+        fcm_token: Target FCM token string.
+    """
     supabase_client.table("user_devices").update(
         {"is_active": False},
     ).eq("user_id", user_id).eq("fcm_token", fcm_token).execute()
@@ -47,6 +66,17 @@ async def register_device(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Registers or updates a device's FCM push token for notification delivery.
+
+    Args:
+        request: Incoming HTTP request.
+        payload: FCM device token payload.
+        _device: App Check attestation token guard.
+        user_id: Verified caller user ID.
+
+    Returns:
+        dict[str, bool]: Success status dict.
+    """
     _ = request
     try:
         await asyncio.to_thread(
@@ -76,6 +106,17 @@ async def unregister_device(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Unregisters and deactivates a device's FCM push token upon logout.
+
+    Args:
+        request: Incoming HTTP request.
+        payload: FCM device token payload.
+        _device: App Check attestation token guard.
+        user_id: Verified caller user ID.
+
+    Returns:
+        dict[str, bool]: Success status dict.
+    """
     _ = request
     try:
         await asyncio.to_thread(
@@ -93,3 +134,4 @@ async def unregister_device(
             status_code=503,
             detail="Service temporarily unavailable.",
         ) from err
+

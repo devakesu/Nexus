@@ -89,6 +89,15 @@ def _safe_select(
 
 
 def _sign_urls(bucket: str, paths: list[str]) -> dict[str, str]:
+    """Sign urls.
+
+        Args:
+            bucket: sign urls.
+            paths: sign urls.
+
+        Returns:
+            dict[str, str]: Result value.
+        """
     unique_paths = list(dict.fromkeys(p for p in paths if p))
     if not unique_paths:
         return {}
@@ -109,6 +118,14 @@ def _sign_urls(bucket: str, paths: list[str]) -> dict[str, str]:
 
 
 def _build_profile_section(user_id: str) -> dict[str, Any]:
+    """Build profile section.
+
+        Args:
+            user_id: build profile section.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         res = (
             supabase_client.table("profiles")
@@ -151,6 +168,14 @@ def _build_profile_section(user_id: str) -> dict[str, Any]:
 
 
 def _build_account_section(user_id: str) -> dict[str, Any]:
+    """Build account section.
+
+        Args:
+            user_id: build account section.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         res = (
             supabase_client.table("users")
@@ -171,6 +196,14 @@ def _build_account_section(user_id: str) -> dict[str, Any]:
 
 
 def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
+    """Build matches and discovery.
+
+        Args:
+            user_id: build matches and discovery.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         matches_res = (
             supabase_client.table("matches")
@@ -199,6 +232,14 @@ def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
 
 
 def _build_chat_section(user_id: str) -> dict[str, Any]:
+    """Build chat section.
+
+        Args:
+            user_id: build chat section.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         conv_res = (
             supabase_client.table("chat_conversations")
@@ -281,6 +322,14 @@ def _build_chat_section(user_id: str) -> dict[str, Any]:
 
 
 def _build_reports_section(user_id: str) -> dict[str, Any]:
+    """Build reports section.
+
+        Args:
+            user_id: build reports section.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     filed_by_you: list[dict[str, Any]] = []
     against_you: list[dict[str, Any]] = []
     try:
@@ -333,6 +382,14 @@ def _build_reports_section(user_id: str) -> dict[str, Any]:
 
 
 def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
+    """Build feedback section.
+
+        Args:
+            user_id: build feedback section.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     tickets = _safe_select(
         "feedback_reports",
         "id, query_type, subject, message, status, created_at, updated_at",
@@ -374,6 +431,14 @@ def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
 
 
 def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
+    """Build safety alerts.
+
+        Args:
+            user_id: build safety alerts.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     alerts: list[dict[str, Any]] = []
     try:
         alerts_res = (
@@ -401,6 +466,14 @@ def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
 
 
 def _build_safety_evidence(user_id: str) -> list[dict[str, Any]]:
+    """Build safety evidence.
+
+        Args:
+            user_id: build safety evidence.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     evidence: list[dict[str, Any]] = []
     try:
         evidence_res = (
@@ -438,6 +511,14 @@ def _build_safety_evidence(user_id: str) -> list[dict[str, Any]]:
 
 
 def _build_safety_section(user_id: str) -> dict[str, Any]:
+    """Build safety section.
+
+        Args:
+            user_id: build safety section.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         contacts = fetch_safety_contacts(user_id)
     except Exception:
@@ -462,6 +543,14 @@ def _build_safety_section(user_id: str) -> dict[str, Any]:
 
 
 def _build_spotify_section(user_id: str) -> list[dict[str, Any]]:
+    """Build spotify section.
+
+        Args:
+            user_id: build spotify section.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     try:
         return fetch_playlists_for_owner(user_id)
     except Exception:
@@ -473,6 +562,14 @@ def _build_spotify_section(user_id: str) -> list[dict[str, Any]]:
 
 
 def _build_consent_history(user_id: str) -> list[dict[str, Any]]:
+    """Build consent history.
+
+        Args:
+            user_id: build consent history.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     return _safe_select(
         "terms_consent_log",
         "category, granted, terms_version, created_at",

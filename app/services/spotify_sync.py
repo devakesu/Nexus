@@ -55,6 +55,7 @@ _SYNC_TIME_BUDGET_SECONDS = 60.0
 
 @dataclass
 class SpotifyTokenBundle:
+    """Spotifytokenbundle class representation."""
     access_token: str
     refresh_token: str | None
     scope: str
@@ -62,10 +63,26 @@ class SpotifyTokenBundle:
 
 
 def _auth_header(access_token: str) -> dict[str, str]:
+    """Auth header.
+
+        Args:
+            access_token: auth header.
+
+        Returns:
+            dict[str, str]: Result value.
+        """
     return {"Authorization": f"Bearer {access_token}"}
 
 
 def _parse_retry_after(resp: httpx.Response) -> float:
+    """Parse retry after.
+
+        Args:
+            resp: parse retry after.
+
+        Returns:
+            float: Result value.
+        """
     try:
         return min(
             float(resp.headers.get("Retry-After", "1")),
@@ -542,6 +559,15 @@ def blend_artist_affinity(
     combined: dict[str, float] = {}
 
     def _accumulate(source: dict[str, float], source_weight: float) -> None:
+        """Accumulate.
+
+            Args:
+                source: accumulate.
+                source_weight: accumulate.
+
+            Returns:
+                None: Result value.
+            """
         for name, weight in source.items():
             key = name.strip().lower()
             if not key:

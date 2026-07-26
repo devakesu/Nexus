@@ -1,3 +1,9 @@
+"""High-level discovery scoring, session orchestrator, and candidate orbit pipeline service.
+
+Integrates database session stores with the Nexus_Engine recommendation engine to compute
+candidate compatibility scores and manage active radar sessions.
+"""
+
 import logging
 from datetime import datetime
 from typing import Any, cast
@@ -19,11 +25,22 @@ from Nexus_Engine import engine
 logger = logging.getLogger(__name__)
 
 
+
 def get_or_validate_session(
     session_id: str,
     user_id: str,
     active_tab: DiscoveryTab | None = None,
 ) -> tuple[str, datetime]:
+    """Get or validate session.
+
+        Args:
+            session_id: get or validate session.
+            user_id: get or validate session.
+            active_tab: get or validate session.
+
+        Returns:
+            tuple[str, datetime]: Result value.
+        """
     if active_tab is not None:
         session = get_discovery_session(
             session_id=session_id,
@@ -61,6 +78,16 @@ def create_new_discovery_session(
     active_tab: DiscoveryTab,
     filters: DiscoveryFilters,
 ) -> tuple[str, datetime]:
+    """Create new discovery session.
+
+        Args:
+            user_id: create new discovery session.
+            active_tab: create new discovery session.
+            filters: create new discovery session.
+
+        Returns:
+            tuple[str, datetime]: Result value.
+        """
     viewer, candidate_pool = fetch_stage_1_candidates(
         viewer_id=user_id,
         active_tab=active_tab,

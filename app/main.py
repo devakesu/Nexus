@@ -1,3 +1,9 @@
+"""FastAPI backend application factory, middleware configuration, and router initialization.
+
+Configures application lifecycle, CORS policies, GZip compression, Sentry SDK initialization,
+Firebase Admin SDK setup, rate limiting, exception handlers, and router mount points.
+"""
+
 import logging
 from contextlib import asynccontextmanager, suppress
 from os.path import dirname, exists, join
@@ -14,6 +20,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
+
 
 from app.api.account_deletion import router as account_deletion_router
 from app.api.chat import router as chat_router
@@ -84,6 +91,11 @@ elif settings.enforce_app_check:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    """Lifespan.
+
+        Args:
+            _app: lifespan.
+        """
     if settings.enable_replay_protection:
         try:
             ping_func = cast(Any, redis_client).ping
@@ -148,6 +160,15 @@ if exists(static_path):
 
 
 def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
+    """Custom rate limit handler.
+
+        Args:
+            request: custom rate limit handler.
+            exc: custom rate limit handler.
+
+        Returns:
+            Response: Result value.
+        """
     detail = getattr(exc, "detail", "")
     response = JSONResponse(
         {"error": f"Rate limit exceeded: {detail}"},
@@ -163,6 +184,15 @@ def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
 
 
 async def http_exception_handler(request: Request, exc: Exception) -> Response:
+    """Http exception handler.
+
+        Args:
+            request: http exception handler.
+            exc: http exception handler.
+
+        Returns:
+            Response: Result value.
+        """
     status_code = getattr(exc, "status_code", 500)
     detail = getattr(exc, "detail", None)
     accept = request.headers.get("accept", "")

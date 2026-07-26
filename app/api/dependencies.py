@@ -1,3 +1,9 @@
+"""FastAPI request dependency injection components and authentication guards.
+
+Provides FastAPI dependencies for Bearer token extraction, ES256 JWT cryptographic verification,
+user account status checks (suspension/deletion), and Firebase App Check device attestation.
+"""
+
 import asyncio
 import hashlib
 import json
@@ -22,6 +28,7 @@ logger = logging.getLogger(__name__)
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+
 # ---------------------------------------------------------------------------
 # Token extraction
 # ---------------------------------------------------------------------------
@@ -30,6 +37,14 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def get_bearer_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> str:
+    """Get bearer token.
+
+        Args:
+            credentials: get bearer token.
+
+        Returns:
+            str: Result value.
+        """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,6 +56,14 @@ def get_bearer_token(
 def get_optional_bearer_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
 ) -> str | None:
+    """Get optional bearer token.
+
+        Args:
+            credentials: get optional bearer token.
+
+        Returns:
+            str | None: Result value.
+        """
     if credentials is None or credentials.scheme.lower() != "bearer":
         return None
     return credentials.credentials
@@ -57,6 +80,16 @@ def _decode_jwt(
     secret: str | dict[str, Any],
     public_key: Any,
 ) -> dict[str, Any]:
+    """Decode jwt.
+
+        Args:
+            token: decode jwt.
+            secret: decode jwt.
+            public_key: decode jwt.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     if settings.is_jwks:
         return jwt.decode(
             token,
@@ -79,6 +112,14 @@ def _decode_jwt(
 async def get_authenticated_user_payload(
     token: str = Depends(get_bearer_token),
 ) -> dict[str, Any]:
+    """Get authenticated user payload.
+
+        Args:
+            token: get authenticated user payload.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         secret = settings.supabase_jwt_secret
         public_key = None
@@ -132,6 +173,14 @@ async def _update_presence_if_needed(user_id: str) -> None:
 async def get_authenticated_user_id(
     payload: dict[str, Any] = Depends(get_authenticated_user_payload),  # noqa: B008
 ) -> str:
+    """Get authenticated user id.
+
+        Args:
+            payload: get authenticated user id.
+
+        Returns:
+            str: Result value.
+        """
     user_id = payload["sub"]
     task = asyncio.create_task(_update_presence_if_needed(user_id))
     _background_tasks.add(task)
@@ -142,6 +191,14 @@ async def get_authenticated_user_id(
 async def get_optional_authenticated_user_id(
     token: str | None = Depends(get_optional_bearer_token),
 ) -> str | None:
+    """Get optional authenticated user id.
+
+        Args:
+            token: get optional authenticated user id.
+
+        Returns:
+            str | None: Result value.
+        """
     if not token:
         return None
     try:
@@ -158,6 +215,14 @@ async def get_optional_authenticated_user_id(
 
 
 async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
+    """Get cached public user.
+
+        Args:
+            user_id: get cached public user.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     redis_key = f"user:status:{user_id}"
     try:
         cached = await redis_client.get(redis_key)
@@ -180,6 +245,14 @@ async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
 async def get_active_user_id(
     user_id: str = Depends(get_authenticated_user_id),
 ) -> str:
+    """Get active user id.
+
+        Args:
+            user_id: get active user id.
+
+        Returns:
+            str: Result value.
+        """
     user_row = await get_cached_public_user(user_id)
     if not user_row:
         raise HTTPException(
@@ -340,6 +413,14 @@ def assert_special_category_consent(user_row: dict[str, Any]) -> None:
 def verify_app_check_token(
     x_firebase_appcheck: str | None = Header(None),
 ) -> None:
+    """Verify app check token.
+
+        Args:
+            x_firebase_appcheck: verify app check token.
+
+        Returns:
+            None: Result value.
+        """
     if not settings.enforce_app_check:
         return
 

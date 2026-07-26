@@ -1,3 +1,9 @@
+"""Database profile CRUD, encrypted PII decoding, media storage, and discovery candidate query layer.
+
+Manages user profile data persistence, media bucket signed URL generation,
+field-level PII encryption/decryption, and discovery query filtering.
+"""
+
 import json
 import logging
 from collections.abc import Sequence
@@ -21,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 _MEDIA_BUCKET = "user_media"
 _MEDIA_URL_TTL_SECONDS = 3600
+
 
 
 def _sign_media_paths(paths: Sequence[str]) -> dict[str, str]:
@@ -132,6 +139,14 @@ def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
 
 
 def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
+    """Get completion flag column.
+
+        Args:
+            active_tab: get completion flag column.
+
+        Returns:
+            str: Result value.
+        """
     if active_tab == "Dating":
         return "is_dating_active"
     if active_tab == "Friends":
@@ -142,6 +157,14 @@ def _get_completion_flag_column(active_tab: DiscoveryTab) -> str:
 
 
 def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
+    """Get target bucket column.
+
+        Args:
+            active_tab: get target bucket column.
+
+        Returns:
+            str: Result value.
+        """
     if active_tab == "Dating":
         return "dating_target_buckets"
     if active_tab == "Friends":
@@ -152,6 +175,14 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
 
 
 def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
+    """Expand target buckets.
+
+        Args:
+            buckets: expand target buckets.
+
+        Returns:
+            list[str]: Result value.
+        """
     if not buckets:
         return []
     # Normalize to list[str]
@@ -162,6 +193,15 @@ def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
 
 
 def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
+    """Parse encrypted scalar.
+
+        Args:
+            row: parse encrypted scalar.
+            field: parse encrypted scalar.
+
+        Returns:
+            None: Result value.
+        """
     raw = row.get(field)
     if raw is None:
         row[field] = None
@@ -174,6 +214,15 @@ def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
 
 
 def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
+    """Parse encrypted list.
+
+        Args:
+            row: parse encrypted list.
+            field: parse encrypted list.
+
+        Returns:
+            None: Result value.
+        """
     raw = row.get(field)
     if raw is None:
         row[field] = []
@@ -202,6 +251,15 @@ def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
 
 
 def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
+    """Parse encrypted dict.
+
+        Args:
+            row: parse encrypted dict.
+            field: parse encrypted dict.
+
+        Returns:
+            None: Result value.
+        """
     raw = row.get(field)
     if raw is None:
         row[field] = {}
@@ -308,6 +366,14 @@ def sanitize_decrypted_profile(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _attach_empty_embeddings(record: dict[str, Any]) -> None:
+    """Attach empty embeddings.
+
+        Args:
+            record: attach empty embeddings.
+
+        Returns:
+            None: Result value.
+        """
     record["bio_embedding"] = None
     record["career_embedding"] = None
     record["identity_embedding"] = None
@@ -527,10 +593,28 @@ _POST_FETCH_FIELDS: frozenset[str] = frozenset(
 
 
 def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
+    """List overlap.
+
+        Args:
+            cand_list: list overlap.
+            allowed: list overlap.
+
+        Returns:
+            bool: Result value.
+        """
     return bool(set(cand_list) & set(allowed))
 
 
 def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
+    """Check basic overlap.
+
+        Args:
+            c: check basic overlap.
+            filters: check basic overlap.
+
+        Returns:
+            bool: Result value.
+        """
     if filters.languages and not _list_overlap(
         c.get("languages") or [],
         filters.languages,
@@ -552,6 +636,16 @@ def _check_candidate_match(
     filters: DiscoveryFilters,
     dealbreakers: set[str],
 ) -> bool:
+    """Check candidate match.
+
+        Args:
+            c: check candidate match.
+            filters: check candidate match.
+            dealbreakers: check candidate match.
+
+        Returns:
+            bool: Result value.
+        """
     if not _check_basic_overlap(c, filters):
         return False
 

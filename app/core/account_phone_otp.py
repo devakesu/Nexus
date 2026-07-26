@@ -1,3 +1,9 @@
+"""Phone number normalization and secure OTP token hashing for account verification.
+
+Provides E.164 phone normalization, cryptographically secure OTP generation,
+and HMAC-SHA256 hash calculation/verification for account phone verification flows.
+"""
+
 import hashlib
 import hmac
 import secrets
@@ -5,31 +11,43 @@ import secrets
 from app.core.config import settings
 
 _OTP_LENGTH = 6
-_OTP_TOKEN_CONTEXT = "account_phone_otp"  # noqa: S105 - domain-separation label, not a secret
+_OTP_TOKEN_CONTEXT = "account_phone_otp"  # domain-separation label
 
 
 def normalize_phone(raw: str) -> str:
-    """Canonicalizes a phone number to a leading '+' plus its digits, so a
-    number can always be looked up/stored the same way it was validated
-    client-side (E.164). Unlike portal_auth.normalize_phone (which
-    truncates to the last 10 digits for tolerant matching against a
-    freeform trusted-contact input), this is for canonical account
-    storage, so nothing is discarded.
+    """Canonicalizes a phone number string to E.164 format (+<digits>).
+
+    Args:
+        raw: Raw phone number input string.
+
+    Returns:
+        str: Canonicalized E.164 phone string starting with '+'.
     """
     digits = "".join(ch for ch in raw if ch.isdigit())
     return f"+{digits}"
 
 
 def generate_otp_code() -> str:
+    """Generates a random 6-digit numeric OTP code.
+
+    Returns:
+        str: 6-digit numeric OTP string.
+    """
     return "".join(secrets.choice("0123456789") for _ in range(_OTP_LENGTH))
 
 
 def hash_otp(user_id: str, phone_norm: str, code: str) -> str:
-    """The raw code is never stored (in Redis or anywhere else) - only this
-    HMAC, so a Redis dump/leak doesn't hand out valid codes directly. Keyed
-    by user_id rather than a session_id since this flow is for an
-    already-authenticated Nexus account, not an anonymous portal visitor
-    (see app/core/portal_auth.py for that variant).
+    """Calculates an HMAC-SHA256 digest of an OTP code bound to user ID and normalized phone.
+
+    Prevents raw OTP codes from being exposed in memory or cache stores.
+
+    Args:
+        user_id: User identifier string.
+        phone_norm: E.164 normalized phone string.
+        code: 6-digit OTP code string.
+
+    Returns:
+        str: Hex-encoded HMAC-SHA256 digest string.
     """
     key = settings.blind_index_key.encode()
     message = f"{_OTP_TOKEN_CONTEXT}:{user_id}:{phone_norm}:{code}".encode()
@@ -42,4 +60,16 @@ def verify_otp_hash(
     code: str,
     expected_hash: str,
 ) -> bool:
+    """Verifies an OTP code against an expected HMAC-SHA256 digest using constant-time comparison.
+
+    Args:
+        user_id: User identifier string.
+        phone_norm: E.164 normalized phone string.
+        code: Submitted 6-digit OTP code string.
+        expected_hash: Expected HMAC-SHA256 hex digest string.
+
+    Returns:
+        bool: True if code matches digest, False otherwise.
+    """
     return hmac.compare_digest(hash_otp(user_id, phone_norm, code), expected_hash)
+

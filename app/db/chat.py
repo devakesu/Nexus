@@ -1,3 +1,9 @@
+"""Database chat conversation, messaging, and encrypted payload persistence layer.
+
+Provides database interaction routines for fetching active user conversations, sending messages,
+managing read receipts, checking block states, and persisting encrypted message contents.
+"""
+
 import contextlib
 import logging
 import uuid
@@ -16,6 +22,7 @@ from app.db.client import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 
 def fetch_conversations_for_user(
@@ -90,6 +97,14 @@ def fetch_started_match_ids(user_id: str, tab: DiscoveryTab = "Dating") -> set[s
 
 
 def fetch_conversation_for_match(match_id: str) -> dict[str, Any] | None:
+    """Fetch conversation for match.
+
+        Args:
+            match_id: fetch conversation for match.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_conversations")
@@ -226,6 +241,14 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
 
 
 def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:
+    """Fetch conversation participants.
+
+        Args:
+            conversation_id: fetch conversation participants.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_conversations")
@@ -250,6 +273,18 @@ def insert_message(
     ciphertext: str,
     ciphertext_metadata: dict[str, Any],
 ) -> dict[str, Any]:
+    """Insert message.
+
+        Args:
+            conversation_id: insert message.
+            sender_id: insert message.
+            message_type: insert message.
+            ciphertext: insert message.
+            ciphertext_metadata: insert message.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_messages")
@@ -277,6 +312,14 @@ def insert_message(
 
 
 def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
+    """Fetch user share flags.
+
+        Args:
+            user_id: fetch user share flags.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     try:
         res = (
             supabase_client.table("profiles")
@@ -298,6 +341,15 @@ def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
 
 
 def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
+    """Upsert presence heartbeat.
+
+        Args:
+            user_id: upsert presence heartbeat.
+            is_online: upsert presence heartbeat.
+
+        Returns:
+            None: Result value.
+        """
     now = utcnow()
     try:
         supabase_client.table("chat_presence").upsert(
@@ -316,6 +368,14 @@ def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
 
 
 def fetch_presence(user_id: str) -> dict[str, Any] | None:
+    """Fetch presence.
+
+        Args:
+            user_id: fetch presence.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_presence")
@@ -353,6 +413,14 @@ def mark_messages_read(conversation_id: str, reader_id: str) -> int:
 
 
 def _decrypt_float_field(val: Any) -> float | None:
+    """Decrypt float field.
+
+        Args:
+            val: decrypt float field.
+
+        Returns:
+            float | None: Result value.
+        """
     if not val:
         return None
     from app.core.crypto import DecryptFailedError
@@ -364,6 +432,14 @@ def _decrypt_float_field(val: Any) -> float | None:
 
 
 def _decrypt_str_field(val: Any) -> str | None:
+    """Decrypt str field.
+
+        Args:
+            val: decrypt str field.
+
+        Returns:
+            str | None: Result value.
+        """
     if not val:
         return None
     from app.core.crypto import DecryptFailedError
@@ -373,6 +449,14 @@ def _decrypt_str_field(val: Any) -> str | None:
 
 
 def decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Decrypt event row.
+
+        Args:
+            row: decrypt event row.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     if row is None:
         return None
     from app.core.crypto import DecryptFailedError
@@ -469,6 +553,14 @@ def create_event_with_message(
 
 
 def fetch_event(event_id: str) -> dict[str, Any] | None:
+    """Fetch event.
+
+        Args:
+            event_id: fetch event.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_events")
@@ -490,6 +582,15 @@ def fetch_event(event_id: str) -> dict[str, Any] | None:
 
 
 def update_event_status(event_id: str, status: str) -> dict[str, Any] | None:
+    """Update event status.
+
+        Args:
+            event_id: update event status.
+            status: update event status.
+
+        Returns:
+            dict[str, Any] | None: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_events")
@@ -541,6 +642,14 @@ def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
 
 
 def mark_reminder_sent(event_id: str) -> None:
+    """Mark reminder sent.
+
+        Args:
+            event_id: mark reminder sent.
+
+        Returns:
+            None: Result value.
+        """
     try:
         supabase_client.table("chat_events").update(
             {"reminder_sent_at": utcnow().isoformat()},
@@ -589,6 +698,14 @@ def fetch_due_safety_reminders(window_minutes: int = 35) -> list[dict[str, Any]]
 
 
 def mark_safety_reminder_sent(event_id: str) -> None:
+    """Mark safety reminder sent.
+
+        Args:
+            event_id: mark safety reminder sent.
+
+        Returns:
+            None: Result value.
+        """
     try:
         supabase_client.table("chat_events").update(
             {"safety_reminder_sent_at": utcnow().isoformat()},

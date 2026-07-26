@@ -1,3 +1,9 @@
+"""Redis caching utilities and client configuration.
+
+Provides a shared asynchronous Redis client, helper functions for dynamic TTL calculations
+with randomized jitter to prevent cache stampedes, and cache invalidation helpers.
+"""
+
 import logging
 import secrets
 
@@ -9,10 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_block_ids_cache_ttl() -> int:
+    """Calculates TTL for user block IDs cache with randomized jitter.
+
+    Returns:
+        int: Cache expiration time in seconds (300-330s).
+    """
     return 300 + secrets.randbelow(31)
 
 
-# Single shared async Redis client - connection pool is managed internally by redis-py
+# Shared async Redis client managed with internal connection pooling
 redis_client = aioredis.from_url(
     settings.redis_url,
     encoding="utf-8",
@@ -23,14 +34,26 @@ redis_client = aioredis.from_url(
 
 
 def invalidate_user_status_cache(user_id: str) -> None:
-    """Evicts the cached user status record from Redis."""
+    """Evicts the cached user status record from Redis asynchronously.
+
+    Args:
+        user_id: Unique string identifier of the user whose status cache is to be evicted.
+    """
     try:
         from app.core.tasks import safe_create_task
-        async def _delete_key():
+
+        async def _delete_key() -> None:
+            """Delete key.
+
+                Returns:
+                    None: Result value.
+                """
             await redis_client.delete(f"user:status:{user_id}")
+
         safe_create_task(_delete_key())
     except Exception:
         logger.exception(
             "Failed to invalidate user status cache",
             extra={"user_id": user_id},
         )
+

@@ -37,6 +37,14 @@ _OTP_VERIFIED_TTL_SECONDS = 600
 
 
 def _otp_verified_key(user_id: str) -> str:
+    """Otp verified key.
+
+        Args:
+            user_id: otp verified key.
+
+        Returns:
+            str: Result value.
+        """
     return f"data_export:otp_verified:{user_id}"
 
 
@@ -44,6 +52,15 @@ async def _resolve_data_export_user(
     auth_user_id: str | None,
     email: str | None,
 ) -> tuple[str, str]:
+    """Resolve data export user.
+
+        Args:
+            auth_user_id: resolve data export user.
+            email: resolve data export user.
+
+        Returns:
+            tuple[str, str]: Result value.
+        """
     if auth_user_id:
         user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
         if not user_email:
@@ -80,6 +97,17 @@ async def request_data_export_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpRequestResponse:
+    """Request data export otp.
+
+        Args:
+            request: request data export otp.
+            payload: request data export otp.
+            _device: request data export otp.
+            auth_user_id: request data export otp.
+
+        Returns:
+            DataExportOtpRequestResponse: Result value.
+        """
     _ = request
     email_in = payload.email if payload else None
     user_id, email = await _resolve_data_export_user(auth_user_id, email_in)
@@ -106,6 +134,17 @@ async def verify_data_export_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpVerifyResponse:
+    """Verify data export otp.
+
+        Args:
+            request: verify data export otp.
+            payload: verify data export otp.
+            _device: verify data export otp.
+            auth_user_id: verify data export otp.
+
+        Returns:
+            DataExportOtpVerifyResponse: Result value.
+        """
     _ = request
     user_id, _ = await _resolve_data_export_user(auth_user_id, payload.email)
 
@@ -133,6 +172,17 @@ async def export_account_data(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> dict[str, Any]:
+    """Export account data.
+
+        Args:
+            request: export account data.
+            payload: export account data.
+            _device: export account data.
+            auth_user_id: export account data.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     _ = request
     email_in = payload.email if payload else None
     user_id, _ = await _resolve_data_export_user(auth_user_id, email_in)

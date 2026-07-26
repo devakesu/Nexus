@@ -30,6 +30,11 @@ PER_PAGE = 200
 
 
 def main() -> None:
+    """Main.
+
+        Returns:
+            None: Result value.
+        """
     page = 1
     total_updated = 0
     total_skipped = 0

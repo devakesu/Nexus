@@ -1,3 +1,9 @@
+"""Database client initialization and common helper functions.
+
+Manages the singleton Supabase service role client instance, custom database exception types,
+and date/UUID normalization helper utilities.
+"""
+
 import logging
 from datetime import datetime, timezone
 
@@ -10,14 +16,7 @@ from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
-# Service role client - bypasses all RLS by design.
-# Authorization is enforced at the FastAPI layer:
-#   1. ES256 JWT verification (get_authenticated_user_id in dependencies.py)
-#   2. user_id scoping: every write is filtered to the verified caller's user_id
-#   3. Account-status checks (suspension, deactivation) before any mutation
-#   4. Firebase App Check device attestation on sensitive routes
-# DB-level backstops: guard_service_fields() trigger (server-owned columns),
-# deny-all RLS on vector_profiles and profile_pseudonym_map.
+# Service role client - bypasses RLS; authorization enforced at FastAPI layer.
 supabase_client: Client = create_client(
     settings.supabase_url,
     settings.supabase_service_role_key,
@@ -33,10 +32,7 @@ supabase_client: Client = create_client(
 
 
 class ProfileDecodeError(Exception):
-    """Raised when an encrypted profile field cannot be decoded.
-
-    It must decode into its expected shape.
-    """
+    """Raised when an encrypted profile field cannot be decrypted or decoded."""
 
 
 class ProfileNotFoundError(Exception):
@@ -44,15 +40,27 @@ class ProfileNotFoundError(Exception):
 
 
 class DatabaseAccessError(Exception):
-    """Raised when a database operation fails unexpectedly."""
+    """Raised when a database query operation fails unexpectedly."""
 
 
 def utcnow() -> datetime:
+    """Returns the current timezone-aware UTC datetime.
+
+    Returns:
+        datetime: UTC datetime instance.
+    """
     return datetime.now(timezone.utc)
 
 
-def parse_utc_datetime(raw: "str | datetime") -> datetime:
-    """Parse an ISO 8601 string (with optional Z suffix) into a UTC-aware datetime."""
+def parse_utc_datetime(raw: str | datetime) -> datetime:
+    """Parses an ISO 8601 string or naive datetime into a UTC-aware datetime instance.
+
+    Args:
+        raw: Datetime instance or ISO string to parse.
+
+    Returns:
+        datetime: UTC-aware datetime instance.
+    """
     if isinstance(raw, datetime):
         return raw if raw.tzinfo is not None else raw.replace(tzinfo=timezone.utc)
     dt = parse_date(raw)
@@ -62,8 +70,20 @@ def parse_utc_datetime(raw: "str | datetime") -> datetime:
 
 
 def normalize_uuid(val: str | None) -> str:
-    """Validate and return a normalized UUID string, raising ValueError if invalid."""
+    """Validates and formats a string as a standard UUID string representation.
+
+    Args:
+        val: Input UUID string.
+
+    Returns:
+        str: Normalized UUID string.
+
+    Raises:
+        ValueError: If input string is empty, None, or invalid UUID format.
+    """
     import uuid
+
     if not val:
         raise ValueError("Invalid UUID: value is empty or None")
     return str(uuid.UUID(str(val).strip()))
+

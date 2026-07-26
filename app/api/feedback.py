@@ -1,3 +1,9 @@
+"""FastAPI router for user feedback submissions, support ticket tracking, attachment uploads, and admin ticket comments.
+
+Handles public and authenticated endpoints for submitting bug reports/feature requests,
+attaching screenshot assets, managing ticket comments, and administrative status updates.
+"""
+
 import asyncio
 import logging
 import secrets
@@ -85,6 +91,15 @@ def _assemble_ticket_detail(
     user_id: str,
     report: dict[str, Any],
 ) -> FeedbackTicketDetail:
+    """Assemble ticket detail.
+
+        Args:
+            user_id: assemble ticket detail.
+            report: assemble ticket detail.
+
+        Returns:
+            FeedbackTicketDetail: Result value.
+        """
     history = fetch_ticket_status_history(report["id"])
     comments = fetch_ticket_comments(report["id"])
 
@@ -119,6 +134,18 @@ async def submit_feedback(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackSubmitResponse:
+    """Submit feedback.
+
+        Args:
+            request: submit feedback.
+            background_tasks: submit feedback.
+            payload: submit feedback.
+            _device: submit feedback.
+            user_id: submit feedback.
+
+        Returns:
+            FeedbackSubmitResponse: Result value.
+        """
     _ = request
 
     own_prefix = f"{user_id}/"
@@ -199,6 +226,18 @@ async def list_my_feedback_tickets(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> list[FeedbackTicketSummary]:
+    """List my feedback tickets.
+
+        Args:
+            request: list my feedback tickets.
+            limit: list my feedback tickets.
+            offset: list my feedback tickets.
+            _device: list my feedback tickets.
+            user_id: list my feedback tickets.
+
+        Returns:
+            list[FeedbackTicketSummary]: Result value.
+        """
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_user_tickets, user_id, limit, offset)
@@ -219,6 +258,17 @@ async def get_feedback_ticket(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
+    """Get feedback ticket.
+
+        Args:
+            request: get feedback ticket.
+            report_id: get feedback ticket.
+            _device: get feedback ticket.
+            user_id: get feedback ticket.
+
+        Returns:
+            FeedbackTicketDetail: Result value.
+        """
     _ = request
     try:
         report = await asyncio.to_thread(fetch_ticket_report, user_id, report_id)
@@ -261,6 +311,19 @@ async def add_feedback_comment(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackCommentEntry:
+    """Add feedback comment.
+
+        Args:
+            request: add feedback comment.
+            report_id: add feedback comment.
+            background_tasks: add feedback comment.
+            payload: add feedback comment.
+            _device: add feedback comment.
+            user_id: add feedback comment.
+
+        Returns:
+            FeedbackCommentEntry: Result value.
+        """
     _ = request
     try:
         report = await asyncio.to_thread(fetch_ticket_report, user_id, report_id)
@@ -320,6 +383,19 @@ async def close_feedback_ticket(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> FeedbackTicketDetail:
+    """Close feedback ticket.
+
+        Args:
+            request: close feedback ticket.
+            report_id: close feedback ticket.
+            background_tasks: close feedback ticket.
+            payload: close feedback ticket.
+            _device: close feedback ticket.
+            user_id: close feedback ticket.
+
+        Returns:
+            FeedbackTicketDetail: Result value.
+        """
     _ = request
     try:
         report = await asyncio.to_thread(
@@ -368,11 +444,13 @@ async def close_feedback_ticket(
 
 
 class ContactOtpRequest(BaseModel):
+    """Contactotprequest class representation."""
     email: str = Field(..., description="Email address for verification")
     turnstile_token: str | None = Field(default=None, description="Cloudflare Turnstile token")
 
 
 class ContactSubmitRequest(BaseModel):
+    """Contactsubmitrequest class representation."""
     email: str = Field(..., description="Email address of the submitter")
     otp_code: str = Field(
         ..., min_length=6, max_length=6, description="6-digit verification OTP code",
@@ -395,6 +473,14 @@ class ContactSubmitRequest(BaseModel):
     @field_validator("attachment_paths")
     @classmethod
     def validate_attachment_paths(cls, v: list[str]) -> list[str]:
+        """Validate attachment paths.
+
+            Args:
+                v: validate attachment paths.
+
+            Returns:
+                list[str]: Result value.
+            """
         if len(v) > 5:
             raise ValueError("attachment_paths supports at most 5 files")
         # Validate path format to prevent directory traversal and invalid paths
@@ -416,6 +502,16 @@ async def upload_contact_attachment(
     file: UploadFile = File(...),  # noqa: B008
     session_id: str = Query(default=""),  # noqa: B008
 ) -> dict[str, str]:
+    """Upload contact attachment.
+
+        Args:
+            request: upload contact attachment.
+            file: upload contact attachment.
+            session_id: upload contact attachment.
+
+        Returns:
+            dict[str, str]: Result value.
+        """
     _ = request
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required.")
@@ -518,6 +614,15 @@ async def send_contact_otp(
     request: Request,
     payload: ContactOtpRequest = Body(...),  # noqa: B008
 ) -> dict[str, bool]:
+    """Send contact otp.
+
+        Args:
+            request: send contact otp.
+            payload: send contact otp.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     client_ip = request.client.host if request.client else None
     if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(
@@ -558,6 +663,16 @@ async def submit_contact_ticket(
     background_tasks: BackgroundTasks,
     payload: ContactSubmitRequest = Body(...),  # noqa: B008
 ) -> dict[str, Any]:
+    """Submit contact ticket.
+
+        Args:
+            request: submit contact ticket.
+            background_tasks: submit contact ticket.
+            payload: submit contact ticket.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     client_ip = request.client.host if request.client else None
     if not await verify_turnstile_token(payload.turnstile_token, client_ip):
         raise HTTPException(

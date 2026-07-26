@@ -1,3 +1,9 @@
+"""Discovery radar orbit positioning, score coercion, and detail view modeling.
+
+Provides 2D/3D orbit coordinate assignments based on candidate compatibility scores,
+deterministic pseudo-random placement, and tab-specific profile detail formatting.
+"""
+
 import hashlib
 import logging
 import math
@@ -14,26 +20,66 @@ logger = logging.getLogger(__name__)
 
 
 class DeterministicRNG:
-    """A simple deterministic LCG random number generator to avoid Ruff S311."""
+    """A deterministic linear congruential generator (LCG) for reproducible pseudo-random positioning."""
 
     def __init__(self, seed: int) -> None:
+        """Init  .
+
+            Args:
+                seed: init  .
+
+            Returns:
+                None: Result value.
+            """
         self.state = seed
 
     def _next(self) -> float:
+        """Next.
+
+            Returns:
+                float: Result value.
+            """
         self.state = (1103515245 * self.state + 12345) & 0x7FFFFFFF
         return self.state / 2147483647.0
 
+
     def uniform(self, a: float, b: float) -> float:
+        """Uniform.
+
+            Args:
+                a: uniform.
+                b: uniform.
+
+            Returns:
+                float: Result value.
+            """
         return a + (b - a) * self._next()
 
 
 def coerce_score(value: Any) -> float:
+    """Coerce score.
+
+        Args:
+            value: coerce score.
+
+        Returns:
+            float: Result value.
+        """
     if isinstance(value, bool):
         return 1.0 if value else 0.0
     return coerce_float(value, 0.0)
 
 
 def coerce_float(value: Any, default: float = 0.0) -> float:
+    """Coerce float.
+
+        Args:
+            value: coerce float.
+            default: coerce float.
+
+        Returns:
+            float: Result value.
+        """
     if isinstance(value, bool):
         return default
     if isinstance(value, (int, float)):
@@ -123,6 +169,16 @@ def build_tab_aware_orbit_node_detail(
     | OrbitNodeDetailFriendsOut
     | OrbitNodeDetailProfessionalOut
 ):
+    """Build tab aware orbit node detail.
+
+        Args:
+            session_tab: build tab aware orbit node detail.
+            payload: build tab aware orbit node detail.
+            hidden_fields: build tab aware orbit node detail.
+
+        Returns:
+            OrbitNodeDetailDatingOut | OrbitNodeDetailFriendsOut | OrbitNodeDetailProfessionalOut: Result value.
+        """
     p = _apply_field_visibility(payload, hidden_fields or set())
 
     grade_val = p.get("music_match_grade")
@@ -360,6 +416,16 @@ def assign_orbit_positions(
     active_tab: DiscoveryTab,
     ranked_items: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    """Assign orbit positions.
+
+        Args:
+            viewer_id: assign orbit positions.
+            active_tab: assign orbit positions.
+            ranked_items: assign orbit positions.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     candidate_ids = _extract_candidate_ids(ranked_items)
     seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
     seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)

@@ -1,3 +1,9 @@
+"""Database End-to-End Encryption (E2EE) cryptographic key bundle persistence layer.
+
+Provides storage and retrieval routines for user Signal identity keys, signed prekeys,
+and one-time prekey bundles required for Signal Protocol key exchange.
+"""
+
 import logging
 import uuid
 from typing import Any, cast
@@ -17,12 +23,27 @@ logger = logging.getLogger(__name__)
 
 
 def _to_bytea_hex(value: bytes) -> str:
-    """Encode raw bytes as a PostgREST-compatible BYTEA hex literal."""
+    """Encodes raw bytes into a PostgREST BYTEA hex literal string ('\\x...').
+
+    Args:
+        value: Raw bytes input.
+
+    Returns:
+        str: Formatted hex string literal.
+    """
     return f"\\x{value.hex()}"
 
 
 def _from_bytea(raw: Any) -> bytes:
-    """Decode a BYTEA column value returned by PostgREST back into bytes."""
+    """Decodes a BYTEA column value returned by PostgREST into raw bytes.
+
+    Args:
+        raw: Input bytes, memoryview, or hex string.
+
+    Returns:
+        bytes: Decoded raw bytes.
+    """
+
     if isinstance(raw, memoryview):
         return raw.tobytes()
     if isinstance(raw, bytes):
@@ -35,6 +56,16 @@ def _from_bytea(raw: Any) -> bytes:
 def upsert_identity_key(
     user_id: str, identity_public_key: bytes, registration_id: int,
 ) -> None:
+    """Upsert identity key.
+
+        Args:
+            user_id: upsert identity key.
+            identity_public_key: upsert identity key.
+            registration_id: upsert identity key.
+
+        Returns:
+            None: Result value.
+        """
     try:
         supabase_client.table("chat_identity_keys").upsert(
             {
@@ -77,6 +108,15 @@ def upsert_signed_prekey(
 def bulk_insert_one_time_prekeys(
     user_id: str, prekeys: list[dict[str, Any]],
 ) -> None:
+    """Bulk insert one time prekeys.
+
+        Args:
+            user_id: bulk insert one time prekeys.
+            prekeys: bulk insert one time prekeys.
+
+        Returns:
+            None: Result value.
+        """
     if not prekeys:
         return
     rows = [
@@ -99,6 +139,14 @@ def bulk_insert_one_time_prekeys(
 
 
 def count_unused_one_time_prekeys(user_id: str) -> int:
+    """Count unused one time prekeys.
+
+        Args:
+            user_id: count unused one time prekeys.
+
+        Returns:
+            int: Result value.
+        """
     try:
         res = (
             supabase_client.table("chat_one_time_prekeys")

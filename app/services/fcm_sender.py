@@ -1,3 +1,9 @@
+"""Firebase Cloud Messaging (FCM) push notification sender service.
+
+Handles device FCM token retrieval, message payload construction, multi-device push notification
+dispatching, and stale token cleanup.
+"""
+
 import asyncio
 import logging
 from datetime import datetime
@@ -10,13 +16,17 @@ from app.db.client import supabase_client
 
 logger = logging.getLogger(__name__)
 
-# firebase_admin ships without type stubs; cast to Any to keep Pyright happy,
-# matching the same pattern used in app/main.py.
+# firebase_admin untyped module handles
 _fb: Any = firebase_admin
 _fcm: Any = _fcm_module
 
 
 def _is_firebase_initialized() -> bool:
+    """Verifies if Firebase Admin SDK app instance is initialized.
+
+    Returns:
+        bool: True if initialized, False otherwise.
+    """
     try:
         _fb.get_app()
         return True
@@ -24,7 +34,16 @@ def _is_firebase_initialized() -> bool:
         return False
 
 
+
 def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
+    """Fetch user fcm tokens.
+
+        Args:
+            user_id: fetch user fcm tokens.
+
+        Returns:
+            list[str]: Result value.
+        """
     res = (
         supabase_client.table("user_devices")
         .select("fcm_token")
@@ -37,6 +56,14 @@ def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
 
 
 def _fetch_profile_name(user_id: str) -> str | None:
+    """Fetch profile name.
+
+        Args:
+            user_id: fetch profile name.
+
+        Returns:
+            str | None: Result value.
+        """
     res = (
         supabase_client.table("profiles")
         .select("name")
@@ -52,6 +79,14 @@ def _fetch_profile_name(user_id: str) -> str | None:
 
 
 def _deactivate_fcm_token(token: str) -> None:
+    """Deactivate fcm token.
+
+        Args:
+            token: deactivate fcm token.
+
+        Returns:
+            None: Result value.
+        """
     try:
         supabase_client.table("user_devices").update({"is_active": False}).eq(
             "fcm_token",
@@ -62,6 +97,14 @@ def _deactivate_fcm_token(token: str) -> None:
 
 
 def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
+    """Fetch profile details.
+
+        Args:
+            user_id: fetch profile details.
+
+        Returns:
+            tuple[str | None, str | None]: Result value.
+        """
     try:
         from app.db.profiles import fetch_peer_profile_by_id
 
@@ -83,6 +126,18 @@ def _send_to_tokens(
     data: dict[str, str],
     channel_id: str,
 ) -> None:
+    """Send to tokens.
+
+        Args:
+            tokens: send to tokens.
+            title: send to tokens.
+            body: send to tokens.
+            data: send to tokens.
+            channel_id: send to tokens.
+
+        Returns:
+            None: Result value.
+        """
     if not tokens:
         return
     notification = (

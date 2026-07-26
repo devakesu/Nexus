@@ -1,9 +1,15 @@
+"""Transactional email dispatch, dual-provider failover (Brevo & SendPulse), and template generation.
+
+Provides email dispatch capabilities with automatic fallback between Brevo and SendPulse,
+HTML-to-text fallback generation, PII sanitization for email logs, and HTML email templates.
+"""
+
 import base64
+from collections.abc import Callable, Coroutine
 from datetime import datetime
+from html.parser import HTMLParser
 import logging
 import random
-from collections.abc import Callable, Coroutine
-from html.parser import HTMLParser
 from typing import Any, Literal, cast
 
 import httpx
@@ -16,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 class SendEmailProps(BaseModel):
+    """Configuration payload schema for transactional email dispatch."""
+
     to: str
     subject: str
     html: str
@@ -27,6 +35,8 @@ class SendEmailProps(BaseModel):
 
 
 class ProviderResult(BaseModel):
+    """Result schema for individual email provider dispatch attempts."""
+
     success: bool
     provider: Literal["Brevo", "SendPulse"]
     id: str | None = None
@@ -34,7 +44,14 @@ class ProviderResult(BaseModel):
 
 
 class HTMLStripper(HTMLParser):
+    """HTML parser utility to extract plain text from HTML markup."""
+
     def __init__(self) -> None:
+        """Init  .
+
+            Returns:
+                None: Result value.
+            """
         super().__init__()
         self.reset()
         self.strict = False
@@ -42,22 +59,52 @@ class HTMLStripper(HTMLParser):
         self.text: list[str] = []
 
     def handle_data(self, data: str) -> None:
+        """Handle data.
+
+            Args:
+                data: handle data.
+
+            Returns:
+                None: Result value.
+            """
         self.text.append(data)
 
     def get_data(self) -> str:
+        """Get data.
+
+            Returns:
+                str: Result value.
+            """
         return "".join(self.text)
 
 
 def strip_tags(html: str) -> str:
+    """Strips HTML tags to generate a plain text fallback string.
+
+    Args:
+        html: Raw HTML input string.
+
+    Returns:
+        str: Cleaned plain text string.
+    """
     s = HTMLStripper()
     s.feed(html)
     return s.get_data()
 
 
 def redact_email(email: str) -> str:
+    """Redacts an email address string for privacy-compliant logging.
+
+    Args:
+        email: Raw email address string.
+
+    Returns:
+        str: Redacted email string (e.g. u***r@domain.com).
+    """
     if not email or "@" not in email:
         return email
     parts = email.split("@", 1)
+
     name = parts[0]
     domain = parts[1]
     if len(name) <= 2:
@@ -66,6 +113,15 @@ def redact_email(email: str) -> str:
 
 
 def redact(type_: str, val: str) -> str:
+    """Redact.
+
+        Args:
+            type_: redact.
+            val: redact.
+
+        Returns:
+            str: Result value.
+        """
     if type_ == "email":
         return redact_email(val)
     return val
@@ -81,6 +137,11 @@ def get_support_email() -> str:
 
 
 def get_sender_email() -> str:
+    """Get sender email.
+
+        Returns:
+            str: Result value.
+        """
     return get_support_email()
 
 
@@ -90,12 +151,25 @@ def get_feedback_notify_email() -> str:
 
 
 def get_sender_name(from_name: str | None = None) -> str:
+    """Get sender name.
+
+        Args:
+            from_name: get sender name.
+
+        Returns:
+            str: Result value.
+        """
     if from_name and from_name.strip():
         return from_name.strip()
     return settings.app_name
 
 
 async def get_sendpulse_token() -> str:
+    """Get sendpulse token.
+
+        Returns:
+            str: Result value.
+        """
     if not has_sendpulse:
         raise ValueError("SendPulse credentials not configured")
 
@@ -123,6 +197,14 @@ async def get_sendpulse_token() -> str:
 
 
 async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
+    """Send via sendpulse.
+
+        Args:
+            props: send via sendpulse.
+
+        Returns:
+            ProviderResult: Result value.
+        """
     if not has_sendpulse:
         raise ValueError("SendPulse not configured")
 
@@ -184,6 +266,14 @@ async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
 
 
 async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
+    """Send via brevo.
+
+        Args:
+            props: send via brevo.
+
+        Returns:
+            ProviderResult: Result value.
+        """
     if not has_brevo:
         raise ValueError("Brevo not configured")
 
@@ -241,6 +331,14 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
 
 
 def should_use_sendpulse(email: str | None = None) -> bool:
+    """Should use sendpulse.
+
+        Args:
+            email: should use sendpulse.
+
+        Returns:
+            bool: Result value.
+        """
     if has_brevo and has_sendpulse:
         if email:
             import hashlib
@@ -256,6 +354,7 @@ ProviderFn = Callable[[SendEmailProps], Coroutine[Any, Any, ProviderResult]]
 
 
 class ProvidersConfig(BaseModel):
+    """Providersconfig class representation."""
     primary: Any  # ProviderFn
     secondary: Any | None = None  # ProviderFn | None
     p_name: Literal["SendPulse", "Brevo"]
@@ -265,6 +364,14 @@ class ProvidersConfig(BaseModel):
 
 
 def get_providers(use_sp: bool) -> ProvidersConfig:
+    """Get providers.
+
+        Args:
+            use_sp: get providers.
+
+        Returns:
+            ProvidersConfig: Result value.
+        """
     if use_sp:
         return ProvidersConfig(
             primary=send_via_sendpulse,
@@ -286,6 +393,17 @@ async def execute_failover(
     s_name: Literal["Brevo", "SendPulse"],
     err: Exception,
 ) -> ProviderResult:
+    """Execute failover.
+
+        Args:
+            secondary: execute failover.
+            props: execute failover.
+            s_name: execute failover.
+            err: execute failover.
+
+        Returns:
+            ProviderResult: Result value.
+        """
     err_msg = str(err)
     try:
         return await secondary(props)
@@ -306,6 +424,14 @@ async def execute_failover(
 
 
 async def send_email(props: SendEmailProps) -> ProviderResult:
+    """Send email.
+
+        Args:
+            props: send email.
+
+        Returns:
+            ProviderResult: Result value.
+        """
     if not has_brevo and not has_sendpulse:
         err = RuntimeError("No provider configured")
         sentry_sdk.capture_exception(err, tags={"location": "send_email"})
@@ -686,6 +812,14 @@ FEEDBACK_QUERY_TYPE_LABELS: dict[str, str] = {
 
 
 def _short_report_id(report_id: str) -> str:
+    """Short report id.
+
+        Args:
+            report_id: short report id.
+
+        Returns:
+            str: Result value.
+        """
     return report_id.split("-")[0].upper()
 
 
@@ -846,6 +980,15 @@ async def send_feedback_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
+        """Detail row.
+
+            Args:
+                field: detail row.
+                value: detail row.
+
+            Returns:
+                str: Result value.
+            """
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     # Explicit color + anchor tag rather than bare text: several mail
@@ -1015,6 +1158,15 @@ async def send_feedback_comment_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
+        """Detail row.
+
+            Args:
+                field: detail row.
+                value: detail row.
+
+            Returns:
+                str: Result value.
+            """
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (
@@ -1150,6 +1302,15 @@ async def send_feedback_closed_admin_notification_email(
     )
 
     def _detail_row(field: str, value: str) -> str:
+        """Detail row.
+
+            Args:
+                field: detail row.
+                value: detail row.
+
+            Returns:
+                str: Result value.
+            """
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (

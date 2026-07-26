@@ -1,3 +1,9 @@
+"""Security headers and HTTP request size protection middleware.
+
+Enforces HTTP Security Headers (CSP, HSTS, X-Frame-Options, Permissions-Policy)
+and enforces a 10MB payload size limit on incoming request bodies to prevent Denial-of-Service.
+"""
+
 import logging
 from typing import ClassVar
 
@@ -12,10 +18,7 @@ MAX_REQUEST_BODY_SIZE = 10 * 1024 * 1024
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware that attaches strict security headers and dynamic cache-control policies
-    to all HTTP responses.
-    """
+    """Middleware that attaches strict security headers and dynamic cache-control policies."""
 
     STATIC_ROUTES: ClassVar[set[str]] = {
         "/favicon.ico",
@@ -38,6 +41,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
+        """Processes request and attaches security and cache control headers to response.
+
+        Args:
+            request: Incoming HTTP Request instance.
+            call_next: Next request endpoint handler.
+
+        Returns:
+            Response: HTTP response with added security headers.
+        """
         response = await call_next(request)
 
         # Security Headers
@@ -89,16 +101,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware to prevent payload size abuse / HTTP Denial-of-Service.
-    Rejects requests with Content-Length larger than 10MB.
-    """
+    """Middleware preventing payload size abuse by rejecting bodies > 10MB."""
 
     async def dispatch(
         self,
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
+        """Enforces Content-Length limits on incoming request payloads.
+
+        Args:
+            request: Incoming HTTP Request instance.
+            call_next: Next request handler endpoint.
+
+        Returns:
+            Response: 413 JSONResponse if payload exceeds limit, or downstream Response.
+        """
         content_length = request.headers.get("content-length")
         if content_length:
             try:
@@ -120,3 +138,4 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 pass
 
         return await call_next(request)
+

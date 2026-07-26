@@ -60,6 +60,14 @@ _OTP_VERIFIED_TTL_SECONDS = 600
 
 
 def _otp_verified_key(user_id: str) -> str:
+    """Formats Redis key string for verified account deletion OTP.
+
+    Args:
+        user_id: Target user ID.
+
+    Returns:
+        str: Redis cache key string.
+    """
     return f"account_deletion:otp_verified:{user_id}"
 
 
@@ -67,6 +75,18 @@ async def _resolve_account_deletion_user(
     auth_user_id: str | None,
     email: str | None,
 ) -> tuple[str, str]:
+    """Resolves user ID and email pair from token or request body payload.
+
+    Args:
+        auth_user_id: Optional authenticated user ID.
+        email: Optional input email address string.
+
+    Returns:
+        tuple[str, str]: User ID and resolved email string pair.
+
+    Raises:
+        HTTPException: If email/user resolution fails.
+    """
     if auth_user_id:
         user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
         if not user_email:
@@ -103,6 +123,17 @@ async def request_account_deletion_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpRequestResponse:
+    """Dispatches a 10-minute email OTP verification code for account deletion.
+
+    Args:
+        request: Incoming HTTP request.
+        payload: Optional email payload request.
+        _device: App Check attestation guard.
+        auth_user_id: Optional authenticated user ID.
+
+    Returns:
+        AccountDeletionOtpRequestResponse: Response status.
+    """
     _ = request
     email_in = payload.email if payload else None
     user_id, email = await _resolve_account_deletion_user(auth_user_id, email_in)
@@ -129,6 +160,17 @@ async def verify_account_deletion_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpVerifyResponse:
+    """Verifies an email OTP code for account deletion.
+
+    Args:
+        request: Incoming HTTP request.
+        payload: Verification payload containing code and email.
+        _device: App Check attestation guard.
+        auth_user_id: Optional authenticated user ID.
+
+    Returns:
+        AccountDeletionOtpVerifyResponse: Verification status.
+    """
     _ = request
     user_id, _ = await _resolve_account_deletion_user(auth_user_id, payload.email)
 
@@ -161,6 +203,19 @@ async def request_account_deletion(
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
     access_token: str | None = Depends(get_optional_bearer_token),
 ) -> AccountDeletionRequestResponse:
+    """Schedules account for deletion after OTP verification and typed confirmation ('DELETE').
+
+    Args:
+        request: Incoming HTTP request.
+        background_tasks: FastAPI background tasks queue.
+        payload: Account deletion request payload.
+        _device: App Check attestation guard.
+        auth_user_id: Optional authenticated user ID.
+        access_token: Optional bearer token.
+
+    Returns:
+        AccountDeletionRequestResponse: Scheduled purge timestamp response.
+    """
     _ = request
     user_id, email = await _resolve_account_deletion_user(auth_user_id, payload.email)
 
@@ -208,6 +263,17 @@ async def cancel_account_deletion(
     _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> AccountDeletionCancelResponse:
+    """Cancels a pending account deletion request during the 14-day grace window.
+
+    Args:
+        request: Incoming HTTP request.
+        background_tasks: FastAPI background tasks queue.
+        _device: App Check attestation guard.
+        user_id: Verified caller user ID.
+
+    Returns:
+        AccountDeletionCancelResponse: Reactivated status response.
+    """
     _ = request
     existing = await run_in_threadpool(fetch_deletion_status, user_id)
     if not existing or not existing.get("deletion_requested_at"):
@@ -231,6 +297,14 @@ async def cancel_account_deletion(
 )
 @limiter.limit(settings.rate_limit_account_deletion)
 def get_account_deletion_settings(request: Request) -> AccountDeletionSettingsResponse:
+    """Returns configuration settings for account deletion grace periods and data retention.
+
+    Args:
+        request: Incoming HTTP request.
+
+    Returns:
+        AccountDeletionSettingsResponse: System settings parameters.
+    """
     _ = request
     return AccountDeletionSettingsResponse(
         grace_period_days=settings.account_deletion_grace_period_days,
@@ -239,3 +313,4 @@ def get_account_deletion_settings(request: Request) -> AccountDeletionSettingsRe
         safety_evidence_active_retention_days=settings.safety_evidence_active_retention_days,
         safety_data_legal_hold_days=settings.safety_data_legal_hold_days,
     )
+

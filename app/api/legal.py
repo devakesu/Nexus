@@ -1,3 +1,9 @@
+"""FastAPI router for serving legal terms and privacy policy pages.
+
+Renders public terms and privacy policy HTML documents with dynamic config variables
+and grievance officer contact details.
+"""
+
 import logging
 
 from fastapi import APIRouter, Request
@@ -13,8 +19,14 @@ router = APIRouter()
 
 
 def _field_or(value: str | None, missing_label: str) -> str:
-    """Renders a real config value verbatim, or a visibly-flagged
-    placeholder chip if it hasn't been set yet.
+    """Renders a real config value verbatim, or a placeholder if unset.
+
+    Args:
+        value: Input config value string.
+        missing_label: Label to display if value is missing.
+
+    Returns:
+        str: Value string or placeholder HTML span.
     """
     if value:
         return value
@@ -22,7 +34,15 @@ def _field_or(value: str | None, missing_label: str) -> str:
 
 
 def _placeholder_banner(missing: list[str]) -> str:
-    """Renders banner when launch-readiness config values are missing."""
+    """Renders a banner warning when launch-readiness config values are missing.
+
+    Args:
+        missing: List of missing field labels.
+
+    Returns:
+        str: Rendered banner HTML string.
+    """
+
     if not missing:
         return ""
     items = "; ".join(missing)

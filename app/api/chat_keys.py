@@ -1,3 +1,9 @@
+"""FastAPI router for Signal Protocol End-to-End Encryption (E2EE) key exchange management.
+
+Exposes endpoints for uploading user identity keys, signed prekeys, one-time prekey batches,
+and fetching recipient key bundles to initiate encrypted chat sessions.
+"""
+
 import asyncio
 import logging
 
@@ -25,6 +31,7 @@ from app.models import (
     UploadSignedPrekeyRequest,
 )
 
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -37,6 +44,17 @@ async def upload_identity_key(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Upload identity key.
+
+        Args:
+            request: upload identity key.
+            payload: upload identity key.
+            _device: upload identity key.
+            user_id: upload identity key.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         await asyncio.to_thread(
@@ -70,6 +88,17 @@ async def upload_signed_prekey(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Upload signed prekey.
+
+        Args:
+            request: upload signed prekey.
+            payload: upload signed prekey.
+            _device: upload signed prekey.
+            user_id: upload signed prekey.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         await asyncio.to_thread(
@@ -104,6 +133,17 @@ async def upload_one_time_prekeys(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Upload one time prekeys.
+
+        Args:
+            request: upload one time prekeys.
+            payload: upload one time prekeys.
+            _device: upload one time prekeys.
+            user_id: upload one time prekeys.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         await asyncio.to_thread(
@@ -143,6 +183,16 @@ async def get_one_time_prekey_count(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> OneTimePrekeyCountResponse:
+    """Get one time prekey count.
+
+        Args:
+            request: get one time prekey count.
+            _device: get one time prekey count.
+            user_id: get one time prekey count.
+
+        Returns:
+            OneTimePrekeyCountResponse: Result value.
+        """
     _ = request
     try:
         count = await asyncio.to_thread(count_unused_one_time_prekeys, user_id)
@@ -167,6 +217,17 @@ async def get_key_bundle(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> KeyBundleResponse:
+    """Get key bundle.
+
+        Args:
+            request: get key bundle.
+            target_user_id: get key bundle.
+            _device: get key bundle.
+            user_id: get key bundle.
+
+        Returns:
+            KeyBundleResponse: Result value.
+        """
     _ = request
     try:
         if not await asyncio.to_thread(has_active_match, user_id, target_user_id):

@@ -1,3 +1,9 @@
+"""Database user feedback, support ticket, and administrative comment persistence layer.
+
+Provides database interaction methods for submitting feedback inquiries, retrieving ticket histories,
+adding comments, updating ticket statuses, and querying administrative ticket views.
+"""
+
 import logging
 from typing import Any, cast
 
@@ -31,6 +37,24 @@ def _build_feedback_payload(
     contact_email: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Build feedback payload.
+
+        Args:
+            user_id: build feedback payload.
+            query_type: build feedback payload.
+            subject: build feedback payload.
+            message: build feedback payload.
+            github_issue_url: build feedback payload.
+            attachment_paths: build feedback payload.
+            app_version: build feedback payload.
+            platform: build feedback payload.
+            device_info: build feedback payload.
+            contact_email: build feedback payload.
+            metadata: build feedback payload.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     final_metadata = dict(metadata or {})
     if contact_email:
         final_metadata["contact_email"] = contact_email.strip().lower()
@@ -175,6 +199,14 @@ def fetch_ticket_report(user_id: str, report_id: str) -> dict[str, Any] | None:
 
 
 def fetch_ticket_status_history(report_id: str) -> list[dict[str, Any]]:
+    """Fetch ticket status history.
+
+        Args:
+            report_id: fetch ticket status history.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     try:
         res = (
             supabase_client.table("feedback_report_status_history")
@@ -193,6 +225,14 @@ def fetch_ticket_status_history(report_id: str) -> list[dict[str, Any]]:
 
 
 def fetch_ticket_comments(report_id: str) -> list[dict[str, Any]]:
+    """Fetch ticket comments.
+
+        Args:
+            report_id: fetch ticket comments.
+
+        Returns:
+            list[dict[str, Any]]: Result value.
+        """
     try:
         res = (
             supabase_client.table("feedback_report_comments")
@@ -211,6 +251,16 @@ def fetch_ticket_comments(report_id: str) -> list[dict[str, Any]]:
 
 
 def add_ticket_comment(report_id: str, author_id: str, body: str) -> dict[str, Any]:
+    """Add ticket comment.
+
+        Args:
+            report_id: add ticket comment.
+            author_id: add ticket comment.
+            body: add ticket comment.
+
+        Returns:
+            dict[str, Any]: Result value.
+        """
     try:
         comment_payload = {
             "report_id": report_id,

@@ -1,3 +1,9 @@
+"""FastAPI router for discovery radar orbits, candidate retrieval, actions (like/pass/report), and viewport queries.
+
+Exposes endpoints for loading candidate orbits across Dating, BFF, and Networking tabs,
+querying profile details, and recording interaction actions.
+"""
+
 import asyncio
 import logging
 
@@ -43,6 +49,14 @@ async def get_discovery_orbit(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
+    """Get discovery orbit.
+
+        Args:
+            request: get discovery orbit.
+            payload: get discovery orbit.
+            _device: get discovery orbit.
+            user_id: get discovery orbit.
+        """
     _ = request
     active_tab = payload.tab
     filters = payload.filters
@@ -128,6 +142,14 @@ async def get_discovery_node_detail(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
+    """Get discovery node detail.
+
+        Args:
+            request: get discovery node detail.
+            payload: get discovery node detail.
+            _device: get discovery node detail.
+            user_id: get discovery node detail.
+        """
     _ = request
 
     try:
@@ -200,6 +222,14 @@ async def get_discovery_viewport(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
+    """Get discovery viewport.
+
+        Args:
+            request: get discovery viewport.
+            payload: get discovery viewport.
+            _device: get discovery viewport.
+            user_id: get discovery viewport.
+        """
     _ = request
 
     try:
@@ -270,6 +300,15 @@ async def _validate_discovery_action(
     user_id: str,
     payload: DiscoveryActionRequest,
 ) -> None:
+    """Validate discovery action.
+
+        Args:
+            user_id: validate discovery action.
+            payload: validate discovery action.
+
+        Returns:
+            None: Result value.
+        """
     from app.db.exclusions import has_active_discovery_action
     from app.db.sessions import is_candidate_in_active_session
 
@@ -315,6 +354,14 @@ async def handle_discovery_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ):
+    """Handle discovery action.
+
+        Args:
+            request: handle discovery action.
+            payload: handle discovery action.
+            _device: handle discovery action.
+            user_id: handle discovery action.
+        """
     _ = request
     try:
         await _validate_discovery_action(user_id, payload)

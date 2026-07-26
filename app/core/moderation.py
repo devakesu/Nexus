@@ -95,13 +95,31 @@ class NameModerationError(Exception):
     """
 
     def __init__(self, reason: str, detail: str) -> None:
+        """Init  .
+
+            Args:
+                reason: init  .
+                detail: init  .
+
+            Returns:
+                None: Result value.
+            """
         self.reason = reason  # "digits" | "title" | "profanity"
         self.detail = detail
         super().__init__(detail)
 
 
 def validate_display_name(name: str) -> None:
-    """Pure function, no DB access. Raises NameModerationError on failure."""
+    """Validates a proposed display name string against moderation rules.
+
+    Checks for prohibited digits, honorary titles, and offensive substrings.
+
+    Args:
+        name: Proposed display name string to validate.
+
+    Raises:
+        NameModerationError: If name contains digits, title tokens, or profanity substrings.
+    """
     if _DIGIT_RE.search(name):
         raise NameModerationError(
             "digits",
@@ -124,3 +142,4 @@ def validate_display_name(name: str) -> None:
                 "profanity",
                 "That name isn't allowed - please choose another.",
             )
+

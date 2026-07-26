@@ -1,3 +1,9 @@
+"""Application configuration settings management via Pydantic BaseSettings.
+
+Defines environment variables, runtime secret validation, feature flags, discovery tab enums,
+and rate-limiting configuration loaded dynamically from Infisical or environment variables.
+"""
+
 from typing import Any, Literal, TypeAlias, cast
 
 from pydantic import field_validator, model_validator
@@ -7,6 +13,7 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
+
 
 # Keys that must NOT be loaded from .env/statically under any circumstances.
 # They are only allowed to be loaded from the runtime environment.
@@ -190,6 +197,11 @@ class Settings(BaseSettings):
 
     @property
     def is_jwks(self) -> bool:
+        """Is jwks.
+
+            Returns:
+                bool: Result value.
+            """
         secret = self.supabase_jwt_secret
         return isinstance(secret, dict) or (
             secret.strip().startswith("{") and "keys" in secret
@@ -201,6 +213,14 @@ class Settings(BaseSettings):
         cls,
         v: Any,
     ) -> dict[str, Any] | None:
+        """Parse firebase service account.
+
+            Args:
+                v: parse firebase service account.
+
+            Returns:
+                dict[str, Any] | None: Result value.
+            """
         import base64
         import json
         from contextlib import suppress
@@ -234,6 +254,14 @@ class Settings(BaseSettings):
         cls,
         v: Any,
     ) -> dict[str, list[str]]:
+        """Parse allowed signup domains.
+
+            Args:
+                v: parse allowed signup domains.
+
+            Returns:
+                dict[str, list[str]]: Result value.
+            """
         import json
         from contextlib import suppress
 
@@ -263,6 +291,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_dynamic_defaults(self) -> "Settings":
+        """Resolve dynamic defaults.
+
+            Returns:
+                'Settings': Result value.
+            """
         if self.app_domain:
             domain = self.app_domain.rstrip("/")
             # Set default backend public URL if not set
@@ -291,6 +324,14 @@ class Settings(BaseSettings):
             app_domain_clean = app_domain_clean.split(":", 1)[0]
 
         def is_valid_app_domain(domain: str) -> bool:
+            """Is valid app domain.
+
+                Args:
+                    domain: is valid app domain.
+
+                Returns:
+                    bool: Result value.
+                """
             if not domain:
                 return False
             import ipaddress
@@ -337,17 +378,44 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Settings customise sources.
+
+            Args:
+                settings_cls: settings customise sources.
+                init_settings: settings customise sources.
+                env_settings: settings customise sources.
+                dotenv_settings: settings customise sources.
+                file_secret_settings: settings customise sources.
+
+            Returns:
+                tuple[PydanticBaseSettingsSource, ...]: Result value.
+            """
         class FilteredDotenvSource(PydanticBaseSettingsSource):
+            """Filtereddotenvsource class representation."""
             def get_field_value(
                 self,
                 field: FieldInfo,
                 field_name: str,
             ) -> tuple[Any, str, bool]:
+                """Get field value.
+
+                    Args:
+                        field: get field value.
+                        field_name: get field value.
+
+                    Returns:
+                        tuple[Any, str, bool]: Result value.
+                    """
                 if field_name in BLOCKED_DOTENV_KEYS:
                     return None, field_name, False
                 return dotenv_settings.get_field_value(field, field_name)
 
             def __call__(self) -> dict[str, Any]:
+                """Call  .
+
+                    Returns:
+                        dict[str, Any]: Result value.
+                    """
                 raw_data = dotenv_settings()
                 return {
                     k: v for k, v in raw_data.items()

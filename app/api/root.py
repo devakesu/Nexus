@@ -1,4 +1,8 @@
-# ruff: noqa: E501
+"""FastAPI root router for serving public website pages, static assets, and web error views.
+
+Provides endpoints for landing, help center, contact, account rights, favicons, robots.txt, and sitemap.xml.
+"""
+
 import os
 
 from fastapi import APIRouter, Request
@@ -18,8 +22,10 @@ router = APIRouter()
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
 
 
+
 @router.get("/favicon.ico", include_in_schema=False)
-async def favicon():
+async def favicon() -> FileResponse:
+    """Serves the website favicon.ico icon file."""
     return FileResponse(
         os.path.join(STATIC_DIR, "favicon.ico"),
         media_type="image/x-icon",
@@ -27,7 +33,8 @@ async def favicon():
 
 
 @router.get("/favicon-16x16.png", include_in_schema=False)
-async def favicon_16():
+async def favicon_16() -> FileResponse:
+    """Serves the 16x16 PNG favicon asset."""
     return FileResponse(
         os.path.join(STATIC_DIR, "favicon-16x16.png"),
         media_type="image/png",
@@ -35,7 +42,8 @@ async def favicon_16():
 
 
 @router.get("/favicon-32x32.png", include_in_schema=False)
-async def favicon_32():
+async def favicon_32() -> FileResponse:
+    """Serves the 32x32 PNG favicon asset."""
     return FileResponse(
         os.path.join(STATIC_DIR, "favicon-32x32.png"),
         media_type="image/png",
@@ -43,7 +51,8 @@ async def favicon_32():
 
 
 @router.get("/apple-touch-icon.png", include_in_schema=False)
-async def apple_touch_icon():
+async def apple_touch_icon() -> FileResponse:
+    """Serves the Apple touch icon PNG asset."""
     return FileResponse(
         os.path.join(STATIC_DIR, "apple-touch-icon.png"),
         media_type="image/png",
@@ -51,7 +60,8 @@ async def apple_touch_icon():
 
 
 @router.get("/android-chrome-192x192.png", include_in_schema=False)
-async def android_chrome_192():
+async def android_chrome_192() -> FileResponse:
+    """Serves the 192x192 Android PWA icon asset."""
     return FileResponse(
         os.path.join(STATIC_DIR, "android-chrome-192x192.png"),
         media_type="image/png",
@@ -59,7 +69,8 @@ async def android_chrome_192():
 
 
 @router.get("/android-chrome-512x512.png", include_in_schema=False)
-async def android_chrome_512():
+async def android_chrome_512() -> FileResponse:
+    """Serves the 512x512 Android PWA icon asset."""
     return FileResponse(
         os.path.join(STATIC_DIR, "android-chrome-512x512.png"),
         media_type="image/png",
@@ -67,7 +78,8 @@ async def android_chrome_512():
 
 
 @router.get("/site.webmanifest", include_in_schema=False)
-async def site_webmanifest():
+async def site_webmanifest() -> FileResponse:
+    """Serves the web application manifest JSON file."""
     return FileResponse(
         os.path.join(STATIC_DIR, "site.webmanifest"),
         media_type="application/manifest+json",
@@ -75,7 +87,8 @@ async def site_webmanifest():
 
 
 @router.get("/logo.png", include_in_schema=False)
-async def logo_png():
+async def logo_png() -> FileResponse:
+    """Serves the brand logo PNG image."""
     return FileResponse(
         os.path.join(STATIC_DIR, "logo.png"),
         media_type="image/png",
@@ -83,7 +96,8 @@ async def logo_png():
 
 
 @router.get("/logo-foreground.png", include_in_schema=False)
-async def logo_foreground_png():
+async def logo_foreground_png() -> FileResponse:
+    """Serves the foreground brand logo PNG image."""
     return FileResponse(
         os.path.join(STATIC_DIR, "logo-foreground.png"),
         media_type="image/png",
@@ -91,7 +105,8 @@ async def logo_foreground_png():
 
 
 @router.get("/og-image.png", include_in_schema=False)
-async def og_image_png():
+async def og_image_png() -> FileResponse:
+    """Serves the Open Graph social preview card PNG image."""
     return FileResponse(
         os.path.join(STATIC_DIR, "og-image.png"),
         media_type="image/png",
@@ -99,7 +114,8 @@ async def og_image_png():
 
 
 @router.get("/nexus-wide-logo.jpg", include_in_schema=False)
-async def nexus_wide_logo():
+async def nexus_wide_logo() -> FileResponse:
+    """Serves the wide brand logo banner image."""
     return FileResponse(
         os.path.join(STATIC_DIR, "nexus-wide-logo.jpg"),
         media_type="image/jpeg",
@@ -107,19 +123,21 @@ async def nexus_wide_logo():
 
 
 @router.get("/robots.txt", include_in_schema=False)
-async def robots_txt():
+async def robots_txt() -> PlainTextResponse:
+    """Serves search engine crawling instructions via robots.txt."""
     content = f"User-agent: *\nAllow: /\nSitemap: {settings.backend_url}/sitemap.xml\n"
     return PlainTextResponse(content)
 
 
 @router.get("/error", response_class=HTMLResponse, include_in_schema=False)
-async def render_error_page(code: int = 404, message: str | None = None):
+async def render_error_page(code: int = 404, message: str | None = None) -> HTMLResponse:
     """Renders a common error page inspired by Nexus backend root design system."""
     return HTMLResponse(render_error(code=code, message=message), status_code=code)
 
 
 @router.get("/sitemap.xml", include_in_schema=False)
-async def sitemap_xml():
+async def sitemap_xml() -> Response:
+    """Serves search engine index sitemap XML content."""
     xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -157,7 +175,8 @@ async def sitemap_xml():
 
 
 @router.get("/", response_class=HTMLResponse)
-async def render_landing_page():
+async def render_landing_page() -> HTMLResponse:
+    """Renders the main public landing page HTML."""
     turnstile_site_key = settings.turnstile_site_key or ""
     return HTMLResponse(
         render_landing(
@@ -169,7 +188,8 @@ async def render_landing_page():
 
 @router.get("/help", response_class=HTMLResponse)
 @router.get("/faq", response_class=HTMLResponse)
-async def render_help_page():
+async def render_help_page() -> HTMLResponse:
+    """Renders the Help Center and FAQ page HTML."""
     return HTMLResponse(render_help())
 
 
@@ -177,9 +197,11 @@ async def render_help_page():
 @router.get("/appeal", response_class=HTMLResponse)
 @router.get("/grievance", response_class=HTMLResponse)
 @router.get("/support", response_class=HTMLResponse)
-async def render_contact_page():
+async def render_contact_page() -> HTMLResponse:
+    """Renders the Contact & Grievance support page HTML."""
     turnstile_site_key = settings.turnstile_site_key or ""
     return HTMLResponse(render_contact(turnstile_site_key=turnstile_site_key))
+
 
 
 @router.get("/delete-account", response_class=HTMLResponse)

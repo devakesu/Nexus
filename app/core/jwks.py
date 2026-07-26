@@ -1,3 +1,9 @@
+"""JSON Web Key Set (JWKS) key retrieval and caching for Supabase JWT verification.
+
+Provides dynamic remote public key fetching with 24-hour in-memory caching and lock protection,
+along with static fallback resolution for offline or local execution modes.
+"""
+
 import asyncio
 import json
 import logging
@@ -13,16 +19,23 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Global thread-safe memory cache primitives for zero-latency signature parsing
+# Shared memory cache primitives for zero-latency signature parsing
 _cached_jwks: PyJWKSet | None = None
 _last_fetch_time: float = 0.0
 _jwks_lock = asyncio.Lock()
 
 
 def _parse_jwk_dict(raw_data: Any) -> dict[str, Any]:
-    """
-    Defensively normalizes Union inputs (JSON strings or dictionaries) into a
-    structured JWK/JWKS dictionary format.
+    """Defensively normalizes input strings or dictionaries into a JWK/JWKS dictionary format.
+
+    Args:
+        raw_data: Input JSON string or dictionary key container.
+
+    Returns:
+        dict[str, Any]: Parsed JWK dictionary representation.
+
+    Raises:
+        RuntimeError: If data is malformed or invalid JSON.
     """
     if isinstance(raw_data, str):
         try:
@@ -43,6 +56,15 @@ def _parse_jwk_dict(raw_data: Any) -> dict[str, Any]:
 
 
 def _find_jwk_by_kid(keys_list: list[object], kid: str) -> dict[str, Any] | None:
+    """Finds a matching JWK dictionary in a list by key ID (`kid`).
+
+    Args:
+        keys_list: List of candidate key objects/dictionaries.
+        kid: Key identifier string to match.
+
+    Returns:
+        dict[str, Any] | None: Matching JWK dictionary or None.
+    """
     for item in keys_list:
         if isinstance(item, dict):
             item_dict = cast(dict[str, Any], item)
@@ -55,7 +77,15 @@ def _isolate_fallback_jwk(
     jwk_dict: dict[str, Any],
     kid: str | None,
 ) -> dict[str, Any]:
-    """Helper to isolate and type-cast the target JWK from the keys mapping list."""
+    """Isolates the target JWK dictionary from a JWKS wrapper map.
+
+    Args:
+        jwk_dict: JWKS or JWK dictionary mapping.
+        kid: Target key identifier string.
+
+    Returns:
+        dict[str, Any]: Isolated JWK dictionary.
+    """
     if "keys" not in jwk_dict:
         return jwk_dict
 
@@ -65,7 +95,6 @@ def _isolate_fallback_jwk(
             "Static backup JWKS keys mapping is invalid or empty.",
         )
 
-    # Match incoming key identifier or default fallback to the primary array element
     keys_list_obj = cast(list[object], keys_list)
     if kid:
         matched = _find_jwk_by_kid(keys_list_obj, kid)
@@ -80,9 +109,16 @@ def _isolate_fallback_jwk(
 
 
 def get_fallback_public_key(kid: str | None) -> EllipticCurvePublicKey:
-    """
-    Parses and isolates an explicit EllipticCurvePublicKey from the static local
-    Infisical configurations if remote endpoints are completely unreachable.
+    """Parses an EllipticCurvePublicKey from local static configuration as fallback.
+
+    Args:
+        kid: Optional Key ID string.
+
+    Returns:
+        EllipticCurvePublicKey: Resolved public key object.
+
+    Raises:
+        RuntimeError: If local key parsing fails or type mismatch occurs.
     """
     jwk_dict = _parse_jwk_dict(settings.supabase_jwt_secret)
     isolated_jwk = _isolate_fallback_jwk(jwk_dict, kid)
@@ -102,15 +138,24 @@ def get_fallback_public_key(kid: str | None) -> EllipticCurvePublicKey:
 
 
 def syntax_has_kid(jwk_set: PyJWKSet, kid: str) -> bool:
-    """
-    Safely determines if a specified Key ID exists inside
-    the active cached key-set array.
+    """Checks whether a Key ID exists in a PyJWKSet.
+
+    Args:
+        jwk_set: Active cached PyJWKSet instance.
+        kid: Key ID string to verify.
+
+    Returns:
+        bool: True if key present, False otherwise.
     """
     return any(jwk.key_id == kid for jwk in jwk_set.keys)
 
 
 async def _fetch_and_update_cached_jwks(current_time: float) -> None:
-    """Helper to dynamically retrieve and update Supabase rotating public keys."""
+    """Fetches rotating public key set from Supabase and updates in-memory cache.
+
+    Args:
+        current_time: Epoch timestamp of fetch attempt.
+    """
     global _cached_jwks, _last_fetch_time
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
@@ -124,7 +169,14 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
 
 
 def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
-    """Helper to locate and parse key identifier from active cache memory."""
+    """Resolves an EllipticCurvePublicKey from the active memory cache by Key ID.
+
+    Args:
+        token_kid: Target key identifier string.
+
+    Returns:
+        EllipticCurvePublicKey | None: Matching key object or None.
+    """
     if not _cached_jwks:
         return None
     for jwk in _cached_jwks.keys:
@@ -139,10 +191,16 @@ def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
 
 
 async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
-    """
-    Dynamically tracks, fetches, and returns Supabase's rotating Elliptic Curve keys.
-    Caches results in memory for up to 24 hours to prevent network call degradation,
-    narrowing types strictly to clear broad Any definitions.
+    """Retrieves the active Supabase Elliptic Curve public key for JWT verification.
+
+    Args:
+        token: Incoming JWT Bearer token string.
+
+    Returns:
+        EllipticCurvePublicKey: Active public key instance.
+
+    Raises:
+        jwt.InvalidTokenError: If token header is malformed.
     """
     try:
         unverified_header = jwt.get_unverified_header(token)
@@ -154,8 +212,6 @@ async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
 
     current_time = time.time()
 
-    # Trigger cache re-fetch context if empty, older than 24 hours,
-    # or tracking a new key ID (kid)
     cache_expired = (current_time - _last_fetch_time) > 86400
     missing_kid = token_kid is not None and (
         _cached_jwks is None
@@ -164,7 +220,6 @@ async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
 
     if not _cached_jwks or cache_expired or missing_kid:
         async with _jwks_lock:
-            # Re-check inside lock to prevent dogpiling/multiple fetches
             current_time = time.time()
             cache_expired = (current_time - _last_fetch_time) > 86400
             missing_kid = token_kid is not None and (
@@ -179,6 +234,5 @@ async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
         if resolved:
             return resolved
 
-    # Safe execution fallback route if network operations drop
-    # or key IDs miss target cached entities
     return get_fallback_public_key(token_kid)
+

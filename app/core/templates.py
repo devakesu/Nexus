@@ -1,11 +1,16 @@
+"""HTML template rendering engine and page renderers.
+
+Initializes the Jinja2 environment with autoescaping and provides wrapper functions
+for rendering public pages, legal terms, account deletion rights, and error pages.
+"""
+
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
+
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-# Path to the templates directory (app/templates)
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
-# Jinja2 Environment initialization
 jinja_env = Environment(
     loader=FileSystemLoader(str(TEMPLATES_DIR)),
     autoescape=select_autoescape(["html", "xml"]),
@@ -14,16 +19,32 @@ jinja_env = Environment(
 )
 
 
-def render_template(template_name: str, context: Optional[Dict[str, Any]] = None) -> str:
-    """Renders a Jinja2 template with the given context dictionary."""
+def render_template(template_name: str, context: dict[str, Any] | None = None) -> str:
+    """Renders a Jinja2 HTML template with context arguments.
+
+    Args:
+        template_name: Relative path to template file.
+        context: Context parameters dictionary.
+
+    Returns:
+        str: Rendered HTML string.
+    """
     if context is None:
         context = {}
     template = jinja_env.get_template(template_name)
     return template.render(**context)
 
 
-def render_landing(turnstile_site_key: Optional[str] = None, app_version: str = "1.0.0") -> str:
-    """Renders the main landing page template."""
+def render_landing(turnstile_site_key: str | None = None, app_version: str = "1.0.0") -> str:
+    """Renders the main landing page HTML template.
+
+    Args:
+        turnstile_site_key: Optional Cloudflare Turnstile site key string.
+        app_version: Active application version string.
+
+    Returns:
+        str: Rendered landing page HTML.
+    """
     return render_template(
         "pages/landing.html",
         {
@@ -36,8 +57,15 @@ def render_landing(turnstile_site_key: Optional[str] = None, app_version: str = 
     )
 
 
-def render_contact(turnstile_site_key: Optional[str] = None) -> str:
-    """Renders the support and contact page template."""
+def render_contact(turnstile_site_key: str | None = None) -> str:
+    """Renders the contact and feedback support page HTML template.
+
+    Args:
+        turnstile_site_key: Optional Turnstile site key string.
+
+    Returns:
+        str: Rendered contact page HTML.
+    """
     return render_template(
         "pages/contact.html",
         {
@@ -51,7 +79,11 @@ def render_contact(turnstile_site_key: Optional[str] = None) -> str:
 
 
 def render_help() -> str:
-    """Renders the Help Center and FAQ page template."""
+    """Renders the Help Center and FAQ page HTML template.
+
+    Returns:
+        str: Rendered help page HTML string.
+    """
     return render_template(
         "pages/help.html",
         {
@@ -75,7 +107,23 @@ def render_legal(
     placeholder_banner: str = "",
     is_embed: bool = False,
 ) -> str:
-    """Renders the Legal & Privacy Policy page template."""
+    """Renders the Legal Terms and Privacy Policy page HTML template.
+
+    Args:
+        effective_date: Legal effective date string.
+        terms_version: Version of terms document.
+        domain: Primary domain name.
+        city: Jurisdiction city.
+        grievance_name: Grievance officer name.
+        grievance_email: Grievance officer email contact.
+        grievance_phone: Grievance contact phone number.
+        grievance_website: Grievance contact URL.
+        placeholder_banner: Optional banner HTML string.
+        is_embed: True if rendering inside WebView embed.
+
+    Returns:
+        str: Rendered legal page HTML.
+    """
     return render_template(
         "pages/legal.html",
         {
@@ -107,7 +155,21 @@ def render_delete_account(
     effective_date: str = "July 26, 2026",
     is_embed: bool = False,
 ) -> str:
-    """Renders the Delete Account & Data Export page template."""
+    """Renders the Account Deletion and Data Purge Rights HTML page.
+
+    Args:
+        grace_period_days: Account deletion grace period in days.
+        blocklist_cooldown_days: Phone blocklist retention days.
+        long_tail_purge_days: System backup purge window.
+        safety_evidence_active_retention_days: Safety evidence retention window.
+        safety_data_legal_hold_days: Legal hold period.
+        domain: Host domain.
+        effective_date: Effective date string.
+        is_embed: True if rendered inside web view embed.
+
+    Returns:
+        str: Rendered HTML page.
+    """
     if long_tail_purge_days % 365 == 0:
         years = long_tail_purge_days // 365
         purge_fmt = f"{years} year{'s' if years != 1 else ''}"
@@ -134,10 +196,16 @@ def render_delete_account(
     )
 
 
+def render_error(code: int = 404, message: str | None = None) -> str:
+    """Renders a unified error HTML template page.
 
+    Args:
+        code: HTTP error status code (400, 401, 403, 404, 429, 500, etc.).
+        message: Optional custom error message string.
 
-def render_error(code: int = 404, message: Optional[str] = None) -> str:
-    """Renders a unified error page template."""
+    Returns:
+        str: Rendered error HTML page string.
+    """
     error_titles = {
         400: ("400", "Bad Request", "The request payload or parameters were invalid or corrupted.", "var(--nova)"),
         401: ("401", "Unauthorized", "Authentication credentials were missing or invalid.", "var(--nova)"),
@@ -170,3 +238,4 @@ def render_error(code: int = 404, message: Optional[str] = None) -> str:
             "brand_subtitle": "Error",
         },
     )
+

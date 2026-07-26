@@ -1,3 +1,9 @@
+"""FastAPI router for real-time messaging, chat conversations, presence updates, and meetup scheduling.
+
+Provides endpoints for listing active conversations, fetching and sending encrypted messages,
+updating presence status, and creating meetup event proposals with automated reminders.
+"""
+
 import asyncio
 import logging
 from datetime import timedelta
@@ -68,6 +74,17 @@ async def get_chats(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> ChatsListResponse:
+    """Get chats.
+
+        Args:
+            request: get chats.
+            tab: get chats.
+            _device: get chats.
+            user_id: get chats.
+
+        Returns:
+            ChatsListResponse: Result value.
+        """
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_conversations_for_user, user_id, tab)
@@ -270,6 +287,18 @@ async def send_message(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> SendMessageResponse:
+    """Send message.
+
+        Args:
+            request: send message.
+            conversation_id: send message.
+            payload: send message.
+            _device: send message.
+            user_id: send message.
+
+        Returns:
+            SendMessageResponse: Result value.
+        """
     _ = request
     try:
         conversation = await asyncio.to_thread(
@@ -340,6 +369,17 @@ async def send_presence_heartbeat(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Send presence heartbeat.
+
+        Args:
+            request: send presence heartbeat.
+            payload: send presence heartbeat.
+            _device: send presence heartbeat.
+            user_id: send presence heartbeat.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         await asyncio.to_thread(upsert_presence_heartbeat, user_id, payload.is_online)
@@ -562,6 +602,17 @@ def _validate_event_status_transition(
     user_id: str,
     created_by: str,
 ) -> None:
+    """Validate event status transition.
+
+        Args:
+            current_status: validate event status transition.
+            new_status: validate event status transition.
+            user_id: validate event status transition.
+            created_by: validate event status transition.
+
+        Returns:
+            None: Result value.
+        """
     if current_status == "cancelled":
         raise HTTPException(
             status_code=400,
@@ -594,6 +645,19 @@ async def update_chat_event(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
+    """Update chat event.
+
+        Args:
+            request: update chat event.
+            conversation_id: update chat event.
+            event_id: update chat event.
+            payload: update chat event.
+            _device: update chat event.
+            user_id: update chat event.
+
+        Returns:
+            EventResponse: Result value.
+        """
     _ = request
     try:
         event = await asyncio.to_thread(fetch_event, event_id)

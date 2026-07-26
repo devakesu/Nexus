@@ -1,3 +1,9 @@
+"""FastAPI router for incoming likes, match listings, unmatching, and user block management.
+
+Provides endpoints for fetching incoming likes, viewing mutual matches, initiating unmatches,
+and managing blocked user lists.
+"""
+
 import asyncio
 import logging
 import uuid
@@ -57,6 +63,14 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_matched_at(raw_ts: Any) -> datetime:
+    """Parse matched at.
+
+        Args:
+            raw_ts: parse matched at.
+
+        Returns:
+            datetime: Result value.
+        """
     with suppress(Exception):
         if isinstance(raw_ts, (str, datetime)):
             return parse_utc_datetime(raw_ts)
@@ -71,6 +85,17 @@ async def get_likes_inbox(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> LikesListResponse:
+    """Get likes inbox.
+
+        Args:
+            request: get likes inbox.
+            tab: get likes inbox.
+            _device: get likes inbox.
+            user_id: get likes inbox.
+
+        Returns:
+            LikesListResponse: Result value.
+        """
     _ = request
     try:
         like_rows = await asyncio.to_thread(fetch_likes_for_user, user_id, tab)
@@ -145,6 +170,17 @@ async def mark_likes_as_seen(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
+    """Mark likes as seen.
+
+        Args:
+            request: mark likes as seen.
+            payload: mark likes as seen.
+            _device: mark likes as seen.
+            user_id: mark likes as seen.
+
+        Returns:
+            dict[str, bool]: Result value.
+        """
     _ = request
     try:
         actor_ids: list[str] | None = (
@@ -168,6 +204,16 @@ async def _verify_peer_access_and_infer_tab(
     user_id_normalized: str,
     default_tab: DiscoveryTab,
 ) -> DiscoveryTab:
+    """Verify peer access and infer tab.
+
+        Args:
+            target_id: verify peer access and infer tab.
+            user_id_normalized: verify peer access and infer tab.
+            default_tab: verify peer access and infer tab.
+
+        Returns:
+            DiscoveryTab: Result value.
+        """
     query_like = supabase_client.table(
         "profile_discovery_actions",
     ).select("id, tab")
@@ -219,6 +265,17 @@ async def get_peer_profile(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> OrbitNodeDetailResponse:
+    """Get peer profile.
+
+        Args:
+            request: get peer profile.
+            payload: get peer profile.
+            _device: get peer profile.
+            user_id: get peer profile.
+
+        Returns:
+            OrbitNodeDetailResponse: Result value.
+        """
     _ = request
     try:
         target_id = str(uuid.UUID(payload.target_id)).lower()
@@ -316,6 +373,17 @@ async def record_like_back_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> LikeActionResponse:
+    """Record like back action.
+
+        Args:
+            request: record like back action.
+            payload: record like back action.
+            _device: record like back action.
+            user_id: record like back action.
+
+        Returns:
+            LikeActionResponse: Result value.
+        """
     _ = request
     try:
         if payload.action == "report":
@@ -400,6 +468,17 @@ async def get_matches(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> MatchesListResponse:
+    """Get matches.
+
+        Args:
+            request: get matches.
+            tab: get matches.
+            _device: get matches.
+            user_id: get matches.
+
+        Returns:
+            MatchesListResponse: Result value.
+        """
     _ = request
     try:
         rows = await asyncio.to_thread(fetch_matches_for_user, user_id, tab)
@@ -464,6 +543,17 @@ async def record_match_action(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> MatchActionResponse:
+    """Record match action.
+
+        Args:
+            request: record match action.
+            payload: record match action.
+            _device: record match action.
+            user_id: record match action.
+
+        Returns:
+            MatchActionResponse: Result value.
+        """
     _ = request
     try:
         if payload.action == "report":

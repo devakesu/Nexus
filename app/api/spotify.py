@@ -76,10 +76,27 @@ _SPOTIFY_SCOPES = "user-top-read playlist-read-private playlist-read-collaborati
 
 
 def _state_redis_key(state: str) -> str:
+    """State redis key.
+
+        Args:
+            state: state redis key.
+
+        Returns:
+            str: Result value.
+        """
     return f"spotify:oauth:state:{state}"
 
 
 async def _store_state(state: str, user_id: str) -> None:
+    """Store state.
+
+        Args:
+            state: store state.
+            user_id: store state.
+
+        Returns:
+            None: Result value.
+        """
     await redis_client.setex(_state_redis_key(state), _STATE_TTL_SECONDS, user_id)
 
 
@@ -164,6 +181,7 @@ async def _seed_and_queue_sync(
 
 
 class _NativeExchangeRequest(BaseModel):
+    """ nativeexchangerequest class representation."""
     # Authorization code from the Spotify Android Auth Library.
     code: str = Field(..., min_length=1, max_length=512)
     # Must match the redirect_uri used when the auth request was made.
@@ -397,6 +415,14 @@ async def spotify_status(
 
 
 def _track_out_from_row(raw: dict[str, Any]) -> SpotifyTrackOut:
+    """Track out from row.
+
+        Args:
+            raw: track out from row.
+
+        Returns:
+            SpotifyTrackOut: Result value.
+        """
     raw_artists = raw.get("artists")
     artists: list[Any] = (
         cast(list[Any], raw_artists) if isinstance(raw_artists, list) else []
@@ -409,6 +435,14 @@ def _track_out_from_row(raw: dict[str, Any]) -> SpotifyTrackOut:
 
 
 def _playlist_out_from_row(raw: dict[str, Any]) -> SpotifyPlaylistOut:
+    """Playlist out from row.
+
+        Args:
+            raw: playlist out from row.
+
+        Returns:
+            SpotifyPlaylistOut: Result value.
+        """
     raw_tracks = raw.get("tracks")
     tracks: list[Any] = (
         cast(list[Any], raw_tracks) if isinstance(raw_tracks, list) else []
@@ -543,6 +577,11 @@ def _html_result(
     message: str,
     artists: list[str] | None = None,
 ) -> HTMLResponse:
+    """Html result.
+
+        Returns:
+            HTMLResponse: Result value.
+        """
     accent = "#1DB954" if success else "#FF4B4B"
     icon = "✓" if success else "✕"
     artist_html = ""

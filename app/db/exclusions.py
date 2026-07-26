@@ -1,3 +1,9 @@
+"""Database discovery exclusion tracking, user blocks, and pass cooldown management layer.
+
+Manages discovery exclusions (likes, passes, unmatches, blocks) and provides Redis-cached
+user block list lookups to filter discovery orbits efficiently.
+"""
+
 import contextlib
 import json
 import logging
@@ -22,10 +28,27 @@ _PASS_EXPIRY_DAYS = 14
 
 
 def _block_ids_cache_key(viewer_id: str) -> str:
+    """Formats Redis key string for cached block ID sets.
+
+    Args:
+        viewer_id: User ID of viewer.
+
+    Returns:
+        str: Redis cache key string.
+    """
     return f"discovery:block_ids:{viewer_id}"
 
 
+
 async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
+    """Get cached active block ids.
+
+        Args:
+            viewer_id: get cached active block ids.
+
+        Returns:
+            set[str]: Result value.
+        """
     key = _block_ids_cache_key(viewer_id)
 
     cached = await redis_client.get(key)
@@ -49,6 +72,15 @@ async def get_cached_active_block_ids(viewer_id: str) -> set[str]:
 
 
 def _collect_blocked_counterparty_ids(rows: object, viewer_id: str) -> set[str]:
+    """Collect blocked counterparty ids.
+
+        Args:
+            rows: collect blocked counterparty ids.
+            viewer_id: collect blocked counterparty ids.
+
+        Returns:
+            set[str]: Result value.
+        """
     excluded: set[str] = set()
 
     if not isinstance(rows, list):
@@ -77,6 +109,17 @@ def _check_pass_expiry(
     now: datetime,
     excluded: set[str],
 ) -> None:
+    """Check pass expiry.
+
+        Args:
+            expires_at_raw: check pass expiry.
+            target_id: check pass expiry.
+            now: check pass expiry.
+            excluded: check pass expiry.
+
+        Returns:
+            None: Result value.
+        """
     if expires_at_raw and isinstance(expires_at_raw, str):
         with contextlib.suppress(Exception):
             expires_at = parse_utc_datetime(expires_at_raw)
@@ -91,6 +134,18 @@ def _process_exclusion_row(
     now: datetime,
     excluded: set[str],
 ) -> None:
+    """Process exclusion row.
+
+        Args:
+            row: process exclusion row.
+            viewer_id: process exclusion row.
+            active_tab: process exclusion row.
+            now: process exclusion row.
+            excluded: process exclusion row.
+
+        Returns:
+            None: Result value.
+        """
     action = row.get("action")
     actor_id = row.get("actor_id")
     target_id = row.get("target_id")
@@ -268,6 +323,18 @@ def record_discovery_action(
     tab: DiscoveryTab | None = None,
     expires_days: int | None = None,
 ) -> None:
+    """Record discovery action.
+
+        Args:
+            actor_id: record discovery action.
+            target_id: record discovery action.
+            action: record discovery action.
+            tab: record discovery action.
+            expires_days: record discovery action.
+
+        Returns:
+            None: Result value.
+        """
     now = utcnow()
     is_reversal = action.startswith("un")
     base_action = action[2:] if is_reversal else action
@@ -428,6 +495,15 @@ def fetch_expired_pass_candidates(
 
 
 async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
+    """Invalidate block cache.
+
+        Args:
+            viewer_id: invalidate block cache.
+            target_id: invalidate block cache.
+
+        Returns:
+            None: Result value.
+        """
     try:
         await redis_client.delete(f"discovery:block_ids:{viewer_id}")
         await redis_client.delete(f"discovery:block_ids:{target_id}")

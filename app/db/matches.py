@@ -1,3 +1,9 @@
+"""Database mutual match and unmatch persistence layer.
+
+Handles recording mutual matches, creating conversation references, and processing unmatch actions
+with cooldown period exclusions.
+"""
+
 import logging
 import uuid
 from typing import Any, cast
@@ -18,11 +24,17 @@ def record_match(
     liked_back_id: str,
     tab: DiscoveryTab = "Dating",
 ) -> str:
-    """Insert a match row when a like-back action creates a mutual match.
+    """Inserts a match record when a mutual like-back action occurs.
 
-    Returns the new match's id so callers (e.g. the chat "send a message"
-    flow) can open a conversation without a separate matches-list refetch.
+    Args:
+        liker_id: User ID executing the like-back.
+        liked_back_id: Original liker user ID.
+        tab: Active discovery tab ("Dating", "BFF", "Networking").
+
+    Returns:
+        str: Created match record ID string.
     """
+
     try:
         res = (
             supabase_client.table("matches")

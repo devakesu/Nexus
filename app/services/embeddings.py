@@ -28,7 +28,11 @@ _model: SentenceTransformer | None = None
 
 
 def get_embedding_model() -> SentenceTransformer:
-    """Return the shared sentence-transformer singleton, loading it on first call."""
+    """Lazy-loads and returns the module-level SentenceTransformer model singleton instance.
+
+    Returns:
+        SentenceTransformer: Loaded sentence transformer model instance ('all-MiniLM-L6-v2').
+    """
     global _model
     if _model is None:
         logger.info("Loading sentence-transformer model (all-MiniLM-L6-v2)")

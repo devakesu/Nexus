@@ -1,9 +1,17 @@
+"""Static Web Asset Generation Script.
+
+Generates favicons, app icons, OpenGraph images, and wide banners from mobile source assets
+using Pillow (PIL).
+"""
+
 import os
 
 from PIL import Image, ImageDraw
 
 
-def generate_assets():
+def generate_assets() -> None:
+    """Generates favicons, PWA icons, and social card assets for the web app."""
+
     static_dir = os.path.join(os.path.dirname(__file__), "..", "app", "static")
     os.makedirs(static_dir, exist_ok=True)
 

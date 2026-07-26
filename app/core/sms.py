@@ -1,3 +1,9 @@
+"""SMS delivery service and safety alert message composition utilities.
+
+Handles Twilio API integration for SMS dispatching as well as standard message formatting
+for Meetup Safety emergency alerts, check-ins, trusted contact notifications, and signed token validation.
+"""
+
 import base64
 import hashlib
 import hmac
@@ -19,6 +25,8 @@ has_twilio = bool(
 
 
 class ProviderResult(BaseModel):
+    """Result schema for SMS provider dispatch attempts."""
+
     success: bool
     provider: Literal["Twilio"]
     id: str | None = None
@@ -26,11 +34,31 @@ class ProviderResult(BaseModel):
 
 
 def redact_phone(phone: str) -> str:
+    """Masks a phone number string for safe log outputs.
+
+    Args:
+        phone: Target phone number string.
+
+    Returns:
+        str: Sanitized phone string showing only last 4 digits (***1234).
+    """
     digits = phone[-4:] if len(phone) >= 4 else phone
     return f"***{digits}"
 
 
 async def send_via_twilio(to: str, body: str) -> ProviderResult:
+    """Dispatches an SMS message directly via the Twilio REST API.
+
+    Args:
+        to: Destination phone number in E.164 format.
+        body: Text message body content.
+
+    Returns:
+        ProviderResult: Execution status and Twilio message SID or error details.
+
+    Raises:
+        ValueError: If Twilio credentials are missing.
+    """
     if not has_twilio:
         raise ValueError("Twilio not configured")
 
@@ -78,14 +106,17 @@ async def send_via_twilio(to: str, body: str) -> ProviderResult:
 
 
 async def send_sms(to: str, body: str) -> ProviderResult:
-    """Sends a single SMS via Twilio. Never raises - failures come back as a
-    ProviderResult with success=False so callers (e.g. the safety alert
-    fan-out, which must keep notifying remaining contacts even if one send
-    fails) don't need their own try/except around every call.
+    """Dispatches a single SMS via Twilio safely without raising exceptions.
+
+    Args:
+        to: Destination phone number.
+        body: Text content of the SMS.
+
+    Returns:
+        ProviderResult: Object containing dispatch success flag and message/error ID.
     """
     masked_to = redact_phone(to)
     if not has_twilio:
-        # codeql[py/clear-text-logging-sensitive-data] Phone number is sanitized
         logger.warning("Twilio not configured; skipping SMS to %s", masked_to)
         return ProviderResult(
             success=False,
@@ -95,23 +126,19 @@ async def send_sms(to: str, body: str) -> ProviderResult:
     try:
         return await send_via_twilio(to, body)
     except Exception as e:
-        # codeql[py/clear-text-logging-sensitive-data] Phone number is sanitized
         logger.exception("Failed to send SMS via Twilio to %s", masked_to)
         return ProviderResult(success=False, provider="Twilio", error=str(e))
 
 
-# ---------------------------------------------------------------------------
-# Meetup Safety alert message composition
-#
-# Kept short and always link-out-shaped rather than trying to cram GPS
-# coordinates, venue, and evidence into the SMS body - see the Meetup Safety
-# plan's "Message strategy" note. {portal_link} is left out entirely until
-# the OTP-gated trusted-contact portal (Milestone E) exists; there's nothing
-# useful to link to yet.
-# ---------------------------------------------------------------------------
-
-
 def _maps_link(location: dict[str, float] | None) -> str | None:
+    """Formats Google Maps URL from latitude/longitude dictionary.
+
+    Args:
+        location: Lat/lng dictionary or None.
+
+    Returns:
+        str | None: Formatted Google Maps URL or None.
+    """
     if not location:
         return None
     lat, lng = location.get("lat"), location.get("lng")
@@ -127,7 +154,17 @@ def compose_sos_message(
     location: dict[str, float] | None = None,
     event_label: str | None = None,
 ) -> str:
-    """The emergency tier - fired by Silent or Loud SOS."""
+    """Composes emergency SOS SMS message text.
+
+    Args:
+        name: User display name.
+        silent: True if silent SOS alert, False if loud SOS.
+        location: Optional lat/lng coordinates dictionary.
+        event_label: Optional meetup event label description.
+
+    Returns:
+        str: Composed multi-line SOS message text.
+    """
     lines = [f"\U0001f6a8 Emergency alert from {name} via Nexus."]
     if silent:
         lines.append(
@@ -156,8 +193,15 @@ def compose_inform_message(
     location: dict[str, float] | None = None,
     event_label: str | None = None,
 ) -> str:
-    """The precautionary tier - a genuine (if lower-severity) safety signal,
-    not a casual FYI.
+    """Composes a non-emergency safety check-in alert message.
+
+    Args:
+        name: User display name.
+        location: Optional location coordinates dictionary.
+        event_label: Optional meetup description.
+
+    Returns:
+        str: Formatted precautionary SMS message string.
     """
     lines = [
         f"⚠️ Safety check-in from {name} via Nexus.",
@@ -175,11 +219,14 @@ def compose_inform_message(
 
 
 def compose_contact_added_message(*, user_name: str, manage_link: str) -> str:
-    """The one-time notice sent to a phone number the first time it's ever
-    synced as someone's trusted contact - they're not a Nexus user and
-    never opted into anything themselves, so this is their only notice that
-    their name/number is now held for Meetup Safety alerts, and their only
-    path to opt out of it.
+    """Composes initial onboarding SMS for newly added trusted contacts.
+
+    Args:
+        user_name: User display name who added the contact.
+        manage_link: Self-service opt-out/management web link.
+
+    Returns:
+        str: Informational SMS text string.
     """
     return "\n".join([
         f"{user_name} added you as a trusted contact on Nexus Meetup Safety.",
@@ -190,8 +237,14 @@ def compose_contact_added_message(*, user_name: str, manage_link: str) -> str:
 
 
 def compose_contact_self_removed_message(*, contact_name: str) -> str:
-    """Sent to the Nexus user (not the contact) after their trusted contact
-    removes themselves via the self-service portal."""
+    """Composes notification text when a trusted contact opts out.
+
+    Args:
+        contact_name: Display name of the contact who removed themselves.
+
+    Returns:
+        str: Formatted notification SMS text.
+    """
     return "\n".join([
         f"⚠️ {contact_name} removed themselves as your Nexus "
         "Meetup Safety trusted contact.",
@@ -209,11 +262,18 @@ def compose_unreachable_message(
     event_label: str | None,
     cancel_link: str,
 ) -> str:
-    """The dead-man's-switch tier - the device missed a scheduled check-in
-    and repeated attempts to reach it have failed. Includes the last known
-    battery/connection reading so a trusted contact can tell "phone
-    probably died" from "something happened while the phone was fine" -
-    meaningfully reduces false-alarm panic.
+    """Composes unreachable device escalation alert message text.
+
+    Args:
+        name: User display name.
+        escalation_number: Escalation attempt index (1..3).
+        battery_percent: Last reported battery percentage.
+        connection_type: Last known network connection string.
+        event_label: Meetup description.
+        cancel_link: Cancellation URL link.
+
+    Returns:
+        str: Composed message string.
     """
     lines = [
         f"\U0001f4f5 {name}'s phone hasn't checked in via Nexus Meetup "
@@ -236,25 +296,33 @@ def compose_unreachable_message(
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Escalation cancel-link signing
-#
-# A trusted contact isn't a Nexus user and has no account to authenticate
-# with, so the cancel link is authorized by a signed token rather than a
-# login - HMAC-SHA256 over the session id, domain-separated from the app's
-# other uses of blind_index_key (see app/core/config.py) by a fixed prefix,
-# same principle as an HKDF context string.
-# ---------------------------------------------------------------------------
-
-_ESCALATION_TOKEN_CONTEXT = "safety_escalation_cancel"  # noqa: S105 - not a secret, a domain-separation label
+_ESCALATION_TOKEN_CONTEXT = "safety_escalation_cancel"
 
 
 def make_escalation_cancel_token(session_id: str) -> str:
+    """Generates an HMAC-SHA256 cancellation token for an escalation session.
+
+    Args:
+        session_id: Safety session identifier string.
+
+    Returns:
+        str: Hex-encoded HMAC-SHA256 digest string.
+    """
     key = settings.blind_index_key.encode()
     message = f"{_ESCALATION_TOKEN_CONTEXT}:{session_id}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
 def verify_escalation_cancel_token(session_id: str, token: str) -> bool:
+    """Verifies a submitted cancellation token against expected HMAC using constant-time comparison.
+
+    Args:
+        session_id: Safety session identifier.
+        token: Submitted token string.
+
+    Returns:
+        bool: True if valid, False otherwise.
+    """
     expected = make_escalation_cancel_token(session_id)
     return hmac.compare_digest(expected, token)
+

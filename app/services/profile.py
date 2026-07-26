@@ -1,3 +1,9 @@
+"""Profile vector compilation and background embedding synchronization service.
+
+Fetches updated user profiles, triggers sentence transformer embedding calculations across intent-isolated contexts,
+and upserts vector representations to the `vector_profiles` database table.
+"""
+
 import logging
 from typing import Any, cast
 
@@ -9,11 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
+    """Background task to fetch full decrypted profile and upsert intent embeddings.
+
+    Args:
+        user_id: Unique user identifier string.
+        plaintext_bio: Plaintext bio string.
     """
-    Background task: fetch the full decrypted profile, compile three
-    intent-isolated embeddings, then upsert to vector_profiles.
-    Runs after the profile write commits so all fields are current.
-    """
+
     try:
         select_cols = (
             "id, bio, lifestyle, partner_values, religious_beliefs, "

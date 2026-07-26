@@ -1,3 +1,9 @@
+"""Pydantic request and response schemas and data validation models.
+
+Defines strongly-typed data validation structures, Pydantic field validators, and response DTOs
+used across authentication, profile management, discovery, chat, and safety API endpoints.
+"""
+
 import re
 from datetime import datetime
 from typing import Annotated, Literal
@@ -21,6 +27,8 @@ from app.core.config import DiscoveryTab, settings
 
 
 class AuthBootstrapResponse(BaseModel):
+    """User account bootstrap information response DTO."""
+
     user_id: str
     email: str | None = None
     is_active: bool
@@ -139,6 +147,14 @@ class ProfileModel(BaseModel):
 
 
 def _validate_terms_version(value: str) -> str:
+    """Validate terms version.
+
+        Args:
+            value: validate terms version.
+
+        Returns:
+            str: Result value.
+        """
     cleaned = value.strip()
     try:
         float(cleaned)
@@ -185,6 +201,14 @@ class NexusOnboardingRequest(BaseOnboardingRequest):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
+        """Validate name.
+
+            Args:
+                value: validate name.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if len(cleaned) < 4:
             raise ValueError("Name must be at least 4 characters.")
@@ -216,6 +240,14 @@ class MECOnboardingRequest(BaseOnboardingRequest):
     @field_validator("campus_branch")
     @classmethod
     def validate_branch(cls, value: str) -> str:
+        """Validate branch.
+
+            Args:
+                value: validate branch.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("Branch is required for NEXUS_MEC profiles.")
@@ -224,6 +256,14 @@ class MECOnboardingRequest(BaseOnboardingRequest):
     @field_validator("campus_name")
     @classmethod
     def validate_campus_name(cls, value: str | None) -> str | None:
+        """Validate campus name.
+
+            Args:
+                value: validate campus name.
+
+            Returns:
+                str | None: Result value.
+            """
         if not value or not value.strip():
             raise ValueError("Institute name is required.")
         cleaned = value.strip()
@@ -241,6 +281,7 @@ OnboardingPayload = Annotated[
 
 
 class CompleteOnboardingResponse(BaseModel):
+    """Completeonboardingresponse class representation."""
     user_id: str
     profile_created: bool
     profile: dict[str, object] = Field(exclude=True)
@@ -269,6 +310,14 @@ class ImportRequest(BaseModel):
     @field_validator("sync_code")
     @classmethod
     def validate_code_format(cls, value: str) -> str:
+        """Validate code format.
+
+            Args:
+                value: validate code format.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip().upper()
         if not cleaned.isalnum():
             raise ValueError("sync_code must be alphanumeric.")
@@ -390,6 +439,11 @@ class DiscoveryFilters(BaseModel):
 
     @model_validator(mode="after")
     def validate_age_range(self) -> "DiscoveryFilters":
+        """Validate age range.
+
+            Returns:
+                'DiscoveryFilters': Result value.
+            """
         # Cross-field validation belongs at the model level in Pydantic v2.
         if self.min_age > self.max_age:
             raise ValueError("min_age cannot be greater than max_age")
@@ -436,6 +490,14 @@ class DiscoveryActionRequest(BaseModel):
     @field_validator("target_id")
     @classmethod
     def validate_target_id_uuid(cls, v: str) -> str:
+        """Validate target id uuid.
+
+            Args:
+                v: validate target id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -494,6 +556,11 @@ class DiscoveryActionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_tab_requirements(self) -> "DiscoveryActionRequest":
+        """Validate tab requirements.
+
+            Returns:
+                'DiscoveryActionRequest': Result value.
+            """
         # Actions scoped to a discovery tab must include tab context.
         tab_required_actions = {
             "pass",
@@ -569,6 +636,7 @@ class OrbitDiscoverResponse(BaseModel):
 
 
 class OrbitNodeDetailRequest(BaseModel):
+    """Orbitnodedetailrequest class representation."""
     session_id: str = Field(
         ...,
         description="Server-issued discovery session identifier.",
@@ -581,6 +649,14 @@ class OrbitNodeDetailRequest(BaseModel):
     @field_validator("session_id", "candidate_id")
     @classmethod
     def validate_uuids(cls, v: str) -> str:
+        """Validate uuids.
+
+            Args:
+                v: validate uuids.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -591,6 +667,7 @@ class OrbitNodeDetailRequest(BaseModel):
 
 
 class OrbitNodeDetailBaseOut(BaseModel):
+    """Orbitnodedetailbaseout class representation."""
     tab: DiscoveryTab
     id: str
     name: str | None = None
@@ -624,6 +701,7 @@ class OrbitNodeDetailBaseOut(BaseModel):
 
 
 class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
+    """Orbitnodedetaildatingout class representation."""
     display_sexuality: str | None = None
     drinking: str | None = None
     smoking: str | None = None
@@ -638,6 +716,7 @@ class OrbitNodeDetailDatingOut(OrbitNodeDetailBaseOut):
 
 
 class OrbitNodeDetailFriendsOut(OrbitNodeDetailBaseOut):
+    """Orbitnodedetailfriendsout class representation."""
     display_sexuality: str | None = None
     drinking: str | None = None
     smoking: str | None = None
@@ -649,6 +728,7 @@ class OrbitNodeDetailFriendsOut(OrbitNodeDetailBaseOut):
 
 
 class OrbitNodeDetailProfessionalOut(OrbitNodeDetailBaseOut):
+    """Orbitnodedetailprofessionalout class representation."""
     activities: list[str] = Field(default_factory=list)
     looking_for: list[str] = Field(default_factory=list)
     tech_skills: list[str] = Field(default_factory=list)
@@ -671,12 +751,14 @@ OrbitNodeDetailResponse = (
 
 
 class SpotifyTrackOut(BaseModel):
+    """Spotifytrackout class representation."""
     spotify_track_id: str | None = None
     name: str
     artists: list[str] = Field(default_factory=list)
 
 
 class SpotifyPlaylistOut(BaseModel):
+    """Spotifyplaylistout class representation."""
     id: str
     spotify_playlist_id: str
     name: str
@@ -688,12 +770,14 @@ class SpotifyPlaylistOut(BaseModel):
 
 
 class SpotifyPlaylistsResponse(BaseModel):
+    """Spotifyplaylistsresponse class representation."""
     connected: bool
     last_synced_at: datetime | None = None
     playlists: list[SpotifyPlaylistOut] = []
 
 
 class SpotifyStatusResponse(BaseModel):
+    """Spotifystatusresponse class representation."""
     connected: bool
     last_synced_at: datetime | None = None
     playlist_count: int = 0
@@ -717,6 +801,7 @@ class LikeListItem(BaseModel):
 
 
 class LikesListResponse(BaseModel):
+    """Likeslistresponse class representation."""
     likes: list[LikeListItem]
     unseen_count: int
 
@@ -735,6 +820,14 @@ class MarkLikesSeenRequest(BaseModel):
     @field_validator("actor_ids")
     @classmethod
     def validate_uuids(cls, v: list[str]) -> list[str]:
+        """Validate uuids.
+
+            Args:
+                v: validate uuids.
+
+            Returns:
+                list[str]: Result value.
+            """
         import uuid
 
         for x in v:
@@ -756,6 +849,14 @@ class PeerProfileRequest(BaseModel):
     @field_validator("target_id")
     @classmethod
     def validate_target_id_uuid(cls, v: str) -> str:
+        """Validate target id uuid.
+
+            Args:
+                v: validate target id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -773,6 +874,14 @@ class LikeActionRequest(BaseModel):
     @field_validator("target_id")
     @classmethod
     def validate_target_id_uuid(cls, v: str) -> str:
+        """Validate target id uuid.
+
+            Args:
+                v: validate target id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -806,6 +915,11 @@ class LikeActionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_report_fields(self) -> "LikeActionRequest":
+        """Validate report fields.
+
+            Returns:
+                'LikeActionRequest': Result value.
+            """
         if self.action == "report":
             if self.reason is None:
                 raise ValueError("reason is required for report")
@@ -821,6 +935,7 @@ class LikeActionRequest(BaseModel):
 
 
 class LikeActionResponse(BaseModel):
+    """Likeactionresponse class representation."""
     success: bool = True
     matched: bool = False
     match_id: str | None = None
@@ -831,6 +946,7 @@ class LikeActionResponse(BaseModel):
 
 
 class MatchItem(BaseModel):
+    """Matchitem class representation."""
     match_id: str
     matched_user_id: str
     name: str | None = None
@@ -840,6 +956,7 @@ class MatchItem(BaseModel):
 
 
 class MatchesListResponse(BaseModel):
+    """Matcheslistresponse class representation."""
     matches: list[MatchItem]
 
 
@@ -851,6 +968,14 @@ class MatchActionRequest(BaseModel):
     @field_validator("target_id")
     @classmethod
     def validate_target_id_uuid(cls, v: str) -> str:
+        """Validate target id uuid.
+
+            Args:
+                v: validate target id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -884,6 +1009,11 @@ class MatchActionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_report_fields(self) -> "MatchActionRequest":
+        """Validate report fields.
+
+            Returns:
+                'MatchActionRequest': Result value.
+            """
         if self.action == "report":
             if self.reason is None:
                 raise ValueError("reason is required for report")
@@ -899,6 +1029,7 @@ class MatchActionRequest(BaseModel):
 
 
 class MatchActionResponse(BaseModel):
+    """Matchactionresponse class representation."""
     success: bool = True
 
 
@@ -907,6 +1038,7 @@ class MatchActionResponse(BaseModel):
 
 
 class ChatConversationItem(BaseModel):
+    """Chatconversationitem class representation."""
     conversation_id: str
     matched_user_id: str
     name: str | None = None
@@ -918,6 +1050,7 @@ class ChatConversationItem(BaseModel):
 
 
 class ChatsListResponse(BaseModel):
+    """Chatslistresponse class representation."""
     conversations: list[ChatConversationItem]
 
 
@@ -933,15 +1066,25 @@ class ChatCandidateItem(BaseModel):
 
 
 class ChatCandidatesResponse(BaseModel):
+    """Chatcandidatesresponse class representation."""
     candidates: list[ChatCandidateItem]
 
 
 class CreateChatRequest(BaseModel):
+    """Createchatrequest class representation."""
     match_id: str = Field(..., min_length=1)
 
     @field_validator("match_id")
     @classmethod
     def validate_match_id_uuid(cls, v: str) -> str:
+        """Validate match id uuid.
+
+            Args:
+                v: validate match id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -952,6 +1095,7 @@ class CreateChatRequest(BaseModel):
 
 
 class CreateChatResponse(BaseModel):
+    """Createchatresponse class representation."""
     conversation_id: str
     matched_user_id: str
     tab: DiscoveryTab
@@ -962,30 +1106,36 @@ class CreateChatResponse(BaseModel):
 
 
 class UploadIdentityKeyRequest(BaseModel):
+    """Uploadidentitykeyrequest class representation."""
     identity_public_key: Base64Bytes
     registration_id: int = Field(..., ge=1, le=0x7FFFFFFF)
 
 
 class UploadSignedPrekeyRequest(BaseModel):
+    """Uploadsignedprekeyrequest class representation."""
     key_id: int = Field(..., ge=0)
     public_key: Base64Bytes
     signature: Base64Bytes
 
 
 class OneTimePrekeyItem(BaseModel):
+    """Onetimeprekeyitem class representation."""
     key_id: int = Field(..., ge=0)
     public_key: Base64Bytes
 
 
 class UploadOneTimePrekeysRequest(BaseModel):
+    """Uploadonetimeprekeysrequest class representation."""
     prekeys: list[OneTimePrekeyItem] = Field(..., min_length=1, max_length=200)
 
 
 class OneTimePrekeyCountResponse(BaseModel):
+    """Onetimeprekeycountresponse class representation."""
     count: int
 
 
 class KeyBundleResponse(BaseModel):
+    """Keybundleresponse class representation."""
     user_id: str
     identity_public_key: Base64Bytes
     registration_id: int
@@ -997,11 +1147,20 @@ class KeyBundleResponse(BaseModel):
 
 
 class EstablishSessionRequest(BaseModel):
+    """Establishsessionrequest class representation."""
     conversation_id: str = Field(..., min_length=1)
 
     @field_validator("conversation_id")
     @classmethod
     def validate_conversation_id_uuid(cls, v: str) -> str:
+        """Validate conversation id uuid.
+
+            Args:
+                v: validate conversation id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -1029,6 +1188,14 @@ class SendMessageRequest(BaseModel):
     @field_validator("ciphertext")
     @classmethod
     def validate_base64(cls, v: str) -> str:
+        """Validate base64.
+
+            Args:
+                v: validate base64.
+
+            Returns:
+                str: Result value.
+            """
         import base64
 
         try:
@@ -1039,6 +1206,7 @@ class SendMessageRequest(BaseModel):
 
 
 class SendMessageResponse(BaseModel):
+    """Sendmessageresponse class representation."""
     message_id: str
     created_at: datetime
 
@@ -1048,6 +1216,7 @@ class SendMessageResponse(BaseModel):
 
 
 class PresenceHeartbeatRequest(BaseModel):
+    """Presenceheartbeatrequest class representation."""
     is_online: bool = True
 
 
@@ -1061,6 +1230,7 @@ class PresenceResponse(BaseModel):
 
 
 class MarkMessagesReadResponse(BaseModel):
+    """Markmessagesreadresponse class representation."""
     marked_count: int
 
 
@@ -1093,6 +1263,14 @@ class CreateEventRequest(BaseModel):
     @field_validator("ciphertext")
     @classmethod
     def validate_base64(cls, v: str) -> str:
+        """Validate base64.
+
+            Args:
+                v: validate base64.
+
+            Returns:
+                str: Result value.
+            """
         import base64
 
         try:
@@ -1103,6 +1281,11 @@ class CreateEventRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_safety_interval(self) -> "CreateEventRequest":
+        """Validate safety interval.
+
+            Returns:
+                'CreateEventRequest': Result value.
+            """
         if self.safety_enabled and self.safety_interval_seconds is None:
             raise ValueError(
                 "safety_interval_seconds is required when safety_enabled is set",
@@ -1111,6 +1294,7 @@ class CreateEventRequest(BaseModel):
 
 
 class EventResponse(BaseModel):
+    """Eventresponse class representation."""
     event_id: str
     message_id: str
     conversation_id: str
@@ -1125,10 +1309,12 @@ class EventResponse(BaseModel):
 
 
 class UpdateEventStatusRequest(BaseModel):
+    """Updateeventstatusrequest class representation."""
     status: Literal["confirmed", "cancelled"]
 
 
 class DiscoveryViewportRequest(BaseModel):
+    """Discoveryviewportrequest class representation."""
     session_id: str = Field(..., min_length=1)
     center_x: float
     center_y: float
@@ -1137,6 +1323,14 @@ class DiscoveryViewportRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def validate_session_id_uuid(cls, v: str) -> str:
+        """Validate session id uuid.
+
+            Args:
+                v: validate session id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -1147,6 +1341,7 @@ class DiscoveryViewportRequest(BaseModel):
 
 
 class DiscoveryViewportResponse(BaseModel):
+    """Discoveryviewportresponse class representation."""
     session_id: str
     expires_at: datetime
     total_nodes: int
@@ -1174,10 +1369,19 @@ class ConsentUpdateRequest(BaseModel):
     @field_validator("terms_version")
     @classmethod
     def validate_terms_version(cls, value: str) -> str:
+        """Validate terms version.
+
+            Args:
+                value: validate terms version.
+
+            Returns:
+                str: Result value.
+            """
         return _validate_terms_version(value)
 
 
 class ConsentUpdateResponse(BaseModel):
+    """Consentupdateresponse class representation."""
     user_id: str
     accepted_terms_version: str | None = None
     terms_accepted_at: datetime | None = None
@@ -1210,6 +1414,14 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     @field_validator("profile_pic")
     @classmethod
     def validate_avatar_presence(cls, value: str) -> str:
+        """Validate avatar presence.
+
+            Args:
+                value: validate avatar presence.
+
+            Returns:
+                str: Result value.
+            """
         if not value or not value.strip():
             raise ValueError(
                 "Validation Error: Profile picture storage location is mandatory.",
@@ -1225,6 +1437,14 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     @field_validator("normal_pics")
     @classmethod
     def validate_normal_pics_constraints(cls, value: list[str]) -> list[str]:
+        """Validate normal pics constraints.
+
+            Args:
+                value: validate normal pics constraints.
+
+            Returns:
+                list[str]: Result value.
+            """
         cleaned_list = [v.strip() for v in value if v and v.strip()]
         total_count = len(cleaned_list)
         # Allow empty normal_pics (e.g. when only avatar is set)
@@ -1243,6 +1463,14 @@ class ProfileImagesAndTagsUpdate(BaseModel):
     @field_validator("ai_vibe_tags")
     @classmethod
     def validate_vibe_tags_integrity(cls, value: list[str]) -> list[str]:
+        """Validate vibe tags integrity.
+
+            Args:
+                value: validate vibe tags integrity.
+
+            Returns:
+                list[str]: Result value.
+            """
         # Defensive cleanup: strip whitespaces, convert to lowercase, remove duplicates
         cleaned_tags = list(set([t.strip().lower() for t in value if t and t.strip()]))
 
@@ -1275,6 +1503,7 @@ class ProfileImagesAndTagsUpdate(BaseModel):
 
 
 class ProfileDetailsUpdate(BaseModel):
+    """Profiledetailsupdate class representation."""
     name: str | None = Field(default=None, min_length=4, max_length=100)
     age: int | None = Field(default=None, ge=18, le=80)
     campus_branch: str | None = Field(default=None, max_length=100)
@@ -1297,6 +1526,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("campus_name")
     @classmethod
     def validate_campus_name(cls, value: str | None) -> str | None:
+        """Validate campus name.
+
+            Args:
+                value: validate campus name.
+
+            Returns:
+                str | None: Result value.
+            """
         if value is None:
             return value
         cleaned = value.strip()
@@ -1309,6 +1546,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("bio")
     @classmethod
     def validate_bio(cls, value: str | None) -> str | None:
+        """Validate bio.
+
+            Args:
+                value: validate bio.
+
+            Returns:
+                str | None: Result value.
+            """
         if value is None:
             return value
         cleaned = value.strip()
@@ -1320,6 +1565,11 @@ class ProfileDetailsUpdate(BaseModel):
 
     @model_validator(mode="after")
     def check_campus_year_needs_name(self) -> "ProfileDetailsUpdate":
+        """Check campus year needs name.
+
+            Returns:
+                'ProfileDetailsUpdate': Result value.
+            """
         if (
             self.campus_year is not None
             and self.campus_name is not None
@@ -1331,6 +1581,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("drinking")
     @classmethod
     def validate_drinking(cls, v: str | None) -> str | None:
+        """Validate drinking.
+
+            Args:
+                v: validate drinking.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in DRINKING_CHOICES:
             raise ValueError(f"drinking must be one of {DRINKING_CHOICES}")
         return v
@@ -1338,6 +1596,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("smoking")
     @classmethod
     def validate_smoking(cls, v: str | None) -> str | None:
+        """Validate smoking.
+
+            Args:
+                v: validate smoking.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in SMOKING_CHOICES:
             raise ValueError(f"smoking must be one of {SMOKING_CHOICES}")
         return v
@@ -1345,6 +1611,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("children_plans")
     @classmethod
     def validate_children_plans(cls, v: str | None) -> str | None:
+        """Validate children plans.
+
+            Args:
+                v: validate children plans.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in CHILDREN_PLANS_CHOICES:
             raise ValueError(f"children_plans must be one of {CHILDREN_PLANS_CHOICES}")
         return v
@@ -1352,6 +1626,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("religious_beliefs")
     @classmethod
     def validate_religious_beliefs(cls, v: str | None) -> str | None:
+        """Validate religious beliefs.
+
+            Args:
+                v: validate religious beliefs.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in RELIGIOUS_BELIEFS_CHOICES:
             raise ValueError(
                 f"religious_beliefs must be one of {RELIGIOUS_BELIEFS_CHOICES}",
@@ -1361,6 +1643,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("interests")
     @classmethod
     def validate_interests(cls, v: dict[str, int] | None) -> dict[str, int] | None:
+        """Validate interests.
+
+            Args:
+                v: validate interests.
+
+            Returns:
+                dict[str, int] | None: Result value.
+            """
         if v is None:
             return v
         for k, val in v.items():
@@ -1378,6 +1668,14 @@ class ProfileDetailsUpdate(BaseModel):
         cls,
         v: dict[str, list[str]] | None,
     ) -> dict[str, list[str]] | None:
+        """Validate sub interests.
+
+            Args:
+                v: validate sub interests.
+
+            Returns:
+                dict[str, list[str]] | None: Result value.
+            """
         if v is None:
             return v
         for k, subs in v.items():
@@ -1394,6 +1692,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("display_gender")
     @classmethod
     def validate_display_gender(cls, v: str | None) -> str | None:
+        """Validate display gender.
+
+            Args:
+                v: validate display gender.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in GENDER_CHOICES:
             raise ValueError(f"display_gender must be one of {GENDER_CHOICES}")
         return v
@@ -1401,6 +1707,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("display_sexuality")
     @classmethod
     def validate_display_sexuality(cls, v: str | None) -> str | None:
+        """Validate display sexuality.
+
+            Args:
+                v: validate display sexuality.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in SEXUALITY_CHOICES:
             raise ValueError(f"display_sexuality must be one of {SEXUALITY_CHOICES}")
         return v
@@ -1408,6 +1722,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("pronouns")
     @classmethod
     def validate_pronouns(cls, v: str | None) -> str | None:
+        """Validate pronouns.
+
+            Args:
+                v: validate pronouns.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is not None and v not in PRONOUNS_CHOICES:
             raise ValueError(f"pronouns must be one of {PRONOUNS_CHOICES}")
         return v
@@ -1415,6 +1737,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("languages")
     @classmethod
     def validate_languages(cls, v: list[str] | None) -> list[str] | None:
+        """Validate languages.
+
+            Args:
+                v: validate languages.
+
+            Returns:
+                list[str] | None: Result value.
+            """
         if v is not None:
             for lang in v:
                 if lang not in LANGUAGES_CHOICES:
@@ -1424,6 +1754,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("causes_supported")
     @classmethod
     def validate_causes_supported(cls, v: list[str] | None) -> list[str] | None:
+        """Validate causes supported.
+
+            Args:
+                v: validate causes supported.
+
+            Returns:
+                list[str] | None: Result value.
+            """
         if v is not None:
             for cause in v:
                 if cause not in CAUSES_SUPPORTED_CHOICES:
@@ -1433,6 +1771,14 @@ class ProfileDetailsUpdate(BaseModel):
     @field_validator("pets")
     @classmethod
     def validate_pets(cls, v: list[str] | None) -> list[str] | None:
+        """Validate pets.
+
+            Args:
+                v: validate pets.
+
+            Returns:
+                list[str] | None: Result value.
+            """
         if v is not None:
             for pet in v:
                 if pet not in PETS_CHOICES:
@@ -1462,6 +1808,7 @@ class ProfileDetailsUpdate(BaseModel):
 
 
 class ProfileDetailsResponse(BaseModel):
+    """Profiledetailsresponse class representation."""
     name: str | None = None
     age: int | None = None
     campus_year: int | None = None
@@ -1509,11 +1856,13 @@ class ProfileDetailsResponse(BaseModel):
 
 
 class ProfileUpdateResponse(BaseModel):
+    """Profileupdateresponse class representation."""
     status: str
     detail: str
 
 
 class ModerationSubjectItem(BaseModel):
+    """Moderationsubjectitem class representation."""
     id: str
     name: str | None = None
     age: int | None = None
@@ -1526,6 +1875,7 @@ class ModerationSubjectItem(BaseModel):
 
 
 class ModerationSubjectsRequest(BaseModel):
+    """Moderationsubjectsrequest class representation."""
     target_ids: list[str] = Field(..., min_length=1, max_length=50)
 
 
@@ -1550,6 +1900,7 @@ ALLOWED_HIDDEN_FIELDS: frozenset[str] = frozenset(
 
 
 class PrivacySettingsResponse(BaseModel):
+    """Privacysettingsresponse class representation."""
     hidden_fields: list[str]
     share_active_status: bool
     share_read_receipts: bool
@@ -1565,6 +1916,14 @@ class PrivacySettingsUpdate(BaseModel):
     @field_validator("hidden_fields")
     @classmethod
     def validate_hidden_fields(cls, v: list[str] | None) -> list[str] | None:
+        """Validate hidden fields.
+
+            Args:
+                v: validate hidden fields.
+
+            Returns:
+                list[str] | None: Result value.
+            """
         if v is None:
             return None
         for field in v:
@@ -1582,6 +1941,7 @@ class PrivacySettingsUpdate(BaseModel):
 
 
 class EmailNotificationSettingsResponse(BaseModel):
+    """Emailnotificationsettingsresponse class representation."""
     email_notify_matches: bool
     email_notify_messages: bool
     email_notify_digest: bool
@@ -1659,6 +2019,14 @@ class FeedbackSubmitRequest(BaseModel):
     @field_validator("subject", "message")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -1667,6 +2035,14 @@ class FeedbackSubmitRequest(BaseModel):
     @field_validator("github_issue_url")
     @classmethod
     def validate_github_issue_url(cls, v: str | None) -> str | None:
+        """Validate github issue url.
+
+            Args:
+                v: validate github issue url.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is None:
             return None
         v = v.strip()
@@ -1682,12 +2058,25 @@ class FeedbackSubmitRequest(BaseModel):
     @field_validator("attachment_paths")
     @classmethod
     def validate_attachment_paths(cls, v: list[str]) -> list[str]:
+        """Validate attachment paths.
+
+            Args:
+                v: validate attachment paths.
+
+            Returns:
+                list[str]: Result value.
+            """
         if len(v) > 5:
             raise ValueError("attachment_paths supports at most 5 files")
         return v
 
     @model_validator(mode="after")
     def validate_github_url_scope(self) -> "FeedbackSubmitRequest":
+        """Validate github url scope.
+
+            Returns:
+                'FeedbackSubmitRequest': Result value.
+            """
         if self.github_issue_url and self.query_type != "bug_report":
             raise ValueError(
                 "github_issue_url is only applicable to bug_report tickets",
@@ -1696,6 +2085,7 @@ class FeedbackSubmitRequest(BaseModel):
 
 
 class FeedbackSubmitResponse(BaseModel):
+    """Feedbacksubmitresponse class representation."""
     id: str
     status: str
     created_at: datetime
@@ -1713,6 +2103,7 @@ class FeedbackTicketSummary(BaseModel):
 
 
 class FeedbackStatusHistoryEntry(BaseModel):
+    """Feedbackstatushistoryentry class representation."""
     status: str
     note: str | None = None
     changed_by: str | None = None
@@ -1720,6 +2111,7 @@ class FeedbackStatusHistoryEntry(BaseModel):
 
 
 class FeedbackCommentEntry(BaseModel):
+    """Feedbackcommententry class representation."""
     id: str
     author_id: str
     body: str
@@ -1728,6 +2120,7 @@ class FeedbackCommentEntry(BaseModel):
 
 
 class FeedbackTicketDetail(BaseModel):
+    """Feedbackticketdetail class representation."""
     id: str
     query_type: str
     subject: str
@@ -1744,11 +2137,20 @@ class FeedbackTicketDetail(BaseModel):
 
 
 class FeedbackCommentRequest(BaseModel):
+    """Feedbackcommentrequest class representation."""
     body: str = Field(..., min_length=1, max_length=3000)
 
     @field_validator("body")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -1756,11 +2158,20 @@ class FeedbackCommentRequest(BaseModel):
 
 
 class FeedbackCloseRequest(BaseModel):
+    """Feedbackcloserequest class representation."""
     reason: str = Field(..., min_length=3, max_length=1000)
 
     @field_validator("reason")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -1773,12 +2184,21 @@ class FeedbackCloseRequest(BaseModel):
 
 
 class SafetyContactIn(BaseModel):
+    """Safetycontactin class representation."""
     name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=8, max_length=20)
 
     @field_validator("name")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -1787,6 +2207,14 @@ class SafetyContactIn(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
+        """Validate phone.
+
+            Args:
+                v: validate phone.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = v.strip()
         if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -1817,17 +2245,27 @@ class SafetyContactsSyncResponse(BaseModel):
 
 
 class SafetyLocation(BaseModel):
+    """Safetylocation class representation."""
     lat: float
     lng: float
 
 
 class SafetyAlertRequest(BaseModel):
+    """Safetyalertrequest class representation."""
     alert_type: Literal["sos_silent", "sos_loud", "inform"]
     session_id: str | None = None
 
     @field_validator("session_id")
     @classmethod
     def validate_session_id_uuid(cls, v: str | None) -> str | None:
+        """Validate session id uuid.
+
+            Args:
+                v: validate session id uuid.
+
+            Returns:
+                str | None: Result value.
+            """
         if v is None:
             return None
         import uuid
@@ -1844,12 +2282,14 @@ class SafetyAlertRequest(BaseModel):
 
 
 class SafetyAlertResponse(BaseModel):
+    """Safetyalertresponse class representation."""
     id: str
     contacts_notified: int
     contacts_total: int
 
 
 class SafetyEvidenceRegisterRequest(BaseModel):
+    """Safetyevidenceregisterrequest class representation."""
     alert_id: str
     storage_path: str = Field(..., max_length=500)
     media_key_base64: str = Field(..., max_length=500)
@@ -1858,6 +2298,7 @@ class SafetyEvidenceRegisterRequest(BaseModel):
 
 
 class SafetyEvidenceRegisterResponse(BaseModel):
+    """Safetyevidenceregisterresponse class representation."""
     id: str
 
 
@@ -1867,6 +2308,7 @@ class SafetyEvidenceRegisterResponse(BaseModel):
 
 
 class SafetySessionStartRequest(BaseModel):
+    """Safetysessionstartrequest class representation."""
     interval_seconds: int = Field(..., gt=0, le=86400)
     label: str | None = Field(default=None, max_length=200)
     event_label: str | None = Field(default=None, max_length=200)
@@ -1876,15 +2318,25 @@ class SafetySessionStartRequest(BaseModel):
 
 
 class SafetySessionStartResponse(BaseModel):
+    """Safetysessionstartresponse class representation."""
     id: str
 
 
 class SafetySessionCheckinRequest(BaseModel):
+    """Safetysessioncheckinrequest class representation."""
     session_id: str = Field(..., min_length=1)
 
     @field_validator("session_id")
     @classmethod
     def validate_session_id_uuid(cls, v: str) -> str:
+        """Validate session id uuid.
+
+            Args:
+                v: validate session id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -1899,11 +2351,20 @@ class SafetySessionCheckinRequest(BaseModel):
 
 
 class SafetySessionEndRequest(BaseModel):
+    """Safetysessionendrequest class representation."""
     session_id: str = Field(..., min_length=1)
 
     @field_validator("session_id")
     @classmethod
     def validate_session_id_uuid(cls, v: str) -> str:
+        """Validate session id uuid.
+
+            Args:
+                v: validate session id uuid.
+
+            Returns:
+                str: Result value.
+            """
         import uuid
 
         try:
@@ -1922,11 +2383,20 @@ class SafetySessionEndRequest(BaseModel):
 
 
 class AccountPhoneOtpRequestRequest(BaseModel):
+    """Accountphoneotprequestrequest class representation."""
     phone: str = Field(..., min_length=8, max_length=20)
 
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        """Validate phone.
+
+            Args:
+                value: validate phone.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -1937,10 +2407,12 @@ class AccountPhoneOtpRequestRequest(BaseModel):
 
 
 class AccountPhoneOtpRequestResponse(BaseModel):
+    """Accountphoneotprequestresponse class representation."""
     sent: bool = True
 
 
 class AccountPhoneOtpVerifyRequest(BaseModel):
+    """Accountphoneotpverifyrequest class representation."""
     phone: str = Field(..., min_length=8, max_length=20)
     # Exactly 6 digits, matching generate_otp_code() - rejecting malformed
     # input here (a 422) rather than letting it consume one of the 5
@@ -1950,6 +2422,14 @@ class AccountPhoneOtpVerifyRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        """Validate phone.
+
+            Args:
+                value: validate phone.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -1960,6 +2440,7 @@ class AccountPhoneOtpVerifyRequest(BaseModel):
 
 
 class AccountPhoneOtpVerifyResponse(BaseModel):
+    """Accountphoneotpverifyresponse class representation."""
     verified: bool = True
     mobile: str
     mobile_verified_at: datetime
@@ -1975,11 +2456,20 @@ class AccountPhoneOtpVerifyResponse(BaseModel):
 
 
 class LoginByPhoneRequestRequest(BaseModel):
+    """Loginbyphonerequestrequest class representation."""
     phone: str = Field(..., min_length=8, max_length=20)
 
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        """Validate phone.
+
+            Args:
+                value: validate phone.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -2000,12 +2490,21 @@ class LoginByPhoneRequestResponse(BaseModel):
 
 
 class LoginByPhoneVerifyRequest(BaseModel):
+    """Loginbyphoneverifyrequest class representation."""
     phone: str = Field(..., min_length=8, max_length=20)
     code: str = Field(..., min_length=4, max_length=10)
 
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, value: str) -> str:
+        """Validate phone.
+
+            Args:
+                value: validate phone.
+
+            Returns:
+                str: Result value.
+            """
         cleaned = value.strip()
         if not re.match(r"^\+[1-9]\d{7,14}$", cleaned):
             raise ValueError(
@@ -2016,6 +2515,7 @@ class LoginByPhoneVerifyRequest(BaseModel):
 
 
 class LoginByPhoneVerifyResponse(BaseModel):
+    """Loginbyphoneverifyresponse class representation."""
     access_token: str
     refresh_token: str
     expires_in: int
@@ -2029,6 +2529,7 @@ class LoginByPhoneVerifyResponse(BaseModel):
 
 
 class AccountDeletionSettingsResponse(BaseModel):
+    """Accountdeletionsettingsresponse class representation."""
     grace_period_days: int
     blocklist_cooldown_days: int
     long_tail_purge_days: int
@@ -2037,32 +2538,39 @@ class AccountDeletionSettingsResponse(BaseModel):
 
 
 class AccountDeletionOtpRequestRequest(BaseModel):
+    """Accountdeletionotprequestrequest class representation."""
     email: str | None = Field(default=None, max_length=255)
 
 
 class AccountDeletionOtpRequestResponse(BaseModel):
+    """Accountdeletionotprequestresponse class representation."""
     sent: bool = True
 
 
 class AccountDeletionOtpVerifyRequest(BaseModel):
+    """Accountdeletionotpverifyrequest class representation."""
     code: str = Field(..., min_length=4, max_length=10)
     email: str | None = Field(default=None, max_length=255)
 
 
 class AccountDeletionOtpVerifyResponse(BaseModel):
+    """Accountdeletionotpverifyresponse class representation."""
     verified: bool = True
 
 
 class AccountDeletionRequestRequest(BaseModel):
+    """Accountdeletionrequestrequest class representation."""
     confirmation_text: str = Field(..., max_length=50)
     email: str | None = Field(default=None, max_length=255)
 
 
 class AccountDeletionRequestResponse(BaseModel):
+    """Accountdeletionrequestresponse class representation."""
     scheduled_purge_at: datetime
 
 
 class AccountDeletionCancelResponse(BaseModel):
+    """Accountdeletioncancelresponse class representation."""
     reactivated: bool = True
 
 
@@ -2074,23 +2582,28 @@ class AccountDeletionCancelResponse(BaseModel):
 
 
 class DataExportOtpRequestRequest(BaseModel):
+    """Dataexportotprequestrequest class representation."""
     email: str | None = Field(default=None, max_length=255)
 
 
 class DataExportOtpRequestResponse(BaseModel):
+    """Dataexportotprequestresponse class representation."""
     sent: bool = True
 
 
 class DataExportOtpVerifyRequest(BaseModel):
+    """Dataexportotpverifyrequest class representation."""
     code: str = Field(..., min_length=4, max_length=10)
     email: str | None = Field(default=None, max_length=255)
 
 
 class DataExportOtpVerifyResponse(BaseModel):
+    """Dataexportotpverifyresponse class representation."""
     verified: bool = True
 
 
 class DataExportRequestRequest(BaseModel):
+    """Dataexportrequestrequest class representation."""
     email: str | None = Field(default=None, max_length=255)
 
 
@@ -2101,11 +2614,20 @@ class DataExportRequestRequest(BaseModel):
 
 
 class SafetyPortalOtpRequestRequest(BaseModel):
+    """Safetyportalotprequestrequest class representation."""
     phone: str = Field(..., min_length=6, max_length=20)
 
     @field_validator("phone")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -2122,6 +2644,7 @@ class SafetyPortalOtpRequestResponse(BaseModel):
 
 
 class SafetyPortalOtpVerifyRequest(BaseModel):
+    """Safetyportalotpverifyrequest class representation."""
     phone: str = Field(..., min_length=6, max_length=20)
     # Exactly 6 digits, matching generate_otp_code() - rejecting malformed
     # input here (a 422) rather than letting it consume one of the 5
@@ -2131,6 +2654,14 @@ class SafetyPortalOtpVerifyRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -2138,11 +2669,13 @@ class SafetyPortalOtpVerifyRequest(BaseModel):
 
 
 class SafetyPortalOtpVerifyResponse(BaseModel):
+    """Safetyportalotpverifyresponse class representation."""
     token: str
     expires_in: int
 
 
 class SafetyPortalEvidenceItem(BaseModel):
+    """Safetyportalevidenceitem class representation."""
     id: str
     content_type: Literal["video", "audio"]
     duration_seconds: float | None = None
@@ -2152,6 +2685,7 @@ class SafetyPortalEvidenceItem(BaseModel):
 
 
 class SafetyPortalDetailsResponse(BaseModel):
+    """Safetyportaldetailsresponse class representation."""
     label: str | None = None
     event_label: str | None = None
     status: Literal["active", "ended"]
@@ -2170,11 +2704,20 @@ class SafetyPortalDetailsResponse(BaseModel):
 
 
 class SafetyContactPortalOtpRequestRequest(BaseModel):
+    """Safetycontactportalotprequestrequest class representation."""
     phone: str = Field(..., min_length=6, max_length=20)
 
     @field_validator("phone")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -2191,12 +2734,21 @@ class SafetyContactPortalOtpRequestResponse(BaseModel):
 
 
 class SafetyContactPortalOtpVerifyRequest(BaseModel):
+    """Safetycontactportalotpverifyrequest class representation."""
     phone: str = Field(..., min_length=6, max_length=20)
     code: str = Field(..., pattern=r"^\d{6}$")
 
     @field_validator("phone")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
+        """Strip and require non blank.
+
+            Args:
+                v: strip and require non blank.
+
+            Returns:
+                str: Result value.
+            """
         v = v.strip()
         if not v:
             raise ValueError("must not be blank")
@@ -2204,11 +2756,13 @@ class SafetyContactPortalOtpVerifyRequest(BaseModel):
 
 
 class SafetyContactPortalOtpVerifyResponse(BaseModel):
+    """Safetycontactportalotpverifyresponse class representation."""
     token: str
     expires_in: int
 
 
 class SafetyContactPortalDetailsResponse(BaseModel):
+    """Safetycontactportaldetailsresponse class representation."""
     user_name: str
     profile_pic: str | None = None
     hometown: str | None = None
@@ -2216,4 +2770,5 @@ class SafetyContactPortalDetailsResponse(BaseModel):
 
 
 class SafetyContactPortalRemoveResponse(BaseModel):
+    """Safetycontactportalremoveresponse class representation."""
     removed: bool = True

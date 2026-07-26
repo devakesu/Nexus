@@ -1,3 +1,9 @@
+"""API rate limiting configuration and key generation utilities.
+
+Integrates SlowAPI rate limiting with dynamic key derivation based on authenticated user ID
+(via verified JWT payload decoding) or client IP address fallback.
+"""
+
 import asyncio
 import contextlib
 from typing import Any, cast
@@ -11,10 +17,16 @@ from app.core.config import settings
 
 
 def get_user_or_ip(request: Request) -> str:
-    """
-    Derives the rate-limiting key. Returns the authenticated user ID if
-    available via Bearer token (verified signature check),
-    falling back to the client IP address.
+    """Derives the rate-limiting identifier key for an incoming HTTP request.
+
+    Attempts to parse and cryptographically verify the Bearer JWT token from the Request header.
+    If valid, returns 'user:<user_id>'. Otherwise, falls back to client IP address.
+
+    Args:
+        request: FastAPI/Starlette request instance.
+
+    Returns:
+        str: Rate-limiting bucket identifier string.
     """
     auth_header = request.headers.get("authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
@@ -25,6 +37,7 @@ def get_user_or_ip(request: Request) -> str:
             public_key = None
             if is_jwks:
                 from app.core.jwks import get_live_supabase_public_key
+
                 with contextlib.suppress(Exception):
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
@@ -69,3 +82,4 @@ limiter = Limiter(
     key_func=get_user_or_ip,
     enabled=settings.enable_rate_limiting,
 )
+

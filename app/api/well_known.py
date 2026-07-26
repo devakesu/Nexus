@@ -1,3 +1,8 @@
+"""FastAPI router for serving iOS Universal Links and Android App Links configuration files.
+
+Provides endpoints for `apple-app-site-association` and `assetlinks.json`.
+"""
+
 import logging
 
 from fastapi import APIRouter, Request
@@ -10,8 +15,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+
 @router.get("/.well-known/apple-app-site-association")
 def apple_app_site_association(request: Request) -> JSONResponse:
+    """Returns Apple Universal Links app site association configuration JSON.
+
+    Args:
+        request: Incoming HTTP request instance.
+
+    Returns:
+        JSONResponse: AASA configuration object.
+    """
     _ = request
     team_id = settings.apple_team_id
     if not team_id:
@@ -36,6 +50,14 @@ def apple_app_site_association(request: Request) -> JSONResponse:
 
 @router.get("/.well-known/assetlinks.json")
 def assetlinks(request: Request) -> JSONResponse:
+    """Returns Android App Links asset links configuration JSON.
+
+    Args:
+        request: Incoming HTTP request instance.
+
+    Returns:
+        JSONResponse: Assetlinks configuration list.
+    """
     _ = request
     fingerprint = settings.android_sha256_fingerprint
     if not fingerprint:
@@ -59,3 +81,4 @@ def assetlinks(request: Request) -> JSONResponse:
         },
     ]
     return JSONResponse(content=content)
+
