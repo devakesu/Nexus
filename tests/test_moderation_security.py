@@ -178,4 +178,8 @@ async def test_submit_appeal_ticket_flow(
         user_id="user-uuid-123",
         submitter_email="test@example.com",
         github_issue_url=None,
+        attachment_count=0,
+        attachment_names=None,
+        submitter_name=None,
+        account_id_or_phone=None,
     )

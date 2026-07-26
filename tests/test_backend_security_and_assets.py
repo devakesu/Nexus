@@ -146,4 +146,10 @@ def test_footers_and_active_page_bars():
     assert 'class="footer-link active"' in res_contact.text
     assert 'href="/contact" class="footer-link active"' in res_contact.text
 
+    res_delete = cast(Response, client.get("/delete-account"))
+    assert res_delete.status_code == 200
+    assert 'class="footer-link active"' in res_delete.text
+    assert 'href="/delete-account" class="footer-link active"' in res_delete.text
+
+
 

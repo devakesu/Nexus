@@ -243,7 +243,7 @@ Nexus participates in:
 - **Trivy** - Container image vulnerability scanning
 - **Sentry** - Real-time error tracking and monitoring
 
-View our security score: [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/Nexus/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/Nexus)
+View our score: [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/Nexus/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/Nexus)
 
 ## Additional Resources
 

@@ -135,6 +135,9 @@ function exportSecrets(secrets) {
     console.log(`✓ Written secrets to ${outputFile}`);
   }
 
+  // Dynamically generate mobile/firebase.json if secret map includes required Firebase parameters
+  generateFirebaseJson(secrets);
+
   if (githubEnvFile) {
     console.log(`📝 Exporting variables to GITHUB_ENV...`);
     for (const secret of secrets) {
@@ -165,6 +168,66 @@ function exportSecrets(secrets) {
 }
 
 /**
+ * Dynamically generates mobile/firebase.json from Infisical secrets or process.env.
+ */
+function generateFirebaseJson(secrets = []) {
+  const envMap = {};
+  for (const s of secrets) {
+    envMap[s.secretKey] = s.secretValue;
+  }
+  const getVar = (key) => envMap[key] || process.env[key] || '';
+
+  const projectId = getVar('FIREBASE_PROJECT_ID');
+  const androidAppIdNexus = getVar('FIREBASE_ANDROID_APP_ID_NEXUS');
+  const iosAppIdNexus = getVar('FIREBASE_IOS_APP_ID_NEXUS');
+  const androidAppIdNexusMec = getVar('FIREBASE_ANDROID_APP_ID_NEXUS_MEC');
+  const iosAppIdNexusMec = getVar('FIREBASE_IOS_APP_ID_NEXUS_MEC');
+
+  if (!projectId || !androidAppIdNexus) {
+    console.log('ℹ️ Skipping mobile/firebase.json generation (missing Firebase project/app IDs).');
+    return;
+  }
+
+  const firebaseJson = {
+    flutter: {
+      platforms: {
+        android: {
+          default: {
+            projectId: projectId,
+            appId: androidAppIdNexus,
+            fileOutput: "android/app/google-services.json"
+          }
+        },
+        dart: {
+          "lib/firebase_options_nexus.dart": {
+            projectId: projectId,
+            configurations: {
+              android: androidAppIdNexus,
+              ios: iosAppIdNexus || androidAppIdNexus
+            }
+          },
+          "lib/firebase_options_nexus_mec.dart": {
+            projectId: projectId,
+            configurations: {
+              android: androidAppIdNexusMec || androidAppIdNexus,
+              ios: iosAppIdNexusMec || iosAppIdNexus || androidAppIdNexus
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const targetPath = 'mobile/firebase.json';
+  try {
+    fs.writeFileSync(targetPath, JSON.stringify(firebaseJson, null, 2) + '\n');
+    console.log(`✓ Dynamically generated ${targetPath}`);
+  } catch (err) {
+    console.warn(`⚠️ Could not write ${targetPath}:`, err.message);
+  }
+}
+
+/**
  * Main application entrypoint.
  */
 async function main() {
@@ -186,7 +249,17 @@ async function main() {
   exportSecrets(secrets);
 }
 
-main().catch(err => {
-  console.error('❌ Script failed:', err);
-  process.exit(1);
-});
+module.exports = {
+  generateFirebaseJson,
+  exportSecrets,
+  fetchSecrets,
+  resolveProjectId,
+  authenticate,
+};
+
+if (require.main === module) {
+  main().catch(err => {
+    console.error('❌ Script failed:', err);
+    process.exit(1);
+  });
+}

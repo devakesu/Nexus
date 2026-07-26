@@ -2036,15 +2036,17 @@ class AccountDeletionSettingsResponse(BaseModel):
     safety_data_legal_hold_days: int
 
 
+class AccountDeletionOtpRequestRequest(BaseModel):
+    email: str | None = Field(default=None, max_length=255)
+
+
 class AccountDeletionOtpRequestResponse(BaseModel):
     sent: bool = True
 
 
 class AccountDeletionOtpVerifyRequest(BaseModel):
-    # Rides Supabase's native email OTP (AppConfig.otpLength on the client),
-    # not the 6-digit SMS-based account_phone_otp system - see
-    # app/core/passwordless_email.py.
     code: str = Field(..., min_length=4, max_length=10)
+    email: str | None = Field(default=None, max_length=255)
 
 
 class AccountDeletionOtpVerifyResponse(BaseModel):
@@ -2053,6 +2055,7 @@ class AccountDeletionOtpVerifyResponse(BaseModel):
 
 class AccountDeletionRequestRequest(BaseModel):
     confirmation_text: str = Field(..., max_length=50)
+    email: str | None = Field(default=None, max_length=255)
 
 
 class AccountDeletionRequestResponse(BaseModel):
@@ -2070,16 +2073,26 @@ class AccountDeletionCancelResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class DataExportOtpRequestRequest(BaseModel):
+    email: str | None = Field(default=None, max_length=255)
+
+
 class DataExportOtpRequestResponse(BaseModel):
     sent: bool = True
 
 
 class DataExportOtpVerifyRequest(BaseModel):
     code: str = Field(..., min_length=4, max_length=10)
+    email: str | None = Field(default=None, max_length=255)
 
 
 class DataExportOtpVerifyResponse(BaseModel):
     verified: bool = True
+
+
+class DataExportRequestRequest(BaseModel):
+    email: str | None = Field(default=None, max_length=255)
+
 
 
 # ---------------------------------------------------------------------------

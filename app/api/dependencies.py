@@ -38,9 +38,18 @@ def get_bearer_token(
     return credentials.credentials
 
 
+def get_optional_bearer_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),  # noqa: B008
+) -> str | None:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    return credentials.credentials
+
+
 # ---------------------------------------------------------------------------
 # JWT / user identity
 # ---------------------------------------------------------------------------
+
 
 
 def _decode_jwt(
@@ -128,6 +137,24 @@ async def get_authenticated_user_id(
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
     return user_id
+
+
+async def get_optional_authenticated_user_id(
+    token: str | None = Depends(get_optional_bearer_token),
+) -> str | None:
+    if not token:
+        return None
+    try:
+        secret = settings.supabase_jwt_secret
+        public_key = None
+        if settings.is_jwks:
+            public_key = await get_live_supabase_public_key(token)
+        payload = _decode_jwt(token, secret, public_key)
+        user_uuid: str | None = payload.get("sub")
+        return user_uuid
+    except Exception:
+        return None
+
 
 
 async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:

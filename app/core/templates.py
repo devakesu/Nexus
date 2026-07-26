@@ -97,6 +97,45 @@ def render_legal(
     )
 
 
+def render_delete_account(
+    grace_period_days: int = 14,
+    blocklist_cooldown_days: int = 30,
+    long_tail_purge_days: int = 1095,
+    safety_evidence_active_retention_days: int = 365,
+    safety_data_legal_hold_days: int = 180,
+    domain: str = "nexus.devakesu.com",
+    effective_date: str = "July 26, 2026",
+    is_embed: bool = False,
+) -> str:
+    """Renders the Delete Account & Data Export page template."""
+    if long_tail_purge_days % 365 == 0:
+        years = long_tail_purge_days // 365
+        purge_fmt = f"{years} year{'s' if years != 1 else ''}"
+    else:
+        purge_fmt = f"{long_tail_purge_days} days"
+
+    return render_template(
+        "pages/delete_account.html",
+        {
+            "grace_period_days": grace_period_days,
+            "blocklist_cooldown_days": blocklist_cooldown_days,
+            "long_tail_purge_days": long_tail_purge_days,
+            "long_tail_purge_formatted": purge_fmt,
+            "safety_evidence_active_retention_days": safety_evidence_active_retention_days,
+            "safety_data_legal_hold_days": safety_data_legal_hold_days,
+            "domain": domain,
+            "effective_date": effective_date,
+            "is_embed": is_embed,
+            "footer_type": "secondary",
+            "header_mode": "secondary",
+            "active_page": "delete_account",
+            "brand_subtitle": "Account Rights",
+        },
+    )
+
+
+
+
 def render_error(code: int = 404, message: Optional[str] = None) -> str:
     """Renders a unified error page template."""
     error_titles = {

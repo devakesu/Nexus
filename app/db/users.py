@@ -278,6 +278,31 @@ def get_user_email_by_id(user_id: str) -> str | None:
     return str(email) if email else None
 
 
+def get_user_id_by_email(email: str) -> str | None:
+    """Looks up an account's user_id by email address from Supabase Auth (auth.users).
+    Used for web-based unauthenticated account deletion & data export requests.
+    """
+    if not email:
+        return None
+    normalized = email.strip().lower()
+    try:
+        response = supabase_client.auth.admin.list_users(page=1, per_page=1000)
+        raw_users = getattr(response, "users", response) if response else []
+        users: list[Any] = cast(list[Any], raw_users) if isinstance(raw_users, list) else []
+        for u in users:
+            u_email = getattr(u, "email", None)
+            if isinstance(u_email, str) and u_email.strip().lower() == normalized:
+                u_id = getattr(u, "id", None)
+                if u_id:
+                    return str(u_id)
+    except Exception:
+        logger.exception("Failed to look up user_id by email", extra={"email": email})
+    return None
+
+
+
+
+
 def upsert_public_user(
     user_id: str,
     app_variant: str | None = None,

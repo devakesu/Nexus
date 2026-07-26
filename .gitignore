@@ -160,6 +160,7 @@ mobile/scratch/
 
 # Core Application Configuration & Secrets
 mobile/lib/config/app_secrets.dart
+mobile/firebase.json
 mobile/**/google-services.json
 
 # Android native tooling overrides

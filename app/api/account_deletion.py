@@ -7,17 +7,32 @@ app/services/reminder_scheduler.py for the purge jobs.
 import logging
 import secrets
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+)
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
     get_authenticated_user_id,
-    get_bearer_token,
+    get_optional_authenticated_user_id,
+    get_optional_bearer_token,
     verify_app_check_with_replay_protection,
 )
+
+
 from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.email import send_account_deletion_otp_email
+from app.core.email import (
+    send_account_deletion_otp_email,
+    send_account_deletion_scheduled_email,
+    send_account_reactivated_email,
+)
 from app.core.limiter import limiter
 from app.db.account_deletion import (
     cancel_deletion,
@@ -25,9 +40,10 @@ from app.db.account_deletion import (
     fetch_deletion_status,
     request_deletion,
 )
-from app.db.users import get_user_email_by_id
+from app.db.users import get_user_email_by_id, get_user_id_by_email
 from app.models import (
     AccountDeletionCancelResponse,
+    AccountDeletionOtpRequestRequest,
     AccountDeletionOtpRequestResponse,
     AccountDeletionOtpVerifyRequest,
     AccountDeletionOtpVerifyResponse,
@@ -47,6 +63,35 @@ def _otp_verified_key(user_id: str) -> str:
     return f"account_deletion:otp_verified:{user_id}"
 
 
+async def _resolve_account_deletion_user(
+    auth_user_id: str | None,
+    email: str | None,
+) -> tuple[str, str]:
+    if auth_user_id:
+        user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
+        if not user_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No verified email on this account. Contact support for assistance.",
+            )
+        return auth_user_id, user_email
+
+    if email and email.strip():
+        norm_email = email.strip().lower()
+        user_id = await run_in_threadpool(get_user_id_by_email, norm_email)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No registered account found with this email address. Please check your email.",
+            )
+        return user_id, norm_email
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Please enter your registered email address.",
+    )
+
+
 @router.post(
     "/api/v1/account/deletion/otp/request",
     response_model=AccountDeletionOtpRequestResponse,
@@ -54,16 +99,14 @@ def _otp_verified_key(user_id: str) -> str:
 @limiter.limit(settings.rate_limit_account_deletion_otp)
 async def request_account_deletion_otp(
     request: Request,
+    payload: AccountDeletionOtpRequestRequest | None = Body(None),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpRequestResponse:
     _ = request
-    email = await run_in_threadpool(get_user_email_by_id, user_id)
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No verified email on this account. Contact support for assistance.",
-        )
+    email_in = payload.email if payload else None
+    user_id, email = await _resolve_account_deletion_user(auth_user_id, email_in)
+
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
     await redis_client.setex(f"account_deletion:otp_code:{user_id}", 600, otp_code)
     otp_res = await send_account_deletion_otp_email(email, otp_code)
@@ -84,23 +127,21 @@ async def verify_account_deletion_otp(
     request: Request,
     payload: AccountDeletionOtpVerifyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpVerifyResponse:
     _ = request
-    email = await run_in_threadpool(get_user_email_by_id, user_id)
-    if not email:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    user_id, _ = await _resolve_account_deletion_user(auth_user_id, payload.email)
 
     stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
     if not stored_otp:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     stored_otp_str = (
         stored_otp.decode("utf-8")
         if isinstance(stored_otp, bytes)
         else stored_otp
     )
     if stored_otp_str.strip() != payload.code.strip():
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"account_deletion:otp_code:{user_id}")
 
     await redis_client.setex(_otp_verified_key(user_id), _OTP_VERIFIED_TTL_SECONDS, "1")
@@ -114,17 +155,17 @@ async def verify_account_deletion_otp(
 @limiter.limit(settings.rate_limit_account_deletion)
 async def request_account_deletion(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: AccountDeletionRequestRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_authenticated_user_id),
-    access_token: str = Depends(get_bearer_token),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
+    access_token: str | None = Depends(get_optional_bearer_token),
 ) -> AccountDeletionRequestResponse:
     _ = request
+    user_id, email = await _resolve_account_deletion_user(auth_user_id, payload.email)
 
     existing = await run_in_threadpool(fetch_deletion_status, user_id)
     if existing and existing.get("deletion_requested_at"):
-        # Idempotent - a second submit while already pending just returns
-        # the existing schedule instead of erroring.
         return AccountDeletionRequestResponse(
             scheduled_purge_at=existing["scheduled_purge_at"],
         )
@@ -133,7 +174,7 @@ async def request_account_deletion(
     if not await redis_client.get(otp_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email before requesting deletion.",
+            detail="Please verify your email code before requesting deletion.",
         )
     await redis_client.delete(otp_key)
 
@@ -143,12 +184,15 @@ async def request_account_deletion(
             detail="Type DELETE to confirm.",
         )
 
-    # Suspended/banned users must still be able to request deletion - they
-    # are exactly who deletion_flagged_reason_code exists to catch, so this
-    # deliberately does not call assert_account_active.
     flagged_reason = await run_in_threadpool(compute_deletion_flag_reason, user_id)
     scheduled_purge_at = await run_in_threadpool(
-        request_deletion, user_id, flagged_reason, access_token,
+        request_deletion, user_id, flagged_reason, access_token or "",
+    )
+    background_tasks.add_task(
+        send_account_deletion_scheduled_email,
+        email=email,
+        scheduled_purge_at=scheduled_purge_at,
+        grace_period_days=settings.account_deletion_grace_period_days,
     )
     return AccountDeletionRequestResponse(scheduled_purge_at=scheduled_purge_at)
 
@@ -160,6 +204,7 @@ async def request_account_deletion(
 @limiter.limit(settings.rate_limit_account_deletion)
 async def cancel_account_deletion(
     request: Request,
+    background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_authenticated_user_id),
 ) -> AccountDeletionCancelResponse:
@@ -170,7 +215,13 @@ async def cancel_account_deletion(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No pending deletion to cancel.",
         )
+    user_email = await run_in_threadpool(get_user_email_by_id, user_id)
     await run_in_threadpool(cancel_deletion, user_id)
+    if user_email:
+        background_tasks.add_task(
+            send_account_reactivated_email,
+            email=user_email,
+        )
     return AccountDeletionCancelResponse(reactivated=True)
 
 

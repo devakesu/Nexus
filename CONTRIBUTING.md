@@ -222,11 +222,10 @@ cd mobile
 flutter pub get
 
 # Run on device/emulator
-infisical run --env=prod --projectId=xxxx --path /public -- sh -c '
+infisical run --env=dev --projectId=2c94b0e4-559c-46a3-833c-1cb66f59c842 --path=/public -- sh -c '
   export DART_VM_OPTIONS="--bind-address=0.0.0.0"
   flutter run \
     --flavor nexus \
-    --host-vmservice-port=8181 \
     --dart-define=APP_DOMAIN="$APP_DOMAIN" \
     --dart-define=BACKEND_URL="$BACKEND_URL" \
     --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="$GOOGLE_IOS_CLIENT_ID_NEXUS" \
@@ -235,7 +234,6 @@ infisical run --env=prod --projectId=xxxx --path /public -- sh -c '
     --dart-define=SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
     --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
     --dart-define=SPOTIFY_CLIENT_ID="$SPOTIFY_CLIENT_ID" \
-    --dart-define=SPOTIFY_REDIRECT_URI_NEXUS="$SPOTIFY_REDIRECT_URI_NEXUS" \
     --dart-define=GOOGLE_PLACES_API_KEY="$GOOGLE_PLACES_API_KEY"
 '
 

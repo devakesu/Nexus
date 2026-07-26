@@ -1,11 +1,17 @@
 # ruff: noqa: E501
 import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 
 from app.core.config import settings
-from app.core.templates import render_contact, render_error, render_help, render_landing
+from app.core.templates import (
+    render_contact,
+    render_delete_account,
+    render_error,
+    render_help,
+    render_landing,
+)
 
 router = APIRouter()
 
@@ -141,6 +147,11 @@ async def sitemap_xml():
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>
+    <url>
+        <loc>{settings.backend_url}/delete-account</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
 </urlset>"""
     return Response(content=xml_content, media_type="application/xml")
 
@@ -172,10 +183,24 @@ async def render_contact_page():
 
 
 @router.get("/delete-account", response_class=HTMLResponse)
-async def render_delete_account_page():
+async def render_delete_account_page(request: Request, embed: bool = False) -> HTMLResponse:
+    """Public, unauthenticated portal for account deletion disclosure & data export.
+    When embed=true (or embed=1), header and footer are omitted for clean in-app rendering.
+    """
+    is_embed = embed or request.query_params.get("embed") in ("1", "true")
+    domain = settings.email_domain or "nexus.devakesu.com"
+    effective_date = settings.legal_effective_date or "July 26, 2026"
     return HTMLResponse(
-        render_error(
-            code=200,
-            message="To delete your Nexus account, open the Nexus Mobile App and navigate to Settings → Delete Account. Account deletion is subject to a 14-day grace period.",
+        render_delete_account(
+            grace_period_days=settings.account_deletion_grace_period_days,
+            blocklist_cooldown_days=settings.account_deletion_blocklist_cooldown_days,
+            long_tail_purge_days=settings.account_deletion_long_tail_purge_days,
+            safety_evidence_active_retention_days=settings.safety_evidence_active_retention_days,
+            safety_data_legal_hold_days=settings.safety_data_legal_hold_days,
+            domain=domain,
+            effective_date=effective_date,
+            is_embed=is_embed,
         )
     )
+
+

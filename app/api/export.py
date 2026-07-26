@@ -12,7 +12,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
-    get_active_user_id,
+    get_optional_authenticated_user_id,
     verify_app_check_with_replay_protection,
 )
 from app.core.cache import redis_client
@@ -20,11 +20,13 @@ from app.core.config import settings
 from app.core.email import send_data_export_otp_email
 from app.core.limiter import limiter
 from app.db.export import build_user_data_export
-from app.db.users import get_user_email_by_id
+from app.db.users import get_user_email_by_id, get_user_id_by_email
 from app.models import (
+    DataExportOtpRequestRequest,
     DataExportOtpRequestResponse,
     DataExportOtpVerifyRequest,
     DataExportOtpVerifyResponse,
+    DataExportRequestRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,35 @@ def _otp_verified_key(user_id: str) -> str:
     return f"data_export:otp_verified:{user_id}"
 
 
+async def _resolve_data_export_user(
+    auth_user_id: str | None,
+    email: str | None,
+) -> tuple[str, str]:
+    if auth_user_id:
+        user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
+        if not user_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No verified email on this account. Contact support for assistance.",
+            )
+        return auth_user_id, user_email
+
+    if email and email.strip():
+        norm_email = email.strip().lower()
+        user_id = await run_in_threadpool(get_user_id_by_email, norm_email)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No registered account found with this email address. Please check your email.",
+            )
+        return user_id, norm_email
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Please enter your registered email address.",
+    )
+
+
 @router.post(
     "/api/v1/account/export/otp/request",
     response_model=DataExportOtpRequestResponse,
@@ -45,16 +76,14 @@ def _otp_verified_key(user_id: str) -> str:
 @limiter.limit(settings.rate_limit_data_export_otp)
 async def request_data_export_otp(
     request: Request,
+    payload: DataExportOtpRequestRequest | None = Body(None),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_active_user_id),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpRequestResponse:
     _ = request
-    email = await run_in_threadpool(get_user_email_by_id, user_id)
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No verified email on this account. Contact support for assistance.",
-        )
+    email_in = payload.email if payload else None
+    user_id, email = await _resolve_data_export_user(auth_user_id, email_in)
+
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
     await redis_client.setex(f"data_export:otp_code:{user_id}", 600, otp_code)
     otp_res = await send_data_export_otp_email(email, otp_code)
@@ -75,23 +104,21 @@ async def verify_data_export_otp(
     request: Request,
     payload: DataExportOtpVerifyRequest = Body(...),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_active_user_id),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> DataExportOtpVerifyResponse:
     _ = request
-    email = await run_in_threadpool(get_user_email_by_id, user_id)
-    if not email:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+    user_id, _ = await _resolve_data_export_user(auth_user_id, payload.email)
 
     stored_otp = await redis_client.get(f"data_export:otp_code:{user_id}")
     if not stored_otp:
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     stored_otp_str = (
         stored_otp.decode("utf-8")
         if isinstance(stored_otp, bytes)
         else stored_otp
     )
     if stored_otp_str.strip() != payload.code.strip():
-        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"data_export:otp_code:{user_id}")
 
     await redis_client.setex(_otp_verified_key(user_id), _OTP_VERIFIED_TTL_SECONDS, "1")
@@ -102,16 +129,21 @@ async def verify_data_export_otp(
 @limiter.limit(settings.rate_limit_data_export)
 async def export_account_data(
     request: Request,
+    payload: DataExportRequestRequest | None = Body(None),  # noqa: B008
     _device: None = Depends(verify_app_check_with_replay_protection),
-    user_id: str = Depends(get_active_user_id),
+    auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> dict[str, Any]:
     _ = request
+    email_in = payload.email if payload else None
+    user_id, _ = await _resolve_data_export_user(auth_user_id, email_in)
+
     otp_key = _otp_verified_key(user_id)
     if not await redis_client.get(otp_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email before requesting an export.",
+            detail="Please verify your email code before requesting an export.",
         )
     await redis_client.delete(otp_key)
 
     return await run_in_threadpool(build_user_data_export, user_id)
+
