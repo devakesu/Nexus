@@ -1,604 +1,48 @@
-"""Transactional email dispatch, dual-provider failover (Brevo & SendPulse), and template generation.
+"""Email dispatch helper functions for notification types.
 
-Provides email dispatch capabilities with automatic fallback between Brevo and SendPulse,
-HTML-to-text fallback generation, PII sanitization for email logs, and HTML email templates.
+Contains template-rendering and sending logic for user welcome, feedback appeal,
+feedback ticket submissions/closed, trusted contact actions, OTPs, deletion notifications,
+and reactivation alerts.
 """
 
-import base64
 import logging
-from collections.abc import Callable, Coroutine
 from datetime import datetime
-from html.parser import HTMLParser
-from typing import Any, Literal, cast
-
-import httpx
-import sentry_sdk
-from pydantic import BaseModel, ConfigDict
+from typing import Any, cast
 
 from app.core.config import settings
+from app.core.email.config import (
+    ProviderResult,
+    SendEmailProps,
+    get_feedback_notify_email,
+    redact_email,
+    should_use_sendpulse,
+)
+from app.core.email.senders import send_email
+from app.core.email.templates import render_cta_button_row, render_email_template
 
 logger = logging.getLogger(__name__)
 
-
-class SendEmailProps(BaseModel):
-    """Configuration payload schema for transactional email dispatch."""
-
-    to: str
-    subject: str
-    html: str
-    text: str | None = None
-    reply_to: str | None = None
-    from_name: str | None = None
-    to_name: str | None = None
-    sender_email: str | None = None
+FEEDBACK_QUERY_TYPE_LABELS: dict[str, str] = {
+    "help": "Help Request",
+    "feedback": "Feedback",
+    "bug_report": "Bug Report",
+    "suspended": "Suspended Account Appeal",
+    "security": "Security & Privacy",
+    "legal_grievance": "Legal Grievance",
+    "grievance": "Legal Grievance",
+    "other": "Other Inquiry",
+}
 
 
-class ProviderResult(BaseModel):
-    """Result schema for individual email provider dispatch attempts."""
-
-    success: bool
-    provider: Literal["Brevo", "SendPulse"]
-    id: str | None = None
-    error: str | None = None
-
-
-class HTMLStripper(HTMLParser):
-    """HTML parser utility to extract plain text from HTML markup."""
-
-    def __init__(self) -> None:
-        """Initialize the HTML parser state and accumulator buffer."""
-        super().__init__()
-        self.reset()
-        self.strict = False
-        self.convert_charrefs = True
-        self.text: list[str] = []
-
-    def handle_data(self, data: str) -> None:
-        """Append extracted text node data to the internal text buffer.
+def _short_report_id(report_id: str) -> str:
+    """Short report id.
 
         Args:
-            data: Raw text content from an HTML text node.
-        """
-        self.text.append(data)
-
-    def get_data(self) -> str:
-        """Concatenate buffered text data into a single plain text string.
-
-        Returns:
-            str: Accumulated plain text string.
-        """
-        return "".join(self.text)
-
-
-def strip_tags(html: str) -> str:
-    """Strips HTML tags to generate a plain text fallback string.
-
-    Args:
-        html: Raw HTML input string.
-
-    Returns:
-        str: Cleaned plain text string.
-    """
-    s = HTMLStripper()
-    s.feed(html)
-    return s.get_data()
-
-
-def redact_email(email: str) -> str:
-    """Redacts an email address string for privacy-compliant logging.
-
-    Args:
-        email: Raw email address string.
-
-    Returns:
-        str: Redacted email string (e.g. u***r@domain.com).
-    """
-    if not email or "@" not in email:
-        return email
-    parts = email.split("@", 1)
-
-    name = parts[0]
-    domain = parts[1]
-    if len(name) <= 2:
-        return f"{name[0]}***@{domain}"
-    return f"{name[0]}***{name[-1]}@{domain}"
-
-
-def redact(type_: str, val: str) -> str:
-    """Executes redact operation.
-
-        Args:
-            type_: Input type  parameter.
-            val: Input val parameter.
+            report_id: Input report id parameter.
 
         Returns:
             str: Response payload or result."""
-    if type_ == "email":
-        return redact_email(val)
-    return val
-
-
-has_brevo = bool(settings.brevo_api_key)
-has_sendpulse = bool(settings.sendpulse_client_id and settings.sendpulse_client_secret)
-
-
-def get_support_email() -> str:
-    """Centralized support email address for notifications and system routing."""
-    return f"support@{settings.email_domain}"
-
-
-def get_sender_email() -> str:
-    """Executes get sender email operation.
-
-        Returns:
-            str: Response payload or result."""
-    return get_support_email()
-
-
-def get_feedback_notify_email() -> str:
-    """Where "Help, Feedback & Bug Report" admin notifications are routed."""
-    return get_support_email()
-
-
-def get_sender_name(from_name: str | None = None) -> str:
-    """Executes get sender name operation.
-
-        Args:
-            from_name: Input from name parameter.
-
-        Returns:
-            str: Response payload or result."""
-    if from_name and from_name.strip():
-        return from_name.strip()
-    return settings.app_name
-
-
-async def get_sendpulse_token() -> str:
-    """Executes get sendpulse token operation.
-
-        Returns:
-            str: Response payload or result."""
-    if not has_sendpulse:
-        raise ValueError("SendPulse credentials not configured")
-
-    auth_url = "https://api.sendpulse.com/oauth/access_token"
-    payload = {
-        "grant_type": "client_credentials",
-        "client_id": settings.sendpulse_client_id,
-        "client_secret": settings.sendpulse_client_secret,
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(auth_url, json=payload, timeout=10.0)
-            if res.status_code != 200:
-                raise httpx.HTTPStatusError(
-                    f"SendPulse auth HTTP {res.status_code}",
-                    request=res.request,
-                    response=res,
-                )
-            data = res.json()
-            return data["access_token"]
-        except Exception as error:
-            wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
-            raise wrapped from error
-
-
-async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
-    """Executes send via sendpulse operation.
-
-        Args:
-            props: Input props parameter.
-
-        Returns:
-            ProviderResult: Response payload or result."""
-    if not has_sendpulse:
-        raise ValueError("SendPulse not configured")
-
-    token = await get_sendpulse_token()
-    email_url = "https://api.sendpulse.com/smtp/emails"
-
-    stripped_text = props.text or strip_tags(props.html)
-    sender_email = props.sender_email or get_sender_email()
-    sender_name = get_sender_name(props.from_name)
-
-    html_base64 = base64.b64encode(props.html.encode("utf-8")).decode("utf-8")
-
-    payload = {
-        "email": {
-            "html": html_base64,
-            "text": stripped_text,
-            "subject": props.subject,
-            "from": {
-                "email": sender_email,
-                "name": sender_name,
-            },
-            "to": [
-                {
-                    "email": props.to,
-                    "name": props.to_name or "User",
-                },
-            ],
-        },
-    }
-
-    if props.reply_to:
-        payload["email"]["reply_to"] = {"email": props.reply_to}
-
-    async with httpx.AsyncClient() as client:
-        res = await client.post(
-            email_url,
-            json=payload,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=15.0,
-        )
-        if res.status_code != 200:
-            try:
-                err_data = res.json()
-                err_msg = err_data.get(
-                    "message",
-                    f"SendPulse error: {res.status_code}",
-                )
-            except Exception:  # noqa: BLE001
-                err_msg = f"SendPulse error: {res.status_code}"
-            raise RuntimeError(err_msg)
-
-        try:
-            data = res.json()
-            message_id = str(data.get("id", ""))
-        except Exception:  # noqa: BLE001
-            message_id = ""
-
-        return ProviderResult(success=True, provider="SendPulse", id=message_id)
-
-
-async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
-    """Executes send via brevo operation.
-
-        Args:
-            props: Input props parameter.
-
-        Returns:
-            ProviderResult: Response payload or result."""
-    if not has_brevo:
-        raise ValueError("Brevo not configured")
-
-    url = "https://api.brevo.com/v3/smtp/email"
-    sender_email = props.sender_email or get_sender_email()
-    sender_name = get_sender_name(props.from_name)
-    stripped_text = props.text or strip_tags(props.html)
-
-    payload: dict[str, Any] = {
-        "sender": {
-            "email": sender_email,
-            "name": sender_name,
-        },
-        "to": [{"email": props.to}],
-        "subject": props.subject,
-        "htmlContent": props.html,
-        "textContent": stripped_text,
-    }
-
-    if props.to_name:
-        payload["to"][0]["name"] = props.to_name
-
-    if props.reply_to:
-        payload["replyTo"] = {"email": props.reply_to}
-
-    async with httpx.AsyncClient() as client:
-        res = await client.post(
-            url,
-            json=payload,
-            headers={
-                "api-key": settings.brevo_api_key or "",
-                "content-type": "application/json",
-                "accept": "application/json",
-            },
-            timeout=15.0,
-        )
-        if res.status_code not in (200, 201, 202):
-            try:
-                err_data = res.json()
-                err_msg = err_data.get(
-                    "message",
-                    f"Brevo error: {res.status_code}",
-                )
-            except Exception:  # noqa: BLE001
-                err_msg = f"Brevo error: {res.status_code}"
-            raise RuntimeError(err_msg)
-
-        try:
-            data = res.json()
-            message_id = str(data.get("messageId", ""))
-        except Exception:  # noqa: BLE001
-            message_id = ""
-
-        return ProviderResult(success=True, provider="Brevo", id=message_id)
-
-
-def should_use_sendpulse(email: str | None = None) -> bool:
-    """Executes should use sendpulse operation.
-
-        Args:
-            email: Email address string.
-
-        Returns:
-            bool: Response payload or result."""
-    if has_brevo and has_sendpulse:
-        if email:
-            import hashlib
-
-            encoded_email = email.lower().encode("utf-8")
-            hash_val = int(hashlib.sha256(encoded_email).hexdigest(), 16)
-            return hash_val % 2 == 0
-        import secrets
-
-        return secrets.randbelow(100) < 50
-    return has_sendpulse
-
-
-ProviderFn = Callable[[SendEmailProps], Coroutine[Any, Any, ProviderResult]]
-
-
-class ProvidersConfig(BaseModel):
-    """Providersconfig class representation."""
-    primary: Any  # ProviderFn
-    secondary: Any | None = None  # ProviderFn | None
-    p_name: Literal["SendPulse", "Brevo"]
-    s_name: Literal["Brevo", "SendPulse"]
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-def get_providers(use_sp: bool) -> ProvidersConfig:
-    """Executes get providers operation.
-
-        Args:
-            use_sp: Input use sp parameter.
-
-        Returns:
-            ProvidersConfig: Response payload or result."""
-    if use_sp:
-        return ProvidersConfig(
-            primary=send_via_sendpulse,
-            secondary=send_via_brevo if has_brevo else None,
-            p_name="SendPulse",
-            s_name="Brevo",
-        )
-    return ProvidersConfig(
-        primary=send_via_brevo,
-        secondary=send_via_sendpulse if has_sendpulse else None,
-        p_name="Brevo",
-        s_name="SendPulse",
-    )
-
-
-async def execute_failover(
-    secondary: ProviderFn,
-    props: SendEmailProps,
-    s_name: Literal["Brevo", "SendPulse"],
-    err: Exception,
-) -> ProviderResult:
-    """Executes execute failover operation.
-
-        Args:
-            secondary: Input secondary parameter.
-            props: Input props parameter.
-            s_name: Input s name parameter.
-            err: Input err parameter.
-
-        Returns:
-            ProviderResult: Response payload or result."""
-    err_msg = str(err)
-    try:
-        return await secondary(props)
-    except Exception as err2:  # noqa: BLE001
-        err2_msg = str(err2)
-        msg = f"All providers failed. P: {err_msg} | S: {err2_msg}"
-        logger.error(msg)
-        sentry_sdk.capture_exception(
-            err2,
-            tags={"type": "email_critical"},
-            extras={
-                "to": redact("email", props.to),
-                "primary_error": err_msg,
-                "secondary_error": err2_msg,
-            },
-        )
-        return ProviderResult(success=False, provider=s_name, error=msg)
-
-
-async def send_email(props: SendEmailProps) -> ProviderResult:
-    """Executes send email operation.
-
-        Args:
-            props: Input props parameter.
-
-        Returns:
-            ProviderResult: Response payload or result."""
-    if not has_brevo and not has_sendpulse:
-        err = RuntimeError("No provider configured")
-        sentry_sdk.capture_exception(err, tags={"location": "send_email"})
-        raise err
-
-    use_sp = should_use_sendpulse(props.to)
-    config = get_providers(use_sp)
-
-    try:
-        return await config.primary(props)
-    except Exception as err:
-        err_msg = str(err)
-        logger.warning(
-            f"{config.p_name} failed: {err_msg}",
-            exc_info=True,
-        )
-        sentry_sdk.capture_message(
-            f"Failover: {config.p_name} failed",
-            level="warning",
-            tags={"provider": config.p_name, "location": "send_email"},
-        )
-
-        if config.secondary:
-            return await execute_failover(
-                config.secondary,
-                props,
-                config.s_name,
-                err,
-            )
-        return ProviderResult(success=False, provider=config.p_name, error=err_msg)
-
-
-def render_email_template(
-    rows_html: str,
-    subject: str,
-    preheader_category: str = "SYSTEM",
-    preheader_action: str = "VERIFIED",
-    footer_html: str | None = None,
-) -> str:
-    """Renders a unified HTML wrapper using standard Nexus branding.
-
-        Args:
-            rows_html: Input rows html parameter.
-            subject: Input subject parameter.
-            preheader_category: Input preheader category parameter.
-            preheader_action: Input preheader action parameter.
-            footer_html: Input footer html parameter.
-
-        Returns:
-            str: Response payload or result."""
-    app_domain = settings.app_domain
-    email_domain = settings.email_domain
-    if footer_html is None:
-        footer_html = f"""
-              You are receiving this mandatory service-related communication
-              because a Nexus account was created using this
-              email address. If you did not initiate this action, please contact
-              support at <a href="mailto:support@{email_domain}" style="color: pink;">
-              support@{email_domain}</a>
-              <br>
-              <a href="https://{app_domain}/legal" target="_blank"
-                 style="color: white">Privacy, Terms & Legal</a>
-        """
-    footer_row = (
-        f"""
-          <tr>
-            <td style="padding: 24px 32px; background-color: #0A0B0E;
-                       border-top: 1px solid #1A1C20;
-                       font-family: ui-monospace, SFMono-Regular,
-                       Menlo, Monaco, Consolas, monospace;
-                       font-size: 10px; color: white; line-height: 1.5;
-                       text-align: center;">
-              {footer_html}
-            </td>
-          </tr>
-        """
-        if footer_html.strip()
-        else ""
-    )
-    return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{subject}</title>
-  <style type="text/css">
-    body {{
-      margin: 0;
-      padding: 0;
-      min-width: 100%;
-      -webkit-text-size-adjust: 100%;
-      -ms-text-size-adjust: 100%;
-      background-color: #0B0C10;
-      color: #FFFFFF;
-      font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }}
-    img {{
-      line-height: 100%;
-      outline: none;
-      text-decoration: none;
-      -ms-interpolation-mode: bicubic;
-      border: 0;
-    }}
-    table {{
-      border-collapse: collapse !important;
-      mso-table-lspace: 0pt;
-      mso-table-rspace: 0pt;
-    }}
-    td {{
-      font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }}
-
-    /* Reveal real dark mode properties for compliant clients */
-    @media (prefers-color-scheme: dark) {{
-      .body-wrapper {{ background-color: #0B0C10 !important; }}
-      .main-card {{ background-color: #0D0E12 !important; }}
-    }}
-  </style>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0B0C10; color: #FFFFFF;">
-
-  <table width="100%" border="0" cellspacing="0" cellpadding="0"
-         class="body-wrapper" style="background-color: #0B0C10; table-layout: fixed;">
-    <tr>
-      <td align="center" style="padding: 40px 16px 60px 16px;">
-
-        <table width="100%" border="0" cellspacing="0" cellpadding="0"
-               class="main-card" style="max-width: 580px; background-color: #0D0E12;
-               border: 1px solid #22252A; text-align: left;">
-
-          <tr>
-            <td style="padding: 16px 24px; border-bottom: 1px solid #22252A;
-                       font-family: ui-monospace, SFMono-Regular,
-                       Menlo, Monaco, Consolas, 'Liberation Mono',
-                       'Courier New', monospace; font-size: 11px;
-                       color: #6B7280; letter-spacing: 0.05em;">
-              [ {preheader_category}: // {preheader_action} ]
-            </td>
-          </tr>
-
-          {rows_html}
-
-          {footer_row}
-        </table>
-
-      </td>
-    </tr>
-  </table>
-
-</body>
-</html>
-"""
-
-
-def render_cta_button_row(cta_text: str, cta_url: str) -> str:
-    """
-    Renders a standard CTA button row.
-    """
-    return f"""
-          <tr>
-            <td align="center" style="padding: 0 32px 48px 32px;">
-              <table border="0" cellspacing="0" cellpadding="0" width="100%">
-                <tr>
-                  <td align="center">
-                    <a href="{cta_url}" target="_blank"
-                       style="display: block; width: 100%; max-width: 280px;
-                       background-color: #00ADB5; border: 1px solid #00ADB5;
-                       color: #FFFFFF; font-family: -apple-system,
-                       BlinkMacSystemFont, sans-serif; font-size: 13px;
-                       font-weight: 600; letter-spacing: 0.08em;
-                       text-transform: uppercase; text-decoration: none;
-                       padding: 15px 0; text-align: center;
-                       transition: background-color 0.2s, border-color 0.2s;">
-                      {cta_text}
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-    """
+    return report_id.split("-")[0].upper()
 
 
 def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> str:
@@ -698,7 +142,7 @@ async def send_bootstrap_welcome_email(
                      Monaco, Consolas, monospace; font-size: 12px;">
                 <tr>
                   <td width="28" valign="top"
-                      style="color: #00ADB5; padding-bottom: 12px;">[1]</td>
+                       style="color: #00ADB5; padding-bottom: 12px;">[1]</td>
                   <td style="color: #E5E7EB; padding-bottom: 12px;">
                     <strong>Complete Profile Anchor:</strong> Input your personal
                     values, thoughts, and professional trajectories.
@@ -777,33 +221,6 @@ async def send_bootstrap_welcome_email(
             provider=provider_name,
             error=str(err),
         )
-
-
-# ---------------------------------------------------------------------------
-# Help, Feedback & Bug Report emails
-# ---------------------------------------------------------------------------
-
-FEEDBACK_QUERY_TYPE_LABELS: dict[str, str] = {
-    "help": "Help Request",
-    "feedback": "Feedback",
-    "bug_report": "Bug Report",
-    "suspended": "Suspended Account Appeal",
-    "security": "Security & Privacy",
-    "legal_grievance": "Legal Grievance",
-    "grievance": "Legal Grievance",
-    "other": "Other Inquiry",
-}
-
-
-def _short_report_id(report_id: str) -> str:
-    """Short report id.
-
-        Args:
-            report_id: Input report id parameter.
-
-        Returns:
-            str: Response payload or result."""
-    return report_id.split("-")[0].upper()
 
 
 async def send_feedback_confirmation_email(
@@ -973,9 +390,6 @@ async def send_feedback_admin_notification_email(  # noqa: C901
                 str: Response payload or result."""
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
-    # Explicit color + anchor tag rather than bare text: several mail
-    # clients auto-linkify plain email addresses and override styling with
-    # their own (often low-contrast on a dark background) link color.
     contact_display = (
         f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
         f"{submitter_email}</a>"
@@ -2054,4 +1468,3 @@ async def send_account_reactivated_email(email: str) -> ProviderResult:
         use_sp = should_use_sendpulse(email)
         provider_name = "SendPulse" if use_sp else "Brevo"
         return ProviderResult(success=False, provider=provider_name, error=str(err))
-
