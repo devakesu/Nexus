@@ -36,8 +36,8 @@ from app.api.user.profile.helpers import (
     _validate_friends_activation,
     _validate_professional_activation,
 )
-from app.core.crypto import compute_blind_index, encrypt_to_hex
-from app.core.moderation import NameModerationError, validate_display_name
+from app.core.security.crypto import compute_blind_index, encrypt_to_hex
+from app.core.utils.moderation import NameModerationError, validate_display_name
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record
 from app.db.users import fetch_public_user

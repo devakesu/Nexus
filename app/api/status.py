@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Request
 
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.infra.limiter import limiter
 
 logger = logging.getLogger(__name__)
 

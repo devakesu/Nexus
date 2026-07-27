@@ -15,9 +15,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
-from app.core.crypto import DecryptFailedError
-from app.core.limiter import limiter
-from app.core.tasks import safe_create_task
+from app.core.infra.limiter import limiter
+from app.core.infra.tasks import safe_create_task
+from app.core.security.crypto import DecryptFailedError
 from app.db.chat import close_conversation_for_match_action
 from app.db.client import (
     DatabaseAccessError,

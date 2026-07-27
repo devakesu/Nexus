@@ -23,9 +23,9 @@ from app.api.dependencies import (
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
-from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.infra.cache import redis_client
+from app.core.infra.limiter import limiter
 from app.db.users import (
     execute_import,
     fetch_profile,

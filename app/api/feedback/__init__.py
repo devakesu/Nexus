@@ -28,7 +28,6 @@ from app.api.feedback.tickets import (
 from app.api.feedback.tickets import (
     router as tickets_router,
 )
-from app.core.cache import redis_client
 from app.core.email import (
     send_feedback_admin_notification_email,
     send_feedback_closed_admin_notification_email,
@@ -36,6 +35,7 @@ from app.core.email import (
     send_feedback_confirmation_email,
     send_support_appeal_otp_email,
 )
+from app.core.infra.cache import redis_client
 from app.db.client import supabase_client
 from app.db.feedback import (
     add_ticket_comment,

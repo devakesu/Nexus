@@ -12,7 +12,7 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
-from app.core.crypto import encrypt_to_hex
+from app.core.security.crypto import encrypt_to_hex
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 from app.services.embeddings import get_embedding_model

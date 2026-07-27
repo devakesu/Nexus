@@ -199,7 +199,42 @@ Nexus features a cosmic design system called **Constellation Social** built arou
 
 Nexus provides an isolated, reproducible Dev Container (`.devcontainer/Dockerfile`) equipped with pre-compiled Python 3.12, Flutter SDK 3.44, Node 24, Deno 2.9, CLI tools, and automatic IDE extension syncing.
 
-#### 1. Enable Windows SSH Agent (Host)
+#### 1. Initialize and Configure WSL2 (Windows Host)
+
+To ensure optimal networking, memory utilization, and loopback connectivity, configure WSL2 on the Windows host.
+
+##### Option A: Using the WSL Settings GUI (Recommended)
+
+Open the **WSL Settings** application (search for "WSL Settings" in the Windows Start menu) or launch it by running the following command in PowerShell:
+
+```powershell
+wsl --settings
+```
+
+In the settings interface, configure the following:
+
+- **Networking Mode**: Mirrored
+- **Host Address Loopback**: Enabled
+- **Automatic Memory Reclaim**: Gradual
+
+##### Option B: Using the `.wslconfig` File
+
+Create or edit `%USERPROFILE%\.wslconfig` in Windows (e.g., `C:\Users\<YourUsername>\.wslconfig`) and add the following settings:
+
+```ini
+[wsl2]
+networkingMode=mirrored
+hostAddressLoopback=true
+autoMemoryReclaim=gradual
+```
+
+After configuring via either option, restart WSL2 by running the following command in Windows PowerShell:
+
+```powershell
+wsl --shutdown
+```
+
+#### 2. Enable Windows SSH Agent (Host)
 
 Run PowerShell as Administrator or user to enable the OpenSSH agent service and load your SSH/signing keys:
 
@@ -209,7 +244,7 @@ Start-Service ssh-agent
 ssh-add $env:USERPROFILE\.ssh\id_ed25519
 ```
 
-#### 2. Bridge SSH Agent to WSL2
+#### 3. Bridge SSH Agent to WSL2
 
 In WSL2, install `socat`, download `npiperelay`, and bridge the Windows SSH pipe to Linux:
 
@@ -253,7 +288,7 @@ rm -rf ~/.ssh/agent.sock
 source ~/.bashrc
 ```
 
-#### 3. Clone Repository in WSL2
+#### 4. Clone Repository in WSL2
 
 Clone the repository in your WSL2 home or projects directory:
 
@@ -262,7 +297,7 @@ git clone https://github.com/devakesu/Nexus.git
 cd Nexus
 ```
 
-#### 4. Build & Run Sandbox Container
+#### 5. Build & Run Sandbox Container
 
 Build the dev container image and launch the sandbox container with mapped ports and volume mounts:
 
@@ -286,7 +321,7 @@ docker run -d --name Nexus_Sandbox \
   nexus-sandbox
 ```
 
-#### 5. Attach IDE & Initialize Workspace
+#### 6. Attach IDE & Initialize Workspace
 
 1. Open **VS Code** or **Antigravity IDE**.
 2. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) $\rightarrow$ select **Attach to Running Container** $\rightarrow$ **`Nexus_Sandbox`**.
@@ -300,7 +335,7 @@ docker run -d --name Nexus_Sandbox \
    *(Enter Git Name and Email when prompted to configure local commit signing and SSH identity).*
 5. Run **`Developer: Reload Window`** in VS Code / Antigravity to refresh environment variables and extension integrations.
 
-#### 6. Android Emulator Setup & Subsequent Development Startups
+#### 7. Android Emulator Setup & Subsequent Development Startups
 
 To run and debug the mobile app on an Android Emulator:
 
@@ -316,7 +351,7 @@ To run and debug the mobile app on an Android Emulator:
      ```
 
    - Select **`[1] Emulator`** (or pass `-Mode Emulator`).
-   - The script automatically ensures `Nexus_Sandbox` container is running, launches the host Android emulator (`Pixel_10_Pro_XL`), bridges Windows ADB (`5555`) to Docker network (`host.docker.internal:5555`), and tunnels Dart VM Service port (`8181`).
+   - The script automatically ensures `Nexus_Sandbox` container is running, launches the host Android emulator (Pixel_10_Pro_XL), bridges Windows ADB (5555) to Docker network (host.docker.internal:5555).
    - Press `ENTER` in the PowerShell terminal when finished to gracefully shut down the emulator and clean up portproxy rules.
 
 ### 🔐 Secret Management & Database Initialization

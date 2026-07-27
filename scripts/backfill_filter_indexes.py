@@ -15,7 +15,7 @@ from typing import Any, cast
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core.crypto import DecryptFailedError, compute_blind_index
+from app.core.security.crypto import DecryptFailedError, compute_blind_index
 from app.db.client import ProfileDecodeError, supabase_client
 from app.db.profiles import decrypt_profile_record
 

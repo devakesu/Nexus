@@ -6,7 +6,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.core.crypto import DecryptFailedError
+from app.core.security.crypto import DecryptFailedError
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
 from app.db.discovery import coerce_float, coerce_score, get_cached_active_block_ids
 from app.db.profiles import (

@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from storage3.utils import StorageException
 
-from app.core.crypto import encrypt_to_hex
+from app.core.security.crypto import encrypt_to_hex
 from app.db.client import DatabaseAccessError, supabase_client
 
 logger = logging.getLogger(__name__)

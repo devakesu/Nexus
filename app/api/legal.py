@@ -10,8 +10,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.templates import render_legal
+from app.core.infra.limiter import limiter
+from app.core.utils.templates import render_legal
 
 logger = logging.getLogger(__name__)
 

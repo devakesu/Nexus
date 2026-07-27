@@ -17,7 +17,7 @@ from fastapi import (
 import app.api.feedback as feedback_module
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.infra.limiter import limiter
 from app.db.client import DatabaseAccessError
 from app.db.feedback import (
     fetch_ticket_comments,

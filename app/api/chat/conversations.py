@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import DiscoveryTab, settings
-from app.core.limiter import limiter
+from app.core.infra.limiter import limiter
 from app.db.chat import (
     fetch_conversations_for_user,
     fetch_started_match_ids,

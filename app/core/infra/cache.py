@@ -40,7 +40,7 @@ def invalidate_user_status_cache(user_id: str) -> None:
         user_id: Unique string identifier of the user whose status cache is to be evicted.
     """
     try:
-        from app.core.tasks import safe_create_task
+        from app.core.infra.tasks import safe_create_task
 
         async def _delete_key() -> None:
             """Asynchronously delete the cached user status key from Redis."""

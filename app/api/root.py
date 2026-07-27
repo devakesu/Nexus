@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 
 from app.core.config import settings
-from app.core.templates import (
+from app.core.utils.templates import (
     render_contact,
     render_delete_account,
     render_error,

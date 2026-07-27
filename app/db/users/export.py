@@ -25,7 +25,7 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.crypto import DecryptFailedError, decrypt_pii
+from app.core.security.crypto import DecryptFailedError, decrypt_pii
 from app.db.chat import decrypt_event_row
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile

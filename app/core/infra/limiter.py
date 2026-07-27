@@ -36,7 +36,7 @@ def get_user_or_ip(request: Request) -> str:
             is_jwks = settings.is_jwks
             public_key = None
             if is_jwks:
-                from app.core.jwks import get_live_supabase_public_key
+                from app.core.security.jwks import get_live_supabase_public_key
 
                 with contextlib.suppress(Exception):
                     loop = asyncio.get_event_loop()

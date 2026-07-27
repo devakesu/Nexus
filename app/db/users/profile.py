@@ -10,7 +10,7 @@ from typing import Any, cast
 from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
-from app.core.crypto import compute_blind_index, encrypt_to_hex
+from app.core.security.crypto import compute_blind_index, encrypt_to_hex
 from app.db.client import supabase_client
 
 logger = logging.getLogger(__name__)

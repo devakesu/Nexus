@@ -12,18 +12,21 @@ from app.api.dependencies import (
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
-from app.core.account_phone_otp import (
+from app.core.auth.passwordless_email import (
+    send_login_email_otp,
+    verify_login_email_otp,
+)
+from app.core.auth.phone_otp import (
     generate_otp_code,
     hash_otp,
     normalize_phone,
     verify_otp_hash,
 )
-from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
-from app.core.limiter import limiter
-from app.core.passwordless_email import send_login_email_otp, verify_login_email_otp
-from app.core.sms import send_sms
+from app.core.infra.cache import redis_client
+from app.core.infra.limiter import limiter
+from app.core.utils.sms import send_sms
 from app.db.client import supabase_client
 from app.db.users import (
     fetch_profile,

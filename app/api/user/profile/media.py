@@ -8,7 +8,7 @@ from app.api.dependencies import (
     get_active_user_id,
     verify_app_check_with_replay_protection,
 )
-from app.core.limiter import limiter
+from app.core.infra.limiter import limiter
 from app.db.profiles import update_profile_images_and_metadata
 from app.models import ProfileImagesAndTagsUpdate
 

@@ -11,8 +11,8 @@ from typing import Any, cast
 from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
-from app.core.cache import invalidate_user_status_cache
 from app.core.config import settings
+from app.core.infra.cache import invalidate_user_status_cache
 from app.db.client import parse_utc_datetime, supabase_client
 
 logger = logging.getLogger(__name__)

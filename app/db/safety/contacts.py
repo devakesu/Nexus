@@ -5,8 +5,8 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
-from app.core.portal_auth import normalize_phone
+from app.core.security.crypto import compute_blind_index, decrypt_pii, encrypt_to_hex
+from app.core.security.portal_auth import normalize_phone
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)

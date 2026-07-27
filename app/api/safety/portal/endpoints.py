@@ -8,11 +8,12 @@ from fastapi import APIRouter, Body, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app.api.safety.portal.html import _CONTACT_PORTAL_PAGE_HTML, _PORTAL_PAGE_HTML
-from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import send_trusted_contact_removed_email
-from app.core.limiter import limiter
-from app.core.portal_auth import (
+from app.core.infra.cache import redis_client
+from app.core.infra.limiter import limiter
+from app.core.infra.tasks import safe_create_task
+from app.core.security.portal_auth import (
     generate_otp_code,
     hash_otp,
     make_portal_access_token,
@@ -20,8 +21,7 @@ from app.core.portal_auth import (
     verify_otp_hash,
     verify_portal_access_token,
 )
-from app.core.sms import compose_contact_self_removed_message, send_sms
-from app.core.tasks import safe_create_task
+from app.core.utils.sms import compose_contact_self_removed_message, send_sms
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     create_evidence_download_url,

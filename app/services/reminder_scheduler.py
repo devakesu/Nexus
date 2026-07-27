@@ -13,7 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
-from app.core.sms import (
+from app.core.utils.sms import (
     compose_unreachable_message,
     make_escalation_cancel_token,
     send_sms,

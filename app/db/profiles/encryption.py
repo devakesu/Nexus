@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, cast
 
-from app.core.crypto import DecryptFailedError, decrypt_pii
+from app.core.security.crypto import DecryptFailedError, decrypt_pii
 from app.db.client import ProfileDecodeError
 from app.db.profiles.media import sign_profile_media_bulk
 

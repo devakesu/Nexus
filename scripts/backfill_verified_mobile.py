@@ -21,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core.crypto import encrypt_to_hex
+from app.core.security.crypto import encrypt_to_hex
 from app.db.client import supabase_client
 
 logging.basicConfig(level=logging.INFO)

@@ -32,11 +32,14 @@ from app.api.spotify import router as spotify_router
 from app.api.status import router as status_router
 from app.api.user import router as user_router
 from app.api.well_known import router as well_known_router
-from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.security import RequestSizeLimitMiddleware, SecurityHeadersMiddleware
-from app.core.sentry_utils import scrub_event
+from app.core.infra.cache import redis_client
+from app.core.infra.limiter import limiter
+from app.core.infra.sentry import scrub_event
+from app.core.security.security import (
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.services.reminder_scheduler import (
     start_reminder_scheduler,
     stop_reminder_scheduler,

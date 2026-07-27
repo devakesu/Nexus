@@ -16,16 +16,16 @@ from app.api.dependencies import (
     verify_app_check_token,
 )
 from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.portal_auth import normalize_phone
-from app.core.sms import (
+from app.core.infra.limiter import limiter
+from app.core.infra.tasks import safe_create_task
+from app.core.security.portal_auth import normalize_phone
+from app.core.utils.sms import (
     compose_contact_added_message,
     compose_inform_message,
     compose_sos_message,
     send_sms,
     verify_escalation_cancel_token,
 )
-from app.core.tasks import safe_create_task
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     cancel_safety_escalation,

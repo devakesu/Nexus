@@ -11,8 +11,8 @@ from app.api.dependencies import (
     verify_app_check_token,
 )
 from app.core.config import settings
-from app.core.limiter import limiter
-from app.core.tasks import safe_create_task
+from app.core.infra.limiter import limiter
+from app.core.infra.tasks import safe_create_task
 from app.db.chat import (
     create_event_with_message,
     fetch_conversation_participants,

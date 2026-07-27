@@ -13,7 +13,7 @@ from typing import Any, cast
 from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
-from app.core.cache import redis_client
+from app.core.infra.cache import redis_client
 from app.db.client import parse_utc_datetime, supabase_client
 from app.db.users.auth import fetch_public_user
 

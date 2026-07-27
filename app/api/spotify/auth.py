@@ -12,9 +12,9 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.api.dependencies import get_active_user_id
-from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.infra.cache import redis_client
+from app.core.infra.limiter import limiter
 from app.db.spotify import upsert_connection
 from app.services.spotify_sync import (
     blend_artist_affinity,

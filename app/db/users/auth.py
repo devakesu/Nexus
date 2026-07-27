@@ -13,9 +13,9 @@ from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 from supabase_auth import User, UserResponse
 
-from app.core.cache import invalidate_user_status_cache
 from app.core.config import settings
-from app.core.crypto import (
+from app.core.infra.cache import invalidate_user_status_cache
+from app.core.security.crypto import (
     DecryptFailedError,
     compute_blind_index,
     decrypt_pii,

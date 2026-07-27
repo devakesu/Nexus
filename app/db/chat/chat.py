@@ -13,7 +13,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.core.crypto import decrypt_pii, encrypt_to_hex
+from app.core.security.crypto import decrypt_pii, encrypt_to_hex
 from app.db.client import (
     DatabaseAccessError,
     parse_utc_datetime,
@@ -414,7 +414,7 @@ def _decrypt_float_field(val: Any) -> float | None:
             float | None: Response payload or result."""
     if not val:
         return None
-    from app.core.crypto import DecryptFailedError
+    from app.core.security.crypto import DecryptFailedError
     try:
         return float(decrypt_pii(val))
     except DecryptFailedError:
@@ -432,7 +432,7 @@ def _decrypt_str_field(val: Any) -> str | None:
             str | None: Response payload or result."""
     if not val:
         return None
-    from app.core.crypto import DecryptFailedError
+    from app.core.security.crypto import DecryptFailedError
     with contextlib.suppress(DecryptFailedError):
         return decrypt_pii(val)
     return str(val)
@@ -448,7 +448,7 @@ def decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
             dict[str, Any] | None: Response payload or result."""
     if row is None:
         return None
-    from app.core.crypto import DecryptFailedError
+    from app.core.security.crypto import DecryptFailedError
 
     # Decrypt event_time
     event_time_raw = row.get("event_time")

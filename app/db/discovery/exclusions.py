@@ -13,8 +13,8 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.cache import get_block_ids_cache_ttl, redis_client
 from app.core.config import DiscoveryTab
+from app.core.infra.cache import get_block_ids_cache_ttl, redis_client
 from app.db.client import (
     DatabaseAccessError,
     parse_utc_datetime,

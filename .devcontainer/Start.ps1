@@ -92,12 +92,13 @@ if ($Mode -ne "Skip") {
             exit 1
         }
 
-        # Force Host ADB server to listen on all interfaces (0.0.0.0:5037 or forward local 5555)
-        Write-Host "🔌 Bridging Container ADB to host.docker.internal..." -ForegroundColor Cyan
+        # Use host.docker.internal so the container routes to Windows Host
+        Write-Host "🔌 Connecting Container ADB to host.docker.internal:5555..." -ForegroundColor Cyan
         docker exec -u $User $ContainerName adb connect host.docker.internal:5555 | Out-Null
     }
 
     $retryCount = 0
+    # Match target to host.docker.internal for Emulator mode
     $Target = if ($Mode -eq "Physical") { "${DeviceIp}:5555" } else { "host.docker.internal:5555" }
     
     while ($retryCount -lt 15) {
@@ -140,8 +141,8 @@ Write-Host "✅ Environment sanitized. gg." -ForegroundColor Green
 # SIG # Begin signature block
 # MIIFfQYJKoZIhvcNAQcCoIIFbjCCBWoCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC39O/AP13dGZKu
-# aMPKB3B9ff7VOHp8ZHlU+voDuJP9jaCCAvowggL2MIIB3qADAgECAhAmKGzz2Y/i
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCrzs9840UQWdAy
+# 0huPvMsfVbpP0beE27v9kACjgZ6oQ6CCAvowggL2MIIB3qADAgECAhAmKGzz2Y/i
 # k00s+ReTOHmTMA0GCSqGSIb3DQEBCwUAMBMxETAPBgNVBAMMCGRldmFrZXN1MB4X
 # DTI2MDYwNzEzNTA0MloXDTI3MDYwNzE0MTA0MlowEzERMA8GA1UEAwwIZGV2YWtl
 # c3UwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDEoLmTS8czHXtaQFpw
@@ -160,12 +161,12 @@ Write-Host "✅ Environment sanitized. gg." -ForegroundColor Green
 # 05EwtDcUqVGObcNhvsYrTipXJR0xggHZMIIB1QIBATAnMBMxETAPBgNVBAMMCGRl
 # dmFrZXN1AhAmKGzz2Y/ik00s+ReTOHmTMA0GCWCGSAFlAwQCAQUAoIGEMBgGCisG
 # AQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcCAQQw
-# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIIue
-# Mw8IpsBt4qIPjPa9nP8TjVUb2etj2qwwgbrEz8DqMA0GCSqGSIb3DQEBAQUABIIB
-# ACmqR/MQFPT1lt0qOws84qx/OtFBJpsijGbHZSLbRciKhKkHEVjT9S78IgPl6uGg
-# Nh6J+lBFjPkWDafVo/yqifKkdbqUt79e3IJAlrg5YleQI0dNckMH1fEpzGcTr41C
-# YsL0XSPE6CWgL4A9z44T8HTuQISiRwJVanH8m9NlqwZbEvLSNI2W9FGejAFEuQT9
-# aTfoQY5FHOw7J1BXIMb88Sao4emEJBNZE8mCA24oP5/J7bHWkQpsMJ1vXJWYNInz
-# kHbsBjdOd0JmK0nMe7uFbottGxWOCLmmiqTTGugCAoL9fpcvRyVmp9fg3iUA+LY/
-# bFS+6M0C72ejZftPEBSWrFU=
+# HAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwLwYJKoZIhvcNAQkEMSIEIGHT
+# QiXO/wPIAkUKIrIfQQoLzpHFmstzXHPXqORvKDJ6MA0GCSqGSIb3DQEBAQUABIIB
+# AKXwnueR0HG7QPbVkW1gYG53oRaKV9Yq0rnMlgBXTe8NcGWJBi+jBN2oJdv2p6+u
+# ebn/0b5W5sEMVR/c+cuvWglsBHppqvuiPDxMOdjInW9oXA1pslsA0T2LkLilwxjZ
+# r7wRNcjhiOGrVcvexjjp/Icm7ypEdD+JTV9ND4EnbmzNSMrfWcjPnLu5TC7dc+Ph
+# 1tUs7bxOZrbBU/Di1cmGZhSCoooFtlofWnky3L/YpxpL7ZO2hc9DqTncdt8XlOvb
+# gjbfKlNrg4et4XsuDsO8A5pMJ1hb8bZ7M986bjiqFZImrom4Y2jLzAHGKHy+46xQ
+# Zogqd4ldbVEztl+kb1BbqYo=
 # SIG # End signature block

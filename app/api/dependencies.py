@@ -18,9 +18,9 @@ from firebase_admin import app_check
 from redis.exceptions import RedisError
 from starlette.concurrency import run_in_threadpool
 
-from app.core.cache import redis_client
 from app.core.config import settings
-from app.core.jwks import get_live_supabase_public_key
+from app.core.infra.cache import redis_client
+from app.core.security.jwks import get_live_supabase_public_key
 from app.db.client import parse_utc_datetime
 from app.db.users import fetch_public_user
 

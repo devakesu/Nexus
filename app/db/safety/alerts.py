@@ -9,7 +9,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import settings
-from app.core.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
+from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 from app.db.profiles import (
     decrypt_profile_record,

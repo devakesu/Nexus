@@ -24,7 +24,7 @@ from redis.exceptions import RedisError
 import app.api.feedback as feedback_module
 from app.api.feedback.models import ContactOtpRequest, ContactSubmitRequest
 from app.core.config import settings
-from app.core.limiter import limiter
+from app.core.infra.limiter import limiter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
