@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from app.db.orbit import assign_orbit_positions, coerce_score
+from app.db.discovery import assign_orbit_positions, coerce_score
 
 
 def _half_width(name: str) -> float:

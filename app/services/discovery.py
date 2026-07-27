@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 from app.core.config import DiscoveryTab
 from app.db.client import parse_utc_datetime, utcnow
-from app.db.exclusions import fetch_expired_pass_candidates
+from app.db.discovery import fetch_expired_pass_candidates
 from app.db.profiles import fetch_stage_1_candidates
 from app.db.sessions import (
     create_discovery_session,

@@ -19,8 +19,11 @@ from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import send_data_export_otp_email
 from app.core.limiter import limiter
-from app.db.export import build_user_data_export
-from app.db.users import get_user_email_by_id, get_user_id_by_email
+from app.db.users import (
+    build_user_data_export,
+    get_user_email_by_id,
+    get_user_id_by_email,
+)
 from app.models import (
     DataExportOtpRequestRequest,
     DataExportOtpRequestResponse,

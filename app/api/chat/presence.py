@@ -12,9 +12,9 @@ from app.core.limiter import limiter
 from app.db.chat import (
     fetch_presence,
     fetch_user_share_flags,
+    has_active_match,
     upsert_presence_heartbeat,
 )
-from app.db.chat_keys import has_active_match
 from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.models import PresenceHeartbeatRequest, PresenceResponse
 

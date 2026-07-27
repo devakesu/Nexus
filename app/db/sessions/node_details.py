@@ -8,8 +8,7 @@ from postgrest.exceptions import APIError
 from app.core.config import DiscoveryTab
 from app.core.crypto import DecryptFailedError
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
-from app.db.exclusions import get_cached_active_block_ids
-from app.db.orbit import coerce_float, coerce_score
+from app.db.discovery import coerce_float, coerce_score, get_cached_active_block_ids
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,

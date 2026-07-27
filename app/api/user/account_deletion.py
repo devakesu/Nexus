@@ -32,13 +32,14 @@ from app.core.email import (
     send_account_reactivated_email,
 )
 from app.core.limiter import limiter
-from app.db.account_deletion import (
+from app.db.users import (
     cancel_deletion,
     compute_deletion_flag_reason,
     fetch_deletion_status,
+    get_user_email_by_id,
+    get_user_id_by_email,
     request_deletion,
 )
-from app.db.users import get_user_email_by_id, get_user_id_by_email
 from app.models import (
     AccountDeletionCancelResponse,
     AccountDeletionOtpRequestRequest,

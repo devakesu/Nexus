@@ -15,12 +15,12 @@ from app.core.crypto import DecryptFailedError
 from app.core.limiter import limiter
 from app.core.tasks import safe_create_task
 from app.db.client import DatabaseAccessError, ProfileDecodeError
-from app.db.exclusions import (
+from app.db.discovery import (
+    build_tab_aware_orbit_node_detail,
     invalidate_block_cache,
     record_discovery_action,
     record_user_report,
 )
-from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.sessions import fetch_discovery_node_detail, fetch_spatial_viewport
 from app.models import (
     DiscoveryActionRequest,
@@ -302,7 +302,7 @@ async def _validate_discovery_action(
         Args:
             user_id: Unique UUID string of the authenticated user.
             payload: Validated request body model containing parameters."""
-    from app.db.exclusions import has_active_discovery_action
+    from app.db.discovery import has_active_discovery_action
     from app.db.sessions import is_candidate_in_active_session
 
     is_reversal = payload.action.startswith("un")

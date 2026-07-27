@@ -18,11 +18,6 @@ from app.core.sms import (
     make_escalation_cancel_token,
     send_sms,
 )
-from app.db.account_deletion import (
-    expire_blocklist_entries,
-    hard_purge_long_tail_accounts,
-    purge_due_accounts,
-)
 from app.db.chat import (
     fetch_conversation_participants,
     fetch_due_event_reminders,
@@ -37,6 +32,11 @@ from app.db.safety import (
     purge_expired_safety_evidence,
     purge_safety_data_for_purged_accounts,
     record_safety_escalation_sent,
+)
+from app.db.users import (
+    expire_blocklist_entries,
+    hard_purge_long_tail_accounts,
+    purge_due_accounts,
 )
 from app.services.fcm_sender import (
     send_chat_event_reminder_notification,

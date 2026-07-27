@@ -10,7 +10,7 @@ import app.db.profiles as profiles_module
 from app.core.config import DiscoveryTab
 from app.core.crypto import DecryptFailedError, compute_blind_index
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
-from app.db.exclusions import fetch_active_discovery_excluded_ids
+from app.db.discovery import fetch_active_discovery_excluded_ids
 from app.db.profiles.encryption import decrypt_profile_record
 from app.db.profiles.media import sign_profile_media
 from app.models import DiscoveryFilters

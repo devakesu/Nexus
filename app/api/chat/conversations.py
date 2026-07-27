@@ -15,8 +15,7 @@ from app.db.chat import (
     get_or_create_conversation,
 )
 from app.db.client import DatabaseAccessError, supabase_client
-from app.db.exclusions import get_cached_active_block_ids
-from app.db.matches import fetch_matches_for_user
+from app.db.discovery import fetch_matches_for_user, get_cached_active_block_ids
 from app.db.profiles import decrypt_profile_rows
 from app.models import (
     ChatCandidateItem,

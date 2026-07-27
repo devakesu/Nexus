@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from starlette.requests import Request
 
-from app.api.chat_keys import get_key_bundle
+from app.api.chat.keys import get_key_bundle
 from app.models import KeyBundleResponse
 
 
 @pytest.mark.anyio
-@patch("app.api.chat_keys.has_active_match")
-@patch("app.api.chat_keys.fetch_key_bundle")
+@patch("app.api.chat.keys.has_active_match")
+@patch("app.api.chat.keys.fetch_key_bundle")
 async def test_get_key_bundle_success(
     mock_fetch_key_bundle: MagicMock,
     mock_has_active_match: MagicMock,

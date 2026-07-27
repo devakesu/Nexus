@@ -30,7 +30,7 @@ from app.db.chat import (
     reopen_conversations_for_reactivation,
 )
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
-from app.db.matches import fetch_matches_for_user, set_match_unmatched
+from app.db.discovery import fetch_matches_for_user, set_match_unmatched
 
 logger = logging.getLogger(__name__)
 

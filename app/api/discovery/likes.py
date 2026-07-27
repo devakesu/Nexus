@@ -25,22 +25,20 @@ from app.db.client import (
     parse_utc_datetime,
     supabase_client,
 )
-from app.db.exclusions import (
+from app.db.discovery import (
+    build_tab_aware_orbit_node_detail,
     fetch_likes_for_user,
+    fetch_matches_for_user,
     get_cached_active_block_ids,
     invalidate_block_cache,
     mark_likes_seen,
     record_discovery_action,
-    record_user_report,
-    revoke_incoming_like,
-)
-from app.db.matches import (
-    fetch_matches_for_user,
     record_match,
     record_mutual_pass,
+    record_user_report,
+    revoke_incoming_like,
     set_match_unmatched,
 )
-from app.db.orbit import build_tab_aware_orbit_node_detail
 from app.db.profiles import decrypt_profile_rows as _decrypt_profiles
 from app.db.profiles import fetch_peer_profile_by_id
 from app.models import (

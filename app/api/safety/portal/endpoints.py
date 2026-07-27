@@ -7,7 +7,7 @@ from typing import Any, cast
 from fastapi import APIRouter, Body, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from app.api.safety_portal.html import _CONTACT_PORTAL_PAGE_HTML, _PORTAL_PAGE_HTML
+from app.api.safety.portal.html import _CONTACT_PORTAL_PAGE_HTML, _PORTAL_PAGE_HTML
 from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.email import send_trusted_contact_removed_email

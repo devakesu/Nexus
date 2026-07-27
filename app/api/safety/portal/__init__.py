@@ -4,7 +4,7 @@ Refactored from monolithic safety_portal.py to support modular HTML templates an
 Exposes the unified router symbol for mounting in the main application.
 """
 
-from app.api.safety_portal.endpoints import router
+from app.api.safety.portal.endpoints import router
 
 __all__ = [
     "router",

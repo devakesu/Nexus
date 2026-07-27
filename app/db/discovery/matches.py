@@ -12,7 +12,7 @@ from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
-from app.db.exclusions import record_discovery_action
+from app.db.discovery import record_discovery_action
 
 logger = logging.getLogger(__name__)
 

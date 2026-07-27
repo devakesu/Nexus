@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import Request
 
-from app.api.account_deletion import cancel_account_deletion, request_account_deletion
+from app.api.user.account_deletion import (
+    cancel_account_deletion,
+    request_account_deletion,
+)
 from app.core.email import (
     send_account_deletion_scheduled_email,
     send_account_reactivated_email,
@@ -62,12 +65,12 @@ async def test_send_account_reactivated_email_props(
 
 
 @pytest.mark.anyio
-@patch("app.api.account_deletion.redis_client")
-@patch("app.api.account_deletion._resolve_account_deletion_user")
-@patch("app.api.account_deletion.fetch_deletion_status")
-@patch("app.api.account_deletion.compute_deletion_flag_reason")
-@patch("app.api.account_deletion.request_deletion")
-@patch("app.api.account_deletion.send_account_deletion_scheduled_email")
+@patch("app.api.user.account_deletion.redis_client")
+@patch("app.api.user.account_deletion._resolve_account_deletion_user")
+@patch("app.api.user.account_deletion.fetch_deletion_status")
+@patch("app.api.user.account_deletion.compute_deletion_flag_reason")
+@patch("app.api.user.account_deletion.request_deletion")
+@patch("app.api.user.account_deletion.send_account_deletion_scheduled_email")
 async def test_request_account_deletion_queues_email(
     mock_scheduled_email: MagicMock,
     mock_request_deletion: MagicMock,
@@ -114,16 +117,17 @@ async def test_request_account_deletion_queues_email(
 
 
 @pytest.mark.anyio
-@patch("app.api.account_deletion.fetch_deletion_status")
-@patch("app.api.account_deletion.get_user_email_by_id")
-@patch("app.api.account_deletion.cancel_deletion")
-@patch("app.api.account_deletion.send_account_reactivated_email")
+@patch("app.api.user.account_deletion.fetch_deletion_status")
+@patch("app.api.user.account_deletion.get_user_email_by_id")
+@patch("app.api.user.account_deletion.cancel_deletion")
+@patch("app.api.user.account_deletion.send_account_reactivated_email")
 async def test_cancel_account_deletion_queues_email(
     mock_reactivated_email: MagicMock,
     mock_cancel_deletion: MagicMock,
     mock_get_email: MagicMock,
     mock_fetch_status: MagicMock,
 ) -> None:
+
     mock_fetch_status.return_value = {
         "deletion_requested_at": "2026-07-26T19:00:00Z",
         "scheduled_purge_at": "2026-08-09T19:00:00Z",

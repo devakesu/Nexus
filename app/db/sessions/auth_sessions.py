@@ -13,7 +13,7 @@ from app.db.client import (
     supabase_client,
     utcnow,
 )
-from app.db.orbit import assign_orbit_positions, coerce_float, coerce_score
+from app.db.discovery import assign_orbit_positions, coerce_float, coerce_score
 
 logger = logging.getLogger(__name__)
 

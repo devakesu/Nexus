@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.exclusions import fetch_active_discovery_excluded_ids
+from app.db.discovery import fetch_active_discovery_excluded_ids
 
 
 @pytest.fixture
 def mock_supabase() -> Any:
-    with patch("app.db.exclusions.supabase_client") as mock:
+    with patch("app.db.discovery.exclusions.supabase_client") as mock:
         yield mock
 
 

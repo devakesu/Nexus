@@ -12,7 +12,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request, stat
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.db.chat_keys import (
+from app.db.chat import (
     bulk_insert_one_time_prekeys,
     count_unused_one_time_prekeys,
     fetch_key_bundle,

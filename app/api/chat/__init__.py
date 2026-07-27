@@ -22,6 +22,9 @@ from app.api.chat.events import (
 from app.api.chat.events import (
     router as events_router,
 )
+from app.api.chat.keys import (
+    router as keys_router,
+)
 from app.api.chat.messages import (
     mark_conversation_messages_read,
     send_message,
@@ -44,6 +47,8 @@ router.include_router(conversations_router)
 router.include_router(messages_router)
 router.include_router(presence_router)
 router.include_router(events_router)
+router.include_router(keys_router)
+
 
 __all__ = [
     "_PRESENCE_STALE_AFTER",

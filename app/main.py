@@ -21,22 +21,15 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
-from app.api.account_deletion import router as account_deletion_router
 from app.api.chat import router as chat_router
-from app.api.chat_keys import router as chat_keys_router
-from app.api.devices import router as devices_router
-from app.api.discovery import router as discovery_router
-from app.api.export import router as export_router
+from app.api.discovery.endpoints import router as discovery_router
 from app.api.feedback import router as feedback_router
 from app.api.legal import router as legal_router
-from app.api.likes import router as likes_router
 from app.api.root import render_error_page
 from app.api.root import router as root_router
-from app.api.safety import router as safety_router
-from app.api.safety_portal import router as safety_portal_router
+from app.api.safety.endpoints import router as safety_router
 from app.api.spotify import router as spotify_router
 from app.api.status import router as status_router
-from app.api.sync import router as sync_router
 from app.api.user import router as user_router
 from app.api.well_known import router as well_known_router
 from app.core.cache import redis_client
@@ -227,22 +220,16 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 app.include_router(root_router)
-app.include_router(account_deletion_router)
 app.include_router(chat_router)
-app.include_router(chat_keys_router)
-app.include_router(devices_router)
 app.include_router(discovery_router)
-app.include_router(export_router)
 app.include_router(feedback_router)
 app.include_router(legal_router)
-app.include_router(likes_router)
 app.include_router(safety_router)
-app.include_router(safety_portal_router)
 app.include_router(spotify_router)
 app.include_router(user_router)
-app.include_router(sync_router)
 app.include_router(status_router)
 app.include_router(well_known_router)
+
 
 if settings.debug:
     try:

@@ -237,7 +237,7 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
     second account verifying an already-claimed number fails here with a
     clear conflict rather than silently creating an ambiguous lookup.
     """
-    from app.db.account_deletion import is_phone_blocklisted
+    from app.db.users import is_phone_blocklisted
 
     blind_index = compute_blind_index(phone)
     if is_phone_blocklisted(blind_index):
