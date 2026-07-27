@@ -22,7 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from app.api.chat import router as chat_router
-from app.api.discovery.endpoints import router as discovery_router
+from app.api.discovery import router as discovery_router
 from app.api.feedback import router as feedback_router
 from app.api.legal import router as legal_router
 from app.api.root import render_error_page
@@ -99,7 +99,6 @@ async def lifespan(_app: FastAPI):
     Args:
         _app: FastAPI application instance.
     """
-    logger.warning(f"DIAGNOSTIC: settings.redis_url = {settings.redis_url}")
     if settings.enable_replay_protection:
         try:
             ping_func = cast(Any, redis_client).ping

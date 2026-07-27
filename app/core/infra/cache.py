@@ -23,14 +23,19 @@ def get_block_ids_cache_ttl() -> int:
     return 300 + secrets.randbelow(31)
 
 
+from redis.asyncio.connection import BlockingConnectionPool
+
 # Shared async Redis client managed with internal connection pooling
-redis_client = aioredis.from_url(
+pool = BlockingConnectionPool.from_url(  # type: ignore
     settings.redis_url,
-    encoding="utf-8",
+    max_connections=15,
+    timeout=5.0,
+    socket_connect_timeout=10,
+    socket_timeout=10,
     decode_responses=True,
-    socket_connect_timeout=3,
-    socket_timeout=3,
+    encoding="utf-8",
 )
+redis_client = aioredis.Redis(connection_pool=pool)
 
 
 def invalidate_user_status_cache(user_id: str) -> None:
