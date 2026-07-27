@@ -99,6 +99,7 @@ async def lifespan(_app: FastAPI):
     Args:
         _app: FastAPI application instance.
     """
+    logger.warning(f"DIAGNOSTIC: settings.redis_url = {settings.redis_url}")
     if settings.enable_replay_protection:
         try:
             ping_func = cast(Any, redis_client).ping

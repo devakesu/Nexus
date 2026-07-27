@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
-import 'package:nexus/config/app_config.dart';
+import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/features/spotify/models/spotify_playlist.dart';
 
 /// Wraps every backend/native call for the Spotify integration.

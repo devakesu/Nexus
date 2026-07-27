@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nexus/utils/encrypted_string.dart';
+import 'package:nexus/core/utils/encrypted_string.dart';
 
 void main() {
   test('EncryptedString encrypts and decrypts correctly in memory', () {

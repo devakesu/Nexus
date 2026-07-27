@@ -1,6 +1,6 @@
+import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/features/spotify/models/spotify_playlist.dart';
 import 'package:nexus/features/spotify/services/spotify_service.dart';
-import 'package:nexus/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'spotify_provider.g.dart';

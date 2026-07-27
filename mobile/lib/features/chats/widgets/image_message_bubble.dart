@@ -1,0 +1,172 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/widgets/aesthetic_loaders.dart';
+import 'package:nexus/features/chats/providers/chat_conversation_provider.dart';
+
+/// Decrypts and renders an image attachment, fetched lazily (not eagerly
+/// for the whole message list) via [ChatConversationController.fetchMediaBytes].
+class ImageMessageBubble extends ConsumerStatefulWidget {
+  const ImageMessageBubble({
+    required this.pointer,
+    required this.conversationId,
+    required this.peerUserId,
+    super.key,
+  });
+
+  final MediaPointer pointer;
+  final String conversationId;
+  final String peerUserId;
+
+  @override
+  ConsumerState<ImageMessageBubble> createState() => _ImageMessageBubbleState();
+}
+
+class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble>
+    with AutomaticKeepAliveClientMixin<ImageMessageBubble> {
+  Uint8List? _bytes;
+  bool _loading = true;
+
+  // The message list recycles off-screen bubbles by default, which would
+  // otherwise redo _load() (a disk read + vault-decrypt, now that
+  // fetchMediaBytes caches on-device) every time this bubble scrolls back
+  // into view. Keeping it alive avoids that redundant work.
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final notifier = ref.read(
+        chatConversationControllerProvider(
+          widget.conversationId,
+          widget.peerUserId,
+        ).notifier,
+      );
+      final bytes = await notifier.fetchMediaBytes(widget.pointer);
+      if (!mounted) return;
+      setState(() {
+        _bytes = bytes;
+        _loading = false;
+      });
+    } on Exception {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  void _openFullScreen() {
+    final bytes = _bytes;
+    if (bytes == null) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => _FullScreenImageViewer(bytes: bytes),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    const size = 220.0;
+    if (_loading) {
+      return const SizedBox(
+        width: size,
+        height: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
+          child: Center(child: NexusOrbitLoader(size: 32, lightMode: true)),
+        ),
+      );
+    }
+    final bytes = _bytes;
+    if (bytes == null) {
+      return const SizedBox(
+        width: size,
+        height: 120,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: Color(0xFFFEF2F2)),
+          child: Center(
+            child: Icon(LucideIcons.imageOff, color: AppColors.error),
+          ),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: _openFullScreen,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.memory(
+          bytes,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+}
+
+class _FullScreenImageViewer extends StatelessWidget {
+  const _FullScreenImageViewer({required this.bytes});
+
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
+              child: Center(
+                child: InteractiveViewer(
+                  child: Image.memory(
+                    bytes,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 20,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: const Icon(
+                  LucideIcons.x,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
