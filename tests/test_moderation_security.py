@@ -95,7 +95,7 @@ async def test_send_appeal_otp_flow(
     mock_send_email.return_value.success = True
 
     # 2. Call endpoint helper
-    payload = ContactOtpRequest(email="test@example.com")
+    payload = ContactOtpRequest(email="test@example.com", turnstile_token=None)
     scope: dict[str, Any] = {
         "type": "http",
         "headers": [],

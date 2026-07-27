@@ -9,6 +9,7 @@ import logging
 from datetime import datetime
 from typing import Any, cast
 
+import app.core.email as email_pkg
 from app.core.config import settings
 from app.core.email.config import (
     ProviderResult,
@@ -17,7 +18,6 @@ from app.core.email.config import (
     redact_email,
     should_use_sendpulse,
 )
-from app.core.email.senders import send_email
 from app.core.email.templates import render_cta_button_row, render_email_template
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,7 @@ async def send_bootstrap_welcome_email(
     try:
         redacted = redact_email(email)
         logger.info("Sending auth bootstrap welcome email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if result.success:
             logger.info(
                 "Successfully sent welcome email to %s via %s",
@@ -333,7 +333,7 @@ async def send_feedback_confirmation_email(
     try:
         redacted = redact_email(email)
         logger.info("Sending feedback confirmation email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send feedback confirmation email to %s: %s",
@@ -514,7 +514,7 @@ async def send_feedback_admin_notification_email(  # noqa: C901
             redact_email(recipient),
             ticket_ref,
         )
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send feedback admin notification for ticket #%s: %s",
@@ -657,7 +657,7 @@ async def send_feedback_comment_admin_notification_email(
             redact_email(recipient),
             ticket_ref,
         )
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send feedback comment admin notification for ticket #%s: %s",
@@ -800,7 +800,7 @@ async def send_feedback_closed_admin_notification_email(
             redact_email(recipient),
             ticket_ref,
         )
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send feedback closed admin notification for ticket #%s: %s",
@@ -891,7 +891,7 @@ async def send_trusted_contact_removed_email(
     try:
         redacted = redact_email(email)
         logger.info("Sending trusted-contact-removed email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send trusted-contact-removed email to %s: %s",
@@ -1000,7 +1000,7 @@ async def send_account_deletion_otp_email(email: str, otp_code: str) -> Provider
     try:
         redacted = redact_email(email)
         logger.info("Sending account-deletion-otp email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send account-deletion-otp email to %s: %s",
@@ -1109,7 +1109,7 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
     try:
         redacted = redact_email(email)
         logger.info("Sending data-export-otp email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send data-export-otp email to %s: %s",
@@ -1221,7 +1221,7 @@ async def send_support_appeal_otp_email(
     try:
         redacted = redact_email(email)
         logger.info("Sending support-appeal-otp email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send support-appeal-otp email to %s: %s",
@@ -1343,7 +1343,7 @@ async def send_account_deletion_scheduled_email(
     try:
         redacted = redact_email(email)
         logger.info("Sending account-deletion-scheduled email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send account-deletion-scheduled email to %s: %s",
@@ -1452,7 +1452,7 @@ async def send_account_reactivated_email(email: str) -> ProviderResult:
     try:
         redacted = redact_email(email)
         logger.info("Sending account-reactivated email to %s", redacted)
-        result = await send_email(props)
+        result = await email_pkg.send_email(props)
         if not result.success:
             logger.error(
                 "Failed to send account-reactivated email to %s: %s",

@@ -1,8 +1,8 @@
-"""Profile media updates, details GET/PATCH endpoints, and moderation subjects lookup."""
+"""Profile details GET and PATCH API endpoints."""
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, cast
 
 from fastapi import (
@@ -11,35 +11,39 @@ from fastapi import (
     Body,
     Depends,
     HTTPException,
-    Request,
     status,
 )
 from postgrest.exceptions import APIError
 
+import app.api.user as user_module
 from app.api.dependencies import (
     assert_special_category_consent,
     get_active_user_id,
     verify_app_check_with_replay_protection,
 )
+from app.api.user.profile.helpers import (
+    _AGE_CHANGE_MAX_PER_WINDOW,
+    _AGE_CHANGE_WINDOW_DAYS,
+    _NAME_CHANGE_MAX_PER_WINDOW,
+    _NAME_CHANGE_WINDOW_DAYS,
+    _VALUE_DIMENSION_TRIGGER_FIELDS,
+    _assert_no_decryption_failures,
+    _build_ordered_images,
+    _rolling_change_window_status,
+    _sets_special_category_data,
+    _validate_common_activation,
+    _validate_dating_activation,
+    _validate_friends_activation,
+    _validate_professional_activation,
+)
 from app.core.crypto import compute_blind_index, encrypt_to_hex
-from app.core.limiter import limiter
 from app.core.moderation import NameModerationError, validate_display_name
-from app.db.client import parse_utc_datetime, supabase_client
-from app.db.profiles import (
-    decrypt_profile_record,
-    sanitize_decrypted_profile,
-    sign_profile_media_bulk,
-    update_profile_images_and_metadata,
-)
-from app.db.users import (
-    fetch_public_user,
-)
+from app.db.client import supabase_client
+from app.db.profiles import decrypt_profile_record
+from app.db.users import fetch_public_user
 from app.models import (
-    ModerationSubjectItem,
-    ModerationSubjectsRequest,
     ProfileDetailsResponse,
     ProfileDetailsUpdate,
-    ProfileImagesAndTagsUpdate,
     ProfileUpdateResponse,
 )
 from app.services.profile import recompile_and_push_vectors
@@ -48,273 +52,6 @@ from app.services.value_dimensions import recompile_value_dimensions
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-_VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
-    {
-        "interests",
-        "sub_interests",
-        "causes_supported",
-        "tech_skills",
-        "activities",
-        "lifestyle",
-    },
-)
-
-_AGE_CHANGE_WINDOW_DAYS = 365
-_AGE_CHANGE_MAX_PER_WINDOW = 2
-_NAME_CHANGE_WINDOW_DAYS = 365
-_NAME_CHANGE_MAX_PER_WINDOW = 2
-
-_SPECIAL_CATEGORY_OPT_OUT_VALUES = {
-    "display_sexuality": "Prefer not to say",
-    "religious_beliefs": "Prefer not to say",
-}
-
-
-def _assert_no_decryption_failures(profile: dict[str, Any]) -> None:
-    for val in profile.values():
-        if (
-            val == "__DECRYPTION_FAILED__"
-            or val == ["__DECRYPTION_FAILED__"]
-            or val == {"__DECRYPTION_FAILED__": True}
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=(
-                    "Profile decryption failed due to data corruption or key mismatch."
-                ),
-            )
-
-
-def _rolling_change_window_status(
-    table: str,
-    user_id: str,
-    window_days: int,
-    max_changes: int,
-) -> tuple[int, bool, datetime | None]:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
-    try:
-        res = (
-            supabase_client.table(table)
-            .select("changed_at")
-            .eq("user_id", user_id)
-            .gte("changed_at", cutoff.isoformat())
-            .order("changed_at")
-            .execute()
-        )
-    except Exception as e:
-        logger.exception(
-            "Failed to check rolling change-window eligibility",
-            extra={"user_id": user_id, "table": table},
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error.",
-        ) from e
-
-    rows = cast("list[dict[str, Any]]", getattr(res, "data", None) or [])
-    used = len(rows)
-    eligible = used < max_changes
-    next_eligible = (
-        parse_utc_datetime(rows[0]["changed_at"]) + timedelta(days=window_days)
-        if not eligible
-        else None
-    )
-    return used, eligible, next_eligible
-
-
-def _build_ordered_images(profile: dict[str, Any]) -> list[str]:
-    profile_pic = profile.get("profile_pic")
-    normal_pics = profile.get("normal_pics")
-    ordered_images: list[str] = []
-    if profile_pic and isinstance(profile_pic, str) and profile_pic.strip():
-        ordered_images.append(profile_pic)
-    if isinstance(normal_pics, list):
-        for p in cast(list[object], normal_pics):
-            if isinstance(p, str) and p.strip():
-                ordered_images.append(p)
-    return ordered_images
-
-
-def _sets_special_category_data(payload: ProfileDetailsUpdate) -> bool:
-    return any(
-        (val := getattr(payload, field, None)) is not None and val != opt_out
-        for field, opt_out in _SPECIAL_CATEGORY_OPT_OUT_VALUES.items()
-    )
-
-
-def _resolve_field(
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-    field_name: str,
-) -> Any:
-    payload_val = getattr(payload, field_name, None)
-    return payload_val if payload_val is not None else profile.get(field_name)
-
-
-def _validate_common_activation(
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-    missing: list[str],
-) -> None:
-    val_name = _resolve_field(profile, payload, "name")
-    val_age = _resolve_field(profile, payload, "age")
-    val_sub_interests = _resolve_field(profile, payload, "sub_interests")
-    val_profile_pic = _resolve_field(profile, payload, "profile_pic")
-    val_normal_pics = _resolve_field(profile, payload, "normal_pics")
-    val_bio = _resolve_field(profile, payload, "bio")
-
-    if not isinstance(val_name, str) or not val_name.strip():
-        missing.append("name")
-    if val_age is None:
-        missing.append("age")
-
-    sub_count = (
-        sum(len(v) for v in cast(dict[str, list[str]], val_sub_interests).values())
-        if isinstance(val_sub_interests, dict)
-        else 0
-    )
-    if val_sub_interests != {"__DECRYPTION_FAILED__": True} and sub_count < 2:
-        missing.append("interests")
-    if val_profile_pic != "__DECRYPTION_FAILED__" and (
-        not isinstance(val_profile_pic, str) or not val_profile_pic.strip()
-    ):
-        missing.append("profile_pic")
-    if val_normal_pics != ["__DECRYPTION_FAILED__"] and (
-        not isinstance(val_normal_pics, list)
-        or len(cast(list[Any], val_normal_pics)) < 1
-    ):
-        missing.append("normal_pics")
-    if val_bio == "__DECRYPTION_FAILED__":
-        pass
-    else:
-        if not isinstance(val_bio, str) or sum(c.isalpha() for c in val_bio) < 3:
-            missing.append("bio")
-
-
-def _validate_dating_activation(
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-    missing: list[str],
-) -> None:
-    val_drinking = _resolve_field(profile, payload, "drinking")
-    val_smoking = _resolve_field(profile, payload, "smoking")
-    val_dating_target_buckets = _resolve_field(
-        profile,
-        payload,
-        "dating_target_buckets",
-    )
-    val_dating_for = _resolve_field(profile, payload, "dating_for")
-    val_partner_values = _resolve_field(profile, payload, "partner_values")
-
-    if not isinstance(val_drinking, str) or not val_drinking.strip():
-        missing.append("drinking")
-    if not isinstance(val_smoking, str) or not val_smoking.strip():
-        missing.append("smoking")
-    if (
-        not isinstance(val_dating_target_buckets, list)
-        or len(cast(list[Any], val_dating_target_buckets)) < 1
-    ):
-        missing.append("dating_target_buckets")
-    if not isinstance(val_dating_for, list) or len(cast(list[Any], val_dating_for)) < 1:
-        missing.append("dating_for")
-    if (
-        not isinstance(val_partner_values, list)
-        or len(cast(list[Any], val_partner_values)) < 1
-    ):
-        missing.append("partner_values")
-
-
-def _validate_friends_activation(
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-    missing: list[str],
-) -> None:
-    val_causes = _resolve_field(profile, payload, "causes_supported")
-    val_friends_target = _resolve_field(profile, payload, "friends_target_buckets")
-
-    if (
-        not isinstance(val_causes, list)
-        or len(cast(list[Any], val_causes)) < 1
-    ):
-        missing.append("causes_supported")
-    if (
-        not isinstance(val_friends_target, list)
-        or len(cast(list[Any], val_friends_target)) < 1
-    ):
-        missing.append("friends_target_buckets")
-
-
-def _validate_professional_activation(
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-    missing: list[str],
-) -> None:
-    val_looking = _resolve_field(profile, payload, "looking_for")
-    val_skills = _resolve_field(profile, payload, "tech_skills")
-    val_professional_target = _resolve_field(
-        profile,
-        payload,
-        "professional_target_buckets",
-    )
-
-    if not isinstance(val_looking, list) or len(cast(list[Any], val_looking)) < 1:
-        missing.append("looking_for")
-    if not isinstance(val_skills, list) or len(cast(list[Any], val_skills)) < 1:
-        missing.append("tech_skills")
-    if (
-        not isinstance(val_professional_target, list)
-        or len(cast(list[Any], val_professional_target)) < 1
-    ):
-        missing.append("professional_target_buckets")
-
-
-def _validate_tab_activation(
-    tab: str,
-    profile: dict[str, Any],
-    payload: ProfileDetailsUpdate,
-) -> list[str]:
-    missing: list[str] = []
-    _validate_common_activation(profile, payload, missing)
-    if tab == "Dating":
-        _validate_dating_activation(profile, payload, missing)
-    elif tab == "Friends":
-        _validate_friends_activation(profile, payload, missing)
-    elif tab == "Professional":
-        _validate_professional_activation(profile, payload, missing)
-    return missing
-
-
-@router.post("/api/v1/profile/media", status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
-async def update_profile_media_and_tags(
-    request: Request,
-    payload: ProfileImagesAndTagsUpdate = Body(...),
-    user_id: str = Depends(get_active_user_id),
-    _device: None = Depends(verify_app_check_with_replay_protection),
-):
-    """Executes update profile media and tags operation."""
-    _ = request
-    try:
-        await update_profile_images_and_metadata(
-            user_id=user_id,
-            images=[payload.profile_pic, *payload.normal_pics],
-            vibe_tags=payload.ai_vibe_tags,
-        )
-        return {"status": "success", "detail": "Profile media synchronized."}
-    except ValueError as err:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Target account context mismatch. Profile row modification rejected."
-            ),
-        ) from err
-    except Exception as e:
-        logger.exception("Profile media update failed for user %s", user_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server metadata pipeline error: Data synchronization failed.",
-        ) from e
 
 
 @router.get("/api/v1/profile/details", response_model=ProfileDetailsResponse)
@@ -440,75 +177,20 @@ def get_profile_details(
         ) from e
 
 
-@router.post(
-    "/api/v1/users/moderation-subjects",
-    response_model=list[ModerationSubjectItem],
-)
-def get_moderation_subjects(
-    payload: ModerationSubjectsRequest = Body(...),
-    user_id: str = Depends(get_active_user_id),
-) -> list[dict[str, Any]]:
-    """
-    Returns basic decrypted profile info for users the caller has actively
-    blocked or hidden.
-    """
-    try:
-        validated_res = (
-            supabase_client.table("profile_discovery_actions")
-            .select("target_id")
-            .eq("actor_id", user_id)
-            .in_("target_id", payload.target_ids)
-            .in_("action", ["block", "hide"])
-            .is_("revoked_at", "null")
-            .execute()
-        )
-        valid_ids: list[str] = list(
-            {
-                row["target_id"]
-                for row in cast(
-                    list[dict[str, Any]],
-                    validated_res.data or [],
-                )
-            },
-        )
-        if not valid_ids:
-            return []
-
-        profiles_res = (
-            supabase_client.table("profiles")
-            .select(
-                "id, name, age, campus_year, campus_name, campus_branch, "
-                "hometown, current_place, profile_pic",
-            )
-            .in_("id", valid_ids)
-            .execute()
-        )
-
-        results: list[dict[str, Any]] = []
-        for row in cast(list[dict[str, Any]], profiles_res.data or []):
-            try:
-                decrypted = decrypt_profile_record(dict(row))
-                decrypted = sanitize_decrypted_profile(decrypted)
-            except (ValueError, KeyError, TypeError, AttributeError):
-                decrypted = sanitize_decrypted_profile(dict(row))
-            results.append(
-                {
-                    "id": decrypted.get("id"),
-                    "name": decrypted.get("name"),
-                    "age": decrypted.get("age"),
-                    "campus_year": decrypted.get("campus_year"),
-                    "campus_name": decrypted.get("campus_name"),
-                    "campus_branch": decrypted.get("campus_branch"),
-                    "hometown": decrypted.get("hometown"),
-                    "current_place": decrypted.get("current_place"),
-                    "profile_pic": decrypted.get("profile_pic"),
-                },
-            )
-        sign_profile_media_bulk(results)
-        return results
-    except Exception as e:
-        logger.exception("Failed to fetch moderation subjects")
-        raise HTTPException(status_code=500, detail="Internal server error.") from e
+def _validate_tab_activation(
+    tab: str,
+    profile: dict[str, Any],
+    payload: ProfileDetailsUpdate,
+) -> list[str]:
+    missing: list[str] = []
+    _validate_common_activation(profile, payload, missing)
+    if tab == "Dating":
+        _validate_dating_activation(profile, payload, missing)
+    elif tab == "Friends":
+        _validate_friends_activation(profile, payload, missing)
+    elif tab == "Professional":
+        _validate_professional_activation(profile, payload, missing)
+    return missing
 
 
 @router.patch("/api/v1/profile/details", response_model=ProfileUpdateResponse)
@@ -531,7 +213,7 @@ def update_profile_details(  # noqa: C901
     if "campus_year" in payload.model_fields_set or payload.campus_name is not None:
         try:
             campus_res = (
-                supabase_client.table("profiles")
+                user_module.supabase_client.table("profiles")
                 .select("campus_name, campus_year")
                 .eq("id", user_id)
                 .maybe_single()
@@ -541,7 +223,7 @@ def update_profile_details(  # noqa: C901
                 dict[str, Any],
                 getattr(campus_res, "data", None) or {},
             )
-            decrypted_campus = decrypt_profile_record(campus_data)
+            decrypted_campus = user_module.decrypt_profile_record(campus_data)
             existing_campus_name = decrypted_campus.get("campus_name")
             existing_campus_year = decrypted_campus.get("campus_year")
         except Exception as e:
@@ -758,7 +440,7 @@ def update_profile_details(  # noqa: C901
     profile = None
     if need_profile_fetch:
         profile_res = (
-            supabase_client.table("profiles")
+            user_module.supabase_client.table("profiles")
             .select(
                 "name,age,profile_pic,normal_pics,interests,sub_interests,"
                 "drinking,smoking,partner_values,dating_target_buckets,dating_for,"
@@ -773,7 +455,7 @@ def update_profile_details(  # noqa: C901
         profile_data = getattr(profile_res, "data", None)
         if not profile_data or not isinstance(profile_data, dict):
             raise HTTPException(status_code=404, detail="Profile not found")
-        profile = decrypt_profile_record(cast(dict[str, Any], profile_data))
+        profile = user_module.decrypt_profile_record(cast(dict[str, Any], profile_data))
 
     if profile is not None:
         dating_active = (
@@ -891,7 +573,7 @@ def update_profile_details(  # noqa: C901
     try:
         if new_age is not None:
             try:
-                supabase_client.rpc(
+                user_module.supabase_client.rpc(
                     "apply_age_change",
                     {
                         "p_user_id": user_id,
@@ -924,7 +606,7 @@ def update_profile_details(  # noqa: C901
 
         if new_name is not None:
             try:
-                supabase_client.rpc(
+                user_module.supabase_client.rpc(
                     "apply_name_change",
                     {
                         "p_user_id": user_id,
@@ -957,7 +639,7 @@ def update_profile_details(  # noqa: C901
 
         if update_data:
             res = (
-                supabase_client.table("profiles")
+                user_module.supabase_client.table("profiles")
                 .update(update_data)
                 .eq("id", user_id)
                 .execute()

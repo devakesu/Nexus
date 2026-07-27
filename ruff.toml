@@ -56,4 +56,4 @@ max-complexity = 8
 "scripts/*.py" = ["T201", "S603"]
 # Backend app and engine code docstrings line length
 "app/**/*.py" = ["E501"]
-"Nexus_Engine/**/*.py" = ["E501"]
+"Nexus_Engine/**/*.py" = ["E501", "N999"]

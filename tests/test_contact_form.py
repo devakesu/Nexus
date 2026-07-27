@@ -26,7 +26,7 @@ async def test_send_contact_otp_flow(
     mock_redis.set = AsyncMock()
     mock_send_email.return_value.success = True
 
-    payload = ContactOtpRequest(email="user@example.com")
+    payload = ContactOtpRequest(email="user@example.com", turnstile_token=None)
     scope: dict[str, Any] = {
         "type": "http",
         "headers": [],

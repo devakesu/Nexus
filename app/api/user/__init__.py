@@ -10,6 +10,8 @@ from app.api.user.auth_otp import router as auth_otp_router
 from app.api.user.profile import router as profile_router
 from app.api.user.profile import update_profile_details
 from app.api.user.settings import router as settings_router
+from app.db.client import supabase_client
+from app.db.profiles import decrypt_profile_record
 
 router = APIRouter()
 
@@ -18,6 +20,8 @@ router.include_router(profile_router)
 router.include_router(settings_router)
 
 __all__ = [
+    "decrypt_profile_record",
     "router",
+    "supabase_client",
     "update_profile_details",
 ]
