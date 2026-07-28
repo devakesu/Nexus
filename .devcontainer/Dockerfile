@@ -41,11 +41,9 @@ RUN curl -fSL "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTH
 
 COPY pinned-artifacts.json /tmp/pinned-artifacts.json
 
-# 3. CLI Tools (Npm, Supabase, Playwright, Firebase, Infisical)
+# 3. CLI Tools (Npm, Supabase, Firebase, Infisical)
 ARG NPM_TARBALL_URL
 ARG NPM_SHASUM
-ARG PLAYWRIGHT_TARBALL_URL
-ARG PLAYWRIGHT_SHASUM
 ARG FIREBASE_TARBALL_URL
 ARG FIREBASE_SHASUM
 ARG INFISICAL_TARBALL_URL
@@ -56,8 +54,6 @@ ARG SUPABASE_SHA256
 RUN if [ -f /tmp/pinned-artifacts.json ]; then \
         NPM_TARBALL_URL=${NPM_TARBALL_URL:-$(jq -r '.npm.url' /tmp/pinned-artifacts.json)}; \
         NPM_SHASUM=${NPM_SHASUM:-$(jq -r '.npm.shasum' /tmp/pinned-artifacts.json)}; \
-        PLAYWRIGHT_TARBALL_URL=${PLAYWRIGHT_TARBALL_URL:-$(jq -r '.playwright.url' /tmp/pinned-artifacts.json)}; \
-        PLAYWRIGHT_SHASUM=${PLAYWRIGHT_SHASUM:-$(jq -r '.playwright.shasum' /tmp/pinned-artifacts.json)}; \
         FIREBASE_TARBALL_URL=${FIREBASE_TARBALL_URL:-$(jq -r '.firebase.url' /tmp/pinned-artifacts.json)}; \
         FIREBASE_SHASUM=${FIREBASE_SHASUM:-$(jq -r '.firebase.shasum' /tmp/pinned-artifacts.json)}; \
         INFISICAL_TARBALL_URL=${INFISICAL_TARBALL_URL:-$(jq -r '.infisical.url' /tmp/pinned-artifacts.json)}; \
@@ -71,9 +67,8 @@ RUN if [ -f /tmp/pinned-artifacts.json ]; then \
     && curl -fSL "$SUPABASE_TARBALL_URL" -o /tmp/supabase.tar.gz \
     && tar -xzf /tmp/supabase.tar.gz -C /tmp \
     && mv /tmp/supabase /usr/local/bin/ && chmod +x /usr/local/bin/supabase && rm -f /tmp/supabase.tar.gz \
-    && for NAME in "playwright" "firebase-tools" "infisical"; do \
+    && for NAME in "firebase-tools" "infisical"; do \
             case "$NAME" in \
-                playwright) URL="$PLAYWRIGHT_TARBALL_URL";; \
                 firebase-tools) URL="$FIREBASE_TARBALL_URL";; \
                 infisical) URL="$INFISICAL_TARBALL_URL";; \
             esac; \
@@ -81,7 +76,6 @@ RUN if [ -f /tmp/pinned-artifacts.json ]; then \
             npm install -g /tmp/$NAME.tgz; \
             rm -f /tmp/$NAME.tgz; \
         done \
-    && npx playwright install-deps \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && npm cache clean --force
 
@@ -90,9 +84,8 @@ USER vscode
 ENV HOME="/home/vscode"
 ENV FLUTTER_HOME="$HOME/flutter-sdk"
 ENV ANDROID_HOME="$HOME/android-sdk"
-ENV DENO_INSTALL="$HOME/.deno"
 ENV NODE_OPTIONS="--max-old-space-size=9216"
-ENV PATH="$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$DENO_INSTALL/bin:$HOME/.pub-cache/bin"
+ENV PATH="$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$HOME/.pub-cache/bin"
 
 # 4. Bake IDE Settings & Cross-IDE Extension Symlinks
 RUN mkdir -p $HOME/.antigravity-server/data/Machine \
@@ -122,32 +115,13 @@ RUN mkdir -p $HOME/.antigravity-server/data/Machine \
         "ruff.enable": true, \
         "ruff.organizeImports": true, \
         "ruff.fixAll": true, \
-        "dart.flutterSdkPath": "/home/vscode/flutter-sdk", \
-        "deno.enable": true, \
-        "deno.path": "/home/vscode/.deno/bin/deno" \
+        "dart.flutterSdkPath": "/home/vscode/flutter-sdk" \
     }' \
     && echo "$SETTINGS" > $HOME/.antigravity-server/data/Machine/settings.json \
     && echo "$SETTINGS" > $HOME/.antigravity-ide-server/data/Machine/settings.json \
     && echo "$SETTINGS" > $HOME/.vscode-server/data/Machine/settings.json
 
-# 5. Deno Setup
-ARG DENO_URL
-ARG DENO_SHA256
-RUN if [ -f /tmp/pinned-artifacts.json ]; then \
-        DENO_URL=${DENO_URL:-$(jq -r '.deno.url // empty' /tmp/pinned-artifacts.json)}; \
-        DENO_SHA256=${DENO_SHA256:-$(jq -r '.deno.sha256 // empty' /tmp/pinned-artifacts.json)}; \
-    fi \
-    && DENO_URL=${DENO_URL:-"https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip"} \
-    && mkdir -p /tmp/deno_install \
-    && wget -q "$DENO_URL" -O /tmp/deno_install/deno.zip \
-    && if [ -n "$DENO_SHA256" ]; then echo "$DENO_SHA256 /tmp/deno_install/deno.zip" | sha256sum -c -; fi \
-    && unzip -q /tmp/deno_install/deno.zip -d /tmp/deno_install \
-    && mkdir -p $DENO_INSTALL/bin \
-    && mv /tmp/deno_install/deno $DENO_INSTALL/bin/deno \
-    && chmod +x $DENO_INSTALL/bin/deno \
-    && rm -rf /tmp/deno_install
-
-# 6. Android SDK Setup
+# 5. Android SDK Setup
 ARG ANDROID_CMDLINE_TOOLS_URL
 ARG ANDROID_CMDLINE_TOOLS_SHA256
 RUN if [ -f /tmp/pinned-artifacts.json ]; then \
@@ -164,7 +138,7 @@ RUN if [ -f /tmp/pinned-artifacts.json ]; then \
     && yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses \
     && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-# 7. Flutter SDK Pre-cache
+# 6. Flutter SDK Pre-cache
 ARG FLUTTER_URL
 ARG FLUTTER_SHA256
 RUN if [ -f /tmp/pinned-artifacts.json ]; then \
@@ -185,7 +159,7 @@ RUN if [ -f /tmp/pinned-artifacts.json ]; then \
     && $FLUTTER_HOME/bin/flutter precache \
     && flutter config --android-sdk $ANDROID_HOME
 
-# 8. Initialization Script Creation
+# 7. Initialization Script Creation
 USER root
 COPY --chown=vscode:vscode --chmod=755 <<"EOF" /home/vscode/init_workspace.sh
 #!/bin/bash
@@ -298,18 +272,14 @@ if [ -d "/nexus/mobile" ]; then
     cd /nexus/mobile && flutter pub get
 fi
 
-# --- 7. UNIVERSAL IDE EXTENSION INSTALLER ---
 EXTENSIONS=(
   "ms-python.python" "ms-pyright.pyright" "ms-python.debugpy" 
   "ms-python.vscode-python-envs" "kevinrose.vsc-python-indent"
   "charliermarsh.ruff"
-  "Dart-Code.flutter" "Dart-Code.dart-code" "dsznajder.es7-react-js-snippets"
-  "esbenp.prettier-vscode" "bradlc.vscode-tailwindcss" "formulahendry.auto-rename-tag"
-  "christian-kohler.path-intellisense" "christian-kohler.npm-intellisense" "vitest.explorer"
-  "ms-playwright.playwright" "davidanson.vscode-markdownlint"
-  "ms-vscode.vscode-typescript-next" "oderwat.indent-rainbow"
-  "dbaeumer.vscode-eslint" "usernamehw.errorlens"
-  "denoland.vscode-deno"
+  "Dart-Code.flutter" "Dart-Code.dart-code"
+  "esbenp.prettier-vscode" "formulahendry.auto-rename-tag"
+  "christian-kohler.path-intellisense" "davidanson.vscode-markdownlint"
+  "oderwat.indent-rainbow" "usernamehw.errorlens"
 )
 
 echo "🔍 Searching for valid IDE server binaries..."
@@ -355,7 +325,7 @@ echo "🎯 Initialization Complete!"
 EOF
 RUN sed -i 's/\r$//' /home/vscode/init_workspace.sh
 
-# 9. User Environment Defaults & Entrypoint
+# 8. User Environment Defaults & Entrypoint
 USER vscode
 WORKDIR /nexus
 EXPOSE 3000 8000 8080 4000 5001 8081 8085 9099 54321 54322 54323

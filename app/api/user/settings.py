@@ -3,9 +3,9 @@
 import logging
 from typing import Any, cast
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.api.dependencies import get_active_user_id
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.db.client import supabase_client
 from app.models import (
     ALLOWED_HIDDEN_FIELDS,
@@ -40,9 +40,12 @@ def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsRespon
     response_model=PrivacySettingsResponse,
 )
 def get_privacy_settings(
+    request: Request,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
     """Executes get privacy settings operation."""
+    _ = request
     try:
         res = (
             supabase_client.table("profiles")
@@ -67,10 +70,13 @@ def get_privacy_settings(
     response_model=PrivacySettingsResponse,
 )
 def update_privacy_settings(
+    request: Request,
     payload: PrivacySettingsUpdate = Body(...),
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> PrivacySettingsResponse:
     """Executes update privacy settings operation."""
+    _ = request
     update_data: dict[str, Any] = {}
     if payload.hidden_fields is not None:
         update_data["hidden_profile_fields"] = payload.hidden_fields
@@ -119,9 +125,12 @@ def _to_email_notification_settings_response(
     response_model=EmailNotificationSettingsResponse,
 )
 def get_email_notification_settings(
+    request: Request,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
     """Executes get email notification settings operation."""
+    _ = request
     try:
         res = (
             supabase_client.table("profiles")
@@ -149,10 +158,13 @@ def get_email_notification_settings(
     response_model=EmailNotificationSettingsResponse,
 )
 def update_email_notification_settings(
+    request: Request,
     payload: EmailNotificationSettingsUpdate = Body(...),
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
     """Executes update email notification settings operation."""
+    _ = request
     update_data = payload.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update.")

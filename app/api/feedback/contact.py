@@ -12,6 +12,7 @@ from fastapi import (
     BackgroundTasks,
     Body,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -61,14 +62,22 @@ async def upload_contact_attachment(
     request: Request,
     file: UploadFile = File(...),
     session_id: str = Query(...),
+    turnstile_token: str | None = Form(default=None),
 ) -> dict[str, str]:
     """Uploads an image attachment for unauthenticated contact form tickets."""
     _ = request
+    client_ip = request.client.host if request.client else None
+    if not await verify_turnstile_token(turnstile_token, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security verification failed. Please refresh and try again.",
+        )
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="Invalid file uploaded.")
 
     allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
-    filename = file.filename
+    filename: str = file.filename
     ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in allowed_exts:
         raise HTTPException(
@@ -121,9 +130,16 @@ async def delete_contact_attachments(
     request: Request,
     session_id: str = Query(...),
     paths: list[str] = Body(..., embed=True),
+    turnstile_token: str | None = Query(default=None),
 ) -> dict[str, bool]:
     """Delete orphaned attachments from storage when ticket submission fails."""
     _ = request
+    client_ip = request.client.host if request.client else None
+    if not await verify_turnstile_token(turnstile_token, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Security verification failed. Please refresh and try again.",
+        )
     clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
     if not clean_session:
         raise HTTPException(status_code=400, detail="Invalid session_id.")

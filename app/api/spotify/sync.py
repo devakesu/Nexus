@@ -5,7 +5,11 @@ from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 
-from app.api.dependencies import get_active_user_id
+from app.api.dependencies import (
+    get_active_user_id,
+    verify_app_check_token,
+    verify_app_check_with_replay_protection,
+)
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.db.client import DatabaseAccessError
@@ -74,6 +78,7 @@ def _playlist_out_from_row(raw: dict[str, Any]) -> SpotifyPlaylistOut:
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_status(
     request: Request,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> SpotifyStatusResponse:
     """Returns caller's current Spotify connection and sync status."""
@@ -94,6 +99,7 @@ async def spotify_status(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_playlists(
     request: Request,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> SpotifyPlaylistsResponse:
     """Owner-only: full decrypted playlist + track payload."""
@@ -122,6 +128,7 @@ async def spotify_playlists(
 async def spotify_resync(
     request: Request,
     background_tasks: BackgroundTasks,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Resync playlists + artists using the stored refresh token."""
@@ -169,6 +176,7 @@ async def spotify_resync(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_disconnect(
     request: Request,
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Revokes Spotify integration, deleting stored access tokens and artist affinity data."""

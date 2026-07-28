@@ -23,12 +23,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Initialize CodeQL (Python)
         uses: github/codeql-action/init@e58424170fb0262c8d7ed60a2e84b9bffe205c67
         with:
           languages: python
           config-file: .github/codeql/codeql-config.yml
+          packs: +my-org/python-sanitizers
 
       - name: Autobuild (Python)
         uses: github/codeql-action/autobuild@e58424170fb0262c8d7ed60a2e84b9bffe205c67

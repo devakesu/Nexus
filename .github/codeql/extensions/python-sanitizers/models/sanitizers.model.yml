@@ -4,4 +4,4 @@ extensions:
       extensible: barrierModel
     data:
       # Tuple format: [module_path, target_member, threat_kind]
-      - ["app.core.sms", "Member[redact_phone]", "clear-text-logging"]
+      - ["app.core.utils.sms", "Member[redact_phone]", "clear-text-logging"]

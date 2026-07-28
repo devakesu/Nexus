@@ -19,6 +19,7 @@ import app.api.user as user_module
 from app.api.dependencies import (
     assert_special_category_consent,
     get_active_user_id,
+    verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
 from app.api.user.profile.helpers import (
@@ -56,6 +57,7 @@ router = APIRouter()
 
 @router.get("/api/v1/profile/details", response_model=ProfileDetailsResponse)
 def get_profile_details(
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     """Retrieves the caller's complete decrypted profile details."""

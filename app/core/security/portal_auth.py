@@ -32,10 +32,10 @@ def normalize_phone(raw: str) -> str:
 
 
 def generate_otp_code() -> str:
-    """Generates a random 6-digit numeric OTP string.
+    """Generates a random _OTP_LENGTH-digit numeric OTP string.
 
     Returns:
-        str: 6-digit numeric OTP code.
+        str: _OTP_LENGTH-digit numeric OTP code.
     """
     return "".join(secrets.choice("0123456789") for _ in range(_OTP_LENGTH))
 
@@ -46,7 +46,7 @@ def hash_otp(session_id: str, phone_norm: str, code: str) -> str:
     Args:
         session_id: Unique safety session identifier.
         phone_norm: Normalized contact phone number.
-        code: 6-digit OTP code string.
+        code: OTP code string.
 
     Returns:
         str: Hex-encoded HMAC-SHA256 digest string.

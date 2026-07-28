@@ -3,6 +3,7 @@ name: "Nexus CodeQL Configuration"
 # Restrict CodeQL scanning strictly to application source directories
 paths:
   - app
+  - Nexus_Engine
   - mocks/Nexus_Engine
   - mobile/android/app/src/main/kotlin
 

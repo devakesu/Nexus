@@ -22,6 +22,7 @@ from app.api.dependencies import (
     get_authenticated_user_id,
     get_optional_authenticated_user_id,
     get_optional_bearer_token,
+    verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
@@ -295,7 +296,10 @@ async def cancel_account_deletion(
     response_model=AccountDeletionSettingsResponse,
 )
 @limiter.limit(settings.rate_limit_account_deletion)
-def get_account_deletion_settings(request: Request) -> AccountDeletionSettingsResponse:
+def get_account_deletion_settings(
+    request: Request,
+    _device: None = Depends(verify_app_check_token),
+) -> AccountDeletionSettingsResponse:
     """Returns configuration settings for account deletion grace periods and data retention.
 
     Args:

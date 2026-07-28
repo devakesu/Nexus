@@ -11,9 +11,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from app.api.dependencies import (
-    get_authenticated_user_id,
     require_safety_consent,
     verify_app_check_token,
+    verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
 from app.core.infra.limiter import limiter
@@ -101,19 +101,10 @@ async def _notify_newly_added_contacts(
 async def put_safety_contacts(
     request: Request,
     payload: SafetyContactsSyncRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyContactsSyncResponse:
-    """Updates the caller's trusted contact list for Meetup Safety monitoring.
-
-        Args:
-            request: FastAPI HTTP request object used for rate limiting and connection state.
-            payload: Validated request body model containing parameters.
-            _device: App Check attestation token dependency guard.
-            user_id: Unique UUID string of the authenticated user.
-
-        Returns:
-            SafetyContactsSyncResponse: Response payload or result."""
+    """Updates the caller's trusted contact list for Meetup Safety monitoring."""
     _ = request
     try:
         blocked, newly_notified = await asyncio.to_thread(
@@ -144,7 +135,7 @@ async def put_safety_contacts(
 async def send_safety_alert(
     request: Request,
     payload: SafetyAlertRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyAlertResponse:
     """Composes and sends the SOS/inform SMS to every trusted contact on
@@ -242,7 +233,7 @@ async def send_safety_alert(
 async def register_evidence(
     request: Request,
     payload: SafetyEvidenceRegisterRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyEvidenceRegisterResponse:
     """Registers a Digital Witness (Silent SOS) evidence segment already
@@ -299,11 +290,6 @@ async def register_evidence(
     return SafetyEvidenceRegisterResponse(id=str(row["id"]))
 
 
-# ---------------------------------------------------------------------------
-# Recurring check-in session mirror (Milestone D: dead-man's-switch)
-# ---------------------------------------------------------------------------
-
-
 @router.post(
     "/api/v1/safety/session/start",
     response_model=SafetySessionStartResponse,
@@ -312,7 +298,7 @@ async def register_evidence(
 async def start_session(
     request: Request,
     payload: SafetySessionStartRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetySessionStartResponse:
     """Mirrors a freshly-started check-in loop server-side so the dead-man's
@@ -354,7 +340,7 @@ async def checkin_session(
     request: Request,
     payload: SafetySessionCheckinRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> dict[str, bool]:
     """A successful "I'm Safe" check-in - proves the device is fine and
     resets the escalation counter, exactly like the local exact-alarm
@@ -395,7 +381,7 @@ async def end_session(
     request: Request,
     payload: SafetySessionEndRequest = Body(...),
     _device: None = Depends(verify_app_check_token),
-    user_id: str = Depends(get_authenticated_user_id),
+    user_id: str = Depends(require_safety_consent),
 ) -> dict[str, bool]:
     """Concludes an active Meetup Safety check-in monitoring session.
 

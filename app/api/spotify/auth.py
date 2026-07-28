@@ -11,7 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from app.api.dependencies import get_active_user_id
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
@@ -191,6 +191,7 @@ async def spotify_native_exchange(
     request: Request,
     body: _NativeExchangeRequest,
     background_tasks: BackgroundTasks,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     """Exchanges native SDK authorization code for persistent Spotify connection."""
@@ -253,6 +254,7 @@ async def spotify_native_exchange(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_connect(
     request: Request,
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, str]:
     """Initiates Spotify OAuth authorization flow by generating state token and auth URL."""

@@ -9,7 +9,11 @@ import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request, status
 
-from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.api.dependencies import (
+    get_active_user_id,
+    verify_app_check_token,
+    verify_app_check_with_replay_protection,
+)
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.db.chat import (
@@ -40,19 +44,10 @@ logger = logging.getLogger(__name__)
 async def upload_identity_key(
     request: Request,
     payload: UploadIdentityKeyRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Stores caller's long-term Signal E2EE identity public key.
-
-        Args:
-            request: FastAPI HTTP request object.
-            payload: Identity key payload containing base64 public key.
-            _device: App Check attestation guard.
-            user_id: Verified user ID string.
-
-        Returns:
-            dict[str, bool]: Success status dict."""
+    """Stores caller's long-term Signal E2EE identity public key."""
     _ = request
     try:
         await asyncio.to_thread(
@@ -83,19 +78,10 @@ async def upload_identity_key(
 async def upload_signed_prekey(
     request: Request,
     payload: UploadSignedPrekeyRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
-    """Stores caller's signed prekey for Signal protocol session establishment.
-
-        Args:
-            request: FastAPI HTTP request object.
-            payload: Signed prekey payload containing public key and signature.
-            _device: App Check attestation guard.
-            user_id: Verified user ID string.
-
-        Returns:
-            dict[str, bool]: Success status dict."""
+    """Stores caller's signed prekey for Signal protocol session establishment."""
     _ = request
     try:
         await asyncio.to_thread(

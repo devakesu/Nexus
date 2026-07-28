@@ -661,6 +661,7 @@
 
             const formData = new FormData();
             formData.append('file', rawFile);
+            if (turnstileToken) formData.append('turnstile_token', turnstileToken);
 
             try {
                 const uploadResp = await fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
@@ -675,7 +676,10 @@
             } catch (err) {
                 // Clean up any files already uploaded in this batch
                 if (uploadedStoragePaths.length > 0) {
-                    fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
+                    const deleteUrl = new URL(`/api/v1/contact/upload`, window.location.origin);
+                    deleteUrl.searchParams.set('session_id', uploadSessionId);
+                    if (turnstileToken) deleteUrl.searchParams.set('turnstile_token', turnstileToken);
+                    fetch(deleteUrl.toString(), {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ paths: uploadedStoragePaths })
@@ -729,7 +733,10 @@
             showStatus(err.message, true);
             // Clean up uploaded files from bucket since ticket submit failed
             if (uploadedStoragePaths.length > 0) {
-                fetch(`/api/v1/contact/upload?session_id=${uploadSessionId}`, {
+                const deleteUrl = new URL(`/api/v1/contact/upload`, window.location.origin);
+                deleteUrl.searchParams.set('session_id', uploadSessionId);
+                if (turnstileToken) deleteUrl.searchParams.set('turnstile_token', turnstileToken);
+                fetch(deleteUrl.toString(), {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ paths: uploadedStoragePaths })

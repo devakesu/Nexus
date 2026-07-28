@@ -3,9 +3,9 @@
 import logging
 from typing import Any, cast
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
-from app.api.dependencies import get_active_user_id
+from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.db.client import supabase_client
 from app.db.profiles import (
     decrypt_profile_record,
@@ -24,10 +24,13 @@ router = APIRouter()
     response_model=list[ModerationSubjectItem],
 )
 def get_moderation_subjects(
+    request: Request,
     payload: ModerationSubjectsRequest = Body(...),
+    _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> list[dict[str, Any]]:
     """Returns basic decrypted profile info for users the caller has blocked or hidden."""
+    _ = request
     try:
         validated_res = (
             supabase_client.table("profile_discovery_actions")
