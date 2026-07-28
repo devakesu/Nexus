@@ -10,7 +10,6 @@ import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/auth_onboarding/widgets/import_code_dialog.dart';
-import 'package:nexus/features/auth_onboarding/widgets/nexus_mec_onboarding_fields.dart';
 import 'package:nexus/features/auth_onboarding/widgets/nexus_onboarding_fields.dart';
 import 'package:nexus/features/auth_onboarding/widgets/otp_verification_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,8 +42,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _isLoading = false;
 
   // ── MEC-specific state ─────────────────────────────────────────────────────
-  String _mecBranch = 'CSBS';
-  int _mecYear = 1;
+  final String _mecBranch = 'CSBS';
+  final int _mecYear = 1;
 
   // ── Nexus-specific variant state ───────────────────────────────────────────
   String _demographicBucket = '';
@@ -630,13 +629,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 24),
           const Divider(color: Color(0x1AFFFFFF)),
           const SizedBox(height: 20),
-          MECOnboardingFields(
-            onChanged: ({required branch, required year}) {
-              setState(() {
-                _mecBranch = branch;
-                _mecYear = year;
-              });
-            },
+          NexusMECOnboardingFields(
+            onChanged: ({required demographicBucket}) {},
           ),
         ],
       ),

@@ -9,7 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
-import 'package:nexus/core/utils/safety_consent_cache.dart';
+import 'package:nexus/core/utils/consent_cache_manager.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/core/widgets/safety_score_ring_painter.dart';

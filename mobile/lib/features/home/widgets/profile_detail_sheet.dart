@@ -5,25 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/config/filter_options.dart';
+import 'package:nexus/core/utils/app_refresh_notifier.dart';
 import 'package:nexus/core/utils/network_utils.dart';
-import 'package:nexus/core/utils/profile_refresh_notifier.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/profile/utils/emoji_helper.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-// ---------------------------------------------------------------------------
-// Shared profile detail sheet - used by OrbitScreen and the Likes inbox.
-//
-// Callers wrap this in a DraggableScrollableSheet builder and pass:
-//   • data          - decrypted profile map from the server
-//   • themeColor    - accent colour (tab-specific)
-//   • scrollController - from the DraggableScrollableSheet builder
-//   • actionBar     - the sticky bottom row (different for orbit vs likes)
-//   • onHideTap / onBlockTap / onReportTap - safety-action callbacks that
-//     receive the sheet's BuildContext so they can pop / show dialogs
-// ---------------------------------------------------------------------------
 
 typedef SheetSafetyCallback = Future<void> Function(BuildContext sheetCtx);
 

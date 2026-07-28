@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/core/theme/app_colors.dart';
 
-/// Onboarding fields shown only for the main Nexus flavor.
-///
-/// Collects the user's demographic bucket - which group they primarily
-/// identify as - used for relevance-ranked discovery.
+/// Onboarding demographic bucket selection fields for main Nexus and MEC variants.
 class NexusOnboardingFields extends StatefulWidget {
   const NexusOnboardingFields({
     required this.onChanged,
+    this.isMec = false,
     super.key,
   });
 
-  /// Called whenever the demographic bucket selection changes.
   final void Function({required String demographicBucket}) onChanged;
+  final bool isMec;
 
   @override
   State<NexusOnboardingFields> createState() => _NexusOnboardingFieldsState();
@@ -38,7 +36,6 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header ───────────────────────────────────────────────────────────
         const Text(
           'DEMOGRAPHIC BUCKET',
           style: TextStyle(
@@ -57,28 +54,53 @@ class _NexusOnboardingFieldsState extends State<NexusOnboardingFields> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // ── Bucket chips ──────────────────────────────────────────────────
         Row(
-          children: _buckets
-              .map(
-                (bucket) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: bucket == _buckets.last ? 0 : 8,
+          children: _buckets.map((b) {
+            final selected = _selectedBucket == b.value;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: InkWell(
+                  onTap: () => _select(b.value),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primaryTeal.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.primaryTeal
+                            : Colors.white.withValues(alpha: 0.1),
+                        width: selected ? 2 : 1,
+                      ),
                     ),
-                    child: _BucketChip(
-                      option: bucket,
-                      selected: _selectedBucket == bucket.value,
-                      onTap: () => _select(bucket.value),
+                    child: Column(
+                      children: [
+                        Text(b.emoji, style: const TextStyle(fontSize: 20)),
+                        const SizedBox(height: 4),
+                        Text(
+                          b.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: selected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: selected ? Colors.white : Colors.white70,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              )
-              .toList(),
+              ),
+            );
+          }).toList(),
         ),
       ],
-    ).animate().fade(delay: 250.ms).slideY(begin: 0.05, end: 0, duration: 350.ms);
+    ).animate().fadeIn(duration: 300.ms);
   }
 }
 
@@ -88,58 +110,24 @@ class _BucketOption {
     required this.value,
     required this.emoji,
   });
-
   final String label;
   final String value;
   final String emoji;
 }
 
-class _BucketChip extends StatelessWidget {
-  const _BucketChip({
-    required this.option,
-    required this.selected,
-    required this.onTap,
+class NexusMECOnboardingFields extends StatelessWidget {
+  const NexusMECOnboardingFields({
+    required this.onChanged,
+    super.key,
   });
 
-  final _BucketOption option;
-  final bool selected;
-  final VoidCallback onTap;
+  final void Function({required String demographicBucket}) onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: 200.ms,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? AppColors.pulsarPink : const Color(0x1AFFFFFF),
-            width: selected ? 1.5 : 1,
-          ),
-          color: selected ? const Color(0x26FF7597) : const Color(0xFF0B0D13),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              option.emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              option.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0x80FFFFFF),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return NexusOnboardingFields(
+      onChanged: onChanged,
+      isMec: true,
     );
   }
 }

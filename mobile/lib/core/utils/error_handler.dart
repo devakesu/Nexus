@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,13 +28,19 @@ class ErrorHandler {
   static String sanitize(String message) {
     var sanitized = message;
 
-    // 1. Sanitize emails, but allow support@ addresses to remain visible
+    // 1. Sanitize emails, but allow support@ addresses and app domain addresses to remain visible
     final emailRegex = RegExp(
       r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
     );
+    final appDomain = AppConfig.current.appDomain
+        .split(':')
+        .first
+        .toLowerCase();
     sanitized = sanitized.replaceAllMapped(emailRegex, (match) {
       final matchedEmail = match.group(0)!;
-      if (matchedEmail.toLowerCase().startsWith('support@')) {
+      final lowerEmail = matchedEmail.toLowerCase();
+      if (lowerEmail.startsWith('support@') ||
+          (appDomain.isNotEmpty && lowerEmail.endsWith('@$appDomain'))) {
         return matchedEmail;
       }
       return '[EMAIL_REDACTED]';

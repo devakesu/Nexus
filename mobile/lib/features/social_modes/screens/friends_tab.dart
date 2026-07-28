@@ -6,20 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/app_refresh_notifier.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
-import 'package:nexus/core/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/chats/utils/open_chat.dart';
 import 'package:nexus/features/home/providers/discovery_hub_provider.dart';
-import 'package:nexus/features/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/features/home/widgets/match_screen.dart';
 import 'package:nexus/features/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/features/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/features/home/widgets/tab_scaffold.dart';
-import 'package:nexus/features/social_modes/widgets/friends_lists_overlays.dart';
 import 'package:nexus/features/social_modes/widgets/friends_settings_overlay.dart';
+import 'package:nexus/features/social_modes/widgets/mode_activation_overlay.dart';
+import 'package:nexus/features/social_modes/widgets/mode_category_selection_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendsTab extends ConsumerStatefulWidget {
@@ -1420,180 +1420,6 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
           ],
         ),
       ],
-    );
-  }
-}
-
-class FriendsActivationOverlay extends StatefulWidget {
-  const FriendsActivationOverlay({required this.onFinished, super.key});
-
-  final VoidCallback onFinished;
-
-  @override
-  State<FriendsActivationOverlay> createState() =>
-      _FriendsActivationOverlayState();
-}
-
-class _FriendsActivationOverlayState extends State<FriendsActivationOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _rotationAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 2500),
-      vsync: this,
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0, 0.8, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _fadeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 15),
-      TweenSequenceItem(tween: ConstantTween<double>(1), weight: 70),
-      TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 15),
-    ]).animate(_controller);
-
-    _rotationAnimation = Tween<double>(begin: 0, end: 2 * 3.14159).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0, 0.9),
-      ),
-    );
-
-    unawaited(_controller.forward().then((_) => widget.onFinished()));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const brandColor = AppColors.modeFriends;
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF0F172A),
-                const Color(0xFF1A1200),
-                const Color(0xFF7C3A00).withValues(alpha: 0.95),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _rotationAnimation,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: _rotationAnimation.value,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        _buildRing(260, 4, brandColor.withValues(alpha: 0.1)),
-                        _buildRing(200, 3, brandColor.withValues(alpha: 0.2)),
-                        _buildRing(140, 2, brandColor.withValues(alpha: 0.3)),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: brandColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: brandColor.withValues(alpha: 0.5),
-                        blurRadius: 30,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      LucideIcons.users,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: CustomBottomNavBar.clearance,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'FRIENDS ORBIT',
-                      style: TextStyle(
-                        color: brandColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Orbit Activated',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Broadcasting your social signals nearby...',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRing(double size, double strokeWidth, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: strokeWidth),
-      ),
     );
   }
 }

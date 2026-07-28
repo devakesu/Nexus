@@ -5,32 +5,32 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/consent_cache_manager.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
-import 'package:nexus/core/utils/special_category_consent_cache.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 
-/// Submits special-category consent inline (without navigating away) -
-/// re-affirms general consent too, since POST /api/v1/auth/accept-terms
-/// requires it (the caller only ever reaches this prompt after already
-/// clearing TermsConsentPage's mandatory gate, so this is a safe
-/// re-affirmation, not a new ask). Omits safety_data_accepted so that
-/// category is left untouched. Mirrors grantSafetyDataConsent exactly.
-Future<bool> grantSpecialCategoryConsent(BuildContext context) async {
+enum ConsentPromptType {
+  safetyData,
+  specialCategory,
+}
+
+Future<bool> grantSafetyDataConsent(BuildContext context) async {
   try {
     await createDio().post<Map<String, dynamic>>(
       '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
       data: {
-        'terms_version': SpecialCategoryConsentCache.currentTermsVersion,
+        'terms_version': ConsentCacheManager.currentTermsVersion,
         'general_accepted': true,
         'special_category_accepted': true,
+        'safety_data_accepted': true,
       },
       options: Options(
         headers: {'X-App-Variant': AppConfig.current.variantString},
       ),
     );
-    SpecialCategoryConsentCache.isGranted = true;
+    ConsentCacheManager.safetyConsentGranted = true;
     return true;
   } on Object catch (e, stackTrace) {
     if (context.mounted) {
@@ -43,43 +43,89 @@ Future<bool> grantSpecialCategoryConsent(BuildContext context) async {
     ErrorHandler.handleError(
       e,
       stackTrace: stackTrace,
-      customMessage: 'Failed to enable special-category data.',
+      customMessage: 'Failed to enable safety features.',
       showUi: false,
     );
     return false;
   }
 }
 
-/// Inline GDPR consent prompt shown in a bottom sheet before letting a user
-/// set display_sexuality/religious_beliefs to a real disclosed value for the
-/// first time, or before unlocking these fields in Privacy Settings.
-/// onGranted fires only after a successful consent submission.
-///
-/// Under GDPR Article 9, sexual orientation and religious belief are
-/// special-category data requiring explicit, separate consent. The card
-/// mirrors the language and structure of _ConsentTile in
-/// terms_consent_screen.dart so users see consistent framing.
-class SpecialCategoryConsentPromptCard extends StatefulWidget {
-  const SpecialCategoryConsentPromptCard({
+Future<bool> grantSpecialCategoryConsent(BuildContext context) async {
+  try {
+    await createDio().post<Map<String, dynamic>>(
+      '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
+      data: {
+        'terms_version': ConsentCacheManager.currentTermsVersion,
+        'general_accepted': true,
+        'special_category_accepted': true,
+      },
+      options: Options(
+        headers: {'X-App-Variant': AppConfig.current.variantString},
+      ),
+    );
+    ConsentCacheManager.specialCategoryConsentGranted = true;
+    return true;
+  } on Object catch (e, stackTrace) {
+    if (context.mounted) {
+      NexusToast.show(
+        context,
+        ErrorHandler.getFriendlyMessage(e),
+        type: NexusToastType.error,
+      );
+    }
+    ErrorHandler.handleError(
+      e,
+      stackTrace: stackTrace,
+      customMessage: 'Failed to submit consent.',
+      showUi: false,
+    );
+    return false;
+  }
+}
+
+class GenericConsentPromptCard extends StatefulWidget {
+  const GenericConsentPromptCard({
+    required this.type,
     required this.onGranted,
     super.key,
   });
 
+  final ConsentPromptType type;
   final VoidCallback onGranted;
 
   @override
-  State<SpecialCategoryConsentPromptCard> createState() =>
-      _SpecialCategoryConsentPromptCardState();
+  State<GenericConsentPromptCard> createState() =>
+      _GenericConsentPromptCardState();
 }
 
-class _SpecialCategoryConsentPromptCardState
-    extends State<SpecialCategoryConsentPromptCard> {
+class _GenericConsentPromptCardState extends State<GenericConsentPromptCard> {
   bool _isSubmitting = false;
+
+  bool get _isSafety => widget.type == ConsentPromptType.safetyData;
+
+  Color get _accentColor =>
+      _isSafety ? AppColors.safetyBlue : AppColors.modeDating;
+
+  IconData get _icon =>
+      _isSafety ? LucideIcons.shieldAlert : LucideIcons.heartHandshake;
+
+  String get _description => _isSafety
+      ? 'Meetup Safety & SOS features process the following data under your control:\n\n'
+            '• Location & check-in data - to share your whereabouts with trusted contacts\n'
+            '• Battery level - to determine SOS thresholds\n'
+            '• Camera & microphone - only when you start a Digital Witness recording; never accessed passively\n\n'
+            'Under GDPR, processing this data requires your explicit consent. '
+            'This is entirely optional - Nexus works fully without it, and you can withdraw consent at any time from Privacy Settings.'
+      : 'Displaying orientation and religious beliefs on your profile requires processing under special category protection.\n\n'
+            'Under GDPR, this requires your explicit consent. This is entirely optional - Nexus works fully without it, '
+            'and you can withdraw consent at any time from Privacy Settings.';
 
   Future<void> _handleAccept() async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
-    final granted = await grantSpecialCategoryConsent(context);
+    final granted = _isSafety
+        ? await grantSafetyDataConsent(context)
+        : await grantSpecialCategoryConsent(context);
     if (!mounted) return;
     setState(() => _isSubmitting = false);
     if (granted) widget.onGranted();
@@ -90,13 +136,9 @@ class _SpecialCategoryConsentPromptCardState
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        // Solid surface so the card is legible over the transparent bottom-
-        // sheet scrim; the teal tint is kept via the border.
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.primaryTeal.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: _accentColor.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -109,12 +151,11 @@ class _SpecialCategoryConsentPromptCardState
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Header ──────────────────────────────────────────────────────
           Row(
             children: [
-              const Icon(
-                LucideIcons.shieldCheck,
-                color: AppColors.primaryTeal,
+              Icon(
+                _icon,
+                color: _accentColor,
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -148,27 +189,16 @@ class _SpecialCategoryConsentPromptCardState
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
-          // ── GDPR disclosure ─────────────────────────────────────────────
           Text(
-            'Sexual orientation and religious belief are '
-            'special-category data under GDPR (Article 9). Nexus '
-            'needs your explicit consent to store and use them. '
-            'This is entirely optional - Nexus works fully without '
-            'it, and you can withdraw consent at any time from '
-            'Privacy Settings.',
+            _description,
             style: GoogleFonts.inter(
               fontSize: 12.5,
               color: AppColors.inkMuted,
               height: 1.5,
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // ── Accept button ────────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: Material(
@@ -179,7 +209,7 @@ class _SpecialCategoryConsentPromptCardState
                 child: Ink(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: AppColors.primaryTeal,
+                    color: _accentColor,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 13),
@@ -200,10 +230,7 @@ class _SpecialCategoryConsentPromptCardState
               ),
             ),
           ),
-
           const SizedBox(height: 10),
-
-          // ── Privacy policy link ──────────────────────────────────────────
           Center(
             child: GestureDetector(
               onTap: () => context.push<void>('/legal'),
@@ -215,15 +242,15 @@ class _SpecialCategoryConsentPromptCardState
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryTeal,
+                      color: _accentColor,
                       decoration: TextDecoration.underline,
                     ),
                   ),
                   const SizedBox(width: 2),
-                  const Icon(
+                  Icon(
                     LucideIcons.arrowUpRight,
                     size: 12,
-                    color: AppColors.primaryTeal,
+                    color: _accentColor,
                   ),
                 ],
               ),
@@ -231,6 +258,32 @@ class _SpecialCategoryConsentPromptCardState
           ),
         ],
       ),
+    );
+  }
+}
+
+class SafetyConsentPromptCard extends StatelessWidget {
+  const SafetyConsentPromptCard({required this.onGranted, super.key});
+  final VoidCallback onGranted;
+
+  @override
+  Widget build(BuildContext context) {
+    return GenericConsentPromptCard(
+      type: ConsentPromptType.safetyData,
+      onGranted: onGranted,
+    );
+  }
+}
+
+class SpecialCategoryConsentPromptCard extends StatelessWidget {
+  const SpecialCategoryConsentPromptCard({required this.onGranted, super.key});
+  final VoidCallback onGranted;
+
+  @override
+  Widget build(BuildContext context) {
+    return GenericConsentPromptCard(
+      type: ConsentPromptType.specialCategory,
+      onGranted: onGranted,
     );
   }
 }

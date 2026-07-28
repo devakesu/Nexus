@@ -5,17 +5,27 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/features/home/widgets/custom_bottom_nav_bar.dart';
 
-class DatingActivationOverlay extends StatefulWidget {
-  const DatingActivationOverlay({required this.onFinished, super.key});
+class ModeActivationOverlay extends StatefulWidget {
+  const ModeActivationOverlay({
+    required this.modeTitle,
+    required this.subtitle,
+    required this.icon,
+    required this.brandColor,
+    required this.onFinished,
+    super.key,
+  });
 
+  final String modeTitle;
+  final String subtitle;
+  final IconData icon;
+  final Color brandColor;
   final VoidCallback onFinished;
 
   @override
-  State<DatingActivationOverlay> createState() =>
-      _DatingActivationOverlayState();
+  State<ModeActivationOverlay> createState() => _ModeActivationOverlayState();
 }
 
-class _DatingActivationOverlayState extends State<DatingActivationOverlay>
+class _ModeActivationOverlayState extends State<ModeActivationOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -50,11 +60,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
       ),
     );
 
-    unawaited(
-      _controller.forward().then((_) {
-        widget.onFinished();
-      }),
-    );
+    unawaited(_controller.forward().then((_) => widget.onFinished()));
   }
 
   @override
@@ -65,7 +71,6 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
 
   @override
   Widget build(BuildContext context) {
-    const brandPink = AppColors.modeDating;
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Material(
@@ -77,8 +82,8 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
             gradient: LinearGradient(
               colors: [
                 const Color(0xFF0F172A),
-                const Color(0xFF1E1B4B), // deep purple
-                const Color(0xFF581C87).withValues(alpha: 0.95), // violet
+                widget.brandColor.withValues(alpha: 0.15),
+                widget.brandColor.withValues(alpha: 0.35),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -87,7 +92,6 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Concentric rotating rings
               AnimatedBuilder(
                 animation: _rotationAnimation,
                 builder: (context, child) {
@@ -96,27 +100,26 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        _buildRadarRing(
+                        _buildRing(
                           260,
                           4,
-                          brandPink.withValues(alpha: 0.1),
+                          widget.brandColor.withValues(alpha: 0.1),
                         ),
-                        _buildRadarRing(
+                        _buildRing(
                           200,
                           3,
-                          brandPink.withValues(alpha: 0.2),
+                          widget.brandColor.withValues(alpha: 0.2),
                         ),
-                        _buildRadarRing(
+                        _buildRing(
                           140,
                           2,
-                          brandPink.withValues(alpha: 0.3),
+                          widget.brandColor.withValues(alpha: 0.3),
                         ),
                       ],
                     ),
                   );
                 },
               ),
-              // Main pulsing center
               ScaleTransition(
                 scale: _scaleAnimation,
                 child: Container(
@@ -124,34 +127,33 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                   height: 90,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: brandPink,
+                    color: widget.brandColor,
                     boxShadow: [
                       BoxShadow(
-                        color: brandPink.withValues(alpha: 0.5),
+                        color: widget.brandColor.withValues(alpha: 0.5),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
                     ],
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Icon(
-                      LucideIcons.heart,
-                      color: Colors.white,
+                      widget.icon,
+                      color: Colors.black87,
                       size: 40,
                     ),
                   ),
                 ),
               ),
-              // Overlay text description
               Positioned(
                 bottom: CustomBottomNavBar.clearance,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'DATING ORBIT',
+                    Text(
+                      widget.modeTitle.toUpperCase(),
                       style: TextStyle(
-                        color: brandPink,
+                        color: widget.brandColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 4,
@@ -169,7 +171,7 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Broadcasting matching signals near you...',
+                      widget.subtitle,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
@@ -186,17 +188,62 @@ class _DatingActivationOverlayState extends State<DatingActivationOverlay>
     );
   }
 
-  Widget _buildRadarRing(double size, double strokeWidth, Color color) {
+  Widget _buildRing(double size, double strokeWidth, Color color) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: color,
-          width: strokeWidth,
-        ),
+        border: Border.all(color: color, width: strokeWidth),
       ),
+    );
+  }
+}
+
+class FriendsActivationOverlay extends StatelessWidget {
+  const FriendsActivationOverlay({required this.onFinished, super.key});
+  final VoidCallback onFinished;
+
+  @override
+  Widget build(BuildContext context) {
+    return ModeActivationOverlay(
+      modeTitle: 'Friends Orbit',
+      subtitle: 'Broadcasting your social signals nearby...',
+      icon: LucideIcons.users,
+      brandColor: AppColors.modeFriends,
+      onFinished: onFinished,
+    );
+  }
+}
+
+class DatingActivationOverlay extends StatelessWidget {
+  const DatingActivationOverlay({required this.onFinished, super.key});
+  final VoidCallback onFinished;
+
+  @override
+  Widget build(BuildContext context) {
+    return ModeActivationOverlay(
+      modeTitle: 'Dating Orbit',
+      subtitle: 'Broadcasting your dating signals nearby...',
+      icon: LucideIcons.heart,
+      brandColor: AppColors.modeDating,
+      onFinished: onFinished,
+    );
+  }
+}
+
+class ProfessionalActivationOverlay extends StatelessWidget {
+  const ProfessionalActivationOverlay({required this.onFinished, super.key});
+  final VoidCallback onFinished;
+
+  @override
+  Widget build(BuildContext context) {
+    return ModeActivationOverlay(
+      modeTitle: 'Professional Orbit',
+      subtitle: 'Broadcasting your professional signals nearby...',
+      icon: LucideIcons.handshake,
+      brandColor: AppColors.modeProfessional,
+      onFinished: onFinished,
     );
   }
 }

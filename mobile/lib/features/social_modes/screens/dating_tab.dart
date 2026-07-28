@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/app_refresh_notifier.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
-import 'package:nexus/core/utils/orbit_refresh_notifier.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/chats/utils/open_chat.dart';
@@ -17,9 +17,9 @@ import 'package:nexus/features/home/widgets/match_screen.dart';
 import 'package:nexus/features/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/features/home/widgets/settings_loading_skeleton.dart';
 import 'package:nexus/features/home/widgets/tab_scaffold.dart';
-import 'package:nexus/features/social_modes/widgets/dating_activation_overlay.dart';
-import 'package:nexus/features/social_modes/widgets/dating_lists_overlays.dart';
 import 'package:nexus/features/social_modes/widgets/dating_settings_overlay.dart';
+import 'package:nexus/features/social_modes/widgets/mode_activation_overlay.dart';
+import 'package:nexus/features/social_modes/widgets/mode_category_selection_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DatingTab extends ConsumerStatefulWidget {
@@ -1016,15 +1016,22 @@ class _DatingTabState extends ConsumerState<DatingTab>
             onFetchMatches: () async {
               await _fetchMatches();
             },
-            onRecordMatchAction: (id, act, tok, {reason, reasonDetail}) async {
-              await _recordMatchAction(
-                id,
-                act,
-                tok,
-                reason: reason,
-                reasonDetail: reasonDetail,
-              );
-            },
+            onRecordMatchAction:
+                (
+                  String id,
+                  String act,
+                  String tok, {
+                  String? reason,
+                  String? reasonDetail,
+                }) async {
+                  await _recordMatchAction(
+                    id,
+                    act,
+                    tok,
+                    reason: reason,
+                    reasonDetail: reasonDetail,
+                  );
+                },
           );
         },
       ),

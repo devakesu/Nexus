@@ -5,10 +5,10 @@ import 'dart:convert';
 /// The value is resolved from the 'FLUTTER_APP_FLAVOR' compile-time
 /// constant injected via --dart-define at build time.
 enum AppVariant {
-  /// Main Nexus app - all email domains allowed, imports data from flavors.
+  /// Main Nexus app - all email domains allowed
   nexus,
 
-  /// Nexus MEC flavor - campus email required, generates export codes for import.
+  /// Nexus MEC flavor - campus email required
   nexusMec,
 }
 
@@ -146,7 +146,7 @@ class AppConfig {
 
   /// OTP code length for email/phone verification. Must match the "OTP
   /// Length" setting in the Supabase Auth dashboard for every project this
-  /// app points at - Supabase defaults to 6, this app expects 6.
+  /// app points at - Supabase defaults to 6
   static const int otpLength = 6;
 
   // ---------------------------------------------------------------------------

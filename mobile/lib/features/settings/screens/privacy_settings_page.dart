@@ -7,22 +7,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/app_refresh_notifier.dart';
+import 'package:nexus/core/utils/consent_cache_manager.dart';
 import 'package:nexus/core/utils/network_utils.dart';
-import 'package:nexus/core/utils/profile_refresh_notifier.dart';
-import 'package:nexus/core/utils/safety_consent_cache.dart';
 import 'package:nexus/core/utils/secure_profile_cache.dart';
-import 'package:nexus/core/utils/special_category_consent_cache.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
+import 'package:nexus/core/widgets/consent_prompt_dialog.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
-import 'package:nexus/core/widgets/special_category_consent_prompt.dart';
 import 'package:nexus/features/security_signal/services/meetup_safety_session.dart';
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/security_signal/services/safety_contacts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// ---------------------------------------------------------------------------
-// Field descriptors
-// ---------------------------------------------------------------------------
 
 class _FieldDescriptor {
   const _FieldDescriptor({
