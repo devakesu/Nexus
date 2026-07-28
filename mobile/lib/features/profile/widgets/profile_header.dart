@@ -179,7 +179,7 @@ class ProfileHeader extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
+              color: AppColors.ink,
               letterSpacing: -0.5,
               shadows: [],
             ),
@@ -242,7 +242,7 @@ class ProfileHeader extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+                    color: AppColors.ink.withValues(alpha: 0.8),
                     letterSpacing: 0.2,
                   ),
                 ),

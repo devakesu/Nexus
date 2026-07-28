@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/features/profile/widgets/profile_visibility_badge.dart';
 import 'package:nexus/features/profile/widgets/sections/spotify_playlists_section.dart';
@@ -149,7 +150,7 @@ class SpotifyMusicSection extends ConsumerWidget {
                               child: Text(
                                 subtitle,
                                 style: const TextStyle(
-                                  color: Color(0xFF0F172A),
+                                  color: AppColors.ink,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -313,7 +314,7 @@ class _ArtistChip extends StatelessWidget {
           Text(
             name,
             style: const TextStyle(
-              color: Color(0xFF0F172A),
+              color: AppColors.ink,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),

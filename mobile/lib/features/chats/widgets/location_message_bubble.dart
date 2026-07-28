@@ -3,12 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/features/chats/providers/chat_conversation_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// A casual, fully-encrypted "here's where I am" pin. No embedded
-/// interactive map (that would need a Maps tile fetch per bubble) - just
-/// an icon + label that opens the native/web Maps app on tap.
 class LocationMessageBubble extends StatelessWidget {
   const LocationMessageBubble({
     required this.pointer,
@@ -28,12 +26,13 @@ class LocationMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = isMine ? Colors.white : const Color(0xFF0F172A);
+    final textColor = isMine ? Colors.white : AppColors.ink;
     final subColor = isMine
         ? Colors.white.withValues(alpha: 0.85)
-        : const Color(0xFF64748B);
-    final tileColor = (isMine ? Colors.white : const Color(0xFF0F172A))
-        .withValues(alpha: 0.12);
+        : AppColors.inkMuted;
+    final tileColor = (isMine ? Colors.white : AppColors.ink).withValues(
+      alpha: 0.12,
+    );
 
     return GestureDetector(
       onTap: () => unawaited(_openInMaps()),

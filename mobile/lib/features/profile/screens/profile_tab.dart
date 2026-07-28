@@ -1725,7 +1725,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           ? 'Profile Avatar'
                           : 'Gallery - Slot $slotIndex',
                       style: const TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: AppColors.ink,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1765,7 +1765,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                       title: const Text(
                         'Replace Image',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                         ),
                       ),
                       onTap: () {
@@ -1935,7 +1935,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           Text(
                             title,
                             style: const TextStyle(
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -1974,7 +1974,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                                 child: TextField(
                                   controller: searchController,
                                   style: const TextStyle(
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                     fontSize: 13,
                                   ),
                                   decoration: InputDecoration(
@@ -2245,7 +2245,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           Text(
                             title,
                             style: const TextStyle(
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),

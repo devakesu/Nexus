@@ -99,7 +99,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 60),
@@ -195,7 +195,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
                       style: GoogleFonts.manrope(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1582,7 +1582,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
             style: GoogleFonts.manrope(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
+              color: AppColors.ink,
             ),
           ),
           const SizedBox(height: 14),
@@ -1703,7 +1703,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1714,7 +1714,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 12.5,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.5,
                 ),
               ),
@@ -1823,7 +1823,7 @@ class _CommunityGuidelinesPageState extends State<CommunityGuidelinesPage> {
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               height: 1.45,
             ),
           ),
@@ -1988,7 +1988,7 @@ class _AccordionSectionState extends State<_AccordionSection> {
                           style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                       ),

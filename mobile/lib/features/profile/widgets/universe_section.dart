@@ -93,7 +93,7 @@ class UniverseSection extends StatelessWidget {
                           Text(
                             title,
                             style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 16,
                               letterSpacing: 0.3,
                               fontWeight: FontWeight.w700,

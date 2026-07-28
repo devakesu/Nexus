@@ -170,7 +170,7 @@ class _BioSectionState extends State<BioSection> {
                               maxLength,
                             }) => null,
                         style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 14,
                           height: 1.55,
                         ),

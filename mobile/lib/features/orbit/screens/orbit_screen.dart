@@ -407,13 +407,13 @@ class _OrbitScreenState extends State<OrbitScreen>
                   colorScheme: ColorScheme.fromSeed(
                     seedColor: widget.themeColor,
                     brightness: Brightness.dark,
-                    surface: const Color(0xFF0F172A),
+                    surface: AppColors.ink,
                   ),
                 ),
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.7,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(32),
                     ),
@@ -449,7 +449,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: widget.themeColor,
-                                foregroundColor: AppColors.onSignal(
+                                foregroundColor: AppColors.foregroundFor(
                                   widget.themeColor,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -621,13 +621,13 @@ class _OrbitScreenState extends State<OrbitScreen>
                   colorScheme: ColorScheme.fromSeed(
                     seedColor: widget.themeColor,
                     brightness: Brightness.dark,
-                    surface: const Color(0xFF0F172A),
+                    surface: AppColors.ink,
                   ),
                 ),
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.75,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(32),
                     ),
@@ -663,7 +663,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: widget.themeColor,
-                                foregroundColor: AppColors.onSignal(
+                                foregroundColor: AppColors.foregroundFor(
                                   widget.themeColor,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -729,14 +729,14 @@ class _OrbitScreenState extends State<OrbitScreen>
                                     avatar: Icon(
                                       LucideIcons.plus,
                                       size: 14,
-                                      color: AppColors.onSignal(
+                                      color: AppColors.foregroundFor(
                                         widget.themeColor,
                                       ),
                                     ),
                                     label: Text('Add "${searchQuery.trim()}"'),
                                     backgroundColor: widget.themeColor,
                                     labelStyle: TextStyle(
-                                      color: AppColors.onSignal(
+                                      color: AppColors.foregroundFor(
                                         widget.themeColor,
                                       ),
                                       fontWeight: FontWeight.bold,
@@ -1654,7 +1654,7 @@ class _OrbitScreenState extends State<OrbitScreen>
               colorScheme: ColorScheme.fromSeed(
                 seedColor: theme,
                 brightness: Brightness.dark,
-                surface: const Color(0xFF0F172A),
+                surface: AppColors.ink,
               ),
             ),
             child: DraggableScrollableSheet(
@@ -1980,7 +1980,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                   vertical: 20,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  color: AppColors.ink.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: AppColors.tint(

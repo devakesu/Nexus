@@ -91,7 +91,7 @@ class TabScaffold extends StatelessWidget {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -103,7 +103,7 @@ class TabScaffold extends StatelessWidget {
                                       decoration: BoxDecoration(
                                         color: isOrbitActive
                                             ? AppColors.success
-                                            : const Color(0xFF64748B),
+                                            : AppColors.inkMuted,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -114,7 +114,7 @@ class TabScaffold extends StatelessWidget {
                                         fontSize: 12,
                                         color: isOrbitActive
                                             ? AppColors.success
-                                            : const Color(0xFF64748B),
+                                            : AppColors.inkMuted,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -186,7 +186,7 @@ class TabScaffold extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             height: 1.4,
                           ),
                         ),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -245,7 +244,7 @@ class MyApp extends StatelessWidget {
       ),
       theme: ThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF4F6FA),
+        scaffoldBackgroundColor: AppColors.canvas,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primaryTeal,
           primary: AppColors.primaryTeal,
@@ -253,15 +252,15 @@ class MyApp extends StatelessWidget {
         ),
         textTheme: GoogleFonts.interTextTheme(
           ThemeData.light().textTheme.copyWith(
-            displayLarge: const TextStyle(color: Color(0xFF0F172A)),
-            displayMedium: const TextStyle(color: Color(0xFF0F172A)),
-            displaySmall: const TextStyle(color: Color(0xFF0F172A)),
-            headlineLarge: const TextStyle(color: Color(0xFF0F172A)),
-            headlineMedium: const TextStyle(color: Color(0xFF0F172A)),
-            headlineSmall: const TextStyle(color: Color(0xFF0F172A)),
-            titleLarge: const TextStyle(color: Color(0xFF0F172A)),
-            titleMedium: const TextStyle(color: Color(0xFF0F172A)),
-            titleSmall: const TextStyle(color: Color(0xFF0F172A)),
+            displayLarge: const TextStyle(color: AppColors.ink),
+            displayMedium: const TextStyle(color: AppColors.ink),
+            displaySmall: const TextStyle(color: AppColors.ink),
+            headlineLarge: const TextStyle(color: AppColors.ink),
+            headlineMedium: const TextStyle(color: AppColors.ink),
+            headlineSmall: const TextStyle(color: AppColors.ink),
+            titleLarge: const TextStyle(color: AppColors.ink),
+            titleMedium: const TextStyle(color: AppColors.ink),
+            titleSmall: const TextStyle(color: AppColors.ink),
           ),
         ),
         useMaterial3: true,

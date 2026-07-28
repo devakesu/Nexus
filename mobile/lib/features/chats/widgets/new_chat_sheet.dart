@@ -62,7 +62,7 @@ class NewChatSheet extends ConsumerWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                 ),
               ],
@@ -179,7 +179,7 @@ class _CandidatesList extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
               ),
             ),
             subtitle: Text(

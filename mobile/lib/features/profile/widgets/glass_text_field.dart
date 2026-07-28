@@ -165,7 +165,7 @@ class _GlassTextFieldState extends State<GlassTextField> {
                             minLines: widget.minLines,
                             keyboardType: widget.keyboardType,
                             style: const TextStyle(
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 14,
                             ),
                             decoration: InputDecoration(

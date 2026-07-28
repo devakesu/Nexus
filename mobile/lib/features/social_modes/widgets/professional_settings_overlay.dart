@@ -168,7 +168,7 @@ class _ProfessionalSettingsOverlayState
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                             ),
                           ),
                           ElevatedButton(
@@ -191,7 +191,7 @@ class _ProfessionalSettingsOverlayState
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: TextField(
                         style: const TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 14,
                         ),
                         decoration: InputDecoration(
@@ -278,7 +278,7 @@ class _ProfessionalSettingsOverlayState
                                   labelStyle: TextStyle(
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFF0F172A),
+                                        : AppColors.ink,
                                     fontSize: 12,
                                     fontWeight: isSelected
                                         ? FontWeight.bold
@@ -396,7 +396,7 @@ class _ProfessionalSettingsOverlayState
                         child: Text(
                           'Professional Settings',
                           style: TextStyle(
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -484,7 +484,7 @@ class _ProfessionalSettingsOverlayState
                       child: Text(
                         'Who are you open to connecting with?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -503,7 +503,7 @@ class _ProfessionalSettingsOverlayState
                 const Text(
                   'Select who you want to appear in your Professional Orbit.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -526,9 +526,7 @@ class _ProfessionalSettingsOverlayState
                           backgroundColor: Colors.black.withValues(alpha: 0.04),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color: isSelected ? Colors.white : AppColors.ink,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -574,7 +572,7 @@ class _ProfessionalSettingsOverlayState
                       child: Text(
                         'What are you looking for professionally?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -591,7 +589,7 @@ class _ProfessionalSettingsOverlayState
                 const Text(
                   'Select your professional goals and intentions.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -608,9 +606,7 @@ class _ProfessionalSettingsOverlayState
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
+                        color: isSelected ? Colors.white : AppColors.ink,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -650,7 +646,7 @@ class _ProfessionalSettingsOverlayState
                       child: Text(
                         'What best describes your role?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -667,7 +663,7 @@ class _ProfessionalSettingsOverlayState
                 const Text(
                   'Select all that apply.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -684,9 +680,7 @@ class _ProfessionalSettingsOverlayState
                       backgroundColor: Colors.black.withValues(alpha: 0.04),
                       checkmarkColor: Colors.white,
                       labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
+                        color: isSelected ? Colors.white : AppColors.ink,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -720,7 +714,7 @@ class _ProfessionalSettingsOverlayState
                       child: Text(
                         'Company / Institute',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -737,7 +731,7 @@ class _ProfessionalSettingsOverlayState
                 const Text(
                   'Leave blank if not applicable - this is optional.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -745,7 +739,7 @@ class _ProfessionalSettingsOverlayState
                 TextField(
                   controller: companyController,
                   style: const TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: AppColors.ink,
                     fontSize: 14,
                   ),
                   decoration: InputDecoration(
@@ -817,7 +811,7 @@ class _ProfessionalSettingsOverlayState
                       child: Text(
                         'What are your key skills?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -834,7 +828,7 @@ class _ProfessionalSettingsOverlayState
                 const Text(
                   'Add your technical skills and areas of expertise.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),

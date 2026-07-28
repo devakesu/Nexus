@@ -113,7 +113,7 @@ class TagChipsEditor extends StatelessWidget {
                           Text(
                             'Select $label',
                             style: const TextStyle(
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -160,7 +160,7 @@ class TagChipsEditor extends StatelessWidget {
                                 child: TextField(
                                   controller: searchController,
                                   style: const TextStyle(
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                     fontSize: 13,
                                   ),
                                   decoration: InputDecoration(
@@ -339,7 +339,7 @@ class TagChipsEditor extends StatelessWidget {
                                             option,
                                             style: TextStyle(
                                               color: isSelected
-                                                  ? const Color(0xFF0F172A)
+                                                  ? AppColors.ink
                                                   : const Color(0xFF475569),
                                               fontSize: 14,
                                               fontWeight: isSelected
@@ -381,7 +381,7 @@ class TagChipsEditor extends StatelessWidget {
                                 child: TextField(
                                   controller: textController,
                                   style: const TextStyle(
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                     fontSize: 13,
                                   ),
                                   decoration: InputDecoration(
@@ -613,7 +613,7 @@ class TagChipsEditor extends StatelessWidget {
                           child: Text(
                             val,
                             style: const TextStyle(
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),

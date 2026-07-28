@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/scale_pressable.dart';
@@ -69,7 +70,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: _buildBody(),
     );
@@ -116,7 +117,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
       return Center(
         child: Text(
           _error!,
-          style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+          style: GoogleFonts.inter(color: AppColors.inkMuted),
         ),
       );
     }
@@ -132,7 +133,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
               Text(
                 "You haven't submitted any tickets yet.",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+                style: GoogleFonts.inter(color: AppColors.inkMuted),
               ),
             ],
           ),
@@ -191,7 +192,7 @@ class _FeedbackTicketsListPageState extends State<FeedbackTicketsListPage> {
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0F172A),
+                      color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 3),

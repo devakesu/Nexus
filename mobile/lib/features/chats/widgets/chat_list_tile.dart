@@ -105,7 +105,7 @@ class ChatListTile extends StatelessWidget {
                         style: GoogleFonts.manrope(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.ink,
                         ),
                       ),
                       const SizedBox(height: 3),

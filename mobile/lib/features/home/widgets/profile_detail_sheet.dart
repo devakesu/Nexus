@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/config/filter_options.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/app_refresh_notifier.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
@@ -1828,7 +1829,7 @@ Future<bool?> showProfileBlockDialog(BuildContext context, String name) {
   return showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.ink,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text(
         'Block user?',
@@ -1889,7 +1890,7 @@ Future<void> showProfileReportDialog(
     context: context,
     builder: (_) => StatefulBuilder(
       builder: (dialogCtx, setDialogState) => AlertDialog(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.ink,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Report & Block',

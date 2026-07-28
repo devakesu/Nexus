@@ -382,12 +382,12 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
         }
       });
       return const Scaffold(
-        backgroundColor: Color(0xFFF4F6FA),
+        backgroundColor: AppColors.canvas,
         body: SizedBox.shrink(),
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 60),
@@ -495,7 +495,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                     : 'Heading out to meet someone? Start a check-in below before you go.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.45,
                 ),
               ),
@@ -630,7 +630,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 13),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -731,7 +731,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
             "your phone asks - otherwise you'll only see it after unlocking.",
             style: GoogleFonts.inter(
               fontSize: 11.5,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               height: 1.45,
             ),
           ),
@@ -743,7 +743,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
               'still need to tap it to open the alert screen.',
               style: GoogleFonts.inter(
                 fontSize: 11.5,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 height: 1.45,
               ),
             ),
@@ -804,7 +804,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
+              color: AppColors.ink,
             ),
           ),
           const SizedBox(height: 2),
@@ -812,7 +812,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
             'Next check-in in 28:41',
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
             ),
           ),
           const SizedBox(height: 10),
@@ -915,7 +915,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                       style: GoogleFonts.inter(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -925,14 +925,14 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                       style: GoogleFonts.manrope(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                     Text(
                       'until your next check-in',
                       style: GoogleFonts.inter(
                         fontSize: 11.5,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                       ),
                     ),
                   ],
@@ -1057,7 +1057,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                           : 'Some permissions are missing or limited.',
                       style: GoogleFonts.inter(
                         fontSize: 11,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                       ),
                     ),
                   ],
@@ -1183,7 +1183,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
 
     return Row(
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF64748B)),
+        Icon(icon, size: 16, color: AppColors.inkMuted),
         const SizedBox(width: 10),
         Text(
           title,
@@ -1336,7 +1336,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                 "Add up to 3 trusted contacts who'll be texted your location if the SOS trigger fires.",
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.45,
                 ),
               ),
@@ -1370,7 +1370,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
+                          color: AppColors.inkMuted,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1428,7 +1428,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -1436,7 +1436,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
                                   c.phone,
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
-                                    color: const Color(0xFF64748B),
+                                    color: AppColors.inkMuted,
                                   ),
                                 ),
                               ],

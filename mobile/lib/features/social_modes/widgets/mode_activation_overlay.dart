@@ -81,7 +81,7 @@ class _ModeActivationOverlayState extends State<ModeActivationOverlay>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF0F172A),
+                AppColors.ink,
                 widget.brandColor.withValues(alpha: 0.15),
                 widget.brandColor.withValues(alpha: 0.35),
               ],

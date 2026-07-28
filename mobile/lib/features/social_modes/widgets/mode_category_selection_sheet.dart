@@ -52,7 +52,7 @@ class _ModeCategorySelectionSheetState
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
+        color: AppColors.ink,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(

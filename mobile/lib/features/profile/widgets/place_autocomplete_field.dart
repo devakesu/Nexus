@@ -246,7 +246,7 @@ class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
                                 : widget.hintText,
                             style: TextStyle(
                               color: valueToShow.isNotEmpty
-                                  ? const Color(0xFF0F172A)
+                                  ? AppColors.ink
                                   : Colors.black.withValues(alpha: 0.3),
                               fontSize: 14,
                             ),
@@ -503,7 +503,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                 ),
                 GestureDetector(
@@ -669,7 +669,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                     controller: _searchController,
                     onChanged: _onSearchChanged,
                     style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                      color: AppColors.ink,
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
@@ -752,7 +752,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                             title: Text(
                               suggestion.description,
                               style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFF0F172A),
+                                color: AppColors.ink,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),

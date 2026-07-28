@@ -135,7 +135,7 @@ extension FeedbackStatusX on FeedbackStatus {
     FeedbackStatus.open => AppColors.safetyBlue,
     FeedbackStatus.inProgress => const Color(0xFFD97706),
     FeedbackStatus.resolved => AppColors.success,
-    FeedbackStatus.closed => const Color(0xFF64748B),
+    FeedbackStatus.closed => AppColors.inkMuted,
   };
 
   IconData get icon => switch (this) {

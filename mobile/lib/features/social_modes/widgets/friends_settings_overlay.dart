@@ -132,7 +132,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                     Text(
                       'Friends Settings',
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: AppColors.ink,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -202,7 +202,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                       child: Text(
                         'Who are you open to meeting?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -219,7 +219,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 const Text(
                   'Select who you would like to appear in your Friends Orbit.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -242,9 +242,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                           backgroundColor: Colors.black.withValues(alpha: 0.04),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color: isSelected ? Colors.white : AppColors.ink,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -296,7 +294,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                       child: Text(
                         'Your Interests',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -313,7 +311,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 const Text(
                   'Add your interests to find friends who share your passions.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -353,7 +351,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                                       alpha: 0.05,
                                     ),
                                     labelStyle: const TextStyle(
-                                      color: Color(0xFF64748B),
+                                      color: AppColors.inkMuted,
                                       fontSize: 12,
                                     ),
                                     side: BorderSide.none,
@@ -435,7 +433,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                       child: Text(
                         'Causes You Support',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -452,7 +450,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                 const Text(
                   'Connect with friends who care about the same causes as you do.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -514,7 +512,7 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                           label: Text(val),
                           backgroundColor: Colors.black.withValues(alpha: 0.04),
                           labelStyle: const TextStyle(
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                             fontSize: 12,
                           ),
                           shape: RoundedRectangleBorder(

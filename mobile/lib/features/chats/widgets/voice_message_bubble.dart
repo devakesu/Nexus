@@ -6,14 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/features/chats/providers/chat_conversation_provider.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Decrypts a voice note to a private temp file (cleared on dispose) and
-/// plays it via just_audio - simpler and more robust than a custom
-/// StreamAudioSource, and voice notes are small enough that decrypting the
-/// whole file up front is a non-issue.
 class VoiceMessageBubble extends ConsumerStatefulWidget {
   const VoiceMessageBubble({
     required this.pointer,
@@ -125,7 +122,7 @@ class _VoiceMessageBubbleState extends ConsumerState<VoiceMessageBubble>
     final primaryThemeColor = widget.themeColor ?? const Color(0xFF6366F1);
     final subColor = isMine
         ? Colors.white.withValues(alpha: 0.8)
-        : const Color(0xFF64748B);
+        : AppColors.inkMuted;
     final waveHighlightColor = isMine ? Colors.white : primaryThemeColor;
 
     return SizedBox(

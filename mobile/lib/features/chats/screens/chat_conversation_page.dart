@@ -136,7 +136,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         child: Text(
           _formatDateDivider(date),
           style: GoogleFonts.inter(
-            color: const Color(0xFF64748B),
+            color: AppColors.inkMuted,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -492,7 +492,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(context, theme),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -805,12 +805,12 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
       color: const Color(0xFFF1F5F9),
       child: const Row(
         children: [
-          Icon(LucideIcons.circleOff, size: 15, color: Color(0xFF64748B)),
+          Icon(LucideIcons.circleOff, size: 15, color: AppColors.inkMuted),
           SizedBox(width: 8),
           Expanded(
             child: Text(
               'This conversation has ended. You can no longer send messages here.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
             ),
           ),
         ],

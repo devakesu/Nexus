@@ -180,7 +180,7 @@ class _EmailNotificationSettingsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: _loading
           ? const Center(child: NexusOrbitLoader(lightMode: true))
@@ -205,7 +205,7 @@ class _EmailNotificationSettingsPageState
         'are always sent to keep your account safe.',
         style: GoogleFonts.inter(
           fontSize: 13,
-          color: const Color(0xFF64748B),
+          color: AppColors.inkMuted,
           height: 1.45,
         ),
       ),
@@ -230,7 +230,7 @@ class _EmailNotificationSettingsPageState
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
               ),
             ),
             const SizedBox(height: 20),
@@ -358,7 +358,7 @@ class _Section extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 letterSpacing: 1.5,
               ),
             ),
@@ -430,7 +430,7 @@ class _MandatoryTile extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -539,7 +539,7 @@ class _ToggleTile extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(height: 2),

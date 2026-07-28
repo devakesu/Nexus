@@ -71,7 +71,7 @@ class CrisisHelplinesPage extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(context),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
@@ -80,7 +80,7 @@ class CrisisHelplinesPage extends StatelessWidget {
             'If you are in immediate danger or need crisis support, please reach out to the appropriate service below:',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               height: 1.45,
             ),
           ),
@@ -114,7 +114,7 @@ class CrisisHelplinesPage extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -122,7 +122,7 @@ class CrisisHelplinesPage extends StatelessWidget {
                       h['desc']! as String,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                         height: 1.35,
                       ),
                     ),

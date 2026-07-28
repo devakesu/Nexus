@@ -155,7 +155,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: _buildBody(),
     );
@@ -319,7 +319,7 @@ class _UserCard extends StatelessWidget {
                         style: GoogleFonts.manrope(
                           fontWeight: FontWeight.w800,
                           fontSize: 15,
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.ink,
                         ),
                       ),
                       if (user.age != null) ...[
@@ -328,7 +328,7 @@ class _UserCard extends StatelessWidget {
                           '${user.age}',
                           style: GoogleFonts.inter(
                             fontSize: 14,
-                            color: const Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -509,7 +509,7 @@ class _ErrorView extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 fontSize: 14,
               ),
             ),
@@ -559,14 +559,14 @@ class _ConfirmDialog extends StatelessWidget {
         style: GoogleFonts.manrope(
           fontWeight: FontWeight.w800,
           fontSize: 17,
-          color: const Color(0xFF0F172A),
+          color: AppColors.ink,
         ),
       ),
       content: Text(
         message,
         style: GoogleFonts.inter(
           fontSize: 14,
-          color: const Color(0xFF64748B),
+          color: AppColors.inkMuted,
           height: 1.5,
         ),
       ),
@@ -576,7 +576,7 @@ class _ConfirmDialog extends StatelessWidget {
           child: Text(
             'Cancel',
             style: GoogleFonts.manrope(
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -639,7 +639,7 @@ class _EmptyView extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
               ),
             ),
             const SizedBox(height: 6),
@@ -648,7 +648,7 @@ class _EmptyView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
               ),
             ),
           ],

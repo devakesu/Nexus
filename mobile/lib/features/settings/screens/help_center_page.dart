@@ -488,7 +488,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   Widget build(BuildContext context) {
     final searching = _query.isNotEmpty;
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 60),
@@ -589,7 +589,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -693,7 +693,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         focusNode: _searchFocus,
         onTapOutside: (_) => _searchFocus.unfocus(),
         onChanged: (_) => setState(() {}),
-        style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF0F172A)),
+        style: GoogleFonts.inter(fontSize: 14, color: AppColors.ink),
         decoration: InputDecoration(
           hintText: 'Search FAQs, features, settings…',
           // Placeholder text still needs 4.5:1, not the muted-gray default.
@@ -773,7 +773,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   letterSpacing: 0.6,
                 ),
               ),
@@ -819,7 +819,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -827,7 +827,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                           entry.faq.answer,
                           style: GoogleFonts.inter(
                             fontSize: 12.5,
-                            color: const Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             height: 1.45,
                           ),
                         ),
@@ -970,7 +970,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                       style: GoogleFonts.manrope(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -986,7 +986,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 11.5,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                         height: 1.35,
                       ),
                     ),
@@ -1013,7 +1013,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             style: GoogleFonts.manrope(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               letterSpacing: 1.5,
             ),
           ),
@@ -1164,7 +1164,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           style: GoogleFonts.inter(
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF0F172A),
+            color: AppColors.ink,
           ),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1175,7 +1175,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
               faq.answer,
               style: GoogleFonts.inter(
                 fontSize: 12.5,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 height: 1.5,
               ),
             ),
@@ -1192,7 +1192,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              colors: [Color(0xFF1E1B4B), AppColors.ink],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -1379,7 +1379,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                 "Couldn't find your answer above? Reach out and we'll take it from there.",
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.45,
                 ),
               ),
@@ -1434,7 +1434,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                   style: GoogleFonts.inter(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1442,7 +1442,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                   desc,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                   ),
                 ),
               ],

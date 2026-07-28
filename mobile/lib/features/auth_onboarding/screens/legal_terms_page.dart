@@ -3,17 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-/// Terms of Service & Privacy Policy - a WebView pointed at the same
-/// server-rendered page (GET /legal, app/api/legal.py) that's
-/// reachable on the public web. One document, one style, everywhere: the
-/// in-app copy and the web copy are always the literal same render, and a
-/// terms/policy update takes effect immediately for every user with no
-/// app-store release needed - matching how current_terms_version already
-/// drives live re-consent (see terms_consent_screen.dart).
 class LegalTermsPage extends StatefulWidget {
   const LegalTermsPage({super.key});
 
@@ -126,14 +120,14 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF0F172A),
+            color: AppColors.ink,
             letterSpacing: 0.5,
           ),
         ),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF0F172A),
+            color: AppColors.ink,
             size: 20,
           ),
           onPressed: () => Navigator.of(context).pop(),
@@ -161,7 +155,7 @@ class _LegalTermsPageState extends State<LegalTermsPage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.ink,
                         height: 1.5,
                       ),
                     ),

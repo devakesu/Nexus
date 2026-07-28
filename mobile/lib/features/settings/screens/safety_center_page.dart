@@ -142,7 +142,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
                           style: GoogleFonts.manrope(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -151,7 +151,7 @@ class _RedFlagCarouselState extends State<_RedFlagCarousel> {
                             flag.desc,
                             style: GoogleFonts.inter(
                               fontSize: 11.5,
-                              color: const Color(0xFF64748B),
+                              color: AppColors.inkMuted,
                               height: 1.35,
                             ),
                           ),
@@ -554,7 +554,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       // A plain virtualized ScrollablePositionedList - unlike ListView, its
       // ItemScrollController can jump straight to a section by index even
@@ -626,7 +626,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   style: GoogleFonts.manrope(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -634,7 +634,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   subtitle,
                   style: GoogleFonts.inter(
                     fontSize: 11.5,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     height: 1.35,
                   ),
                 ),
@@ -754,7 +754,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                           style: GoogleFonts.manrope(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -823,7 +823,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                               style: GoogleFonts.manrope(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w900,
-                                color: const Color(0xFF0F172A),
+                                color: AppColors.ink,
                               ),
                             ),
                           ),
@@ -841,7 +841,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                           style: GoogleFonts.manrope(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -851,7 +851,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                               : 'Complete these quick steps to feel even safer on Nexus.',
                           style: GoogleFonts.inter(
                             fontSize: 12.5,
-                            color: const Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             height: 1.4,
                           ),
                         ),
@@ -1034,7 +1034,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 'Everything working quietly in the background - from identity checks to 24/7 moderation - to keep Nexus genuine and safe.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.45,
                 ),
               ),
@@ -1066,7 +1066,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                   ),
                                 ),
                                 const SizedBox(height: 3),
@@ -1074,7 +1074,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                   item.desc,
                                   style: GoogleFonts.inter(
                                     fontSize: 11.5,
-                                    color: const Color(0xFF64748B),
+                                    color: AppColors.inkMuted,
                                     height: 1.4,
                                   ),
                                 ),
@@ -1163,7 +1163,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           'Test your safety knowledge with a short quiz and learn how to handle online interactions securely.',
           style: GoogleFonts.inter(
             fontSize: 13,
-            color: const Color(0xFF64748B),
+            color: AppColors.inkMuted,
             height: 1.45,
           ),
         ),
@@ -1174,7 +1174,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: AppColors.ink,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
@@ -1239,7 +1239,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF0F172A),
+            color: AppColors.ink,
             height: 1.4,
           ),
         ),
@@ -1305,7 +1305,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                                 ? FontWeight.w600
                                 : FontWeight.w500,
                             color: isSelected || (showResults && isCorrect)
-                                ? const Color(0xFF0F172A)
+                                ? AppColors.ink
                                 : const Color(0xFF475569),
                           ),
                         ),
@@ -1349,7 +1349,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                   explanation,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     height: 1.4,
                   ),
                 ),
@@ -1363,7 +1363,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 13),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -1417,7 +1417,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           style: GoogleFonts.manrope(
             fontSize: 12,
             fontWeight: FontWeight.w900,
-            color: const Color(0xFF64748B),
+            color: AppColors.inkMuted,
             letterSpacing: 1.5,
           ),
         ),
@@ -1427,7 +1427,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           style: GoogleFonts.manrope(
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
+            color: AppColors.ink,
           ),
         ),
         const SizedBox(height: 6),
@@ -1474,7 +1474,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
             ),
@@ -1531,7 +1531,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
             'Equip yourself with guidelines built in partnership with trust and safety experts.',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               height: 1.45,
             ),
           ),
@@ -1651,7 +1651,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           style: GoogleFonts.inter(
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF0F172A),
+            color: AppColors.ink,
           ),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1688,7 +1688,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 11),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
@@ -1782,7 +1782,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           'Swipe through common warning signs of scams and catfishing.',
           style: GoogleFonts.inter(
             fontSize: 13,
-            color: const Color(0xFF64748B),
+            color: AppColors.inkMuted,
             height: 1.45,
           ),
         ),
@@ -1808,7 +1808,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              colors: [Color(0xFF1E1B4B), AppColors.ink],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

@@ -289,7 +289,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
               margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: value ? AppColors.onSignal(theme) : Colors.white54,
+                color: value ? AppColors.foregroundFor(theme) : Colors.white54,
               ),
             ),
           ),
@@ -385,7 +385,7 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: AppColors.ink,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(32),
         ),

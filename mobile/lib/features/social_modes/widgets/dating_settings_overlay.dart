@@ -152,7 +152,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: AppColors.ink,
                             ),
                           ),
                           ElevatedButton(
@@ -175,7 +175,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: TextField(
                         style: const TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 14,
                         ),
                         decoration: InputDecoration(
@@ -262,7 +262,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                                   labelStyle: TextStyle(
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFF0F172A),
+                                        : AppColors.ink,
                                     fontSize: 12,
                                     fontWeight: isSelected
                                         ? FontWeight.bold
@@ -371,7 +371,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                     Text(
                       'Dating Settings',
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: AppColors.ink,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -442,7 +442,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       child: Text(
                         'Who are you interested in meeting?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -459,7 +459,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                 const Text(
                   'Select the gender identities you would like to see in your Orbit.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -484,9 +484,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           ),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color: isSelected ? Colors.white : AppColors.ink,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -532,7 +530,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       child: Text(
                         'What are you looking for?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -549,7 +547,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                 const Text(
                   'Select the relationship types you are open to.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -597,9 +595,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           ),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color: isSelected ? Colors.white : AppColors.ink,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -633,7 +629,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       child: Text(
                         'What core values are most important to you in a partner?',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -650,7 +646,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                 const Text(
                   'Choose the qualities and shared principles you value most.',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -745,7 +741,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                       child: Text(
                         'Children Plans',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: AppColors.ink,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -762,7 +758,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                 const Text(
                   'What are your plans or feelings about having children?',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -787,9 +783,7 @@ class _DatingSettingsOverlayState extends State<DatingSettingsOverlay> {
                           ),
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color: isSelected ? Colors.white : AppColors.ink,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,

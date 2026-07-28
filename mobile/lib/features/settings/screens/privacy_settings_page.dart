@@ -353,7 +353,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 10),
@@ -383,7 +383,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                         'Cancel',
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
+                          color: AppColors.inkMuted,
                           fontSize: 14,
                         ),
                       ),
@@ -626,7 +626,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       style: GoogleFonts.inter(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.ink,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -634,7 +634,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       subtitle,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                         height: 1.3,
                       ),
                     ),
@@ -688,7 +688,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: _loading
           ? const Center(child: NexusOrbitLoader(lightMode: true))
@@ -736,7 +736,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                   children: [
                     _buildConsentTile(
                       icon: LucideIcons.scroll,
-                      iconColor: const Color(0xFF64748B),
+                      iconColor: AppColors.inkMuted,
                       iconBgColor: const Color(0xFFF1F5F9),
                       title: 'General Terms & Policies',
                       subtitle:
@@ -807,7 +807,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
               ),
             ),
             const SizedBox(height: 20),
@@ -853,7 +853,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
             ],
@@ -902,7 +902,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                   style: GoogleFonts.manrope(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -1042,7 +1042,7 @@ class _Section extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 letterSpacing: 1.5,
               ),
             ),
@@ -1146,9 +1146,7 @@ class _ToggleTile extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: locked
-                              ? AppColors.inkFaint
-                              : const Color(0xFF0F172A),
+                          color: locked ? AppColors.inkFaint : AppColors.ink,
                         ),
                       ),
                       const SizedBox(height: 2),

@@ -178,7 +178,7 @@ class _EmptyState extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
+                color: AppColors.ink,
               ),
             ),
             const SizedBox(height: 6),
@@ -259,7 +259,7 @@ class _ErrorState extends StatelessWidget {
               'Could not load chats',
               style: GoogleFonts.inter(
                 fontSize: 13.5,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
               ),
             ),
             const SizedBox(height: 14),

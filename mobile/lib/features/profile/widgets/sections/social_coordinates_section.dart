@@ -231,7 +231,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                         child: Text(
                           'Currently Studying here?',
                           style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -355,7 +355,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
                             Text(
                               'Current Student Status',
                               style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFF0F172A),
+                                color: AppColors.ink,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),

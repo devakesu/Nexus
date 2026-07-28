@@ -79,7 +79,7 @@ class _OrbitPainter extends CustomPainter {
     final strokeWidth = 1.0 + (size.width > 50.0 ? 0.4 : 0.0);
     final paintOrbit = Paint()
       ..color = lightMode
-          ? const Color(0xFF64748B).withValues(alpha: 0.38)
+          ? AppColors.inkMuted.withValues(alpha: 0.38)
           : Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;

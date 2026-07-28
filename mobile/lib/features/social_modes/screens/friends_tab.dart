@@ -382,7 +382,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                 Text(
                   'Profile Incomplete',
                   style: TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: AppColors.ink,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -459,7 +459,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
             actions: [
               TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF64748B),
+                  foregroundColor: AppColors.inkMuted,
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel'),
@@ -1272,7 +1272,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                                   gradient: const LinearGradient(
                                     colors: [
                                       Color(0xFF1E293B),
-                                      Color(0xFF0F172A),
+                                      AppColors.ink,
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
@@ -1376,7 +1376,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1385,7 +1385,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             height: 1.4,
                           ),
                         ),

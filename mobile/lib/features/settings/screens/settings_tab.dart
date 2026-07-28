@@ -205,7 +205,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: AppColors.ink,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -260,7 +260,7 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
               "You'll still be able to chat with people you've already matched with.",
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 height: 1.45,
               ),
             ),
@@ -888,7 +888,7 @@ class _NexusBranding extends StatelessWidget {
                     style: GoogleFonts.manrope(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFF64748B),
+                      color: AppColors.inkMuted,
                       letterSpacing: 2.5,
                     ),
                     children: [
@@ -911,7 +911,7 @@ class _NexusBranding extends StatelessWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                     letterSpacing: 4,
                   ),
                 ),
@@ -928,8 +928,8 @@ class _NexusBranding extends StatelessWidget {
                 icon: LucideIcons.coffee,
                 label: 'Buy me a Coffee',
                 bgColor: const Color(0xFFFFDD00),
-                textColor: const Color(0xFF0F172A),
-                iconColor: const Color(0xFF0F172A),
+                textColor: AppColors.ink,
+                iconColor: AppColors.ink,
                 onTap: () => _launch('https://buymeacoffee.com/devakesu'),
               ),
               const SizedBox(width: 8),
@@ -950,7 +950,7 @@ class _NexusBranding extends StatelessWidget {
             width: 32,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+              color: AppColors.ink.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1074,19 +1074,19 @@ class _SettingsSection extends StatelessWidget {
                     letterSpacing: 0.2,
                     shadows: const [
                       Shadow(
-                        color: Color(0xFFF4F6FA),
+                        color: AppColors.canvas,
                         blurRadius: 8,
                       ),
                       Shadow(
-                        color: Color(0xFFF4F6FA),
+                        color: AppColors.canvas,
                         blurRadius: 4,
                       ),
                       Shadow(
-                        color: Color(0xFFF4F6FA),
+                        color: AppColors.canvas,
                         offset: Offset(1, 1),
                       ),
                       Shadow(
-                        color: Color(0xFFF4F6FA),
+                        color: AppColors.canvas,
                         offset: Offset(-1, -1),
                       ),
                     ],
@@ -1141,7 +1141,7 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const effectiveLabelColor = Color(0xFF0F172A);
+    const effectiveLabelColor = AppColors.ink;
 
     return Column(
       children: [
@@ -1284,7 +1284,7 @@ class _AccountActionsSection extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
                 letterSpacing: 1.5,
               ),
             ),
@@ -1309,16 +1309,16 @@ class _AccountActionsSection extends StatelessWidget {
                   _ActionRow(
                     icon: LucideIcons.logOut,
                     label: 'Sign Out',
-                    iconColor: const Color(0xFF64748B),
-                    labelColor: const Color(0xFF0F172A),
+                    iconColor: AppColors.inkMuted,
+                    labelColor: AppColors.ink,
                     showDivider: true,
                     onTap: () => _confirmSignOut(context),
                   ),
                   _ActionRow(
                     icon: LucideIcons.download,
                     label: 'Export My Data',
-                    iconColor: const Color(0xFF64748B),
-                    labelColor: const Color(0xFF0F172A),
+                    iconColor: AppColors.inkMuted,
+                    labelColor: AppColors.ink,
                     showDivider: true,
                     onTap: () => unawaited(startDataExport(context)),
                   ),
@@ -1421,7 +1421,7 @@ class _AccountActionsSection extends StatelessWidget {
                         child: Ink(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),

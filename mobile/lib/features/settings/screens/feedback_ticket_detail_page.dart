@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
@@ -128,7 +129,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
               "Let us know why you're closing it - resolved, no longer relevant, etc.",
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: const Color(0xFF64748B),
+                color: AppColors.inkMuted,
               ),
             ),
             const SizedBox(height: 12),
@@ -152,7 +153,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: AppColors.ink,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -206,7 +207,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: _buildBody(),
     );
@@ -265,7 +266,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
               Text(
                 _error ?? 'Ticket not found.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: const Color(0xFF64748B)),
+                style: GoogleFonts.inter(color: AppColors.inkMuted),
               ),
             ],
           ),
@@ -331,7 +332,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 10),
@@ -360,7 +361,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: const Color(0xFF64748B),
+                          color: AppColors.inkMuted,
                         ),
                       ),
                     ),
@@ -382,7 +383,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                       '${ticket.attachmentPaths.length == 1 ? '' : 's'}',
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                       ),
                     ),
                   ],
@@ -420,7 +421,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
             style: GoogleFonts.manrope(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               letterSpacing: 1,
             ),
           ),
@@ -471,7 +472,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
+                      color: AppColors.ink,
                     ),
                   ),
                   if (entry.note != null && entry.note!.trim().isNotEmpty) ...[
@@ -480,7 +481,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                       entry.note!,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                         height: 1.4,
                       ),
                     ),
@@ -518,7 +519,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
             style: GoogleFonts.manrope(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF64748B),
+              color: AppColors.inkMuted,
               letterSpacing: 1,
             ),
           ),
@@ -558,7 +559,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                           comment.body,
                           style: GoogleFonts.inter(
                             fontSize: 13,
-                            color: const Color(0xFF0F172A),
+                            color: AppColors.ink,
                             height: 1.4,
                           ),
                         ),
@@ -657,7 +658,7 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
                   style: GoogleFonts.manrope(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                   ),
                 ),
         ),

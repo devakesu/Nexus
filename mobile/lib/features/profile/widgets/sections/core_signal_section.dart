@@ -112,7 +112,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                      color: AppColors.ink,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),

@@ -9,6 +9,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart' hide Config;
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/chats/providers/chat_conversation_provider.dart';
@@ -120,7 +121,7 @@ class _ChatComposerState extends State<ChatComposer> {
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
+                      color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -281,7 +282,7 @@ class _ChatComposerState extends State<ChatComposer> {
               ListTile(
                 leading: const Icon(
                   LucideIcons.camera,
-                  color: Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                 ),
                 title: Text(
                   'Camera',
@@ -292,7 +293,7 @@ class _ChatComposerState extends State<ChatComposer> {
               ListTile(
                 leading: const Icon(
                   LucideIcons.image,
-                  color: Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                 ),
                 title: Text(
                   'Gallery',
@@ -560,7 +561,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 padding: const EdgeInsets.all(8),
                 child: Icon(
                   _emojiVisible ? LucideIcons.keyboard : LucideIcons.smile,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   size: 22,
                 ),
               ),
@@ -618,7 +619,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 padding: const EdgeInsets.all(8),
                 child: const Icon(
                   LucideIcons.paperclip,
-                  color: Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   size: 22,
                 ),
               ),

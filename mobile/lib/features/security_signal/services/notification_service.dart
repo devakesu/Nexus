@@ -769,7 +769,7 @@ class _PermissionDeniedDialog extends StatelessWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -778,7 +778,7 @@ class _PermissionDeniedDialog extends StatelessWidget {
                   "Stay in the loop when someone likes you, super likes you, gets a new match, or sends you a message. You won't miss a connection.",
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     height: 1.55,
                   ),
                   textAlign: TextAlign.center,

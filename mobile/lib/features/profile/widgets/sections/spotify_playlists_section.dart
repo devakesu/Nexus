@@ -3,16 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/features/spotify/models/spotify_playlist.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Private, owner-only "Your Playlists" section. Wired only into
-/// ProfileTab's section list - never into ProfileDetailSheet (the
-/// peer-facing profile view), which has no code path that could render
-/// this even by accident since it only destructures fields it explicitly
-/// asks for from its data map.
 Future<void> openPlaylistsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -49,7 +45,7 @@ class _SpotifyPlaylistsSheetContent extends ConsumerWidget {
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF0F172A),
+            AppColors.ink,
             Color(0xFF090D1A),
           ],
           begin: Alignment.topCenter,

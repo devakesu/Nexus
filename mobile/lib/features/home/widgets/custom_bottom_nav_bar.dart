@@ -51,7 +51,7 @@ class CustomBottomNavBar extends StatelessWidget {
     }
   }
 
-  static const _unselectedColor = Color(0xFF64748B);
+  static const Color _unselectedColor = AppColors.inkMuted;
 
   @override
   Widget build(BuildContext context) {

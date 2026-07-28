@@ -64,7 +64,7 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                         Text(
                           widget.title,
                           style: const TextStyle(
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
@@ -156,7 +156,7 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                       option,
                                       iconSize: 18,
                                       iconColor: isSelected
-                                          ? const Color(0xFF0F172A)
+                                          ? AppColors.ink
                                           : Colors.black87,
                                     );
                                     if (tagIcon == null) {
@@ -175,7 +175,7 @@ class _CosmicSelectionOverlayState extends State<CosmicSelectionOverlay> {
                                   option,
                                   style: TextStyle(
                                     color: isSelected
-                                        ? const Color(0xFF0F172A)
+                                        ? AppColors.ink
                                         : Colors.black87,
                                     fontSize: 14,
                                     fontWeight: isSelected

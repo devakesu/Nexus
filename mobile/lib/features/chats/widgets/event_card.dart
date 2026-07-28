@@ -136,7 +136,7 @@ class EventCard extends ConsumerWidget {
                   style: GoogleFonts.manrope(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -164,13 +164,17 @@ class EventCard extends ConsumerWidget {
             style: GoogleFonts.manrope(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
+              color: AppColors.ink,
             ),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(LucideIcons.clock, size: 13, color: Color(0xFF64748B)),
+              const Icon(
+                LucideIcons.clock,
+                size: 13,
+                color: AppColors.inkMuted,
+              ),
               const SizedBox(width: 6),
               Text(
                 _formatDateTime(eventInfo.eventTime),
@@ -190,7 +194,7 @@ class EventCard extends ConsumerWidget {
                   const Icon(
                     LucideIcons.mapPin,
                     size: 13,
-                    color: Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                   ),
                   const SizedBox(width: 6),
                   Expanded(

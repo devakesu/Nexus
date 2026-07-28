@@ -378,7 +378,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                 Text(
                   'Profile Incomplete',
                   style: TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: AppColors.ink,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -455,7 +455,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
             actions: [
               TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF64748B),
+                  foregroundColor: AppColors.inkMuted,
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel'),
@@ -1279,7 +1279,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                                   gradient: const LinearGradient(
                                     colors: [
                                       Color(0xFF1E293B),
-                                      Color(0xFF0F172A),
+                                      AppColors.ink,
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
@@ -1383,7 +1383,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: AppColors.ink,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1392,7 +1392,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF64748B),
+                            color: AppColors.inkMuted,
                             height: 1.4,
                           ),
                         ),

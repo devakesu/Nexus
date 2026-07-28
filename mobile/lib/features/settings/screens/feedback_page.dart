@@ -319,7 +319,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 style: GoogleFonts.manrope(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
+                  color: AppColors.ink,
                 ),
               ),
               const SizedBox(height: 8),
@@ -332,7 +332,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 13.5,
-                  color: const Color(0xFF64748B),
+                  color: AppColors.inkMuted,
                   height: 1.5,
                 ),
               ),
@@ -346,7 +346,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.ink,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -371,7 +371,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.canvas,
       appBar: _buildAppBar(),
       body: Form(
         key: _formKey,
@@ -471,7 +471,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     style: GoogleFonts.manrope(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
+                      color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -481,7 +481,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         : 'This reaches our team directly - no bots in between.',
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
-                      color: const Color(0xFF64748B),
+                      color: AppColors.inkMuted,
                     ),
                   ),
                 ],
@@ -522,7 +522,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   style: GoogleFonts.manrope(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF64748B),
+                    color: AppColors.inkMuted,
                     letterSpacing: 1,
                   ),
                 ),
@@ -608,7 +608,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                             style: GoogleFonts.manrope(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFF64748B),
+                              color: AppColors.inkMuted,
                               height: 1.4,
                             ),
                           ),
@@ -670,7 +670,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         style: GoogleFonts.inter(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF0F172A),
+                          color: AppColors.ink,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -678,7 +678,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         feedbackRelativeTime(ticket.createdAt),
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: const Color(0xFF64748B),
+                          color: AppColors.inkMuted,
                         ),
                       ),
                     ],
@@ -710,7 +710,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           style: GoogleFonts.manrope(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFF64748B),
+            color: AppColors.inkMuted,
             letterSpacing: 1,
           ),
         ),
@@ -789,7 +789,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
                               color: selected
-                                  ? const Color(0xFF0F172A)
+                                  ? AppColors.ink
                                   : const Color(0xFF1E293B),
                             ),
                           ),
@@ -803,7 +803,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
                         fontSize: 10.5,
-                        color: const Color(0xFF64748B),
+                        color: AppColors.inkMuted,
                         height: 1.25,
                       ),
                     ),
@@ -1004,7 +1004,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
       style: GoogleFonts.manrope(
         fontSize: 11,
         fontWeight: FontWeight.w800,
-        color: const Color(0xFF64748B),
+        color: AppColors.inkMuted,
         letterSpacing: 1,
       ),
     );
@@ -1025,7 +1025,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
       maxLines: maxLines,
       maxLength: maxLength,
       validator: validator,
-      style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF0F172A)),
+      style: GoogleFonts.inter(fontSize: 14, color: AppColors.ink),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.inter(
@@ -1120,7 +1120,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: const BoxDecoration(
-                color: Color(0xFF0F172A),
+                color: AppColors.ink,
                 shape: BoxShape.circle,
               ),
               child: const Icon(LucideIcons.x, size: 11, color: Colors.white),

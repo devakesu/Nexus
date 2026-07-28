@@ -44,7 +44,7 @@ class SelectorTile extends StatelessWidget {
     final displayText = isEmpty ? 'Select...' : value;
     final textColor = isEmpty
         ? Colors.black.withValues(alpha: 0.3)
-        : const Color(0xFF0F172A);
+        : AppColors.ink;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
