@@ -37,3 +37,17 @@ class ContactSubmitRequest(BaseModel):
     def sanitize_query_type(cls, val: str) -> str:
         """Sanitizes query type string."""
         return val.strip().lower()
+
+
+class ErrorSessionCreateRequest(BaseModel):
+    """Payload for creating a temporary error report session."""
+
+    query_type: str = Field(default="bug_report", max_length=32, description="Inquiry category.")
+    subject: str = Field(..., max_length=255, description="Sanitized error title.")
+    message: str = Field(..., max_length=15000, description="Sanitized error details, stack trace, and diagnostic logs.")
+    email: str | None = Field(default=None, max_length=255, description="Optional logged-in user email.")
+    name: str | None = Field(default=None, max_length=120, description="Optional logged-in user name.")
+    sentry_event_id: str | None = Field(default=None, max_length=128, description="Optional Sentry event/report ID.")
+    app_version: str | None = Field(default=None, max_length=64, description="App version.")
+    platform: str | None = Field(default=None, max_length=64, description="Platform identifier.")
+

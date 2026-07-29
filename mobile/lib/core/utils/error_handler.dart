@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,8 +7,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
+import 'package:nexus/features/settings/screens/feedback_page.dart';
+import 'package:nexus/features/settings/utils/feedback_shared.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum ErrorLevel {
   info,
@@ -173,6 +177,37 @@ class ErrorHandler {
 
   /// Centralized handler for all errors and exceptions.
   /// Logs to Sentry and displays UI messages to the user based on the level.
+  /// Formats diagnostic details and stack traces for prefilling support reports.
+  static String _buildDiagnosticDetails({
+    required dynamic error,
+    required String sanitizedMessage,
+    required String friendlyMessage,
+    StackTrace? stackTrace,
+    String? sentryEventId,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('--- ERROR DIAGNOSTICS ---')
+      ..writeln('Summary: $friendlyMessage')
+      ..writeln('Details: $sanitizedMessage');
+    if (sentryEventId != null &&
+        sentryEventId.isNotEmpty &&
+        sentryEventId != '00000000000000000000000000000000') {
+      buffer.writeln('Sentry Report ID: $sentryEventId');
+    }
+    buffer
+      ..writeln('App Version: ${AppConfig.current.appVersion}')
+      ..writeln('Platform: ${Platform.isIOS ? 'iOS' : 'Android'}')
+      ..writeln('Timestamp: ${DateTime.now().toUtc().toIso8601String()}');
+    if (stackTrace != null) {
+      buffer
+        ..writeln('\n--- STACK TRACE ---')
+        ..writeln(sanitize(stackTrace.toString()));
+    }
+    return buffer.toString();
+  }
+
+  /// Centralized handler for all errors and exceptions.
+  /// Logs to Sentry and displays UI messages to the user based on the level.
   static void handleError(
     dynamic error, {
     StackTrace? stackTrace,
@@ -193,17 +228,47 @@ class ErrorHandler {
     }
 
     // 2. Log to Sentry asynchronously
-    unawaited(_logToSentry(error, stackTrace, level, sanitizedMessage));
+    final sentryTask = _logToSentry(error, stackTrace, level, sanitizedMessage);
 
     // 3. Display UI if requested
     if (showUi) {
       final friendlyMessage = _getFriendlyMessage(error, sanitizedMessage);
-      _showErrorUi(friendlyMessage, level);
+      unawaited(
+        sentryTask
+            .then((sentryEventId) {
+              final diagnosticDetails = _buildDiagnosticDetails(
+                error: error,
+                sanitizedMessage: sanitizedMessage,
+                friendlyMessage: friendlyMessage,
+                stackTrace: stackTrace,
+                sentryEventId: sentryEventId,
+              );
+              _showErrorUi(
+                friendlyMessage,
+                level,
+                diagnosticDetails: diagnosticDetails,
+                sentryEventId: sentryEventId,
+              );
+            })
+            .catchError((_) {
+              final diagnosticDetails = _buildDiagnosticDetails(
+                error: error,
+                sanitizedMessage: sanitizedMessage,
+                friendlyMessage: friendlyMessage,
+                stackTrace: stackTrace,
+              );
+              _showErrorUi(
+                friendlyMessage,
+                level,
+                diagnosticDetails: diagnosticDetails,
+              );
+            }),
+      );
     }
   }
 
   /// Internal Sentry logging logic
-  static Future<void> _logToSentry(
+  static Future<String?> _logToSentry(
     dynamic error,
     StackTrace? stackTrace,
     ErrorLevel level,
@@ -213,8 +278,7 @@ class ErrorHandler {
       final sentryLevel = _getSentryLevel(level);
 
       if (error != null) {
-        // If error is an exception/object, capture it
-        await Sentry.captureException(
+        final eventId = await Sentry.captureException(
           error,
           stackTrace: stackTrace,
           withScope: (scope) async {
@@ -222,15 +286,17 @@ class ErrorHandler {
             await scope.setTag('custom_message', sanitizedMessage);
           },
         );
+        return eventId.toString();
       } else {
-        // If no exception object but we have a message, capture as message
-        await Sentry.captureMessage(
+        final eventId = await Sentry.captureMessage(
           sanitizedMessage,
           level: sentryLevel,
         );
+        return eventId.toString();
       }
     } on Object catch (e) {
       debugPrint('Failed to send error logs to Sentry: $e');
+      return null;
     }
   }
 
@@ -249,12 +315,22 @@ class ErrorHandler {
   }
 
   /// Displays the appropriate UI element (Toast or Dialog)
-  static void _showErrorUi(String message, ErrorLevel level) {
+  static void _showErrorUi(
+    String message,
+    ErrorLevel level, {
+    required String diagnosticDetails,
+    String? sentryEventId,
+  }) {
     final context = navigatorKey.currentContext;
     if (context == null) {
       // Navigator not yet ready, defer to next frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showErrorUi(message, level);
+        _showErrorUi(
+          message,
+          level,
+          diagnosticDetails: diagnosticDetails,
+          sentryEventId: sentryEventId,
+        );
       });
       return;
     }
@@ -262,7 +338,13 @@ class ErrorHandler {
     if (level == ErrorLevel.info || level == ErrorLevel.warning) {
       _displayToast(context, message, level);
     } else {
-      _displayDialog(context, message, level);
+      _displayDialog(
+        context,
+        message,
+        level,
+        diagnosticDetails: diagnosticDetails,
+        sentryEventId: sentryEventId,
+      );
     }
   }
 
@@ -294,8 +376,10 @@ class ErrorHandler {
   static void _displayDialog(
     BuildContext context,
     String message,
-    ErrorLevel level,
-  ) {
+    ErrorLevel level, {
+    required String diagnosticDetails,
+    String? sentryEventId,
+  }) {
     final isCritical = level == ErrorLevel.critical;
     final dialogAccentColor = isCritical
         ? const Color(0xFFD32F2F)
@@ -419,60 +503,143 @@ class ErrorHandler {
                                   // Dialog buttons
                                   Column(
                                     children: [
-                                      if (isCritical) ...[
-                                        // Signal Glow shadow via
-                                        // BoxDecoration, not Material's
-                                        // elevation: prop.
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppColors.pulsarPink
-                                                    .withValues(alpha: 0.3),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            height: 48,
-                                            child: ElevatedButton.icon(
-                                              onPressed: () {
-                                                // Action is left as a placeholder for now
-                                                debugPrint(
-                                                  'Contact Support tapped.',
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.pulsarPink
+                                                  .withValues(alpha: 0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          height: 48,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () async {
+                                              if (isCritical) {
+                                                final user = Supabase
+                                                    .instance
+                                                    .client
+                                                    .auth
+                                                    .currentUser;
+                                                final userEmail = user?.email;
+                                                final metadata =
+                                                    user?.userMetadata;
+                                                final userName =
+                                                    metadata?['name']
+                                                        as String?;
+
+                                                final backendUrl = AppConfig
+                                                    .current
+                                                    .backendUrl;
+                                                String? sessionId;
+
+                                                try {
+                                                  final dio = Dio();
+                                                  final response = await dio
+                                                      .post<
+                                                        Map<String, dynamic>
+                                                      >(
+                                                        '$backendUrl/api/v1/contact/error-session',
+                                                        data: {
+                                                          'query_type':
+                                                              'bug_report',
+                                                          'subject':
+                                                              'Critical Error: $message',
+                                                          'message':
+                                                              diagnosticDetails,
+                                                          'email': userEmail,
+                                                          'name': userName,
+                                                          'sentry_event_id':
+                                                              sentryEventId,
+                                                          'app_version':
+                                                              AppConfig
+                                                                  .current
+                                                                  .appVersion,
+                                                          'platform':
+                                                              Platform.isIOS
+                                                              ? 'ios'
+                                                              : 'android',
+                                                        },
+                                                      );
+                                                  sessionId =
+                                                      response.data?['session_id']
+                                                          as String?;
+                                                } on Exception catch (e) {
+                                                  debugPrint(
+                                                    'Failed to create error session: $e',
+                                                  );
+                                                }
+
+                                                final webUrlStr =
+                                                    sessionId != null
+                                                    ? '$backendUrl/contact?err_id=$sessionId'
+                                                    : '$backendUrl/contact?topic=bug_report';
+                                                final uri = Uri.parse(
+                                                  webUrlStr,
                                                 );
-                                              },
-                                              icon: const Icon(
-                                                Icons.support_agent_rounded,
+                                                if (await canLaunchUrl(uri)) {
+                                                  await launchUrl(
+                                                    uri,
+                                                    mode: LaunchMode
+                                                        .externalApplication,
+                                                  );
+                                                }
+                                              } else {
+                                                Navigator.of(context).pop();
+                                                final navState =
+                                                    navigatorKey.currentState;
+                                                if (navState != null &&
+                                                    navState.mounted) {
+                                                  unawaited(
+                                                    navState.push(
+                                                      MaterialPageRoute<void>(
+                                                        builder: (_) => FeedbackPage(
+                                                          initialQueryType:
+                                                              FeedbackQueryType
+                                                                  .bugReport,
+                                                          initialSubject:
+                                                              'Bug Report: $message',
+                                                          initialMessage:
+                                                              diagnosticDetails,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.support_agent_rounded,
+                                              color: Colors.white,
+                                            ),
+                                            label: const Text(
+                                              'Report Issue',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
                                                 color: Colors.white,
                                               ),
-                                              label: const Text(
-                                                'Contact Support',
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.pulsarPink,
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.pulsarPink,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
                                               ),
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(height: 12),
-                                      ],
+                                      ),
+                                      const SizedBox(height: 12),
                                       SizedBox(
                                         width: double.infinity,
                                         height: 46,

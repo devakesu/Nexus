@@ -36,17 +36,32 @@ class SecurityService {
     }
   }
 
-  /// Checks for debuggers, and if found, wipes all secure storage keys and terminates the app.
+  /// Checks for debuggers, and if found, wipes all secure storage keys,
+  /// purges temporary evidence files from disk, and terminates the app.
   static Future<void> checkDebugger() async {
     if (await isDebuggerConnected()) {
       try {
+        // 1. Wipe key vault and tokens
         const storage = FlutterSecureStorage(
           iOptions: IOSOptions(
             accessibility: KeychainAccessibility.first_unlock_this_device,
           ),
         );
         await storage.deleteAll();
+        // 2. Best-effort purge of temporary evidence directory files from disk
+        final tempDir = Directory.systemTemp;
+        if (tempDir.existsSync()) {
+          await for (final entity in tempDir.list()) {
+            if (entity.path.contains('digital_witness') ||
+                entity.path.endsWith('.enc')) {
+              try {
+                await entity.delete(recursive: true);
+              } on Object catch (_) {}
+            }
+          }
+        }
       } on Object catch (_) {}
+      // 3. Immediately exit without network calls
       exit(0);
     }
   }

@@ -31,7 +31,16 @@ class _PendingAttachment {
 }
 
 class FeedbackPage extends StatefulWidget {
-  const FeedbackPage({super.key});
+  const FeedbackPage({
+    super.key,
+    this.initialQueryType = FeedbackQueryType.help,
+    this.initialSubject,
+    this.initialMessage,
+  });
+
+  final FeedbackQueryType initialQueryType;
+  final String? initialSubject;
+  final String? initialMessage;
 
   @override
   State<FeedbackPage> createState() => _FeedbackPageState();
@@ -46,7 +55,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   late final Dio _dio;
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  FeedbackQueryType _queryType = FeedbackQueryType.help;
+  late FeedbackQueryType _queryType;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
@@ -62,6 +71,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
   @override
   void initState() {
     super.initState();
+    _queryType = widget.initialQueryType;
+    if (widget.initialSubject != null) {
+      _subjectController.text = widget.initialSubject!;
+    }
+    if (widget.initialMessage != null) {
+      _messageController.text = widget.initialMessage!;
+    }
     _dio = createDio();
     unawaited(_loadRecentTickets());
   }

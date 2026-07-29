@@ -15,6 +15,7 @@ import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/encrypted_string.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+import 'package:nexus/core/utils/secure_preferences.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/auth_onboarding/widgets/login_painters.dart';
@@ -76,6 +77,7 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
     unawaited(SecurityService.enterSensitiveScreen());
+    unawaited(_restoreResendCountdown());
     _overlaySubscription = SecurityService.onOverlayDetected.listen((_) {
       if (mounted) {
         setState(() {
@@ -395,6 +397,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _sendEmailOtp() async {
+    // Client-side 60s cooldown is a UX guardrail to prevent rapid re-clicks
+    // and accidental multi-submissions (persisted to prevent simple app restart bypass).
+    // Security enforcement relies on Supabase Auth's server-side rate limit (`over_email_send_rate_limit`).
     if (_resendCountdown > 0) {
       NexusToast.show(
         context,
@@ -444,6 +449,7 @@ class _LoginScreenState extends State<LoginScreen>
           _currentView = LoginView.otp;
           _resendCountdown = 60;
           _startCountdown();
+          unawaited(_saveOtpTimestamp());
         });
         NexusToast.show(
           context,
@@ -467,6 +473,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _sendLoginByPhoneOtp() async {
+    // Client-side 60s cooldown is a UX guardrail to prevent rapid re-clicks
+    // and accidental multi-submissions (persisted to prevent simple app restart bypass).
+    // Security enforcement relies on Supabase Auth's server-side rate limit (`over_email_send_rate_limit`).
     if (_resendCountdown > 0) {
       NexusToast.show(
         context,
@@ -575,6 +584,7 @@ class _LoginScreenState extends State<LoginScreen>
           _currentView = LoginView.otp;
           _resendCountdown = 60;
           _startCountdown();
+          unawaited(_saveOtpTimestamp());
         });
         NexusToast.show(
           context,
@@ -596,6 +606,40 @@ class _LoginScreenState extends State<LoginScreen>
         });
       }
     }
+  }
+
+  static const String _otpTimestampKey = 'last_otp_sent_timestamp';
+
+  Future<void> _restoreResendCountdown() async {
+    try {
+      final prefs = await SecurePreferences.getInstance();
+      final lastSentStr = await prefs.getString(_otpTimestampKey);
+      if (lastSentStr != null) {
+        final lastSent = int.tryParse(lastSentStr);
+        if (lastSent != null) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final elapsedSeconds = (now - lastSent) ~/ 1000;
+          if (elapsedSeconds < 60 && elapsedSeconds >= 0) {
+            if (mounted) {
+              setState(() {
+                _resendCountdown = 60 - elapsedSeconds;
+                _startCountdown();
+              });
+            }
+          }
+        }
+      }
+    } on Object catch (_) {}
+  }
+
+  Future<void> _saveOtpTimestamp() async {
+    try {
+      final prefs = await SecurePreferences.getInstance();
+      await prefs.setString(
+        _otpTimestampKey,
+        DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    } on Object catch (_) {}
   }
 
   void _startCountdown() {

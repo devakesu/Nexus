@@ -165,3 +165,60 @@ async def test_turnstile_verification_disabled_by_default() -> None:
     # When turnstile_secret_key is None (default in config), verify returns True
     res = await verify_turnstile_token(token=None, client_ip="127.0.0.1")
     assert res is True
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.redis_client")
+async def test_create_and_get_error_session_flow(mock_redis: MagicMock) -> None:
+    from app.api.feedback.contact import create_error_session, get_error_session
+    from app.api.feedback.models import ErrorSessionCreateRequest
+
+    stored_json: str | None = None
+
+    async def fake_set(key: str, val: str, ex: int = 600) -> None:  # noqa: ARG001
+        nonlocal stored_json
+        stored_json = val
+
+    async def fake_get(key: str) -> str | None:  # noqa: ARG001
+        return stored_json
+
+    async def fake_delete(key: str) -> None:  # noqa: ARG001
+        nonlocal stored_json
+        stored_json = None
+
+    mock_redis.set = AsyncMock(side_effect=fake_set)
+    mock_redis.get = AsyncMock(side_effect=fake_get)
+    mock_redis.delete = AsyncMock(side_effect=fake_delete)
+
+    payload = ErrorSessionCreateRequest(
+        query_type="bug_report",
+        subject="Critical Error: Out of memory",
+        message="--- ERROR DIAGNOSTICS ---\nDetails: Null pointer exception",
+        email="testuser@example.com",
+        name="Test User",
+        sentry_event_id="abc123sentry",
+        app_version="1.2.0",
+        platform="android",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/error-session",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    res_create = await create_error_session(request=request, payload=payload)
+    assert "session_id" in res_create
+    assert res_create["session_id"].startswith("err_sess_")
+
+    session_id = res_create["session_id"]
+    res_get = await get_error_session(request=request, session_id=session_id)
+
+    assert res_get["subject"] == "Critical Error: Out of memory"
+    assert res_get["email"] == "testuser@example.com"
+    assert res_get["name"] == "Test User"
+    assert res_get["sentry_event_id"] == "abc123sentry"
+    assert res_get["platform"] == "android"
+

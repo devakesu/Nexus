@@ -16,6 +16,7 @@ import 'package:nexus/features/settings/screens/help_center_page.dart';
 import 'package:nexus/features/settings/screens/hidden_users_page.dart';
 import 'package:nexus/features/settings/screens/privacy_settings_page.dart';
 import 'package:nexus/features/settings/screens/safety_center_page.dart';
+import 'package:nexus/features/settings/utils/feedback_shared.dart';
 
 final goRouter = GoRouter(
   navigatorKey: ErrorHandler.navigatorKey,
@@ -108,7 +109,16 @@ final goRouter = GoRouter(
     ),
     GoRoute(
       path: '/settings/feedback',
-      builder: (context, state) => const FeedbackPage(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return FeedbackPage(
+          initialQueryType:
+              extra?['initialQueryType'] as FeedbackQueryType? ??
+              FeedbackQueryType.help,
+          initialSubject: extra?['initialSubject'] as String?,
+          initialMessage: extra?['initialMessage'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/settings/delete-account',

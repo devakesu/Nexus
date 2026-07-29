@@ -23,7 +23,11 @@ from postgrest.exceptions import APIError
 from redis.exceptions import RedisError
 
 import app.api.feedback as feedback_module
-from app.api.feedback.models import ContactOtpRequest, ContactSubmitRequest
+from app.api.feedback.models import (
+    ContactOtpRequest,
+    ContactSubmitRequest,
+    ErrorSessionCreateRequest,
+)
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 
@@ -343,3 +347,72 @@ async def submit_contact_ticket(
         "ticket_id": report_id,
         "status": str(report_row.get("status", "open")),
     }
+
+
+@router.post("/api/v1/contact/error-session")
+@limiter.limit(settings.rate_limit_feedback)
+async def create_error_session(
+    request: Request,
+    payload: ErrorSessionCreateRequest = Body(...),
+) -> dict[str, Any]:
+    """Stores a temporary error report session in Redis (10 min TTL) for secure web contact prefilling."""
+    _ = request
+    session_uuid = secrets.token_hex(16)
+    session_id = f"err_sess_{session_uuid}"
+    key = f"contact:error_session:{session_id}"
+
+    data = {
+        "query_type": payload.query_type,
+        "subject": payload.subject,
+        "message": payload.message,
+        "email": payload.email,
+        "name": payload.name,
+        "sentry_event_id": payload.sentry_event_id,
+        "app_version": payload.app_version,
+        "platform": payload.platform,
+    }
+
+    try:
+        import json
+        await feedback_module.redis_client.set(key, json.dumps(data), ex=600)
+    except Exception as err:
+        logger.exception("Failed to store error session in Redis")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to store error session.",
+        ) from err
+
+    return {"session_id": session_id, "expires_in": 600}
+
+
+@router.get("/api/v1/contact/error-session/{session_id}")
+@limiter.limit(settings.rate_limit_feedback)
+async def get_error_session(
+    request: Request,
+    session_id: str,
+) -> dict[str, Any]:
+    """Retrieves and atomically deletes a temporary error report session from Redis."""
+    _ = request
+    clean_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:64]
+    key = f"contact:error_session:{clean_id}"
+
+    try:
+        raw_data = await feedback_module.redis_client.get(key)
+        if not raw_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Error session expired or invalid.",
+            )
+        import json
+        data = json.loads(raw_data)
+        await feedback_module.redis_client.delete(key)
+        return data
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.exception("Failed to fetch error session from Redis")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve error session.",
+        ) from err
+

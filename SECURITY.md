@@ -25,6 +25,9 @@ Nexus implements multiple layers of security:
 - **Supabase Auth** - Industry-standard authentication with JWT tokens
 - **Row Level Security (RLS)** - Database-level access control ensuring users only access their data
 - **Session Management** - Secure session handling with automatic expiration
+- **OTP Rate Limiting** - Multi-tiered protection:
+  - *Client-side*: 60-second UI countdown timer in auth screens for user feedback, persisted across app restarts via secure storage to prevent simple UI bypass.
+  - *Server-side*: Enforced via Supabase Auth `over_email_send_rate_limit` to block automated resend spam across app restarts or direct API requests.
 
 ### Data Protection
 
@@ -38,6 +41,7 @@ Nexus implements multiple layers of security:
 - **Rate Limiting** - SlowAPI rate limiting per IP/user on sensitive endpoints
 - **App Check Attestation (Mobile)** - Firebase App Check with Play Integrity (Android) and DeviceCheck (iOS) to prevent unauthorized API requests
 - **Anti-Tapjacking & Hardware Protection (Mobile)** - Native Android touch obscuration detection (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) and `FLAG_SECURE` window hardware protection (blocking screenshots and screen recording) enabled across all sensitive user flows: Login & Phone/Email OTP, OTP Re-authentication, Check-in & Alert screens, Safety Center & Meetup Safety screens, Account Deletion flow, Data Export flow, and Sign Out confirmation modal.
+- **Debugger Detection & Fail-Closed Protection (Mobile)** - Early process-level debugger detection (`SecurityService.checkDebugger()`). If a debugger is detected, hardware secure storage keys are instantly wiped and temporary local evidence files are purged prior to terminating process execution via `exit(0)` without making network calls (failing closed).
 
 ### Supply Chain Security
 

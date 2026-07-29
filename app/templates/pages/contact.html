@@ -363,6 +363,44 @@
     let turnstileToken = null;
     let resendTimer = null;
 
+    async function checkErrorSessionFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const errId = urlParams.get('err_id');
+        if (!errId) return;
+
+        try {
+            const resp = await fetch(`/api/v1/contact/error-session/${encodeURIComponent(errId)}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+
+            if (data.query_type) {
+                const card = document.querySelector(`.category-card[data-type="${data.query_type}"]`);
+                if (card) selectCategory(data.query_type, card);
+            }
+            if (data.subject) {
+                const subjEl = document.getElementById('input-subject');
+                if (subjEl) subjEl.value = data.subject;
+            }
+            if (data.message) {
+                const msgEl = document.getElementById('input-message');
+                if (msgEl) {
+                    msgEl.value = data.message;
+                    updateCharCounter(msgEl);
+                }
+            }
+            if (data.email) {
+                const emailEl = document.getElementById('input-email');
+                if (emailEl) emailEl.value = data.email;
+            }
+            if (data.name) {
+                const nameEl = document.getElementById('input-name');
+                if (nameEl) nameEl.value = data.name;
+            }
+        } catch (e) {
+            // Silently ignore session fetch failures
+        }
+    }
+
     function autoSelectCategoryFromURL() {
         const path = window.location.pathname.toLowerCase();
         const hash = window.location.hash.toLowerCase().replace('#', '');
@@ -374,7 +412,7 @@
             targetType = 'suspended';
         } else if (path.includes('/grievance') || hash.includes('grievance') || search.includes('topic=grievance') || search.includes('type=grievance')) {
             targetType = 'legal_grievance';
-        } else if (path.includes('/bug') || hash.includes('bug') || search.includes('topic=bug')) {
+        } else if (path.includes('/bug') || hash.includes('bug') || search.includes('topic=bug') || search.includes('topic=bug_report')) {
             targetType = 'bug_report';
         } else if (path.includes('/security') || hash.includes('security') || search.includes('topic=security')) {
             targetType = 'security';
@@ -390,7 +428,10 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', autoSelectCategoryFromURL);
+    document.addEventListener('DOMContentLoaded', async () => {
+        autoSelectCategoryFromURL();
+        await checkErrorSessionFromURL();
+    });
 
     function selectCategory(type, element) {
         document.querySelectorAll('.category-card').forEach(el => el.classList.remove('selected'));
