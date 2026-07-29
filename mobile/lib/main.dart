@@ -141,6 +141,10 @@ Future<void> main() async {
           'SENTRY_ENVIRONMENT',
           defaultValue: 'production',
         );
+        final isStagingOrDev =
+            baseEnv.contains('staging') ||
+            baseEnv.contains('dev') ||
+            kDebugMode;
         options
           ..dsn = config.sentryDsn
           ..environment = '${baseEnv}_${config.variantString}'
@@ -148,13 +152,12 @@ Future<void> main() async {
           // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
           ..sendDefaultPii = false
           ..enableLogs = true
-          // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
-          // We recommend adjusting this value in production.
-          ..tracesSampleRate = 0.1
+          // Set tracesSampleRate dynamically based on environment.
+          ..tracesSampleRate = isStagingOrDev ? 1.0 : 0.1
           // The sampling rate for profiling is relative to tracesSampleRate
           // Setting to 1.0 will profile 100% of sampled transactions:
           // ignore: experimental_member_use
-          ..profilesSampleRate = 0.1;
+          ..profilesSampleRate = isStagingOrDev ? 1.0 : 0.1;
 
         // Configure Session Replay
         options.replay.sessionSampleRate = kDebugMode ? 0.0 : 0.1;
@@ -225,9 +228,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const flavor = String.fromEnvironment('FLUTTER_APP_FLAVOR');
-    const isMec = flavor == 'nexus_mec';
-    const appName = isMec ? 'Nexus MEC' : 'Nexus';
+    final isMec = AppConfig.current.appVariant == AppVariant.nexusMec;
+    final appName = isMec ? 'Nexus MEC' : 'Nexus';
 
     return MaterialApp.router(
       routerConfig: goRouter,

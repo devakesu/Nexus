@@ -286,6 +286,7 @@ class ChatConversationController extends _$ChatConversationController {
   /// a secure connection..." until the user manually leaves and re-enters.
   Timer? _sessionPollTimer;
   bool _pollInFlight = false;
+  int _consecutivePollFailures = 0;
   static const _sessionPollInterval = Duration(seconds: 10);
 
   @override
@@ -379,20 +380,23 @@ class ChatConversationController extends _$ChatConversationController {
       if (_disposed || !ready) return;
       final latest = state.value ?? current;
       state = AsyncData(latest.copyWith(sessionReady: true));
+      _consecutivePollFailures = 0;
       _sessionPollTimer?.cancel();
       _sessionPollTimer = null;
     } on Exception catch (e, stackTrace) {
-      // Transient (offline, peer still hasn't set up chat, 5xx) - the next
-      // tick retries. Info, not warning/error: this is an expected,
-      // self-healing retry loop, not something worth paging on-call for.
-      ErrorHandler.handleError(
-        e,
-        stackTrace: stackTrace,
-        level: ErrorLevel.info,
-        showUi: false,
-        customMessage:
-            'Session-ready poll failed for $conversationId, will retry.',
-      );
+      _consecutivePollFailures++;
+      // Transient (offline, peer still hasn't set up chat, 5xx) - only log to Sentry
+      // after 3 consecutive failures to avoid quota spam.
+      if (_consecutivePollFailures == 3) {
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          level: ErrorLevel.info,
+          showUi: false,
+          customMessage:
+              'Session-ready poll failed 3 consecutive times for $conversationId.',
+        );
+      }
     } finally {
       _pollInFlight = false;
     }

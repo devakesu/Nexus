@@ -94,8 +94,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           // the same device.
           unawaited(SecureProfileCache.clear());
           unawaited(DiscoveryHubCache.clearAll());
-          SafetyConsentCache.clear();
-          SpecialCategoryConsentCache.clear();
+          ConsentCacheManager.clear();
           _hasReachedHome = false;
           // Note: permissions_page_completed is intentionally NOT cleared here.
           // OS permissions are device-scoped (not session-scoped) - they survive
@@ -343,12 +342,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
         _hasEverAcceptedGeneralTerms = data?['accepted_terms_version'] != null;
         _safetyDataPreviouslyAccepted =
             data?['safety_data_consent_version'] != null;
-        SafetyConsentCache.isGranted =
+        ConsentCacheManager.safetyConsentGranted =
             data?['safety_data_consent_granted'] as bool? ?? false;
-        SafetyConsentCache.currentTermsVersion = _currentTermsVersion;
-        SpecialCategoryConsentCache.isGranted =
+        ConsentCacheManager.specialCategoryConsentGranted =
             data?['special_category_consent_granted'] as bool? ?? false;
-        SpecialCategoryConsentCache.currentTermsVersion = _currentTermsVersion;
+        ConsentCacheManager.currentTermsVersion = _currentTermsVersion;
 
         final hasProfile = profileResponse != null;
         final prefs = await SecurePreferences.getInstance();

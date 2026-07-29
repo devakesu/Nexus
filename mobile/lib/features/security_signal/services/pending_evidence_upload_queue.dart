@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/secure_preferences.dart';
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/security_signal/services/signal/media_crypto.dart';
@@ -141,7 +142,15 @@ class PendingEvidenceUploadQueue {
         } on Exception {
           // Best-effort cleanup - upload already succeeded.
         }
-      } on Exception {
+      } on Exception catch (e, stackTrace) {
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          level: ErrorLevel.warning,
+          showUi: false,
+          customMessage:
+              'Evidence upload failed for alertId=${segment.alertId}',
+        );
         remaining.add(segment);
       }
     }

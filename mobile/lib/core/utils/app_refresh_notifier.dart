@@ -19,6 +19,12 @@ abstract final class AppRefreshNotifier {
   static void notifyProfileChanged() {
     _profileController.add(null);
   }
+
+  /// Close all stream controllers.
+  static Future<void> dispose() async {
+    await _orbitController.close();
+    await _profileController.close();
+  }
 }
 
 /// Backward compatibility class alias for OrbitRefreshNotifier

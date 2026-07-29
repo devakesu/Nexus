@@ -142,8 +142,8 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       _visibility[f.key] = true;
     }
     // Populate consent flag from the cache that AuthGate set at boot.
-    _specialCategoryGranted = SpecialCategoryConsentCache.isGranted;
-    _safetyDataGranted = SafetyConsentCache.isGranted;
+    _specialCategoryGranted = ConsentCacheManager.specialCategoryConsentGranted;
+    _safetyDataGranted = ConsentCacheManager.safetyConsentGranted;
     unawaited(_load());
   }
 
@@ -425,11 +425,11 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final confirmed = await _showConfirmWithdrawDialog(
       title: 'Withdraw Special Category Consent?',
       description:
-          'This will clear your sexuality and religious beliefs on your profile, '
-          'hide these fields from public visibility, and re-lock these settings.',
-      icon: LucideIcons.eyeOff,
-      iconColor: AppColors.error,
-      iconBgColor: const Color(0xFFFEF2F2),
+          'This will clear your sexuality and religious belief fields on your profile '
+          'and set them to hidden.',
+      icon: LucideIcons.userMinus,
+      iconColor: AppColors.warning,
+      iconBgColor: const Color(0xFFFFFBEB),
     );
 
     if (!confirmed || !mounted) return;
@@ -443,7 +443,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
         data: {
-          'terms_version': SpecialCategoryConsentCache.currentTermsVersion,
+          'terms_version': ConsentCacheManager.currentTermsVersion,
           'general_accepted': true,
           'community_guidelines_accepted': true,
           'special_category_accepted': false,
@@ -477,7 +477,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       );
 
       // 4. Update caches and local state
-      SpecialCategoryConsentCache.isGranted = false;
+      ConsentCacheManager.specialCategoryConsentGranted = false;
       await SecureProfileCache.clear();
       ProfileRefreshNotifier.notifyChanged();
 
@@ -532,7 +532,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/auth/accept-terms',
         data: {
-          'terms_version': SafetyConsentCache.currentTermsVersion,
+          'terms_version': ConsentCacheManager.currentTermsVersion,
           'general_accepted': true,
           'community_guidelines_accepted': true,
           'special_category_accepted': _specialCategoryGranted,
@@ -548,7 +548,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       await SafetyAlertApi.syncContacts([]);
 
       // 3. Update caches and local state
-      SafetyConsentCache.isGranted = false;
+      ConsentCacheManager.safetyConsentGranted = false;
 
       if (mounted) {
         setState(() {

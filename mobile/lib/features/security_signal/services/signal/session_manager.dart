@@ -125,17 +125,24 @@ class UntrustedIdentityRegistry {
   static final Map<String, IdentityKey> pendingUntrustedKeys = {};
   static final Map<String, List<DateTime>> keyChangeTimestamps = {};
 
+  static const int maxKeyChangeHistoryPerPeer = 10;
+
   static bool hasUntrustedIdentity(String peerUserId) {
     return pendingUntrustedKeys.containsKey(peerUserId);
   }
 
   static void register(String peerUserId, IdentityKey key) {
     pendingUntrustedKeys[peerUserId] = key;
-    keyChangeTimestamps.putIfAbsent(peerUserId, () => []).add(DateTime.now());
+    final timestamps = keyChangeTimestamps.putIfAbsent(peerUserId, () => [])
+      ..add(DateTime.now());
+    if (timestamps.length > maxKeyChangeHistoryPerPeer) {
+      timestamps.removeRange(0, timestamps.length - maxKeyChangeHistoryPerPeer);
+    }
   }
 
   static void resolve(String peerUserId) {
     pendingUntrustedKeys.remove(peerUserId);
+    keyChangeTimestamps.remove(peerUserId);
   }
 
   static Future<String> computeSafetyNumber(

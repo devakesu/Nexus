@@ -86,6 +86,7 @@ class _LoginScreenState extends State<LoginScreen>
     _securityCheckTimer = Timer.periodic(const Duration(seconds: 1), (
       timer,
     ) async {
+      if (!mounted) return;
       final active = await SecurityService.isScreenRecordingOrMirroring();
       if (mounted && active != _isScreenRecordingOrMirroringActive) {
         setState(() {
@@ -209,102 +210,100 @@ class _LoginScreenState extends State<LoginScreen>
   void _updatePhysics() {
     if (!mounted) return;
 
-    setState(() {
-      _simulatedTime += 0.015;
+    _simulatedTime += 0.015;
 
-      // Use simulated ambient gyroscopic drift rotation for perfect uniform orbit
-      final activeTilt = Offset(
-        math.sin(_simulatedTime) * 0.03,
-        math.cos(_simulatedTime) * 0.03,
-      );
+    // Use simulated ambient gyroscopic drift rotation for perfect uniform orbit
+    final activeTilt = Offset(
+      math.sin(_simulatedTime) * 0.03,
+      math.cos(_simulatedTime) * 0.03,
+    );
 
-      for (final node in _nodes) {
-        // Apply velocity
-        node.position += node.velocity;
+    for (final node in _nodes) {
+      // Apply velocity
+      node.position += node.velocity;
 
-        // Apply gyroscopic tilt translation
-        node.velocity += activeTilt * 0.0015;
+      // Apply gyroscopic tilt translation
+      node.velocity += activeTilt * 0.0015;
 
-        // Physics variables mapping relative distance to center
-        final toCenter = Offset.zero - node.position;
-        final distToCenter = toCenter.distance;
+      // Physics variables mapping relative distance to center
+      final toCenter = Offset.zero - node.position;
+      final distToCenter = toCenter.distance;
 
-        // Kinetic physics profiles based on the active matrix dimension
-        if (_matrixIndex == 0 || _matrixIndex == 1) {
-          // DATING & FRIENDS: Orbit shells mapping to individual node.targetRadius
-          if (distToCenter > 0.01) {
-            // Adjust targetRadius based on mode attraction factor
-            final nodeRadius = node.targetRadius ?? 0.6;
-            final targetR = _matrixIndex == 0 ? nodeRadius * 0.8 : nodeRadius;
-            final diffRadius = distToCenter - targetR;
-            // Pull/push node radially to balance it on its orbit shell
-            final radialForce =
-                (node.position / distToCenter) * (-diffRadius * 0.015);
-            node.velocity += radialForce;
+      // Kinetic physics profiles based on the active matrix dimension
+      if (_matrixIndex == 0 || _matrixIndex == 1) {
+        // DATING & FRIENDS: Orbit shells mapping to individual node.targetRadius
+        if (distToCenter > 0.01) {
+          // Adjust targetRadius based on mode attraction factor
+          final nodeRadius = node.targetRadius ?? 0.6;
+          final targetR = _matrixIndex == 0 ? nodeRadius * 0.8 : nodeRadius;
+          final diffRadius = distToCenter - targetR;
+          // Pull/push node radially to balance it on its orbit shell
+          final radialForce =
+              (node.position / distToCenter) * (-diffRadius * 0.015);
+          node.velocity += radialForce;
 
-            // Continuous orbiting perpendicular force
-            final orbitForce =
-                Offset(-toCenter.dy, toCenter.dx) / distToCenter * 0.00035;
-            node.velocity += orbitForce;
-          }
-        } else {
-          // PRO: Rigid, structured grids aligned to matrix intersection points
-          final gridTargetX = (node.position.dx * 2.5).roundToDouble() / 2.5;
-          final gridTargetY = (node.position.dy * 2.5).roundToDouble() / 2.5;
-          final gridTarget = Offset(gridTargetX, gridTargetY);
-          node.velocity += (gridTarget - node.position) * 0.004;
+          // Continuous orbiting perpendicular force
+          final orbitForce =
+              Offset(-toCenter.dy, toCenter.dx) / distToCenter * 0.00035;
+          node.velocity += orbitForce;
         }
+      } else {
+        // PRO: Rigid, structured grids aligned to matrix intersection points
+        final gridTargetX = (node.position.dx * 2.5).roundToDouble() / 2.5;
+        final gridTargetY = (node.position.dy * 2.5).roundToDouble() / 2.5;
+        final gridTarget = Offset(gridTargetX, gridTargetY);
+        node.velocity += (gridTarget - node.position) * 0.004;
+      }
 
-        // Keep a minimum distance from Center • (You) to prevent crowded overlapping
-        const minCenterDistance = 0.38;
-        if (distToCenter < minCenterDistance && distToCenter > 0.01) {
-          final pushOut =
-              (node.position / distToCenter) *
-              0.0008 *
-              (1.0 - distToCenter / minCenterDistance);
-          node.velocity += pushOut;
-        }
+      // Keep a minimum distance from Center • (You) to prevent crowded overlapping
+      const minCenterDistance = 0.38;
+      if (distToCenter < minCenterDistance && distToCenter > 0.01) {
+        final pushOut =
+            (node.position / distToCenter) *
+            0.0008 *
+            (1.0 - distToCenter / minCenterDistance);
+        node.velocity += pushOut;
+      }
 
-        // Kinetic Magnetic Finger Snapping
-        final touch = _normalizedTouchPosition;
-        if (touch != null) {
-          final toTouch = touch - node.position;
-          final distToTouch = toTouch.distance;
-          if (distToTouch < 0.6 && distToTouch > 0.01) {
-            // Violent acceleration pull toward finger
-            final pullForce =
-                toTouch / distToTouch * 0.0028 * (1.0 - distToTouch / 0.6);
-            node.velocity += pullForce;
-            // Add perpendicular vector for orbiting around the touch point
-            final orbitVector =
-                Offset(-toTouch.dy, toTouch.dx) / distToTouch * 0.0022;
-            node.velocity += orbitVector;
-          }
-        }
-
-        // Particle repulsion to prevent overlapping
-        for (final other in _nodes) {
-          if (identical(node, other)) continue;
-          final diff = node.position - other.position;
-          final dist = diff.distance;
-          if (dist < 0.35 && dist > 0.01) {
-            final repulsion = diff / dist * 0.0007 * (1.0 - dist / 0.35);
-            node.velocity += repulsion;
-          }
-        }
-
-        // Speed limit (damping)
-        node.velocity *= 0.95;
-
-        // Soft viewport bounds containment (relative boundary radius = 1.3)
-        const boundaryRadius = 1.3;
-        final currentDist = node.position.distance;
-        if (currentDist > boundaryRadius) {
-          node.position = node.position / currentDist * boundaryRadius;
-          node.velocity = -node.velocity * 0.6; // bounce and dampen
+      // Kinetic Magnetic Finger Snapping
+      final touch = _normalizedTouchPosition;
+      if (touch != null) {
+        final toTouch = touch - node.position;
+        final distToTouch = toTouch.distance;
+        if (distToTouch < 0.6 && distToTouch > 0.01) {
+          // Violent acceleration pull toward finger
+          final pullForce =
+              toTouch / distToTouch * 0.0028 * (1.0 - distToTouch / 0.6);
+          node.velocity += pullForce;
+          // Add perpendicular vector for orbiting around the touch point
+          final orbitVector =
+              Offset(-toTouch.dy, toTouch.dx) / distToTouch * 0.0022;
+          node.velocity += orbitVector;
         }
       }
-    });
+
+      // Particle repulsion to prevent overlapping
+      for (final other in _nodes) {
+        if (identical(node, other)) continue;
+        final diff = node.position - other.position;
+        final dist = diff.distance;
+        if (dist < 0.35 && dist > 0.01) {
+          final repulsion = diff / dist * 0.0007 * (1.0 - dist / 0.35);
+          node.velocity += repulsion;
+        }
+      }
+
+      // Speed limit (damping)
+      node.velocity *= 0.95;
+
+      // Soft viewport bounds containment (relative boundary radius = 1.3)
+      const boundaryRadius = 1.3;
+      final currentDist = node.position.distance;
+      if (currentDist > boundaryRadius) {
+        node.position = node.position / currentDist * boundaryRadius;
+        node.velocity = -node.velocity * 0.6; // bounce and dampen
+      }
+    }
   }
 
   @override
@@ -858,14 +857,19 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               // 1. Interactive Gravity Field Background Canvas
               Positioned.fill(
-                child: CustomPaint(
-                  painter: GravityFieldPainter(
-                    nodes: _nodes,
-                    touchPosition: _normalizedTouchPosition,
-                    tiltOffset: _accelerometerOffset,
-                    simulatedTime: _simulatedTime,
-                    matrixIndex: _matrixIndex,
-                  ),
+                child: AnimatedBuilder(
+                  animation: _physicsController,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      painter: GravityFieldPainter(
+                        nodes: _nodes,
+                        touchPosition: _normalizedTouchPosition,
+                        tiltOffset: _accelerometerOffset,
+                        simulatedTime: _simulatedTime,
+                        matrixIndex: _matrixIndex,
+                      ),
+                    );
+                  },
                 ),
               ),
 

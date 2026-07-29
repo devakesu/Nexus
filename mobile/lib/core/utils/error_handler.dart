@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,10 +20,6 @@ class ErrorHandler {
   /// Global navigator key to access overlay and dialog context without local BuildContext
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
-
-  /// List of active toasts to manage their offsets / preventing overlapping if needed
-  static OverlayEntry? _activeToast;
-  static Timer? _toastTimer;
 
   /// Sanitizes sensitive information (emails, passwords, JWT tokens, keys) from a string.
   static String sanitize(String message) {
@@ -269,20 +266,12 @@ class ErrorHandler {
     }
   }
 
-  /// Displays a modern, floating Toast notification using OverlayEntry and flutter_animate
+  /// Displays a modern, floating Toast notification using NexusOverlayToast
   static void _displayToast(
     BuildContext context,
     String message,
     ErrorLevel level,
   ) {
-    _toastTimer?.cancel();
-    _activeToast?.remove();
-    _activeToast = null;
-
-    final overlayState = navigatorKey.currentState?.overlay;
-    if (overlayState == null) return;
-
-    // Choose colors/icons based on level
     final isWarning = level == ErrorLevel.warning;
     final accentColor = isWarning
         ? const Color(0xFFFFB300)
@@ -292,112 +281,13 @@ class ErrorHandler {
         : Icons.info_outline_rounded;
     final title = isWarning ? 'Warning' : 'Information';
 
-    final entry = OverlayEntry(
-      builder: (context) {
-        return Positioned(
-          top: MediaQuery.of(context).padding.top + 16,
-          left: 16,
-          right: 16,
-          child: SafeArea(
-            top: false,
-            child: Material(
-              color: Colors.transparent,
-              child:
-                  Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF161B26).withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accentColor.withValues(alpha: 0.1),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(icon, color: accentColor, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: TextStyle(
-                                      color: accentColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    message,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      height: 1.3,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.close,
-                                color: Colors.white60,
-                                size: 18,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                _toastTimer?.cancel();
-                                _activeToast?.remove();
-                                _activeToast = null;
-                              },
-                            ),
-                          ],
-                        ),
-                      )
-                      .animate()
-                      .slideY(
-                        begin: -0.3,
-                        end: 0,
-                        duration: 350.ms,
-                        curve: Curves.easeOutBack,
-                      )
-                      .fadeIn(duration: 300.ms),
-            ),
-          ),
-        );
-      },
+    NexusOverlayToast.show(
+      navigatorKey: navigatorKey,
+      title: title,
+      message: message,
+      accentColor: accentColor,
+      icon: icon,
     );
-
-    _activeToast = entry;
-    Future.delayed(Duration.zero, () {
-      if (!context.mounted) return;
-      overlayState.insert(entry);
-    });
-
-    // Automatically remove toast after 4 seconds
-    _toastTimer = Timer(const Duration(seconds: 4), () {
-      entry.remove();
-      if (_activeToast == entry) {
-        _activeToast = null;
-      }
-    });
   }
 
   /// Displays an elegant, premium error Dialog

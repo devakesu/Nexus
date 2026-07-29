@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -74,10 +75,12 @@ class ChatCandidate {
 @riverpod
 class ChatConversations extends _$ChatConversations {
   RealtimeChannel? _channel;
+  Timer? _debounceTimer;
 
   @override
   Future<List<ChatConversationSummary>> build(String tab) async {
     ref.onDispose(() {
+      _debounceTimer?.cancel();
       final ch = _channel;
       if (ch != null) {
         unawaited(Supabase.instance.client.removeChannel(ch));
@@ -99,13 +102,13 @@ class ChatConversations extends _$ChatConversations {
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'chat_messages',
-            callback: (_) => unawaited(refresh()),
+            callback: (_) => _debouncedRefresh(),
           )
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'chat_conversations',
-            callback: (_) => unawaited(refresh()),
+            callback: (_) => _debouncedRefresh(),
           )
           .subscribe();
     }
@@ -115,6 +118,13 @@ class ChatConversations extends _$ChatConversations {
           (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
         )
         .toList();
+  }
+
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      unawaited(refresh());
+    });
   }
 
   Future<void> refresh() async {
@@ -131,8 +141,15 @@ class ChatConversations extends _$ChatConversations {
           )
           .toList();
       state = AsyncData(list);
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
       // Retain old state if update fails.
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage: 'Failed to refresh chat list for tab: $tab',
+      );
     }
   }
 }
@@ -154,6 +171,7 @@ Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
 @riverpod
 class HasUnreadMessages extends _$HasUnreadMessages {
   RealtimeChannel? _channel;
+  Timer? _debounceTimer;
 
   @override
   Future<bool> build() async {
@@ -162,6 +180,7 @@ class HasUnreadMessages extends _$HasUnreadMessages {
     final userId = session.user.id;
 
     ref.onDispose(() {
+      _debounceTimer?.cancel();
       final ch = _channel;
       if (ch != null) {
         unawaited(Supabase.instance.client.removeChannel(ch));
@@ -175,12 +194,19 @@ class HasUnreadMessages extends _$HasUnreadMessages {
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'chat_messages',
-            callback: (_) => refresh(),
+            callback: (_) => _debouncedRefresh(),
           )
           .subscribe();
     }
 
     return _fetch(userId);
+  }
+
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      unawaited(refresh());
+    });
   }
 
   Future<void> refresh() async {

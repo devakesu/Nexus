@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/features/security_signal/services/safety_contacts.dart';
 
@@ -59,7 +60,13 @@ class SafetyAlertApi {
         success: true,
         blocked: blockedRaw.map((e) => e as String).toList(),
       );
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage: 'Failed to sync safety contacts',
+      );
       return const SafetyContactsSyncResult(success: false);
     }
   }
@@ -81,7 +88,8 @@ class SafetyAlertApi {
     const maxAttempts = 3;
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       if (attempt > 1) {
-        await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+        final delayMs = 500 * (1 << (attempt - 2)); // 500ms, 1000ms...
+        await Future<void>.delayed(Duration(milliseconds: delayMs));
       }
       try {
         await NetworkUtils.requireAccessToken();
@@ -106,9 +114,15 @@ class SafetyAlertApi {
           contactsNotified: (data['contacts_notified'] as num?)?.toInt() ?? 0,
           contactsTotal: (data['contacts_total'] as num?)?.toInt() ?? 0,
         );
-      } on Object catch (_) {
-        // Retry (if attempts remain) rather than giving up on the first
-        // transient failure.
+      } on Object catch (e, stackTrace) {
+        if (attempt == maxAttempts) {
+          ErrorHandler.handleError(
+            e,
+            stackTrace: stackTrace,
+            showUi: false,
+            customMessage: 'Failed to send safety alert after 3 attempts',
+          );
+        }
       }
     }
     return null;
@@ -136,7 +150,13 @@ class SafetyAlertApi {
         },
       );
       return true;
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage: 'Failed to register safety evidence for alert: $alertId',
+      );
       return false;
     }
   }
@@ -165,7 +185,13 @@ class SafetyAlertApi {
         },
       );
       return response.data?['id'] as String?;
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage: 'Failed to start safety session',
+      );
       return null;
     }
   }
@@ -190,7 +216,13 @@ class SafetyAlertApi {
         },
       );
       return true;
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage: 'Failed to check in safety session: $sessionId',
+      );
       return false;
     }
   }
@@ -203,7 +235,13 @@ class SafetyAlertApi {
         data: {'session_id': sessionId},
       );
       return true;
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage: 'Failed to end safety session: $sessionId',
+      );
       return false;
     }
   }

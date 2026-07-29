@@ -385,7 +385,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   // without consent the trusted-contacts section is inaccessible anyway,
   // so showing the item as done would be misleading.
   Future<void> _loadHasTrustedContacts() async {
-    if (!SafetyConsentCache.isGranted) {
+    if (!ConsentCacheManager.safetyConsentGranted) {
       // No consent → can't have legitimately added contacts; leave false.
       return;
     }
@@ -412,7 +412,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   void _openMeetupSafetyPage() {
-    if (!SafetyConsentCache.isGranted) {
+    if (!ConsentCacheManager.safetyConsentGranted) {
       unawaited(_promptSafetyConsentThenOpen());
       return;
     }
@@ -696,7 +696,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
         label: 'Add a trusted contact',
         // Only mark done if consent is granted - without it the Meetup
         // Safety page is gated so contacts can't have been legitimately added.
-        done: _hasTrustedContacts && SafetyConsentCache.isGranted,
+        done: _hasTrustedContacts && ConsentCacheManager.safetyConsentGranted,
         icon: LucideIcons.users,
         onTap: _openMeetupSafetyPage,
       ),

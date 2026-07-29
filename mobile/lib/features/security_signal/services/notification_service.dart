@@ -22,6 +22,7 @@ import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/utils/secure_preferences.dart';
 import 'package:nexus/core/utils/secure_session_storage.dart';
+import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
 import 'package:nexus/features/security_signal/services/signal/local_key_vault.dart';
 import 'package:nexus/features/security_signal/services/signal/message_codec.dart';
@@ -41,6 +42,46 @@ class NotificationService {
   NotificationService._();
 
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localPlugin =
+      FlutterLocalNotificationsPlugin();
+  static bool _localPluginInitialized = false;
+
+  static Future<void> _ensureLocalPluginInitialized(
+    Map<String, dynamic> data,
+  ) async {
+    if (_localPluginInitialized) return;
+    const androidInit = AndroidInitializationSettings(
+      'ic_notification_silhouette',
+    );
+    const darwinInit = DarwinInitializationSettings();
+    try {
+      await _localPlugin.initialize(
+        settings: const InitializationSettings(
+          android: androidInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: (response) {
+          _handleNotificationTap(data);
+        },
+      );
+      _localPluginInitialized = true;
+    } on Object catch (e) {
+      debugPrint(
+        '[FCM] Failed to initialize with ic_notification, falling back: $e',
+      );
+      const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      await _localPlugin.initialize(
+        settings: const InitializationSettings(
+          android: fallbackInit,
+          iOS: darwinInit,
+        ),
+        onDidReceiveNotificationResponse: (response) {
+          _handleNotificationTap(data);
+        },
+      );
+      _localPluginInitialized = true;
+    }
+  }
 
   static StreamSubscription<RemoteMessage>? _foregroundSub;
   static StreamSubscription<String>? _tokenRefreshSub;
@@ -114,10 +155,16 @@ class NotificationService {
 
   static Future<void> dispose() async {
     _initialized = false;
-    await _foregroundSub?.cancel();
-    await _tokenRefreshSub?.cancel();
-    _foregroundSub = null;
-    _tokenRefreshSub = null;
+    try {
+      await _foregroundSub?.cancel();
+    } finally {
+      _foregroundSub = null;
+      try {
+        await _tokenRefreshSub?.cancel();
+      } finally {
+        _tokenRefreshSub = null;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -313,16 +360,19 @@ class NotificationService {
     }
 
     final now = DateTime.now();
-    var messages = <String>[];
-    if (activeMap.containsKey(senderId)) {
-      final entry = activeMap[senderId] as Map<String, dynamic>;
-      final lastMsgAtStr = entry['last_message_at'] as String?;
+    activeMap.removeWhere((_, value) {
+      if (value is! Map<String, dynamic>) return true;
+      final lastMsgAtStr = value['last_message_at'] as String?;
       final lastMsgAt = lastMsgAtStr != null
           ? DateTime.tryParse(lastMsgAtStr)
           : null;
-      if (lastMsgAt != null && now.difference(lastMsgAt).inHours <= 3) {
-        messages = List<String>.from(entry['messages'] as List);
-      }
+      return lastMsgAt == null || now.difference(lastMsgAt).inHours > 3;
+    });
+
+    var messages = <String>[];
+    if (activeMap.containsKey(senderId)) {
+      final entry = activeMap[senderId] as Map<String, dynamic>;
+      messages = List<String>.from(entry['messages'] as List);
     }
 
     messages.add(plaintext);
@@ -364,44 +414,27 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    final localPlugin = FlutterLocalNotificationsPlugin();
-    const androidInit = AndroidInitializationSettings(
-      'ic_notification_silhouette',
-    );
-    const darwinInit = DarwinInitializationSettings();
     try {
-      await localPlugin.initialize(
-        settings: const InitializationSettings(
-          android: androidInit,
-          iOS: darwinInit,
-        ),
-        onDidReceiveNotificationResponse: (response) {
-          _handleNotificationTap(data);
-        },
+      await _ensureLocalPluginInitialized(data);
+      await _localPlugin.show(
+        id: notificationId,
+        title: senderName,
+        body: notificationBody,
+        notificationDetails: details,
+        payload: json.encode(data),
       );
-    } on Object catch (e) {
-      debugPrint(
-        '[FCM] Failed to initialize with ic_notification, falling back: $e',
-      );
-      const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      await localPlugin.initialize(
-        settings: const InitializationSettings(
-          android: fallbackInit,
-          iOS: darwinInit,
-        ),
-        onDidReceiveNotificationResponse: (response) {
-          _handleNotificationTap(data);
-        },
-      );
+    } finally {
+      if (largeIconPath != null) {
+        try {
+          final file = File(largeIconPath);
+          if (file.existsSync()) {
+            file.deleteSync();
+          }
+        } on Object catch (e) {
+          debugPrint('[FCM] Failed to cleanup temp avatar file: $e');
+        }
+      }
     }
-
-    await localPlugin.show(
-      id: notificationId,
-      title: senderName,
-      body: notificationBody,
-      notificationDetails: details,
-      payload: json.encode(data),
-    );
   }
 
   static Future<String?> _decryptMessage(Map<String, dynamic> data) async {
@@ -501,12 +534,16 @@ class NotificationService {
       final tempDir = Directory.systemTemp;
       final filePath =
           '${tempDir.path}/notification_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await dio.download(
-        url,
-        filePath,
-        options: Options(headers: headers),
-      );
-      return filePath;
+      try {
+        await dio.download(
+          url,
+          filePath,
+          options: Options(headers: headers),
+        );
+        return filePath;
+      } finally {
+        dio.close(force: true);
+      }
     } on Object catch (e) {
       debugPrint('[FCM] Failed to download profile pic: $e');
       return null;
@@ -546,9 +583,6 @@ class NotificationService {
   // In-app foreground toast
   // ---------------------------------------------------------------------------
 
-  static OverlayEntry? _activeEntry;
-  static Timer? _dismissTimer;
-
   static void _showInAppToast({
     required String title,
     required String body,
@@ -556,153 +590,22 @@ class NotificationService {
     required Map<String, dynamic> data,
     String? profilePic,
   }) {
-    final state = ErrorHandler.navigatorKey.currentState;
-    if (state == null) return;
-
-    _dismissTimer?.cancel();
-    _activeEntry?.remove();
-    _activeEntry = null;
-
-    final overlayState = state.overlay;
-    if (overlayState == null) return;
-
     final (IconData icon, Color accent) = switch (type) {
       'superlike' => (Icons.star_rounded, const Color(0xFFFACC15)),
       'match' => (Icons.favorite_rounded, AppColors.pulsarPink),
       _ => (Icons.favorite_border_rounded, AppColors.primaryTeal),
     };
 
-    OverlayEntry? entry;
-    entry = OverlayEntry(
-      builder: (ctx) => Positioned(
-        top: MediaQuery.of(ctx).padding.top + 12,
-        left: 16,
-        right: 16,
-        child: SafeArea(
-          top: false,
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              onTap: () {
-                entry?.remove();
-                _dismissTimer?.cancel();
-                _activeEntry = null;
-                _handleNotificationTap(data);
-              },
-              child:
-                  Container(
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF161B26,
-                          ).withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: accent.withValues(alpha: 0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withValues(alpha: 0.15),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        child: Row(
-                          children: [
-                            if (profilePic != null && profilePic.isNotEmpty)
-                              ClipOval(
-                                child: SizedBox(
-                                  width: 38,
-                                  height: 38,
-                                  child: StorageImage(imagePath: profilePic),
-                                ),
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: accent.withValues(alpha: 0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(icon, color: accent, size: 22),
-                              ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (title.isNotEmpty)
-                                    Text(
-                                      title,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  if (body.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      body,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        fontSize: 13,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                entry?.remove();
-                                _dismissTimer?.cancel();
-                                _activeEntry = null;
-                              },
-                              child: const Icon(
-                                Icons.close,
-                                color: Colors.white38,
-                                size: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                      .animate()
-                      .slideY(
-                        begin: -0.5,
-                        end: 0,
-                        duration: 300.ms,
-                        curve: Curves.easeOutBack,
-                      )
-                      .fadeIn(duration: 250.ms),
-            ),
-          ),
-        ),
-      ),
+    NexusOverlayToast.show(
+      navigatorKey: ErrorHandler.navigatorKey,
+      title: title,
+      message: body,
+      accentColor: accent,
+      icon: icon,
+      profilePic: profilePic,
+      storageImageBuilder: (path) => StorageImage(imagePath: path),
+      onTap: () => _handleNotificationTap(data),
     );
-
-    _activeEntry = entry;
-    overlayState.insert(entry);
-    _dismissTimer = Timer(const Duration(seconds: 5), () {
-      try {
-        entry?.remove();
-      } on Object catch (_) {}
-      _activeEntry = null;
-    });
   }
 }
 

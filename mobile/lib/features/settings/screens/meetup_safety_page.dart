@@ -375,7 +375,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
 
   @override
   Widget build(BuildContext context) {
-    if (!SafetyConsentCache.isGranted) {
+    if (!ConsentCacheManager.safetyConsentGranted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Navigator.of(context).pop();

@@ -65,9 +65,15 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
               data['safety_data_legal_hold_days'] as int? ?? 180;
         });
       }
-    } on Object catch (e) {
+    } on Object catch (e, stackTrace) {
       // Gracefully fallback to defaults if request fails
-      debugPrint('Failed to load account deletion settings: $e');
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage: 'Failed to load account deletion settings',
+      );
     }
   }
 

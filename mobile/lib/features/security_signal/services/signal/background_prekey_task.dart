@@ -4,6 +4,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/secure_session_storage.dart';
 import 'package:nexus/features/security_signal/services/pending_evidence_upload_queue.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
@@ -64,10 +65,14 @@ void prekeyReplenishCallbackDispatcher() {
         rethrow;
       }
       return true;
-    } on Exception {
-      // No UI to surface this to. Returning false lets the OS retry with
-      // its own backoff; persistent prekey exhaustion is also visible via
-      // the Sentry alert in app/db/chat_keys.py's fetch_key_bundle.
+    } on Exception catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage: 'Background task failed for task: $task',
+      );
       return false;
     }
   });

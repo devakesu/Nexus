@@ -71,6 +71,7 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
     _securityCheckTimer = Timer.periodic(const Duration(seconds: 1), (
       timer,
     ) async {
+      if (!mounted) return;
       final active = await SecurityService.isScreenRecordingOrMirroring();
       if (mounted && active != _isScreenRecordingActive) {
         setState(() {

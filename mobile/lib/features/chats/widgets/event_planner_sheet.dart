@@ -103,7 +103,7 @@ class _EventPlannerSheetState extends ConsumerState<EventPlannerSheet> {
       setState(() => _safetyEnabled = false);
       return;
     }
-    if (!SafetyConsentCache.isGranted) {
+    if (!ConsentCacheManager.safetyConsentGranted) {
       final granted = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,

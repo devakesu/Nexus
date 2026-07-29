@@ -130,10 +130,18 @@ class NetworkUtils {
           host == '10.0.2.2' ||
           host.startsWith('192.168.') ||
           host.startsWith('10.') ||
-          host.startsWith('172.');
+          _isPrivate172(host);
     } on Exception catch (_) {
       return false;
     }
+  }
+
+  static bool _isPrivate172(String host) {
+    if (!host.startsWith('172.')) return false;
+    final parts = host.split('.');
+    if (parts.length != 4) return false;
+    final secondOctet = int.tryParse(parts[1]);
+    return secondOctet != null && secondOctet >= 16 && secondOctet <= 31;
   }
 
   /// Fetches the raw profile details map from the backend.

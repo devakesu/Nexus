@@ -467,7 +467,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _profileRefreshSub = ProfileRefreshNotifier.stream.listen((_) {
       if (mounted) {
         setState(() {
-          if (!SpecialCategoryConsentCache.isGranted) {
+          if (!ConsentCacheManager.specialCategoryConsentGranted) {
             _displaySexuality = '';
             _savedDisplaySexuality = '';
             _religiousBeliefs = '';
@@ -856,7 +856,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
             religiousBeliefs.isNotEmpty &&
             religiousBeliefs != religionOptOut);
 
-    if (needsConsent && !SpecialCategoryConsentCache.isGranted) {
+    if (needsConsent && !ConsentCacheManager.specialCategoryConsentGranted) {
       final granted = await _promptSpecialCategoryConsent();
       if (!granted) return;
     }
