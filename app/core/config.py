@@ -20,6 +20,7 @@ BLOCKED_DOTENV_KEYS: set[str] = {
     "redis_url",
     "pii_encryption_key",
     "blind_index_key",
+    "hmac_signing_key",
     "supabase_service_role_key",
     "supabase_jwt_secret",
     "firebase_service_account",
@@ -53,6 +54,44 @@ BLOCKED_DOTENV_KEYS: set[str] = {
 DiscoveryTab: TypeAlias = Literal["Dating", "Friends", "Professional"]
 
 
+def is_valid_app_domain(domain: str) -> bool:
+    """Validates if a domain string is a valid FQDN suitable for email domain resolution.
+
+    Args:
+        domain: Input domain string.
+
+    Returns:
+        bool: True if domain is valid FQDN, False otherwise.
+    """
+    if not domain:
+        return False
+    import ipaddress
+
+    try:
+        ipaddress.ip_address(domain)
+        return False  # IP address is considered invalid for email domain
+    except ValueError:
+        pass
+
+    d_lower = domain.lower()
+    if (
+        d_lower in ("localhost", "local")
+        or d_lower.endswith(".local")
+        or d_lower.endswith(".internal")
+        or d_lower.endswith(".test")
+        or d_lower.endswith(".example")
+        or d_lower.endswith(".invalid")
+        or d_lower.endswith(".localhost")
+    ):
+        return False
+
+    # Simple domain structure check (must contain dot and valid characters)
+    return bool(
+        "." in domain
+        and all((part and part.isalnum()) or "-" in part for part in domain.split(".")),
+    )
+
+
 class Settings(BaseSettings):
     """
     Application settings loaded from runtime-injected environment variables.
@@ -66,6 +105,7 @@ class Settings(BaseSettings):
     redis_url: str = ""
     pii_encryption_key: str = ""
     blind_index_key: str = ""
+    hmac_signing_key: str = ""
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str | dict[str, Any] = ""
@@ -142,6 +182,8 @@ class Settings(BaseSettings):
     enable_rate_limiting: bool = True
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
+    rate_limit_chat: str = "60/minute"
+    rate_limit_read_receipts: str = "120/minute"
     rate_limit_auth: str = "5/minute"
     rate_limit_feedback: str = "5/hour"
     rate_limit_safety: str = "20/hour"
@@ -219,6 +261,7 @@ class Settings(BaseSettings):
             Returns:
                 dict[str, Any] | None: Response payload or result."""
         import base64
+        import binascii
         import json
         from contextlib import suppress
 
@@ -234,7 +277,7 @@ class Settings(BaseSettings):
                     return cast(dict[str, Any], json.loads(stripped))
 
             # Try Base64 decoding
-            with suppress(Exception):
+            with suppress(binascii.Error, UnicodeDecodeError, ValueError):
                 decoded_bytes = base64.b64decode(stripped, validate=True)
                 decoded_str = decoded_bytes.decode("utf-8")
                 if decoded_str.strip().startswith("{"):
@@ -317,30 +360,6 @@ class Settings(BaseSettings):
             app_domain_clean = app_domain_clean.split("://", 1)[1]
         if ":" in app_domain_clean:
             app_domain_clean = app_domain_clean.split(":", 1)[0]
-
-        def is_valid_app_domain(domain: str) -> bool:
-            """Executes is valid app domain operation.
-
-                Args:
-                    domain: Input domain parameter.
-
-                Returns:
-                    bool: Response payload or result."""
-            if not domain:
-                return False
-            import ipaddress
-            try:
-                ipaddress.ip_address(domain)
-                return False  # IP address is considered invalid for email domain
-            except ValueError:
-                pass
-
-            d_lower = domain.lower()
-            if d_lower in ("localhost", "local") or d_lower.endswith(".local") or d_lower.endswith(".internal") or d_lower.endswith(".test") or d_lower.endswith(".example") or d_lower.endswith(".invalid") or d_lower.endswith(".localhost"):
-                return False
-
-            # Simple domain structure check (must contain dot and valid characters)
-            return bool("." in domain and all((part and part.isalnum()) or "-" in part for part in domain.split(".")))
 
         if is_valid_app_domain(app_domain_clean):
             self.email_domain = app_domain_clean

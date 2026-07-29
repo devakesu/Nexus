@@ -4,6 +4,7 @@ app/db/account_deletion.py for the full lifecycle and
 app/services/reminder_scheduler.py for the purge jobs.
 """
 
+import hmac
 import logging
 import secrets
 
@@ -22,6 +23,7 @@ from app.api.dependencies import (
     get_authenticated_user_id,
     get_optional_authenticated_user_id,
     get_optional_bearer_token,
+    resolve_verified_user,
     verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
@@ -33,12 +35,12 @@ from app.core.email import (
 )
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
+from app.core.infra.otp import OTP_VERIFIED_TTL_SECONDS, otp_verified_redis_key
 from app.db.users import (
     cancel_deletion,
     compute_deletion_flag_reason,
     fetch_deletion_status,
     get_user_email_by_id,
-    get_user_id_by_email,
     request_deletion,
 )
 from app.models import (
@@ -56,60 +58,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_OTP_VERIFIED_TTL_SECONDS = 600
 
 
-def _otp_verified_key(user_id: str) -> str:
-    """Formats Redis key string for verified account deletion OTP.
-
-    Args:
-        user_id: Target user ID.
-
-    Returns:
-        str: Redis cache key string.
-    """
-    return f"account_deletion:otp_verified:{user_id}"
 
 
-async def _resolve_account_deletion_user(
-    auth_user_id: str | None,
-    email: str | None,
-) -> tuple[str, str]:
-    """Resolves user ID and email pair from token or request body payload.
-
-    Args:
-        auth_user_id: Optional authenticated user ID.
-        email: Optional input email address string.
-
-    Returns:
-        tuple[str, str]: User ID and resolved email string pair.
-
-    Raises:
-        HTTPException: If email/user resolution fails.
-    """
-    if auth_user_id:
-        user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
-        if not user_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No verified email on this account. Contact support for assistance.",
-            )
-        return auth_user_id, user_email
-
-    if email and email.strip():
-        norm_email = email.strip().lower()
-        user_id = await run_in_threadpool(get_user_id_by_email, norm_email)
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No registered account found with this email address. Please check your email.",
-            )
-        return user_id, norm_email
-
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Please enter your registered email address.",
-    )
 
 
 @router.post(
@@ -136,15 +88,22 @@ async def request_account_deletion_otp(
     """
     _ = request
     email_in = payload.email if payload else None
-    user_id, email = await _resolve_account_deletion_user(auth_user_id, email_in)
+    user_id, email = await resolve_verified_user(auth_user_id, email_in)
+    if not user_id:
+        return AccountDeletionOtpRequestResponse(sent=True)
 
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
     await redis_client.setex(f"account_deletion:otp_code:{user_id}", 600, otp_code)
     otp_res = await send_account_deletion_otp_email(email, otp_code)
     if not otp_res.success:
+        logger.error(
+            "OTP email delivery failed: %s",
+            otp_res.error,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deliver verification email: {otp_res.error}",
+            detail="Could not send verification email. Please try again.",
         )
     return AccountDeletionOtpRequestResponse(sent=True)
 
@@ -172,7 +131,9 @@ async def verify_account_deletion_otp(
         AccountDeletionOtpVerifyResponse: Verification status.
     """
     _ = request
-    user_id, _ = await _resolve_account_deletion_user(auth_user_id, payload.email)
+    user_id, _ = await resolve_verified_user(auth_user_id, payload.email)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
     stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
     if not stored_otp:
@@ -182,11 +143,15 @@ async def verify_account_deletion_otp(
         if isinstance(stored_otp, bytes)
         else stored_otp
     )
-    if stored_otp_str.strip() != payload.code.strip():
+    if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"account_deletion:otp_code:{user_id}")
 
-    await redis_client.setex(_otp_verified_key(user_id), _OTP_VERIFIED_TTL_SECONDS, "1")
+    await redis_client.setex(
+        otp_verified_redis_key("account_deletion", user_id),
+        OTP_VERIFIED_TTL_SECONDS,
+        "1",
+    )
     return AccountDeletionOtpVerifyResponse(verified=True)
 
 
@@ -217,7 +182,9 @@ async def request_account_deletion(
         AccountDeletionRequestResponse: Scheduled purge timestamp response.
     """
     _ = request
-    user_id, email = await _resolve_account_deletion_user(auth_user_id, payload.email)
+    user_id, email = await resolve_verified_user(auth_user_id, payload.email)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
     existing = await run_in_threadpool(fetch_deletion_status, user_id)
     if existing and existing.get("deletion_requested_at"):
@@ -225,7 +192,7 @@ async def request_account_deletion(
             scheduled_purge_at=existing["scheduled_purge_at"],
         )
 
-    otp_key = _otp_verified_key(user_id)
+    otp_key = otp_verified_redis_key("account_deletion", user_id)
     if not await redis_client.get(otp_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

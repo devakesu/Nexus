@@ -5,11 +5,14 @@ across both async event loop threads and sync worker threads.
 """
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from contextlib import suppress
 from typing import Any
 
 import sentry_sdk
+
+logger = logging.getLogger(__name__)
 
 
 def safe_create_task(
@@ -50,10 +53,12 @@ def safe_create_task(
         try:
             exc = t.exception()
             if exc:
+                logger.error("Unhandled exception in background task: %s", exc, exc_info=exc)
                 sentry_sdk.capture_exception(exc)
         except asyncio.CancelledError:
             pass
         except asyncio.InvalidStateError as e:
+            logger.error("Invalid task state during completion callback: %s", e, exc_info=e)
             sentry_sdk.capture_exception(e)
 
     task.add_done_callback(done_callback)

@@ -10,25 +10,13 @@ import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from app.core.auth.phone_otp import normalize_phone as normalize_phone
 from app.core.config import settings
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "safety_portal_otp"  # domain-separation label
 _ACCESS_DOMAIN_LABEL = "safety_portal_access"  # domain-separation label
 _ACCESS_TOKEN_TTL_SECONDS = 30 * 60
-
-
-def normalize_phone(raw: str) -> str:
-    """Canonicalizes a phone number to its last 10 digits for tolerant contact matching.
-
-    Args:
-        raw: Raw phone input string.
-
-    Returns:
-        str: Last 10 digits of phone number, or raw digits if fewer than 10.
-    """
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    return digits[-10:] if len(digits) >= 10 else digits
 
 
 def generate_otp_code() -> str:
@@ -51,7 +39,7 @@ def hash_otp(session_id: str, phone_norm: str, code: str) -> str:
     Returns:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
-    key = settings.blind_index_key.encode()
+    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
     message = f"{_OTP_DOMAIN_LABEL}:{session_id}:{phone_norm}:{code}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
@@ -85,7 +73,7 @@ def _sign_access_payload(payload: str) -> str:
     Returns:
         str: Hex-encoded HMAC signature.
     """
-    key = settings.blind_index_key.encode()
+    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
     message = f"{_ACCESS_DOMAIN_LABEL}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 

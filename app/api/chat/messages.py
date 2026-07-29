@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
     "/api/v1/chats/{conversation_id}/messages",
     response_model=SendMessageResponse,
 )
-@limiter.limit(settings.rate_limit_discover)
+@limiter.limit(settings.rate_limit_chat)
 async def send_message(
     request: Request,
     conversation_id: str = Path(...),
@@ -106,7 +106,7 @@ async def send_message(
     "/api/v1/chats/{conversation_id}/messages/read",
     response_model=MarkMessagesReadResponse,
 )
-@limiter.limit(settings.rate_limit_discover)
+@limiter.limit(settings.rate_limit_read_receipts)
 async def mark_conversation_messages_read(
     request: Request,
     conversation_id: str = Path(...),

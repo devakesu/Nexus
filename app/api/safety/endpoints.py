@@ -5,6 +5,7 @@ triggering emergency SOS alerts (silent/loud), and uploading safety audio eviden
 """
 
 import asyncio
+import html
 import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -409,7 +410,9 @@ async def end_session(
 
 
 @router.get("/api/v1/safety/escalation/{session_id}/cancel")
+@limiter.limit(settings.rate_limit_safety)
 async def cancel_escalation(
+    request: Request,
     session_id: str,
     token: str = Query(...),
     reason: str = Query(...),
@@ -419,6 +422,7 @@ async def cancel_escalation(
     a plain link in the SMS - they have no Nexus account, so a signed token
     in the URL stands in for auth instead of the usual dependency stack.
     """
+    _ = request
     if reason not in ("safe", "other"):
         return HTMLResponse(
             _escalation_page("That link looks malformed."),
@@ -464,6 +468,7 @@ def _escalation_page(message: str) -> str:
     trusted contact with no app or account, just a browser tab from an SMS
     link, so this intentionally skips any frontend build step.
     """
+    escaped_message = html.escape(message)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -482,7 +487,7 @@ def _escalation_page(message: str) -> str:
 <body>
   <div class="card">
     <h1>Nexus Meetup Safety</h1>
-    <p>{message}</p>
+    <p>{escaped_message}</p>
   </div>
 </body>
 </html>"""

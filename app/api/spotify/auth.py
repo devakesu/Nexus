@@ -281,6 +281,7 @@ async def spotify_connect(
 
 
 @router.get("/api/v1/spotify/callback", response_class=HTMLResponse)
+@limiter.limit(settings.rate_limit_spotify)
 async def spotify_callback(
     request: Request,
     background_tasks: BackgroundTasks,

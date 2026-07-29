@@ -6,6 +6,7 @@ querying profile details, and recording interaction actions.
 
 import asyncio
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
@@ -39,6 +40,19 @@ from app.services.fcm_sender import send_like_notification
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _node_to_out(node: dict[str, Any]) -> OrbitNodeOut:
+    """Converts a raw node dictionary to an OrbitNodeOut model instance."""
+    return OrbitNodeOut(
+        id=node["id"],
+        name=node.get("name"),
+        profile_pic=node.get("profile_pic"),
+        score=float(node.get("score") or 0.0),
+        x=float(node.get("x") or 0.0),
+        y=float(node.get("y") or 0.0),
+        orbit_tier=int(node.get("orbit_tier") or 0),
+    )
 
 
 @router.post("/api/v1/discover", response_model=OrbitDiscoverResponse)
@@ -88,18 +102,7 @@ async def get_discovery_orbit(
             session_id=session_id,
             expires_at=expires_at,
             total_nodes=total_nodes,
-            nodes=[
-                OrbitNodeOut(
-                    id=node["id"],
-                    name=node.get("name"),
-                    profile_pic=node.get("profile_pic"),
-                    score=float(node.get("score") or 0.0),
-                    x=float(node.get("x") or 0.0),
-                    y=float(node.get("y") or 0.0),
-                    orbit_tier=int(node.get("orbit_tier") or 0),
-                )
-                for node in nodes
-            ],
+            nodes=[_node_to_out(node) for node in nodes],
         )
 
     except (DecryptFailedError, ProfileDecodeError) as err:
@@ -248,18 +251,7 @@ async def get_discovery_viewport(
             session_id=session_id,
             expires_at=expires_at,
             total_nodes=total_nodes,
-            nodes=[
-                OrbitNodeOut(
-                    id=node["id"],
-                    name=node.get("name"),
-                    profile_pic=node.get("profile_pic"),
-                    score=float(node.get("score") or 0.0),
-                    x=float(node.get("x") or 0.0),
-                    y=float(node.get("y") or 0.0),
-                    orbit_tier=int(node.get("orbit_tier") or 0),
-                )
-                for node in nodes
-            ],
+            nodes=[_node_to_out(node) for node in nodes],
         )
 
     except (DecryptFailedError, ProfileDecodeError) as err:

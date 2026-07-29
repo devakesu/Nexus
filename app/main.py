@@ -99,6 +99,13 @@ async def lifespan(_app: FastAPI):
     Args:
         _app: FastAPI application instance.
     """
+    import anyio.to_thread
+
+    # Expand threadpool capacity for sync database operations to avoid thread exhaustion
+    with suppress(Exception):
+        anyio_to_thread: Any = anyio.to_thread
+        anyio_to_thread.current_default_thread_limiter().total_tokens = 100
+
     if settings.enable_replay_protection:
         try:
             ping_func = cast(Any, redis_client).ping

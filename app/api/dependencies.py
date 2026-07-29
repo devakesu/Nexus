@@ -12,7 +12,7 @@ import time
 from typing import Any, cast
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
 from redis.exceptions import RedisError
@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.core.infra.cache import redis_client
 from app.core.security.jwks import get_live_supabase_public_key
-from app.db.client import parse_utc_datetime
+from app.db.client import DatabaseAccessError, parse_utc_datetime
 from app.db.users import fetch_public_user
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,7 @@ def _decode_jwt(
 
 
 async def get_authenticated_user_payload(
+    request: Request,
     token: str = Depends(get_bearer_token),
 ) -> dict[str, Any]:
     """Executes get authenticated user payload operation.
@@ -145,6 +146,8 @@ async def get_authenticated_user_payload(
         if "id" not in payload and user_uuid:
             payload["id"] = user_uuid
 
+        request.state.authenticated_user_payload = payload
+        request.state.user_id = user_uuid
         return payload
 
     except jwt.ExpiredSignatureError as err:
@@ -172,14 +175,7 @@ async def _update_presence_if_needed(user_id: str) -> None:
         if was_set:
             from app.db.chat import upsert_presence_heartbeat
             await run_in_threadpool(upsert_presence_heartbeat, user_id, True)
-    except (
-        RedisError,
-        RuntimeError,
-        ValueError,
-        TypeError,
-        KeyError,
-        AttributeError,
-    ) as e:
+    except (RedisError, DatabaseAccessError) as e:
         logger.warning("Failed to update general presence heartbeat: %s", e)
 
 
@@ -222,7 +218,6 @@ async def get_optional_authenticated_user_id(
         return user_uuid
     except (jwt.PyJWTError, HTTPException, ValueError, AttributeError, KeyError):
         return None
-
 
 
 async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:
@@ -336,6 +331,22 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def is_consent_stale(
+    stored_version: str | None,
+    current_version: str | None = None,
+) -> bool:
+    """True if a consent category has never been granted, or was granted
+    under an older terms version than what's currently required.
+    """
+    if not stored_version:
+        return True
+    req_version = (current_version or settings.current_terms_version).strip()
+    try:
+        return float(str(stored_version)) < float(req_version)
+    except ValueError:
+        return True
+
+
 def assert_safety_consent(user_row: dict[str, Any]) -> None:
     """Raise 412 if the account hasn't (or no longer has) given consent to
     Meetup Safety/SOS/Digital Witness location-data processing - see
@@ -349,14 +360,7 @@ def assert_safety_consent(user_row: dict[str, Any]) -> None:
     scoping as assert_account_active's own partial rollout.
     """
     stored_version = user_row.get("safety_data_consent_version")
-    current_version = settings.current_terms_version.strip()
-    is_stale = True
-    if stored_version:
-        try:
-            is_stale = float(str(stored_version)) < float(current_version)
-        except ValueError:
-            is_stale = True
-    if is_stale:
+    if is_consent_stale(cast(str | None, stored_version)):
         raise HTTPException(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             detail="safety_consent_required",
@@ -400,14 +404,7 @@ def assert_special_category_consent(user_row: dict[str, Any]) -> None:
     instead of a generic error.
     """
     stored_version = user_row.get("special_category_consent_version")
-    current_version = settings.current_terms_version.strip()
-    is_stale = True
-    if stored_version:
-        try:
-            is_stale = float(str(stored_version)) < float(current_version)
-        except ValueError:
-            is_stale = True
-    if is_stale:
+    if is_consent_stale(cast(str | None, stored_version)):
         raise HTTPException(
             status_code=status.HTTP_412_PRECONDITION_FAILED,
             detail="special_category_consent_required",
@@ -510,3 +507,41 @@ async def verify_app_check_with_replay_protection(
                 "Access Denied: App Check token already consumed. Obtain a fresh token."
             ),
         )
+
+
+async def resolve_verified_user(
+    auth_user_id: str | None,
+    email: str | None,
+) -> tuple[str | None, str]:
+    """Resolves target user ID and normalized email address from token or request body.
+
+    Args:
+        auth_user_id: Optional authenticated user ID string.
+        email: Optional input email address string.
+
+    Returns:
+        tuple[str | None, str]: Resolved user ID (or None if not found) and normalized email.
+
+    Raises:
+        HTTPException: 400 if no email is provided or authenticated account has no email.
+    """
+    from app.db.users import get_user_email_by_id, get_user_id_by_email
+
+    if auth_user_id:
+        user_email = await run_in_threadpool(get_user_email_by_id, auth_user_id)
+        if not user_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No verified email on this account. Contact support for assistance.",
+            )
+        return auth_user_id, user_email
+
+    if email and email.strip():
+        norm_email = email.strip().lower()
+        user_id = await run_in_threadpool(get_user_id_by_email, norm_email)
+        return user_id, norm_email
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Please enter your registered email address.",
+    )

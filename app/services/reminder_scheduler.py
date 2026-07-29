@@ -9,6 +9,7 @@ import logging
 from datetime import timedelta
 from typing import Any, cast
 
+import sentry_sdk
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -59,12 +60,16 @@ _POLL_INTERVAL_MINUTES = 15
 
 
 async def _check_due_reminders() -> None:
-    """Check due reminders."""
+    """Polls for upcoming chat event reminders due within the lookahead window, dispatches push
+    notifications to both conversation participants, and marks reminders as sent in the database.
+    On database access failure, captures the exception to Sentry and logs error before returning.
+    """
     try:
         due_events = await asyncio.to_thread(
             fetch_due_event_reminders, _REMINDER_WINDOW_MINUTES,
         )
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to fetch due event reminders")
         return
 
@@ -86,7 +91,8 @@ async def _check_due_reminders() -> None:
                 location_label=location_label,
             )
             await asyncio.to_thread(mark_reminder_sent, event_id)
-        except DatabaseAccessError:
+        except DatabaseAccessError as err:
+            sentry_sdk.capture_exception(err)
             logger.exception(
                 "Failed to process event reminder", extra={"event_id": event_id},
             )
@@ -100,12 +106,16 @@ _SAFETY_EVENT_REMINDER_POLL_MINUTES = 10
 
 
 async def _check_upcoming_safety_reminders() -> None:
-    """Check upcoming safety reminders."""
+    """Polls for upcoming meetup safety check-in reminders due within the 35-minute lookahead window,
+    dispatches push notifications to event creators, and marks safety reminders as sent in the database.
+    On database access failure, captures the exception to Sentry and logs error before returning.
+    """
     try:
         due_events = await asyncio.to_thread(
             fetch_due_safety_reminders, _SAFETY_EVENT_REMINDER_WINDOW_MINUTES,
         )
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to fetch due meetup safety reminders")
         return
 
@@ -129,7 +139,8 @@ async def _check_upcoming_safety_reminders() -> None:
                 tab=str(conversation.get("tab") or "Dating"),
             )
             await asyncio.to_thread(mark_safety_reminder_sent, event_id)
-        except DatabaseAccessError:
+        except DatabaseAccessError as err:
+            sentry_sdk.capture_exception(err)
             logger.exception(
                 "Failed to process meetup safety reminder",
                 extra={"event_id": event_id},
@@ -212,7 +223,12 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
         notified = notified or result.success
 
     if not notified:
-        logger.warning(
+        sentry_sdk.capture_message(
+            "CRITICAL: All SMS deliveries failed for overdue safety session",
+            level="error",
+            extras={"session_id": session_id},
+        )
+        logger.error(
             "Failed to reach any trusted contact for an overdue safety session",
             extra={"session_id": session_id},
         )
@@ -222,7 +238,8 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
         await asyncio.to_thread(
             record_safety_escalation_sent, session_id, escalation_number,
         )
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception(
             "Failed to record safety escalation",
             extra={"session_id": session_id},
@@ -235,7 +252,8 @@ async def _check_overdue_safety_sessions() -> None:
         overdue = await asyncio.to_thread(
             fetch_overdue_safety_sessions, _SAFETY_ESCALATION_GRACE_SECONDS,
         )
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to fetch overdue safety sessions")
         return
 
@@ -258,7 +276,8 @@ async def _run_account_deletion_purge() -> None:
     """Run account deletion purge."""
     try:
         await asyncio.to_thread(purge_due_accounts)
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to run account deletion purge")
 
 
@@ -266,7 +285,8 @@ async def _run_blocklist_expiry() -> None:
     """Run blocklist expiry."""
     try:
         await asyncio.to_thread(expire_blocklist_entries)
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to expire deleted-account blocklist entries")
 
 
@@ -274,7 +294,8 @@ async def _run_account_deletion_long_tail_purge() -> None:
     """Run account deletion long tail purge."""
     try:
         await asyncio.to_thread(hard_purge_long_tail_accounts)
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to run account deletion long-tail purge")
 
 
@@ -285,7 +306,8 @@ async def _run_safety_evidence_retention_purge() -> None:
     """Run safety evidence retention purge."""
     try:
         await asyncio.to_thread(purge_expired_safety_evidence)
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to run safety evidence retention purge")
 
 
@@ -293,7 +315,8 @@ async def _run_safety_data_legal_hold_purge() -> None:
     """Run safety data legal hold purge."""
     try:
         await asyncio.to_thread(purge_safety_data_for_purged_accounts)
-    except DatabaseAccessError:
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception("Failed to run safety data legal-hold purge")
 
 
@@ -357,9 +380,14 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
         id="safety_data_legal_hold_purge",
         max_instances=1,
     )
-    scheduler.start()
-    _scheduler = scheduler
-    logger.info("Chat event reminder scheduler started")
+    try:
+        scheduler.start()
+        _scheduler = scheduler
+        logger.info("Chat event reminder scheduler started")
+    except Exception as err:
+        sentry_sdk.capture_exception(err)
+        logger.exception("Failed to start reminder scheduler")
+        raise
     return scheduler
 
 

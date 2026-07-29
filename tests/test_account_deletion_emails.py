@@ -66,7 +66,7 @@ async def test_send_account_reactivated_email_props(
 
 @pytest.mark.anyio
 @patch("app.api.user.account_deletion.redis_client")
-@patch("app.api.user.account_deletion._resolve_account_deletion_user")
+@patch("app.api.user.account_deletion.resolve_verified_user")
 @patch("app.api.user.account_deletion.fetch_deletion_status")
 @patch("app.api.user.account_deletion.compute_deletion_flag_reason")
 @patch("app.api.user.account_deletion.request_deletion")

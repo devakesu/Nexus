@@ -6,8 +6,10 @@ with randomized jitter to prevent cache stampedes, and cache invalidation helper
 
 import logging
 import secrets
+from typing import Any, cast
 
 import redis.asyncio as aioredis
+from redis.asyncio.connection import BlockingConnectionPool
 
 from app.core.config import settings
 
@@ -23,13 +25,11 @@ def get_block_ids_cache_ttl() -> int:
     return 300 + secrets.randbelow(31)
 
 
-from redis.asyncio.connection import BlockingConnectionPool
-
 # Shared async Redis client managed with internal connection pooling
-pool = BlockingConnectionPool.from_url(  # type: ignore
+pool = cast(Any, BlockingConnectionPool).from_url(
     settings.redis_url,
-    max_connections=15,
-    timeout=5.0,
+    max_connections=75,
+    timeout=3.0,
     socket_connect_timeout=10,
     socket_timeout=10,
     decode_responses=True,

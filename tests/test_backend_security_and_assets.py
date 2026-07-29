@@ -94,6 +94,23 @@ def test_request_payload_size_limit():
     assert "Payload too large" in detail_content["detail"]
 
 
+def test_request_streaming_payload_size_limit():
+    # Large content > 10MB sent as body content
+    large_data = "x" * (11 * 1024 * 1024)
+    res = cast(
+        Response,
+        client.post(
+            "/api/v1/user/update",
+            content=large_data,
+            headers={"Content-Type": "text/plain"},
+        ),
+    )
+    assert res.status_code == 413
+    detail_content = cast(dict[str, Any], res.json())
+    assert "Payload too large" in detail_content["detail"]
+
+
+
 def test_error_page_rendering():
     # HTML request to nonexistent endpoint (404)
     res_html = cast(

@@ -8,6 +8,7 @@ import base64
 import hashlib
 import hmac
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import httpx
@@ -297,32 +298,64 @@ def compose_unreachable_message(
 
 
 _ESCALATION_LABEL_DOMAIN = "safety_escalation_cancel"
+_ESCALATION_CANCEL_TOKEN_TTL_SECONDS = 86400  # 24 hours
 
 
-def make_escalation_cancel_token(session_id: str) -> str:
-    """Generates an HMAC-SHA256 cancellation token for an escalation session.
-
-    Args:
-        session_id: Safety session identifier string.
-
-    Returns:
-        str: Hex-encoded HMAC-SHA256 digest string.
-    """
-    key = settings.blind_index_key.encode()
-    message = f"{_ESCALATION_LABEL_DOMAIN}:{session_id}".encode()
+def _sign_escalation_cancel_payload(payload: str) -> str:
+    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    message = f"{_ESCALATION_LABEL_DOMAIN}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
+def make_escalation_cancel_token(
+    session_id: str,
+    ttl_seconds: int = _ESCALATION_CANCEL_TOKEN_TTL_SECONDS,
+) -> str:
+    """Generates a signed, time-bound cancellation token for an escalation session.
+
+    Args:
+        session_id: Safety session identifier string.
+        ttl_seconds: Validity period in seconds (defaults to 24 hours).
+
+    Returns:
+        str: Formatted signed token string (base64_payload.signature).
+    """
+    expires_at = int(
+        (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).timestamp(),
+    )
+    payload = f"{session_id}:{expires_at}"
+    payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+    signature = _sign_escalation_cancel_payload(payload)
+    return f"{payload_b64}.{signature}"
+
+
 def verify_escalation_cancel_token(session_id: str, token: str) -> bool:
-    """Verifies a submitted cancellation token against expected HMAC using constant-time comparison.
+    """Verifies a submitted cancellation token against expected HMAC and expiration.
 
     Args:
         session_id: Safety session identifier.
         token: Submitted token string.
 
     Returns:
-        bool: True if valid, False otherwise.
+        bool: True if valid and not expired, False otherwise.
     """
-    expected = make_escalation_cancel_token(session_id)
-    return hmac.compare_digest(expected, token)
+    if not token or "." not in token:
+        return False
+
+    try:
+        payload_b64, signature = token.split(".", 1)
+        padding = "=" * (-len(payload_b64) % 4)
+        payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
+        token_session_id, expires_at_raw = payload.split(":", 1)
+        expires_at = int(expires_at_raw)
+    except (ValueError, UnicodeDecodeError):
+        return False
+
+    if token_session_id != session_id:
+        return False
+
+    if not hmac.compare_digest(_sign_escalation_cancel_payload(payload), signature):
+        return False
+
+    return datetime.now(timezone.utc).timestamp() < expires_at
 

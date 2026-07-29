@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import (
     assert_account_active,
     get_authenticated_user_payload,
+    is_consent_stale,
     verify_app_check_with_replay_protection,
 )
 from app.core.auth.passwordless_email import (
@@ -69,17 +70,7 @@ _ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS = 60
 _LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS = 60
 
 
-def _is_consent_stale(stored_version: str | None, current_version: str) -> bool:
-    """True if a consent category has never been granted, or was granted
-    under an older terms version than what's currently required. Used by
-    auth_bootstrap to compute mandatory_consent_required.
-    """
-    if not stored_version:
-        return True
-    try:
-        return float(stored_version) < float(current_version)
-    except ValueError:
-        return True
+
 
 
 async def _validate_auth_user_allowed(
@@ -171,16 +162,16 @@ async def auth_bootstrap(
     # Consent version checking: general terms acceptance gates all app access
     # for already-onboarded profiles.
     has_profile = await run_in_threadpool(fetch_profile, user_id) is not None
-    mandatory_consent_required = has_profile and _is_consent_stale(
+    mandatory_consent_required = has_profile and is_consent_stale(
         accepted_version,
         current_terms_version,
     )
 
-    special_category_consent_granted = not _is_consent_stale(
+    special_category_consent_granted = not is_consent_stale(
         special_version,
         current_terms_version,
     )
-    safety_data_consent_granted = not _is_consent_stale(
+    safety_data_consent_granted = not is_consent_stale(
         safety_version,
         current_terms_version,
     )
@@ -227,7 +218,7 @@ async def auth_bootstrap(
 
     return AuthBootstrapResponse(
         user_id=user_id,
-        email=email,
+        email=None,
         is_active=bool(user_row.get("is_active", True)),
         is_suspended=is_suspended,
         moderation_status=str(user_row.get("moderation_status") or "approved"),
@@ -254,7 +245,7 @@ async def auth_bootstrap(
     response_model=CompleteOnboardingResponse,
 )
 @limiter.limit(settings.rate_limit_auth)
-def complete_onboarding(
+async def complete_onboarding(
     request: Request,
     payload: OnboardingPayload = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
@@ -273,7 +264,7 @@ def complete_onboarding(
             detail="Authenticated user payload is incomplete.",
         )
 
-    user_row = fetch_public_user(user_id)
+    user_row = await run_in_threadpool(fetch_public_user, user_id)
     if not user_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -282,7 +273,7 @@ def complete_onboarding(
 
     assert_account_active(user_row)
 
-    if fetch_profile(user_id) is not None:
+    if await run_in_threadpool(fetch_profile, user_id) is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Onboarding has already been completed.",
@@ -318,7 +309,8 @@ def complete_onboarding(
         user_campus_name = None
         user_demographic_bucket = payload.demographic_bucket
 
-    profile_row, profile_created = upsert_profile_variant(
+    profile_row, profile_created = await run_in_threadpool(
+        upsert_profile_variant,
         user_id=user_id,
         name=user_name,
         campus_branch=user_branch,
@@ -335,16 +327,9 @@ def complete_onboarding(
     )
 
 
-def _account_otp_key(user_id: str) -> str:
-    return f"account_phone_otp:otp:{user_id}"
-
-
-def _account_otp_attempts_key(user_id: str) -> str:
-    return f"account_phone_otp:attempts:{user_id}"
-
-
-def _account_otp_resend_key(user_id: str) -> str:
-    return f"account_phone_otp:resend:{user_id}"
+def _otp_redis_key(user_id: str, suffix: str) -> str:
+    """Formats Redis key string for account phone OTP operations."""
+    return f"account_phone_otp:{suffix}:{user_id}"
 
 
 @router.post(
@@ -363,7 +348,7 @@ async def request_account_phone_otp(
     user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
 
-    resend_key = _account_otp_resend_key(user_id)
+    resend_key = _otp_redis_key(user_id, "resend")
     if await redis_client.exists(resend_key):
         raise HTTPException(
             status_code=429,
@@ -375,7 +360,7 @@ async def request_account_phone_otp(
 
     code = generate_otp_code()
     await redis_client.setex(
-        _account_otp_key(user_id),
+        _otp_redis_key(user_id, "otp"),
         _ACCOUNT_PHONE_OTP_TTL_SECONDS,
         hash_otp(user_id, phone_norm, code),
     )
@@ -404,7 +389,7 @@ async def verify_account_phone_otp(
     user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
 
-    attempts_key = _account_otp_attempts_key(user_id)
+    attempts_key = _otp_redis_key(user_id, "attempts")
     attempts = await redis_client.get(attempts_key)
     if attempts and int(attempts) >= _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS:
         raise HTTPException(
@@ -412,7 +397,7 @@ async def verify_account_phone_otp(
             detail="Too many incorrect attempts. Please request a new code.",
         )
 
-    otp_key = _account_otp_key(user_id)
+    otp_key = _otp_redis_key(user_id, "otp")
     stored_hash = await redis_client.get(otp_key)
     if not stored_hash:
         raise HTTPException(
@@ -543,7 +528,7 @@ def _unhide_special_category_fields(user_id: str) -> None:
     response_model=ConsentUpdateResponse,
 )
 @limiter.limit(settings.rate_limit_auth)
-def accept_terms(
+async def accept_terms(
     request: Request,
     payload: ConsentUpdateRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
@@ -562,7 +547,7 @@ def accept_terms(
             detail="Authenticated user payload is incomplete.",
         )
 
-    user_row = fetch_public_user(user_id)
+    user_row = await run_in_threadpool(fetch_public_user, user_id)
     if not user_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -571,7 +556,8 @@ def accept_terms(
 
     assert_account_active(user_row)
 
-    general_result = update_user_terms(
+    general_result = await run_in_threadpool(
+        update_user_terms,
         user_id=user_id,
         accepted_terms_version=payload.terms_version,
         granted=payload.general_accepted,
@@ -588,17 +574,19 @@ def accept_terms(
 
     special_result = None
     if payload.special_category_accepted is not None:
-        special_result = update_special_category_consent(
+        special_result = await run_in_threadpool(
+            update_special_category_consent,
             user_id=user_id,
             terms_version=payload.terms_version,
             granted=payload.special_category_accepted,
         )
         if payload.special_category_accepted:
-            _unhide_special_category_fields(user_id)
+            await run_in_threadpool(_unhide_special_category_fields, user_id)
 
     safety_result = None
     if payload.safety_data_accepted is not None:
-        safety_result = update_safety_data_consent(
+        safety_result = await run_in_threadpool(
+            update_safety_data_consent,
             user_id=user_id,
             terms_version=payload.terms_version,
             granted=payload.safety_data_accepted,

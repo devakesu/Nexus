@@ -16,13 +16,16 @@ from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
-# Service role client - bypasses RLS; authorization enforced at FastAPI layer.
+# Service role client - bypasses Postgres RLS; authorization, JWT validation, and encryption
+# are enforced at the FastAPI application layer. DB calls via this sync client are dispatched
+# off the main event loop via threadpools (run_in_threadpool / asyncio.to_thread).
 supabase_client: Client = create_client(
     settings.supabase_url,
     settings.supabase_service_role_key,
     options=SyncClientOptions(
         httpx_client=httpx.Client(
             http1=True,
+            # HTTP/2 explicitly disabled to prevent recurrent stream/read timeouts over cloud proxies (e.g. Cloudflare / ALB)
             http2=False,
             timeout=httpx.Timeout(30.0, read=20.0, connect=10.0),
             limits=httpx.Limits(keepalive_expiry=30.0),

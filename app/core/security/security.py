@@ -7,7 +7,7 @@ and enforces a 10MB payload size limit on incoming request bodies to prevent Den
 import logging
 from typing import ClassVar
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
 
@@ -103,7 +103,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     """Middleware preventing payload size abuse by rejecting bodies > 10MB."""
 
-    async def dispatch(
+    async def dispatch(  # noqa: C901
         self,
         request: Request,
         call_next: RequestResponseEndpoint,
@@ -137,5 +137,37 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             except ValueError:
                 pass
 
-        return await call_next(request)
+        bytes_received = 0
+        original_receive = request._receive
+
+        async def limited_receive():
+            nonlocal bytes_received
+            message = await original_receive()
+            if message["type"] == "http.request":
+                body = message.get("body", b"")
+                bytes_received += len(body)
+                if bytes_received > MAX_REQUEST_BODY_SIZE:
+                    logger.warning(
+                        "Streaming request payload exceeded max size: %s bytes",
+                        bytes_received,
+                    )
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            "Payload too large. "
+                            "Maximum allowed request payload is 10MB."
+                        ),
+                    )
+            return message
+
+        request._receive = limited_receive
+        try:
+            return await call_next(request)
+        except HTTPException as exc:
+            if exc.status_code == 413:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": exc.detail},
+                )
+            raise
 

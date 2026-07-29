@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 _cached_jwks: PyJWKSet | None = None
 _last_fetch_time: float = 0.0
 _jwks_lock = asyncio.Lock()
+_http_client: httpx.AsyncClient | None = None
+
+
+def _get_jwks_client() -> httpx.AsyncClient:
+    """Returns or initializes the shared module-level httpx.AsyncClient instance."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(timeout=10.0)
+    return _http_client
 
 
 def _parse_jwk_dict(raw_data: Any) -> dict[str, Any]:
@@ -159,8 +168,8 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
     global _cached_jwks, _last_fetch_time
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(jwks_url, timeout=10.0)
+        client = _get_jwks_client()
+        response = await client.get(jwks_url)
         if response.status_code == 200:
             _cached_jwks = PyJWKSet.from_dict(response.json())
             _last_fetch_time = current_time

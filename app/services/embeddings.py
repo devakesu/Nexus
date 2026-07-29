@@ -17,6 +17,7 @@ Track mapping
 """
 
 import logging
+import threading
 from typing import Any, cast
 
 from sentence_transformers import SentenceTransformer
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level singleton - loaded once on first call, reused on all subsequent calls.
 _model: SentenceTransformer | None = None
+_model_lock = threading.Lock()
 
 
 def get_embedding_model() -> SentenceTransformer:
@@ -35,8 +37,10 @@ def get_embedding_model() -> SentenceTransformer:
     """
     global _model
     if _model is None:
-        logger.info("Loading sentence-transformer model (all-MiniLM-L6-v2)")
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        with _model_lock:
+            if _model is None:
+                logger.info("Loading sentence-transformer model (all-MiniLM-L6-v2)")
+                _model = SentenceTransformer("all-MiniLM-L6-v2")
     return _model
 
 

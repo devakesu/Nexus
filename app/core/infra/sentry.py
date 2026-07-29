@@ -78,7 +78,7 @@ def _scrub_object(value: Any) -> Any:
     return value
 
 
-def scrub_event(event: Event, hint: Hint) -> Event | None:
+def scrub_event(event: Event, hint: Hint) -> Event | None:  # noqa: C901
     """Sentry `before_send` hook callback function.
 
     Args:
@@ -108,6 +108,18 @@ def scrub_event(event: Event, hint: Hint) -> Event | None:
         for key, value in extra.items():
             scrubbed_extra[key] = _scrub_object(value)
         event["extra"] = scrubbed_extra
+
+    breadcrumbs = event.get("breadcrumbs")
+    if isinstance(breadcrumbs, (dict, list)):
+        event["breadcrumbs"] = _scrub_object(breadcrumbs)
+
+    request_data = event.get("request")
+    if isinstance(request_data, dict):
+        event["request"] = _scrub_object(request_data)
+
+    contexts = event.get("contexts")
+    if isinstance(contexts, dict):
+        event["contexts"] = _scrub_object(contexts)
 
     return event
 

@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import firebase_admin
 import firebase_admin.messaging as _fcm_module
+import sentry_sdk
 
 from app.db.client import supabase_client
 
@@ -90,7 +91,7 @@ def _deactivate_fcm_token(token: str) -> None:
             token,
         ).execute()
     except Exception:
-        logger.exception("Failed to deactivate FCM token %s", token)
+        logger.exception("Failed to deactivate FCM token ...%s", token[-8:])
 
 
 def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
@@ -108,7 +109,8 @@ def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
         profile = fetch_peer_profile_by_id(user_id)
         if profile:
             return profile.get("name"), profile.get("profile_pic")
-    except Exception:
+    except Exception as err:
+        sentry_sdk.capture_exception(err)
         logger.exception(
             "Failed to fetch profile details",
             extra={"user_id": user_id},
