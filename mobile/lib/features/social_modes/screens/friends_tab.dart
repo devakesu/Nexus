@@ -829,6 +829,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
     required String name,
     required void Function(String actorId) onActioned,
     required void Function() onProfileLoaded,
+    bool isFriend = false,
   }) async {
     const themeColor = AppColors.modeFriends;
     final session = Supabase.instance.client.auth.currentSession;
@@ -903,28 +904,42 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                       scrollController: scrollController,
                       showScoreBadge: false,
 
-                      actionBar: _buildWaveBackActionBar(
-                        dsCtx,
-                        actorId,
-                        name,
-                        themeColor,
-                        matchedProfilePic,
-                        onActioned,
-                      ),
+                      actionBar: isFriend
+                          ? null
+                          : _buildWaveBackActionBar(
+                              dsCtx,
+                              actorId,
+                              name,
+                              themeColor,
+                              matchedProfilePic,
+                              onActioned,
+                            ),
+                      hideLabel: isFriend ? 'Unmatch' : 'Hide',
+                      hideIcon: isFriend
+                          ? LucideIcons.userX
+                          : LucideIcons.eyeOff,
                       onHideTap: (c) async {
                         Navigator.pop(c);
-                        await _recordWaveAction(
-                          actorId,
-                          'hide',
-                          session.accessToken,
-                        );
+                        if (isFriend) {
+                          await _recordFriendAction(
+                            actorId,
+                            'unmatch',
+                            session.accessToken,
+                          );
+                        } else {
+                          await _recordWaveAction(
+                            actorId,
+                            'hide',
+                            session.accessToken,
+                          );
+                        }
                         onActioned(actorId);
                       },
                       onBlockTap: (c) async {
                         final ok = await showProfileBlockDialog(c, name);
                         if ((ok ?? false) && c.mounted) {
                           Navigator.pop(c);
-                          await _recordWaveAction(
+                          await _recordFriendAction(
                             actorId,
                             'block',
                             session.accessToken,
@@ -937,7 +952,7 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                         themeColor: themeColor,
                         onConfirmed: (reason, detail) async {
                           Navigator.pop(c);
-                          await _recordWaveAction(
+                          await _recordFriendAction(
                             actorId,
                             'report',
                             session.accessToken,
@@ -986,6 +1001,21 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
           return FriendsListOverlay(
             friends: _friends,
             onFetchFriends: _fetchFriends,
+            onOpenFriendDetailsDialog:
+                ({
+                  required BuildContext ctx,
+                  required String actorId,
+                  required String name,
+                  required void Function(String actorId) onActioned,
+                  required void Function() onProfileLoaded,
+                }) => _showWaveProfile(
+                  ctx: ctx,
+                  actorId: actorId,
+                  name: name,
+                  onActioned: onActioned,
+                  onProfileLoaded: onProfileLoaded,
+                  isFriend: true,
+                ),
             onRecordFriendAction: _recordFriendAction,
             onRemoveFriend: (userId) {
               setState(() {

@@ -66,10 +66,9 @@ def render_email_template(
       min-width: 100%;
       -webkit-text-size-adjust: 100%;
       -ms-text-size-adjust: 100%;
-      background-color: #0B0C10;
+      background-color: #050510;
       color: #FFFFFF;
-      font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }}
     img {{
       line-height: 100%;
@@ -84,23 +83,166 @@ def render_email_template(
       mso-table-rspace: 0pt;
     }}
     td {{
-      font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }}
 
-    /* Reveal real dark mode properties for compliant clients */
+    .body-wrapper {{
+      background: #050510 radial-gradient(ellipse at center, #1b2735 0%, #080a18 50%, #03030a 100%);
+      position: relative;
+      overflow: hidden;
+    }}
+    
+    /* Dense Multi-Layer Starfield */
+    .stars-bg {{
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 80px 170px, #e0e0ff, rgba(0,0,0,0)),
+        radial-gradient(1.5px 1.5px at 150px 60px, #ffffff, rgba(0,0,0,0)),
+        radial-gradient(3px 3px at 250px 190px, #d4d4ff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 340px 110px, #ffffff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 340px, #4ecca3, rgba(0,0,0,0)),
+        radial-gradient(2.5px 2.5px at 420px 220px, #60a5fa, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 490px 80px, #a78bfa, rgba(0,0,0,0)),
+        radial-gradient(1.5px 1.5px at 530px 310px, #ffffff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 30px 280px, #cbd5e1, rgba(0,0,0,0));
+      background-repeat: repeat;
+      background-size: 550px 550px;
+      animation: twinkle 6s infinite alternate;
+      z-index: 1;
+    }}
+
+    /* Constellation Vector Lines SVG Pattern */
+    .constellations-bg {{
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cg fill='none' stroke='rgba(255, 255, 255, 0.12)' stroke-width='0.75'%3E%3C!-- Ursa Major --%3E%3Cpath d='M30 40 L70 55 L110 50 L140 80 L180 110 L160 140 L120 130 Z'/%3E%3C!-- Orion --%3E%3Cpath d='M280 220 L310 200 L340 220 L320 260 L290 260 Z M300 235 L320 235 L330 235'/%3E%3C!-- Cassiopeia --%3E%3Cpath d='M220 30 L245 50 L270 35 L300 60 L330 40'/%3E%3C!-- Pegasus Triangle --%3E%3Cpath d='M60 260 L120 230 L100 310 Z' stroke-dasharray='2,2'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='0.7'%3E%3Ccircle cx='30' cy='40' r='2'/%3E%3Ccircle cx='70' cy='55' r='1.5'/%3E%3Ccircle cx='110' cy='50' r='2'/%3E%3Ccircle cx='140' cy='80' r='2.5'/%3E%3Ccircle cx='180' cy='110' r='2'/%3E%3Ccircle cx='160' cy='140' r='1.5'/%3E%3Ccircle cx='120' cy='130' r='2'/%3E%3Ccircle cx='280' cy='220' r='2'/%3E%3Ccircle cx='310' cy='200' r='2'/%3E%3Ccircle cx='340' cy='220' r='2.5'/%3E%3Ccircle cx='320' cy='260' r='1.5'/%3E%3Ccircle cx='290' cy='260' r='2'/%3E%3Ccircle cx='220' cy='30' r='2'/%3E%3Ccircle cx='245' cy='50' r='1.5'/%3E%3Ccircle cx='270' cy='35' r='2'/%3E%3Ccircle cx='300' cy='60' r='2'/%3E%3Ccircle cx='330' cy='40' r='2.5'/%3E%3Ccircle cx='60' cy='260' r='2'/%3E%3Ccircle cx='120' cy='230' r='1.5'/%3E%3Ccircle cx='100' cy='310' r='2'/%3E%3C/g%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 400px 400px;
+      opacity: 0.85;
+      z-index: 2;
+    }}
+
+    /* Animated Comets */
+    .comet {{
+      position: absolute;
+      top: -50px;
+      left: 75%;
+      width: 4px;
+      height: 4px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px 4px #ffffff, 0 0 30px 8px #60a5fa;
+      animation: comet-fall-1 7s infinite linear;
+      z-index: 3;
+    }}
+    .comet::before {{
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 100%;
+      width: 140px;
+      height: 1.5px;
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.9), rgba(96,165,250,1));
+      transform: translateY(-50%);
+    }}
+
+    .comet-2 {{
+      position: absolute;
+      top: -50px;
+      left: 35%;
+      width: 3px;
+      height: 3px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 12px 3px #ffffff, 0 0 25px 6px #4ecca3;
+      animation: comet-fall-2 11s infinite linear 3.5s;
+      z-index: 3;
+    }}
+    .comet-2::before {{
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 100%;
+      width: 110px;
+      height: 1px;
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(78,204,163,0.9), rgba(255,255,255,1));
+      transform: translateY(-50%);
+    }}
+
+    .comet-3 {{
+      position: absolute;
+      top: -50px;
+      left: 90%;
+      width: 3px;
+      height: 3px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px 3px #ffffff, 0 0 20px 5px #a78bfa;
+      animation: comet-fall-3 9s infinite linear 6s;
+      z-index: 3;
+    }}
+    .comet-3::before {{
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: 100%;
+      width: 90px;
+      height: 1px;
+      background: linear-gradient(to right, rgba(255,255,255,0), rgba(167,139,250,0.9), rgba(255,255,255,1));
+      transform: translateY(-50%);
+    }}
+
+    .main-card {{
+      position: relative;
+      z-index: 10;
+      /* Made slightly transparent so the universe bleeds through */
+      background-color: rgba(13, 14, 18, 0.85) !important;
+      backdrop-filter: blur(10px);
+    }}
+
+    @keyframes twinkle {{
+      0% {{ opacity: 0.35; transform: scale(0.98); }}
+      50% {{ opacity: 0.85; transform: scale(1); }}
+      100% {{ opacity: 1; transform: scale(1.02); }}
+    }}
+    
+    @keyframes comet-fall-1 {{
+      0% {{ transform: translate(0, 0) rotate(45deg); opacity: 1; }}
+      70% {{ opacity: 1; }}
+      100% {{ transform: translate(-1100px, 1100px) rotate(45deg); opacity: 0; }}
+    }}
+
+    @keyframes comet-fall-2 {{
+      0% {{ transform: translate(0, 0) rotate(50deg); opacity: 1; }}
+      70% {{ opacity: 1; }}
+      100% {{ transform: translate(-900px, 900px) rotate(50deg); opacity: 0; }}
+    }}
+
+    @keyframes comet-fall-3 {{
+      0% {{ transform: translate(0, 0) rotate(40deg); opacity: 1; }}
+      70% {{ opacity: 1; }}
+      100% {{ transform: translate(-850px, 850px) rotate(40deg); opacity: 0; }}
+    }}
+
     @media (prefers-color-scheme: dark) {{
-      .body-wrapper {{ background-color: #0B0C10 !important; }}
-      .main-card {{ background-color: #0D0E12 !important; }}
+      .body-wrapper {{ background-color: #050510 !important; }}
     }}
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0B0C10; color: #FFFFFF;">
+<body style="margin: 0; padding: 0; background-color: #050510; color: #FFFFFF;">
 
   <table width="100%" border="0" cellspacing="0" cellpadding="0"
-         class="body-wrapper" style="background-color: #0B0C10; table-layout: fixed;">
+         class="body-wrapper" style="background-color: #050510; table-layout: fixed;">
     <tr>
-      <td align="center" style="padding: 40px 16px 60px 16px;">
+      <td align="center" style="padding: 40px 16px 60px 16px; position: relative;">
+        
+        <div class="stars-bg"></div>
+        <div class="constellations-bg"></div>
+        <div class="comet"></div>
+        <div class="comet-2"></div>
+        <div class="comet-3"></div>
 
         <table width="100%" border="0" cellspacing="0" cellpadding="0"
                class="main-card" style="max-width: 580px; background-color: #0D0E12;

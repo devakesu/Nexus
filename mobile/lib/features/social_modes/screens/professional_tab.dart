@@ -832,6 +832,7 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
     required String name,
     required void Function(String actorId) onActioned,
     required void Function() onProfileLoaded,
+    bool isConnection = false,
   }) async {
     const themeColor = AppColors.modeProfessional;
     final session = Supabase.instance.client.auth.currentSession;
@@ -913,32 +914,54 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                           );
                         });
                       },
-                      actionBar: _buildConnectBackActionBar(
-                        dsCtx,
-                        actorId,
-                        name,
-                        themeColor,
-                        matchedProfilePic,
-                        onActioned,
-                      ),
+                      actionBar: isConnection
+                          ? null
+                          : _buildConnectBackActionBar(
+                              dsCtx,
+                              actorId,
+                              name,
+                              themeColor,
+                              matchedProfilePic,
+                              onActioned,
+                            ),
+                      hideLabel: isConnection ? 'Unmatch' : 'Hide',
+                      hideIcon: isConnection
+                          ? LucideIcons.userX
+                          : LucideIcons.eyeOff,
                       onHideTap: (c) async {
                         Navigator.pop(c);
-                        await _recordHandshakeAction(
-                          actorId,
-                          'hide',
-                          session.accessToken,
-                        );
+                        if (isConnection) {
+                          await _recordConnectionAction(
+                            actorId,
+                            'unmatch',
+                            session.accessToken,
+                          );
+                        } else {
+                          await _recordHandshakeAction(
+                            actorId,
+                            'hide',
+                            session.accessToken,
+                          );
+                        }
                         onActioned(actorId);
                       },
                       onBlockTap: (c) async {
                         final ok = await showProfileBlockDialog(c, name);
                         if ((ok ?? false) && c.mounted) {
                           Navigator.pop(c);
-                          await _recordHandshakeAction(
-                            actorId,
-                            'block',
-                            session.accessToken,
-                          );
+                          if (isConnection) {
+                            await _recordConnectionAction(
+                              actorId,
+                              'block',
+                              session.accessToken,
+                            );
+                          } else {
+                            await _recordHandshakeAction(
+                              actorId,
+                              'block',
+                              session.accessToken,
+                            );
+                          }
                           onActioned(actorId);
                         }
                       },
@@ -947,13 +970,23 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                         themeColor: themeColor,
                         onConfirmed: (reason, detail) async {
                           Navigator.pop(c);
-                          await _recordHandshakeAction(
-                            actorId,
-                            'report',
-                            session.accessToken,
-                            reason: reason,
-                            reasonDetail: detail,
-                          );
+                          if (isConnection) {
+                            await _recordConnectionAction(
+                              actorId,
+                              'report',
+                              session.accessToken,
+                              reason: reason,
+                              reasonDetail: detail,
+                            );
+                          } else {
+                            await _recordHandshakeAction(
+                              actorId,
+                              'report',
+                              session.accessToken,
+                              reason: reason,
+                              reasonDetail: detail,
+                            );
+                          }
                           onActioned(actorId);
                         },
                       ),
@@ -998,6 +1031,21 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
             onFetchConnections: () async {
               await _fetchConnections();
             },
+            onOpenConnectionDetailsDialog:
+                ({
+                  required BuildContext ctx,
+                  required String actorId,
+                  required String name,
+                  required void Function(String actorId) onActioned,
+                  required void Function() onProfileLoaded,
+                }) => _showHandshakeProfile(
+                  ctx: ctx,
+                  actorId: actorId,
+                  name: name,
+                  onActioned: onActioned,
+                  onProfileLoaded: onProfileLoaded,
+                  isConnection: true,
+                ),
             onRecordConnectionAction: _recordConnectionAction,
           );
         },

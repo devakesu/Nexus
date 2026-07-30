@@ -36,36 +36,47 @@ async def send_feedback_confirmation_email(
 ) -> ProviderResult:
     """
     Sends a confirmation receipt to the user after they submit a Help,
-    Feedback & Bug Report ticket.
+    Feedback & Bug Report ticket, with a warm, friendly tone and aesthetic design.
     """
     user_name = extract_user_name(email, auth_user)
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
     support_link = (
-        f'<a href="mailto:support@{settings.email_domain}" style="color: pink;">'
+        f'<a href="mailto:support@{settings.email_domain}" style="color: #4ECCA3;">'
         f"support@{settings.email_domain}</a>"
     )
     footer_html = (
-        f"You're receiving this because you submitted ticket #{ticket_ref} on "
-        f"Nexus. Just reply to this email to add more detail, or reach us at "
+        f"You're receiving this notice because you submitted ticket #{ticket_ref} on "
+        f"Nexus. You can reply directly to this email to add more detail, or reach us at "
         f"{support_link}."
     )
 
     row_1 = f"""
           <tr>
             <td style="padding: 40px 32px 24px 32px;">
+              <div style="display: inline-block; background-color: rgba(0, 173, 181, 0.15);
+                          border: 1px solid rgba(0, 173, 181, 0.4); border-radius: 6px;
+                          padding: 6px 12px; margin-bottom: 16px; font-family: ui-monospace,
+                          SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                          font-size: 11px; font-weight: bold; color: #00ADB5;
+                          letter-spacing: 0.1em;">
+                💌 TICKET RECEIVED &amp; QUEUED ✨
+              </div>
               <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
                          BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
                          sans-serif; font-size: 26px; font-weight: 300;
-                         letter-spacing: 0.15em; color: #FFFFFF;
+                         letter-spacing: 0.15em; color: #4ECCA3;
                          text-transform: uppercase;">
-                N E X U S
+                We're On It! 🤝✨
               </h1>
+              <p style="margin: 0 0 12px 0; font-size: 16px; line-height: 1.6;
+                         color: #FFFFFF; font-weight: 400;">
+                Hi {user_name}! 👋 Thank you for reaching out to Nexus Support.
+              </p>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                Thanks, {user_name} - we've received your {label.lower()} and
-                it's now in our queue. Our team typically responds within
-                24-48 hours.
+                We've successfully logged your {label.lower()} and our support specialists are already reviewing your ticket.
+                We aim to respond as quickly as possible, usually within <strong>24 to 48 hours</strong>. ⏳
               </p>
             </td>
           </tr>
@@ -75,20 +86,16 @@ async def send_feedback_confirmation_email(
           <tr>
             <td style="padding: 0 32px 32px 32px;">
               <table width="100%" border="0" cellspacing="0" cellpadding="0"
-                     style="background-color: rgba(255,255,255,0.01);
-                     border-left: 2px solid #00ADB5;">
+                     style="background-color: rgba(0,173,181,0.06);
+                     border-left: 4px solid #00ADB5; border-radius: 4px;">
                 <tr>
-                  <td style="padding: 16px; font-family: ui-monospace,
+                  <td style="padding: 18px; font-family: ui-monospace,
                              SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                             font-size: 12px; line-height: 1.5; color: #4ECCA3;">
-                    <span style="color: #6B7280;">TICKET:</span>
-                    #{ticket_ref}<br />
-                    <span style="color: #6B7280;">CATEGORY:</span>
-                    {label.upper()}<br />
-                    <span style="color: #6B7280;">SUBJECT:</span>
-                    {subject}<br />
-                    <span style="color: #6B7280;">STATUS:</span>
-                    OPEN
+                             font-size: 13px; line-height: 1.7; color: #4ECCA3;">
+                    <span style="color: #9CA3AF;">TICKET_REF:</span> 🎫 #{ticket_ref}<br />
+                    <span style="color: #9CA3AF;">CATEGORY:</span> {label.upper()} 📋<br />
+                    <span style="color: #9CA3AF;">SUBJECT:</span> {subject}<br />
+                    <span style="color: #9CA3AF;">STATUS:</span> 🟡 OPEN &amp; QUEUED 📥
                   </td>
                 </tr>
               </table>
@@ -100,16 +107,24 @@ async def send_feedback_confirmation_email(
           <tr>
             <td style="padding: 0 32px 40px 32px; font-size: 14px;
                        line-height: 1.6; color: #9CA3AF;">
-              <p style="margin: 0;">
-                No action is needed from you right now. If we need more
-                detail, we'll follow up by replying directly to this email
-                thread.
+              <div style="background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; color: #E5E7EB; font-weight: 500; font-size: 14px;">
+                  💡 Helpful info while you wait:
+                </p>
+                <p style="margin: 0; color: #9CA3AF; font-size: 13px; line-height: 1.5;">
+                  • No extra steps required! If you'd like to add extra details, screenshots, or context to this ticket, simply reply directly to this email.<br />
+                  • Our care team will reply to this thread as soon as an update is available.
+                </p>
+              </div>
+              <p style="margin: 0; text-align: center; color: #00ADB5; font-weight: bold; font-size: 15px;">
+                Thanks for your patience and for helping us make Nexus better! 💖<br />
+                <span style="font-weight: normal; font-size: 13px; color: #9CA3AF;">The Nexus Support Team 🌟</span>
               </p>
             </td>
           </tr>
     """
 
-    email_subject = f"[#{ticket_ref}] We've received your {label.lower()} - Nexus Support"
+    email_subject = f"[#{ticket_ref}] We've received your {label.lower()}! 💬 - Nexus Support"
 
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3,
@@ -120,9 +135,15 @@ async def send_feedback_confirmation_email(
     )
 
     text_content = (
-        f"Thanks, {user_name} - we've received your {label.lower()} "
-        f"(ticket #{ticket_ref}) and it's now in our queue. Our team "
-        "typically responds within 24-48 hours."
+        f"Hi {user_name}! 👋\n\n"
+        f"Thank you for reaching out to Nexus Support! We've received your {label.lower()} (Ticket #{ticket_ref}) "
+        f"and our team is reviewing it. We typically respond within 24-48 hours. ⏳\n\n"
+        f"Ticket Reference: #{ticket_ref}\n"
+        f"Category: {label}\n"
+        f"Subject: {subject}\n"
+        f"Status: OPEN & QUEUED\n\n"
+        f"If you need to add extra details or attachments, just reply directly to this email.\n\n"
+        f"Warm regards,\nNexus Support Team 💖"
     )
 
     props = SendEmailProps(

@@ -109,7 +109,7 @@ async def get_chats(
         ) from err
 
 
-@router.get("/api/v1/chats/candidates", response_model=ChatCandidatesResponse)
+@router.get("/api/v1/chats/new-chat-candidates", response_model=ChatCandidatesResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def get_chat_candidates(
     request: Request,

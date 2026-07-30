@@ -22,10 +22,13 @@ class ProfileDetailSheet extends ConsumerStatefulWidget {
     required this.themeColor,
     required this.scrollController,
     this.actionBar,
+    this.onUnmatchTap,
     this.onHideTap,
     this.onBlockTap,
     this.onReportTap,
     this.onSpotifyConnectRefresh,
+    this.hideLabel,
+    this.hideIcon,
     this.showScoreBadge = true,
     this.showSafetyActions = true,
     super.key,
@@ -35,10 +38,13 @@ class ProfileDetailSheet extends ConsumerStatefulWidget {
   final Color themeColor;
   final ScrollController scrollController;
   final Widget? actionBar;
+  final SheetSafetyCallback? onUnmatchTap;
   final SheetSafetyCallback? onHideTap;
   final SheetSafetyCallback? onBlockTap;
   final SheetSafetyCallback? onReportTap;
   final Future<void> Function()? onSpotifyConnectRefresh;
+  final String? hideLabel;
+  final IconData? hideIcon;
   final bool showScoreBadge;
   final bool showSafetyActions;
 
@@ -1768,9 +1774,10 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
                 // SAFETY ACTIONS - Hide · Block · Report
                 // ═══════════════════════════════════════════════════════════
                 if (widget.showSafetyActions &&
-                    widget.onHideTap != null &&
-                    widget.onBlockTap != null &&
-                    widget.onReportTap != null)
+                    (widget.onUnmatchTap != null ||
+                        (widget.onHideTap != null &&
+                            widget.onBlockTap != null &&
+                            widget.onReportTap != null)))
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
                     child: Column(
@@ -1783,26 +1790,45 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            safetyBtn(
-                              icon: LucideIcons.eyeOff,
-                              label: 'Hide',
-                              color: Colors.white38,
-                              callback: widget.onHideTap!,
-                            ),
-                            divider(),
-                            safetyBtn(
-                              icon: LucideIcons.shieldOff,
-                              label: 'Block',
-                              color: Colors.orange,
-                              callback: widget.onBlockTap!,
-                            ),
-                            divider(),
-                            safetyBtn(
-                              icon: LucideIcons.flag,
-                              label: 'Report',
-                              color: Colors.redAccent,
-                              callback: widget.onReportTap!,
-                            ),
+                            if (widget.onUnmatchTap != null) ...[
+                              safetyBtn(
+                                icon: LucideIcons.userMinus,
+                                label: 'Unmatch',
+                                color: widget.themeColor,
+                                callback: widget.onUnmatchTap!,
+                              ),
+                              if (widget.onBlockTap != null ||
+                                  widget.onReportTap != null ||
+                                  widget.onHideTap != null)
+                                divider(),
+                            ],
+                            if (widget.onHideTap != null) ...[
+                              safetyBtn(
+                                icon: widget.hideIcon ?? LucideIcons.eyeOff,
+                                label: widget.hideLabel ?? 'Hide',
+                                color: Colors.white38,
+                                callback: widget.onHideTap!,
+                              ),
+                              if (widget.onBlockTap != null ||
+                                  widget.onReportTap != null)
+                                divider(),
+                            ],
+                            if (widget.onBlockTap != null) ...[
+                              safetyBtn(
+                                icon: LucideIcons.shieldOff,
+                                label: 'Block',
+                                color: Colors.orange,
+                                callback: widget.onBlockTap!,
+                              ),
+                              if (widget.onReportTap != null) divider(),
+                            ],
+                            if (widget.onReportTap != null)
+                              safetyBtn(
+                                icon: LucideIcons.flag,
+                                label: 'Report',
+                                color: Colors.redAccent,
+                                callback: widget.onReportTap!,
+                              ),
                           ],
                         ),
                         const SizedBox(height: 8),

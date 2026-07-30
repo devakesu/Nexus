@@ -853,6 +853,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
     required String name,
     required void Function(String actorId) onActioned,
     required void Function() onProfileLoaded,
+    bool isMatch = false,
   }) async {
     const themeColor = AppColors.modeDating;
     final session = Supabase.instance.client.auth.currentSession;
@@ -928,32 +929,54 @@ class _DatingTabState extends ConsumerState<DatingTab>
                       scrollController: scrollController,
                       showScoreBadge: false,
 
-                      actionBar: _buildLikeBackActionBar(
-                        dsCtx,
-                        actorId,
-                        name,
-                        themeColor,
-                        matchedProfilePic,
-                        onActioned,
-                      ),
+                      actionBar: isMatch
+                          ? null
+                          : _buildLikeBackActionBar(
+                              dsCtx,
+                              actorId,
+                              name,
+                              themeColor,
+                              matchedProfilePic,
+                              onActioned,
+                            ),
+                      hideLabel: isMatch ? 'Unmatch' : 'Hide',
+                      hideIcon: isMatch
+                          ? LucideIcons.userX
+                          : LucideIcons.eyeOff,
                       onHideTap: (c) async {
                         Navigator.pop(c);
-                        await _recordLikeAction(
-                          actorId,
-                          'hide',
-                          session.accessToken,
-                        );
+                        if (isMatch) {
+                          await _recordMatchAction(
+                            actorId,
+                            'unmatch',
+                            session.accessToken,
+                          );
+                        } else {
+                          await _recordLikeAction(
+                            actorId,
+                            'hide',
+                            session.accessToken,
+                          );
+                        }
                         onActioned(actorId);
                       },
                       onBlockTap: (c) async {
                         final ok = await showProfileBlockDialog(c, name);
                         if ((ok ?? false) && c.mounted) {
                           Navigator.pop(c);
-                          await _recordLikeAction(
-                            actorId,
-                            'block',
-                            session.accessToken,
-                          );
+                          if (isMatch) {
+                            await _recordMatchAction(
+                              actorId,
+                              'block',
+                              session.accessToken,
+                            );
+                          } else {
+                            await _recordLikeAction(
+                              actorId,
+                              'block',
+                              session.accessToken,
+                            );
+                          }
                           onActioned(actorId);
                         }
                       },
@@ -962,13 +985,23 @@ class _DatingTabState extends ConsumerState<DatingTab>
                         themeColor: themeColor,
                         onConfirmed: (reason, detail) async {
                           Navigator.pop(c);
-                          await _recordLikeAction(
-                            actorId,
-                            'report',
-                            session.accessToken,
-                            reason: reason,
-                            reasonDetail: detail,
-                          );
+                          if (isMatch) {
+                            await _recordMatchAction(
+                              actorId,
+                              'report',
+                              session.accessToken,
+                              reason: reason,
+                              reasonDetail: detail,
+                            );
+                          } else {
+                            await _recordLikeAction(
+                              actorId,
+                              'report',
+                              session.accessToken,
+                              reason: reason,
+                              reasonDetail: detail,
+                            );
+                          }
                           onActioned(actorId);
                         },
                       ),
@@ -1016,6 +1049,21 @@ class _DatingTabState extends ConsumerState<DatingTab>
             onFetchMatches: () async {
               await _fetchMatches();
             },
+            onOpenMatchDetailsDialog:
+                ({
+                  required BuildContext ctx,
+                  required String actorId,
+                  required String name,
+                  required void Function(String actorId) onActioned,
+                  required void Function() onProfileLoaded,
+                }) => _showLikeProfile(
+                  ctx: ctx,
+                  actorId: actorId,
+                  name: name,
+                  onActioned: onActioned,
+                  onProfileLoaded: onProfileLoaded,
+                  isMatch: true,
+                ),
             onRecordMatchAction:
                 (
                   String id,

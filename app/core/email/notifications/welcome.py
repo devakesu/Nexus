@@ -28,18 +28,25 @@ async def send_bootstrap_welcome_email(
     row_1 = f"""
           <tr>
             <td style="padding: 40px 32px 24px 32px;">
+              <div style="display: inline-block; background-color: rgba(0, 173, 181, 0.15);
+                          border: 1px solid rgba(0, 173, 181, 0.4); border-radius: 6px;
+                          padding: 6px 12px; margin-bottom: 16px; font-family: ui-monospace,
+                          SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                          font-size: 11px; font-weight: bold; color: #00ADB5;
+                          letter-spacing: 0.1em;">
+                🌌 WELCOME TO NEXUS ✨
+              </div>
               <h1 style="margin: 0 0 16px 0; font-family: -apple-system,
                          BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
                          sans-serif; font-size: 26px; font-weight: 300;
-                         letter-spacing: 0.15em; color: #FFFFFF;
+                         letter-spacing: 0.15em; color: #4ECCA3;
                          text-transform: uppercase;">
-                N E X U S
+                Welcome, {user_name}! 👋✨
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                Welcome, {user_name}! Your entry into the network has been
-                authenticated. However, your mathematical coordinate orientation
-                inside our vector universe is currently unmapped.
+                Your entry into the network has been authenticated! 🚀 We're thrilled to have you join our community.
+                Let's get your profile set up so you can start discovering meaningful connections.
               </p>
             </td>
           </tr>
@@ -49,18 +56,15 @@ async def send_bootstrap_welcome_email(
           <tr>
             <td style="padding: 0 32px 32px 32px;">
               <table width="100%" border="0" cellspacing="0" cellpadding="0"
-                     style="background-color: rgba(255,255,255,0.01);
-                     border-left: 2px solid #00ADB5;">
+                     style="background-color: rgba(0,173,181,0.06);
+                     border-left: 4px solid #00ADB5; border-radius: 4px;">
                 <tr>
-                  <td style="padding: 16px; font-family: ui-monospace,
+                  <td style="padding: 18px; font-family: ui-monospace,
                              SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                             font-size: 12px; line-height: 1.5; color: #4ECCA3;">
-                    <span style="color: #6B7280;">STATUS:</span>
-                    PROFILE_SETUP_PENDING<br />
-                    <span style="color: #6B7280;">MATRIX:</span>
-                    384_DIMENSIONAL_SEMANTIC_SPACE<br />
-                    <span style="color: #6B7280;">TARGET:</span>
-                    TIER_ORBIT_CONSTELLATION_GENERATION
+                             font-size: 13px; line-height: 1.7; color: #4ECCA3;">
+                    <span style="color: #9CA3AF;">STATUS:</span> 🟢 AUTHENTICATED &amp; READY<br />
+                    <span style="color: #9CA3AF;">SETUP:</span> ⏳ PROFILE ANCHOR PENDING<br />
+                    <span style="color: #9CA3AF;">DISCOVERY:</span> 🪐 VECTOR UNIVERSE READY
                   </td>
                 </tr>
               </table>
@@ -72,30 +76,24 @@ async def send_bootstrap_welcome_email(
           <tr>
             <td style="padding: 0 32px 40px 32px; font-size: 14px;
                        line-height: 1.6; color: #9CA3AF;">
-              <p style="margin: 0 0 24px 0;">
-                To bypass the superficial, loop-driven nature of common social
-                apps, Nexus projects your specific text profiles, explicit
-                trends, and deep project goals directly onto a live coordinate
-                canvas. To populate your custom interactive galaxy:
+              <p style="margin: 0 0 24px 0; color: #E5E7EB;">
+                Nexus connects people based on shared values, goals, and deep project interests. To populate your custom interactive galaxy:
               </p>
 
               <table width="100%" border="0" cellspacing="0" cellpadding="0"
                      style="font-family: ui-monospace, SFMono-Regular, Menlo,
-                     Monaco, Consolas, monospace; font-size: 12px;">
+                     Monaco, Consolas, monospace; font-size: 13px;">
                 <tr>
-                  <td width="28" valign="top"
-                       style="color: #00ADB5; padding-bottom: 12px;">[1]</td>
+                  <td width="32" valign="top"
+                       style="color: #00ADB5; padding-bottom: 12px; font-size: 16px;">✨</td>
                   <td style="color: #E5E7EB; padding-bottom: 12px;">
-                    <strong>Complete Profile Anchor:</strong> Input your personal
-                    values, thoughts, and professional trajectories.
+                    <strong>Complete Profile Anchor:</strong> Share your core interests, personal values, and aspirations.
                   </td>
                 </tr>
                 <tr>
-                  <td width="28" valign="top" style="color: #00ADB5;">[2]</td>
+                  <td width="32" valign="top" style="color: #00ADB5; font-size: 16px;">🚀</td>
                   <td style="color: #E5E7EB;">
-                    <strong>Unlock Spatial Discovery:</strong> Instantly
-                    visualize real-time compatible connections structured across
-                    concentric, proximity-based circles.
+                    <strong>Unlock Spatial Discovery:</strong> Visualize compatible connections structured in real time across your proximity orbit.
                   </td>
                 </tr>
               </table>
@@ -107,22 +105,21 @@ async def send_bootstrap_welcome_email(
         "nexus-mec.devakesu.com" if app_variant == "nexus_mec" else "nexus.devakesu.com"
     )
     button_row = render_cta_button_row(
-        cta_text="Initialize Alignment",
+        cta_text="Initialize Your Orbit ✨",
         cta_url=f"https://{domain}/app",
     )
 
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3 + button_row,
-        subject="Nexus Initialized",
+        subject="Welcome to Nexus! 🎉",
         preheader_category="AUTH_GATE",
         preheader_action="SYSTEM_VERIFIED",
     )
 
     text_content = (
-        f"Welcome, {user_name}! Your entry into the network has been authenticated. "
-        "However, your mathematical coordinate orientation inside our vector universe "
-        "is currently unmapped. Complete Profile Anchor to populate your custom "
-        "interactive galaxy and unlock spatial discovery."
+        f"Welcome, {user_name}! 👋✨ Your entry into the network has been authenticated.\n\n"
+        "Complete your Profile Anchor to populate your custom interactive galaxy and unlock spatial discovery!\n\n"
+        "Warmly,\nThe Nexus Team 💫"
     )
 
     props = SendEmailProps(

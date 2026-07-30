@@ -1044,7 +1044,18 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                     themeColor: theme.primary,
                     scrollController: scrollController,
                     showScoreBadge: false,
-                    showSafetyActions: false,
+                    onUnmatchTap: (sheetCtx) async {
+                      Navigator.pop(sheetCtx);
+                      await _confirmUnmatch(theme);
+                    },
+                    onBlockTap: (sheetCtx) async {
+                      Navigator.pop(sheetCtx);
+                      await _handleBlock();
+                    },
+                    onReportTap: (sheetCtx) async {
+                      Navigator.pop(sheetCtx);
+                      await _handleReport();
+                    },
                   );
                 },
               );

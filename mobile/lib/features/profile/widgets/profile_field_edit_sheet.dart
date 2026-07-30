@@ -76,15 +76,27 @@ Future<void> showProfileFieldEditSheet<T>({
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        step == ProfileFieldSheetStep.intro
-                            ? 'Change $fieldTitle'
-                            : 'Confirm New $fieldTitle',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            fieldTitle == 'Age'
+                                ? LucideIcons.calendar
+                                : LucideIcons.user,
+                            size: 20,
+                            color: AppColors.primaryTeal,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            step == ProfileFieldSheetStep.intro
+                                ? 'Change $fieldTitle'
+                                : 'Confirm New $fieldTitle',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
@@ -92,7 +104,47 @@ Future<void> showProfileFieldEditSheet<T>({
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+
+                  // Remaining changes counter badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: eligible
+                          ? AppColors.primaryTeal.withValues(alpha: 0.1)
+                          : Colors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.history,
+                          size: 13,
+                          color: eligible
+                              ? AppColors.primaryTeal
+                              : Colors.amber.shade900,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          eligible
+                              ? '${2 - changesUsedInWindow} of 2 changes remaining (365-day period)'
+                              : '0 of 2 changes remaining (Limit reached)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: eligible
+                                ? AppColors.primaryTeal
+                                : Colors.amber.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
 
                   if (!eligible) ...[
                     Container(
@@ -240,6 +292,18 @@ Future<void> showNameChangeSheet(
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Your display name is visible to others across Nexus. '
+            'You get 2 name changes per rolling 365-day window, and your registration name counts as the first. '
+            'Names must be at least 4 characters and cannot contain numbers, titles (e.g. Dr.), or inappropriate language. '
+            'Need an exception sooner? File a ticket in Settings → Help & Support.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black.withValues(alpha: 0.6),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
           TextField(
             autofocus: true,
             decoration: InputDecoration(
@@ -281,11 +345,26 @@ Future<void> showAgeChangeSheet(
     isValid: (val) => val >= 18 && val <= maxAge,
     inputBuilder: (context, pending, onChanged) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$pending years old',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            'Your age is displayed on your profile. '
+            'You can update your age twice within a rolling 365-day window, and the age set during onboarding counts as your first change. '
+            'If you need an exception before your next eligible window, please file a ticket via Settings → Help & Support.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black.withValues(alpha: 0.6),
+              height: 1.4,
+            ),
           ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              '$pending years old',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 8),
           Slider(
             value: pending.toDouble(),
             min: 18,

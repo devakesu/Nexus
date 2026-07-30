@@ -82,15 +82,28 @@ class _SpotifyPlaylistsSheetContent extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Only visible to you. Never shown on your public profile.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 11,
-              ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.lock,
+                  size: 12,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Only visible to you. Never shown on your public profile.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 12,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),

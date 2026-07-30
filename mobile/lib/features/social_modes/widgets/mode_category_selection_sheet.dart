@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/features/chats/utils/open_chat.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -15,6 +16,7 @@ class ModeCategorySelectionSheet extends StatefulWidget {
     required this.onOpenItemDetailsDialog,
     required this.onRecordAction,
     this.emptyMessage = 'No interactions yet',
+    this.showDecisionButtons = true,
     super.key,
   });
 
@@ -37,6 +39,7 @@ class ModeCategorySelectionSheet extends StatefulWidget {
   )
   onRecordAction;
   final String emptyMessage;
+  final bool showDecisionButtons;
 
   @override
   State<ModeCategorySelectionSheet> createState() =>
@@ -154,8 +157,12 @@ class _ModeCategorySelectionSheetState
                             (actor['matched_user_id'] as String?) ??
                             '';
                         final name =
-                            (actor['display_name'] as String?) ?? 'Nexus User';
-                        final avatarUrl = actor['avatar_url'] as String?;
+                            (actor['display_name'] as String?) ??
+                            (actor['name'] as String?) ??
+                            'Nexus User';
+                        final avatarUrl =
+                            (actor['avatar_url'] as String?) ??
+                            (actor['profile_pic'] as String?);
                         final isProcessing = _processingIds.contains(actorId);
 
                         return Container(
@@ -167,57 +174,65 @@ class _ModeCategorySelectionSheetState
                           ),
                           child: Row(
                             children: [
-                              GestureDetector(
-                                onTap: () => widget.onOpenItemDetailsDialog(
-                                  ctx: context,
-                                  actorId: actorId,
-                                  name: name,
-                                  onActioned: (id) {
-                                    setState(() {
-                                      widget.items.removeWhere(
-                                        (i) =>
-                                            i is Map<String, dynamic> &&
-                                            (i['actor'] is Map
-                                                ? (i['actor'] as Map)['id'] ==
-                                                      id
-                                                : i['matched_user_id'] == id),
-                                      );
-                                    });
-                                  },
-                                  onProfileLoaded: () {},
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(24),
-                                  child: StorageImage(
-                                    imagePath: avatarUrl ?? '',
-                                    width: 48,
-                                    height: 48,
-                                    errorWidget: ColoredBox(
-                                      color: widget.themeColor.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      child: Icon(
-                                        LucideIcons.user,
-                                        color: widget.themeColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => widget.onOpenItemDetailsDialog(
+                                    ctx: context,
+                                    actorId: actorId,
+                                    name: name,
+                                    onActioned: (id) {
+                                      setState(() {
+                                        widget.items.removeWhere(
+                                          (i) =>
+                                              i is Map<String, dynamic> &&
+                                              (i['actor'] is Map
+                                                  ? (i['actor'] as Map)['id'] ==
+                                                        id
+                                                  : i['matched_user_id'] == id),
+                                        );
+                                      });
+                                    },
+                                    onProfileLoaded: () {},
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(24),
+                                        child: StorageImage(
+                                          imagePath: avatarUrl ?? '',
+                                          width: 48,
+                                          height: 48,
+                                          errorWidget: ColoredBox(
+                                            color: widget.themeColor.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            child: Icon(
+                                              LucideIcons.user,
+                                              color: widget.themeColor,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               if (isProcessing)
@@ -229,7 +244,7 @@ class _ModeCategorySelectionSheetState
                                     color: Colors.white,
                                   ),
                                 )
-                              else ...[
+                              else if (widget.showDecisionButtons) ...[
                                 IconButton(
                                   onPressed: () async {
                                     final token =
@@ -283,6 +298,59 @@ class _ModeCategorySelectionSheetState
                                   },
                                   icon: Icon(
                                     LucideIcons.check,
+                                    color: widget.themeColor,
+                                  ),
+                                ),
+                              ] else ...[
+                                IconButton(
+                                  onPressed: () async {
+                                    final matchId =
+                                        (actor['match_id'] as String?) ??
+                                        (actor['id'] as String?) ??
+                                        (item is Map
+                                            ? (item['match_id'] as String?)
+                                            : null) ??
+                                        (item is Map
+                                            ? (item['id'] as String?)
+                                            : null);
+                                    if (matchId != null && matchId.isNotEmpty) {
+                                      final rootContext = Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).context;
+                                      Navigator.of(context).pop();
+                                      await openOrCreateChat(
+                                        rootContext,
+                                        matchId: matchId,
+                                        matchedUserId: actorId,
+                                        name: name,
+                                        profilePic: avatarUrl,
+                                      );
+                                    } else {
+                                      widget.onOpenItemDetailsDialog(
+                                        ctx: context,
+                                        actorId: actorId,
+                                        name: name,
+                                        onActioned: (id) {
+                                          setState(() {
+                                            widget.items.removeWhere(
+                                              (i) =>
+                                                  i is Map<String, dynamic> &&
+                                                  (i['actor'] is Map
+                                                      ? (i['actor']
+                                                                as Map)['id'] ==
+                                                            id
+                                                      : i['matched_user_id'] ==
+                                                            id),
+                                            );
+                                          });
+                                        },
+                                        onProfileLoaded: () {},
+                                      );
+                                    }
+                                  },
+                                  icon: Icon(
+                                    LucideIcons.messageCircle,
                                     color: widget.themeColor,
                                   ),
                                 ),
@@ -346,6 +414,7 @@ class FriendsListOverlay extends StatelessWidget {
     required this.onFetchFriends,
     required this.onRecordFriendAction,
     required this.onRemoveFriend,
+    this.onOpenFriendDetailsDialog,
     super.key,
   });
 
@@ -353,6 +422,7 @@ class FriendsListOverlay extends StatelessWidget {
   final Future<void> Function() onFetchFriends;
   final Function onRecordFriendAction;
   final void Function(dynamic userId) onRemoveFriend;
+  final Function? onOpenFriendDetailsDialog;
 
   @override
   Widget build(BuildContext context) {
@@ -368,10 +438,21 @@ class FriendsListOverlay extends StatelessWidget {
             required name,
             required onActioned,
             required onProfileLoaded,
-          }) {},
+          }) {
+            if (onOpenFriendDetailsDialog != null) {
+              (onOpenFriendDetailsDialog as dynamic)(
+                ctx: ctx,
+                actorId: actorId,
+                name: name,
+                onActioned: onActioned,
+                onProfileLoaded: onProfileLoaded,
+              );
+            }
+          },
       onRecordAction: (id, act, tok) async =>
           (onRecordFriendAction as dynamic)(id, act, tok),
       emptyMessage: 'No active friends yet',
+      showDecisionButtons: false,
     );
   }
 }
@@ -458,6 +539,7 @@ class MatchesOverlay extends StatelessWidget {
       onRecordAction: (id, act, tok) async =>
           (onRecordMatchAction as dynamic)(id, act, tok),
       emptyMessage: 'No active matches yet',
+      showDecisionButtons: false,
     );
   }
 }
@@ -528,9 +610,18 @@ class HandshakesOverlay extends StatelessWidget {
             required name,
             required onActioned,
             required onProfileLoaded,
-          }) {},
+          }) {
+            (onShowHandshakeProfile as dynamic)(
+              ctx: ctx,
+              actorId: actorId,
+              name: name,
+              onActioned: onActioned,
+              onProfileLoaded: onProfileLoaded,
+            );
+          },
       onRecordAction: (id, act, tok) async {},
       emptyMessage: 'No handshakes yet',
+      showDecisionButtons: false,
     );
   }
 }
@@ -540,12 +631,14 @@ class ConnectionsOverlay extends StatelessWidget {
     required this.connections,
     required this.onFetchConnections,
     required this.onRecordConnectionAction,
+    this.onOpenConnectionDetailsDialog,
     super.key,
   });
 
   final List<dynamic> connections;
   final Future<void> Function() onFetchConnections;
   final Function onRecordConnectionAction;
+  final Function? onOpenConnectionDetailsDialog;
 
   @override
   Widget build(BuildContext context) {
@@ -561,10 +654,21 @@ class ConnectionsOverlay extends StatelessWidget {
             required name,
             required onActioned,
             required onProfileLoaded,
-          }) {},
+          }) {
+            if (onOpenConnectionDetailsDialog != null) {
+              (onOpenConnectionDetailsDialog as dynamic)(
+                ctx: ctx,
+                actorId: actorId,
+                name: name,
+                onActioned: onActioned,
+                onProfileLoaded: onProfileLoaded,
+              );
+            }
+          },
       onRecordAction: (id, act, tok) async =>
           (onRecordConnectionAction as dynamic)(id, act, tok),
       emptyMessage: 'No active connections yet',
+      showDecisionButtons: false,
     );
   }
 }

@@ -10,10 +10,117 @@ from app.api.user.account_deletion import (
     request_account_deletion,
 )
 from app.core.email import (
+    send_account_deletion_otp_email,
     send_account_deletion_scheduled_email,
     send_account_reactivated_email,
+    send_data_export_otp_email,
+    send_login_otp_email,
+    send_support_appeal_otp_email,
 )
 from app.models import AccountDeletionRequestRequest
+
+
+@pytest.mark.anyio
+@patch("app.core.email.send_email")
+async def test_send_login_otp_email_props(
+    mock_send_email: MagicMock,
+) -> None:
+    mock_send_email.return_value = MagicMock(success=True)
+
+    res = await send_login_otp_email(
+        email="testuser@example.com",
+        otp_code="555123",
+    )
+
+    assert res.success is True
+    mock_send_email.assert_called_once()
+    props = mock_send_email.call_args[0][0]
+    assert props.to == "testuser@example.com"
+    assert "Your Nexus Login Code" in props.subject
+    assert "555123" in props.html
+    assert "🔐 SECURE SIGN-IN VERIFICATION" in props.html
+    assert "Your Login Code 🔑✨" in props.html
+    assert "Didn't request this code?" in props.html
+    assert "safely ignore and delete this email" in props.html
+    assert "Hi there! 👋" in props.text
+
+
+@pytest.mark.anyio
+@patch("app.core.email.send_email")
+async def test_send_data_export_otp_email_props(
+    mock_send_email: MagicMock,
+) -> None:
+    mock_send_email.return_value = MagicMock(success=True)
+
+    res = await send_data_export_otp_email(
+        email="testuser@example.com",
+        otp_code="12345678",
+    )
+
+    assert res.success is True
+    mock_send_email.assert_called_once()
+    props = mock_send_email.call_args[0][0]
+    assert props.to == "testuser@example.com"
+    assert "🔐 Confirm Data Export Request" in props.subject
+    assert "12345678" in props.html
+    assert "📦 PERSONAL DATA EXPORT REQUEST" in props.html
+    assert "Profile &amp; Identity:" in props.html
+    assert "Messages &amp; Chat History:" in props.html
+    assert "Matches &amp; Orbit Activity:" in props.html
+    assert "Settings &amp; Security Logs:" in props.html
+    assert "How it works:" in props.html
+    assert "PERSONAL DATA EXPORT REQUEST" in props.text
+
+
+@pytest.mark.anyio
+@patch("app.core.email.send_email")
+async def test_send_support_appeal_otp_email_props(
+    mock_send_email: MagicMock,
+) -> None:
+    mock_send_email.return_value = MagicMock(success=True)
+
+    res = await send_support_appeal_otp_email(
+        email="testuser@example.com",
+        otp_code="65432109",
+    )
+
+    assert res.success is True
+    mock_send_email.assert_called_once()
+    props = mock_send_email.call_args[0][0]
+    assert props.to == "testuser@example.com"
+    assert "📩 Confirm Support Verification" in props.subject
+    assert "65432109" in props.html
+    assert "💜 SUPPORT &amp; HELP VERIFICATION" in props.html
+    assert "Verify Your Ticket 📩✨" in props.html
+    assert "Why verification is required:" in props.html
+    assert "Hi there! 👋" in props.text
+
+
+@pytest.mark.anyio
+@patch("app.core.email.send_email")
+async def test_send_account_deletion_otp_email_props(
+    mock_send_email: MagicMock,
+) -> None:
+    mock_send_email.return_value = MagicMock(success=True)
+
+    res = await send_account_deletion_otp_email(
+        email="testuser@example.com",
+        otp_code="98765432",
+        grace_period_days=14,
+    )
+
+    assert res.success is True
+    mock_send_email.assert_called_once()
+    props = mock_send_email.call_args[0][0]
+    assert props.to == "testuser@example.com"
+    assert "⚠️ Confirm Account Deletion Request" in props.subject
+    assert "98765432" in props.html
+    assert "⚠️ CRITICAL SENSITIVE ACTION" in props.html
+    assert "🚨 SENSITIVE ACTION NOTICE: PERMANENT &amp; IRREVERSIBLE" in props.html
+    assert "14-day" in props.html
+    assert "permanently anonymized and deleted" in props.html
+    assert "completely irreversible" in props.html
+    assert "SENSITIVE ACTION ALERT" in props.text
 
 
 @pytest.mark.anyio
@@ -58,10 +165,12 @@ async def test_send_account_reactivated_email_props(
     mock_send_email.assert_called_once()
     props = mock_send_email.call_args[0][0]
     assert props.to == "testuser@example.com"
-    assert props.subject == "Account Reactivated - Nexus"
-    assert "Account Reactivated" in props.html
+    assert "Welcome Back!" in props.subject
+    assert "Welcome Back! 👋🌟" in props.html
+    assert "🎉 WELCOME BACK TO NEXUS ✨" in props.html
     assert "DELETION_REQUEST:" in props.html
     assert "CANCELLED" in props.html
+    assert "Welcome back home! 🎊💖" in props.html
 
 
 @pytest.mark.anyio

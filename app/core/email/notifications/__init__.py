@@ -8,6 +8,7 @@ from app.core.email.notifications.account import (
     send_account_deletion_scheduled_email,
     send_account_reactivated_email,
     send_data_export_otp_email,
+    send_login_otp_email,
     send_support_appeal_otp_email,
 )
 from app.core.email.notifications.feedback import (
@@ -33,6 +34,7 @@ __all__ = [
     "send_feedback_closed_admin_notification_email",
     "send_feedback_comment_admin_notification_email",
     "send_feedback_confirmation_email",
+    "send_login_otp_email",
     "send_support_appeal_otp_email",
     "send_trusted_contact_removed_email",
 ]

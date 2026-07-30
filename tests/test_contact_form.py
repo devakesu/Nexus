@@ -11,6 +11,33 @@ from app.api.feedback import (
     submit_contact_ticket,
     verify_turnstile_token,
 )
+from app.core.email.notifications.feedback import send_feedback_confirmation_email
+
+
+@pytest.mark.anyio
+@patch("app.core.email.send_email")
+async def test_send_feedback_confirmation_email_props(
+    mock_send_email: MagicMock,
+) -> None:
+    mock_send_email.return_value = MagicMock(success=True)
+
+    res = await send_feedback_confirmation_email(
+        email="testuser@example.com",
+        query_type="help",
+        subject="Need help with account",
+        report_id="12345678-abcd-1234-abcd-1234567890ab",
+    )
+
+    assert res.success is True
+    mock_send_email.assert_called_once()
+    props = mock_send_email.call_args[0][0]
+    assert props.to == "testuser@example.com"
+    assert "We've received your help request! 💬 - Nexus Support" in props.subject
+    assert "💌 TICKET RECEIVED &amp; QUEUED ✨" in props.html
+    assert "We're On It! 🤝✨" in props.html
+    assert "OPEN &amp; QUEUED 📥" in props.html
+    assert "Helpful info while you wait:" in props.html
+    assert "Hi testuser! 👋" in props.text
 
 
 @pytest.mark.anyio
