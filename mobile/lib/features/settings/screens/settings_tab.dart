@@ -20,12 +20,12 @@ import 'package:nexus/features/home/widgets/tab_background.dart';
 import 'package:nexus/features/security_signal/services/notification_service.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
 import 'package:nexus/features/settings/screens/data_export_flow.dart';
+import 'package:nexus/features/settings/widgets/transparency_badge.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _kAuthorName = '@deva.kesu';
 const _kAuthorUrl = 'https://devakesu.com';
-const _kGithubUrl = 'https://github.com/devakesu/Nexus';
 
 enum _PauseStatus { loading, active, paused, error }
 
@@ -939,9 +939,18 @@ class _NexusBranding extends StatelessWidget {
                 bgColor: const Color(0xFF24292F),
                 textColor: Colors.white,
                 iconColor: const Color(0xFFFCD34D),
-                onTap: () => _launch(_kGithubUrl),
+                onTap: () => _launch(AppConfig.githubUrl),
               ),
             ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: TransparencyBadge(
+              onTap: () => context.push('/settings/about'),
+            ),
           ),
 
           const SizedBox(height: 20),

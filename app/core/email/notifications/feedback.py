@@ -41,15 +41,12 @@ async def send_feedback_confirmation_email(
     user_name = extract_user_name(email, auth_user)
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
-    support_link = (
-        f'<a href="mailto:support@{settings.email_domain}" style="color: #4ECCA3;">'
-        f"support@{settings.email_domain}</a>"
-    )
-    footer_html = (
-        f"You're receiving this notice because you submitted ticket #{ticket_ref} on "
-        f"Nexus. You can reply directly to this email to add more detail, or reach us at "
-        f"{support_link}."
-    )
+    footer_html = f"""
+          You are receiving this notice because ticket #{ticket_ref} was submitted for your Nexus account.
+          <br>
+          <a href="https://{settings.app_domain}/legal" target="_blank"
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms &amp; Legal</a>
+    """
 
     row_1 = f"""
           <tr>

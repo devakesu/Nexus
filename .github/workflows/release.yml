@@ -388,6 +388,8 @@ jobs:
               --dart-define=BUILD_TIMESTAMP=${BUILD_TIME} \
               --dart-define=GITHUB_RUN_ID=${{ github.run_id }} \
               --dart-define=GITHUB_RUN_NUMBER=${{ github.run_number }} \
+              --dart-define=GITHUB_URL="https://github.com/${{ github.repository }}" \
+              --dart-define=ALLOWED_SIGNUP_DOMAINS="${ALLOWED_SIGNUP_DOMAINS:-}" \
               --dart-define=APP_DOMAIN="${APP_DOMAIN}" \
               --dart-define=BACKEND_URL="${BACKEND_URL}" \
               --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="${GOOGLE_IOS_CLIENT_ID_NEXUS:-}" \
@@ -425,6 +427,8 @@ jobs:
               --dart-define=BUILD_TIMESTAMP=${BUILD_TIME} \
               --dart-define=GITHUB_RUN_ID=${{ github.run_id }} \
               --dart-define=GITHUB_RUN_NUMBER=${{ github.run_number }} \
+              --dart-define=GITHUB_URL="https://github.com/${{ github.repository }}" \
+              --dart-define=ALLOWED_SIGNUP_DOMAINS="${ALLOWED_SIGNUP_DOMAINS:-}" \
               --dart-define=APP_DOMAIN="${APP_DOMAIN}" \
               --dart-define=BACKEND_URL="${BACKEND_URL}" \
               --dart-define=GOOGLE_IOS_CLIENT_ID_NEXUS="${GOOGLE_IOS_CLIENT_ID_NEXUS:-}" \

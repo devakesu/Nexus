@@ -86,13 +86,10 @@ async def send_login_otp_email(
     """
 
     footer_html = f"""
-          You are receiving this communication because a sign-in attempt was initiated using your email address on Nexus.
-          If you have questions, please reach out to us at
-          <a href="mailto:support@{settings.email_domain}" style="color: #3B82F6;">
-          support@{settings.email_domain}</a>.
+          This communication was sent to verify a sign-in request for your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(
@@ -240,14 +237,10 @@ async def send_account_deletion_otp_email(
     """
 
     footer_html = f"""
-          You are receiving this security-related communication because an
-          account deletion request was initiated for your Nexus account.
-          If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.email_domain}" style="color: #EF4444;">
-          support@{settings.email_domain}</a>.
+          This security communication was sent because an account deletion request was initiated for your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(
@@ -354,32 +347,20 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
             <td style="padding: 0 32px 40px 32px; font-size: 14px;
                        line-height: 1.6; color: #9CA3AF;">
               <p style="margin: 0 0 16px 0; color: #E5E7EB; font-size: 15px; font-weight: 500;">
-                📁 What is included in your data archive:
+                📁 Data package details:
               </p>
               <table width="100%" border="0" cellspacing="0" cellpadding="0"
-                     style="margin-bottom: 24px; font-size: 13px; color: #D1D5DB;">
+                     style="margin-bottom: 20px; font-size: 13px; color: #D1D5DB;">
                 <tr>
-                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">👤</td>
+                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">✅</td>
                   <td style="padding-bottom: 12px;">
-                    <strong>Profile &amp; Identity:</strong> Name, email, bio, vector embedding coordinates, and semantic anchor preferences.
+                    <strong style="color: #4ECCA3;">Included in Export:</strong> Profile details, account history, active devices, matches &amp; discovery history, chat metadata, reports &amp; moderation logs (with reporter identities removed), support tickets, safety sessions, and connected Spotify playlists.
                   </td>
                 </tr>
                 <tr>
-                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">💬</td>
+                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">🚫</td>
                   <td style="padding-bottom: 12px;">
-                    <strong>Messages &amp; Chat History:</strong> Full transcript of sent and received messages across your active and archived conversations.
-                  </td>
-                </tr>
-                <tr>
-                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">🤝</td>
-                  <td style="padding-bottom: 12px;">
-                    <strong>Matches &amp; Orbit Activity:</strong> Record of past and present compatible connections, matches, passes, and discovery interactions.
-                  </td>
-                </tr>
-                <tr>
-                  <td width="32" valign="top" style="padding-bottom: 12px; font-size: 18px;">⚙️</td>
-                  <td style="padding-bottom: 12px;">
-                    <strong>Settings &amp; Security Logs:</strong> Account preferences, notification settings, device sessions, and authentication security logs.
+                    <strong style="color: #F87171;">Excluded for Privacy:</strong> Chat message contents (end-to-end encrypted &amp; never stored on our servers), safety recording decryption keys, and internal system logs.
                   </td>
                 </tr>
               </table>
@@ -388,7 +369,7 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
                   💡 How it works:
                 </p>
                 <p style="margin: 0; color: #9CA3AF; font-size: 13px; line-height: 1.5;">
-                  Once you enter this code, our system will generate a secure, encrypted archive of your account data. As soon as your download package is prepared, a secure, time-limited link will be sent to your email.
+                  Once you enter this code, our system compiles a comprehensive, machine-readable JSON copy of your personal data handed directly to your device.
                 </p>
               </div>
               <p style="margin: 0 0 16px 0;">
@@ -402,14 +383,10 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
     """
 
     footer_html = f"""
-          You are receiving this security-related communication because a
-          personal data export request was initiated for your Nexus account.
-          If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.email_domain}" style="color: #3B82F6;">
-          support@{settings.email_domain}</a>.
+          This security communication was sent because a personal data export request was initiated for your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(
@@ -423,12 +400,9 @@ async def send_data_export_otp_email(email: str, otp_code: str) -> ProviderResul
     text_content = (
         f"📦 PERSONAL DATA EXPORT REQUEST\n\n"
         f"Verification Code: {otp_code} (Expires in 10 minutes ⏱️)\n\n"
-        f"📁 Included Data:\n"
-        f"• 👤 Profile & Identity: Bio, coordinates, anchor preferences\n"
-        f"• 💬 Messages & Chat History: Transcripts of all sent and received messages\n"
-        f"• 🤝 Matches & Orbit Activity: Compatible connections and interaction history\n"
-        f"• ⚙️ Settings & Security Logs: Preferences, device sessions, security logs\n\n"
-        f"💡 How it works: Entering this verification code authorizes our system to compile an encrypted archive of your account data. You will receive a notification with a download link once ready.\n\n"
+        f"✓ Included: Profile details, account history, active devices, matches & discovery history, chat metadata, reports & moderation logs (reporter identities removed), support tickets, safety sessions, connected Spotify playlists.\n"
+        f"✗ Excluded: Chat message contents (end-to-end encrypted & never stored on servers), safety recording decryption keys, internal system logs.\n\n"
+        f"💡 How it works: Entering this code compiles a machine-readable JSON copy of your personal data.\n\n"
         f"💡 Didn't request a data export? No worries! If you did not initiate this request, you can safely ignore and delete this email — someone may have typed your email address by mistake."
     )
 
@@ -542,14 +516,10 @@ async def send_support_appeal_otp_email(
     """
 
     footer_html = f"""
-          You are receiving this communication to verify your identity for a
-          support request on your Nexus account.
-          If you did not request this, please contact support immediately at
-          <a href="mailto:support@{settings.email_domain}" style="color: #7C3AED;">
-          support@{settings.email_domain}</a>.
+          This communication was sent to verify your identity for a support request on your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(
@@ -667,13 +637,10 @@ async def send_account_deletion_scheduled_email(
     """
 
     footer_html = f"""
-          You are receiving this security notification because an account deletion grace period was started
-          for your Nexus account. If you did not request this action, please contact support immediately at
-          <a href="mailto:support@{settings.email_domain}" style="color: #EF4444;">
-          support@{settings.email_domain}</a>.
+          You are receiving this security notification because an account deletion grace period was started for your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(
@@ -820,13 +787,10 @@ async def send_account_reactivated_email(email: str) -> ProviderResult:
     )
 
     footer_html = f"""
-          You are receiving this notice because an account reactivation was performed for your Nexus account.
-          If you did not initiate this action, please contact support immediately at
-          <a href="mailto:support@{settings.email_domain}" style="color: #4ECCA3;">
-          support@{settings.email_domain}</a>.
+          You are receiving this notification because an account reactivation was completed for your Nexus account.
           <br>
           <a href="https://{settings.app_domain}/legal" target="_blank"
-             style="color: white">Privacy, Terms & Legal</a>
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms & Legal</a>
     """
 
     html_content = render_email_template(

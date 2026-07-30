@@ -99,10 +99,12 @@ async def send_trusted_contact_removed_email(
         subject="🛡️ Meetup Safety: Trusted Contact Update - Nexus",
         preheader_category="SAFETY",
         preheader_action="CONTACT_REMOVED",
-        footer_html=(
-            f"You're receiving this notice because you added {contact_name} as a "
-            "Meetup Safety trusted contact on Nexus."
-        ),
+        footer_html=f"""
+              You are receiving this notice because {contact_name} was added as a Meetup Safety trusted contact on Nexus.
+              <br>
+              <a href="https://{settings.app_domain}/legal" target="_blank"
+                 style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms &amp; Legal</a>
+        """,
     )
     text_content = (
         f"Hi {user_name}! 👋\n\n"

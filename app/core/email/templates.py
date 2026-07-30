@@ -25,17 +25,12 @@ def render_email_template(
         Returns:
             str: Response payload or result."""
     app_domain = settings.app_domain
-    email_domain = settings.email_domain
     if footer_html is None:
         footer_html = f"""
-              You are receiving this mandatory service-related communication
-              because a Nexus account was created using this
-              email address. If you did not initiate this action, please contact
-              support at <a href="mailto:support@{email_domain}" style="color: pink;">
-              support@{email_domain}</a>
+              You are receiving this transactional notification for your Nexus account.
               <br>
               <a href="https://{app_domain}/legal" target="_blank"
-                 style="color: white">Privacy, Terms &amp; Legal</a>
+                 style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms &amp; Legal</a>
         """
     footer_row = (
         f"""

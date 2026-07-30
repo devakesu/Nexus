@@ -102,6 +102,7 @@ Future<void> main() async {
 
   // Initialize remaining async services in parallel to speed up app startup
   await Future.wait([
+    AppConfig.initializeRuntime(),
     Supabase.initialize(
       url: config.supabaseUrl,
       publishableKey: config.supabasePublishableKey,

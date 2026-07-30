@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// Identifies which compiled flavor of the app is running.
 ///
@@ -108,8 +110,26 @@ class AppConfig {
   static const String _googlePlacesApiKey = String.fromEnvironment(
     'GOOGLE_PLACES_API_KEY',
   );
-  static const String _appVersion = String.fromEnvironment(
-    'APP_VERSION',
+
+  static const String _githubUrl = String.fromEnvironment(
+    'GITHUB_URL',
+    defaultValue: 'https://github.com/devakesu/Nexus',
+  );
+  static const String _appCommitSha = String.fromEnvironment(
+    'APP_COMMIT_SHA',
+    defaultValue: 'local',
+  );
+  static const String _buildTimestamp = String.fromEnvironment(
+    'BUILD_TIMESTAMP',
+    defaultValue: 'local',
+  );
+  static const String _githubRunNumber = String.fromEnvironment(
+    'GITHUB_RUN_NUMBER',
+    defaultValue: 'local',
+  );
+  static const String _githubRunId = String.fromEnvironment(
+    'GITHUB_RUN_ID',
+    defaultValue: 'local',
   );
 
   static const AppConfig nexus = AppConfig(
@@ -125,7 +145,7 @@ class AppConfig {
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexus,
     sentryDsn: _sentryFlutterDsn,
     googlePlacesApiKey: _googlePlacesApiKey,
-    appVersion: _appVersion,
+    appVersion: '',
   );
 
   static const AppConfig nexusMec = AppConfig(
@@ -141,7 +161,7 @@ class AppConfig {
     spotifyNativeRedirectUri: _spotifyNativeRedirectUriNexusMec,
     sentryDsn: _sentryFlutterDsn,
     googlePlacesApiKey: _googlePlacesApiKey,
-    appVersion: _appVersion,
+    appVersion: '',
   );
 
   /// OTP code length for email/phone verification. Must match the "OTP
@@ -203,4 +223,41 @@ class AppConfig {
     }
     return const [];
   }
+
+  /// Package / Application ID for the current flavor.
+  String get packageName => appVariant == AppVariant.nexusMec
+      ? 'com.devakesu.apps.nexus.mec'
+      : 'com.devakesu.apps.nexus';
+
+  static String _runtimeAppVersion = '';
+
+  /// Dynamically obtains the platform package version at runtime from PackageInfo.
+  static Future<void> initializeRuntime() async {
+    if (_runtimeAppVersion.isNotEmpty) return;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _runtimeAppVersion = '${info.version}+${info.buildNumber}';
+    } on Object catch (_) {}
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build and release metadata
+  // ---------------------------------------------------------------------------
+  static bool get isReleaseBuild => kReleaseMode;
+  static String get githubUrl => _githubUrl;
+  static String get playStoreUrl =>
+      'https://play.google.com/store/apps/details?id=${AppConfig.current.packageName}';
+  static String get webUrl => 'https://${AppConfig.current.appDomain}';
+  static String get legalEmail {
+    final host = AppConfig.current.appDomain.split(':').first;
+    return 'legal@$host';
+  }
+
+  static String get appCommitSha => _appCommitSha;
+  static String get buildTimestamp => _buildTimestamp;
+  static String get githubRunNumber => _githubRunNumber;
+  static String get githubRunId => _githubRunId;
+
+  /// Dynamically gets the runtime app version obtained from PackageInfo.
+  static String get runtimeVersion => _runtimeAppVersion;
 }

@@ -896,7 +896,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                                   GestureDetector(
                                     onTap: () async {
                                       final uri = Uri.parse(
-                                        'https://github.com/devakesu/Nexus/security/advisories/new',
+                                        '${AppConfig.githubUrl}/security/advisories/new',
                                       );
                                       if (await canLaunchUrl(uri)) {
                                         await launchUrl(
@@ -909,7 +909,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            'https://github.com/devakesu/Nexus/security/advisories/new',
+                                            '${AppConfig.githubUrl}/security/advisories/new',
                                             style: GoogleFonts.inter(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w700,

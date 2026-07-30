@@ -37,7 +37,7 @@ async def test_send_feedback_confirmation_email_props(
     assert "We're On It! 🤝✨" in props.html
     assert "OPEN &amp; QUEUED 📥" in props.html
     assert "Helpful info while you wait:" in props.html
-    assert "Hi testuser! 👋" in props.text
+    assert "Hi Testuser! 👋" in props.text
 
 
 @pytest.mark.anyio

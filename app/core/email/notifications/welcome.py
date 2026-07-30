@@ -109,11 +109,19 @@ async def send_bootstrap_welcome_email(
         cta_url=f"https://{domain}/app",
     )
 
+    footer_html = f"""
+          You are receiving this welcome communication because a Nexus account was initialized with this email address.
+          <br>
+          <a href="https://{settings.app_domain}/legal" target="_blank"
+             style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms &amp; Legal</a>
+    """
+
     html_content = render_email_template(
         rows_html=row_1 + row_2 + row_3 + button_row,
         subject="Welcome to Nexus! 🎉",
         preheader_category="AUTH_GATE",
         preheader_action="SYSTEM_VERIFIED",
+        footer_html=footer_html,
     )
 
     text_content = (

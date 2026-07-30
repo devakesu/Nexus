@@ -7,6 +7,7 @@ import 'package:nexus/features/chats/screens/chat_conversation_page.dart';
 import 'package:nexus/features/chats/screens/chats_page.dart';
 import 'package:nexus/features/orbit/models/orbit_node.dart';
 import 'package:nexus/features/orbit/screens/orbit_screen.dart';
+import 'package:nexus/features/settings/screens/about_screen.dart';
 import 'package:nexus/features/settings/screens/blocked_users_page.dart';
 import 'package:nexus/features/settings/screens/community_guidelines_page.dart';
 import 'package:nexus/features/settings/screens/delete_account_page.dart';
@@ -131,6 +132,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/settings/community-guidelines',
       builder: (context, state) => const CommunityGuidelinesPage(),
+    ),
+    GoRoute(
+      path: '/settings/about',
+      builder: (context, state) => const AboutScreen(),
     ),
     GoRoute(
       path: '/legal',

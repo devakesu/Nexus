@@ -64,10 +64,10 @@ async def test_send_data_export_otp_email_props(
     assert "🔐 Confirm Data Export Request" in props.subject
     assert "12345678" in props.html
     assert "📦 PERSONAL DATA EXPORT REQUEST" in props.html
-    assert "Profile &amp; Identity:" in props.html
-    assert "Messages &amp; Chat History:" in props.html
-    assert "Matches &amp; Orbit Activity:" in props.html
-    assert "Settings &amp; Security Logs:" in props.html
+    assert "Included in Export:" in props.html
+    assert "Excluded for Privacy:" in props.html
+    assert "Chat message contents" in props.html
+    assert "end-to-end encrypted" in props.html
     assert "How it works:" in props.html
     assert "PERSONAL DATA EXPORT REQUEST" in props.text
 
