@@ -53,6 +53,8 @@ class StorageImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.errorWidget,
+    this.placeholderColor = const Color(0xFFE2E8F0),
+    this.showSpinner = false,
     super.key,
   });
 
@@ -63,6 +65,29 @@ class StorageImage extends StatelessWidget {
 
   /// Shown when the image fails to load. Defaults to a dark container with an imageOff icon.
   final Widget? errorWidget;
+
+  /// Neutral background fill shown while the image is loading.
+  final Color placeholderColor;
+
+  /// Whether to show a spinner instead of a flat color fill. Defaults to false.
+  final bool showSpinner;
+
+  Widget _buildPlaceholder(BuildContext context, String url) {
+    if (showSpinner) {
+      return Container(
+        width: width,
+        height: height,
+        color: const Color(0xFF1E2332),
+        child: const Center(
+          child: NexusOrbitLoader(size: 28),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: placeholderColor,
+      child: SizedBox(width: width, height: height),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,14 +114,9 @@ class StorageImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
-        placeholder: (context, url) => Container(
-          width: width,
-          height: height,
-          color: const Color(0xFF1E2332),
-          child: const Center(
-            child: NexusOrbitLoader(size: 28),
-          ),
-        ),
+        fadeInDuration: const Duration(milliseconds: 150),
+        fadeOutDuration: Duration.zero,
+        placeholder: _buildPlaceholder,
         errorWidget: (context, url, error) => _buildError(),
       );
     }
@@ -125,14 +145,9 @@ class StorageImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      placeholder: (context, url) => Container(
-        width: width,
-        height: height,
-        color: const Color(0xFF1E2332),
-        child: const Center(
-          child: NexusOrbitLoader(size: 28),
-        ),
-      ),
+      fadeInDuration: const Duration(milliseconds: 150),
+      fadeOutDuration: Duration.zero,
+      placeholder: _buildPlaceholder,
       errorWidget: (context, url, error) => _buildError(),
     );
   }

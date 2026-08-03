@@ -9,8 +9,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/discovery_hub_cache.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+import 'package:nexus/core/utils/secure_profile_cache.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/features/orbit/models/orbit_node.dart';
@@ -45,12 +47,22 @@ class OrbitScreen extends StatefulWidget {
       var partnerValues = <String>[];
       String? profilePicUrl;
 
-      final profileResp = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/profile/details',
-      );
+      // Try reading filter defaults from DiscoveryHubCache first
+      final cachedHub = await DiscoveryHubCache.read(tab.toLowerCase());
+      final cachedProfile =
+          cachedHub?['profileDetails'] as Map<String, dynamic>?;
 
-      if (profileResp.statusCode == 200 && profileResp.data != null) {
-        final data = profileResp.data!;
+      var data = cachedProfile;
+      if (data == null) {
+        final profileResp = await dio.get<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/profile/details',
+        );
+        if (profileResp.statusCode == 200 && profileResp.data != null) {
+          data = profileResp.data;
+        }
+      }
+
+      if (data != null) {
         final rawImages = data['ordered_images'];
         if (rawImages is List && rawImages.isNotEmpty) {
           profilePicUrl = rawImages[0]?.toString();
@@ -1461,8 +1473,47 @@ class _OrbitScreenState extends State<OrbitScreen>
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) throw Exception('Not authenticated.');
 
+    final cached = await SecureProfileCache.read();
+    if (cached != null) {
+      final orderedImages = cached['ordered_images'] as List? ?? [];
+      final cachedFormatted = {
+        ...cached,
+        'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
+        'normal_pics': orderedImages.length > 1
+            ? orderedImages.sublist(1)
+            : <dynamic>[],
+        'tab': widget.tab,
+        'score': 0,
+      };
+      unawaited(
+        _networkFetchSelfDetails()
+            .then((fresh) {
+              if (fresh != null) {
+                unawaited(SecureProfileCache.write(fresh));
+              }
+            })
+            .catchError((_) {}),
+      );
+      return cachedFormatted;
+    }
+
+    final fresh = await _networkFetchSelfDetails();
+    if (fresh == null) throw Exception('Failed to load your profile.');
+    unawaited(SecureProfileCache.write(fresh));
+    final orderedImages = fresh['ordered_images'] as List? ?? [];
+    return {
+      ...fresh,
+      'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
+      'normal_pics': orderedImages.length > 1
+          ? orderedImages.sublist(1)
+          : <dynamic>[],
+      'tab': widget.tab,
+      'score': 0,
+    };
+  }
+
+  Future<Map<String, dynamic>?> _networkFetchSelfDetails() async {
     final config = AppConfig.current;
-    // Fetch profile data and privacy settings concurrently.
     final results = await Future.wait<dynamic>([
       _dio.get<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/profile/details',
@@ -1476,13 +1527,10 @@ class _OrbitScreenState extends State<OrbitScreen>
     final privacyResp = results[1] as Response<Map<String, dynamic>>;
 
     if (profileResp.statusCode != 200 || profileResp.data == null) {
-      throw Exception('Failed to load your profile.');
+      return null;
     }
 
     final d = Map<String, dynamic>.from(profileResp.data!);
-    final orderedImages = d['ordered_images'] as List? ?? [];
-
-    // Apply hidden fields so the preview matches what other users see.
     final hiddenFields =
         (privacyResp.statusCode == 200 && privacyResp.data != null)
         ? (privacyResp.data!['hidden_fields'] as List<dynamic>? ?? [])
@@ -1494,16 +1542,7 @@ class _OrbitScreenState extends State<OrbitScreen>
     for (final field in hiddenFields) {
       d[field] = listFields.contains(field) ? <dynamic>[] : null;
     }
-
-    return {
-      ...d,
-      'profile_pic': orderedImages.isNotEmpty ? orderedImages[0] : '',
-      'normal_pics': orderedImages.length > 1
-          ? orderedImages.sublist(1)
-          : <dynamic>[],
-      'tab': widget.tab,
-      'score': 0,
-    };
+    return d;
   }
 
   Future<void> _showSelfDetails() async {

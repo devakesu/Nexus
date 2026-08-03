@@ -61,7 +61,9 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   final _floatingDateNotifier = ValueNotifier<DateTime?>(null);
   final _floatingDateOpacityNotifier = ValueNotifier<double>(0);
   Timer? _floatingDateTimer;
+  Timer? _floatingDateThrottle;
   List<ChatMessageView> _currentMessages = [];
+  Map<String, ChatMessageView> _messagesById = {};
 
   @override
   void initState() {
@@ -70,11 +72,19 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     _startHeartbeat();
     _scrollController
       ..addListener(_maybeLoadOlder)
-      ..addListener(_updateFloatingDate);
+      ..addListener(_updateFloatingDateThrottled);
     unawaited(
       NotificationService.clearNotificationsForConversation(
         widget.conversationId,
       ),
+    );
+  }
+
+  void _updateFloatingDateThrottled() {
+    if (_floatingDateThrottle?.isActive ?? false) return;
+    _floatingDateThrottle = Timer(
+      const Duration(milliseconds: 100),
+      _updateFloatingDate,
     );
   }
 
@@ -188,12 +198,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     }
   }
 
-  ChatMessageView? _findMessageById(String id) {
-    for (final m in _currentMessages) {
-      if (m.id == id) return m;
-    }
-    return null;
-  }
+  ChatMessageView? _findMessageById(String id) => _messagesById[id];
 
   void _showFloatingDateChip() {
     _floatingDateOpacityNotifier.value = 1.0;
@@ -229,6 +234,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     WidgetsBinding.instance.removeObserver(this);
     _heartbeatTimer?.cancel();
     _floatingDateTimer?.cancel();
+    _floatingDateThrottle?.cancel();
     _floatingDateNotifier.dispose();
     _floatingDateOpacityNotifier.dispose();
     unawaited(PresenceHeartbeat.beat(isOnline: false));
@@ -240,7 +246,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startHeartbeat();
-      unawaited(SignalKeyService.instance.replenishOneTimePrekeysIfNeeded());
       // No-ops cheaply if the session's already ready/closed, so it's safe
       // to fire unconditionally on every resume rather than waiting out the
       // poller's interval before it notices we're back in the foreground.
@@ -517,6 +522,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 }
               }
               _currentMessages = uniqueMessages;
+              _messagesById = {for (final m in uniqueMessages) m.id: m};
               _messageKeys.removeWhere((key, _) => !seenIds.contains(key));
 
               WidgetsBinding.instance.addPostFrameCallback(

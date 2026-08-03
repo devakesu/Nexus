@@ -12,6 +12,7 @@ import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/app_refresh_notifier.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+import 'package:nexus/core/utils/secure_profile_cache.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/core/widgets/scale_pressable.dart';
@@ -121,15 +122,29 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
         if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
         return;
       }
+      final cached = await SecureProfileCache.read();
+      if (cached != null && mounted) {
+        final isDatingActive = cached['is_dating_active'] == true;
+        final isFriendsActive = cached['is_friends_active'] == true;
+        final isProfessionalActive = cached['is_professional_active'] == true;
+        final isAnyActive =
+            isDatingActive || isFriendsActive || isProfessionalActive;
+        setState(
+          () => _pauseStatus = isAnyActive
+              ? _PauseStatus.active
+              : _PauseStatus.paused,
+        );
+      }
       final data = await NetworkUtils.fetchProfileDetails(
         _dio,
         session.accessToken,
       );
       if (!mounted) return;
       if (data == null) {
-        setState(() => _pauseStatus = _PauseStatus.error);
+        if (cached == null) setState(() => _pauseStatus = _PauseStatus.error);
         return;
       }
+      unawaited(SecureProfileCache.write(data));
       final isDatingActive = data['is_dating_active'] == true;
       final isFriendsActive = data['is_friends_active'] == true;
       final isProfessionalActive = data['is_professional_active'] == true;
@@ -141,7 +156,9 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
             : _PauseStatus.paused,
       );
     } on Exception catch (_) {
-      if (mounted) setState(() => _pauseStatus = _PauseStatus.error);
+      if (mounted && _pauseStatus == _PauseStatus.loading) {
+        setState(() => _pauseStatus = _PauseStatus.error);
+      }
     }
   }
 
@@ -158,6 +175,13 @@ class _SettingsTabState extends State<SettingsTab> with WidgetsBindingObserver {
           'is_professional_active': false,
         },
       );
+      final cached = await SecureProfileCache.read();
+      if (cached != null) {
+        cached['is_dating_active'] = false;
+        cached['is_friends_active'] = false;
+        cached['is_professional_active'] = false;
+        unawaited(SecureProfileCache.write(cached));
+      }
       if (mounted) setState(() => _pauseStatus = _PauseStatus.paused);
       OrbitRefreshNotifier.notifyDeactivated();
     } on Exception catch (e, stackTrace) {

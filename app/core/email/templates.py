@@ -86,7 +86,7 @@ def render_email_template(
       position: relative;
       overflow: hidden;
     }}
-    
+
     /* Dense Multi-Layer Starfield */
     .stars-bg {{
       position: absolute;
@@ -202,7 +202,7 @@ def render_email_template(
       50% {{ opacity: 0.85; transform: scale(1); }}
       100% {{ opacity: 1; transform: scale(1.02); }}
     }}
-    
+
     @keyframes comet-fall-1 {{
       0% {{ transform: translate(0, 0) rotate(45deg); opacity: 1; }}
       70% {{ opacity: 1; }}
@@ -232,7 +232,7 @@ def render_email_template(
          class="body-wrapper" style="background-color: #050510; table-layout: fixed;">
     <tr>
       <td align="center" style="padding: 40px 16px 60px 16px; position: relative;">
-        
+
         <div class="stars-bg"></div>
         <div class="constellations-bg"></div>
         <div class="comet"></div>

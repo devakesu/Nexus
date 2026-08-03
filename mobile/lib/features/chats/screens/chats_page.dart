@@ -11,14 +11,14 @@ import 'package:nexus/features/chats/widgets/chat_list_tab.dart';
 /// Entry point reached from the header chat icon, the match-celebration
 /// "Send a message" button, and the per-tab match list overlays. Shows
 /// active conversations grouped into the app's 3 discovery modes.
-class ChatsPage extends StatefulWidget {
+class ChatsPage extends ConsumerStatefulWidget {
   const ChatsPage({super.key});
 
   @override
-  State<ChatsPage> createState() => _ChatsPageState();
+  ConsumerState<ChatsPage> createState() => _ChatsPageState();
 }
 
-class _ChatsPageState extends State<ChatsPage>
+class _ChatsPageState extends ConsumerState<ChatsPage>
     with SingleTickerProviderStateMixin {
   static const _tabs = ['Dating', 'Friends', 'Professional'];
 
@@ -78,6 +78,15 @@ class _ChatsPageState extends State<ChatsPage>
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.of(context).padding.top;
+    final unreadCounts = {
+      for (final t in _tabs)
+        t:
+            ref
+                .watch(chatConversationsProvider(t))
+                .value
+                ?.fold<int>(0, (sum, c) => sum + c.unreadCount) ??
+            0,
+    };
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -176,67 +185,54 @@ class _ChatsPageState extends State<ChatsPage>
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
-                        tabs: _tabs
-                            .map(
-                              (t) => Tab(
-                                child: Consumer(
-                                  builder: (context, ref, _) {
-                                    final convos =
-                                        ref
-                                            .watch(chatConversationsProvider(t))
-                                            .value ??
-                                        [];
-                                    final unreadCount = convos.fold<int>(
-                                      0,
-                                      (sum, c) => sum + c.unreadCount,
-                                    );
-                                    final isSelected =
-                                        _tabController.index ==
-                                        _tabs.indexOf(t);
+                        tabs: _tabs.map(
+                          (t) {
+                            final unreadCount = unreadCounts[t] ?? 0;
+                            final isSelected =
+                                _tabController.index == _tabs.indexOf(t);
 
-                                    return FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(t),
-                                          if (unreadCount > 0) ...[
-                                            const SizedBox(width: 5),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 5,
-                                                    vertical: 1.5,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : _getTabThemeColor(t),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                unreadCount > 99
-                                                    ? '99+'
-                                                    : '$unreadCount',
-                                                style: TextStyle(
-                                                  color: isSelected
-                                                      ? _getTabThemeColor(t)
-                                                      : Colors.white,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
+                            return Tab(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(t),
+                                    if (unreadCount > 0) ...[
+                                      const SizedBox(width: 5),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 1.5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : _getTabThemeColor(t),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          unreadCount > 99
+                                              ? '99+'
+                                              : '$unreadCount',
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? _getTabThemeColor(t)
+                                                : Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                    );
-                                  },
+                                    ],
+                                  ],
                                 ),
                               ),
-                            )
-                            .toList(),
+                            );
+                          },
+                        ).toList(),
                       ),
                     );
                   },

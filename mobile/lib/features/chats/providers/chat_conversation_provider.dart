@@ -337,11 +337,23 @@ class ChatConversationController extends _$ChatConversationController {
       );
     }
 
-    // True first-ever open of this conversation - nothing to show yet
-    // anyway, so fall back to the original blocking behavior.
-    final result = await _bootstrap(conversationId, peerUserId);
-    _syncSessionPolling(result);
-    return result;
+    // True first-ever open of this conversation - render an immediate shell
+    // with isRevalidating: true, running _bootstrap in the background so the
+    // UI doesn't block on network calls.
+    unawaited(
+      _bootstrap(conversationId, peerUserId).then((result) {
+        if (!_disposed) {
+          state = AsyncData(result);
+          _syncSessionPolling(result);
+        }
+      }),
+    );
+    return const ChatConversationState(
+      messages: [],
+      sessionReady: false,
+      sending: false,
+      isRevalidating: true,
+    );
   }
 
   /// Starts or stops the session-ready poller to match the given state:
@@ -449,25 +461,30 @@ class ChatConversationController extends _$ChatConversationController {
     final address = SignalProtocolAddress(peerUserId, kSignalDeviceId);
     _peerAddress = address;
 
-    final sessionReady = await SessionManager.instance
-        .ensureSessionForConversation(
-          conversationId: conversationId,
-          peerUserId: peerUserId,
-        );
+    final results = await Future.wait<dynamic>([
+      SessionManager.instance.ensureSessionForConversation(
+        conversationId: conversationId,
+        peerUserId: peerUserId,
+      ),
+      Supabase.instance.client
+          .from('chat_conversations')
+          .select('closed_at')
+          .eq('id', conversationId)
+          .maybeSingle(),
+      Supabase.instance.client
+          .from('chat_messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .order('created_at', ascending: false)
+          .limit(_pageSize),
+    ]);
 
-    final conversationRow = await Supabase.instance.client
-        .from('chat_conversations')
-        .select('closed_at')
-        .eq('id', conversationId)
-        .maybeSingle();
+    final sessionReady = results[0] as bool;
+    final conversationRow = results[1] as Map<String, dynamic>?;
+    final rawRows = results[2] as List<dynamic>;
+
     final conversationClosed = conversationRow?['closed_at'] != null;
 
-    final rawRows = await Supabase.instance.client
-        .from('chat_messages')
-        .select()
-        .eq('conversation_id', conversationId)
-        .order('created_at', ascending: false)
-        .limit(_pageSize);
     final rows = List<Map<String, dynamic>>.from(
       rawRows.map((e) => Map<String, dynamic>.from(e as Map)),
     ).reversed.toList();

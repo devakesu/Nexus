@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nexus/core/config/app_config.dart';
+import 'package:nexus/core/utils/chats_cache.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -32,6 +33,17 @@ class ChatConversationSummary {
       unreadCount: json['unread_count'] as int? ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'conversation_id': conversationId,
+    'matched_user_id': matchedUserId,
+    'name': name,
+    'age': age,
+    'profile_pic': profilePic,
+    'last_message_at': lastMessageAt.toIso8601String(),
+    'has_unread': hasUnread,
+    'unread_count': unreadCount,
+  };
 
   final String conversationId;
   final String matchedUserId;
@@ -76,10 +88,12 @@ class ChatCandidate {
 class ChatConversations extends _$ChatConversations {
   RealtimeChannel? _channel;
   Timer? _debounceTimer;
+  bool _disposed = false;
 
   @override
   Future<List<ChatConversationSummary>> build(String tab) async {
     ref.onDispose(() {
+      _disposed = true;
       _debounceTimer?.cancel();
       final ch = _channel;
       if (ch != null) {
@@ -87,14 +101,22 @@ class ChatConversations extends _$ChatConversations {
       }
     });
 
-    final dio = createDio();
-    await NetworkUtils.requireAccessToken();
-    final response = await dio.get<Map<String, dynamic>>(
-      '${AppConfig.current.backendUrl}/api/v1/chats',
-      queryParameters: {'tab': tab},
-    );
-    final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
+    _ensureRealtimeSub(tab);
 
+    final cached = await ChatsCache.read(tab);
+    if (cached != null) {
+      unawaited(
+        _fetchAndCache(tab).then((fresh) {
+          if (!_disposed) state = AsyncData(fresh);
+        }),
+      );
+      return cached.map(ChatConversationSummary.fromJson).toList();
+    }
+
+    return _fetchAndCache(tab);
+  }
+
+  void _ensureRealtimeSub(String tab) {
     if (_channel == null) {
       _channel = Supabase.instance.client.channel('chats-realtime:$tab');
       _channel!
@@ -112,12 +134,19 @@ class ChatConversations extends _$ChatConversations {
           )
           .subscribe();
     }
+  }
 
-    return rawList
-        .map(
-          (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
-        )
-        .toList();
+  Future<List<ChatConversationSummary>> _fetchAndCache(String tab) async {
+    final dio = createDio();
+    await NetworkUtils.requireAccessToken();
+    final response = await dio.get<Map<String, dynamic>>(
+      '${AppConfig.current.backendUrl}/api/v1/chats',
+      queryParameters: {'tab': tab},
+    );
+    final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
+    final maps = rawList.cast<Map<String, dynamic>>();
+    unawaited(ChatsCache.write(tab, maps));
+    return maps.map(ChatConversationSummary.fromJson).toList();
   }
 
   void _debouncedRefresh() {
@@ -129,18 +158,8 @@ class ChatConversations extends _$ChatConversations {
 
   Future<void> refresh() async {
     try {
-      final dio = createDio();
-      final response = await dio.get<Map<String, dynamic>>(
-        '${AppConfig.current.backendUrl}/api/v1/chats',
-        queryParameters: {'tab': tab},
-      );
-      final rawList = response.data?['conversations'] as List<dynamic>? ?? [];
-      final list = rawList
-          .map(
-            (e) => ChatConversationSummary.fromJson(e as Map<String, dynamic>),
-          )
-          .toList();
-      state = AsyncData(list);
+      final list = await _fetchAndCache(tab);
+      if (!_disposed) state = AsyncData(list);
     } on Object catch (e, stackTrace) {
       // Retain old state if update fails.
       ErrorHandler.handleError(
@@ -156,6 +175,7 @@ class ChatConversations extends _$ChatConversations {
 
 @riverpod
 Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
+  ref.keepAlive();
   final dio = createDio();
   await NetworkUtils.requireAccessToken();
   final response = await dio.get<Map<String, dynamic>>(
@@ -169,64 +189,10 @@ Future<List<ChatCandidate>> newChatCandidates(Ref ref, String tab) async {
 }
 
 @riverpod
-class HasUnreadMessages extends _$HasUnreadMessages {
-  RealtimeChannel? _channel;
-  Timer? _debounceTimer;
-
-  @override
-  Future<bool> build() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return false;
-    final userId = session.user.id;
-
-    ref.onDispose(() {
-      _debounceTimer?.cancel();
-      final ch = _channel;
-      if (ch != null) {
-        unawaited(Supabase.instance.client.removeChannel(ch));
-      }
-    });
-
-    if (_channel == null) {
-      _channel = Supabase.instance.client.channel('global-unread-messages');
-      _channel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'chat_messages',
-            callback: (_) => _debouncedRefresh(),
-          )
-          .subscribe();
-    }
-
-    return _fetch(userId);
+bool hasUnreadMessages(Ref ref) {
+  for (final tab in ['Dating', 'Friends', 'Professional']) {
+    final convos = ref.watch(chatConversationsProvider(tab)).value ?? [];
+    if (convos.any((c) => c.hasUnread)) return true;
   }
-
-  void _debouncedRefresh() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      unawaited(refresh());
-    });
-  }
-
-  Future<void> refresh() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
-    final val = await _fetch(session.user.id);
-    state = AsyncData(val);
-  }
-
-  Future<bool> _fetch(String userId) async {
-    try {
-      final res = await Supabase.instance.client
-          .from('chat_messages')
-          .select('id')
-          .neq('sender_id', userId)
-          .filter('read_at', 'is', null)
-          .limit(1);
-      return (res as List).isNotEmpty;
-    } on Object catch (_) {
-      return false;
-    }
-  }
+  return false;
 }

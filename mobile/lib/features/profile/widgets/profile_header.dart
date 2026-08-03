@@ -111,6 +111,7 @@ class ProfileHeader extends StatelessWidget {
                                         imagePath: avatarPath!,
                                         width: 100,
                                         height: 100,
+                                        showSpinner: true,
                                       ),
                                     ),
                                   ),

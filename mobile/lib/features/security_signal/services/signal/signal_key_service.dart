@@ -71,6 +71,7 @@ class SignalKeyService {
 
   Future<DriftSignalProtocolStore> _doEnsureBootstrapped() async {
     try {
+      await NetworkUtils.requireAccessToken();
       final (identityKeyPair, registrationId) = await _loadOrCreateIdentity();
       final store = DriftSignalProtocolStore(
         _db,

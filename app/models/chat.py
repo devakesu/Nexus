@@ -176,6 +176,11 @@ class PresenceHeartbeatRequest(BaseModel):
     is_online: bool = True
 
 
+class BatchPresenceRequest(BaseModel):
+    """Batch presence lookup request."""
+    user_ids: list[str] = Field(..., min_length=1, max_length=100)
+
+
 class PresenceResponse(BaseModel):
     """is_online/last_active_at are both null if the peer has Active Status
     off, has no active match with the caller, or has never been active -

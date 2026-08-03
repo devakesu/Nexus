@@ -89,3 +89,50 @@ mixin PresenceHeartbeat {
     }
   }
 }
+
+/// Stores batch-fetched presence info for lists of users (e.g. ChatListTab)
+/// in a single network request to avoid N individual 30s polling streams.
+@riverpod
+class BatchPresence extends _$BatchPresence {
+  late final Dio _dio;
+
+  @override
+  Map<String, PresenceInfo> build() {
+    _dio = createDio();
+    return const {};
+  }
+
+  Future<void> fetch(List<String> userIds) async {
+    if (userIds.isEmpty) return;
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+
+    try {
+      await NetworkUtils.requireAccessToken();
+      final response = await _dio.post<Map<String, dynamic>>(
+        '${AppConfig.current.backendUrl}/api/v1/chat/presence/batch',
+        data: {'user_ids': userIds},
+      );
+      final data = response.data;
+      if (data == null) return;
+
+      final nextMap = Map<String, PresenceInfo>.from(state);
+      data.forEach((key, val) {
+        if (val is Map<String, dynamic>) {
+          final rawLastActive = val['last_active_at'] as String?;
+          nextMap[key] = PresenceInfo(
+            isOnline: val['is_online'] as bool?,
+            lastActiveAt: rawLastActive != null
+                ? DateTime.parse(rawLastActive)
+                : null,
+          );
+        } else {
+          nextMap[key] = const PresenceInfo(isOnline: null, lastActiveAt: null);
+        }
+      });
+      state = nextMap;
+    } on Exception {
+      // Best-effort presence resolution
+    }
+  }
+}

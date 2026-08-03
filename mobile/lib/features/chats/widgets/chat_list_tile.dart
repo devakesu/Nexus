@@ -111,6 +111,7 @@ class ChatListTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       PresenceBadge(
                         peerUserId: conversation.matchedUserId,
+                        poll: false,
                         style: GoogleFonts.inter(
                           fontSize: 12.5,
                           // ink-muted, not ink-faint: this is real status

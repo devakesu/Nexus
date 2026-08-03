@@ -54,7 +54,7 @@ final class ChatConversationsProvider
   }
 }
 
-String _$chatConversationsHash() => r'8aa62f7dc3f9c718f76c65e699a043759fada5ca';
+String _$chatConversationsHash() => r'6ead6aadcbf919b4a4393f35febefe3a2cfe6082';
 
 final class ChatConversationsFamily extends $Family
     with
@@ -168,7 +168,7 @@ final class NewChatCandidatesProvider
   }
 }
 
-String _$newChatCandidatesHash() => r'693a3c04b96089ac0417207eb8f3ca3c97cb7e05';
+String _$newChatCandidatesHash() => r'5e840298ad795da6859f9aafe411eb046767a271';
 
 final class NewChatCandidatesFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ChatCandidate>>, String> {
@@ -188,11 +188,12 @@ final class NewChatCandidatesFamily extends $Family
   String toString() => r'newChatCandidatesProvider';
 }
 
-@ProviderFor(HasUnreadMessages)
+@ProviderFor(hasUnreadMessages)
 final hasUnreadMessagesProvider = HasUnreadMessagesProvider._();
 
 final class HasUnreadMessagesProvider
-    extends $AsyncNotifierProvider<HasUnreadMessages, bool> {
+    extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
   HasUnreadMessagesProvider._()
     : super(
         from: null,
@@ -209,25 +210,21 @@ final class HasUnreadMessagesProvider
 
   @$internal
   @override
-  HasUnreadMessages create() => HasUnreadMessages();
-}
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
-String _$hasUnreadMessagesHash() => r'687c729957c036a43ec97e06f10bd2df543da26f';
-
-abstract class _$HasUnreadMessages extends $AsyncNotifier<bool> {
-  FutureOr<bool> build();
-  @$mustCallSuper
   @override
-  WhenComplete runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<AsyncValue<bool>, bool>,
-              AsyncValue<bool>,
-              Object?,
-              Object?
-            >;
-    return element.handleCreate(ref, build);
+  bool create(Ref ref) {
+    return hasUnreadMessages(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
   }
 }
+
+String _$hasUnreadMessagesHash() => r'd19f0997b60e01ce63e3a24dbbdda34ec4a998fc';

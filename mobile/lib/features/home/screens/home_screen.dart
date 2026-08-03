@@ -9,6 +9,7 @@ import 'package:nexus/features/home/widgets/common_header.dart';
 import 'package:nexus/features/home/widgets/custom_bottom_nav_bar.dart';
 import 'package:nexus/features/orbit/screens/orbit_screen.dart';
 import 'package:nexus/features/profile/screens/profile_tab.dart';
+import 'package:nexus/features/profile/widgets/storage_image.dart';
 import 'package:nexus/features/settings/screens/settings_tab.dart';
 import 'package:nexus/features/social_modes/screens/dating_tab.dart';
 import 'package:nexus/features/social_modes/screens/friends_tab.dart';
@@ -36,6 +37,9 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
   String? _profileTargetSection;
 
   void _selectTab(int index, [String? targetSection]) {
+    if (index == 2) {
+      _precacheOwnAvatar();
+    }
     setState(() {
       _currentTab = index;
       _visitedTabs.add(index);
@@ -43,6 +47,23 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
         _profileTargetSection = targetSection;
       }
     });
+  }
+
+  void _precacheOwnAvatar() {
+    final hubState = ref.read(discoveryHubControllerProvider('dating')).value;
+    final profileDetails = hubState?.profileDetails;
+    if (profileDetails == null) return;
+
+    final rawImages = profileDetails['ordered_images'];
+    if (rawImages is! List || rawImages.isEmpty) return;
+
+    final firstImagePath = rawImages.first?.toString();
+    if (firstImagePath == null) return;
+
+    final provider = resolveStorageImageProvider(firstImagePath);
+    if (provider != null && mounted) {
+      unawaited(precacheImage(provider, context));
+    }
   }
 
   void _triggerOpenOrbit(String sectionName, Color themeColor) {
@@ -61,6 +82,25 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<DiscoveryHubState>>(
+      discoveryHubControllerProvider('dating'),
+      (previous, next) {
+        final profileDetails = next.value?.profileDetails;
+        if (profileDetails != null) {
+          final rawImages = profileDetails['ordered_images'];
+          if (rawImages is List && rawImages.isNotEmpty) {
+            final firstImagePath = rawImages.first?.toString();
+            if (firstImagePath != null) {
+              final provider = resolveStorageImageProvider(firstImagePath);
+              if (provider != null) {
+                unawaited(precacheImage(provider, context).catchError((_) {}));
+              }
+            }
+          }
+        }
+      },
+    );
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(

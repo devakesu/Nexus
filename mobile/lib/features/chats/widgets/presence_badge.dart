@@ -12,6 +12,7 @@ class PresenceBadge extends ConsumerWidget {
     required this.peerUserId,
     this.style,
     this.fallback,
+    this.poll = true,
     super.key,
   });
 
@@ -20,6 +21,10 @@ class PresenceBadge extends ConsumerWidget {
 
   /// Shown instead of nothing when there's no presence to display.
   final Widget? fallback;
+
+  /// Whether to start a 30s polling stream for this user's presence (true, default)
+  /// or read from the non-polling batch presence map (false, used in chat lists).
+  final bool poll;
 
   String? _describe(PresenceInfo info) {
     if (info.isOnline == true) return 'Active now';
@@ -35,10 +40,14 @@ class PresenceBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncPresence = ref.watch(peerPresenceProvider(peerUserId));
-    final text = asyncPresence.value != null
-        ? _describe(asyncPresence.value!)
-        : null;
+    final PresenceInfo? info;
+    if (poll) {
+      info = ref.watch(peerPresenceProvider(peerUserId)).value;
+    } else {
+      info = ref.watch(batchPresenceProvider)[peerUserId];
+    }
+
+    final text = info != null ? _describe(info) : null;
     if (text == null) return fallback ?? const SizedBox.shrink();
 
     return Text(

@@ -16,12 +16,37 @@ from app.db.chat import (
     upsert_presence_heartbeat,
 )
 from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
-from app.models import PresenceHeartbeatRequest, PresenceResponse
+from app.models import BatchPresenceRequest, PresenceHeartbeatRequest, PresenceResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _PRESENCE_STALE_AFTER = timedelta(seconds=90)
+
+
+async def _resolve_single_presence(
+    user_id: str, target_user_id: str,
+) -> PresenceResponse:
+    if not await asyncio.to_thread(has_active_match, user_id, target_user_id):
+        return PresenceResponse()
+
+    flags = await asyncio.to_thread(fetch_user_share_flags, target_user_id)
+    if not flags["share_active_status"]:
+        return PresenceResponse()
+
+    presence = await asyncio.to_thread(fetch_presence, target_user_id)
+    if presence is None:
+        return PresenceResponse()
+
+    raw_last_active = presence.get("last_active_at")
+    if raw_last_active is None:
+        return PresenceResponse()
+
+    last_active_at = parse_utc_datetime(raw_last_active)
+    is_online = bool(presence.get("is_online", False)) and (
+        utcnow() - last_active_at < _PRESENCE_STALE_AFTER
+    )
+    return PresenceResponse(is_online=is_online, last_active_at=last_active_at)
 
 
 @router.post("/api/v1/chat/presence/heartbeat")
@@ -48,6 +73,32 @@ async def send_presence_heartbeat(
         ) from err
 
 
+@router.post("/api/v1/chat/presence/batch")
+@limiter.limit(settings.rate_limit_discover)
+async def batch_get_presence(
+    request: Request,
+    payload: BatchPresenceRequest = Body(...),
+    _device: None = Depends(verify_app_check_token),
+    user_id: str = Depends(get_active_user_id),
+) -> dict[str, PresenceResponse]:
+    """Fetches presence status for multiple target user IDs in one request."""
+    _ = request
+    try:
+        results = await asyncio.gather(
+            *[_resolve_single_presence(user_id, target_id) for target_id in payload.user_ids],
+        )
+        return dict(zip(payload.user_ids, results, strict=True))
+    except DatabaseAccessError as err:
+        logger.exception(
+            "Database failure fetching batch presence",
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chats service temporarily unavailable.",
+        ) from err
+
+
 @router.get(
     "/api/v1/chat/presence/{target_user_id}",
     response_model=PresenceResponse,
@@ -62,26 +113,7 @@ async def get_presence(
     """Fetches target user presence status respecting privacy settings and staleness thresholds."""
     _ = request
     try:
-        if not await asyncio.to_thread(has_active_match, user_id, target_user_id):
-            return PresenceResponse()
-
-        flags = await asyncio.to_thread(fetch_user_share_flags, target_user_id)
-        if not flags["share_active_status"]:
-            return PresenceResponse()
-
-        presence = await asyncio.to_thread(fetch_presence, target_user_id)
-        if presence is None:
-            return PresenceResponse()
-
-        raw_last_active = presence.get("last_active_at")
-        if raw_last_active is None:
-            return PresenceResponse()
-
-        last_active_at = parse_utc_datetime(raw_last_active)
-        is_online = bool(presence.get("is_online", False)) and (
-            utcnow() - last_active_at < _PRESENCE_STALE_AFTER
-        )
-        return PresenceResponse(is_online=is_online, last_active_at=last_active_at)
+        return await _resolve_single_presence(user_id, target_user_id)
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure fetching presence",

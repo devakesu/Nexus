@@ -124,3 +124,66 @@ abstract class _$PeerPresence extends $AsyncNotifier<PresenceInfo> {
     return element.handleCreate(ref, () => build(_$args));
   }
 }
+
+/// Stores batch-fetched presence info for lists of users (e.g. ChatListTab)
+/// in a single network request to avoid N individual 30s polling streams.
+
+@ProviderFor(BatchPresence)
+final batchPresenceProvider = BatchPresenceProvider._();
+
+/// Stores batch-fetched presence info for lists of users (e.g. ChatListTab)
+/// in a single network request to avoid N individual 30s polling streams.
+final class BatchPresenceProvider
+    extends $NotifierProvider<BatchPresence, Map<String, PresenceInfo>> {
+  /// Stores batch-fetched presence info for lists of users (e.g. ChatListTab)
+  /// in a single network request to avoid N individual 30s polling streams.
+  BatchPresenceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'batchPresenceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$batchPresenceHash();
+
+  @$internal
+  @override
+  BatchPresence create() => BatchPresence();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<String, PresenceInfo> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<String, PresenceInfo>>(value),
+    );
+  }
+}
+
+String _$batchPresenceHash() => r'e53d5a73090877624ba1c53f62cc68f12e469521';
+
+/// Stores batch-fetched presence info for lists of users (e.g. ChatListTab)
+/// in a single network request to avoid N individual 30s polling streams.
+
+abstract class _$BatchPresence extends $Notifier<Map<String, PresenceInfo>> {
+  Map<String, PresenceInfo> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref as $Ref<Map<String, PresenceInfo>, Map<String, PresenceInfo>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Map<String, PresenceInfo>, Map<String, PresenceInfo>>,
+              Map<String, PresenceInfo>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}

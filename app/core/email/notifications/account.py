@@ -154,7 +154,7 @@ async def send_account_deletion_otp_email(
         else settings.account_deletion_grace_period_days
     )
 
-    row_1 = f"""
+    row_1 = """
           <tr>
             <td style="padding: 40px 32px 24px 32px;">
               <div style="display: inline-block; background-color: rgba(239, 68, 68, 0.15);

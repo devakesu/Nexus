@@ -497,12 +497,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
     await _loadProfileData(silent: cached != null, isBootstrap: true);
 
-    // Enforce a minimum 1-second loading skeleton animation to allow background fetches
-    // (such as matches, likes, and waves counts) to settle cleanly.
-    final elapsed = DateTime.now().difference(startTime);
-    final remaining = const Duration(seconds: 1) - elapsed;
-    if (remaining > Duration.zero) {
-      await Future<void>.delayed(remaining);
+    // Only enforce minimum 1-second animation floor on cold launch (no cache)
+    if (cached == null) {
+      final elapsed = DateTime.now().difference(startTime);
+      final remaining = const Duration(seconds: 1) - elapsed;
+      if (remaining > Duration.zero) {
+        await Future<void>.delayed(remaining);
+      }
     }
 
     if (mounted) {
@@ -801,6 +802,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           .setRemotePaths(loadedImages);
       _savedImagePaths = List<String?>.from(_imagePaths);
     }
+    _memoizedStability = null;
   }
 
   /// Rebuilds the same JSON shape `/api/v1/profile/details` returns from
@@ -1102,6 +1104,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
           if (response.statusCode == 200 && mounted) {
             setState(() {
+              _memoizedStability = null;
               if (currentPayload.containsKey('name')) {
                 _name = currentPayload['name'] as String;
                 _savedName = _name;
@@ -1320,7 +1323,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _isProfileSaving = false;
   }
 
+  int? _memoizedStability;
+
   int _calculateStability() {
+    if (_memoizedStability != null) return _memoizedStability!;
     var filled = 0;
     const total = 27;
 
@@ -1358,7 +1364,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     if (_causesSupported.isNotEmpty) filled++;
     if (_topArtists.isNotEmpty) filled++;
 
-    return ((filled / total) * 100).round();
+    final result = ((filled / total) * 100).round();
+    _memoizedStability = result;
+    return result;
   }
 
   // Entrypoint: picks native Android SSO or browser fallback automatically.

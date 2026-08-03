@@ -7,11 +7,17 @@ import 'package:nexus/core/utils/local_timed_cache.dart';
 abstract final class DiscoveryHubCache {
   static String _key(String mode) => 'nexus_discovery_hub_cache_$mode';
 
+  static final Map<String, LocalTimedCache<Map<String, dynamic>>> _instances =
+      {};
+
   static LocalTimedCache<Map<String, dynamic>> _cacheFor(String mode) =>
-      LocalTimedCache<Map<String, dynamic>>(
-        storageKey: _key(mode),
-        toJson: (map) => map,
-        fromJson: (map) => map,
+      _instances.putIfAbsent(
+        mode,
+        () => LocalTimedCache<Map<String, dynamic>>(
+          storageKey: _key(mode),
+          toJson: (map) => map,
+          fromJson: (map) => map,
+        ),
       );
 
   static Future<void> write(String mode, Map<String, dynamic> json) =>

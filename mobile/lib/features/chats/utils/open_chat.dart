@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
+import 'package:nexus/features/chats/providers/chats_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Idempotently creates (or fetches) the conversation for a match, then
@@ -27,6 +32,42 @@ Future<void> openOrCreateChat(
   final session = Supabase.instance.client.auth.currentSession;
   if (session == null) return;
 
+  // Show immediate loading indicator overlay on caller context
+  unawaited(
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NexusOrbitLoader(size: 36),
+                SizedBox(height: 12),
+                Text(
+                  'Opening chat...',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   try {
     final dio = createDio();
     final response = await dio.post<Map<String, dynamic>>(
@@ -37,18 +78,30 @@ Future<void> openOrCreateChat(
     if (data == null) throw Exception('Empty response');
     if (!context.mounted) return;
 
+    // Invalidate chats providers so the new chat shows up immediately
+    // and candidate is removed from the new matches list.
+    final chatTab = data['tab'] as String? ?? 'Dating';
+    final _ = ProviderScope.containerOf(context)
+      ..invalidate(chatConversationsProvider(chatTab))
+      ..invalidate(newChatCandidatesProvider(chatTab));
+
+    // Pop loading dialog
+    Navigator.of(context, rootNavigator: true).pop();
+
     await context.push<void>(
       '/chat-conversation',
       extra: {
         'conversationId': data['conversation_id'] as String,
         'matchedUserId': data['matched_user_id'] as String,
-        'tab': data['tab'] as String,
+        'tab': chatTab,
         'name': name,
         'profilePic': profilePic,
       },
     );
   } on Exception catch (_) {
     if (context.mounted) {
+      // Pop loading dialog if mounted
+      Navigator.of(context, rootNavigator: true).pop();
       NexusToast.show(
         context,
         'Could not open chat. Please try again.',

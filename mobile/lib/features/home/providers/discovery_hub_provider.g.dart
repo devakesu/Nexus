@@ -76,7 +76,7 @@ final class DiscoveryHubControllerProvider
 }
 
 String _$discoveryHubControllerHash() =>
-    r'9b14a9f7e921ac7dc6a573ddedb9c4fb85c1ec39';
+    r'54ec338dad6ffde93ceecb6a3a1ee4d78c1fe077';
 
 /// Owns fetching + secure-storage caching + stale-while-revalidate
 /// reconciliation for a discovery hub tab's profile status, likes inbox,

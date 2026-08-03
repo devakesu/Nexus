@@ -20,7 +20,7 @@ class CommonHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasUnread = ref.watch(hasUnreadMessagesProvider).value ?? false;
+    final hasUnread = ref.watch(hasUnreadMessagesProvider);
     Color tabThemeColor;
     Color tabThemeColorSecondary;
     String? tabLabel;

@@ -97,21 +97,30 @@ class DiscoveryHubState {
 class DiscoveryHubController extends _$DiscoveryHubController {
   final Dio _dio = createDio();
   bool _disposed = false;
+  DateTime? _lastFetchedAt;
 
   @override
   Future<DiscoveryHubState> build(String mode) async {
-    ref.onDispose(() => _disposed = true);
+    ref
+      ..keepAlive()
+      ..onDispose(() => _disposed = true);
 
     final cached = await DiscoveryHubCache.read(mode);
     if (cached != null) {
-      unawaited(
-        _fetchFresh().then((fresh) {
-          if (_disposed) return;
-          state = AsyncData(fresh);
-        }),
-      );
+      final isStale =
+          _lastFetchedAt == null ||
+          DateTime.now().difference(_lastFetchedAt!) >
+              const Duration(seconds: 60);
+      if (isStale) {
+        unawaited(
+          _fetchFresh().then((fresh) {
+            if (_disposed) return;
+            state = AsyncData(fresh);
+          }),
+        );
+      }
       return DiscoveryHubState.fromCache(cached).copyWith(
-        isRevalidating: true,
+        isRevalidating: isStale,
       );
     }
 
@@ -211,6 +220,7 @@ class DiscoveryHubController extends _$DiscoveryHubController {
     // let a transient profile-fetch failure overwrite a previously-good
     // cache with a null profileDetails.
     if (profileError == null) {
+      _lastFetchedAt = DateTime.now();
       unawaited(DiscoveryHubCache.write(mode, fresh.toCache()));
     }
     return fresh;

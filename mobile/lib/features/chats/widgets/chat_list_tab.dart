@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,10 +8,12 @@ import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/widgets/aesthetic_loaders.dart';
 import 'package:nexus/core/widgets/scale_pressable.dart';
 import 'package:nexus/features/chats/providers/chats_providers.dart';
+import 'package:nexus/features/chats/providers/presence_provider.dart';
 import 'package:nexus/features/chats/utils/chat_theme.dart';
 import 'package:nexus/features/chats/utils/open_chat.dart';
 import 'package:nexus/features/chats/widgets/chat_list_tile.dart';
 import 'package:nexus/features/chats/widgets/new_chat_sheet.dart';
+import 'package:nexus/features/profile/widgets/storage_image.dart';
 
 Future<void> _openNewChatSheet(BuildContext context, String tab) async {
   final selected = await showModalBottomSheet<ChatCandidate>(
@@ -39,49 +43,138 @@ class ChatListTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = chatTabTheme(tab);
+
+    ref
+      ..listen<AsyncValue<List<ChatConversationSummary>>>(
+        chatConversationsProvider(tab),
+        (previous, next) {
+          final list = next.value;
+          if (list != null && list.isNotEmpty) {
+            for (final convo in list) {
+              if (convo.profilePic != null && convo.profilePic!.isNotEmpty) {
+                final provider = resolveStorageImageProvider(convo.profilePic);
+                if (provider != null) {
+                  unawaited(
+                    precacheImage(provider, context).catchError((_) {}),
+                  );
+                }
+              }
+            }
+            final ids = list.map((c) => c.matchedUserId).toList();
+            unawaited(ref.read(batchPresenceProvider.notifier).fetch(ids));
+          }
+        },
+      )
+      ..listen<AsyncValue<List<ChatCandidate>>>(
+        newChatCandidatesProvider(tab),
+        (previous, next) {
+          final list = next.value;
+          if (list != null && list.isNotEmpty) {
+            for (final candidate in list) {
+              if (candidate.profilePic != null &&
+                  candidate.profilePic!.isNotEmpty) {
+                final provider = resolveStorageImageProvider(
+                  candidate.profilePic,
+                );
+                if (provider != null) {
+                  unawaited(
+                    precacheImage(provider, context).catchError((_) {}),
+                  );
+                }
+              }
+            }
+          }
+        },
+      );
+
     final conversationsAsync = ref.watch(chatConversationsProvider(tab));
+
+    final conversations = conversationsAsync.value;
+    final isRevalidating =
+        conversationsAsync.isLoading && conversations != null;
 
     return RefreshIndicator(
       color: theme.primary,
       onRefresh: () async {
-        ref.invalidate(chatConversationsProvider(tab));
-        await ref.read(chatConversationsProvider(tab).future);
+        ref
+          ..invalidate(chatConversationsProvider(tab))
+          ..invalidate(newChatCandidatesProvider(tab));
+        await Future.wait([
+          ref.read(chatConversationsProvider(tab).future),
+          ref.read(newChatCandidatesProvider(tab).future),
+        ]);
       },
+
       child: conversationsAsync.when(
-        loading: () => const Center(child: NexusOrbitLoader(lightMode: true)),
-        error: (error, stackTrace) => _ErrorState(
-          themeColor: theme.primary,
-          onRetry: () => ref.invalidate(chatConversationsProvider(tab)),
-        ),
-        data: (conversations) => conversations.isEmpty
-            ? _EmptyState(
-                tab: tab,
-                themeColor: theme.primary,
-                onNewChat: () => _openNewChatSheet(context, tab),
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: true,
+        loading: () => conversations != null
+            ? _buildContent(
+                context,
+                conversations,
+                isRevalidating,
+                theme.primary,
               )
-            : Stack(
-                children: [
-                  ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                    itemCount: conversations.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, index) => ChatListTile(
-                      conversation: conversations[index],
-                      tab: tab,
-                      themeColor: theme.primary,
-                    ),
-                  ),
-                  Positioned(
-                    right: 20,
-                    bottom: 24,
-                    child: _NewChatButton(
-                      themeColor: theme.primary,
-                      onTap: () => _openNewChatSheet(context, tab),
-                    ),
-                  ),
-                ],
+            : const Center(child: NexusOrbitLoader(lightMode: true)),
+        error: (error, stackTrace) => conversations != null
+            ? _buildContent(context, conversations, false, theme.primary)
+            : _ErrorState(
+                themeColor: theme.primary,
+                onRetry: () => ref.invalidate(chatConversationsProvider(tab)),
               ),
+        data: (data) =>
+            _buildContent(context, data, isRevalidating, theme.primary),
       ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    List<ChatConversationSummary> conversations,
+    bool isRevalidating,
+    Color themeColor,
+  ) {
+    return Column(
+      children: [
+        if (isRevalidating)
+          SizedBox(
+            height: 2,
+            child: LinearProgressIndicator(
+              backgroundColor: themeColor.withValues(alpha: 0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+            ),
+          ),
+        Expanded(
+          child: conversations.isEmpty
+              ? _EmptyState(
+                  tab: tab,
+                  themeColor: themeColor,
+                  onNewChat: () => _openNewChatSheet(context, tab),
+                )
+              : Stack(
+                  children: [
+                    ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                      itemCount: conversations.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, index) => ChatListTile(
+                        conversation: conversations[index],
+                        tab: tab,
+                        themeColor: themeColor,
+                      ),
+                    ),
+                    Positioned(
+                      right: 20,
+                      bottom: 24,
+                      child: _NewChatButton(
+                        themeColor: themeColor,
+                        onTap: () => _openNewChatSheet(context, tab),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 }

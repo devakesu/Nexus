@@ -17,6 +17,7 @@ from app.models.admin import (
     FeedbackTicketSummary,
 )
 from app.models.chat import (
+    BatchPresenceRequest,
     ChatCandidateItem,
     ChatCandidatesResponse,
     ChatConversationItem,
@@ -165,6 +166,7 @@ __all__ = [
     "AccountPhoneOtpVerifyResponse",
     "AuthBootstrapResponse",
     "BaseOnboardingRequest",
+    "BatchPresenceRequest",
     # chat
     "ChatCandidateItem",
     "ChatCandidatesResponse",

@@ -39,9 +39,7 @@ from app.core.email.senders import send_email, send_via_brevo, send_via_sendpuls
 from app.core.email.templates import render_cta_button_row, render_email_template
 
 __all__ = [
-    # notifications
     "FEEDBACK_QUERY_TYPE_LABELS",
-    # config
     "ProviderResult",
     "SendEmailProps",
     "extract_user_name",
@@ -53,7 +51,6 @@ __all__ = [
     "has_sendpulse",
     "redact",
     "redact_email",
-    # templates
     "render_cta_button_row",
     "render_email_template",
     "send_account_deletion_otp_email",
@@ -61,6 +58,7 @@ __all__ = [
     "send_account_reactivated_email",
     "send_bootstrap_welcome_email",
     "send_data_export_otp_email",
+    "send_email",
     "send_feedback_admin_notification_email",
     "send_feedback_closed_admin_notification_email",
     "send_feedback_comment_admin_notification_email",
@@ -68,9 +66,8 @@ __all__ = [
     "send_login_otp_email",
     "send_support_appeal_otp_email",
     "send_trusted_contact_removed_email",
-    # senders
-    "send_email",
     "send_via_brevo",
     "send_via_sendpulse",
     "strip_tags",
 ]
+
