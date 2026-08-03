@@ -27,10 +27,13 @@ class ProfileDetailSheet extends ConsumerStatefulWidget {
     this.onBlockTap,
     this.onReportTap,
     this.onSpotifyConnectRefresh,
+    this.unmatchLabel,
+    this.unmatchIcon,
     this.hideLabel,
     this.hideIcon,
     this.showScoreBadge = true,
     this.showSafetyActions = true,
+    this.isSelf,
     super.key,
   });
 
@@ -43,10 +46,13 @@ class ProfileDetailSheet extends ConsumerStatefulWidget {
   final SheetSafetyCallback? onBlockTap;
   final SheetSafetyCallback? onReportTap;
   final Future<void> Function()? onSpotifyConnectRefresh;
+  final String? unmatchLabel;
+  final IconData? unmatchIcon;
   final String? hideLabel;
   final IconData? hideIcon;
   final bool showScoreBadge;
   final bool showSafetyActions;
+  final bool? isSelf;
 
   @override
   ConsumerState<ProfileDetailSheet> createState() => _ProfileDetailSheetState();
@@ -76,6 +82,15 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
     if (state == AppLifecycleState.resumed && _awaitingSpotifyReturn) {
       _awaitingSpotifyReturn = false;
       unawaited(_performSpotifySync());
+    }
+  }
+
+  @override
+  void didUpdateWidget(ProfileDetailSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.data['viewer_spotify_connected'] != null) {
+      _viewerConnected =
+          widget.data['viewer_spotify_connected'] as bool? ?? false;
     }
   }
 
@@ -171,15 +186,20 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
         (tab == 'Dating' || tab == 'Friends') && displaySexuality.isNotEmpty;
 
     final musicMatchGrade = data['music_match_grade'] as int?;
-    final viewerConnected = _viewerConnected;
+    final spotifyStatus = ref.watch(spotifyStatusProvider).asData?.value;
+    final viewerConnected =
+        (spotifyStatus?.connected ?? false) ||
+        _viewerConnected ||
+        (data['viewer_spotify_connected'] as bool? ?? false);
     final candidateConnected =
-        data['candidate_spotify_connected'] as bool? ?? false;
-    final isSelf = !widget.showScoreBadge;
+        (data['candidate_spotify_connected'] as bool? ?? false) ||
+        topArtists.isNotEmpty;
+    final isSelf = widget.isSelf ?? (data['is_self'] as bool? ?? false);
 
     // ── Local widget helpers ──────────────────────────────────────────────────
 
     Widget buildMusicMatchCard(BuildContext context) {
-      final selfConnected = topArtists.isNotEmpty;
+      final selfConnected = topArtists.isNotEmpty || viewerConnected;
       final effectiveViewerConnected = isSelf ? selfConnected : viewerConnected;
       final effectiveCandidateConnected = isSelf
           ? selfConnected
@@ -1792,8 +1812,9 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
                           children: [
                             if (widget.onUnmatchTap != null) ...[
                               safetyBtn(
-                                icon: LucideIcons.userMinus,
-                                label: 'Unmatch',
+                                icon:
+                                    widget.unmatchIcon ?? LucideIcons.userMinus,
+                                label: widget.unmatchLabel ?? 'Unmatch',
                                 color: widget.themeColor,
                                 callback: widget.onUnmatchTap!,
                               ),

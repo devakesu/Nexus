@@ -3,7 +3,7 @@
 ![Nexus](app/static/nexus-wide-logo.jpg)
 
 [![Version](https://img.shields.io/github/v/release/devakesu/Nexus?label=Version)](https://github.com/devakesu/Nexus/releases/latest)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/devakesu/Nexus/badge)](https://scorecard.dev/viewer/?uri=github.com/devakesu/Nexus)
 [![CodeQL](https://github.com/devakesu/Nexus/actions/workflows/codeql.yml/badge.svg)](https://github.com/devakesu/Nexus/actions/workflows/codeql.yml)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)

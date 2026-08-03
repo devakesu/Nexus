@@ -1613,6 +1613,7 @@ class _OrbitScreenState extends State<OrbitScreen>
                   data: snapshot.data!,
                   themeColor: theme,
                   scrollController: scrollController,
+                  isSelf: true,
                   showScoreBadge: false,
                   showSafetyActions: false,
                   onSpotifyConnectRefresh: () async {

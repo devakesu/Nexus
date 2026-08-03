@@ -16,6 +16,7 @@ class SpotifyMusicSection extends ConsumerWidget {
     this.onSpotifyDisconnect,
     this.isSaving = false,
     this.isConnecting = false,
+    this.artistsVisibilityToggle,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class SpotifyMusicSection extends ConsumerWidget {
   final VoidCallback? onSpotifyDisconnect;
   final bool isSaving;
   final bool isConnecting;
+  final Widget? artistsVisibilityToggle;
 
   static const _spotifyGreen = Color(0xFF1DB954);
 
@@ -59,6 +61,10 @@ class SpotifyMusicSection extends ConsumerWidget {
                         letterSpacing: 1.2,
                       ),
                     ),
+                    if (artistsVisibilityToggle != null) ...[
+                      const SizedBox(width: 8),
+                      artistsVisibilityToggle!,
+                    ],
                     if (isSaving) ...[
                       const SizedBox(width: 8),
                       const NexusOrbitLoader(size: 20),

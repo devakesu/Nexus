@@ -14,6 +14,7 @@ class SelectorTile extends StatelessWidget {
     this.isSaving = false,
     this.isFullWidth = true,
     this.visibilityBadge,
+    this.visibilityToggle,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class SelectorTile extends StatelessWidget {
   final bool isSaving;
   final bool isFullWidth;
   final Widget? visibilityBadge;
+  final Widget? visibilityToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -50,22 +52,28 @@ class SelectorTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: iconColor, size: 14),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.5),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
+            Row(
+              children: [
+                Icon(icon, color: iconColor, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                if (visibilityBadge != null) ...[
+                  const SizedBox(width: 6),
+                  visibilityBadge!,
+                ],
+              ],
             ),
-            if (visibilityBadge != null) ...[
-              const SizedBox(width: 6),
-              visibilityBadge!,
-            ],
+            ?visibilityToggle,
           ],
         ),
         const SizedBox(height: 8),

@@ -29,6 +29,8 @@ class LifestyleResonanceSection extends StatelessWidget {
     this.isSavingSmoking = false,
     this.isSavingReligiousBeliefs = false,
     this.isSavingPets = false,
+    this.religiousBeliefsVisibilityToggle,
+    this.petsVisibilityToggle,
     super.key,
   });
 
@@ -42,6 +44,8 @@ class LifestyleResonanceSection extends StatelessWidget {
   final bool isSavingSmoking;
   final bool isSavingReligiousBeliefs;
   final bool isSavingPets;
+  final Widget? religiousBeliefsVisibilityToggle;
+  final Widget? petsVisibilityToggle;
 
   final ValueChanged<String> onLifestyleChanged;
   final ValueChanged<String> onLifestyleSubmitted;
@@ -161,6 +165,7 @@ class LifestyleResonanceSection extends StatelessWidget {
             },
             onClear: onClearReligiousBeliefs,
             isSaving: isSavingReligiousBeliefs,
+            visibilityToggle: religiousBeliefsVisibilityToggle,
           ),
           const SizedBox(height: 16),
 
@@ -176,6 +181,7 @@ class LifestyleResonanceSection extends StatelessWidget {
             allowCustom: false,
             isSaving: isSavingPets,
             exclusiveOptions: const ['No Pets'],
+            visibilityToggle: petsVisibilityToggle,
           ),
         ],
       ),

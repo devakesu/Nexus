@@ -16,6 +16,7 @@ class AffinityInterestsSection extends StatelessWidget {
     required this.onCausesSupportedChanged,
     this.isSavingInterests = false,
     this.isSavingCauses = false,
+    this.causesVisibilityToggle,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class AffinityInterestsSection extends StatelessWidget {
   final List<String> causesSupported;
   final bool isSavingInterests;
   final bool isSavingCauses;
+  final Widget? causesVisibilityToggle;
 
   final ValueChanged<List<String>> onInterestsSaved;
   final ValueChanged<List<String>> onCausesSupportedChanged;
@@ -74,6 +76,7 @@ class AffinityInterestsSection extends StatelessWidget {
             hintText: 'Select causes...',
             allowCustom: false,
             isSaving: isSavingCauses,
+            visibilityToggle: causesVisibilityToggle,
           ),
         ],
       ),

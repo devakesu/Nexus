@@ -410,9 +410,13 @@ chore: bump dependencies
 - Production environments inject secrets dynamically at boot time using the Infisical CLI wrapper.
 - External contributors don't need access to Infisical to run and develop the app locally.
 
-### Licensing
+## Contributor Terms
 
-By contributing, you agree that your contributions will be licensed under the project's GNU Affero General Public License v3 (AGPL-3.0).
+By submitting a pull request or contributing code to Nexus, you agree to the following terms:
+
+1. **Licensing:** Your contributions will be licensed under the project's [Business Source License 1.1](LICENSE).
+2. **Copyright Assignment / Grant:** You grant the Licensor (Devanarayanan) a perpetual, worldwide, non-exclusive, royalty-free, transferable right to re-license, dual-license, or adapt your contributions under commercial or alternative open-source terms.
+3. **Originality:** You certify that you are the original author of the work being submitted and have the legal right to grant these permissions.
 
 ---
 

@@ -132,6 +132,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
 
   bool _activeStatus = true;
   bool _readReceipts = true;
+  StreamSubscription<void>? _profileRefreshSub;
 
   @override
   void initState() {
@@ -144,16 +145,29 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     // Populate consent flag from the cache that AuthGate set at boot.
     _specialCategoryGranted = ConsentCacheManager.specialCategoryConsentGranted;
     _safetyDataGranted = ConsentCacheManager.safetyConsentGranted;
+    _profileRefreshSub = ProfileRefreshNotifier.stream.listen((_) {
+      if (mounted) {
+        unawaited(_load(silent: true));
+      }
+    });
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_profileRefreshSub?.cancel());
+    super.dispose();
   }
 
   Future<String?> _token() async => _supabase.auth.currentSession?.accessToken;
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final token = await _token();
       if (token == null) throw Exception('Not signed in');
@@ -173,15 +187,17 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         });
       }
     } on DioException catch (e) {
-      if (mounted) {
+      if (mounted && !silent) {
         final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
             ?.toString();
         setState(() => _error = detail ?? 'Failed to load privacy settings.');
       }
     } on Exception catch (_) {
-      if (mounted) setState(() => _error = 'Failed to load privacy settings.');
+      if (mounted && !silent) {
+        setState(() => _error = 'Failed to load privacy settings.');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -203,6 +219,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         '${AppConfig.current.backendUrl}/api/v1/profile/privacy-settings',
         data: {'hidden_fields': hidden},
       );
+      ProfileRefreshNotifier.notifyChanged();
     } on DioException catch (e) {
       // Roll back.
       if (mounted) {

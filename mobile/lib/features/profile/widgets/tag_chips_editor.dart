@@ -21,6 +21,7 @@ class TagChipsEditor extends StatelessWidget {
     this.isSaving = false,
     this.exclusiveOptions = const [],
     this.visibilityBadge,
+    this.visibilityToggle,
     super.key,
   });
 
@@ -36,6 +37,7 @@ class TagChipsEditor extends StatelessWidget {
   final bool showEdit;
   final bool isSaving;
   final Widget? visibilityBadge;
+  final Widget? visibilityToggle;
 
   /// Options that are mutually exclusive with everything else.
   /// Selecting one clears all other selections; selecting a non-exclusive
@@ -490,6 +492,10 @@ class TagChipsEditor extends StatelessWidget {
                 if (visibilityBadge != null) ...[
                   const SizedBox(width: 6),
                   visibilityBadge!,
+                ],
+                if (visibilityToggle != null) ...[
+                  const SizedBox(width: 6),
+                  visibilityToggle!,
                 ],
                 if (isSaving) ...[
                   const SizedBox(width: 8),

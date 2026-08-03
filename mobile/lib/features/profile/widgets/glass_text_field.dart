@@ -15,6 +15,7 @@ class GlassTextField extends StatefulWidget {
     this.isSaving = false,
     this.focusNode,
     this.visibilityBadge,
+    this.visibilityToggle,
     super.key,
   });
 
@@ -30,6 +31,7 @@ class GlassTextField extends StatefulWidget {
   final bool isSaving;
   final FocusNode? focusNode;
   final Widget? visibilityBadge;
+  final Widget? visibilityToggle;
 
   @override
   State<GlassTextField> createState() => _GlassTextFieldState();
@@ -85,20 +87,26 @@ class _GlassTextFieldState extends State<GlassTextField> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (widget.visibilityBadge != null) ...[
+                    const SizedBox(width: 6),
+                    widget.visibilityBadge!,
+                  ],
+                ],
               ),
-              if (widget.visibilityBadge != null) ...[
-                const SizedBox(width: 6),
-                widget.visibilityBadge!,
-              ],
+              if (widget.visibilityToggle != null) widget.visibilityToggle!,
             ],
           ),
           const SizedBox(height: 8),

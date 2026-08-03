@@ -34,11 +34,17 @@ def create_discovery_session(
         ranked_items=ranked_items,
     )
 
-    viewer_spotify_connected = (
-        bool(positioned_items[0].get("viewer_spotify_connected", False))
-        if positioned_items
-        else False
-    )
+    from app.db.spotify import get_connection
+
+    connection = get_connection(viewer_id)
+    if connection is not None:
+        viewer_spotify_connected = not connection.get("disconnected_at")
+    else:
+        viewer_spotify_connected = (
+            bool(positioned_items[0].get("viewer_spotify_connected", False))
+            if positioned_items
+            else False
+        )
 
     items_payload: list[dict[str, Any]] = []
     for position, item in enumerate(positioned_items):

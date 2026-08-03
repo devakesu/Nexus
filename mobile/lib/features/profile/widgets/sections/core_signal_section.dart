@@ -35,6 +35,9 @@ class CoreSignalSection extends StatefulWidget {
     this.isSavingPronouns = false,
     this.isSavingAge = false,
     this.isSavingBuckets = false,
+    this.genderVisibilityToggle,
+    this.sexualityVisibilityToggle,
+    this.pronounsVisibilityToggle,
     super.key,
   });
 
@@ -53,6 +56,9 @@ class CoreSignalSection extends StatefulWidget {
   final bool isSavingPronouns;
   final bool isSavingAge;
   final bool isSavingBuckets;
+  final Widget? genderVisibilityToggle;
+  final Widget? sexualityVisibilityToggle;
+  final Widget? pronounsVisibilityToggle;
 
   final VoidCallback onNameTileTap;
   final VoidCallback onAgeTileTap;
@@ -302,6 +308,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             onTap: widget.onSelectGender,
             onClear: widget.onClearGender,
             isSaving: widget.isSavingGender,
+            visibilityToggle: widget.genderVisibilityToggle,
           ),
           const SizedBox(height: 16),
           SelectorTile(
@@ -313,6 +320,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             onClear: widget.onClearSexuality,
             isSaving: widget.isSavingSexuality,
             visibilityBadge: ProfileVisibilityBadge.datingAndFriends(),
+            visibilityToggle: widget.sexualityVisibilityToggle,
           ),
           const SizedBox(height: 16),
           SelectorTile(
@@ -323,6 +331,7 @@ class _CoreSignalSectionState extends State<CoreSignalSection> {
             onTap: widget.onSelectPronouns,
             onClear: widget.onClearPronouns,
             isSaving: widget.isSavingPronouns,
+            visibilityToggle: widget.pronounsVisibilityToggle,
           ),
           const SizedBox(height: 16),
 

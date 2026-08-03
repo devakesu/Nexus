@@ -924,27 +924,32 @@ class _ProfessionalTabState extends ConsumerState<ProfessionalTab>
                               matchedProfilePic,
                               onActioned,
                             ),
-                      hideLabel: isConnection ? 'Unmatch' : 'Hide',
-                      hideIcon: isConnection
-                          ? LucideIcons.userX
-                          : LucideIcons.eyeOff,
-                      onHideTap: (c) async {
-                        Navigator.pop(c);
-                        if (isConnection) {
-                          await _recordConnectionAction(
-                            actorId,
-                            'unmatch',
-                            session.accessToken,
-                          );
-                        } else {
-                          await _recordHandshakeAction(
-                            actorId,
-                            'hide',
-                            session.accessToken,
-                          );
-                        }
-                        onActioned(actorId);
-                      },
+                      onUnmatchTap: isConnection
+                          ? (c) async {
+                              Navigator.pop(c);
+                              await _recordConnectionAction(
+                                actorId,
+                                'unmatch',
+                                session.accessToken,
+                              );
+                              onActioned(actorId);
+                            }
+                          : null,
+                      unmatchLabel: 'Disconnect',
+                      unmatchIcon: LucideIcons.userMinus,
+                      onHideTap: !isConnection
+                          ? (c) async {
+                              Navigator.pop(c);
+                              await _recordHandshakeAction(
+                                actorId,
+                                'hide',
+                                session.accessToken,
+                              );
+                              onActioned(actorId);
+                            }
+                          : null,
+                      hideLabel: 'Hide',
+                      hideIcon: LucideIcons.eyeOff,
                       onBlockTap: (c) async {
                         final ok = await showProfileBlockDialog(c, name);
                         if ((ok ?? false) && c.mounted) {

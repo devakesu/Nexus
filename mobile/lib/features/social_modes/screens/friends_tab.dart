@@ -914,27 +914,32 @@ class _FriendsTabState extends ConsumerState<FriendsTab>
                               matchedProfilePic,
                               onActioned,
                             ),
-                      hideLabel: isFriend ? 'Unmatch' : 'Hide',
-                      hideIcon: isFriend
-                          ? LucideIcons.userX
-                          : LucideIcons.eyeOff,
-                      onHideTap: (c) async {
-                        Navigator.pop(c);
-                        if (isFriend) {
-                          await _recordFriendAction(
-                            actorId,
-                            'unmatch',
-                            session.accessToken,
-                          );
-                        } else {
-                          await _recordWaveAction(
-                            actorId,
-                            'hide',
-                            session.accessToken,
-                          );
-                        }
-                        onActioned(actorId);
-                      },
+                      onUnmatchTap: isFriend
+                          ? (c) async {
+                              Navigator.pop(c);
+                              await _recordFriendAction(
+                                actorId,
+                                'unmatch',
+                                session.accessToken,
+                              );
+                              onActioned(actorId);
+                            }
+                          : null,
+                      unmatchLabel: 'Unfriend',
+                      unmatchIcon: LucideIcons.userMinus,
+                      onHideTap: !isFriend
+                          ? (c) async {
+                              Navigator.pop(c);
+                              await _recordWaveAction(
+                                actorId,
+                                'hide',
+                                session.accessToken,
+                              );
+                              onActioned(actorId);
+                            }
+                          : null,
+                      hideLabel: 'Hide',
+                      hideIcon: LucideIcons.eyeOff,
                       onBlockTap: (c) async {
                         final ok = await showProfileBlockDialog(c, name);
                         if ((ok ?? false) && c.mounted) {

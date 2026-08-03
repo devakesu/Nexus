@@ -379,6 +379,31 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     );
   }
 
+  String _getUnmatchLabel(String tab) {
+    final normalized = tab.toLowerCase();
+    if (normalized == 'friends') return 'Unfriend';
+    if (normalized == 'professional') return 'Disconnect';
+    return 'Unmatch';
+  }
+
+  String _getConfirmTitle(String tab, String name) {
+    final normalized = tab.toLowerCase();
+    if (normalized == 'friends') return 'Unfriend $name?';
+    if (normalized == 'professional') return 'Disconnect from $name?';
+    return 'Unmatch from $name?';
+  }
+
+  String _getUnmatchDescription(String tab) {
+    final normalized = tab.toLowerCase();
+    if (normalized == 'friends') {
+      return 'Remove this friend and close the conversation';
+    }
+    if (normalized == 'professional') {
+      return 'Remove this connection and close the conversation';
+    }
+    return 'Remove this match and close the conversation';
+  }
+
   Future<void> _confirmUnmatch(ChatTabTheme theme) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -386,7 +411,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Unmatch from ${widget.name}?',
+          _getConfirmTitle(widget.tab, widget.name),
           style: const TextStyle(color: Colors.white, fontSize: 17),
         ),
         content: Text(
@@ -407,7 +432,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
           TextButton(
             onPressed: () => Navigator.pop(d, true),
             child: Text(
-              'Unmatch',
+              _getUnmatchLabel(widget.tab),
               style: TextStyle(
                 color: theme.primary,
                 fontWeight: FontWeight.bold,
@@ -1050,6 +1075,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                     themeColor: theme.primary,
                     scrollController: scrollController,
                     showScoreBadge: false,
+                    unmatchLabel: _getUnmatchLabel(widget.tab),
                     onUnmatchTap: (sheetCtx) async {
                       Navigator.pop(sheetCtx);
                       await _confirmUnmatch(theme);
@@ -1145,9 +1171,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 const SizedBox(height: 24),
                 _buildSheetAction(
                   icon: LucideIcons.userMinus,
-                  label: 'Unmatch',
-                  description:
-                      'Remove this connection and close the conversation',
+                  label: _getUnmatchLabel(widget.tab),
+                  description: _getUnmatchDescription(widget.tab),
                   onTap: () {
                     Navigator.of(context).pop();
                     unawaited(_confirmUnmatch(theme));

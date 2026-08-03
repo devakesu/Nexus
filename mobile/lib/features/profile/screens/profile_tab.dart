@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -37,6 +38,7 @@ import 'package:nexus/features/profile/widgets/sections/social_coordinates_secti
 import 'package:nexus/features/profile/widgets/sections/spotify_artists_section.dart';
 import 'package:nexus/features/profile/widgets/stability_tracker.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
+import 'package:nexus/features/profile/widgets/visibility_toggle_mini.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:nexus/features/spotify/services/spotify_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -96,8 +98,83 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _displaySexuality = '';
   String _searchBucket = 'NB';
   final Set<String> _savingFields = {};
+  Set<String> _hiddenFields = {};
+  final Set<String> _savingVisibilityFields = {};
   final Map<String, dynamic> _pendingProfilePayload = {};
   bool _isProfileSaving = false;
+
+  Future<void> _toggleVisibilityField(String key, bool visible) async {
+    if (_savingVisibilityFields.contains(key)) return;
+
+    const specialCategoryKeys = {'display_sexuality', 'religious_beliefs'};
+    if (specialCategoryKeys.contains(key) &&
+        !ConsentCacheManager.specialCategoryConsentGranted &&
+        visible) {
+      final granted = await _promptSpecialCategoryConsent();
+      if (!granted) return;
+    }
+
+    setState(() {
+      if (visible) {
+        _hiddenFields.remove(key);
+      } else {
+        _hiddenFields.add(key);
+      }
+      _savingVisibilityFields.add(key);
+    });
+
+    try {
+      final config = AppConfig.current;
+      await _dio.patch<void>(
+        '${config.backendUrl}/api/v1/profile/privacy-settings',
+        data: {'hidden_fields': _hiddenFields.toList()},
+      );
+      ProfileRefreshNotifier.notifyChanged();
+    } on Exception catch (e) {
+      debugPrint('[ProfileTab] Error saving visibility setting: $e');
+      if (mounted) {
+        setState(() {
+          if (visible) {
+            _hiddenFields.add(key);
+          } else {
+            _hiddenFields.remove(key);
+          }
+        });
+        NexusToast.show(
+          context,
+          'Failed to save setting.',
+          type: NexusToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingVisibilityFields.remove(key));
+      }
+    }
+  }
+
+  Widget _buildVisibilityToggle(String key) {
+    final isVisible = !_hiddenFields.contains(key);
+    final isSaving = _savingVisibilityFields.contains(key);
+
+    const specialCategoryKeys = {'display_sexuality', 'religious_beliefs'};
+    final isLocked =
+        specialCategoryKeys.contains(key) &&
+        !ConsentCacheManager.specialCategoryConsentGranted;
+
+    return VisibilityToggleMini(
+      value: isVisible,
+      isSaving: isSaving,
+      locked: isLocked,
+      onChanged: (visible) => _toggleVisibilityField(key, visible),
+      onLockedTap: () async {
+        final granted = await _promptSpecialCategoryConsent();
+        if (granted) {
+          unawaited(_toggleVisibilityField(key, true));
+        }
+      },
+    );
+  }
 
   String _mapPayloadKeyToField(String key) {
     switch (key) {
@@ -579,7 +656,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   }) async {
     setState(() {
       if (silent) {
-        _isRevalidating = true;
+        if (isBootstrap) {
+          _isRevalidating = true;
+        }
       } else {
         _isLoading = true;
       }
@@ -592,17 +671,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       }
       final config = AppConfig.current;
       final dio = _dio;
-      final response = await dio.get<Map<String, dynamic>>(
-        '${config.backendUrl}/api/v1/profile/details',
-        options: Options(
-          headers: {},
+
+      final results = await Future.wait([
+        dio.get<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/profile/details',
         ),
-      );
+        dio.get<Map<String, dynamic>>(
+          '${config.backendUrl}/api/v1/profile/privacy-settings',
+        ),
+      ]);
+      final response = results[0];
+      final privacyResponse = results[1];
 
       if (response.statusCode == 200 && response.data != null && mounted) {
         final data = response.data!;
         setState(() => _applyProfileData(data));
         unawaited(SecureProfileCache.write(data));
+      }
+
+      if (privacyResponse.statusCode == 200 &&
+          privacyResponse.data != null &&
+          mounted) {
+        final privacyData = privacyResponse.data!;
+        final hidden = (privacyData['hidden_fields'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toSet();
+        setState(() {
+          _hiddenFields = hidden;
+        });
       }
     } on Object catch (e) {
       debugPrint('[ProfileTab] Error loading profile details: $e');
@@ -2601,12 +2697,19 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         onCriteriaTap: _handleCriteriaTap,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
+
+                    // 💡 Visibility Tip Banner
+                    _buildStaggeredEntrance(
+                      index: 2,
+                      child: const _VisibilityTipBanner(),
+                    ),
+                    const SizedBox(height: 8),
 
                     // 🌌 2. Modular Custom Universe Cards
                     // Card Layer A: The Core Signal
                     _buildStaggeredEntrance(
-                      index: 2,
+                      index: 3,
                       child: CoreSignalSection(
                         key: _coreSignalKey,
                         name: _name,
@@ -2626,6 +2729,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingPronouns: _savingFields.contains('pronouns'),
                         isSavingAge: _savingFields.contains('age'),
                         isSavingBuckets: _savingFields.contains('searchBucket'),
+                        genderVisibilityToggle: _buildVisibilityToggle(
+                          'display_gender',
+                        ),
+                        sexualityVisibilityToggle: _buildVisibilityToggle(
+                          'display_sexuality',
+                        ),
+                        pronounsVisibilityToggle: _buildVisibilityToggle(
+                          'pronouns',
+                        ),
                         onNameTileTap: () => unawaited(
                           showNameChangeSheet(
                             context,
@@ -2700,7 +2812,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                     // Card Layer B: Cosmic Signature (Bio)
                     _buildStaggeredEntrance(
-                      index: 3,
+                      index: 4,
                       child: BioSection(
                         key: _bioKey,
                         bio: _bio,
@@ -2715,7 +2827,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                     // Card Layer C: Social Coordinates
                     _buildStaggeredEntrance(
-                      index: 4,
+                      index: 5,
                       child: SocialCoordinatesSection(
                         key: _socialCoordinatesKey,
                         campusNameKey: _campusNameKey,
@@ -2741,6 +2853,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingLanguages: _savingFields.contains('languages'),
                         isSavingCampusYear: _savingFields.contains(
                           'campusYear',
+                        ),
+                        hometownVisibilityToggle: _buildVisibilityToggle(
+                          'hometown',
+                        ),
+                        currentPlaceVisibilityToggle: _buildVisibilityToggle(
+                          'current_place',
+                        ),
+                        majorVisibilityToggle: _buildVisibilityToggle(
+                          'campus_branch',
                         ),
                         hometownFocusNode: _hometownFocusNode,
                         currentPlaceFocusNode: _currentPlaceFocusNode,
@@ -2810,7 +2931,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                     // Card Layer D: Affinity & Interests
                     _buildStaggeredEntrance(
-                      index: 5,
+                      index: 6,
                       child: AffinityInterestsSection(
                         key: _affinityInterestsKey,
                         flatSubInterests: _flatSubInterests,
@@ -2818,6 +2939,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingInterests: _savingFields.contains('interests'),
                         isSavingCauses: _savingFields.contains(
                           'causesSupported',
+                        ),
+                        causesVisibilityToggle: _buildVisibilityToggle(
+                          'causes_supported',
                         ),
                         onInterestsSaved: (val) {
                           final newSubInterests = <String, List<String>>{};
@@ -2856,12 +2980,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                     // Card Layer E: Music (Spotify top artists + playlists)
                     _buildStaggeredEntrance(
-                      index: 6,
+                      index: 7,
                       child: SpotifyMusicSection(
                         key: _spotifyArtistsKey,
                         topArtists: _topArtists,
                         isSaving: _savingFields.contains('topArtists'),
                         isConnecting: _isSpotifyConnecting,
+                        artistsVisibilityToggle: _buildVisibilityToggle(
+                          'top_artists',
+                        ),
                         onArtistRemoved: (artist) {
                           final updated = List<String>.from(_topArtists)
                             ..remove(artist);
@@ -2878,7 +3005,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
 
                     // Card Layer F: Lifestyle & Resonance
                     _buildStaggeredEntrance(
-                      index: 7,
+                      index: 8,
                       child: LifestyleResonanceSection(
                         key: _lifestyleResonanceKey,
                         lifestyle: _lifestyle,
@@ -2893,6 +3020,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                           'religiousBeliefs',
                         ),
                         isSavingPets: _savingFields.contains('pets'),
+                        religiousBeliefsVisibilityToggle:
+                            _buildVisibilityToggle('religious_beliefs'),
+                        petsVisibilityToggle: _buildVisibilityToggle('pets'),
                         onLifestyleChanged: (val) =>
                             setState(() => _lifestyle = val),
                         onLifestyleSubmitted: (val) =>
@@ -2948,6 +3078,82 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _VisibilityTipBanner extends StatelessWidget {
+  const _VisibilityTipBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    const tealAccent = Color(0xFF0D9488);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: tealAccent.withValues(alpha: 0.35),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: tealAccent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: tealAccent.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Icon(
+                LucideIcons.eye,
+                color: tealAccent,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profile Field Visibility Toggles',
+                    style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.ink,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Use the small toggle switches next to field titles to control what is visible on your public profile.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF475569),
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -394,9 +394,9 @@ const List<_RoadmapItem> _kRoadmapItems = [
   ),
   (
     icon: LucideIcons.badgeCheck,
-    title: 'Photo Verification',
+    title: 'Profile Verification',
     desc:
-        "A live selfie scan and blue verified badge to confirm it's really you.",
+        "A live selfie scan and ID verification grants blue verified badge to confirm it's really you.",
   ),
 ];
 

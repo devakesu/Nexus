@@ -45,6 +45,9 @@ class SocialCoordinatesSection extends StatefulWidget {
     this.majorKey,
     this.hometownKey,
     this.currentPlaceKey,
+    this.hometownVisibilityToggle,
+    this.currentPlaceVisibilityToggle,
+    this.majorVisibilityToggle,
     super.key,
   });
 
@@ -70,6 +73,9 @@ class SocialCoordinatesSection extends StatefulWidget {
   final Key? majorKey;
   final Key? hometownKey;
   final Key? currentPlaceKey;
+  final Widget? hometownVisibilityToggle;
+  final Widget? currentPlaceVisibilityToggle;
+  final Widget? majorVisibilityToggle;
 
   final ValueChanged<String> onHometownChanged;
   final ValueChanged<String> onHometownSubmitted;
@@ -125,6 +131,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             onFieldSubmitted: widget.onHometownSubmitted,
             isSaving: widget.isSavingHometown,
             focusNode: widget.hometownFocusNode,
+            visibilityToggle: widget.hometownVisibilityToggle,
           ),
           const SizedBox(height: 12),
 
@@ -138,6 +145,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             onFieldSubmitted: widget.onCurrentPlaceSubmitted,
             isSaving: widget.isSavingCurrentPlace,
             focusNode: widget.currentPlaceFocusNode,
+            visibilityToggle: widget.currentPlaceVisibilityToggle,
           ),
           const SizedBox(height: 16),
 
@@ -178,6 +186,7 @@ class _SocialCoordinatesSectionState extends State<SocialCoordinatesSection> {
             onFieldSubmitted: widget.onMajorSubmitted,
             isSaving: widget.isSavingMajor,
             focusNode: widget.majorFocusNode,
+            visibilityToggle: widget.majorVisibilityToggle,
           ),
           const SizedBox(height: 12),
 

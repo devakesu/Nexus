@@ -27,6 +27,7 @@ class PlaceAutocompleteField extends StatefulWidget {
     this.onFieldSubmitted,
     this.isSaving = false,
     this.focusNode,
+    this.visibilityToggle,
     super.key,
   });
 
@@ -38,6 +39,7 @@ class PlaceAutocompleteField extends StatefulWidget {
   final ValueChanged<String>? onFieldSubmitted;
   final bool isSaving;
   final FocusNode? focusNode;
+  final Widget? visibilityToggle;
 
   @override
   State<PlaceAutocompleteField> createState() => PlaceAutocompleteFieldState();
@@ -181,14 +183,20 @@ class PlaceAutocompleteFieldState extends State<PlaceAutocompleteField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.label.toUpperCase(),
-            style: TextStyle(
-              color: Colors.black.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.label.toUpperCase(),
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (widget.visibilityToggle != null) widget.visibilityToggle!,
+            ],
           ),
           const SizedBox(height: 8),
           GestureDetector(
