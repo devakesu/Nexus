@@ -30,6 +30,15 @@ async def _resolve_single_presence(
     if not await asyncio.to_thread(has_active_match, user_id, target_user_id):
         return PresenceResponse()
 
+    from app.db.discovery import get_cached_active_block_ids
+    viewer_block_ids = await get_cached_active_block_ids(user_id)
+    if target_user_id in viewer_block_ids:
+        return PresenceResponse()
+
+    target_block_ids = await get_cached_active_block_ids(target_user_id)
+    if user_id in target_block_ids:
+        return PresenceResponse()
+
     flags = await asyncio.to_thread(fetch_user_share_flags, target_user_id)
     if not flags["share_active_status"]:
         return PresenceResponse()

@@ -483,7 +483,8 @@ class ChatConversationController extends _$ChatConversationController {
     final conversationRow = results[1] as Map<String, dynamic>?;
     final rawRows = results[2] as List<dynamic>;
 
-    final conversationClosed = conversationRow?['closed_at'] != null;
+    final conversationClosed =
+        conversationRow == null || conversationRow['closed_at'] != null;
 
     final rows = List<Map<String, dynamic>>.from(
       rawRows.map((e) => Map<String, dynamic>.from(e as Map)),

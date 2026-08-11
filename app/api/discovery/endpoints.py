@@ -318,17 +318,18 @@ async def _validate_discovery_action(
                 ),
             )
     else:
-        # Forward actions must be validated against active session.
-        is_valid = await asyncio.to_thread(
-            is_candidate_in_active_session,
-            user_id,
-            payload.target_id,
-        )
-        if not is_valid:
-            raise HTTPException(
-                status_code=400,
-                detail="Target user is not in any active discovery session.",
+        # Forward actions (except block/report) must be validated against active session.
+        if payload.action not in ("block", "report"):
+            is_valid = await asyncio.to_thread(
+                is_candidate_in_active_session,
+                user_id,
+                payload.target_id,
             )
+            if not is_valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Target user is not in any active discovery session.",
+                )
 
 
 @router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)

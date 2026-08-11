@@ -16,6 +16,7 @@ from app.db.chat import (
     mark_messages_read,
 )
 from app.db.client import DatabaseAccessError
+from app.db.discovery import get_cached_active_block_ids
 from app.models import (
     MarkMessagesReadResponse,
     SendMessageRequest,
@@ -59,6 +60,14 @@ async def send_message(
             raise HTTPException(
                 status_code=403,
                 detail="This conversation is closed.",
+            )
+
+        recipient_id = user_b_id if user_id == user_a_id else user_a_id
+        recipient_block_ids = await get_cached_active_block_ids(recipient_id)
+        if user_id in recipient_block_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Blocked.",
             )
 
         row = await asyncio.to_thread(
@@ -128,6 +137,14 @@ async def mark_conversation_messages_read(
             raise HTTPException(
                 status_code=403,
                 detail="Not a participant of this conversation.",
+            )
+
+        recipient_id = user_b_id if user_id == user_a_id else user_a_id
+        recipient_block_ids = await get_cached_active_block_ids(recipient_id)
+        if user_id in recipient_block_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Blocked.",
             )
 
         flags = await asyncio.to_thread(fetch_user_share_flags, user_id)

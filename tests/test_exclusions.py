@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.discovery import fetch_active_discovery_excluded_ids
+from app.db.discovery import fetch_active_discovery_excluded_ids, fetch_likes_for_user
 
 
 @pytest.fixture
@@ -158,3 +158,38 @@ def test_fetch_active_discovery_excluded_ids_matches(mock_supabase: MagicMock) -
     assert matched_dating_user_id in excluded
     assert matched_professional_user_id not in excluded
     assert dissolved_match_user_id not in excluded
+
+
+def test_fetch_likes_for_user_filters_deactivated(mock_supabase: MagicMock) -> None:
+    viewer_id = str(uuid.uuid4())
+
+    mock_actions_res = MagicMock()
+    mock_actions_res.data = [
+        {
+            "actor_id": "actor-123",
+            "action": "like",
+            "created_at": "2026-08-11T20:00:00Z",
+            "seen_at": None,
+            "actor": {"is_deactivated": False}
+        }
+    ]
+
+    mock_actions_query = MagicMock()
+    mock_actions_query.select.return_value = mock_actions_query
+    mock_actions_query.eq.return_value = mock_actions_query
+    mock_actions_query.in_.return_value = mock_actions_query
+    mock_actions_query.is_.return_value = mock_actions_query
+    mock_actions_query.order.return_value = mock_actions_query
+    mock_actions_query.limit.return_value = mock_actions_query
+    mock_actions_query.execute.return_value = mock_actions_res
+
+    mock_supabase.table.return_value = mock_actions_query
+
+    res = fetch_likes_for_user(viewer_id, "Dating")
+    assert len(res) == 1
+    assert res[0]["actor_id"] == "actor-123"
+
+    mock_actions_query.select.assert_called_once_with(
+        "actor_id, action, created_at, seen_at, actor:profiles!actor_id(is_deactivated)"
+    )
+    mock_actions_query.eq.assert_any_call("actor.is_deactivated", False)

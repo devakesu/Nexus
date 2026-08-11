@@ -3,7 +3,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 from app.api.user.account_deletion import (
     cancel_account_deletion,
@@ -217,6 +217,8 @@ async def test_request_account_deletion_queues_email(
     )
 
     assert res.scheduled_purge_at == purge_time
+    assert mock_redis.delete.call_count == 2
+    mock_redis.delete.assert_any_call("user:status:user-123")
     bg_tasks.add_task.assert_called_once_with(
         mock_scheduled_email,
         email="user@example.com",
@@ -226,6 +228,47 @@ async def test_request_account_deletion_queues_email(
 
 
 @pytest.mark.anyio
+@patch("app.api.user.account_deletion.redis_client")
+@patch("app.api.user.account_deletion.resolve_verified_user")
+@patch("app.api.user.account_deletion.fetch_deletion_status")
+async def test_request_account_deletion_invalid_confirmation_preserves_otp(
+    mock_fetch_status: MagicMock,
+    mock_resolve_user: AsyncMock,
+    mock_redis: AsyncMock,
+) -> None:
+    mock_resolve_user.return_value = ("user-123", "user@example.com")
+    mock_fetch_status.return_value = None
+    mock_redis.get.return_value = b"1"
+
+    bg_tasks = MagicMock()
+    payload = AccountDeletionRequestRequest(
+        email="user@example.com",
+        confirmation_text="NOT_DELETE",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await request_account_deletion(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+            auth_user_id="user-123",
+            access_token="token-abc",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Type DELETE to confirm" in exc_info.value.detail
+    mock_redis.delete.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.user.account_deletion.redis_client")
 @patch("app.api.user.account_deletion.fetch_deletion_status")
 @patch("app.api.user.account_deletion.get_user_email_by_id")
 @patch("app.api.user.account_deletion.cancel_deletion")
@@ -235,6 +278,7 @@ async def test_cancel_account_deletion_queues_email(
     mock_cancel_deletion: MagicMock,
     mock_get_email: MagicMock,
     mock_fetch_status: MagicMock,
+    mock_redis: AsyncMock,
 ) -> None:
 
     mock_fetch_status.return_value = {
@@ -242,6 +286,7 @@ async def test_cancel_account_deletion_queues_email(
         "scheduled_purge_at": "2026-08-09T19:00:00Z",
     }
     mock_get_email.return_value = "user@example.com"
+    mock_redis.delete = AsyncMock()
 
     bg_tasks = MagicMock()
     scope: dict[str, Any] = {
@@ -260,6 +305,7 @@ async def test_cancel_account_deletion_queues_email(
 
     assert res.reactivated is True
     mock_cancel_deletion.assert_called_once_with("user-123")
+    mock_redis.delete.assert_called_once_with("user:status:user-123")
     bg_tasks.add_task.assert_called_once_with(
         mock_reactivated_email,
         email="user@example.com",

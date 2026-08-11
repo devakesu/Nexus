@@ -504,11 +504,12 @@ def fetch_likes_for_user(
     try:
         res = (
             supabase_client.table("profile_discovery_actions")
-            .select("actor_id, action, created_at, seen_at")
+            .select("actor_id, action, created_at, seen_at, actor:profiles!actor_id(is_deactivated)")
             .eq("target_id", viewer_id)
             .eq("tab", tab)
             .in_("action", ["like", "superlike"])
             .is_("revoked_at", "null")
+            .eq("actor.is_deactivated", False)
             .order("created_at", desc=True)
             .limit(1000)
             .execute()
@@ -556,13 +557,13 @@ def mark_likes_seen(
         raise DatabaseAccessError("Failed to mark likes as seen") from e
 
 
-def revoke_incoming_like(viewer_id: str, actor_id: str) -> None:
+def revoke_incoming_like(viewer_id: str, actor_id: str) -> bool:
     """
     Revoke actor_id's like/superlike targeting viewer_id (clears it from the inbox).
     """
     now = utcnow()
     try:
-        (
+        res = (
             supabase_client.table("profile_discovery_actions")
             .update({"revoked_at": now.isoformat()})
             .eq("actor_id", actor_id)
@@ -571,6 +572,7 @@ def revoke_incoming_like(viewer_id: str, actor_id: str) -> None:
             .is_("revoked_at", "null")
             .execute()
         )
+        return bool(res.data)
     except APIError as e:
         logger.exception(
             "Failed to revoke incoming like",

@@ -173,6 +173,15 @@ async def _update_presence_if_needed(user_id: str) -> None:
         # Set with ex=60 and nx=True to ensure it only executes once every 60 seconds
         was_set = await redis_client.set(redis_key, "1", ex=60, nx=True)
         if was_set:
+            user_row = await get_cached_public_user(user_id)
+            if user_row:
+                if (
+                    not bool(user_row.get("is_active", True))
+                    or user_row.get("deletion_requested_at")
+                    or bool(user_row.get("is_suspended", False))
+                ):
+                    return
+
             from app.db.chat import upsert_presence_heartbeat
             await run_in_threadpool(upsert_presence_heartbeat, user_id, True)
     except (RedisError, DatabaseAccessError) as e:
@@ -281,6 +290,12 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
                 "Account is inactive. Please contact support at "
                 f"support@{settings.email_domain} for assistance."
             ),
+        )
+
+    if user_row.get("deletion_requested_at"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is pending deletion.",
         )
 
     if bool(user_row.get("is_suspended", False)):

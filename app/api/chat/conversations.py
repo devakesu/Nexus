@@ -62,7 +62,11 @@ async def get_chats(
         profile_map = decrypt_profile_rows(cast(list[Any], profiles_res.data or []))
 
         convo_ids = [
-            str(r["conversation_id"]) for r in rows if r.get("conversation_id")
+            str(r["conversation_id"])
+            for r in rows
+            if r.get("conversation_id")
+            and str(r.get("matched_user_id") or "") in profile_map
+            and str(r.get("matched_user_id") or "") not in block_ids
         ]
         unread_counts: dict[str, int] = {}
         if convo_ids:

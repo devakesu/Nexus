@@ -198,7 +198,6 @@ async def request_account_deletion(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email code before requesting deletion.",
         )
-    await redis_client.delete(otp_key)
 
     if payload.confirmation_text.strip().upper() != "DELETE":
         raise HTTPException(
@@ -206,10 +205,13 @@ async def request_account_deletion(
             detail="Type DELETE to confirm.",
         )
 
+    await redis_client.delete(otp_key)
+
     flagged_reason = await run_in_threadpool(compute_deletion_flag_reason, user_id)
     scheduled_purge_at = await run_in_threadpool(
         request_deletion, user_id, flagged_reason, access_token or "",
     )
+    await redis_client.delete(f"user:status:{user_id}")
     background_tasks.add_task(
         send_account_deletion_scheduled_email,
         email=email,
@@ -250,6 +252,7 @@ async def cancel_account_deletion(
         )
     user_email = await run_in_threadpool(get_user_email_by_id, user_id)
     await run_in_threadpool(cancel_deletion, user_id)
+    await redis_client.delete(f"user:status:{user_id}")
     if user_email:
         background_tasks.add_task(
             send_account_reactivated_email,

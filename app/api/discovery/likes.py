@@ -209,6 +209,13 @@ async def _verify_peer_access_and_infer_tab(
 
         Returns:
             DiscoveryTab: Response payload or result."""
+    block_ids = await get_cached_active_block_ids(user_id_normalized)
+    if target_id in block_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Viewer not permitted.",
+        )
+
     query_like = supabase_client.table(
         "profile_discovery_actions",
     ).select("id, tab")
@@ -436,13 +443,40 @@ async def record_like_back_action(  # noqa: C901
 
         # Revoke their incoming like so it clears from the inbox
         if payload.action in ("like", "superlike", "pass", "block"):
-            await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
+            updated = await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
+            if not updated:
+                if matched and match_id:
+                    try:
+                        await asyncio.to_thread(
+                            lambda: supabase_client.table("matches")
+                            .delete()
+                            .eq("id", match_id)
+                            .execute()
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to delete orphaned match on concurrent revocation",
+                            extra={"match_id": match_id},
+                        )
+                raise HTTPException(
+                    status_code=400,
+                    detail="No active incoming like found.",
+                )
             if matched:
                 await asyncio.to_thread(
                     revoke_incoming_like,
                     payload.target_id,
                     user_id,
                 )
+
+        if payload.action in ("block", "report"):
+            await asyncio.to_thread(
+                close_conversation_for_match_action,
+                user_id,
+                payload.target_id,
+                payload.tab,
+                payload.action,
+            )
 
         return LikeActionResponse(success=True, matched=matched, match_id=match_id)
 

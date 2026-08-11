@@ -295,12 +295,7 @@ def request_deletion(
             "Failed to deactivate devices for deletion", extra={"user_id": user_id},
         )
 
-    try:
-        _close_all_conversations(user_id)
-    except DatabaseAccessError:
-        logger.exception(
-            "Failed to close conversations for deletion", extra={"user_id": user_id},
-        )
+    _close_all_conversations(user_id)
 
     if access_token:
         try:
@@ -344,13 +339,7 @@ def cancel_deletion(user_id: str) -> None:
         logger.exception("Failed to reactivate profile", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to cancel account deletion") from e
 
-    try:
-        reopen_conversations_for_reactivation(user_id)
-    except DatabaseAccessError:
-        logger.exception(
-            "Failed to reopen conversations on reactivation",
-            extra={"user_id": user_id},
-        )
+    reopen_conversations_for_reactivation(user_id)
 
 
 def _fetch_accounts_due_for_purge() -> list[dict[str, Any]]:

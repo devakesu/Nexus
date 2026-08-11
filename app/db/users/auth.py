@@ -330,15 +330,12 @@ def get_user_id_by_email(email: str) -> str | None:
         return None
     normalized = email.strip().lower()
     try:
-        response = supabase_client.auth.admin.list_users(page=1, per_page=1000)
-        raw_users = getattr(response, "users", response) if response else []
-        users: list[Any] = cast(list[Any], raw_users) if isinstance(raw_users, list) else []
-        for u in users:
-            u_email = getattr(u, "email", None)
-            if isinstance(u_email, str) and u_email.strip().lower() == normalized:
-                u_id = getattr(u, "id", None)
-                if u_id:
-                    return str(u_id)
+        res = (
+            supabase_client.rpc("get_user_id_by_email", {"email_addr": normalized})
+            .execute()
+        )
+        if res.data and isinstance(res.data, str):
+            return res.data
     except Exception:
         logger.exception("Failed to look up user_id by email", extra={"email": email})
     return None

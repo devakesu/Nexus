@@ -14,6 +14,7 @@ import firebase_admin.messaging as _fcm_module
 import sentry_sdk
 
 from app.db.client import supabase_client
+from app.db.discovery import get_cached_active_block_ids
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,25 @@ def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
     Returns:
         list[str]: List of active FCM registration token strings.
     """
+    try:
+        # Prevent sending notifications to deactivated/deleted accounts
+        profile_res = (
+            supabase_client.table("profiles")
+            .select("is_deactivated")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        profile_rows = cast(list[dict[str, Any]], profile_res.data or [])
+        if profile_rows and profile_rows[0].get("is_deactivated") is True:
+            return []
+    except Exception:
+        logger.exception(
+            "Failed to check deactivation status during FCM token fetch",
+            extra={"user_id": user_id},
+        )
+        return []
+
     res = (
         supabase_client.table("user_devices")
         .select("fcm_token")
@@ -187,6 +207,14 @@ async def send_like_notification(
     if not _is_firebase_initialized():
         return
     try:
+        block_ids = await get_cached_active_block_ids(target_id)
+        if actor_id in block_ids:
+            logger.info(
+                "Skipping like notification: actor is blocked by target or vice versa",
+                extra={"actor_id": actor_id, "target_id": target_id},
+            )
+            return
+
         tokens, actor_name = await asyncio.gather(
             asyncio.to_thread(_fetch_user_fcm_tokens, target_id),
             asyncio.to_thread(_fetch_profile_name, actor_id),
@@ -280,6 +308,14 @@ async def send_chat_message_notification(
     if not _is_firebase_initialized():
         return
     try:
+        block_ids = await get_cached_active_block_ids(recipient_id)
+        if sender_id in block_ids:
+            logger.info(
+                "Skipping chat notification: sender is blocked by recipient or vice versa",
+                extra={"sender_id": sender_id, "recipient_id": recipient_id},
+            )
+            return
+
         import json
 
         tokens, (sender_name, profile_pic) = await asyncio.gather(
