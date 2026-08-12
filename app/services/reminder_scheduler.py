@@ -5,15 +5,17 @@ safety check-in escalations, FCM notification dispatches, and account deletion p
 """
 
 import asyncio
+import functools
 import logging
 from datetime import timedelta
-from typing import Any, cast
+from typing import Any, Callable, Coroutine, cast
 
 import sentry_sdk
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
+from app.core.infra.cache import redis_client
 from app.core.utils.sms import (
     compose_unreachable_message,
     make_escalation_cancel_token,
@@ -52,13 +54,61 @@ _scheduler: AsyncIOScheduler | None = None
 # 60-minute lookahead + 15-minute poll means each event's reminder fires
 # somewhere in the [45, 60]-minutes-before-start window.
 #
-# In-process scheduler: only safe with a single backend instance. If this
-# service is ever scaled to multiple replicas, add a leader-election lock
-# (e.g. a Postgres advisory lock) before firing, or switch to pg_cron.
+# Multi-replica safety: All scheduled jobs are protected by Redis distributed
+# locks via @with_distributed_lock to prevent concurrent execution across
+# multiple backend replicas.
 _REMINDER_WINDOW_MINUTES = 60
 _POLL_INTERVAL_MINUTES = 15
 
 
+def with_distributed_lock(
+    job_name: str,
+    ttl_seconds: int = 300,
+) -> Callable[[Callable[..., Coroutine[Any, Any, None]]], Callable[..., Coroutine[Any, Any, None]]]:
+    """Decorator that ensures only a single backend replica executes a scheduled background job.
+
+    Uses a Redis distributed lock to achieve leader election across multi-replica deployments.
+    If another replica holds the lock for this job, execution on the current instance is skipped.
+    """
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, None]],
+    ) -> Callable[..., Coroutine[Any, Any, None]]:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> None:
+            lock_key = f"scheduler:lock:{job_name}"
+            try:
+                lock = redis_client.lock(lock_key, timeout=ttl_seconds)
+                acquired = await lock.acquire(blocking=False)
+            except Exception as err:
+                logger.warning(
+                    "Failed to communicate with Redis for job lock %s; executing without lock",
+                    job_name,
+                    exc_info=err,
+                )
+                await func(*args, **kwargs)
+                return
+
+            if not acquired:
+                logger.info(
+                    "Skipping scheduled job %s: acquired by another backend replica",
+                    job_name,
+                )
+                return
+
+            try:
+                await func(*args, **kwargs)
+            finally:
+                try:
+                    await lock.release()
+                except Exception:
+                    pass
+
+        return wrapper
+
+    return decorator
+
+
+@with_distributed_lock("chat_event_reminders", ttl_seconds=600)
 async def _check_due_reminders() -> None:
     """Polls for upcoming chat event reminders due within the lookahead window, dispatches push
     notifications to both conversation participants, and marks reminders as sent in the database.
@@ -83,14 +133,15 @@ async def _check_due_reminders() -> None:
             )
             if conversation is None:
                 continue
-            await send_chat_event_reminder_notification(
+            notified = await send_chat_event_reminder_notification(
                 user_a_id=str(conversation.get("user_a_id") or ""),
                 user_b_id=str(conversation.get("user_b_id") or ""),
                 conversation_id=conversation_id,
                 tab=str(conversation.get("tab") or "Dating"),
                 location_label=location_label,
             )
-            await asyncio.to_thread(mark_reminder_sent, event_id)
+            if notified:
+                await asyncio.to_thread(mark_reminder_sent, event_id)
         except DatabaseAccessError as err:
             sentry_sdk.capture_exception(err)
             logger.exception(
@@ -105,6 +156,7 @@ _SAFETY_EVENT_REMINDER_WINDOW_MINUTES = 35
 _SAFETY_EVENT_REMINDER_POLL_MINUTES = 10
 
 
+@with_distributed_lock("chat_event_safety_reminders", ttl_seconds=400)
 async def _check_upcoming_safety_reminders() -> None:
     """Polls for upcoming meetup safety check-in reminders due within the 35-minute lookahead window,
     dispatches push notifications to event creators, and marks safety reminders as sent in the database.
@@ -202,7 +254,27 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
         else None
     )
     escalation_number = escalations_sent + 1
-    token = make_escalation_cancel_token(session_id)
+
+    idempotency_key = f"safety:escalation:sent:{session_id}:{escalation_number}"
+    try:
+        is_new = await redis_client.set(idempotency_key, "1", ex=86400, nx=True)
+    except Exception as err:
+        logger.warning(
+            "Failed to set idempotency key in Redis for session %s escalation %s; proceeding without idempotency guard",
+            session_id,
+            escalation_number,
+            exc_info=err,
+        )
+        is_new = True
+
+    if not is_new:
+        logger.warning(
+            "Skipping safety escalation SMS: already sent according to Redis idempotency check",
+            extra={"session_id": session_id, "escalation_number": escalation_number},
+        )
+        return
+
+    token = make_escalation_cancel_token(session_id, escalation_number)
     cancel_link = (
         f"{settings.backend_url}/api/v1/safety/escalation/"
         f"{session_id}/cancel?token={token}&reason=safe"
@@ -232,6 +304,10 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
             "Failed to reach any trusted contact for an overdue safety session",
             extra={"session_id": session_id},
         )
+        try:
+            await redis_client.delete(idempotency_key)
+        except Exception:
+            pass
         return
 
     try:
@@ -246,6 +322,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
         )
 
 
+@with_distributed_lock("meetup_safety_escalations", ttl_seconds=240)
 async def _check_overdue_safety_sessions() -> None:
     """Check overdue safety sessions."""
     try:
@@ -272,6 +349,7 @@ async def _check_overdue_safety_sessions() -> None:
 _ACCOUNT_DELETION_POLL_HOURS = 24
 
 
+@with_distributed_lock("account_deletion_purge", ttl_seconds=3600)
 async def _run_account_deletion_purge() -> None:
     """Run account deletion purge."""
     try:
@@ -281,6 +359,7 @@ async def _run_account_deletion_purge() -> None:
         logger.exception("Failed to run account deletion purge")
 
 
+@with_distributed_lock("deleted_account_blocklist_expiry", ttl_seconds=3600)
 async def _run_blocklist_expiry() -> None:
     """Run blocklist expiry."""
     try:
@@ -290,6 +369,7 @@ async def _run_blocklist_expiry() -> None:
         logger.exception("Failed to expire deleted-account blocklist entries")
 
 
+@with_distributed_lock("account_deletion_long_tail_purge", ttl_seconds=3600)
 async def _run_account_deletion_long_tail_purge() -> None:
     """Run account deletion long tail purge."""
     try:
@@ -302,6 +382,7 @@ async def _run_account_deletion_long_tail_purge() -> None:
 # Meetup Safety data retention - see app/db/safety.py for the reasoning
 # behind each window. Same 24h cadence as the account deletion jobs above;
 # both are cheap, bounded batch scans.
+@with_distributed_lock("safety_evidence_retention_purge", ttl_seconds=3600)
 async def _run_safety_evidence_retention_purge() -> None:
     """Run safety evidence retention purge."""
     try:
@@ -311,6 +392,7 @@ async def _run_safety_evidence_retention_purge() -> None:
         logger.exception("Failed to run safety evidence retention purge")
 
 
+@with_distributed_lock("safety_data_legal_hold_purge", ttl_seconds=3600)
 async def _run_safety_data_legal_hold_purge() -> None:
     """Run safety data legal hold purge."""
     try:

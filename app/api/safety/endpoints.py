@@ -7,6 +7,7 @@ triggering emergency SOS alerts (silent/loud), and uploading safety audio eviden
 import asyncio
 import html
 import logging
+import sentry_sdk
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -19,16 +20,19 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
+from app.core.infra.cache import redis_client
 from app.core.security.portal_auth import normalize_phone
 from app.core.utils.sms import (
     compose_contact_added_message,
     compose_inform_message,
     compose_sos_message,
+    make_contact_portal_token,
     send_sms,
     verify_escalation_cancel_token,
 )
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
+    EscalationInProgressError,
     cancel_safety_escalation,
     end_safety_session,
     fetch_contact_facing_profile_summary,
@@ -89,7 +93,7 @@ async def _notify_newly_added_contacts(
         if contact is None:
             continue
         manage_link = (
-            f"{settings.backend_url}/api/v1/safety/contact/{contact['id']}"
+            f"{settings.backend_url}/api/v1/safety/contact/{make_contact_portal_token(contact['id'])}"
         )
         body = compose_contact_added_message(
             user_name=str(user_name), manage_link=manage_link,
@@ -145,6 +149,27 @@ async def send_safety_alert(
     send fails - a partial alert is far better than none.
     """
     _ = request
+
+    idempotency_key = f"safety:sos:idempotency:{user_id}:{payload.session_id or 'none'}"
+    try:
+        cached_val = await redis_client.get(idempotency_key)
+        if cached_val:
+            import json
+            try:
+                cached_data = json.loads(cached_val)
+                logger.info(
+                    "Skipping duplicate safety alert: already sent in last 60s",
+                    extra={"user_id": user_id, "session_id": payload.session_id},
+                )
+                return SafetyAlertResponse(
+                    id=cached_data["id"],
+                    contacts_notified=cached_data["contacts_notified"],
+                    contacts_total=cached_data["contacts_total"],
+                )
+            except Exception:
+                pass
+    except Exception as err:
+        logger.warning("Failed to check SOS idempotency in Redis", exc_info=err)
 
     try:
         contacts = await asyncio.to_thread(fetch_safety_contacts, user_id)
@@ -210,20 +235,44 @@ async def send_safety_alert(
             notified,
         )
     except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
         logger.exception(
-            "Database error recording safety alert",
-            extra={"user_id": user_id, "alert_type": payload.alert_type},
+            "Database error recording safety alert after SMS delivery",
+            extra={"user_id": user_id, "alert_type": payload.alert_type, "notified": notified},
         )
+        if notified > 0:
+            import uuid
+            return SafetyAlertResponse(
+                id=f"temp-{uuid.uuid4()}",
+                contacts_notified=notified,
+                contacts_total=len(contacts),
+            )
         raise HTTPException(
             status_code=503,
             detail="Service temporarily unavailable.",
         ) from err
 
-    return SafetyAlertResponse(
+    response = SafetyAlertResponse(
         id=str(row["id"]),
         contacts_notified=notified,
         contacts_total=len(contacts),
     )
+
+    try:
+        import json
+        await redis_client.set(
+            idempotency_key,
+            json.dumps({
+                "id": response.id,
+                "contacts_notified": response.contacts_notified,
+                "contacts_total": response.contacts_total,
+            }),
+            ex=60,
+        )
+    except Exception as err:
+        logger.warning("Failed to set SOS idempotency in Redis", exc_info=err)
+
+    return response
 
 
 @router.post(
@@ -245,7 +294,7 @@ async def register_evidence(
     _ = request
 
     own_prefix = f"{user_id}/"
-    if not payload.storage_path.startswith(own_prefix):
+    if not payload.storage_path.startswith(own_prefix) or ".." in payload.storage_path:
         raise HTTPException(
             status_code=422,
             detail="storage_path may only reference your own uploads.",
@@ -322,6 +371,11 @@ async def start_session(
             payload.battery_percent,
             payload.connection_type,
         )
+    except EscalationInProgressError as err:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot start a new safety session while an active session is currently escalating.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception(
             "Database error starting safety session",
@@ -429,7 +483,8 @@ async def cancel_escalation(
             status_code=400,
         )
 
-    if not verify_escalation_cancel_token(session_id, token):
+    token_escalation_num = verify_escalation_cancel_token(session_id, token)
+    if token_escalation_num is None:
         return HTMLResponse(
             _escalation_page("That link is invalid or has expired."),
             status_code=403,
@@ -442,6 +497,21 @@ async def cancel_escalation(
                 _escalation_page("This safety session no longer exists."),
                 status_code=404,
             )
+        
+        # Pause the current burst only, if it is already cancelled, acknowledge it
+        if session.get("escalation_cancelled_at") is not None:
+            return HTMLResponse(
+                _escalation_page("This safety alert has already been cancelled."),
+                status_code=200,
+            )
+
+        # Only allow cancellation if it matches the current active escalation attempt
+        if int(session.get("escalations_sent") or 0) != token_escalation_num:
+            return HTMLResponse(
+                _escalation_page("That link is no longer valid for this safety alert."),
+                status_code=400,
+            )
+
         await asyncio.to_thread(cancel_safety_escalation, session_id, reason, note)
     except DatabaseAccessError as err:
         logger.exception(

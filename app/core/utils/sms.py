@@ -309,12 +309,14 @@ def _sign_escalation_cancel_payload(payload: str) -> str:
 
 def make_escalation_cancel_token(
     session_id: str,
+    escalation_number: int,
     ttl_seconds: int = _ESCALATION_CANCEL_TOKEN_TTL_SECONDS,
 ) -> str:
-    """Generates a signed, time-bound cancellation token for an escalation session.
+    """Generates a signed, time-bound cancellation token for an escalation session and attempt.
 
     Args:
         session_id: Safety session identifier string.
+        escalation_number: The escalation attempt number (1..3).
         ttl_seconds: Validity period in seconds (defaults to 24 hours).
 
     Returns:
@@ -323,13 +325,13 @@ def make_escalation_cancel_token(
     expires_at = int(
         (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).timestamp(),
     )
-    payload = f"{session_id}:{expires_at}"
+    payload = f"{session_id}:{escalation_number}:{expires_at}"
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     signature = _sign_escalation_cancel_payload(payload)
     return f"{payload_b64}.{signature}"
 
 
-def verify_escalation_cancel_token(session_id: str, token: str) -> bool:
+def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
     """Verifies a submitted cancellation token against expected HMAC and expiration.
 
     Args:
@@ -337,25 +339,82 @@ def verify_escalation_cancel_token(session_id: str, token: str) -> bool:
         token: Submitted token string.
 
     Returns:
-        bool: True if valid and not expired, False otherwise.
+        int | None: The escalation_number if valid and not expired, None otherwise.
     """
     if not token or "." not in token:
-        return False
+        return None
 
     try:
         payload_b64, signature = token.split(".", 1)
         padding = "=" * (-len(payload_b64) % 4)
         payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
-        token_session_id, expires_at_raw = payload.split(":", 1)
+        parts = payload.split(":", 2)
+        if len(parts) != 3:
+            return None
+        token_session_id, escalation_number_str, expires_at_raw = parts
+        escalation_number = int(escalation_number_str)
         expires_at = int(expires_at_raw)
     except (ValueError, UnicodeDecodeError):
-        return False
+        return None
 
     if token_session_id != session_id:
-        return False
+        return None
 
     if not hmac.compare_digest(_sign_escalation_cancel_payload(payload), signature):
-        return False
+        return None
 
-    return datetime.now(timezone.utc).timestamp() < expires_at
+    if datetime.now(timezone.utc).timestamp() >= expires_at:
+        return None
+
+    return escalation_number
+
+
+_CONTACT_PORTAL_LABEL_DOMAIN = "safety_contact_portal"
+
+
+def _sign_contact_portal_payload(payload: str) -> str:
+    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    message = f"{_CONTACT_PORTAL_LABEL_DOMAIN}:{payload}".encode()
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def make_contact_portal_token(contact_id: str) -> str:
+    """Generates a signed HMAC token for the contact portal link instead of passing the raw UUID.
+
+    Args:
+        contact_id: Safety contact identifier.
+
+    Returns:
+        str: Formatted signed token string.
+    """
+    payload = f"{contact_id}"
+    payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
+    signature = _sign_contact_portal_payload(payload)
+    return f"{payload_b64}.{signature}"
+
+
+def verify_contact_portal_token(token: str) -> str | None:
+    """Verifies a contact portal token against expected HMAC.
+
+    Args:
+        token: Submitted token string.
+
+    Returns:
+        str | None: The actual contact_id if valid, None otherwise.
+    """
+    if not token or "." not in token:
+        return None
+
+    try:
+        payload_b64, signature = token.split(".", 1)
+        padding = "=" * (-len(payload_b64) % 4)
+        payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+    if not hmac.compare_digest(_sign_contact_portal_payload(payload), signature):
+        return None
+
+    return payload
+
 

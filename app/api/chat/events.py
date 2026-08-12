@@ -163,19 +163,8 @@ async def update_chat_event(
     user_id: str = Depends(get_active_user_id),
 ) -> EventResponse:
     """Updates meetup event status (proposed -> confirmed / cancelled)."""
-    _ = request
     try:
-        event = await asyncio.to_thread(fetch_event, event_id)
-        if event is None or str(event.get("conversation_id")) != conversation_id:
-            raise HTTPException(status_code=404, detail="Event not found.")
-
-        _validate_event_status_transition(
-            current_status=str(event.get("status") or ""),
-            new_status=payload.status,
-            user_id=user_id,
-            created_by=str(event.get("created_by") or ""),
-        )
-
+        _ = request
         conversation = await asyncio.to_thread(
             fetch_conversation_participants, conversation_id,
         )
@@ -189,6 +178,17 @@ async def update_chat_event(
                 status_code=403,
                 detail="Not a participant of this conversation.",
             )
+
+        event = await asyncio.to_thread(fetch_event, event_id)
+        if event is None or str(event.get("conversation_id")) != conversation_id:
+            raise HTTPException(status_code=404, detail="Event not found.")
+
+        _validate_event_status_transition(
+            current_status=str(event.get("status") or ""),
+            new_status=payload.status,
+            user_id=user_id,
+            created_by=str(event.get("created_by") or ""),
+        )
 
         updated = await asyncio.to_thread(
             update_event_status, event_id, payload.status,

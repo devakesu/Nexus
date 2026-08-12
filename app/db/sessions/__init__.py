@@ -6,6 +6,7 @@ from app.db.sessions.auth_sessions import (
     get_discovery_session,
     get_discovery_session_by_id,
     is_candidate_in_active_session,
+    get_candidate_session_details,
 )
 from app.db.sessions.node_details import fetch_discovery_node_detail
 from app.db.sessions.viewport import fetch_spatial_viewport
@@ -18,4 +19,5 @@ __all__ = [
     "get_discovery_session",
     "get_discovery_session_by_id",
     "is_candidate_in_active_session",
+    "get_candidate_session_details",
 ]

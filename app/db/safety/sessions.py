@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
+from app.core.config import settings
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,10 @@ _SESSION_COLS = (
 )
 
 
+class EscalationInProgressError(Exception):
+    """Raised when starting a new safety session while an active one is already escalating."""
+
+
 def start_safety_session(
     user_id: str,
     label: str | None,
@@ -26,8 +31,25 @@ def start_safety_session(
     battery_percent: int | None,
     connection_type: str | None,
 ) -> dict[str, Any]:
-    """Ends any stale active session for this user and starts a new one."""
+    """Ends any stale active session for this user and starts a new one.
+
+    Raises EscalationInProgressError if there is an active session currently escalating.
+    """
     try:
+        active_res = (
+            supabase_client.table("safety_sessions")
+            .select("id, escalations_sent")
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .execute()
+        )
+        active_sessions = cast(list[dict[str, Any]], active_res.data or [])
+        for session in active_sessions:
+            if int(session.get("escalations_sent") or 0) > 0:
+                raise EscalationInProgressError(
+                    "Cannot start session: escalation already in progress"
+                )
+
         supabase_client.table("safety_sessions").update({"status": "ended"}).eq(
             "user_id",
             user_id,
@@ -126,8 +148,9 @@ def fetch_overdue_safety_sessions(grace_seconds: int) -> list[dict[str, Any]]:
             .select(_SESSION_COLS)
             .eq("status", "active")
             .is_("escalation_cancelled_at", "null")
-            .lt("escalations_sent", 3)
+            .lt("escalations_sent", settings.max_safety_escalations)
             .lt("next_checkin_at", cutoff)
+            .limit(500)
             .execute()
         )
         return cast(list[dict[str, Any]], res.data or [])

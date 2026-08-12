@@ -223,6 +223,7 @@ class Settings(BaseSettings):
     # purge_safety_data_for_purged_accounts.
     safety_evidence_active_retention_days: int = 365
     safety_data_legal_hold_days: int = 180
+    max_safety_escalations: int = 3
 
     # --- Sentry (Error Monitoring) ---
     # Purely optional, no import-time failure if unset (unlike

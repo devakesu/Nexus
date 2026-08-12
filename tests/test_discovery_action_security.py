@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,11 +9,11 @@ from app.models import DiscoveryActionRequest
 
 
 @pytest.mark.anyio
-@patch("app.db.sessions.is_candidate_in_active_session")
+@patch("app.db.sessions.get_candidate_session_details")
 async def test_discovery_action_like_requires_session_failure(
-    mock_in_session: MagicMock,
+    mock_get_details: MagicMock,
 ) -> None:
-    mock_in_session.return_value = False  # Not in session!
+    mock_get_details.return_value = None  # Not in session!
 
     payload = DiscoveryActionRequest(
         target_id="11111111-1111-1111-1111-111111111111",
@@ -37,7 +37,52 @@ async def test_discovery_action_like_requires_session_failure(
 
     assert exc_info.value.status_code == 400
     assert "not in any active discovery session" in exc_info.value.detail
-    mock_in_session.assert_called_once_with(
+    mock_get_details.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.db.sessions.get_candidate_session_details")
+async def test_discovery_action_like_session_expired(
+    mock_get_details: MagicMock,
+) -> None:
+    from app.db.client import utcnow
+    from datetime import timedelta
+
+    # Session expired 6 minutes ago (past 5-minute grace window)
+    expired_time = utcnow() - timedelta(minutes=6)
+    mock_get_details.return_value = {
+        "session_id": "session-123",
+        "expires_at": expired_time,
+    }
+
+    payload = DiscoveryActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="like",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 410
+    assert isinstance(exc_info.value.detail, dict)
+    detail_dict = cast(dict[str, Any], exc_info.value.detail)
+    assert detail_dict["code"] == "SESSION_EXPIRED"
+    mock_get_details.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
     )

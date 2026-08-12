@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.core.infra.cache import redis_client
 from app.core.security.jwks import get_live_supabase_public_key
-from app.db.client import DatabaseAccessError, parse_utc_datetime
+from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.users import fetch_public_user
 
 logger = logging.getLogger(__name__)
@@ -175,10 +175,20 @@ async def _update_presence_if_needed(user_id: str) -> None:
         if was_set:
             user_row = await get_cached_public_user(user_id)
             if user_row:
+                is_suspended = bool(user_row.get("is_suspended", False))
+                if is_suspended:
+                    suspended_until = user_row.get("suspended_until")
+                    if suspended_until:
+                        try:
+                            dt = parse_utc_datetime(str(suspended_until))
+                            if utcnow() >= dt:
+                                is_suspended = False
+                        except ValueError:
+                            pass
                 if (
                     not bool(user_row.get("is_active", True))
                     or user_row.get("deletion_requested_at")
-                    or bool(user_row.get("is_suspended", False))
+                    or is_suspended
                 ):
                     return
 
@@ -300,6 +310,14 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
 
     if bool(user_row.get("is_suspended", False)):
         suspended_until = user_row.get("suspended_until")
+        if suspended_until:
+            try:
+                dt = parse_utc_datetime(str(suspended_until))
+                if utcnow() >= dt:
+                    return
+            except ValueError:
+                pass
+
         reason_code = user_row.get("moderation_reason_code")
         # Map internal codes to generic user-facing categories
         reason_map = {

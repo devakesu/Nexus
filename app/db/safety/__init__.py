@@ -22,6 +22,7 @@ from app.db.safety.evidence import (
     register_safety_evidence,
 )
 from app.db.safety.sessions import (
+    EscalationInProgressError,
     cancel_safety_escalation,
     end_safety_session,
     fetch_overdue_safety_sessions,
@@ -54,4 +55,5 @@ __all__ = [
     "start_safety_session",
     "sync_safety_contacts",
     "update_alert_contacts_notified",
+    "EscalationInProgressError",
 ]

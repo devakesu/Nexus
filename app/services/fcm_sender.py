@@ -144,7 +144,7 @@ def _send_to_tokens(
     body: str | None,
     data: dict[str, str],
     channel_id: str,
-) -> None:
+) -> int:
     """Send to tokens.
 
         Args:
@@ -152,9 +152,12 @@ def _send_to_tokens(
             title: Input title parameter.
             body: Input body parameter.
             data: Input data parameter.
-            channel_id: Input channel id parameter."""
+            channel_id: Input channel id parameter.
+            
+        Returns:
+            int: Number of successfully sent tokens."""
     if not tokens:
-        return
+        return 0
     notification = (
         _fcm.Notification(title=title, body=body) if title or body else None
     )
@@ -196,6 +199,7 @@ def _send_to_tokens(
                         or "NotRegistered" in exc_str
                     ):
                         _deactivate_fcm_token(tokens[i])
+    return response.success_count
 
 
 async def send_like_notification(
@@ -372,18 +376,27 @@ async def send_chat_event_reminder_notification(
     conversation_id: str,
     tab: str,
     location_label: str | None,
-) -> None:
-    """
-    Fire-and-forget: reminds both participants about an upcoming plan.
+) -> bool:
+    """Reminds both participants about an upcoming plan.
 
-    The body is deliberately generic (only the plaintext location_label,
-    if any) - the event's title/notes are E2E encrypted and the server
-    never has them. Exact time is shown by the client from data it already
-    has once the notification is tapped open.
+    Returns True if at least one notification was successfully delivered, False otherwise.
     """
     if not _is_firebase_initialized():
-        return
+        return False
     try:
+        from app.db.chat import fetch_conversation_participants
+
+        convo = await asyncio.to_thread(fetch_conversation_participants, conversation_id)
+        if not convo or convo.get("closed_at") is not None:
+            return False
+
+        blocks_a, blocks_b = await asyncio.gather(
+            get_cached_active_block_ids(user_a_id),
+            get_cached_active_block_ids(user_b_id),
+        )
+        if user_b_id in blocks_a or user_a_id in blocks_b:
+            return False
+
         tokens_a, tokens_b = await asyncio.gather(
             asyncio.to_thread(_fetch_user_fcm_tokens, user_a_id),
             asyncio.to_thread(_fetch_user_fcm_tokens, user_b_id),
@@ -398,8 +411,10 @@ async def send_chat_event_reminder_notification(
             "conversation_id": conversation_id,
             "tab": tab,
         }
+        
+        success_count = 0
         if tokens_a:
-            await asyncio.to_thread(
+            success_count += await asyncio.to_thread(
                 _send_to_tokens,
                 tokens_a,
                 "Upcoming plan reminder",
@@ -408,7 +423,7 @@ async def send_chat_event_reminder_notification(
                 "chat_event_reminder",
             )
         if tokens_b:
-            await asyncio.to_thread(
+            success_count += await asyncio.to_thread(
                 _send_to_tokens,
                 tokens_b,
                 "Upcoming plan reminder",
@@ -416,11 +431,13 @@ async def send_chat_event_reminder_notification(
                 data,
                 "chat_event_reminder",
             )
+        return success_count > 0
     except Exception:
         logger.exception(
             "Failed to send event reminder notification",
             extra={"conversation_id": conversation_id},
         )
+        return False
 
 
 _SAFETY_REMINDER_NOUN_BY_TAB = {

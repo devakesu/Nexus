@@ -200,3 +200,40 @@ async def test_mark_messages_read_blocked(
     mock_get_blocks.assert_called_once_with("user-b")
     mock_mark.assert_not_called()
 
+
+@pytest.mark.anyio
+@patch("app.api.chat.messages.fetch_conversation_participants")
+@patch("app.api.chat.messages.mark_messages_read")
+async def test_mark_messages_read_closed_conversation(
+    mock_mark: MagicMock,
+    mock_fetch_convo: MagicMock,
+) -> None:
+    # Mock parameters indicating conversation is closed
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": "2026-08-12T12:00:00Z",
+        "tab": "Dating",
+    }
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    from app.api.chat.messages import mark_conversation_messages_read
+    with pytest.raises(HTTPException) as exc_info:
+        await mark_conversation_messages_read(
+            request=request,
+            conversation_id="convo-123",
+            user_id="user-a",
+        )
+
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc_info.value.detail == "Conversation is closed."
+    mock_mark.assert_not_called()
+
+

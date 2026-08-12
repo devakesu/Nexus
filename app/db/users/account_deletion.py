@@ -18,6 +18,7 @@ See 20260801000000_account_deletion_lifecycle.sql,
 """
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Any, cast
 
@@ -354,6 +355,7 @@ def _fetch_accounts_due_for_purge() -> list[dict[str, Any]]:
             .not_.is_("deletion_requested_at", "null")
             .is_("purged_at", "null")
             .lte("scheduled_purge_at", utcnow().isoformat())
+            .limit(500)
             .execute()
         )
     except APIError as e:
@@ -474,39 +476,46 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
 def purge_due_accounts() -> None:
     """Tier-1 purge job body, run daily by the scheduler. Per-account
     failures are logged and skipped rather than aborting the whole batch.
+    Processes accounts in batches of 50 with a 1-second sleep between batches.
     """
     now = utcnow()
-    for row in _fetch_accounts_due_for_purge():
-        user_id = str(row.get("id") or "")
-        if not user_id:
-            continue
-        try:
-            blind_index = row.get("mobile_blind_index")
-            reason_code = row.get("deletion_flagged_reason_code")
-            if reason_code and blind_index:
-                supabase_client.table("deleted_account_blocklist").insert(
-                    {
-                        "phone_blind_index": blind_index,
-                        "cooldown_expires_at": (
-                            now
-                            + timedelta(
-                                days=settings.account_deletion_blocklist_cooldown_days,
-                            )
-                        ).isoformat(),
-                        "reason_code": reason_code,
-                    },
-                ).execute()
+    accounts = _fetch_accounts_due_for_purge()
+    batch_size = 50
+    for i in range(0, len(accounts), batch_size):
+        batch = accounts[i:i + batch_size]
+        for row in batch:
+            user_id = str(row.get("id") or "")
+            if not user_id:
+                continue
+            try:
+                blind_index = row.get("mobile_blind_index")
+                reason_code = row.get("deletion_flagged_reason_code")
+                if reason_code and blind_index:
+                    supabase_client.table("deleted_account_blocklist").insert(
+                        {
+                            "phone_blind_index": blind_index,
+                            "cooldown_expires_at": (
+                                now
+                                + timedelta(
+                                    days=settings.account_deletion_blocklist_cooldown_days,
+                                )
+                            ).isoformat(),
+                            "reason_code": reason_code,
+                        },
+                    ).execute()
 
-            _permanently_unmatch_all(user_id)
-            _anonymize_profile_and_user(user_id, now)
-            _delete_no_retention_rows(user_id)
-            _delete_user_media_objects(user_id)
-            _ban_and_scrub_auth_user(user_id)
-        except Exception:
-            logger.exception(
-                "Failed to purge account; will retry next run",
-                extra={"user_id": user_id},
-            )
+                _permanently_unmatch_all(user_id)
+                _anonymize_profile_and_user(user_id, now)
+                _delete_no_retention_rows(user_id)
+                _delete_user_media_objects(user_id)
+                _ban_and_scrub_auth_user(user_id)
+            except Exception:
+                logger.exception(
+                    "Failed to purge account; will retry next run",
+                    extra={"user_id": user_id},
+                )
+        if i + batch_size < len(accounts):
+            time.sleep(1.0)
 
 
 def expire_blocklist_entries() -> None:
@@ -593,6 +602,7 @@ def _fetch_accounts_due_for_long_tail_purge() -> list[str]:
             .select("id")
             .not_.is_("purged_at", "null")
             .lte("purged_at", cutoff.isoformat())
+            .limit(500)
             .execute()
         )
     except APIError as e:
@@ -612,13 +622,20 @@ def hard_purge_long_tail_accounts() -> None:
     app/api/user.py:143 - this cascades away the anonymized profiles/users
     shell and everything still hanging off it (old matches,
     chat_conversations, chat_messages, user_reports, etc).
+    Processes accounts in batches of 50 with a 1-second sleep between batches.
     """
-    for user_id in _fetch_accounts_due_for_long_tail_purge():
-        try:
-            _archive_account_history(user_id)
-            supabase_client.auth.admin.delete_user(user_id)
-        except Exception:
-            logger.exception(
-                "Failed to hard-purge long-tail account; will retry next run",
-                extra={"user_id": user_id},
-            )
+    accounts = _fetch_accounts_due_for_long_tail_purge()
+    batch_size = 50
+    for i in range(0, len(accounts), batch_size):
+        batch = accounts[i:i + batch_size]
+        for user_id in batch:
+            try:
+                _archive_account_history(user_id)
+                supabase_client.auth.admin.delete_user(user_id)
+            except Exception:
+                logger.exception(
+                    "Failed to hard-purge long-tail account; will retry next run",
+                    extra={"user_id": user_id},
+                )
+        if i + batch_size < len(accounts):
+            time.sleep(1.0)

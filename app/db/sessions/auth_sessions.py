@@ -246,3 +246,32 @@ def is_candidate_in_active_session(viewer_id: str, candidate_id: str) -> bool:
             extra={"viewer_id": viewer_id, "candidate_id": candidate_id},
         )
         return False
+
+
+def get_candidate_session_details(viewer_id: str, candidate_id: str) -> dict[str, Any] | None:
+    """Retrieves session details for a candidate associated with the viewer."""
+    try:
+        res = (
+            supabase_client.table("discovery_session_items")
+            .select("session_id, discovery_sessions!inner(viewer_id, expires_at)")
+            .eq("candidate_id", candidate_id)
+            .eq("discovery_sessions.viewer_id", viewer_id)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            item = cast(dict[str, Any], res.data[0])
+            ds = cast(dict[str, Any], item.get("discovery_sessions") or {})
+            expires_at_val = ds.get("expires_at")
+            return {
+                "session_id": str(item.get("session_id") or ""),
+                "expires_at": parse_utc_datetime(str(expires_at_val)) if expires_at_val else None,
+            }
+        return None
+    except Exception:
+        logger.exception(
+            "Error fetching session details for candidate",
+            extra={"viewer_id": viewer_id, "candidate_id": candidate_id},
+        )
+        return None
+

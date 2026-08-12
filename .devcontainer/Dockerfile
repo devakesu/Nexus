@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     jq \
     openjdk-21-jdk-headless \
+    pkg-config \
     python3 \
+    python3-dev \
     python3-pip \
     python3-venv \
     socat \
@@ -43,6 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN ln -sf /usr/bin/python3 /usr/local/bin/python \
     && ln -sf /usr/bin/pip3 /usr/local/bin/pip
 
+# Pre-install core build & tooling packages globally
+RUN pip install --no-cache-dir --break-system-packages \
+    pip-tools \
+    pyright \
+    setuptools \
+    wheel
+
 RUN npm install -g npm@latest
 
 # 2. Configure Paths for Shared Host Mounts
@@ -65,7 +74,7 @@ RUN mkdir -p $HOME/.antigravity-server/data/Machine \
     && ln -s $HOME/.vscode-server/extensions $HOME/.antigravity-ide-server/extensions \
     && SETTINGS='{ \
         "remote.forwardAgent": false, \
-        "python.defaultInterpreterPath": "/nexus/.venv/bin/python", \
+        "python.defaultInterpreterPath": "/home/vscode/.virtualenvs/nexus/bin/python", \
         "python.analysis.diagnosticMode": "workspace", \
         "python.analysis.typeCheckingMode": "strict", \
         "python.analysis.inlayHints.variableTypes": true, \
@@ -164,34 +173,45 @@ fi
 git config --global --add safe.directory "$TARGET_DIR"
 
 # --- 5. PYTHON ENVIRONMENT ---
-if [ -d "$TARGET_DIR" ]; then
-    echo "🐍 Checking Python Environment in $TARGET_DIR..."
+VENV_DIR="/home/vscode/.virtualenvs/nexus"
 
-    if [ ! -d "$TARGET_DIR/.venv" ] || ! "$TARGET_DIR/.venv/bin/python" --version >/dev/null 2>&1; then
-        echo "♻️ Creating Python virtual environment..."
-        rm -rf "$TARGET_DIR/.venv"
-        python3 -m venv "$TARGET_DIR/.venv"
-    fi
+echo "🐍 Checking Python Environment at $VENV_DIR..."
 
-    if [ -x "$TARGET_DIR/.venv/bin/pip" ]; then
-        echo "📦 Synchronizing Python packages..."
-        "$TARGET_DIR/.venv/bin/pip" install --upgrade pip --quiet
-        "$TARGET_DIR/.venv/bin/pip" install pyright firebase-admin supabase --quiet
-        if [ -f "$TARGET_DIR/requirements.txt" ]; then
-            "$TARGET_DIR/.venv/bin/pip" install -r "$TARGET_DIR/requirements.txt"
+if [ ! -d "$VENV_DIR" ] || ! "$VENV_DIR/bin/python" --version >/dev/null 2>&1; then
+    echo "♻️ Creating Python virtual environment..."
+    mkdir -p "/home/vscode/.virtualenvs"
+    rm -rf "$VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+fi
+
+# Clean up legacy in-repo venv so Scorecard local scans pass cleanly
+if [ -d "$TARGET_DIR/.venv" ]; then
+    echo "🧹 Removing legacy in-repo .venv at $TARGET_DIR/.venv..."
+    rm -rf "$TARGET_DIR/.venv"
+fi
+
+if [ -x "$VENV_DIR/bin/pip" ]; then
+    echo "📦 Synchronizing Python packages..."
+    
+    if [ -f "$TARGET_DIR/requirements.txt" ]; then
+        if grep -q "--hash=" "$TARGET_DIR/requirements.txt"; then
+            echo "🔒 Installing dependencies with strict hash verification..."
+            "$VENV_DIR/bin/pip" install --require-hashes -r "$TARGET_DIR/requirements.txt"
+        else
+            "$VENV_DIR/bin/pip" install -r "$TARGET_DIR/requirements.txt"
         fi
-        echo "✅ Python virtual environment ready."
-
-        BASHRC="/home/vscode/.bashrc"
-        if ! grep -qF "$TARGET_DIR/.venv/bin/activate" "$BASHRC" 2>/dev/null; then
-            echo "" >> "$BASHRC"
-            echo "# Auto-activate venv on interactive terminal launch" >> "$BASHRC"
-            echo "if [ -f $TARGET_DIR/.venv/bin/activate ]; then source $TARGET_DIR/.venv/bin/activate; fi" >> "$BASHRC"
-            echo "⚡ Added venv auto-activation to $BASHRC"
-        fi
-    else
-        echo "⚠️ Failed to create virtual environment or pip binary missing."
     fi
+    echo "✅ Python virtual environment ready."
+
+    BASHRC="/home/vscode/.bashrc"
+    if ! grep -qF "$VENV_DIR/bin/activate" "$BASHRC" 2>/dev/null; then
+        echo "" >> "$BASHRC"
+        echo "# Auto-activate venv on interactive terminal launch" >> "$BASHRC"
+        echo "if [ -f $VENV_DIR/bin/activate ]; then source $VENV_DIR/bin/activate; fi" >> "$BASHRC"
+        echo "⚡ Added venv auto-activation to $BASHRC"
+    fi
+else
+    echo "⚠️ Failed to create virtual environment or pip binary missing."
 fi
 
 # --- 6. NPM & FLUTTER SETUP ---

@@ -110,6 +110,7 @@ class KeyBundleResponse(BaseModel):
     signed_prekey_signature: Base64Bytes
     one_time_prekey_id: int | None = None
     one_time_prekey_public: Base64Bytes | None = None
+    one_time_prekey_used: bool
 
 
 class EstablishSessionRequest(BaseModel):

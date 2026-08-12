@@ -295,7 +295,6 @@ async def _validate_discovery_action(
             user_id: Unique UUID string of the authenticated user.
             payload: Validated request body model containing parameters."""
     from app.db.discovery import has_active_discovery_action
-    from app.db.sessions import is_candidate_in_active_session
 
     is_reversal = payload.action.startswith("un")
     base_action = payload.action[2:] if is_reversal else payload.action
@@ -320,15 +319,31 @@ async def _validate_discovery_action(
     else:
         # Forward actions (except block/report) must be validated against active session.
         if payload.action not in ("block", "report"):
-            is_valid = await asyncio.to_thread(
-                is_candidate_in_active_session,
+            from app.db.sessions import get_candidate_session_details
+            from app.db.client import utcnow
+            from datetime import timedelta
+
+            session_details = await asyncio.to_thread(
+                get_candidate_session_details,
                 user_id,
                 payload.target_id,
             )
-            if not is_valid:
+            if session_details is None:
                 raise HTTPException(
                     status_code=400,
                     detail="Target user is not in any active discovery session.",
+                )
+
+            # 5-minute grace window: allow actions if expires_at + 5 minutes > now
+            now = utcnow()
+            expires_at = session_details["expires_at"]
+            if expires_at is None or now > expires_at + timedelta(minutes=5):
+                raise HTTPException(
+                    status_code=410,
+                    detail={
+                        "code": "SESSION_EXPIRED",
+                        "message": "Discovery session has expired. Please refresh your feed.",
+                    },
                 )
 
 

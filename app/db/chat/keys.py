@@ -243,6 +243,7 @@ def fetch_key_bundle(user_id: str) -> dict[str, Any] | None:
             "signed_prekey_signature": _from_bytea(signed_prekey_row["signature"]),
             "one_time_prekey_id": one_time_prekey_id,
             "one_time_prekey_public": one_time_prekey_public,
+            "one_time_prekey_used": one_time_prekey_public is not None,
         }
     except APIError as e:
         logger.exception("Failed to fetch key bundle", extra={"user_id": user_id})
@@ -254,6 +255,9 @@ def mark_session_established(user_id: str, conversation_id: str) -> None:
     now = utcnow()
     valid_user_id = normalize_uuid(user_id)
     try:
+        # PostgREST chains separate filter methods with an implicit logical AND.
+        # This query evaluates to: id = conversation_id AND (user_a_id = valid_user_id OR user_b_id = valid_user_id).
+        # This ensures we strictly target only the specific conversation_id, while validating caller membership.
         (
             supabase_client.table("chat_conversations")
             .update({"session_established_at": now.isoformat()})

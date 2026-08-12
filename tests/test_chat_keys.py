@@ -23,6 +23,7 @@ async def test_get_key_bundle_success(
         "signed_prekey_signature": b"m#:\x9f\x8f\xa3\xa8\x07",
         "one_time_prekey_id": 99,
         "one_time_prekey_public": b"\x05\xfb\xd1\x1c\xd1\x0b",
+        "one_time_prekey_used": True,
     }
 
     mock_request = Request(
@@ -48,3 +49,4 @@ async def test_get_key_bundle_success(
     assert res.signed_prekey_signature == b"m#:\x9f\x8f\xa3\xa8\x07"
     assert res.one_time_prekey_id == 99
     assert res.one_time_prekey_public == b"\x05\xfb\xd1\x1c\xd1\x0b"
+    assert res.one_time_prekey_used is True

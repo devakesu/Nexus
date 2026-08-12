@@ -240,6 +240,7 @@ async def get_key_bundle(
                 if bundle["one_time_prekey_public"] is not None
                 else None
             ),
+            one_time_prekey_used=bundle["one_time_prekey_used"],
         )
     except DatabaseAccessError as err:
         logger.exception(

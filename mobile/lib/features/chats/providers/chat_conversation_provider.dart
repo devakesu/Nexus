@@ -303,6 +303,18 @@ class ChatConversationController extends _$ChatConversationController {
       }
     });
 
+    final isUuid = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(peerUserId);
+    if (!isUuid) {
+      return const ChatConversationState(
+        messages: [],
+        sessionReady: false,
+        sending: false,
+        conversationClosed: true,
+      );
+    }
+
     // Local-first: cached messages are already plaintext (vault-encrypted
     // at rest only, no ratchet decryption needed - see LocalMessages' doc
     // comment), so they can render instantly with no network round trip at
@@ -320,11 +332,16 @@ class ChatConversationController extends _$ChatConversationController {
         localRows.reversed.map(_viewFromCachedRow),
       );
       unawaited(
-        _bootstrap(conversationId, peerUserId).then((fresh) {
-          if (_disposed) return;
-          state = AsyncData(fresh);
-          _syncSessionPolling(fresh);
-        }),
+        _bootstrap(conversationId, peerUserId)
+            .then((fresh) {
+              if (_disposed) return;
+              state = AsyncData(fresh);
+              _syncSessionPolling(fresh);
+            })
+            .catchError((Object err, StackTrace st) {
+              if (_disposed) return;
+              state = AsyncError(err, st);
+            }),
       );
       return ChatConversationState(
         messages: initialMessages,
@@ -341,12 +358,18 @@ class ChatConversationController extends _$ChatConversationController {
     // with isRevalidating: true, running _bootstrap in the background so the
     // UI doesn't block on network calls.
     unawaited(
-      _bootstrap(conversationId, peerUserId).then((result) {
-        if (!_disposed) {
-          state = AsyncData(result);
-          _syncSessionPolling(result);
-        }
-      }),
+      _bootstrap(conversationId, peerUserId)
+          .then((result) {
+            if (!_disposed) {
+              state = AsyncData(result);
+              _syncSessionPolling(result);
+            }
+          })
+          .catchError((Object err, StackTrace st) {
+            if (!_disposed) {
+              state = AsyncError(err, st);
+            }
+          }),
     );
     return const ChatConversationState(
       messages: [],
@@ -513,7 +536,8 @@ class ChatConversationController extends _$ChatConversationController {
       _subscribeRealtime(store, address);
     }
 
-    if (messages.any((m) => !m.isMine && m.readAt == null)) {
+    if (!conversationClosed &&
+        messages.any((m) => !m.isMine && m.readAt == null)) {
       unawaited(markAsRead());
     }
 
@@ -703,6 +727,8 @@ class ChatConversationController extends _$ChatConversationController {
   /// Marks the peer's messages in this conversation as read. No-ops
   /// server-side (without erroring) if this user has Read Receipts off.
   Future<void> markAsRead() async {
+    final current = state.value;
+    if (current != null && current.conversationClosed) return;
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return;
     try {
@@ -960,7 +986,12 @@ class ChatConversationController extends _$ChatConversationController {
     final current = state.value;
     final store = _store;
     final address = _peerAddress;
-    if (current == null || store == null || address == null) return false;
+    if (current == null ||
+        store == null ||
+        address == null ||
+        current.conversationClosed) {
+      return false;
+    }
 
     state = AsyncData(current.copyWith(sending: true));
     try {
@@ -1085,7 +1116,12 @@ class ChatConversationController extends _$ChatConversationController {
     final current = state.value;
     final store = _store;
     final address = _peerAddress;
-    if (current == null || store == null || address == null) return false;
+    if (current == null ||
+        store == null ||
+        address == null ||
+        current.conversationClosed) {
+      return false;
+    }
 
     state = AsyncData(current.copyWith(sending: true));
     try {

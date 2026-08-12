@@ -131,6 +131,12 @@ async def mark_conversation_messages_read(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found.")
 
+        if conversation.get("closed_at") is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Conversation is closed.",
+            )
+
         user_a_id = str(conversation.get("user_a_id") or "")
         user_b_id = str(conversation.get("user_b_id") or "")
         if user_id not in (user_a_id, user_b_id):

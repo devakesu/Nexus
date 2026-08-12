@@ -21,7 +21,7 @@ from app.core.security.portal_auth import (
     verify_otp_hash,
     verify_portal_access_token,
 )
-from app.core.utils.sms import compose_contact_self_removed_message, send_sms
+from app.core.utils.sms import compose_contact_self_removed_message, send_sms, verify_contact_portal_token
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     create_evidence_download_url,
@@ -323,8 +323,14 @@ async def request_contact_portal_otp(
     contact_id: str,
     payload: SafetyContactPortalOtpRequestRequest = Body(...),
 ) -> SafetyContactPortalOtpRequestResponse:
-    """Sends a 6-digit OTP only if the phone matches this specific contact row."""
     _ = request
+    actual_contact_id = verify_contact_portal_token(contact_id)
+    if actual_contact_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid contact token.",
+        )
+    contact_id = actual_contact_id
     phone_norm = normalize_phone(payload.phone)
 
     resend_key = _contact_resend_key(contact_id, phone_norm)
@@ -380,8 +386,14 @@ async def verify_contact_portal_otp(
     contact_id: str,
     payload: SafetyContactPortalOtpVerifyRequest = Body(...),
 ) -> SafetyContactPortalOtpVerifyResponse:
-    """Executes verify contact portal otp operation."""
     _ = request
+    actual_contact_id = verify_contact_portal_token(contact_id)
+    if actual_contact_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid contact token.",
+        )
+    contact_id = actual_contact_id
     phone_norm = normalize_phone(payload.phone)
 
     attempts_key = _contact_attempts_key(contact_id, phone_norm)
@@ -422,8 +434,14 @@ async def get_contact_portal_details(
     contact_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyContactPortalDetailsResponse:
-    """Executes get contact portal details operation."""
     _ = request
+    actual_contact_id = verify_contact_portal_token(contact_id)
+    if actual_contact_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid contact token.",
+        )
+    contact_id = actual_contact_id
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(contact_id, token) is None:
         raise HTTPException(
@@ -510,8 +528,14 @@ async def remove_trusted_contact(
     contact_id: str,
     authorization: str | None = Header(default=None),
 ) -> SafetyContactPortalRemoveResponse:
-    """A trusted contact removing themselves at their own request."""
     _ = request
+    actual_contact_id = verify_contact_portal_token(contact_id)
+    if actual_contact_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid contact token.",
+        )
+    contact_id = actual_contact_id
     token = _extract_bearer_token(authorization)
     if token is None or verify_portal_access_token(contact_id, token) is None:
         raise HTTPException(
@@ -557,5 +581,10 @@ async def portal_page(request: Request, session_id: str) -> HTMLResponse:
 async def contact_portal_page(request: Request, contact_id: str) -> HTMLResponse:
     """Serves the (static, contact-id-agnostic) self-removal portal shell."""
     _ = request
-    _ = contact_id
+    actual_contact_id = verify_contact_portal_token(contact_id)
+    if actual_contact_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid contact token.",
+        )
     return HTMLResponse(_CONTACT_PORTAL_PAGE_HTML)
