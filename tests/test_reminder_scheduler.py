@@ -299,6 +299,27 @@ def test_purge_due_accounts_batches_and_sleeps(
     mock_sleep.assert_any_call(1.0)
 
 
+@patch("app.db.users.account_deletion.supabase_client.auth.admin.update_user_by_id")
+def test_ban_and_scrub_auth_user_appends_random_token(mock_update_user: MagicMock):
+    from app.db.users.account_deletion import _ban_and_scrub_auth_user
+    from app.core.config import settings
+
+    _ban_and_scrub_auth_user("user-xyz")
+
+    mock_update_user.assert_called_once()
+    args, _ = mock_update_user.call_args
+    assert args[0] == "user-xyz"
+    update_payload = args[1]
+    assert update_payload["ban_duration"] == "876000h"
+    email = update_payload["email"]
+    assert email.startswith("deleted-user-xyz-")
+    assert email.endswith(f"@deleted.{settings.email_domain}")
+    # Verify hex token length in email
+    token_part = email.split("@")[0].replace("deleted-user-xyz-", "")
+    assert len(token_part) == 16  # token_hex(8) produces 16 hex chars
+
+
+
 @patch("app.db.users.account_deletion._fetch_accounts_due_for_long_tail_purge")
 @patch("app.db.users.account_deletion._archive_account_history")
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.delete_user")
@@ -313,12 +334,54 @@ def test_hard_purge_long_tail_accounts_batches_and_sleeps(
 
     # Simulate 75 accounts (2 batches: 50, 25)
     mock_fetch.return_value = [f"user-{i}" for i in range(75)]
+    mock_archive.return_value = []
 
     hard_purge_long_tail_accounts()
 
     assert mock_delete.call_count == 75
     assert mock_sleep.call_count == 1  # Sleep called once between the 2 batches
     mock_sleep.assert_any_call(1.0)
+
+
+@patch("app.db.users.account_deletion._fetch_accounts_due_for_long_tail_purge")
+@patch("app.db.users.account_deletion._archive_account_history")
+@patch("app.db.users.account_deletion.supabase_client.auth.admin.delete_user")
+@patch("app.db.users.account_deletion.time.sleep")
+def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
+    mock_sleep: MagicMock,
+    mock_delete: MagicMock,
+    mock_archive: MagicMock,
+    mock_fetch: MagicMock,
+):
+    from app.db.users.account_deletion import hard_purge_long_tail_accounts
+
+    def _mock_archive_side_effect(uid: str) -> list[str]:
+        return ["user_reports"] if uid == "user-fail" else []
+
+    mock_archive.side_effect = _mock_archive_side_effect
+
+    hard_purge_long_tail_accounts()
+
+    # delete_user should only be called for user-ok, skipping user-fail
+    assert mock_delete.call_count == 1
+    mock_delete.assert_called_once_with("user-ok")
+
+
+def test_archive_account_history_tracks_failures():
+    from app.db.users.account_deletion import _archive_account_history
+    from postgrest.exceptions import APIError
+
+    builder = MagicMock()
+    builder.select.return_value = builder
+    builder.or_.return_value = builder
+    builder.eq.return_value = builder
+    builder.execute.side_effect = APIError({"message": "DB error"})
+
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=builder):
+        failed_tables = _archive_account_history("user-123")
+
+    assert "user_reports" in failed_tables
+    assert len(failed_tables) == 3
 
 
 def test_make_and_verify_escalation_cancel_token():

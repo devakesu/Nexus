@@ -1,0 +1,154 @@
+from datetime import datetime, timezone
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import HTTPException, Request
+from pydantic import ValidationError
+
+from app.api.discovery.endpoints import get_discovery_viewport
+from app.models import DiscoveryViewportRequest, DiscoveryViewportResponse
+
+
+def _make_dummy_request() -> Request:
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/discover/viewport",
+    }
+    return Request(scope)
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.endpoints.fetch_spatial_viewport")
+@patch("app.api.discovery.endpoints.get_or_validate_session")
+async def test_discovery_viewport_passes_tab_to_session_validation(
+    mock_get_or_validate_session: MagicMock,
+    mock_fetch_spatial_viewport: AsyncMock,
+) -> None:
+    session_id = "11111111-1111-1111-1111-111111111111"
+    user_id = "22222222-2222-2222-2222-222222222222"
+    expires_at = datetime.now(timezone.utc)
+
+    mock_get_or_validate_session.return_value = (session_id, expires_at)
+    mock_fetch_spatial_viewport.return_value = (
+        [
+            {
+                "id": "33333333-3333-3333-3333-333333333333",
+                "name": "Alice",
+                "profile_pic": "https://example.com/pic.jpg",
+                "score": 85.5,
+                "x": 10.0,
+                "y": 20.0,
+                "orbit_tier": 1,
+            }
+        ],
+        1,
+    )
+
+    payload = DiscoveryViewportRequest(
+        tab="Friends",
+        session_id=session_id,
+        center_x=0.0,
+        center_y=0.0,
+        radius=500.0,
+    )
+
+    response = await get_discovery_viewport(
+        request=_make_dummy_request(),
+        payload=payload,
+        user_id=user_id,
+    )
+
+    assert isinstance(response, DiscoveryViewportResponse)
+    assert response.session_id == session_id
+    assert response.total_nodes == 1
+    assert len(response.nodes) == 1
+    assert response.nodes[0].name == "Alice"
+
+    mock_get_or_validate_session.assert_called_once_with(
+        session_id,
+        user_id,
+        "Friends",
+    )
+    mock_fetch_spatial_viewport.assert_called_once_with(
+        session_id=session_id,
+        viewer_id=user_id,
+        center_x=0.0,
+        center_y=0.0,
+        radius=500.0,
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.endpoints.get_or_validate_session")
+async def test_discovery_viewport_session_validation_error_propagates(
+    mock_get_or_validate_session: MagicMock,
+) -> None:
+    session_id = "11111111-1111-1111-1111-111111111111"
+    user_id = "22222222-2222-2222-2222-222222222222"
+
+    mock_get_or_validate_session.side_effect = HTTPException(
+        status_code=404,
+        detail="Discovery session not found.",
+    )
+
+    payload = DiscoveryViewportRequest(
+        tab="Dating",
+        session_id=session_id,
+        center_x=50.0,
+        center_y=50.0,
+        radius=300.0,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_discovery_viewport(
+            request=_make_dummy_request(),
+            payload=payload,
+            user_id=user_id,
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Discovery session not found."
+    mock_get_or_validate_session.assert_called_once_with(
+        session_id,
+        user_id,
+        "Dating",
+    )
+
+
+def test_discovery_viewport_request_validation() -> None:
+    session_id = "11111111-1111-1111-1111-111111111111"
+
+    # Valid requests for all tabs
+    for tab in ("Dating", "Friends", "Professional"):
+        req = DiscoveryViewportRequest(
+            tab=tab,  # type: ignore[arg-type]
+            session_id=session_id,
+            center_x=0.0,
+            center_y=0.0,
+            radius=100.0,
+        )
+        assert req.tab == tab
+
+    # Missing tab should raise ValidationError
+    with pytest.raises(ValidationError):
+        DiscoveryViewportRequest.model_validate(
+            {
+                "session_id": session_id,
+                "center_x": 0.0,
+                "center_y": 0.0,
+                "radius": 100.0,
+            }
+        )
+
+    # Invalid tab should raise ValidationError
+    with pytest.raises(ValidationError):
+        DiscoveryViewportRequest(
+            tab="InvalidTab",  # type: ignore[arg-type]
+            session_id=session_id,
+            center_x=0.0,
+            center_y=0.0,
+            radius=100.0,
+        )

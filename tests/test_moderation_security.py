@@ -204,3 +204,32 @@ async def test_submit_appeal_ticket_flow(
         submitter_name=None,
         account_id_or_phone=None,
     )
+
+
+def test_set_user_suspension_invalidates_cache() -> None:
+    from app.db.users.auth import set_user_suspension
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "user-susp-123"}])
+
+    with (
+        patch("app.db.users.auth.supabase_client.table", return_value=mock_builder),
+        patch("app.db.users.auth.invalidate_user_status_cache") as mock_invalidate,
+    ):
+        set_user_suspension(
+            user_id="user-susp-123",
+            is_suspended=True,
+            moderation_status="banned",
+            moderation_reason_code="harassment",
+        )
+        mock_builder.update.assert_called_once_with({
+            "is_suspended": True,
+            "suspended_until": None,
+            "moderation_status": "banned",
+            "moderation_reason_code": "harassment",
+        })
+        mock_builder.eq.assert_called_once_with("id", "user-susp-123")
+        mock_invalidate.assert_called_once_with("user-susp-123")
+

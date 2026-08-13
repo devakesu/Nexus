@@ -5,6 +5,7 @@ from app.db.sessions.auth_sessions import (
     delete_expired_discovery_sessions,
     get_discovery_session,
     get_discovery_session_by_id,
+    invalidate_viewer_discovery_sessions,
     is_candidate_in_active_session,
     get_candidate_session_details,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "fetch_spatial_viewport",
     "get_discovery_session",
     "get_discovery_session_by_id",
+    "invalidate_viewer_discovery_sessions",
     "is_candidate_in_active_session",
     "get_candidate_session_details",
 ]

@@ -18,6 +18,7 @@ See 20260801000000_account_deletion_lifecycle.sql,
 """
 
 import logging
+import secrets
 import time
 from datetime import datetime, timedelta
 from typing import Any, cast
@@ -296,6 +297,16 @@ def request_deletion(
             "Failed to deactivate devices for deletion", extra={"user_id": user_id},
         )
 
+    try:
+        supabase_client.table("discovery_session_items").delete().eq(
+            "candidate_id", user_id,
+        ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to delete discovery_session_items on deletion request",
+            extra={"user_id": user_id},
+        )
+
     _close_all_conversations(user_id)
 
     if access_token:
@@ -459,12 +470,13 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
 
         Args:
             user_id: Unique UUID string of the authenticated user."""
+    random_suffix = secrets.token_hex(8)
     try:
         supabase_client.auth.admin.update_user_by_id(
             user_id,
             {
                 "ban_duration": "876000h",  # ~100 years - effectively permanent
-                "email": f"deleted-{user_id}@deleted.{settings.email_domain}",
+                "email": f"deleted-{user_id}-{random_suffix}@deleted.{settings.email_domain}",
             },
         )
     except Exception:
@@ -545,11 +557,15 @@ _ARCHIVE_SOURCE_TABLES: tuple[_ArchiveSource, ...] = (
 )
 
 
-def _archive_account_history(user_id: str) -> None:
+def _archive_account_history(user_id: str) -> list[str]:
     """Archive account history.
 
         Args:
-            user_id: Unique UUID string of the authenticated user."""
+            user_id: Unique UUID string of the authenticated user.
+
+        Returns:
+            list[str]: List of table names that failed archival."""
+    failed_tables: list[str] = []
     for source in _ARCHIVE_SOURCE_TABLES:
         table, or_filter_template, reason_field, outcome_field = source
         try:
@@ -567,6 +583,13 @@ def _archive_account_history(user_id: str) -> None:
             logger.exception(
                 "Failed to fetch %s for archival", table, extra={"user_id": user_id},
             )
+            failed_tables.append(table)
+            continue
+        except Exception:
+            logger.exception(
+                "Unexpected failure fetching %s for archival", table, extra={"user_id": user_id},
+            )
+            failed_tables.append(table)
             continue
 
         rows = cast(list[dict[str, Any]], res.data or [])
@@ -588,6 +611,14 @@ def _archive_account_history(user_id: str) -> None:
             logger.exception(
                 "Failed to archive %s rows", table, extra={"user_id": user_id},
             )
+            failed_tables.append(table)
+        except Exception:
+            logger.exception(
+                "Unexpected failure inserting %s rows to archive", table, extra={"user_id": user_id},
+            )
+            failed_tables.append(table)
+
+    return failed_tables
 
 
 def _fetch_accounts_due_for_long_tail_purge() -> list[str]:
@@ -630,7 +661,16 @@ def hard_purge_long_tail_accounts() -> None:
         batch = accounts[i:i + batch_size]
         for user_id in batch:
             try:
-                _archive_account_history(user_id)
+                failed_tables = _archive_account_history(user_id)
+                if failed_tables:
+                    logger.error(
+                        "Aborting hard purge for user %s due to archival failure in tables: %s; will retry next run",
+                        user_id,
+                        failed_tables,
+                        extra={"user_id": user_id, "failed_tables": failed_tables},
+                    )
+                    continue
+
                 supabase_client.auth.admin.delete_user(user_id)
             except Exception:
                 logger.exception(

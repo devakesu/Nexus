@@ -193,3 +193,60 @@ def test_fetch_likes_for_user_filters_deactivated(mock_supabase: MagicMock) -> N
         "actor_id, action, created_at, seen_at, actor:profiles!actor_id(is_deactivated)"
     )
     mock_actions_query.eq.assert_any_call("actor.is_deactivated", False)
+
+
+def test_record_user_report_upserts_auto_block(mock_supabase: MagicMock) -> None:
+    from app.db.discovery.exclusions import record_user_report
+
+    reporter_id = "11111111-1111-1111-1111-111111111111"
+    target_id = "22222222-2222-2222-2222-222222222222"
+
+    mock_reports_table = MagicMock()
+    mock_reports_table.insert.return_value = mock_reports_table
+    mock_reports_table.select.return_value = mock_reports_table
+    mock_reports_table.execute.return_value = MagicMock(data=[{"id": "report-uuid-123"}])
+
+    mock_actions_table = MagicMock()
+    mock_actions_table.upsert.return_value = mock_actions_table
+    mock_actions_table.execute.return_value = MagicMock(data=[])
+
+    def table_router(name: str) -> Any:
+        if name == "user_reports":
+            return mock_reports_table
+        if name == "profile_discovery_actions":
+            return mock_actions_table
+        return MagicMock()
+
+    mock_supabase.table.side_effect = table_router
+
+    record_user_report(
+        reporter_id=reporter_id,
+        target_id=target_id,
+        reason="harassment",
+        reason_detail="Inappropriate conduct",
+        tab="Dating",
+    )
+
+    mock_reports_table.insert.assert_called_once_with({
+        "reporter_id": reporter_id,
+        "target_id": target_id,
+        "reason": "harassment",
+        "reason_detail": "Inappropriate conduct",
+        "tab": "Dating",
+    })
+
+    mock_actions_table.upsert.assert_called_once_with(
+        {
+            "actor_id": reporter_id,
+            "target_id": target_id,
+            "action": "block",
+            "revoked_at": None,
+            "metadata": {
+                "source": "report",
+                "report_reason": "harassment",
+                "report_id": "report-uuid-123",
+            },
+        },
+        on_conflict="actor_id,target_id,action",
+    )
+

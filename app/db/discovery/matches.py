@@ -24,18 +24,38 @@ def record_match(
     liked_back_id: str,
     tab: DiscoveryTab = "Dating",
 ) -> str:
-    """Inserts a match record when a mutual like-back action occurs.
+    """Inserts a match record when a mutual like-back action occurs, returning
+    the existing match ID if already matched concurrently.
 
     Args:
         liker_id: User ID executing the like-back.
         liked_back_id: Original liker user ID.
-        tab: Active discovery tab ("Dating", "BFF", "Networking").
+        tab: Active discovery tab ("Dating", "Friends", "Professional").
 
     Returns:
-        str: Created match record ID string.
+        str: Match record ID string.
     """
+    liker_id = str(uuid.UUID(liker_id)).lower()
+    liked_back_id = str(uuid.UUID(liked_back_id)).lower()
 
     try:
+        # Check if an active match already exists between the pair in either direction
+        existing = (
+            supabase_client.table("matches")
+            .select("id")
+            .or_(
+                f"and(liker_id.eq.{liker_id},liked_back_id.eq.{liked_back_id}),"
+                f"and(liker_id.eq.{liked_back_id},liked_back_id.eq.{liker_id})",
+            )
+            .eq("tab", tab)
+            .is_("unmatched_at", "null")
+            .limit(1)
+            .execute()
+        )
+        existing_rows = cast(list[dict[str, Any]], existing.data or [])
+        if existing_rows and existing_rows[0].get("id"):
+            return str(existing_rows[0]["id"])
+
         res = (
             supabase_client.table("matches")
             .upsert(
@@ -48,11 +68,32 @@ def record_match(
             )
             .execute()
         )
-        rows = cast(list[Any], res.data or [])
-        if not rows or not isinstance(rows[0], dict):
-            raise DatabaseAccessError("Match insert returned no row")
-        return str(cast(dict[str, Any], rows[0])["id"])
+        rows = cast(list[dict[str, Any]], res.data or [])
+        if rows and rows[0].get("id"):
+            return str(rows[0]["id"])
+
+        raise DatabaseAccessError("Match insert returned no row")
     except APIError as e:
+        # If symmetric constraint or duplicate constraint violated by concurrent insert, return winning match
+        if getattr(e, "code", None) == "23505":
+            try:
+                existing_win = (
+                    supabase_client.table("matches")
+                    .select("id")
+                    .or_(
+                        f"and(liker_id.eq.{liker_id},liked_back_id.eq.{liked_back_id}),"
+                        f"and(liker_id.eq.{liked_back_id},liked_back_id.eq.{liker_id})",
+                    )
+                    .eq("tab", tab)
+                    .is_("unmatched_at", "null")
+                    .limit(1)
+                    .execute()
+                )
+                win_rows = cast(list[dict[str, Any]], existing_win.data or [])
+                if win_rows and win_rows[0].get("id"):
+                    return str(win_rows[0]["id"])
+            except Exception:
+                pass
         logger.exception(
             "Failed to record match",
             extra={"liker_id": liker_id, "liked_back_id": liked_back_id, "tab": tab},
@@ -60,29 +101,51 @@ def record_match(
         raise DatabaseAccessError("Failed to record match") from e
 
 
-def fetch_matches_for_user(user_id: str, tab: str = "Dating") -> list[dict[str, Any]]:
-    """
-    Return active match rows for user_id.
+def fetch_matches_for_user(
+    user_id: str,
+    tab: str = "Dating",
+    limit: int = 1000,
+    before_created_at: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return active match rows for user_id.
     Each row includes match_id, matched_user_id (the counterpart), and created_at.
+
+    Args:
+        user_id: Target user UUID string.
+        tab: Active discovery tab category ('Dating', 'Friends', 'Professional').
+        limit: Maximum number of rows to retrieve (default 1000).
+        before_created_at: Optional ISO timestamp cursor for keyset pagination.
+
+    Returns:
+        list[dict[str, Any]]: List of match dictionaries.
     """
     user_id = str(uuid.UUID(user_id)).lower()
     try:
-        res = (
+        query = (
             supabase_client.table("matches")
             .select("id, liker_id, liked_back_id, created_at")
             .or_(f"liker_id.eq.{user_id},liked_back_id.eq.{user_id}")
             .eq("tab", tab)
             .is_("unmatched_at", "null")
             .order("created_at", desc=True)
-            .limit(1000)
-            .execute()
         )
-        rows = cast(list[Any], res.data or [])
+        if before_created_at:
+            query = query.lt("created_at", before_created_at)
+
+        res = query.limit(limit).execute()
+        rows = cast(list[dict[str, Any]], res.data or [])
+
+        if len(rows) == limit:
+            logger.warning(
+                "fetch_matches_for_user reached fetch limit of %d matches for user %s on tab %s",
+                limit,
+                user_id,
+                tab,
+                extra={"user_id": user_id, "tab": tab, "limit": limit},
+            )
+
         result: list[dict[str, Any]] = []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            row_dict = cast(dict[str, Any], row)
+        for row_dict in rows:
             liker_id = str(row_dict.get("liker_id") or "")
             liked_back_id = str(row_dict.get("liked_back_id") or "")
             counterpart_id = liked_back_id if liker_id == user_id else liker_id

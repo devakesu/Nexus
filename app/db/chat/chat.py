@@ -220,24 +220,87 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
 
     The closed_reason='account_deletion' filter is exact, so this can never
     reopen a conversation that was separately closed by a genuine
-    unmatch/block/report before the deletion request - see
-    cancel_deletion() in app/db/account_deletion.py.
+    unmatch/block/report before the deletion request. Additionally, verifies
+    neither participant has an active block in place before reopening.
     """
     user_id = str(uuid.UUID(user_id)).lower()
     try:
-        (
+        res = (
             supabase_client.table("chat_conversations")
-            .update({"closed_at": None, "closed_reason": None})
+            .select("id, user_a_id, user_b_id")
             .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
             .eq("closed_reason", "account_deletion")
             .execute()
         )
     except APIError as e:
         logger.exception(
-            "Failed to reopen conversations for reactivation",
+            "Failed to fetch conversations for reactivation",
             extra={"user_id": user_id},
         )
-        raise DatabaseAccessError("Failed to reopen conversations") from e
+        raise DatabaseAccessError("Failed to fetch conversations for reactivation") from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected error fetching conversations for reactivation",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Unexpected error fetching conversations") from e
+
+    conversations = cast(list[dict[str, Any]], res.data or [])
+    if not conversations:
+        return
+
+    from app.db.discovery.exclusions import fetch_active_block_ids
+
+    blocked_ids = fetch_active_block_ids(user_id)
+
+    reopen_ids: list[str] = []
+    blocked_conv_ids: list[str] = []
+
+    for conv in conversations:
+        conv_id = str(conv.get("id"))
+        user_a = str(conv.get("user_a_id", "")).lower()
+        user_b = str(conv.get("user_b_id", "")).lower()
+        counterpart_id = user_b if user_a == user_id else user_a
+
+        if counterpart_id in blocked_ids:
+            blocked_conv_ids.append(conv_id)
+        else:
+            reopen_ids.append(conv_id)
+
+    if reopen_ids:
+        try:
+            (
+                supabase_client.table("chat_conversations")
+                .update({"closed_at": None, "closed_reason": None})
+                .in_("id", reopen_ids)
+                .execute()
+            )
+        except APIError as e:
+            logger.exception(
+                "Failed to reopen conversations for reactivation",
+                extra={"user_id": user_id, "reopen_count": len(reopen_ids)},
+            )
+            raise DatabaseAccessError("Failed to reopen conversations") from e
+        except Exception as e:
+            logger.exception(
+                "Unexpected error reopening conversations for reactivation",
+                extra={"user_id": user_id},
+            )
+            raise DatabaseAccessError("Unexpected error reopening conversations") from e
+
+    if blocked_conv_ids:
+        try:
+            (
+                supabase_client.table("chat_conversations")
+                .update({"closed_reason": "block"})
+                .in_("id", blocked_conv_ids)
+                .execute()
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update closed_reason for blocked conversations on reactivation",
+                extra={"user_id": user_id, "blocked_count": len(blocked_conv_ids)},
+            )
 
 
 def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:

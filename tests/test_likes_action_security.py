@@ -171,3 +171,119 @@ async def test_record_like_back_action_concurrent_revocation_cleans_up_and_fails
     mock_supabase.table.return_value.delete.assert_called_once()
     mock_delete.execute.assert_called_once()
 
+
+def test_record_match_returns_existing_when_present() -> None:
+    from app.db.discovery.matches import record_match
+
+    user_a = "11111111-1111-1111-1111-111111111111"
+    user_b = "22222222-2222-2222-2222-222222222222"
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "existing-match-xyz"}])
+
+    with patch("app.db.discovery.matches.supabase_client.table", return_value=mock_builder):
+        res = record_match(user_a, user_b, "Dating")
+
+    assert res == "existing-match-xyz"
+    mock_builder.upsert.assert_not_called()
+
+
+def test_record_match_handles_23505_conflict() -> None:
+    from app.db.discovery.matches import record_match
+    from postgrest.exceptions import APIError
+
+    user_a = "11111111-1111-1111-1111-111111111111"
+    user_b = "22222222-2222-2222-2222-222222222222"
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.upsert.return_value = mock_builder
+
+    # First select returns empty, upsert raises 23505 (concurrent insert won), second select returns winning row
+    mock_builder.execute.side_effect = [
+        MagicMock(data=[]),
+        APIError({"message": "duplicate key value violates unique constraint", "code": "23505"}),
+        MagicMock(data=[{"id": "winning-match-123"}]),
+    ]
+
+    with patch("app.db.discovery.matches.supabase_client.table", return_value=mock_builder):
+        res = record_match(user_a, user_b, "Dating")
+
+    assert res == "winning-match-123"
+
+
+def test_fetch_matches_for_user_pagination_and_warning() -> None:
+    from app.db.discovery.matches import fetch_matches_for_user
+
+    user_id = "11111111-1111-1111-1111-111111111111"
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.order.return_value = mock_builder
+    mock_builder.lt.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+
+    # Return exactly limit rows to verify warning logging
+    mock_builder.execute.return_value = MagicMock(data=[
+        {
+            "id": f"match-{i}",
+            "liker_id": user_id,
+            "liked_back_id": f"peer-{i}",
+            "created_at": "2026-08-11T20:00:00Z",
+        }
+        for i in range(5)
+    ])
+
+    with (
+        patch("app.db.discovery.matches.supabase_client.table", return_value=mock_builder),
+        patch("app.db.discovery.matches.logger.warning") as mock_warn,
+    ):
+        matches = fetch_matches_for_user(
+            user_id=user_id,
+            tab="Dating",
+            limit=5,
+            before_created_at="2026-08-12T00:00:00Z",
+        )
+
+    assert len(matches) == 5
+    mock_builder.lt.assert_called_once_with("created_at", "2026-08-12T00:00:00Z")
+    mock_builder.limit.assert_called_once_with(5)
+    mock_warn.assert_called_once()
+
+
+def test_match_action_request_validates_target_id_uuid() -> None:
+    from app.models import MatchActionRequest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as exc_info:
+        MatchActionRequest(
+            target_id="invalid-uuid-string",
+            action="unmatch",
+            tab="Dating",
+        )
+    assert "target_id must be a valid UUID" in str(exc_info.value)
+
+
+def test_set_match_unmatched_validates_uuid() -> None:
+    from app.db.discovery.matches import set_match_unmatched
+
+    with pytest.raises(ValueError):
+        set_match_unmatched("invalid-user-uuid", "11111111-1111-1111-1111-111111111111")
+
+    with pytest.raises(ValueError):
+        set_match_unmatched("11111111-1111-1111-1111-111111111111", "invalid-target-uuid")
+
+
+
+

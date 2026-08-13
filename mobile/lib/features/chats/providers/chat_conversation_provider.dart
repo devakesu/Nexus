@@ -154,6 +154,23 @@ class ChatEventInfo {
   /// Whether the creator auto-configured Meetup Safety for this plan at
   /// creation time - personal to them, not shared conversation state.
   final bool safetyEnabled;
+
+  ChatEventInfo copyWith({
+    String? status,
+    DateTime? eventTime,
+    double? locationLat,
+    double? locationLng,
+    String? locationLabel,
+    bool? safetyEnabled,
+  }) => ChatEventInfo(
+    eventId: eventId,
+    eventTime: eventTime ?? this.eventTime,
+    locationLat: locationLat ?? this.locationLat,
+    locationLng: locationLng ?? this.locationLng,
+    locationLabel: locationLabel ?? this.locationLabel,
+    status: status ?? this.status,
+    safetyEnabled: safetyEnabled ?? this.safetyEnabled,
+  );
 }
 
 class ChatMessageView {
@@ -186,18 +203,22 @@ class ChatMessageView {
   /// Only set for messageType == 'event'. See [ChatEventInfo] doc comment.
   final ChatEventInfo? eventInfo;
 
-  ChatMessageView copyWith({DateTime? readAt, ChatEventInfo? eventInfo}) =>
-      ChatMessageView(
-        id: id,
-        senderId: senderId,
-        isMine: isMine,
-        createdAt: createdAt,
-        plaintext: plaintext,
-        messageType: messageType,
-        decryptFailed: decryptFailed,
-        readAt: readAt ?? this.readAt,
-        eventInfo: eventInfo ?? this.eventInfo,
-      );
+  ChatMessageView copyWith({
+    String? plaintext,
+    bool? decryptFailed,
+    DateTime? readAt,
+    ChatEventInfo? eventInfo,
+  }) => ChatMessageView(
+    id: id,
+    senderId: senderId,
+    isMine: isMine,
+    createdAt: createdAt,
+    plaintext: plaintext ?? this.plaintext,
+    messageType: messageType,
+    decryptFailed: decryptFailed ?? this.decryptFailed,
+    readAt: readAt ?? this.readAt,
+    eventInfo: eventInfo ?? this.eventInfo,
+  );
 }
 
 class ChatConversationState {
@@ -499,6 +520,7 @@ class ChatConversationController extends _$ChatConversationController {
           .select()
           .eq('conversation_id', conversationId)
           .order('created_at', ascending: false)
+          .order('id', ascending: false)
           .limit(_pageSize),
     ]);
 
@@ -568,13 +590,22 @@ class ChatConversationController extends _$ChatConversationController {
 
     state = AsyncData(current.copyWith(loadingOlder: true));
     try {
-      final cursor = current.messages.first.createdAt;
+      final oldestMessage = current.messages.firstWhere(
+        (m) => !m.id.startsWith('security_alert_'),
+        orElse: () => current.messages.first,
+      );
+      final cursorCreatedAt = oldestMessage.createdAt.toIso8601String();
+      final cursorId = oldestMessage.id;
+
       final rawRows = await Supabase.instance.client
           .from('chat_messages')
           .select()
           .eq('conversation_id', conversationId)
-          .lt('created_at', cursor.toIso8601String())
+          .or(
+            'created_at.lt.$cursorCreatedAt,and(created_at.eq.$cursorCreatedAt,id.lt.$cursorId)',
+          )
           .order('created_at', ascending: false)
+          .order('id', ascending: false)
           .limit(_pageSize);
       final rows = List<Map<String, dynamic>>.from(
         rawRows.map((e) => Map<String, dynamic>.from(e as Map)),
@@ -695,6 +726,17 @@ class ChatConversationController extends _$ChatConversationController {
     if (current == null) return;
     final id = row['id'] as String;
     if (current.messages.any((m) => m.id == id)) return;
+
+    final myUserId = Supabase.instance.client.auth.currentUser?.id;
+    final senderId = row['sender_id'] as String?;
+    final isMine = senderId == myUserId;
+
+    // If this is our own outbound message and a send is actively in flight,
+    // skip premature decrypt-failed rendering; the send completion path
+    // caches and renders the plaintext directly.
+    if (isMine && current.sending) {
+      return;
+    }
 
     final view = (await _resolveMessages([row], store, address)).first;
     final latest = state.value ?? current;
@@ -934,6 +976,12 @@ class ChatConversationController extends _$ChatConversationController {
     required String messageType,
     int? durationMs,
   }) async {
+    final current = state.value;
+    if (current == null || current.conversationClosed) {
+      return false;
+    }
+
+    String? uploadedStoragePath;
     try {
       final encrypted = await MediaCrypto.instance.encrypt(bytes);
       final storagePath = '$conversationId/${const Uuid().v4()}.enc';
@@ -947,6 +995,7 @@ class ChatConversationController extends _$ChatConversationController {
               contentType: 'application/octet-stream',
             ),
           );
+      uploadedStoragePath = storagePath;
 
       final pointer = MediaPointer(
         storagePath: storagePath,
@@ -957,12 +1006,19 @@ class ChatConversationController extends _$ChatConversationController {
       );
       final pointerJson = jsonEncode(pointer.toJson());
 
-      return await _sendEnvelopeText(
+      final sent = await _sendEnvelopeText(
         text: pointerJson,
         messageType: messageType,
         cachePlaintext: pointerJson,
       );
+      if (!sent) {
+        _deleteOrphanedMedia(storagePath);
+      }
+      return sent;
     } on Exception catch (e, st) {
+      if (uploadedStoragePath != null) {
+        _deleteOrphanedMedia(uploadedStoragePath);
+      }
       ErrorHandler.handleError(
         e,
         stackTrace: st,
@@ -972,6 +1028,25 @@ class ChatConversationController extends _$ChatConversationController {
       );
       return false;
     }
+  }
+
+  void _deleteOrphanedMedia(String storagePath) {
+    unawaited(
+      Supabase.instance.client.storage
+          .from('chat_media')
+          .remove([storagePath])
+          .catchError((Object err, StackTrace st) {
+            ErrorHandler.handleError(
+              err,
+              stackTrace: st,
+              level: ErrorLevel.warning,
+              customMessage:
+                  'Failed to clean up orphaned media blob: $storagePath',
+              showUi: false,
+            );
+            return <FileObject>[];
+          }),
+    );
   }
 
   /// Shared send path: ratchet-encrypts [text], POSTs it as a chat message,
@@ -1043,24 +1118,36 @@ class ChatConversationController extends _$ChatConversationController {
         // existing id-dedup check skips the realtime event when it does
         // arrive.
         final latestForAppend = state.value ?? current;
-        if (!latestForAppend.messages.any((m) => m.id == messageId)) {
-          state = AsyncData(
-            latestForAppend.copyWith(
-              messages: [
-                ...latestForAppend.messages,
-                ChatMessageView(
-                  id: messageId,
-                  senderId: myUserId,
-                  isMine: true,
-                  createdAt: messageCreatedAt,
-                  plaintext: cachePlaintext,
-                  messageType: messageType,
-                  decryptFailed: false,
-                ),
-              ],
-            ),
-          );
-        }
+        final alreadyInState = latestForAppend.messages.any(
+          (m) => m.id == messageId,
+        );
+        state = AsyncData(
+          latestForAppend.copyWith(
+            messages: alreadyInState
+                ? [
+                    for (final m in latestForAppend.messages)
+                      if (m.id == messageId)
+                        m.copyWith(
+                          plaintext: cachePlaintext,
+                          decryptFailed: false,
+                        )
+                      else
+                        m,
+                  ]
+                : [
+                    ...latestForAppend.messages,
+                    ChatMessageView(
+                      id: messageId,
+                      senderId: myUserId,
+                      isMine: true,
+                      createdAt: messageCreatedAt,
+                      plaintext: cachePlaintext,
+                      messageType: messageType,
+                      decryptFailed: false,
+                    ),
+                  ],
+          ),
+        );
       }
       return true;
     } on Exception catch (e, st) {
@@ -1089,6 +1176,10 @@ class ChatConversationController extends _$ChatConversationController {
     required double lng,
     String? label,
   }) {
+    final current = state.value;
+    if (current == null || current.conversationClosed) {
+      return Future.value(false);
+    }
     final pointerJson = jsonEncode(
       LocationPointer(lat: lat, lng: lng, label: label).toJson(),
     );
@@ -1158,17 +1249,49 @@ class ChatConversationController extends _$ChatConversationController {
       final myUserId = Supabase.instance.client.auth.currentUser?.id;
       if (messageId != null && myUserId != null) {
         final createdAtRaw = data?['created_at'] as String?;
+        final messageCreatedAt = createdAtRaw != null
+            ? DateTime.parse(createdAtRaw)
+            : DateTime.now();
         await _cacheMessage(
           id: messageId,
           conversationId: conversationId,
           senderId: myUserId,
           isMine: true,
-          createdAt: createdAtRaw != null
-              ? DateTime.parse(createdAtRaw)
-              : DateTime.now(),
+          createdAt: messageCreatedAt,
           messageType: 'event',
           plaintext: payloadJson,
           decryptFailed: false,
+        );
+        final latestForAppend = state.value ?? current;
+        final alreadyInState = latestForAppend.messages.any(
+          (m) => m.id == messageId,
+        );
+        state = AsyncData(
+          latestForAppend.copyWith(
+            messages: alreadyInState
+                ? [
+                    for (final m in latestForAppend.messages)
+                      if (m.id == messageId)
+                        m.copyWith(
+                          plaintext: payloadJson,
+                          decryptFailed: false,
+                        )
+                      else
+                        m,
+                  ]
+                : [
+                    ...latestForAppend.messages,
+                    ChatMessageView(
+                      id: messageId,
+                      senderId: myUserId,
+                      isMine: true,
+                      createdAt: messageCreatedAt,
+                      plaintext: payloadJson,
+                      messageType: 'event',
+                      decryptFailed: false,
+                    ),
+                  ],
+          ),
         );
       }
       return true;
@@ -1189,6 +1312,8 @@ class ChatConversationController extends _$ChatConversationController {
 
   /// Confirms or cancels an existing event proposal.
   Future<bool> updateEventStatus(String eventId, String status) async {
+    final current = state.value;
+    if (current == null || current.conversationClosed) return false;
     final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null) return false;
     try {
@@ -1196,6 +1321,15 @@ class ChatConversationController extends _$ChatConversationController {
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/events/$eventId',
         data: {'status': status},
       );
+      final latest = state.value ?? current;
+      final updated = [
+        for (final m in latest.messages)
+          if (m.eventInfo?.eventId == eventId)
+            m.copyWith(eventInfo: m.eventInfo!.copyWith(status: status))
+          else
+            m,
+      ];
+      state = AsyncData(latest.copyWith(messages: updated));
       return true;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(

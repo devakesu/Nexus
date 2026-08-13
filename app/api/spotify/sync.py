@@ -13,6 +13,7 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.db.client import DatabaseAccessError
+from app.db.sessions import invalidate_viewer_discovery_sessions
 from app.db.spotify import (
     disconnect as disconnect_connection,
 )
@@ -183,6 +184,13 @@ async def spotify_disconnect(
     _ = request
     try:
         disconnect_connection(user_id)
+        try:
+            invalidate_viewer_discovery_sessions(user_id)
+        except Exception:
+            logger.warning(
+                "Failed to invalidate discovery sessions on Spotify disconnect",
+                extra={"user_id": user_id},
+            )
     except DatabaseAccessError:
         logger.exception("Failed to disconnect spotify for user %s", user_id)
         raise HTTPException(

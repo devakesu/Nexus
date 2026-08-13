@@ -87,3 +87,25 @@ async def test_update_presence_suspended_user(
     await _update_presence_if_needed("user-123")
 
     mock_upsert.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_get_authenticated_user_id_throttles_at_capacity() -> None:
+    from app.api.dependencies import _background_tasks, get_authenticated_user_id
+    import asyncio
+
+    dummy_tasks = {asyncio.create_task(asyncio.sleep(10)) for _ in range(1000)}
+    original_tasks = set(_background_tasks)
+    _background_tasks.clear()
+    _background_tasks.update(dummy_tasks)
+
+    try:
+        user_id = await get_authenticated_user_id(payload={"sub": "user-test-cap"})
+        assert user_id == "user-test-cap"
+        assert len(_background_tasks) == 1000  # Not exceeded
+    finally:
+        for t in dummy_tasks:
+            t.cancel()
+        _background_tasks.clear()
+        _background_tasks.update(original_tasks)
+

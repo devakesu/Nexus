@@ -413,20 +413,27 @@ def record_user_report(
 
     # Ensure the reporter is blocked from seeing the target (and vice versa).
     # Store report provenance in metadata for admin traceability.
-    # Silently skip if a block already exists (unique index violation).
+    # Upsert to ensure any pre-existing or revoked block is restored to active.
     block_metadata: dict[str, Any] = {"source": "report", "report_reason": reason}
     if report_id:
         block_metadata["report_id"] = report_id
 
-    with contextlib.suppress(APIError):
-        supabase_client.table("profile_discovery_actions").insert(
+    try:
+        supabase_client.table("profile_discovery_actions").upsert(
             {
                 "actor_id": reporter_id,
                 "target_id": target_id,
                 "action": "block",
+                "revoked_at": None,
                 "metadata": block_metadata,
             },
+            on_conflict="actor_id,target_id,action",
         ).execute()
+    except Exception:
+        logger.exception(
+            "Failed to upsert auto-block for report",
+            extra={"reporter_id": reporter_id, "target_id": target_id},
+        )
 
 
 def fetch_expired_pass_candidates(

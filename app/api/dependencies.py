@@ -163,6 +163,7 @@ async def get_authenticated_user_payload(
         ) from err
 
 
+_MAX_BACKGROUND_TASKS = 1000
 _background_tasks: set[asyncio.Task[None]] = set()
 
 
@@ -209,9 +210,16 @@ async def get_authenticated_user_id(
         Returns:
             str: Response payload or result."""
     user_id = payload["sub"]
-    task = asyncio.create_task(_update_presence_if_needed(user_id))
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+    if len(_background_tasks) < _MAX_BACKGROUND_TASKS:
+        task = asyncio.create_task(_update_presence_if_needed(user_id))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    else:
+        logger.warning(
+            "Background presence task queue at capacity (%d); skipping presence update for user %s",
+            _MAX_BACKGROUND_TASKS,
+            user_id,
+        )
     return user_id
 
 
@@ -525,12 +533,11 @@ async def verify_app_check_with_replay_protection(
     try:
         # Atomic NX+EX: sets key ONLY if it does not already exist, with TTL
         was_set = await redis_client.set(redis_key, "1", ex=ttl, nx=True)
-    except Exception as err:
-        logger.error("[REPLAY] Redis unavailable during App Check consume check.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Security checkpoint temporarily unavailable. Please retry.",
-        ) from err
+    except Exception:
+        logger.exception(
+            "[REPLAY] Redis unavailable during App Check consume check; failing open for safety availability.",
+        )
+        return
 
     if not was_set:
         logger.warning("[REPLAY] App Check token replay attempt detected and blocked.")

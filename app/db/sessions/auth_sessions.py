@@ -113,13 +113,13 @@ def get_discovery_session(
 ) -> dict[str, Any] | None:
     """Fetch discovery session record by session_id, viewer_id, and tab."""
     try:
-        res = (
+        response = (
             supabase_client.table("discovery_sessions")
             .select("id, viewer_id, tab, expires_at")
             .eq("id", session_id)
             .eq("viewer_id", viewer_id)
             .eq("tab", active_tab)
-            .limit(1)
+            .maybe_single()
             .execute()
         )
     except APIError as e:
@@ -143,9 +143,17 @@ def get_discovery_session(
         )
         raise DatabaseAccessError("Unexpected discovery session lookup failure") from e
 
-    rows = cast(list[Any], res.data or [])
-    row = rows[0] if rows else None
-    return cast(dict[str, Any], row) if isinstance(row, dict) else None
+    if response is None:
+        return None
+
+    row = response.data
+    if row is None:
+        return None
+
+    if not isinstance(row, dict):
+        raise DatabaseAccessError("Discovery session lookup returned malformed data")
+
+    return cast(dict[str, Any], row)
 
 
 def get_discovery_session_by_id(
@@ -212,6 +220,28 @@ def delete_expired_discovery_sessions() -> int:
         logger.exception("Unexpected expired discovery session cleanup failure")
         raise DatabaseAccessError(
             "Unexpected expired discovery session cleanup failure",
+        ) from e
+
+
+def invalidate_viewer_discovery_sessions(viewer_id: str) -> None:
+    """Invalidates/deletes all active discovery sessions for a viewer."""
+    try:
+        supabase_client.table("discovery_sessions").delete().eq(
+            "viewer_id", viewer_id,
+        ).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to invalidate discovery sessions for viewer",
+            extra={"viewer_id": viewer_id},
+        )
+        raise DatabaseAccessError("Failed to invalidate discovery sessions") from e
+    except Exception as e:
+        logger.exception(
+            "Unexpected error invalidating discovery sessions for viewer",
+            extra={"viewer_id": viewer_id},
+        )
+        raise DatabaseAccessError(
+            "Unexpected error invalidating discovery sessions",
         ) from e
 
 

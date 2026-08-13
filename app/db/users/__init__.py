@@ -25,6 +25,7 @@ from app.db.users.auth import (
     get_user_id_by_email,
     is_allowed_email,
     is_disposable_email,
+    set_user_suspension,
     set_verified_mobile,
     upsert_public_user,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "is_phone_blocklisted",
     "purge_due_accounts",
     "request_deletion",
+    "set_user_suspension",
     "set_verified_mobile",
     # consent
     "update_safety_data_consent",

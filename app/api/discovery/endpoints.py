@@ -237,6 +237,7 @@ async def get_discovery_viewport(
             get_or_validate_session,
             payload.session_id,
             user_id,
+            payload.tab,
         )
 
         nodes, total_nodes = await fetch_spatial_viewport(
@@ -257,7 +258,11 @@ async def get_discovery_viewport(
     except (DecryptFailedError, ProfileDecodeError) as err:
         logger.exception(
             "Encrypted profile decode failure during orbit viewport fetch",
-            extra={"user_id": user_id, "session_id": payload.session_id},
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "active_tab": payload.tab,
+            },
         )
         raise HTTPException(
             status_code=500,
@@ -266,7 +271,11 @@ async def get_discovery_viewport(
     except DatabaseAccessError as err:
         logger.exception(
             "Database access failure during orbit viewport fetch",
-            extra={"user_id": user_id, "session_id": payload.session_id},
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "active_tab": payload.tab,
+            },
         )
         raise HTTPException(
             status_code=503,
@@ -277,7 +286,11 @@ async def get_discovery_viewport(
     except Exception as err:
         logger.exception(
             "Unexpected orbit viewport failure",
-            extra={"user_id": user_id, "session_id": payload.session_id},
+            extra={
+                "user_id": user_id,
+                "session_id": payload.session_id,
+                "active_tab": payload.tab,
+            },
         )
         raise HTTPException(
             status_code=500,

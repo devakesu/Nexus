@@ -417,6 +417,10 @@ OrbitNodeDetailResponse = (
 
 class DiscoveryViewportRequest(BaseModel):
     """Discoveryviewportrequest class representation."""
+    tab: DiscoveryTab = Field(
+        ...,
+        description="Target matching pipeline matrix ('Dating', 'Friends', or 'Professional').",
+    )
     session_id: str = Field(..., min_length=1)
     center_x: float
     center_y: float

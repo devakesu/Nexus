@@ -15,6 +15,7 @@ from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
+from app.db.sessions import invalidate_viewer_discovery_sessions
 from app.db.spotify import upsert_connection
 from app.services.spotify_sync import (
     blend_artist_affinity,
@@ -128,6 +129,14 @@ async def _seed_and_queue_sync(
         logger.warning(
             "Spotify did not return a refresh_token on exchange; resync will "
             "require full re-auth for this user",
+            extra={"user_id": user_id},
+        )
+
+    try:
+        invalidate_viewer_discovery_sessions(user_id)
+    except Exception:
+        logger.warning(
+            "Failed to invalidate discovery sessions on Spotify connect",
             extra={"user_id": user_id},
         )
 

@@ -310,3 +310,38 @@ async def test_cancel_account_deletion_queues_email(
         mock_reactivated_email,
         email="user@example.com",
     )
+
+
+@patch("app.db.users.account_deletion._close_all_conversations")
+@patch("app.db.users.account_deletion.invalidate_user_status_cache")
+@patch("app.db.users.account_deletion.supabase_client.table")
+def test_request_deletion_deletes_discovery_session_items(
+    mock_table: MagicMock,
+    mock_invalidate: MagicMock,
+    mock_close_convos: MagicMock,
+) -> None:
+    from app.db.users.account_deletion import request_deletion
+
+    table_builders: dict[str, MagicMock] = {}
+
+    def get_table_builder(table_name: str) -> MagicMock:
+        if table_name not in table_builders:
+            builder = MagicMock()
+            builder.update.return_value = builder
+            builder.delete.return_value = builder
+            builder.eq.return_value = builder
+            builder.execute.return_value = MagicMock(data=[])
+            table_builders[table_name] = builder
+        return table_builders[table_name]
+
+    mock_table.side_effect = get_table_builder
+
+    purge_time = request_deletion("user-123", "user_requested")
+
+    assert purge_time is not None
+    assert "discovery_session_items" in table_builders
+    discovery_builder = table_builders["discovery_session_items"]
+    discovery_builder.delete.assert_called_once()
+    discovery_builder.eq.assert_called_once_with("candidate_id", "user-123")
+    discovery_builder.execute.assert_called_once()
+

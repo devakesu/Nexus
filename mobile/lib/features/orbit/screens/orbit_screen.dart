@@ -1064,6 +1064,7 @@ class _OrbitScreenState extends State<OrbitScreen>
       final response = await _dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/discover/viewport',
         data: {
+          'tab': widget.tab,
           'session_id': _sessionId,
           'center_x': centerX,
           'center_y': centerY,

@@ -21,7 +21,7 @@ from app.core.security.crypto import (
     decrypt_pii,
     encrypt_to_hex,
 )
-from app.db.client import supabase_client
+from app.db.client import DatabaseAccessError, supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +272,39 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to save verified phone number. Please try again.",
         ) from e
+
+
+def set_user_suspension(
+    user_id: str,
+    is_suspended: bool,
+    suspended_until: datetime | None = None,
+    moderation_status: str | None = None,
+    moderation_reason_code: str | None = None,
+) -> None:
+    """Updates user moderation/suspension state and immediately evicts cached user status.
+
+    Args:
+        user_id: Unique UUID string of the target user.
+        is_suspended: Boolean flag indicating if the account is suspended.
+        suspended_until: Optional expiration datetime for temporary suspensions.
+        moderation_status: Optional moderation status string (e.g. 'flagged', 'banned', 'clear').
+        moderation_reason_code: Optional reason code string for the moderation action.
+    """
+    update_data: dict[str, Any] = {
+        "is_suspended": is_suspended,
+        "suspended_until": suspended_until.isoformat() if suspended_until else None,
+    }
+    if moderation_status is not None:
+        update_data["moderation_status"] = moderation_status
+    if moderation_reason_code is not None:
+        update_data["moderation_reason_code"] = moderation_reason_code
+
+    try:
+        supabase_client.table("users").update(update_data).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
+    except APIError as e:
+        logger.exception("Failed to update user suspension", extra={"user_id": user_id})
+        raise DatabaseAccessError("Failed to update user suspension status") from e
 
 
 def find_user_id_by_phone(phone: str) -> str | None:
