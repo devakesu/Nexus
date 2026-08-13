@@ -13,6 +13,7 @@ import firebase_admin
 import firebase_admin.messaging as _fcm_module
 import sentry_sdk
 
+from app.core.security.crypto import decrypt_pii
 from app.db.client import supabase_client
 from app.db.discovery import get_cached_active_block_ids
 
@@ -77,58 +78,115 @@ def _fetch_user_fcm_tokens(user_id: str) -> list[str]:
 
 
 def _fetch_profile_name(user_id: str) -> str | None:
-    """Retrieve the display name of a user from their profile record.
+    """Retrieve the decrypted display name of an active user from their profile record.
 
     Args:
         user_id: Unique UUID string identifier of the target user.
 
     Returns:
-        str | None: User's display name string, or None if profile not found.
+        str | None: User's decrypted display name string, or None if profile not found/deactivated.
     """
-    res = (
-        supabase_client.table("profiles")
-        .select("name")
-        .eq("id", user_id)
-        .limit(1)
-        .execute()
-    )
-    rows = cast(list[dict[str, Any]], res.data or [])
-    if not rows:
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("name, is_deactivated")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], res.data or [])
+        if not rows:
+            return None
+        if rows[0].get("is_deactivated") is True:
+            return None
+        name_raw = rows[0].get("name")
+        if not name_raw:
+            return None
+        try:
+            return decrypt_pii(str(name_raw))
+        except Exception:
+            return str(name_raw)
+    except Exception as err:
+        logger.warning(
+            "Failed to fetch profile name for user %s: %s",
+            user_id,
+            err,
+        )
         return None
-    name = rows[0].get("name")
-    return str(name) if name is not None else None
+
+
+_fcm_deactivate_fail_counts: dict[str, int] = {}
 
 
 def _deactivate_fcm_token(token: str) -> None:
     """Mark an invalid or expired FCM registration token as inactive in user_devices.
 
+    Tracks repeated failures and reports persistent deactivation errors to Sentry.
+
     Args:
         token: Stale FCM registration token string to deactivate.
     """
+    token_suffix = token[-8:] if len(token) >= 8 else token
     try:
         supabase_client.table("user_devices").update({"is_active": False}).eq(
             "fcm_token",
             token,
         ).execute()
-    except Exception:
-        logger.exception("Failed to deactivate FCM token ...%s", token[-8:])
+        _fcm_deactivate_fail_counts.pop(token_suffix, None)
+    except Exception as exc:
+        fails = _fcm_deactivate_fail_counts.get(token_suffix, 0) + 1
+        _fcm_deactivate_fail_counts[token_suffix] = fails
+        logger.exception(
+            "Failed to deactivate FCM token ...%s (failure count: %d)",
+            token_suffix,
+            fails,
+        )
+        if fails >= 3:
+            sentry_sdk.capture_exception(exc)
 
 
 def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
-    """Retrieve display name and avatar photo URL for notification payloads.
+    """Retrieve decrypted display name and raw avatar storage path for notification payloads.
+
+    Sends the raw storage path (not the time-limited signed URL) in FCM data payloads so
+    client applications can generate fresh signed URLs when processing notifications.
 
     Args:
         user_id: Unique UUID string identifier of the target user.
 
     Returns:
-        tuple[str | None, str | None]: Tuple of (display_name, avatar_photo_url).
+        tuple[str | None, str | None]: Tuple of (display_name, raw_avatar_storage_path).
     """
     try:
-        from app.db.profiles import fetch_peer_profile_by_id
+        res = (
+            supabase_client.table("profiles")
+            .select("name, profile_pic")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], res.data or [])
+        if not rows:
+            return None, None
 
-        profile = fetch_peer_profile_by_id(user_id)
-        if profile:
-            return profile.get("name"), profile.get("profile_pic")
+        raw_name = rows[0].get("name")
+        raw_pic = rows[0].get("profile_pic")
+
+        name: str | None = None
+        if raw_name:
+            try:
+                name = decrypt_pii(str(raw_name))
+            except Exception:
+                name = str(raw_name)
+
+        pic_path: str | None = None
+        if raw_pic:
+            try:
+                pic_path = decrypt_pii(str(raw_pic))
+            except Exception:
+                pic_path = str(raw_pic)
+
+        return name, pic_path
     except Exception as err:
         sentry_sdk.capture_exception(err)
         logger.exception(
@@ -223,9 +281,9 @@ async def send_like_notification(
             asyncio.to_thread(_fetch_user_fcm_tokens, target_id),
             asyncio.to_thread(_fetch_profile_name, actor_id),
         )
-        if not tokens:
+        if not tokens or not actor_name:
             return
-        name = actor_name or "Someone"
+        name = actor_name
         if is_superlike:
             title = f"{name} super liked you ⭐"
             channel_id = "likes_superlike"
@@ -441,6 +499,7 @@ async def send_chat_event_reminder_notification(
 
 
 _SAFETY_REMINDER_NOUN_BY_TAB = {
+    "Dating": "date",
     "Friends": "meetup",
     "Professional": "meeting",
 }
@@ -504,7 +563,7 @@ async def send_meetup_safety_reminder_notification(
         tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
         if not tokens:
             return
-        noun = _SAFETY_REMINDER_NOUN_BY_TAB.get(tab, "date")
+        noun = _SAFETY_REMINDER_NOUN_BY_TAB.get(tab, "meetup")
         await asyncio.to_thread(
             _send_to_tokens,
             tokens,

@@ -1,6 +1,7 @@
 """Unit tests for reminder scheduler distributed leader locking."""
 
 import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.reminder_scheduler import (
@@ -144,6 +145,57 @@ def test_fetch_due_safety_reminders_applies_limit():
     mock_builder.limit.assert_called_once_with(500)
 
 
+def test_mark_reminder_sent_claimed():
+    from app.db.chat import mark_reminder_sent
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "event-123"}])
+
+    with patch("app.db.chat.chat.supabase_client.table", return_value=mock_builder):
+        res = mark_reminder_sent("event-123")
+
+    assert res is True
+    mock_builder.is_.assert_called_once_with("reminder_sent_at", "null")
+
+
+def test_mark_reminder_sent_already_marked():
+    from app.db.chat import mark_reminder_sent
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    with patch("app.db.chat.chat.supabase_client.table", return_value=mock_builder):
+        res = mark_reminder_sent("event-123")
+
+    assert res is False
+
+
+def test_mark_safety_reminder_sent_claimed():
+    from app.db.chat import mark_safety_reminder_sent
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "event-123"}])
+
+    with patch("app.db.chat.chat.supabase_client.table", return_value=mock_builder):
+        res = mark_safety_reminder_sent("event-123")
+
+    assert res is True
+    mock_builder.is_.assert_called_once_with("safety_reminder_sent_at", "null")
+
+
+
 @pytest.mark.anyio
 @patch("app.services.reminder_scheduler.fetch_safety_contacts")
 @patch("app.services.reminder_scheduler.send_sms")
@@ -202,7 +254,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
 
     mock_set.assert_called_once_with("safety:escalation:sent:session-123:2", "1", ex=86400, nx=True)
     mock_send_sms.assert_not_called()
-    mock_record.assert_not_called()
+    mock_record.assert_called_once_with("session-123", 2)
 
 
 @pytest.mark.anyio
@@ -297,6 +349,83 @@ def test_purge_due_accounts_batches_and_sleeps(
     assert mock_unmatch.call_count == 120
     assert mock_sleep.call_count == 2  # Sleep called twice between the 3 batches
     mock_sleep.assert_any_call(1.0)
+
+
+@patch("app.db.users.account_deletion._fetch_accounts_due_for_purge")
+@patch("app.db.users.account_deletion._permanently_unmatch_all")
+@patch("app.db.users.account_deletion._anonymize_profile_and_user")
+@patch("app.db.users.account_deletion._delete_no_retention_rows")
+@patch("app.db.users.account_deletion._delete_user_media_objects")
+@patch("app.db.users.account_deletion._ban_and_scrub_auth_user")
+def test_purge_due_accounts_blocklist_inserted_after_anonymization(
+    mock_ban: MagicMock,
+    mock_media: MagicMock,
+    mock_del_rows: MagicMock,
+    mock_anonymize: MagicMock,
+    mock_unmatch: MagicMock,
+    mock_fetch: MagicMock,
+):
+    from app.db.users.account_deletion import purge_due_accounts
+
+    mock_fetch.return_value = [
+        {
+            "id": "user-flagged",
+            "mobile_blind_index": "blind-idx-123",
+            "deletion_flagged_reason_code": "banned",
+        },
+    ]
+
+    mock_table = MagicMock()
+    mock_upsert = MagicMock()
+    mock_table.upsert.return_value = mock_upsert
+
+    call_order: list[str] = []
+
+    def _mock_anon(uid: Any, now: Any) -> None:
+        call_order.append("anonymize")
+
+    def _mock_upsert() -> None:
+        call_order.append("blocklist_upsert")
+
+    mock_anonymize.side_effect = _mock_anon
+    mock_upsert.execute.side_effect = _mock_upsert
+
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_table):
+        purge_due_accounts()
+
+    assert call_order == ["anonymize", "blocklist_upsert"]
+    mock_table.upsert.assert_called_once()
+    _, kwargs = mock_table.upsert.call_args
+    assert kwargs.get("on_conflict") == "phone_blind_index"
+
+
+@patch("app.db.users.account_deletion._fetch_accounts_due_for_purge")
+@patch("app.db.users.account_deletion._permanently_unmatch_all")
+@patch("app.db.users.account_deletion._anonymize_profile_and_user")
+def test_purge_due_accounts_anonymization_failure_skips_blocklist(
+    mock_anonymize: MagicMock,
+    mock_unmatch: MagicMock,
+    mock_fetch: MagicMock,
+):
+    from app.db.users.account_deletion import purge_due_accounts
+
+    mock_fetch.return_value = [
+        {
+            "id": "user-flagged",
+            "mobile_blind_index": "blind-idx-123",
+            "deletion_flagged_reason_code": "banned",
+        },
+    ]
+
+    mock_anonymize.side_effect = RuntimeError("DB error during anonymization")
+    mock_table = MagicMock()
+
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_table):
+        # Should catch error, log, and skip without raising or inserting to blocklist
+        purge_due_accounts()
+
+    mock_table.upsert.assert_not_called()
+
 
 
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.update_user_by_id")
@@ -735,12 +864,12 @@ async def test_check_due_reminders_notification_success(
 
     mock_fetch_due.return_value = [{"id": "event-123", "conversation_id": "conv-456", "location_label": "Café"}]
     mock_fetch_convo.return_value = {"user_a_id": "user-a", "user_b_id": "user-b", "tab": "Dating"}
-    mock_send_notif.return_value = True # Successful notification
+    mock_mark_sent.return_value = True  # Successfully claimed
 
     await _check_due_reminders()
 
-    mock_send_notif.assert_called_once()
     mock_mark_sent.assert_called_once_with("event-123")
+    mock_send_notif.assert_called_once()
 
 
 @pytest.mark.anyio
@@ -748,7 +877,7 @@ async def test_check_due_reminders_notification_success(
 @patch("app.services.reminder_scheduler.fetch_conversation_participants")
 @patch("app.services.reminder_scheduler.send_chat_event_reminder_notification")
 @patch("app.services.reminder_scheduler.mark_reminder_sent")
-async def test_check_due_reminders_notification_failure(
+async def test_check_due_reminders_already_claimed(
     mock_mark_sent: MagicMock,
     mock_send_notif: MagicMock,
     mock_fetch_convo: MagicMock,
@@ -757,13 +886,14 @@ async def test_check_due_reminders_notification_failure(
     from app.services.reminder_scheduler import _check_due_reminders
 
     mock_fetch_due.return_value = [{"id": "event-123", "conversation_id": "conv-456", "location_label": "Café"}]
-    mock_fetch_convo.return_value = {"user_a_id": "user-a", "user_b_id": "user-b", "tab": "Dating"}
-    mock_send_notif.return_value = False # Failed notification
+    mock_mark_sent.return_value = False  # Already claimed by another worker
 
     await _check_due_reminders()
 
-    mock_send_notif.assert_called_once()
-    mock_mark_sent.assert_not_called()
+    mock_mark_sent.assert_called_once_with("event-123")
+    mock_fetch_convo.assert_not_called()
+    mock_send_notif.assert_not_called()
+
 
 
 def test_fetch_key_bundle_prekey_used_true():
@@ -814,6 +944,224 @@ def test_fetch_key_bundle_prekey_used_false():
     assert res is not None
     assert res["one_time_prekey_used"] is False
     assert res["one_time_prekey_id"] is None
+
+
+def test_start_reminder_scheduler_returns_existing_running_instance():
+    import app.services.reminder_scheduler as rs
+
+    mock_running_scheduler = MagicMock()
+    mock_running_scheduler.running = True
+
+    with patch.object(rs, "_scheduler", mock_running_scheduler):
+        result = rs.start_reminder_scheduler()
+        assert result is mock_running_scheduler
+
+
+def test_start_reminder_scheduler_recreates_stopped_instance():
+    import app.services.reminder_scheduler as rs
+
+    mock_stopped_scheduler = MagicMock()
+    mock_stopped_scheduler.running = False
+
+    with patch.object(rs, "_scheduler", mock_stopped_scheduler), \
+         patch("app.services.reminder_scheduler.AsyncIOScheduler") as mock_cls:
+        new_instance = MagicMock()
+        mock_cls.return_value = new_instance
+
+        result = rs.start_reminder_scheduler()
+
+        mock_stopped_scheduler.shutdown.assert_called_once_with(wait=False)
+        new_instance.start.assert_called_once()
+        assert result is new_instance
+
+
+def test_stop_reminder_scheduler_shuts_down_and_resets():
+    import app.services.reminder_scheduler as rs
+
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = True
+
+    with patch.object(rs, "_scheduler", mock_scheduler):
+        rs.stop_reminder_scheduler()
+        mock_scheduler.shutdown.assert_called_once_with(wait=False)
+        assert rs._scheduler is None
+
+
+def test_stop_reminder_scheduler_noop_when_none():
+    import app.services.reminder_scheduler as rs
+
+    with patch.object(rs, "_scheduler", None):
+        rs.stop_reminder_scheduler()
+        assert rs._scheduler is None
+
+
+def test_start_reminder_scheduler_staggers_daily_jobs():
+    import app.services.reminder_scheduler as rs
+
+    with patch.object(rs, "_scheduler", None), \
+         patch("app.services.reminder_scheduler.AsyncIOScheduler") as mock_cls:
+        mock_scheduler = MagicMock()
+        mock_cls.return_value = mock_scheduler
+
+        rs.start_reminder_scheduler()
+
+        # Extract add_job calls
+        job_calls = mock_scheduler.add_job.call_args_list
+        daily_job_ids = {
+            "account_deletion_purge",
+            "deleted_account_blocklist_expiry",
+            "account_deletion_long_tail_purge",
+            "safety_evidence_retention_purge",
+            "safety_data_legal_hold_purge",
+        }
+
+        daily_start_dates: list[Any] = []
+        for call in job_calls:
+            _, kwargs = call
+            if kwargs.get("id") in daily_job_ids:
+                trigger: Any = kwargs.get("trigger")
+                assert trigger is not None
+                daily_start_dates.append(trigger.start_date)
+                assert trigger.jitter == 60
+
+        assert len(daily_start_dates) == 5
+        # Verify all start_dates are distinct (staggered)
+        assert len(set(daily_start_dates)) == 5
+
+
+def test_permanently_unmatch_all_bulk_query():
+    from app.db.users.account_deletion import _permanently_unmatch_all
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_builder):
+        _permanently_unmatch_all(user_id)
+
+    mock_builder.update.assert_called_once()
+    mock_builder.or_.assert_called_once_with(f"liker_id.eq.{user_id},liked_back_id.eq.{user_id}")
+    mock_builder.is_.assert_called_once_with("unmatched_at", "null")
+
+
+def test_close_all_conversations_bulk_query():
+    from app.db.users.account_deletion import _close_all_conversations
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_builder):
+        _close_all_conversations(user_id)
+
+    mock_builder.update.assert_called_once()
+    mock_builder.or_.assert_called_once_with(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+    mock_builder.is_.assert_called_once_with("closed_at", "null")
+
+
+def test_delete_user_media_objects_cleans_feedback_attachments():
+    from app.db.users.account_deletion import _delete_user_media_objects
+
+    mock_storage = MagicMock()
+    mock_media_bucket = MagicMock()
+    mock_feedback_bucket = MagicMock()
+
+    mock_media_bucket.list.return_value = [{"name": "pic1.jpg"}]
+    mock_media_bucket.remove.return_value = None
+
+    mock_feedback_bucket.list.return_value = [{"name": "att1.png"}]
+    mock_feedback_bucket.remove.return_value = None
+
+    def _from_side_effect(bucket_name: str) -> Any:
+        if bucket_name == "user_media":
+            return mock_media_bucket
+        elif bucket_name == "feedback_attachments":
+            return mock_feedback_bucket
+        return MagicMock()
+
+    mock_storage.from_.side_effect = _from_side_effect
+
+    user_id = "user-test-uuid"
+    with patch("app.db.users.account_deletion.supabase_client.storage", mock_storage):
+        _delete_user_media_objects(user_id)
+
+    mock_media_bucket.list.assert_called_once_with(user_id)
+    mock_media_bucket.remove.assert_called_once_with(["user-test-uuid/pic1.jpg"])
+
+    mock_feedback_bucket.list.assert_called_once_with(f"app_contact/{user_id}")
+    mock_feedback_bucket.remove.assert_called_once_with([f"app_contact/{user_id}/att1.png"])
+
+
+@patch("app.db.users.account_deletion.reopen_conversations_for_reactivation")
+@patch("app.db.users.account_deletion.invalidate_user_status_cache")
+def test_cancel_deletion_reactivates_user_devices(
+    mock_invalidate: MagicMock,
+    mock_reopen: MagicMock,
+):
+    from app.db.users.account_deletion import cancel_deletion
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    tables_updated: list[str] = []
+    updates_payload: list[dict[str, Any]] = []
+
+    def _mock_table(table_name: str) -> Any:
+        tables_updated.append(table_name)
+        builder = MagicMock()
+        def _update(payload: dict[str, Any]) -> Any:
+            updates_payload.append(payload)
+            return builder
+        builder.update.side_effect = _update
+        builder.eq.return_value = builder
+        builder.execute.return_value = MagicMock(data=[])
+        return builder
+
+    user_id = "user-cancel-123"
+    with patch("app.db.users.account_deletion.supabase_client.table", side_effect=_mock_table):
+        cancel_deletion(user_id)
+
+    assert "users" in tables_updated
+    assert "profiles" in tables_updated
+    assert "user_devices" in tables_updated
+    assert {"is_active": True} in updates_payload
+    mock_reopen.assert_called_once_with(user_id)
+    mock_invalidate.assert_called_once_with(user_id)
+
+
+def test_delete_no_retention_rows_purges_profile_discovery_actions():
+    from app.db.users.account_deletion import _delete_no_retention_rows
+
+    tables_deleted: list[str] = []
+    def _mock_table(table_name: str) -> Any:
+        tables_deleted.append(table_name)
+        builder = MagicMock()
+        builder.delete.return_value = builder
+        builder.eq.return_value = builder
+        builder.or_.return_value = builder
+        builder.execute.return_value = MagicMock(data=[])
+        return builder
+
+    user_id = "user-delete-456"
+    with patch("app.db.users.account_deletion.supabase_client.table", side_effect=_mock_table):
+        _delete_no_retention_rows(user_id)
+
+    assert "profile_discovery_actions" in tables_deleted
+    assert "discovery_sessions" in tables_deleted
+    assert "discovery_session_items" in tables_deleted
+
+
+
+
+
 
 
 

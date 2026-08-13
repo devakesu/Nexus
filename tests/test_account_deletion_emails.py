@@ -513,5 +513,55 @@ async def test_export_account_data_response_headers(
     mock_redis.delete.assert_called_once_with("otp_verified:data_export:user-123")
 
 
+def test_build_matches_and_discovery_uuid_validation():
+    from app.db.users.export import _build_matches_and_discovery
+
+    # Invalid non-UUID user_id must raise ValueError before any query is formed
+    with pytest.raises(ValueError):
+        _build_matches_and_discovery("malicious_id_with_commas,eq.admin")
+
+    valid_uuid = "00000000-0000-0000-0000-000000000001"
+    with patch("app.db.users.export.supabase_client.table") as mock_table:
+        mock_builder = MagicMock()
+        mock_builder.select.return_value = mock_builder
+        mock_builder.or_.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data=[])
+        mock_table.return_value = mock_builder
+
+        result = _build_matches_and_discovery(valid_uuid)
+        assert "matches" in result
+        mock_builder.or_.assert_called_once_with(f"liker_id.eq.{valid_uuid},liked_back_id.eq.{valid_uuid}")
+
+
+@patch("app.db.users.export.get_user_email_by_id")
+@patch("app.db.users.export.supabase_client.table")
+def test_build_account_section_filters_tombstone_email(
+    mock_table: MagicMock,
+    mock_get_email: MagicMock,
+):
+    from app.db.users.export import _build_account_section
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data={"id": "00000000-0000-0000-0000-000000000001"})
+    mock_table.return_value = mock_builder
+
+    valid_uuid = "00000000-0000-0000-0000-000000000001"
+
+    # Case 1: Active legitimate email
+    mock_get_email.return_value = "alex@example.com"
+    account = _build_account_section(valid_uuid)
+    assert account.get("email") == "alex@example.com"
+
+    # Case 2: Post-purge tombstone email
+    mock_get_email.return_value = f"deleted-{valid_uuid}@deleted.nexus.app"
+    account_purged = _build_account_section(valid_uuid)
+    assert account_purged.get("email") is None
+
+
+
+
 
 

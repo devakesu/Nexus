@@ -152,3 +152,86 @@ def test_discovery_viewport_request_validation() -> None:
             center_y=0.0,
             radius=100.0,
         )
+
+
+@pytest.mark.anyio
+async def test_fetch_spatial_viewport_rejects_nan_and_inf() -> None:
+    from app.db.sessions.viewport import fetch_spatial_viewport
+
+    session_id = "11111111-1111-1111-1111-111111111111"
+    user_id = "22222222-2222-2222-2222-222222222222"
+
+    with pytest.raises(ValueError, match="must be finite floats"):
+        await fetch_spatial_viewport(session_id, user_id, float("nan"), 0.0, 100.0)
+
+    with pytest.raises(ValueError, match="must be finite floats"):
+        await fetch_spatial_viewport(session_id, user_id, 0.0, float("inf"), 100.0)
+
+    with pytest.raises(ValueError, match="must be finite floats"):
+        await fetch_spatial_viewport(session_id, user_id, 0.0, 0.0, float("nan"))
+
+
+@pytest.mark.anyio
+@patch("app.db.sessions.viewport.supabase_client.table")
+async def test_fetch_spatial_viewport_clamps_radius(mock_table: MagicMock) -> None:
+    from app.db.sessions.viewport import fetch_spatial_viewport
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.gte.return_value = mock_builder
+    mock_builder.lte.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+    mock_table.return_value = mock_builder
+
+    session_id = "11111111-1111-1111-1111-111111111111"
+    user_id = "22222222-2222-2222-2222-222222222222"
+
+    # Pass excessive radius 999999.0 -> should clamp to 1000.0
+    items, _ = await fetch_spatial_viewport(session_id, user_id, 0.0, 0.0, 999999.0)
+
+    assert items == []
+    # Verify bounding box uses clamped radius of 1000.0 (-1000 to +1000)
+    mock_builder.gte.assert_any_call("x", -1000.0)
+    mock_builder.lte.assert_any_call("x", 1000.0)
+
+
+@patch("app.db.sessions.auth_sessions.supabase_client.rpc")
+@patch("app.db.sessions.auth_sessions.assign_orbit_positions")
+def test_create_discovery_session_derives_spotify_connected_without_extra_db_query(
+    mock_assign_positions: MagicMock,
+    mock_rpc: MagicMock,
+) -> None:
+    from app.db.sessions.auth_sessions import create_discovery_session
+
+    mock_assign_positions.return_value = [
+        {
+            "profile": {"id": "cand-1"},
+            "score": 90.0,
+            "x": 1.0,
+            "y": 2.0,
+            "orbit_tier": 1,
+            "music_match_grade": 85,
+            "viewer_spotify_connected": True,
+        }
+    ]
+
+    mock_rpc_exec = MagicMock()
+    mock_rpc_exec.execute.return_value.data = "session-uuid-123"
+    mock_rpc.return_value = mock_rpc_exec
+
+    session_id, _ = create_discovery_session(
+        viewer_id="viewer-1",
+        active_tab="Dating",
+        filters={},
+        ranked_items=[{"candidate": {"id": "cand-1"}}],
+    )
+
+    assert session_id == "session-uuid-123"
+    mock_rpc.assert_called_once()
+    _, kwargs = mock_rpc.call_args
+    params = kwargs.get("params")
+    assert params is not None
+    assert params.get("p_viewer_spotify_connected") is True
+
+

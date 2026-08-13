@@ -109,6 +109,38 @@ async def _get_with_retry(
         return resp
 
 
+async def _post_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    data: dict[str, Any],
+    auth: tuple[str, str],
+    headers: dict[str, str],
+    max_retries: int = _MAX_RETRIES_PER_REQUEST,
+) -> httpx.Response:
+    """POST with bounded exponential backoff retry for transient 5xx errors or 429."""
+    attempt = 0
+    backoff = 0.5
+    while True:
+        try:
+            resp = await client.post(url, data=data, auth=auth, headers=headers)
+            if (resp.status_code == 429 or resp.status_code >= 500) and attempt < max_retries:
+                retry_after = _parse_retry_after(resp) if resp.status_code == 429 else backoff
+                await asyncio.sleep(retry_after)
+                attempt += 1
+                backoff *= 2
+                continue
+            resp.raise_for_status()
+            return resp
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            if attempt < max_retries:
+                await asyncio.sleep(backoff)
+                attempt += 1
+                backoff *= 2
+                continue
+            raise exc
+
+
 # ---------------------------------------------------------------------------
 # Token exchange / refresh
 # ---------------------------------------------------------------------------
@@ -117,7 +149,8 @@ async def _get_with_retry(
 async def exchange_code(code: str, redirect_uri: str) -> SpotifyTokenBundle:
     """Exchange an OAuth authorization code for an access + refresh token."""
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
-        resp = await client.post(
+        resp = await _post_with_retry(
+            client,
             _SPOTIFY_AUTH_ENDPOINT,
             data={
                 "grant_type": "authorization_code",
@@ -130,7 +163,6 @@ async def exchange_code(code: str, redirect_uri: str) -> SpotifyTokenBundle:
             ),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        resp.raise_for_status()
         data: dict[str, Any] = resp.json()
 
     return SpotifyTokenBundle(
@@ -149,7 +181,8 @@ async def refresh_access_token(refresh_token: str) -> SpotifyTokenBundle:
     the caller should keep using the token it already has.
     """
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
-        resp = await client.post(
+        resp = await _post_with_retry(
+            client,
             _SPOTIFY_AUTH_ENDPOINT,
             data={
                 "grant_type": "refresh_token",
@@ -161,7 +194,6 @@ async def refresh_access_token(refresh_token: str) -> SpotifyTokenBundle:
             ),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        resp.raise_for_status()
         data: dict[str, Any] = resp.json()
 
     return SpotifyTokenBundle(
@@ -504,10 +536,10 @@ async def fetch_artist_genres_batch(
                 if not isinstance(artist, dict):
                     continue
                 artist_dict = cast(dict[str, Any], artist)
-                name = artist_dict.get("name")
+                aid = artist_dict.get("id")
                 genres = cast(list[str], artist_dict.get("genres") or [])
-                if isinstance(name, str) and name.strip():
-                    artist_genres[name.strip().lower()] = [
+                if isinstance(aid, str) and aid.strip():
+                    artist_genres[aid.strip()] = [
                         g for g in genres if g.strip()
                     ]
 
@@ -635,24 +667,32 @@ async def _blend_playlist_genres_affinity(
     access_token: str,
     all_tracks: list[dict[str, Any]],
     genre_acc: dict[str, float],
+    start_time: float | None = None,
+    budget_seconds: float = _SYNC_TIME_BUDGET_SECONDS,
 ) -> None:
     """Helper to fetch and blend playlist genres to reduce complexity."""
     if not all_tracks:
+        return
+    if start_time is not None and (time.monotonic() - start_time) > budget_seconds:
+        logger.warning("Skipping playlist genre blend: sync time budget exceeded")
         return
     try:
         top_playlist_artists = compute_playlist_artist_ids_frequency(
             all_tracks,
             limit=50,
         )
-        target_ids = [aid for aid, _, _ in top_playlist_artists]
+        target_ids = [aid for aid, _, _ in top_playlist_artists if aid]
         if target_ids:
+            if start_time is not None and (time.monotonic() - start_time) > budget_seconds:
+                logger.warning("Skipping playlist genre fetch: sync time budget exceeded")
+                return
             playlist_genres = await fetch_artist_genres_batch(
                 client,
                 access_token,
                 target_ids,
             )
-            for _, name, freq_weight in top_playlist_artists:
-                genres = playlist_genres.get(name.lower()) or []
+            for aid, _, freq_weight in top_playlist_artists:
+                genres = playlist_genres.get(aid) or []
                 for genre in genres:
                     key = genre.strip().lower()
                     genre_acc[key] = (
@@ -732,8 +772,21 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
                 playlists_with_tracks.append({**playlist, "tracks": tracks})
                 all_tracks.extend(tracks)
 
-            # Blend genre affinity from playlists using the existing HTTP client
-            await _blend_playlist_genres_affinity(client, access_token, all_tracks, genre_acc)
+            # Blend genre affinity from playlists using the existing HTTP client if budget allows
+            if (time.monotonic() - start) < _SYNC_TIME_BUDGET_SECONDS:
+                await _blend_playlist_genres_affinity(
+                    client,
+                    access_token,
+                    all_tracks,
+                    genre_acc,
+                    start_time=start,
+                    budget_seconds=_SYNC_TIME_BUDGET_SECONDS,
+                )
+            else:
+                logger.warning(
+                    "Skipping playlist genre blend: sync time budget exceeded",
+                    extra={"user_id": user_id},
+                )
     except Exception as e:
         logger.exception("Spotify playlist sync failed", extra={"user_id": user_id})
         await asyncio.to_thread(mark_sync_result, user_id, "error", str(e)[:500])

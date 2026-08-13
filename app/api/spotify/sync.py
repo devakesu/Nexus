@@ -162,7 +162,7 @@ async def spotify_resync(
     if not spotify_user_id:
         spotify_user_id = await fetch_spotify_user_id(tokens.access_token)
 
-    if tokens.refresh_token and tokens.refresh_token != refresh_token:
+    if tokens.refresh_token:
         upsert_connection(user_id, spotify_user_id, tokens.refresh_token, tokens.scope)
 
     background_tasks.add_task(

@@ -20,23 +20,18 @@ See 20260801000000_account_deletion_lifecycle.sql,
 import logging
 import secrets
 import time
+import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.config import DiscoveryTab, settings
+from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
-from app.db.chat import (
-    close_conversation_for_match_action,
-    reopen_conversations_for_reactivation,
-)
+from app.db.chat import reopen_conversations_for_reactivation
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
-from app.db.discovery import fetch_matches_for_user, set_match_unmatched
 
 logger = logging.getLogger(__name__)
-
-_TABS: tuple[DiscoveryTab, ...] = ("Dating", "Friends", "Professional")
 
 # Encrypted/PII profile columns nulled at Tier-1 anonymization. Deliberately
 # excludes structural/preference columns that are NOT NULL, CHECK-constrained,
@@ -103,6 +98,7 @@ _NO_RETENTION_TABLES = (
 )
 
 _MEDIA_BUCKET = "user_media"
+_FEEDBACK_BUCKET = "feedback_attachments"
 
 # safety_alerts/safety_evidence are deliberately NOT purged here - they're
 # on a separate, longer legal-hold timer anchored to purged_at (set below),
@@ -235,15 +231,24 @@ def fetch_deletion_status(user_id: str) -> dict[str, Any] | None:
 
 
 def _close_all_conversations(user_id: str) -> None:
-    """Close all conversations.
+    """Bulk closes all active conversations across all tabs in a single database query.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user."""
-    for tab in _TABS:
-        for match in fetch_matches_for_user(user_id, tab):
-            close_conversation_for_match_action(
-                user_id, match["matched_user_id"], tab, reason="account_deletion",
-            )
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+    """
+    user_id = str(uuid.UUID(user_id)).lower()
+    now = utcnow()
+    try:
+        supabase_client.table("chat_conversations").update(
+            {"closed_at": now.isoformat(), "closed_reason": "account_deletion"},
+        ).or_(
+            f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}",
+        ).is_("closed_at", "null").execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to bulk close all conversations for user", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to bulk close all conversations") from e
 
 
 def request_deletion(
@@ -351,6 +356,16 @@ def cancel_deletion(user_id: str) -> None:
         logger.exception("Failed to reactivate profile", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to cancel account deletion") from e
 
+    try:
+        supabase_client.table("user_devices").update(
+            {"is_active": True},
+        ).eq("user_id", user_id).execute()
+    except APIError:
+        logger.exception(
+            "Failed to reactivate devices on deletion cancellation",
+            extra={"user_id": user_id},
+        )
+
     reopen_conversations_for_reactivation(user_id)
 
 
@@ -376,13 +391,24 @@ def _fetch_accounts_due_for_purge() -> list[dict[str, Any]]:
 
 
 def _permanently_unmatch_all(user_id: str) -> None:
-    """Permanently unmatch all.
+    """Bulk dissolves all active matches across all tabs in a single database query.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user."""
-    for tab in _TABS:
-        for match in fetch_matches_for_user(user_id, tab):
-            set_match_unmatched(user_id, match["matched_user_id"], tab)
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+    """
+    user_id = str(uuid.UUID(user_id)).lower()
+    now = utcnow()
+    try:
+        supabase_client.table("matches").update(
+            {"unmatched_at": now.isoformat(), "unmatched_by": user_id},
+        ).or_(
+            f"liker_id.eq.{user_id},liked_back_id.eq.{user_id}",
+        ).is_("unmatched_at", "null").execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to bulk unmatch all for user", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to bulk unmatch all") from e
 
 
 def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
@@ -440,28 +466,45 @@ def _delete_no_retention_rows(user_id: str) -> None:
             "Failed to purge discovery_session_items for user",
             extra={"user_id": user_id},
         )
+    try:
+        supabase_client.table("profile_discovery_actions").delete().or_(
+            f"actor_id.eq.{user_id},target_id.eq.{user_id}",
+        ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to purge profile_discovery_actions for user",
+            extra={"user_id": user_id},
+        )
+
 
 
 def _delete_user_media_objects(user_id: str) -> None:
-    """Delete user media objects.
+    """Delete user media and feedback attachment objects from storage buckets.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user."""
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+    """
+    # 1. Clean user_media bucket ({user_id}/*)
     try:
         objects = supabase_client.storage.from_(_MEDIA_BUCKET).list(user_id)
-    except Exception:
-        logger.exception(
-            "Failed to list user_media objects for purge", extra={"user_id": user_id},
-        )
-        return
-    paths = [f"{user_id}/{obj['name']}" for obj in objects if obj.get("name")]
-    if not paths:
-        return
-    try:
-        supabase_client.storage.from_(_MEDIA_BUCKET).remove(paths)
+        paths = [f"{user_id}/{obj['name']}" for obj in objects if obj.get("name")]
+        if paths:
+            supabase_client.storage.from_(_MEDIA_BUCKET).remove(paths)
     except Exception:
         logger.exception(
             "Failed to remove user_media objects for purge", extra={"user_id": user_id},
+        )
+
+    # 2. Clean feedback_attachments bucket (app_contact/{user_id}/*)
+    try:
+        fb_prefix = f"app_contact/{user_id}"
+        fb_objects = supabase_client.storage.from_(_FEEDBACK_BUCKET).list(fb_prefix)
+        fb_paths = [f"{fb_prefix}/{obj['name']}" for obj in fb_objects if obj.get("name")]
+        if fb_paths:
+            supabase_client.storage.from_(_FEEDBACK_BUCKET).remove(fb_paths)
+    except Exception:
+        logger.exception(
+            "Failed to remove feedback_attachments objects for purge", extra={"user_id": user_id},
         )
 
 
@@ -502,8 +545,12 @@ def purge_due_accounts() -> None:
             try:
                 blind_index = row.get("mobile_blind_index")
                 reason_code = row.get("deletion_flagged_reason_code")
+
+                _permanently_unmatch_all(user_id)
+                _anonymize_profile_and_user(user_id, now)
+
                 if reason_code and blind_index:
-                    supabase_client.table("deleted_account_blocklist").insert(
+                    supabase_client.table("deleted_account_blocklist").upsert(
                         {
                             "phone_blind_index": blind_index,
                             "cooldown_expires_at": (
@@ -514,10 +561,9 @@ def purge_due_accounts() -> None:
                             ).isoformat(),
                             "reason_code": reason_code,
                         },
+                        on_conflict="phone_blind_index",
                     ).execute()
 
-                _permanently_unmatch_all(user_id)
-                _anonymize_profile_and_user(user_id, now)
                 _delete_no_retention_rows(user_id)
                 _delete_user_media_objects(user_id)
                 _ban_and_scrub_auth_user(user_id)

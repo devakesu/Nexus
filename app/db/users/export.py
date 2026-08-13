@@ -21,6 +21,7 @@ matching-engine-only artist_affinity field are never included anywhere.
 """
 
 import logging
+import uuid
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -73,6 +74,7 @@ def _safe_select(
     """Fail-soft select-all-for-user helper: logs and returns an empty list
     on failure rather than aborting the whole export over one table.
     """
+    user_id = str(uuid.UUID(user_id)).lower()
     try:
         res = (
             supabase_client.table(table)
@@ -173,6 +175,7 @@ def _build_account_section(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
+    user_id = str(uuid.UUID(user_id)).lower()
     try:
         res = (
             supabase_client.table("users")
@@ -188,7 +191,11 @@ def _build_account_section(user_id: str) -> dict[str, Any]:
         return {}
     row = getattr(res, "data", None)
     account = cast(dict[str, Any], row) if isinstance(row, dict) else {}
-    account["email"] = get_user_email_by_id(user_id)
+    email = get_user_email_by_id(user_id)
+    if email and not (email.startswith("deleted-") and "@deleted." in email):
+        account["email"] = email
+    else:
+        account["email"] = None
     return account
 
 
@@ -200,6 +207,7 @@ def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
+    user_id = str(uuid.UUID(user_id)).lower()
     try:
         matches_res = (
             supabase_client.table("matches")
@@ -235,6 +243,7 @@ def _build_chat_section(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
+    user_id = str(uuid.UUID(user_id)).lower()
     try:
         conv_res = (
             supabase_client.table("chat_conversations")
@@ -324,6 +333,7 @@ def _build_reports_section(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
+    user_id = str(uuid.UUID(user_id)).lower()
     filed_by_you: list[dict[str, Any]] = []
     against_you: list[dict[str, Any]] = []
     try:
@@ -572,6 +582,7 @@ def build_user_data_export(user_id: str) -> dict[str, Any]:
     that no background-job/email-link infrastructure is warranted (unlike
     the account-deletion purge job, which processes many accounts at once).
     """
+    user_id = str(uuid.UUID(user_id)).lower()
     return {
         "profile": _build_profile_section(user_id),
         "account": _build_account_section(user_id),

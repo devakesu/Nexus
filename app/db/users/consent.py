@@ -40,23 +40,32 @@ def _parse_terms_timestamp(ts_raw: Any) -> datetime:
     )
 
 
-def _validate_terms_versions(version: str) -> None:
-    """Validate terms versions.
+def _parse_version_tuple(version: str) -> tuple[int, ...]:
+    """Parse version string like '1.0', '1.10', '2.1.3' into a tuple of integers for strict semver comparison."""
+    cleaned = version.strip()
+    if not cleaned:
+        raise ValueError("Version string cannot be empty.")
+    parts = cleaned.split(".")
+    try:
+        return tuple(int(p) for p in parts)
+    except ValueError as e:
+        raise ValueError(f"Invalid numeric version segment in '{version}'") from e
 
-        Args:
-            version: Input version parameter."""
+
+def _validate_terms_versions(version: str) -> None:
+    """Validate terms versions against server configuration using strict semver comparison."""
     current_version = settings.current_terms_version.strip()
     cleaned_version = version.strip()
     try:
-        float(cleaned_version)
+        _parse_version_tuple(cleaned_version)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="accepted_terms_version must be a numeric string.",
+            detail="accepted_terms_version must be a valid numeric version string.",
         ) from None
 
     try:
-        float(current_version)
+        _parse_version_tuple(current_version)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -131,8 +140,7 @@ def _update_consent_pair(
     and the special_category/safety_data consent writers below. Only ever
     moves a category's recorded version forward, never backward or sideways.
     """
-    # Cast to float to prevent any potential SQL/PostgREST injection
-    version_val = float(cleaned_version)
+    version_tuple = _parse_version_tuple(cleaned_version)
 
     accepted_at = datetime.now(timezone.utc)
 
@@ -142,16 +150,16 @@ def _update_consent_pair(
 
     if existing_version is not None:
         try:
-            existing_val = float(existing_version)
+            existing_tuple = _parse_version_tuple(str(existing_version))
         except ValueError:
-            existing_val = 0.0
+            existing_tuple = (0,)
 
-        if existing_val == version_val:
+        if existing_tuple == version_tuple:
             # Already at this version - no-op
             existing_ts = _parse_terms_timestamp(existing.get(timestamp_column))
             return str(existing_version), existing_ts
 
-        if existing_val > version_val:
+        if existing_tuple > version_tuple:
             # Attempted downgrade
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -283,6 +291,20 @@ def update_user_terms(
     return result
 
 
+def _verify_general_terms_accepted(user_id: str) -> None:
+    """Ensure that the user has accepted general terms before itemized/special consents can be granted."""
+    existing = _fetch_existing_consent_pair(
+        user_id,
+        "accepted_terms_version",
+        "terms_accepted_at",
+    )
+    if not existing.get("accepted_terms_version"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="General terms must be accepted before special category or safety data consent can be granted.",
+        )
+
+
 def update_special_category_consent(
     user_id: str,
     terms_version: str,
@@ -305,6 +327,9 @@ def update_special_category_consent(
         )
         _log_consent_event(user_id, "special_category", False, cleaned_version)
         return None
+
+    _verify_general_terms_accepted(user_id)
+
     result = _update_consent_pair(
         user_id,
         "special_category_consent_version",
@@ -337,6 +362,9 @@ def update_safety_data_consent(
         )
         _log_consent_event(user_id, "safety_data", False, cleaned_version)
         return None
+
+    _verify_general_terms_accepted(user_id)
+
     result = _update_consent_pair(
         user_id,
         "safety_data_consent_version",

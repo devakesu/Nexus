@@ -692,15 +692,28 @@ def fetch_due_event_reminders(window_minutes: int = 60) -> list[dict[str, Any]]:
         raise DatabaseAccessError("Failed to fetch due event reminders") from e
 
 
-def mark_reminder_sent(event_id: str) -> None:
-    """Executes mark reminder sent operation.
+def mark_reminder_sent(event_id: str) -> bool:
+    """Atomically marks reminder_sent_at timestamp if not already marked.
 
-        Args:
-            event_id: Input event id parameter."""
+    Uses a conditional update (WHERE reminder_sent_at IS NULL) to prevent duplicate marking.
+
+    Args:
+        event_id: The chat event ID.
+
+    Returns:
+        bool: True if the reminder was claimed and marked, False if already marked.
+    """
     try:
-        supabase_client.table("chat_events").update(
-            {"reminder_sent_at": utcnow().isoformat()},
-        ).eq("id", event_id).execute()
+        res = (
+            supabase_client.table("chat_events")
+            .update({"reminder_sent_at": utcnow().isoformat()})
+            .eq("id", event_id)
+            .is_("reminder_sent_at", "null")
+            .select("id")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return bool(rows)
     except APIError as e:
         logger.exception(
             "Failed to mark reminder sent", extra={"event_id": event_id},
@@ -745,15 +758,28 @@ def fetch_due_safety_reminders(window_minutes: int = 35) -> list[dict[str, Any]]
         raise DatabaseAccessError("Failed to fetch due meetup safety reminders") from e
 
 
-def mark_safety_reminder_sent(event_id: str) -> None:
-    """Executes mark safety reminder sent operation.
+def mark_safety_reminder_sent(event_id: str) -> bool:
+    """Atomically marks safety_reminder_sent_at timestamp if not already marked.
 
-        Args:
-            event_id: Input event id parameter."""
+    Uses a conditional update (WHERE safety_reminder_sent_at IS NULL) to prevent duplicate marking.
+
+    Args:
+        event_id: The chat event ID.
+
+    Returns:
+        bool: True if the safety reminder was claimed and marked, False if already marked.
+    """
     try:
-        supabase_client.table("chat_events").update(
-            {"safety_reminder_sent_at": utcnow().isoformat()},
-        ).eq("id", event_id).execute()
+        res = (
+            supabase_client.table("chat_events")
+            .update({"safety_reminder_sent_at": utcnow().isoformat()})
+            .eq("id", event_id)
+            .is_("safety_reminder_sent_at", "null")
+            .select("id")
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return bool(rows)
     except APIError as e:
         logger.exception(
             "Failed to mark meetup safety reminder sent",
@@ -762,3 +788,4 @@ def mark_safety_reminder_sent(event_id: str) -> None:
         raise DatabaseAccessError(
             "Failed to mark meetup safety reminder sent",
         ) from e
+

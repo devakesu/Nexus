@@ -273,13 +273,16 @@ class MeetupSafetySession extends ChangeNotifier {
     _serverSessionId = await prefs.getString(_kPrefServerSessionId);
     final mirrorStartPending =
         await prefs.getBool(_kPrefMirrorStartPending) ?? false;
-    // Defensively re-post rather than assume the previous ongoing
-    // notification / scheduled alarm survived whatever caused this restart
-    // (idempotent either way - this is the same call every checkInSafely()/
-    // extend() already makes).
+    final isOverdue = nextCheckInAt!.isBefore(DateTime.now());
+
     await _showOngoingNotification();
-    await _scheduleDueNotification();
-    _armDueTimer();
+    if (isOverdue) {
+      // Overdue session: immediately trigger the check-in due screen and await user confirmation
+      _armDueTimer();
+    } else {
+      await _scheduleDueNotification();
+      _armDueTimer();
+    }
     notifyListeners();
 
     if (_serverSessionId == null || mirrorStartPending) {

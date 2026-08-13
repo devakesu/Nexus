@@ -128,20 +128,23 @@ async def _check_due_reminders() -> None:
         conversation_id = str(event.get("conversation_id") or "")
         location_label = event.get("location_label")
         try:
+            # Atomic claim: mark as sent in DB before dispatching to prevent duplicate push notifications
+            marked = await asyncio.to_thread(mark_reminder_sent, event_id)
+            if not marked:
+                continue
+
             conversation = await asyncio.to_thread(
                 fetch_conversation_participants, conversation_id,
             )
             if conversation is None:
                 continue
-            notified = await send_chat_event_reminder_notification(
+            await send_chat_event_reminder_notification(
                 user_a_id=str(conversation.get("user_a_id") or ""),
                 user_b_id=str(conversation.get("user_b_id") or ""),
                 conversation_id=conversation_id,
                 tab=str(conversation.get("tab") or "Dating"),
                 location_label=location_label,
             )
-            if notified:
-                await asyncio.to_thread(mark_reminder_sent, event_id)
         except DatabaseAccessError as err:
             sentry_sdk.capture_exception(err)
             logger.exception(
@@ -176,6 +179,11 @@ async def _check_upcoming_safety_reminders() -> None:
         conversation_id = str(event.get("conversation_id") or "")
         created_by = str(event.get("created_by") or "")
         try:
+            # Atomic claim: mark as sent in DB before dispatching to prevent duplicate push notifications
+            marked = await asyncio.to_thread(mark_safety_reminder_sent, event_id)
+            if not marked:
+                continue
+
             conversation = await asyncio.to_thread(
                 fetch_conversation_participants, conversation_id,
             )
@@ -190,7 +198,6 @@ async def _check_upcoming_safety_reminders() -> None:
                 conversation_id=conversation_id,
                 tab=str(conversation.get("tab") or "Dating"),
             )
-            await asyncio.to_thread(mark_safety_reminder_sent, event_id)
         except DatabaseAccessError as err:
             sentry_sdk.capture_exception(err)
             logger.exception(
@@ -272,6 +279,13 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
             "Skipping safety escalation SMS: already sent according to Redis idempotency check",
             extra={"session_id": session_id, "escalation_number": escalation_number},
         )
+        # Self-healing: Reconcile DB escalation count if previous write failed
+        try:
+            await asyncio.to_thread(
+                record_safety_escalation_sent, session_id, escalation_number,
+            )
+        except Exception:
+            pass
         return
 
     token = make_escalation_cancel_token(session_id, escalation_number)
@@ -403,13 +417,24 @@ async def _run_safety_data_legal_hold_purge() -> None:
 
 
 def start_reminder_scheduler() -> AsyncIOScheduler:
-    """Executes start reminder scheduler operation.
+    """Starts the background reminder scheduler singleton if not already running.
 
-        Returns:
-            AsyncIOScheduler: Response payload or result."""
+    Safe for ASGI lifespan restarts and hot-reload cycles: if an existing instance
+    is stopped, it is cleaned up before a new scheduler instance is initialized.
+
+    Returns:
+        AsyncIOScheduler: The active running scheduler instance.
+    """
     global _scheduler
     if _scheduler is not None:
-        return _scheduler
+        if _scheduler.running:
+            return _scheduler
+        try:
+            _scheduler.shutdown(wait=False)
+        except Exception:
+            pass
+        _scheduler = None
+
     scheduler = AsyncIOScheduler()
     # apscheduler ships without type stubs; cast to Any to keep Pyright happy,
     # matching the same pattern used for firebase_admin in fcm_sender.py.
@@ -432,33 +457,54 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
         id="meetup_safety_escalations",
         max_instances=1,
     )
+    now = utcnow()
     scheduler_any.add_job(
         _run_account_deletion_purge,
-        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        trigger=IntervalTrigger(
+            hours=_ACCOUNT_DELETION_POLL_HOURS,
+            start_date=now + timedelta(minutes=0),
+            jitter=60,
+        ),
         id="account_deletion_purge",
         max_instances=1,
     )
     scheduler_any.add_job(
         _run_blocklist_expiry,
-        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        trigger=IntervalTrigger(
+            hours=_ACCOUNT_DELETION_POLL_HOURS,
+            start_date=now + timedelta(minutes=15),
+            jitter=60,
+        ),
         id="deleted_account_blocklist_expiry",
         max_instances=1,
     )
     scheduler_any.add_job(
         _run_account_deletion_long_tail_purge,
-        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        trigger=IntervalTrigger(
+            hours=_ACCOUNT_DELETION_POLL_HOURS,
+            start_date=now + timedelta(minutes=30),
+            jitter=60,
+        ),
         id="account_deletion_long_tail_purge",
         max_instances=1,
     )
     scheduler_any.add_job(
         _run_safety_evidence_retention_purge,
-        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        trigger=IntervalTrigger(
+            hours=_ACCOUNT_DELETION_POLL_HOURS,
+            start_date=now + timedelta(minutes=45),
+            jitter=60,
+        ),
         id="safety_evidence_retention_purge",
         max_instances=1,
     )
     scheduler_any.add_job(
         _run_safety_data_legal_hold_purge,
-        trigger=IntervalTrigger(hours=_ACCOUNT_DELETION_POLL_HOURS),
+        trigger=IntervalTrigger(
+            hours=_ACCOUNT_DELETION_POLL_HOURS,
+            start_date=now + timedelta(minutes=60),
+            jitter=60,
+        ),
         id="safety_data_legal_hold_purge",
         max_instances=1,
     )
@@ -474,8 +520,14 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
 
 
 def stop_reminder_scheduler() -> None:
-    """Executes stop reminder scheduler operation."""
+    """Stops the reminder scheduler singleton and resets the module-level reference."""
     global _scheduler
     if _scheduler is not None:
-        _scheduler.shutdown(wait=False)
-        _scheduler = None
+        try:
+            if _scheduler.running:
+                _scheduler.shutdown(wait=False)
+        except Exception:
+            pass
+        finally:
+            _scheduler = None
+

@@ -1,6 +1,7 @@
 """Discovery spatial viewport querying, distance filtering, and count calculations."""
 
 import logging
+import math
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -113,6 +114,12 @@ async def fetch_spatial_viewport(
     radius: float,
 ) -> tuple[list[dict[str, Any]], int]:
     """Fetch session items within a circular viewport using bounding box pre-filter."""
+    if not (math.isfinite(center_x) and math.isfinite(center_y) and math.isfinite(radius)):
+        raise ValueError("Spatial viewport parameters (center_x, center_y, radius) must be finite floats.")
+
+    # Clamp radius to positive range within max viewport span
+    radius = max(0.001, min(radius, 1000.0))
+
     x_min, x_max = center_x - radius, center_x + radius
     y_min, y_max = center_y - radius, center_y + radius
 
