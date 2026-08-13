@@ -172,6 +172,30 @@ async def refresh_access_token(refresh_token: str) -> SpotifyTokenBundle:
     )
 
 
+async def revoke_refresh_token(refresh_token: str) -> bool:
+    """Best-effort revocation of Spotify refresh token at provider."""
+    if not refresh_token:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                _SPOTIFY_AUTH_ENDPOINT,
+                data={
+                    "token": refresh_token,
+                    "token_type_hint": "refresh_token",
+                },
+                auth=(
+                    settings.spotify_client_id or "",
+                    settings.spotify_client_secret or "",
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            return resp.is_success
+    except Exception:
+        logger.warning("Failed to revoke Spotify token at provider", exc_info=True)
+        return False
+
+
 async def fetch_spotify_user_id(access_token: str) -> str:
     """Fetch the connected Spotify account's own user id (needed to determine
     playlist ownership - see fetch_owned_or_collaborative_playlists)."""

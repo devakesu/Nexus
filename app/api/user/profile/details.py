@@ -212,28 +212,48 @@ def update_profile_details(  # noqa: C901
             )
         assert_special_category_consent(consent_user_row)
 
-    if "campus_year" in payload.model_fields_set or payload.campus_name is not None:
+    need_profile_fetch = (
+        ("campus_year" in payload.model_fields_set or payload.campus_name is not None)
+        or (payload.name is not None or payload.age is not None)
+        or (payload.is_dating_active is not None)
+        or (payload.is_friends_active is not None)
+        or (payload.is_professional_active is not None)
+        or (payload.bio is not None)
+    )
+
+    profile: dict[str, Any] | None = None
+    if need_profile_fetch:
         try:
-            campus_res = (
+            profile_res = (
                 user_module.supabase_client.table("profiles")
-                .select("campus_name, campus_year")
+                .select(
+                    "name, age, campus_name, campus_year, "
+                    "profile_pic, normal_pics, interests, sub_interests, "
+                    "drinking, smoking, partner_values, "
+                    "dating_target_buckets, dating_for, friends_target_buckets, "
+                    "causes_supported, professional_target_buckets, looking_for, "
+                    "tech_skills, bio, is_dating_active, is_friends_active, "
+                    "is_professional_active",
+                )
                 .eq("id", user_id)
                 .maybe_single()
                 .execute()
             )
-            campus_data = cast(
-                dict[str, Any],
-                getattr(campus_res, "data", None) or {},
-            )
-            decrypted_campus = user_module.decrypt_profile_record(campus_data)
-            existing_campus_name = decrypted_campus.get("campus_name")
-            existing_campus_year = decrypted_campus.get("campus_year")
         except Exception as e:
-            logger.exception("Failed to fetch current profile for campus validation")
+            logger.exception("Failed to fetch profile details", extra={"user_id": user_id})
             raise HTTPException(
                 status_code=500,
-                detail="Internal server error during campus validation.",
+                detail="Internal server error during profile validation.",
             ) from e
+
+        profile_data = getattr(profile_res, "data", None)
+        if not profile_data or not isinstance(profile_data, dict):
+            raise HTTPException(status_code=404, detail="Profile not found. Complete onboarding first.")
+        profile = user_module.decrypt_profile_record(cast(dict[str, Any], profile_data))
+
+    if "campus_year" in payload.model_fields_set or payload.campus_name is not None:
+        existing_campus_name = profile.get("campus_name") if profile else None
+        existing_campus_year = profile.get("campus_year") if profile else None
 
         incoming_campus_name = (
             payload.campus_name.strip()
@@ -271,28 +291,7 @@ def update_profile_details(  # noqa: C901
     new_name: str | None = None
     new_age: int | None = None
     if payload.name is not None or payload.age is not None:
-        try:
-            identity_res = (
-                supabase_client.table("profiles")
-                .select("name, age")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
-        except Exception as e:
-            logger.exception(
-                "Failed to fetch current name/age for change comparison",
-                extra={"user_id": user_id},
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Internal server error.",
-            ) from e
-
-        identity_data = cast(
-            "dict[str, Any]",
-            getattr(identity_res, "data", None) or {},
-        )
+        identity_data = profile or {}
 
         if payload.name is not None:
             candidate_name = payload.name.strip()
@@ -432,32 +431,6 @@ def update_profile_details(  # noqa: C901
         val = getattr(payload, field, None)
         if val is not None:
             update_data[field] = encrypt_to_hex(json.dumps(val))
-
-    need_profile_fetch = (
-        (payload.is_dating_active is True)
-        or (payload.is_friends_active is True)
-        or (payload.is_professional_active is True)
-        or (payload.bio is not None)
-    )
-    profile = None
-    if need_profile_fetch:
-        profile_res = (
-            user_module.supabase_client.table("profiles")
-            .select(
-                "name,age,profile_pic,normal_pics,interests,sub_interests,"
-                "drinking,smoking,partner_values,dating_target_buckets,dating_for,"
-                "friends_target_buckets,causes_supported,"
-                "professional_target_buckets,looking_for,tech_skills,"
-                "bio,is_dating_active,is_friends_active,is_professional_active",
-            )
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        profile_data = getattr(profile_res, "data", None)
-        if not profile_data or not isinstance(profile_data, dict):
-            raise HTTPException(status_code=404, detail="Profile not found")
-        profile = user_module.decrypt_profile_record(cast(dict[str, Any], profile_data))
 
     if profile is not None:
         dating_active = (
@@ -640,20 +613,52 @@ def update_profile_details(  # noqa: C901
                 ) from e
 
         if update_data:
-            res = (
+            query = (
                 user_module.supabase_client.table("profiles")
                 .update(update_data)
                 .eq("id", user_id)
-                .execute()
             )
+            is_activating = (
+                update_data.get("is_dating_active") is True
+                or update_data.get("is_friends_active") is True
+                or update_data.get("is_professional_active") is True
+            )
+            if is_activating and "profile_pic" not in update_data:
+                query = query.not_.is_("profile_pic", "null")
+
+            res = query.execute()
             if not getattr(res, "data", None):
+                existing = (
+                    user_module.supabase_client.table("profiles")
+                    .select("id, profile_pic")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
+                existing_data = cast(dict[str, Any], getattr(existing, "data", None) or {})
+                if not existing_data:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Profile not found. Complete onboarding first.",
+                    )
+                if is_activating and not existing_data.get("profile_pic"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cannot activate tab without a profile picture.",
+                    )
                 raise HTTPException(
                     status_code=404,
                     detail="Profile not found. Complete onboarding first.",
                 )
 
-        plaintext_bio = (payload.bio or "").strip()
-        background_tasks.add_task(recompile_and_push_vectors, user_id, plaintext_bio)
+        plaintext_bio: str | None = (
+            payload.bio.strip() if payload.bio is not None else None
+        )
+        background_tasks.add_task(
+            recompile_and_push_vectors,
+            user_id,
+            plaintext_bio,
+        )
 
         if payload.model_fields_set & _VALUE_DIMENSION_TRIGGER_FIELDS:
             background_tasks.add_task(recompile_value_dimensions, user_id)

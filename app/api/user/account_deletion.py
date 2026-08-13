@@ -59,9 +59,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-
-
-
+_DELETION_OTP_MAX_ATTEMPTS = 5
+_DELETION_OTP_TTL_SECONDS = 600
 
 
 @router.post(
@@ -75,7 +74,7 @@ async def request_account_deletion_otp(
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
 ) -> AccountDeletionOtpRequestResponse:
-    """Dispatches a 10-minute email OTP verification code for account deletion.
+    """Sends an 8-digit OTP code to the verified email for account deletion.
 
     Args:
         request: Incoming HTTP request.
@@ -93,7 +92,8 @@ async def request_account_deletion_otp(
         return AccountDeletionOtpRequestResponse(sent=True)
 
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
-    await redis_client.setex(f"account_deletion:otp_code:{user_id}", 600, otp_code)
+    await redis_client.setex(f"account_deletion:otp_code:{user_id}", _DELETION_OTP_TTL_SECONDS, otp_code)
+    await redis_client.delete(f"account_deletion:otp_attempts:{user_id}")
     otp_res = await send_account_deletion_otp_email(email, otp_code)
     if not otp_res.success:
         logger.error(
@@ -135,6 +135,14 @@ async def verify_account_deletion_otp(
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
+    attempts_key = f"account_deletion:otp_attempts:{user_id}"
+    attempts = await redis_client.get(attempts_key)
+    if attempts and int(attempts) >= _DELETION_OTP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Please request a new code.",
+        )
+
     stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
     if not stored_otp:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
@@ -144,8 +152,11 @@ async def verify_account_deletion_otp(
         else stored_otp
     )
     if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
+        await redis_client.incr(attempts_key)
+        await redis_client.expire(attempts_key, _DELETION_OTP_TTL_SECONDS)
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"account_deletion:otp_code:{user_id}")
+    await redis_client.delete(attempts_key)
 
     await redis_client.setex(
         otp_verified_redis_key("account_deletion", user_id),
@@ -186,13 +197,15 @@ async def request_account_deletion(
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
+    otp_key = otp_verified_redis_key("account_deletion", user_id)
+
     existing = await run_in_threadpool(fetch_deletion_status, user_id)
     if existing and existing.get("deletion_requested_at"):
+        await redis_client.delete(otp_key)
         return AccountDeletionRequestResponse(
             scheduled_purge_at=existing["scheduled_purge_at"],
         )
 
-    otp_key = otp_verified_redis_key("account_deletion", user_id)
     if not await redis_client.get(otp_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

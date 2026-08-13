@@ -39,13 +39,16 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def assemble_ticket_detail(
+async def assemble_ticket_detail(
     user_id: str,
     report: dict[str, Any],
 ) -> FeedbackTicketDetail:
-    """Assembles full feedback ticket detail including status history and comments."""
-    history = fetch_ticket_status_history(report["id"])
-    comments = fetch_ticket_comments(report["id"])
+    """Assembles full feedback ticket detail including status history and comments concurrently."""
+    report_id = report["id"]
+    history, comments = await asyncio.gather(
+        asyncio.to_thread(fetch_ticket_status_history, report_id),
+        asyncio.to_thread(fetch_ticket_comments, report_id),
+    )
 
     masked_history: list[FeedbackStatusHistoryEntry] = []
     for h in history:
@@ -201,7 +204,7 @@ async def get_feedback_ticket(
         raise HTTPException(status_code=404, detail="Ticket not found.")
 
     try:
-        return await asyncio.to_thread(feedback_module._assemble_ticket_detail, user_id, report)
+        return await feedback_module._assemble_ticket_detail(user_id, report)
     except DatabaseAccessError as err:
         logger.exception(
             "Database error assembling ticket detail",
@@ -324,7 +327,7 @@ async def close_feedback_ticket(
     )
 
     try:
-        return await asyncio.to_thread(feedback_module._assemble_ticket_detail, user_id, report)
+        return await feedback_module._assemble_ticket_detail(user_id, report)
     except DatabaseAccessError as err:
         raise HTTPException(
             status_code=503,

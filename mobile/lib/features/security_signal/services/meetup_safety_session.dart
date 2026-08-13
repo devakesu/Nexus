@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:battery_plus/battery_plus.dart';
@@ -13,6 +14,7 @@ import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/settings/screens/checkin_alert_screen.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:workmanager/workmanager.dart';
 
 const _kOngoingNotificationId = 9001;
 const _kDueNotificationId = 9002;
@@ -21,11 +23,16 @@ const _kDueChannelId = 'meetup_safety_checkin';
 const _kOngoingPayload = 'meetup_safety_ongoing';
 const _kDuePayload = 'meetup_safety_checkin_due';
 
+const String kSessionEndRetryTaskName = 'com.devakesu.nexus.sessionEndRetry';
+const String _kSessionEndRetryUniqueName = 'session-end-retry';
+const _kPrefPendingSessionCleanups = 'meetup_safety_pending_session_cleanups';
+
 const _kPrefActive = 'meetup_safety_active';
 const _kPrefIntervalSeconds = 'meetup_safety_interval_seconds';
 const _kPrefNextCheckInEpochMs = 'meetup_safety_next_checkin_epoch_ms';
 const _kPrefLabel = 'meetup_safety_label';
 const _kPrefServerSessionId = 'meetup_safety_server_session_id';
+const _kPrefMirrorStartPending = 'meetup_safety_mirror_start_pending';
 
 /// Notification action ids, shared between the ongoing ambient notification
 /// and the check-in-due full-screen notification.
@@ -264,6 +271,8 @@ class MeetupSafetySession extends ChangeNotifier {
     nextCheckInAt = DateTime.fromMillisecondsSinceEpoch(nextEpochMs);
     checkInLabel = await prefs.getString(_kPrefLabel) ?? '';
     _serverSessionId = await prefs.getString(_kPrefServerSessionId);
+    final mirrorStartPending =
+        await prefs.getBool(_kPrefMirrorStartPending) ?? false;
     // Defensively re-post rather than assume the previous ongoing
     // notification / scheduled alarm survived whatever caused this restart
     // (idempotent either way - this is the same call every checkInSafely()/
@@ -272,6 +281,10 @@ class MeetupSafetySession extends ChangeNotifier {
     await _scheduleDueNotification();
     _armDueTimer();
     notifyListeners();
+
+    if (_serverSessionId == null || mirrorStartPending) {
+      unawaited(_mirrorStart(++_sessionGeneration));
+    }
   }
 
   Future<void> _persist() async {
@@ -282,6 +295,7 @@ class MeetupSafetySession extends ChangeNotifier {
       await prefs.remove(_kPrefNextCheckInEpochMs);
       await prefs.remove(_kPrefLabel);
       await prefs.remove(_kPrefServerSessionId);
+      await prefs.remove(_kPrefMirrorStartPending);
       return;
     }
     await prefs.setInt(_kPrefIntervalSeconds, checkInInterval.inSeconds);
@@ -290,6 +304,12 @@ class MeetupSafetySession extends ChangeNotifier {
       nextCheckInAt!.millisecondsSinceEpoch,
     );
     await prefs.setString(_kPrefLabel, checkInLabel);
+    if (_serverSessionId != null) {
+      await prefs.setString(_kPrefServerSessionId, _serverSessionId!);
+      await prefs.remove(_kPrefMirrorStartPending);
+    } else {
+      await prefs.setBool(_kPrefMirrorStartPending, value: true);
+    }
   }
 
   /// Best-effort battery percentage + connection type, for the heartbeat
@@ -323,6 +343,89 @@ class MeetupSafetySession extends ChangeNotifier {
     return (batteryPercent, connectionType);
   }
 
+  static Future<List<String>> _readPendingCleanups() async {
+    final prefs = await SecurePreferences.getInstance();
+    final raw = await prefs.getString(_kPrefPendingSessionCleanups);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded.map((e) => e.toString()).toList();
+    } on Exception {
+      return [];
+    }
+  }
+
+  static Future<void> _writePendingCleanups(List<String> sessionIds) async {
+    final prefs = await SecurePreferences.getInstance();
+    if (sessionIds.isEmpty) {
+      await prefs.remove(_kPrefPendingSessionCleanups);
+      return;
+    }
+    await prefs.setString(
+      _kPrefPendingSessionCleanups,
+      jsonEncode(sessionIds.toSet().toList()),
+    );
+  }
+
+  static Future<void> _enqueueSessionCleanup(String sessionId) async {
+    final existing = await _readPendingCleanups();
+    if (!existing.contains(sessionId)) {
+      existing.add(sessionId);
+      await _writePendingCleanups(existing);
+    }
+  }
+
+  static Future<void> _dequeueSessionCleanup(String sessionId) async {
+    final existing = await _readPendingCleanups();
+    existing.remove(sessionId);
+    await _writePendingCleanups(existing);
+  }
+
+  static Future<void> _scheduleSessionEndRetry() async {
+    try {
+      await Workmanager().registerOneOffTask(
+        _kSessionEndRetryUniqueName,
+        kSessionEndRetryTaskName,
+        constraints: Constraints(networkType: NetworkType.connected),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+      );
+    } on Exception catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage: 'Failed to schedule Workmanager session-end retry',
+      );
+    }
+  }
+
+  /// Attempts to end all pending orphaned sessions.
+  static Future<bool> drainPendingEndSessions() async {
+    final pending = await _readPendingCleanups();
+    if (pending.isEmpty) return true;
+
+    final remaining = <String>[];
+    for (final sessionId in pending) {
+      try {
+        await SafetyAlertApi.endSession(sessionId);
+      } on Exception catch (e, stackTrace) {
+        ErrorHandler.handleError(
+          e,
+          stackTrace: stackTrace,
+          level: ErrorLevel.warning,
+          showUi: false,
+          customMessage:
+              'Failed to clean up orphaned safety session $sessionId',
+        );
+        remaining.add(sessionId);
+      }
+    }
+
+    await _writePendingCleanups(remaining);
+    return remaining.isEmpty;
+  }
+
   /// Mirrors a freshly-started session server-side. Fire-and-forget from
   /// start() - the local exact-alarm loop is what actually keeps the check-in
   /// loop working, this just widens the safety net to cover the device going
@@ -342,13 +445,20 @@ class MeetupSafetySession extends ChangeNotifier {
     if (generation != _sessionGeneration) {
       // Superseded by a later start()/end() while this request was in
       // flight - the server already created a row for it, so clean that up
-      // rather than leaving an orphaned active session behind.
-      unawaited(SafetyAlertApi.endSession(sessionId));
+      // reliably with persistent retry rather than leaving an orphaned active session behind.
+      await _enqueueSessionCleanup(sessionId);
+      try {
+        await SafetyAlertApi.endSession(sessionId);
+        await _dequeueSessionCleanup(sessionId);
+      } on Exception {
+        await _scheduleSessionEndRetry();
+      }
       return;
     }
     _serverSessionId = sessionId;
     final prefs = await SecurePreferences.getInstance();
     await prefs.setString(_kPrefServerSessionId, sessionId);
+    await prefs.remove(_kPrefMirrorStartPending);
   }
 
   /// Heartbeats the server mirror on a successful check-in (or an extend,
@@ -370,8 +480,17 @@ class MeetupSafetySession extends ChangeNotifier {
   Future<void> _mirrorEnd() async {
     final sessionId = _serverSessionId;
     _serverSessionId = null;
+    final prefs = await SecurePreferences.getInstance();
+    await prefs.remove(_kPrefServerSessionId);
+    await prefs.remove(_kPrefMirrorStartPending);
     if (sessionId == null) return;
-    await SafetyAlertApi.endSession(sessionId);
+    await _enqueueSessionCleanup(sessionId);
+    try {
+      await SafetyAlertApi.endSession(sessionId);
+      await _dequeueSessionCleanup(sessionId);
+    } on Exception {
+      await _scheduleSessionEndRetry();
+    }
   }
 
   /// Requests the two Android 14+ settings-gated permissions this feature
@@ -403,6 +522,12 @@ class MeetupSafetySession extends ChangeNotifier {
     );
   }
 
+  /// Starts a recurring Meetup Safety check-in session.
+  ///
+  /// Requests required Android 13+/14+ permissions (notifications, exact alarms,
+  /// full-screen intents) and returns [MeetupSafetyPermissionStatus]. Callers
+  /// should inspect `permissionStatus.allGranted` to display appropriate user
+  /// guidance or warning toasts if OS settings prevent full alert delivery.
   Future<MeetupSafetyPermissionStatus> start({
     required Duration interval,
     required String label,

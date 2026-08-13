@@ -79,7 +79,9 @@ def update_privacy_settings(
     _ = request
     update_data: dict[str, Any] = {}
     if payload.hidden_fields is not None:
-        update_data["hidden_profile_fields"] = payload.hidden_fields
+        update_data["hidden_profile_fields"] = [
+            f for f in payload.hidden_fields if f in ALLOWED_HIDDEN_FIELDS
+        ]
     if payload.share_active_status is not None:
         update_data["share_active_status"] = payload.share_active_status
     if payload.share_read_receipts is not None:

@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -164,3 +165,185 @@ def test_build_candidate_query_open_bucket_expansion(mock_supabase: MagicMock) -
     )
 
     mock_query.in_.assert_any_call("search_bucket", ["M", "F", "NB"])
+
+
+@patch("app.api.user.supabase_client")
+@patch("app.api.user.decrypt_profile_record")
+def test_update_profile_details_tab_activation_conditional_pic_check(
+    mock_decrypt: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    # Initial fetch returns valid profile with pic
+    mock_select = MagicMock()
+    chain = mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single
+    chain.return_value.execute = mock_select
+
+    mock_select.return_value.data = {
+        "name": "Alex",
+        "age": 22,
+        "profile_pic": "enc_pic",
+        "normal_pics": "[]",
+        "interests": "[]",
+        "sub_interests": "[]",
+        "drinking": "no",
+        "smoking": "no",
+        "partner_values": "[]",
+        "dating_target_buckets": ["F"],
+        "dating_for": ["relationship"],
+        "bio": "Hello there my friend",
+        "is_dating_active": False,
+    }
+    mock_decrypt.return_value = {
+        "name": "Alex",
+        "age": 22,
+        "profile_pic": "https://img.example.com/pic.jpg",
+        "normal_pics": [],
+        "interests": [],
+        "sub_interests": [],
+        "drinking": "no",
+        "smoking": "no",
+        "partner_values": [],
+        "dating_target_buckets": ["F"],
+        "dating_for": ["relationship"],
+        "bio": "Hello there my friend",
+        "is_dating_active": False,
+    }
+
+    # Simulate conditional update failure (e.g. pic was cleared concurrently)
+    update_mock = MagicMock()
+    mock_supabase.table.return_value.update.return_value.eq.return_value = update_mock
+    update_mock.not_.is_.return_value.execute.return_value.data = []
+
+    # And fallback select finds profile without pic
+    fallback_select = MagicMock()
+    fallback_select.execute.return_value.data = {"id": "user123", "profile_pic": None}
+    chain.return_value = fallback_select
+
+    payload = ProfileDetailsUpdate(is_dating_active=True)
+    with pytest.raises(HTTPException) as excinfo:
+        update_profile_details(
+            background_tasks=MagicMock(),
+            payload=payload,
+            user_id="user123",
+            _device=None,
+        )
+
+    assert excinfo.value.status_code == 400
+    assert "Cannot activate tab without a profile picture" in str(excinfo.value.detail)
+
+
+def test_validate_common_activation_decryption_failed_profile_pic() -> None:
+    from app.api.user.profile.helpers import _validate_common_activation
+
+    profile = {
+        "name": "Jane Doe",
+        "age": 25,
+        "sub_interests": {"tech": ["python", "fastapi"]},
+        "profile_pic": "__DECRYPTION_FAILED__",
+        "normal_pics": ["https://img.example.com/pic1.jpg"],
+        "bio": "Software developer in the city.",
+    }
+    missing: list[str] = []
+    _validate_common_activation(profile=profile, payload=ProfileDetailsUpdate(), missing=missing)
+
+    assert "profile_pic" in missing
+
+
+def test_validate_common_activation_decryption_failed_normal_pics() -> None:
+    from app.api.user.profile.helpers import _validate_common_activation
+
+    profile = {
+        "name": "Jane Doe",
+        "age": 25,
+        "sub_interests": {"tech": ["python", "fastapi"]},
+        "profile_pic": "https://img.example.com/pic.jpg",
+        "normal_pics": ["__DECRYPTION_FAILED__"],
+        "bio": "Software developer in the city.",
+    }
+    missing: list[str] = []
+    _validate_common_activation(profile=profile, payload=ProfileDetailsUpdate(), missing=missing)
+
+    assert "normal_pics" in missing
+
+
+@patch("app.services.profile.generate_nexus_intent_embeddings")
+@patch("app.services.profile.decrypt_profile_record")
+@patch("app.services.profile.supabase_client")
+def test_recompile_and_push_vectors_preserves_persisted_bio(
+    mock_supabase: MagicMock,
+    mock_decrypt: MagicMock,
+    mock_embeddings: MagicMock,
+) -> None:
+    from app.services.profile import recompile_and_push_vectors
+
+    # Mock profile fetch returning persisted bio
+    mock_select = MagicMock()
+    mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = mock_select
+    mock_select.return_value.data = {"id": "user123", "bio": "enc_persisted_bio"}
+    mock_decrypt.return_value = {"id": "user123", "bio": "My persisted long bio."}
+
+    # Mock pseudonym mapping and vector upsert
+    mock_upsert = MagicMock()
+    mock_supabase.table.return_value.upsert.return_value.select.return_value.execute.return_value.data = [{"pseudonym_id": "pseudo-123"}]
+    mock_supabase.table.return_value.upsert.return_value.execute = mock_upsert
+
+    mock_embeddings.return_value = {
+        "bio_embedding": [0.1, 0.2],
+        "career_embedding": [0.3, 0.4],
+        "identity_embedding": [0.5, 0.6],
+    }
+
+    # Call with plaintext_bio=None (PATCH without bio update)
+    recompile_and_push_vectors(user_id="user123", plaintext_bio=None)
+
+    # Verify embeddings were generated with persisted bio, not empty string!
+    mock_embeddings.assert_called_once()
+    assert mock_embeddings.call_args[0][1] == "My persisted long bio."
+
+
+@patch("app.api.user.settings.supabase_client")
+def test_update_privacy_settings_filters_allowed_fields(mock_supabase: MagicMock) -> None:
+    from fastapi import Request
+    from app.api.user.settings import update_privacy_settings
+    from app.models import PrivacySettingsUpdate
+
+    mock_update_chain = mock_supabase.table.return_value.update.return_value.eq.return_value.select.return_value.execute
+    mock_update_chain.return_value.data = [
+        {
+            "hidden_profile_fields": ["pronouns", "hometown"],
+            "share_active_status": True,
+            "share_read_receipts": False,
+        }
+    ]
+
+    payload = PrivacySettingsUpdate(
+        hidden_fields=["pronouns", "hometown"],
+        share_read_receipts=False,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/profile/privacy-settings",
+    }
+    request = Request(scope)
+
+    res = update_privacy_settings(
+        request=request,
+        payload=payload,
+        user_id="user123",
+        _device=None,
+    )
+
+    assert res.share_read_receipts is False
+    assert set(res.hidden_fields) == {"pronouns", "hometown"}
+
+    # Verify update payload written to DB
+    update_call_arg = mock_supabase.table.return_value.update.call_args[0][0]
+    assert "hidden_profile_fields" in update_call_arg
+    for f in update_call_arg["hidden_profile_fields"]:
+        assert f in {"pronouns", "hometown"}
+
+
+
+

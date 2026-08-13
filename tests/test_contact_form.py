@@ -165,6 +165,44 @@ async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
 
 
 @pytest.mark.anyio
+@patch("app.api.feedback.redis_client")
+async def test_submit_contact_ticket_otp_attempts_lockout(mock_redis: MagicMock) -> None:
+    async def fake_redis_get(key: str) -> str | None:
+        if "otp_attempts" in key:
+            return "5"
+        return "111222"
+
+    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
+
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="111222",
+        subject="Test Subject",
+        message="Test Message Details",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_contact_ticket(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 429
+    assert "Too many incorrect attempts" in exc_info.value.detail
+
+
+
+@pytest.mark.anyio
 async def test_feedback_submit_request_all_query_types() -> None:
     from app.models import FeedbackSubmitRequest
 
@@ -248,4 +286,239 @@ async def test_create_and_get_error_session_flow(mock_redis: MagicMock) -> None:
     assert res_get["name"] == "Test User"
     assert res_get["sentry_event_id"] == "abc123sentry"
     assert res_get["platform"] == "android"
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> None:
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.api.feedback.contact import upload_contact_attachment
+
+    # Mock storage list returning 2 existing objects (under the limit of 5)
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": "file1.png"}, {"name": "file2.png"}]
+    mock_storage.upload.return_value = {"Key": "feedback_attachments/web_contact/sess123/abc.png"}
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    file = UploadFile(filename="test.png", file=BytesIO(b"fake image data"))
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    res = await upload_contact_attachment(
+        request=request,
+        file=file,
+        session_id="sess123",
+        turnstile_token=None,
+    )
+
+    assert "storage_path" in res
+    assert res["storage_path"].startswith("web_contact/sess123/")
+    assert res["filename"] == "test.png"
+    mock_storage.list.assert_called_once_with("web_contact/sess123")
+    mock_storage.upload.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_max_limit_exceeded(mock_supabase: MagicMock) -> None:
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.api.feedback.contact import upload_contact_attachment
+
+    # Mock storage list returning 5 existing objects (limit reached)
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": f"file{i}.png"} for i in range(5)]
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    file = UploadFile(filename="overflow.png", file=BytesIO(b"fake image data"))
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await upload_contact_attachment(
+            request=request,
+            file=file,
+            session_id="sess123",
+            turnstile_token=None,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Maximum attachment limit of 5 files reached" in exc_info.value.detail
+    mock_storage.upload.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.redis_client")
+async def test_submit_contact_ticket_too_many_attachments(mock_redis: MagicMock) -> None:
+    _ = mock_redis
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="111222",
+        subject="Test Subject",
+        message="Test Message Details",
+        attachment_paths=[f"web_contact/sess/img{i}.png" for i in range(6)],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_contact_ticket(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Cannot submit more than 5 attachments" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.redis_client")
+@patch("app.api.feedback.record_feedback_submission")
+@patch("app.api.feedback.send_feedback_confirmation_email")
+@patch("app.api.feedback.send_feedback_admin_notification_email")
+async def test_submit_contact_ticket_validates_attachments_exist(
+    mock_admin_email: MagicMock,
+    mock_conf_email: MagicMock,
+    mock_record_sub: MagicMock,
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    _ = mock_conf_email
+    _ = mock_admin_email
+    mock_redis.get = AsyncMock(return_value="123456")
+    mock_redis.delete = AsyncMock()
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": "att1.png"}, {"name": "att2.png"}]
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    mock_rpc_exec = MagicMock()
+    mock_rpc_exec.execute.return_value.data = None
+    mock_supabase.rpc.return_value = mock_rpc_exec
+
+    mock_record_sub.return_value = {"id": "ticket-uuid-999", "status": "open"}
+
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="123456",
+        subject="Attachment Test",
+        message="Checking attachment validation in storage.",
+        attachment_paths=["web_contact/sess123/att1.png", "web_contact/sess123/att2.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    res = await submit_contact_ticket(
+        request=request,
+        background_tasks=bg_tasks,
+        payload=payload,
+    )
+
+    assert res["success"] is True
+    mock_storage.list.assert_called_once_with("web_contact/sess123")
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.redis_client")
+async def test_submit_contact_ticket_rejects_nonexistent_attachment(
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    _ = mock_redis
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": "actual_file.png"}]
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="123456",
+        subject="Attachment Test",
+        message="Checking attachment validation in storage.",
+        attachment_paths=["web_contact/sess123/phantom_file.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_contact_ticket(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Attachment file not found: phantom_file.png" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.redis_client")
+async def test_submit_contact_ticket_rejects_malformed_attachment_path(
+    mock_redis: MagicMock,
+) -> None:
+    _ = mock_redis
+    payload = ContactSubmitRequest(
+        email="user@example.com",
+        otp_code="123456",
+        subject="Attachment Test",
+        message="Checking attachment validation in storage.",
+        attachment_paths=["../other_bucket/secret.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/submit",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_contact_ticket(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Invalid attachment path" in exc_info.value.detail
+
+
 

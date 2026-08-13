@@ -200,7 +200,7 @@ def fetch_public_user(user_id: str) -> dict[str, Any] | None:
                 "special_category_consent_version, special_category_consent_at, "
                 "safety_data_consent_version, safety_data_consent_at, "
                 "mobile, mobile_verified_at, "
-                "deletion_requested_at, scheduled_purge_at",
+                "deletion_requested_at, scheduled_purge_at, purged_at",
             )
             .eq("id", user_id)
             .limit(1)
@@ -406,7 +406,7 @@ def upsert_public_user(
                 "special_category_consent_version, special_category_consent_at, "
                 "safety_data_consent_version, safety_data_consent_at, "
                 "mobile, mobile_verified_at, "
-                "deletion_requested_at, scheduled_purge_at, xmax",
+                "deletion_requested_at, scheduled_purge_at, purged_at, xmax",
             )
             .execute()
         )

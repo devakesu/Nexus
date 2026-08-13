@@ -150,13 +150,17 @@ def _validate_common_activation(
     )
     if val_sub_interests != {"__DECRYPTION_FAILED__": True} and sub_count < 2:
         missing.append("interests")
-    if val_profile_pic != "__DECRYPTION_FAILED__" and (
-        not isinstance(val_profile_pic, str) or not val_profile_pic.strip()
+    if (
+        not isinstance(val_profile_pic, str)
+        or not val_profile_pic.strip()
+        or val_profile_pic == "__DECRYPTION_FAILED__"
     ):
         missing.append("profile_pic")
-    if val_normal_pics != ["__DECRYPTION_FAILED__"] and (
+    if (
         not isinstance(val_normal_pics, list)
         or len(cast(list[Any], val_normal_pics)) < 1
+        or val_normal_pics == ["__DECRYPTION_FAILED__"]
+        or any(p == "__DECRYPTION_FAILED__" for p in cast(list[object], val_normal_pics))
     ):
         missing.append("normal_pics")
     if val_bio == "__DECRYPTION_FAILED__":

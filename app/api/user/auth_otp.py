@@ -82,6 +82,19 @@ async def _validate_auth_user_allowed(
         Args:
             email: Input email parameter.
             auth_user: Input auth user parameter."""
+    app_variant = (
+        auth_user.get("app_metadata", {}).get("app_variant")
+        or auth_user.get("user_metadata", {}).get("app_variant")
+        or "nexus"
+    )
+
+    if app_variant != "nexus" and settings.allowed_signup_domains.get(app_variant):
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Email authentication is required for {app_variant} registration.",
+            )
+
     if email:
         if is_disposable_email(email):
             raise HTTPException(
@@ -89,11 +102,6 @@ async def _validate_auth_user_allowed(
                 detail="Sign-ups using disposable email domains are not permitted.",
             )
 
-        app_variant = (
-            auth_user.get("app_metadata", {}).get("app_variant")
-            or auth_user.get("user_metadata", {}).get("app_variant")
-            or "nexus"
-        )
         if not is_allowed_email(email, app_variant):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -139,11 +147,20 @@ async def auth_bootstrap(
         or "nexus"
     )
 
-    user_row, newly_created = await run_in_threadpool(
-        upsert_public_user,
-        user_id,
-        app_variant,
-    )
+    existing_user = await run_in_threadpool(fetch_public_user, user_id)
+    if existing_user is not None and (
+        bool(existing_user.get("is_suspended", False))
+        or not bool(existing_user.get("is_active", True))
+        or existing_user.get("purged_at") is not None
+    ):
+        user_row = existing_user
+        newly_created = False
+    else:
+        user_row, newly_created = await run_in_threadpool(
+            upsert_public_user,
+            user_id,
+            app_variant,
+        )
 
     is_suspended = bool(user_row.get("is_suspended", False))
     deletion_pending = bool(user_row.get("deletion_requested_at") is not None)
@@ -272,6 +289,12 @@ async def complete_onboarding(
         )
 
     assert_account_active(user_row)
+
+    if not user_row.get("accepted_terms_version"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Accept terms before completing onboarding.",
+        )
 
     if await run_in_threadpool(fetch_profile, user_id) is not None:
         raise HTTPException(

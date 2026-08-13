@@ -131,6 +131,9 @@ class Settings(BaseSettings):
     spotify_client_secret: str | None = None
     # Falls back to {backend_url}/api/v1/spotify/callback when unset.
     spotify_redirect_uri: str | None = None
+    spotify_allowed_redirect_uris: list[str] = [
+        "com.devakesu.apps.nexus://callback",
+    ]
 
     # --- Gated Signup & Authentication ---
     # Per-variant email domain allowlist for signup (JSON object in the env var).

@@ -168,3 +168,49 @@ async def test_close_feedback_ticket_endpoint_admin_email(
         user_id="user-123",
         submitter_email="user@example.com",
     )
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.tickets.fetch_ticket_comments")
+@patch("app.api.feedback.tickets.fetch_ticket_status_history")
+async def test_assemble_ticket_detail_concurrent(
+    mock_history: MagicMock,
+    mock_comments: MagicMock,
+) -> None:
+    from app.api.feedback.tickets import assemble_ticket_detail
+
+    mock_history.return_value = [
+        {"old_status": "open", "new_status": "in_review", "changed_by": "staff-1", "created_at": "2026-08-01T00:00:00Z"},
+    ]
+    mock_comments.return_value = [
+        {"id": "c-1", "author_id": "user-123", "body": "My comment", "created_at": "2026-08-01T00:00:00Z"},
+        {"id": "c-2", "author_id": "staff-99", "body": "Admin reply", "created_at": "2026-08-01T00:01:00Z"},
+    ]
+
+    report: dict[str, Any] = {
+        "id": "ticket-100",
+        "user_id": "user-123",
+        "query_type": "help",
+        "subject": "Help Needed",
+        "message": "Please assist.",
+        "status": "in_review",
+        "created_at": "2026-08-01T00:00:00Z",
+        "updated_at": "2026-08-01T00:00:00Z",
+        "github_issue_url": None,
+        "attachment_paths": [],
+        "app_version": None,
+        "platform": None,
+        "device_info": {},
+    }
+
+    res = await assemble_ticket_detail(user_id="user-123", report=report)
+
+    assert res.id == "ticket-100"
+    assert len(res.status_history) == 1
+    assert res.status_history[0].changed_by == "staff"
+    assert len(res.comments) == 2
+    assert res.comments[0].is_own is True
+    assert res.comments[0].author_id == "user-123"
+    assert res.comments[1].is_own is False
+    assert res.comments[1].author_id == "staff"
+

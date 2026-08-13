@@ -14,12 +14,12 @@ from app.services.embeddings import generate_nexus_intent_embeddings
 logger = logging.getLogger(__name__)
 
 
-def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
+def recompile_and_push_vectors(user_id: str, plaintext_bio: str | None = None) -> None:
     """Background task to fetch full decrypted profile and upsert intent embeddings.
 
     Args:
         user_id: Unique user identifier string.
-        plaintext_bio: Plaintext bio string.
+        plaintext_bio: Optional plaintext bio string if updated in current request.
     """
 
     try:
@@ -47,9 +47,12 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str) -> None:
         profile = decrypt_profile_record(cast(dict[str, Any], raw))
         profile = sanitize_decrypted_profile(profile)
 
-        # Use the caller-supplied plaintext bio so the freshly written value
-        # is encoded even before the next full profile fetch would see it.
-        effective_bio = plaintext_bio or profile.get("bio") or ""
+        # Use the caller-supplied plaintext bio if provided; otherwise use the persisted bio.
+        effective_bio = (
+            plaintext_bio
+            if plaintext_bio is not None
+            else (profile.get("bio") or "")
+        )
 
         vectors = generate_nexus_intent_embeddings(profile, effective_bio)
 

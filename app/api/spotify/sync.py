@@ -32,6 +32,7 @@ from app.models import (
 from app.services.spotify_sync import (
     fetch_spotify_user_id,
     refresh_access_token,
+    revoke_refresh_token,
     run_full_sync,
 )
 
@@ -177,13 +178,17 @@ async def spotify_resync(
 @limiter.limit(settings.rate_limit_spotify)
 async def spotify_disconnect(
     request: Request,
+    background_tasks: BackgroundTasks,
     _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, bool]:
     """Revokes Spotify integration, deleting stored access tokens and artist affinity data."""
     _ = request
     try:
+        refresh_token = get_decrypted_refresh_token(user_id)
         disconnect_connection(user_id)
+        if refresh_token:
+            background_tasks.add_task(revoke_refresh_token, refresh_token)
         try:
             invalidate_viewer_discovery_sessions(user_id)
         except Exception:

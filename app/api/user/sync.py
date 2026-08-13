@@ -20,6 +20,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from app.api.dependencies import (
+    assert_account_active,
     get_authenticated_user_payload,
     verify_app_check_with_replay_protection,
 )
@@ -75,7 +76,14 @@ async def create_export_code(
         )
 
     user_row = await asyncio.to_thread(fetch_public_user, user_id)
-    app_variant = str(user_row.get("app_variant") or "nexus") if user_row else "nexus"
+    if not user_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User bootstrap row not found. Complete bootstrap first.",
+        )
+    assert_account_active(user_row)
+
+    app_variant = str(user_row.get("app_variant") or "nexus")
     if app_variant == "nexus":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -152,6 +160,7 @@ async def import_from_flavor(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User bootstrap row not found. Complete bootstrap first.",
         )
+    assert_account_active(user_row)
     if user_row.get("app_variant") != "nexus":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -163,15 +172,17 @@ async def import_from_flavor(
             execute_import,
             target_user_id=user_id,
             sync_code=payload.sync_code,
-            target_variant=str(user_row.get("app_variant") or "nexus"),
+            target_variant="nexus",
         )
     except HTTPException as e:
-        if e.status_code == status.HTTP_400_BAD_REQUEST:
+        if e.status_code == status.HTTP_400_BAD_REQUEST and "Invalid or already-used" in str(e.detail):
             await redis_client.incr(attempts_key)
             await redis_client.expire(attempts_key, 900)
             await redis_client.incr(code_attempts_key)
             await redis_client.expire(code_attempts_key, 900)
         raise e
+
+    await redis_client.delete(attempts_key)
 
     logger.info(
         "Cross-flavor import successful",

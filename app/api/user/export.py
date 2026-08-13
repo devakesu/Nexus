@@ -7,9 +7,8 @@ user's full PII is a comparably sensitive operation.
 import hmac
 import logging
 import secrets
-from typing import Any
-
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
@@ -43,6 +42,10 @@ router = APIRouter()
 
 
 
+_DATA_EXPORT_OTP_MAX_ATTEMPTS = 5
+_DATA_EXPORT_OTP_TTL_SECONDS = 600
+
+
 @router.post(
     "/api/v1/account/export/otp/request",
     response_model=DataExportOtpRequestResponse,
@@ -71,7 +74,8 @@ async def request_data_export_otp(
         return DataExportOtpRequestResponse(sent=True)
 
     otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
-    await redis_client.setex(f"data_export:otp_code:{user_id}", 600, otp_code)
+    await redis_client.setex(f"data_export:otp_code:{user_id}", _DATA_EXPORT_OTP_TTL_SECONDS, otp_code)
+    await redis_client.delete(f"data_export:otp_attempts:{user_id}")
     otp_res = await send_data_export_otp_email(email, otp_code)
     if not otp_res.success:
         logger.error(
@@ -112,6 +116,14 @@ async def verify_data_export_otp(
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
+    attempts_key = f"data_export:otp_attempts:{user_id}"
+    attempts = await redis_client.get(attempts_key)
+    if attempts and int(attempts) >= _DATA_EXPORT_OTP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Please request a new code.",
+        )
+
     stored_otp = await redis_client.get(f"data_export:otp_code:{user_id}")
     if not stored_otp:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
@@ -121,8 +133,11 @@ async def verify_data_export_otp(
         else stored_otp
     )
     if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
+        await redis_client.incr(attempts_key)
+        await redis_client.expire(attempts_key, _DATA_EXPORT_OTP_TTL_SECONDS)
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"data_export:otp_code:{user_id}")
+    await redis_client.delete(attempts_key)
 
     await redis_client.setex(
         otp_verified_redis_key("data_export", user_id),
@@ -139,7 +154,7 @@ async def export_account_data(
     payload: DataExportRequestRequest | None = Body(None),
     _device: None = Depends(verify_app_check_with_replay_protection),
     auth_user_id: str | None = Depends(get_optional_authenticated_user_id),
-) -> dict[str, Any]:
+) -> JSONResponse:
     """Executes export account data operation.
 
         Args:
@@ -149,7 +164,7 @@ async def export_account_data(
             auth_user_id: Verified user ID string extracted from authentication token.
 
         Returns:
-            dict[str, Any]: Response payload or result."""
+            JSONResponse: JSON payload with Content-Disposition attachment header."""
     _ = request
     email_in = payload.email if payload else None
     user_id, _ = await resolve_verified_user(auth_user_id, email_in)
@@ -164,5 +179,9 @@ async def export_account_data(
         )
     await redis_client.delete(otp_key)
 
-    return await run_in_threadpool(build_user_data_export, user_id)
+    data = await run_in_threadpool(build_user_data_export, user_id)
+    return JSONResponse(
+        content=data,
+        headers={"Content-Disposition": 'attachment; filename="nexus-data-export.json"'},
+    )
 

@@ -61,8 +61,10 @@ def _html_result(
     success: bool,
     message: str,
     artists: list[str] | None = None,
+    status_code: int | None = None,
 ) -> HTMLResponse:
     """Renders HTML response page for OAuth landing."""
+    code = status_code if status_code is not None else (200 if success else 400)
     accent = "#1DB954" if success else "#FF4B4B"
     icon = "✓" if success else "✕"
     artist_html = ""
@@ -110,7 +112,7 @@ def _html_result(
   </div>
 </body>
 </html>"""
-    return HTMLResponse(content=html_content, status_code=200)
+    return HTMLResponse(content=html_content, status_code=code)
 
 
 async def _seed_and_queue_sync(
@@ -123,9 +125,8 @@ async def _seed_and_queue_sync(
     """Shared post-token-exchange flow for /native-exchange and /callback."""
     spotify_user_id = await fetch_spotify_user_id(access_token)
 
-    if refresh_token:
-        upsert_connection(user_id, spotify_user_id, refresh_token, scope)
-    else:
+    upsert_connection(user_id, spotify_user_id, refresh_token, scope)
+    if not refresh_token:
         logger.warning(
             "Spotify did not return a refresh_token on exchange; resync will "
             "require full re-auth for this user",
@@ -213,7 +214,7 @@ async def spotify_native_exchange(
         )
     allowed_redirect_uris = {
         redirect_uri,
-        "com.devakesu.apps.nexus://callback",
+        *settings.spotify_allowed_redirect_uris,
     }
     if body.redirect_uri not in allowed_redirect_uris:
         raise HTTPException(
@@ -306,6 +307,7 @@ async def spotify_callback(
             title="Connection failed",
             success=False,
             message=f"Spotify denied access: {reason}. Please try again from the app.",
+            status_code=400,
         )
 
     user_id = await _consume_state(state)
@@ -317,6 +319,7 @@ async def spotify_callback(
                 "This link has already been used or has expired. "
                 "Please try connecting again from the app."
             ),
+            status_code=400,
         )
 
     redirect_uri = settings.spotify_redirect_uri
@@ -325,6 +328,7 @@ async def spotify_callback(
             title="Configuration error",
             success=False,
             message="Spotify integration is not configured on the server.",
+            status_code=500,
         )
 
     try:
@@ -335,6 +339,7 @@ async def spotify_callback(
             title="Token exchange failed",
             success=False,
             message="Could not complete Spotify authorization. Please try again.",
+            status_code=500,
         )
 
     if not tokens.access_token:
@@ -342,6 +347,7 @@ async def spotify_callback(
             title="Authorization error",
             success=False,
             message="Spotify did not return a valid access token. Please try again.",
+            status_code=502,
         )
 
     try:
@@ -361,6 +367,7 @@ async def spotify_callback(
                 "Authorization succeeded but fetching your Spotify data failed. "
                 "Please try again."
             ),
+            status_code=500,
         )
 
     if not display_names:
@@ -371,6 +378,7 @@ async def spotify_callback(
                 "Your Spotify account doesn't have enough listening history yet. "
                 "Listen to more music and try again!"
             ),
+            status_code=422,
         )
 
     logger.info(
@@ -386,4 +394,5 @@ async def spotify_callback(
             "syncing in the background - check the app in a moment."
         ),
         artists=display_names,
+        status_code=200,
     )

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/secure_session_storage.dart';
+import 'package:nexus/features/security_signal/services/meetup_safety_session.dart';
 import 'package:nexus/features/security_signal/services/pending_evidence_upload_queue.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,6 +49,10 @@ void prekeyReplenishCallbackDispatcher() {
         // already treats "not signed in" as "nothing to do yet" and leaves
         // the queue in place for a later attempt.
         return await PendingEvidenceUploadQueue.drain();
+      }
+
+      if (task == kSessionEndRetryTaskName) {
+        return await MeetupSafetySession.drainPendingEndSessions();
       }
 
       if (task != kPrekeyReplenishTaskName) return true;

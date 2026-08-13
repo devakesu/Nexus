@@ -1,6 +1,7 @@
 """Public web contact form, attachment uploads, turnstile verification, and OTP support endpoints."""
 
 import asyncio
+import hmac
 import logging
 import secrets
 import string
@@ -33,6 +34,10 @@ from app.core.infra.limiter import limiter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+_CONTACT_OTP_MAX_ATTEMPTS = 5
+_CONTACT_OTP_TTL_SECONDS = 600
+_CONTACT_MAX_ATTACHMENTS = 5
 
 
 async def verify_turnstile_token(
@@ -99,6 +104,22 @@ async def upload_contact_attachment(
     clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
     if not clean_session:
         raise HTTPException(status_code=400, detail="Invalid session_id.")
+
+    try:
+        existing_objects = await asyncio.to_thread(
+            lambda: feedback_module.supabase_client.storage.from_("feedback_attachments").list(
+                f"web_contact/{clean_session}",
+            ),
+        )
+        if existing_objects and len(existing_objects) >= _CONTACT_MAX_ATTACHMENTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum attachment limit of {_CONTACT_MAX_ATTACHMENTS} files reached for this session.",
+            )
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.warning("Failed to check attachment count for session %s: %s", clean_session, err)
 
     random_hex = secrets.token_hex(6)
     storage_path = f"web_contact/{clean_session}/{random_hex}{ext}"
@@ -184,9 +205,11 @@ async def send_contact_otp(
 
     otp_code = "".join(secrets.choice(string.digits) for _ in range(6))
     otp_key = f"appeal:otp:{email}"
+    attempts_key = f"appeal:otp_attempts:{email}"
 
     try:
-        await feedback_module.redis_client.set(otp_key, otp_code, ex=600)
+        await feedback_module.redis_client.set(otp_key, otp_code, ex=_CONTACT_OTP_TTL_SECONDS)
+        await feedback_module.redis_client.delete(attempts_key)
     except Exception as err:
         logger.exception("Failed to store appeal OTP in Redis")
         raise HTTPException(
@@ -206,8 +229,17 @@ async def send_contact_otp(
 
 async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
     otp_key = f"appeal:otp:{email}"
+    attempts_key = f"appeal:otp_attempts:{email}"
     try:
+        attempts = await feedback_module.redis_client.get(attempts_key)
+        if attempts and int(attempts) >= _CONTACT_OTP_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect attempts. Please request a new code.",
+            )
         stored_otp = await feedback_module.redis_client.get(otp_key)
+    except HTTPException:
+        raise
     except (RedisError, RuntimeError) as err:
         logger.exception("Failed to fetch appeal OTP from Redis")
         raise HTTPException(
@@ -215,7 +247,17 @@ async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
             detail="Support service temporarily unavailable.",
         ) from err
 
-    if not stored_otp or stored_otp != otp_code:
+    stored_otp_str = (
+        stored_otp.decode("utf-8")
+        if isinstance(stored_otp, bytes)
+        else (stored_otp or "")
+    )
+    if not stored_otp or not hmac.compare_digest(stored_otp_str.strip(), otp_code.strip()):
+        try:
+            await feedback_module.redis_client.incr(attempts_key)
+            await feedback_module.redis_client.expire(attempts_key, _CONTACT_OTP_TTL_SECONDS)
+        except (RedisError, RuntimeError):
+            pass
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired verification code.",
@@ -223,6 +265,7 @@ async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
 
     try:
         await feedback_module.redis_client.delete(otp_key)
+        await feedback_module.redis_client.delete(attempts_key)
     except (RedisError, RuntimeError) as err:
         logger.warning("Failed to delete appeal OTP key %s: %s", otp_key, err)
 
@@ -256,6 +299,71 @@ async def _cleanup_attachments_on_failure(attachment_paths: list[str] | None) ->
         logger.warning("Failed to clean up attachments after ticket insert failure")
 
 
+async def _validate_contact_attachments(attachment_paths: list[str]) -> None:
+    """Validates that attachment paths are well-formed and exist in feedback_attachments."""
+    if not attachment_paths:
+        return
+    if len(attachment_paths) > _CONTACT_MAX_ATTACHMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot submit more than {_CONTACT_MAX_ATTACHMENTS} attachments.",
+        )
+
+    session_files: dict[str, list[str]] = {}
+    for path in attachment_paths:
+        if not path.startswith("web_contact/") or ".." in path or "\\" in path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid attachment path.",
+            )
+        parts = path.split("/")
+        if len(parts) != 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid attachment path format.",
+            )
+        prefix, session_id, filename = parts
+        if prefix != "web_contact" or not session_id or not filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid attachment path format.",
+            )
+        clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
+        if clean_session != session_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid session identifier in attachment path.",
+            )
+        session_files.setdefault(clean_session, []).append(filename)
+
+    for session_id, filenames in session_files.items():
+        try:
+            objects = await asyncio.to_thread(
+                lambda: feedback_module.supabase_client.storage.from_("feedback_attachments").list(
+                    f"web_contact/{session_id}",
+                ),
+            )
+            existing_names = {
+                obj.get("name")
+                for obj in (objects or [])
+                if obj.get("name")
+            }
+            for fname in filenames:
+                if fname not in existing_names:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Attachment file not found: {fname}",
+                    )
+        except HTTPException:
+            raise
+        except Exception as err:
+            logger.warning("Failed to verify attachments in storage for session %s: %s", session_id, err)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Attachment verification failed.",
+            ) from err
+
+
 @router.post("/api/v1/contact/submit")
 @limiter.limit(settings.rate_limit_auth)
 async def submit_contact_ticket(
@@ -273,6 +381,9 @@ async def submit_contact_ticket(
 
     email = payload.email.strip().lower()
     otp_code = payload.otp_code.strip()
+
+    if payload.attachment_paths:
+        await _validate_contact_attachments(payload.attachment_paths)
 
     await _verify_and_consume_otp(email, otp_code)
     user_id = await _get_user_id_by_email(email)

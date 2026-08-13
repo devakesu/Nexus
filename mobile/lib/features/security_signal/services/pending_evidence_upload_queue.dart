@@ -24,6 +24,8 @@ class _PendingSegment {
     required this.filePath,
     required this.alertId,
     required this.durationSeconds,
+    this.storagePath,
+    this.mediaKeyBase64,
   });
 
   factory _PendingSegment.fromJson(Map<String, dynamic> json) =>
@@ -31,16 +33,22 @@ class _PendingSegment {
         filePath: json['filePath'] as String,
         alertId: json['alertId'] as String,
         durationSeconds: (json['durationSeconds'] as num).toDouble(),
+        storagePath: json['storagePath'] as String?,
+        mediaKeyBase64: json['mediaKeyBase64'] as String?,
       );
 
   final String filePath;
   final String alertId;
   final double durationSeconds;
+  String? storagePath;
+  String? mediaKeyBase64;
 
   Map<String, dynamic> toJson() => {
     'filePath': filePath,
     'alertId': alertId,
     'durationSeconds': durationSeconds,
+    if (storagePath != null) 'storagePath': storagePath,
+    if (mediaKeyBase64 != null) 'mediaKeyBase64': mediaKeyBase64,
   };
 }
 
@@ -122,23 +130,41 @@ class PendingEvidenceUploadQueue {
     for (final segment in pending) {
       final file = File(segment.filePath);
       try {
-        if (!file.existsSync()) {
-          // Already gone (e.g. cleared by the OS) - nothing left to retry.
-          continue;
+        var storagePath = segment.storagePath;
+        var mediaKeyBase64 = segment.mediaKeyBase64;
+
+        // Only encrypt and upload ciphertext if not already uploaded in a previous attempt
+        if (storagePath == null || mediaKeyBase64 == null) {
+          if (!file.existsSync()) {
+            // Plaintext file is gone and was never uploaded - nothing left to retry.
+            continue;
+          }
+          final bytes = await file.readAsBytes();
+          final encrypted = await MediaCrypto.instance.encrypt(bytes);
+          final path = '$userId/${DateTime.now().microsecondsSinceEpoch}.enc';
+          await storage.uploadBinary(path, encrypted.ciphertext);
+          storagePath = path;
+          mediaKeyBase64 = encrypted.mediaKeyBase64;
+          segment
+            ..storagePath = storagePath
+            ..mediaKeyBase64 = mediaKeyBase64;
+          // Persist the uploaded storagePath and mediaKeyBase64 immediately
+          await _write(pending);
         }
-        final bytes = await file.readAsBytes();
-        final encrypted = await MediaCrypto.instance.encrypt(bytes);
-        final path = '$userId/${DateTime.now().microsecondsSinceEpoch}.enc';
-        await storage.uploadBinary(path, encrypted.ciphertext);
+
+        // Register evidence with backend using the uploaded storage path and key
         await SafetyAlertApi.registerEvidence(
           alertId: segment.alertId,
-          storagePath: path,
-          mediaKeyBase64: encrypted.mediaKeyBase64,
+          storagePath: storagePath,
+          mediaKeyBase64: mediaKeyBase64,
           contentType: 'video',
           durationSeconds: segment.durationSeconds,
         );
+
         try {
-          await file.delete();
+          if (file.existsSync()) {
+            await file.delete();
+          }
         } on Exception {
           // Best-effort cleanup - upload already succeeded.
         }

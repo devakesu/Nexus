@@ -68,7 +68,7 @@ def get_decrypted_refresh_token(user_id: str) -> str | None:
 def upsert_connection(
     user_id: str,
     spotify_user_id: str,
-    refresh_token_plain: str,
+    refresh_token_plain: str | None,
     scopes: str,
 ) -> None:
     """Insert or update the caller's Spotify connection, encrypting the token."""
@@ -77,7 +77,7 @@ def upsert_connection(
             {
                 "user_id": user_id,
                 "spotify_user_id": spotify_user_id,
-                "refresh_token": encrypt_to_hex(refresh_token_plain),
+                "refresh_token": encrypt_to_hex(refresh_token_plain) if refresh_token_plain else None,
                 "granted_scopes": scopes,
                 "disconnected_at": None,
             },

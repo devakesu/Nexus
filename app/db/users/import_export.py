@@ -170,6 +170,13 @@ def _validate_import(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Export codes must originate from a flavor variant account.",
         )
+
+    if source_user and source_user.get("deletion_requested_at"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Source account is pending deletion and cannot be imported.",
+        )
+
     return source_variant, source["id"]
 
 
