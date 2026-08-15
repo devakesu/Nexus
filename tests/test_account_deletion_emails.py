@@ -306,7 +306,7 @@ async def test_request_account_deletion_early_return_consumes_otp(
     )
 
     assert res.scheduled_purge_at == purge_time
-    mock_redis.delete.assert_called_once_with("otp_verified:account_deletion:user-123")
+    mock_redis.delete.assert_called_once_with("account_deletion:otp_verified:user-123")
 
 
 
@@ -417,6 +417,7 @@ async def test_verify_account_deletion_otp_attempts_lockout(
         "headers": [],
         "query_string": b"",
         "path": "/",
+        "client": ("10.0.0.1", 12345),
     }
     request = Request(scope)
 
@@ -460,6 +461,7 @@ async def test_verify_data_export_otp_attempts_lockout(
         "headers": [],
         "query_string": b"",
         "path": "/",
+        "client": ("10.0.0.2", 12345),
     }
     request = Request(scope)
 
@@ -498,6 +500,7 @@ async def test_export_account_data_response_headers(
         "headers": [],
         "query_string": b"",
         "path": "/",
+        "client": ("10.0.0.3", 12345),
     }
     request = Request(scope)
 
@@ -510,7 +513,7 @@ async def test_export_account_data_response_headers(
 
     assert response.status_code == 200
     assert response.headers.get("Content-Disposition") == 'attachment; filename="nexus-data-export.json"'
-    mock_redis.delete.assert_called_once_with("otp_verified:data_export:user-123")
+    mock_redis.delete.assert_called_once_with("data_export:otp_verified:user-123")
 
 
 def test_build_matches_and_discovery_uuid_validation():

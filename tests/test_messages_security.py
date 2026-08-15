@@ -55,7 +55,7 @@ async def test_send_message_not_blocked(
 
     # 3. Assertions
     assert res.message_id == "msg-123"
-    mock_get_blocks.assert_called_once_with("user-b")
+    assert mock_get_blocks.call_count == 2
     mock_insert.assert_called_once_with(
         "convo-123", "user-a", "text", "c2VjcmV0", {}
     )
@@ -107,7 +107,57 @@ async def test_send_message_blocked_by_recipient(
     # 3. Assertions
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
     assert exc_info.value.detail == "Blocked."
-    mock_get_blocks.assert_called_once_with("user-b")
+    mock_get_blocks.assert_called_with("user-b")
+    mock_insert.assert_not_called()
+    mock_notify.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.chat.messages.fetch_conversation_participants")
+@patch("app.api.chat.messages.get_cached_active_block_ids")
+@patch("app.api.chat.messages.insert_message")
+@patch("app.api.chat.messages.send_chat_message_notification")
+async def test_send_message_blocked_by_sender(
+    mock_notify: MagicMock,
+    mock_insert: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_fetch_convo: MagicMock,
+) -> None:
+    # 1. Mock database records indicating user-a blocked user-b
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": None,
+        "tab": "Dating",
+    }
+    # Recipient has no blocks, but sender blocked recipient
+    mock_get_blocks.side_effect = [set(), {"user-b"}]
+
+    # 2. Call endpoint
+    payload = SendMessageRequest(
+        message_type="text",
+        ciphertext="c2VjcmV0",
+        ciphertext_metadata={},
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await send_message(
+            request=request,
+            conversation_id="convo-123",
+            payload=payload,
+            user_id="user-a",
+        )
+
+    # 3. Assertions
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc_info.value.detail == "Blocked."
     mock_insert.assert_not_called()
     mock_notify.assert_not_called()
 

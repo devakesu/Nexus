@@ -187,25 +187,28 @@ def get_or_create_conversation(user_id: str, match_id: str) -> dict[str, Any]:
 def close_conversation_for_match_action(
     user_id: str,
     target_id: str,
-    tab: DiscoveryTab,
-    reason: str,
+    tab: DiscoveryTab | None = None,
+    reason: str = "block",
 ) -> None:
-    """Close the conversation between two users (mirrors set_match_unmatched)."""
+    """Close the conversation between two users (mirrors set_match_unmatched).
+    If tab is None, closes active conversations across all discovery tabs.
+    """
     user_id = str(uuid.UUID(user_id)).lower()
     target_id = str(uuid.UUID(target_id)).lower()
     now = utcnow()
     try:
-        (
+        q = (
             supabase_client.table("chat_conversations")
             .update({"closed_at": now.isoformat(), "closed_reason": reason})
             .or_(
                 f"and(user_a_id.eq.{user_id},user_b_id.eq.{target_id}),"
                 f"and(user_a_id.eq.{target_id},user_b_id.eq.{user_id})",
             )
-            .eq("tab", tab)
             .is_("closed_at", "null")
-            .execute()
         )
+        if tab is not None:
+            q = q.eq("tab", tab)
+        q.execute()
     except APIError as e:
         logger.exception(
             "Failed to close conversation",

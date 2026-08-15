@@ -420,6 +420,8 @@ def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
     profile_payload: dict[str, Any] = {col: None for col in _PROFILE_PII_COLUMNS}
     profile_payload.update({col: None for col in _PROFILE_BLIND_INDEX_COLUMNS})
     profile_payload["name"] = _ANONYMIZED_NAME
+    profile_payload["is_deactivated"] = True
+    profile_payload["deactivated_at"] = now.isoformat()
     supabase_client.table("profiles").update(profile_payload).eq(
         "id", user_id,
     ).execute()

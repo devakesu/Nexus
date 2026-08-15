@@ -17,6 +17,39 @@ from app.db.discovery import assign_orbit_positions, coerce_float, coerce_score
 
 logger = logging.getLogger(__name__)
 
+_MAX_ACTIVE_DISCOVERY_SESSIONS_PER_VIEWER = 5
+
+
+def prune_excess_viewer_discovery_sessions(
+    viewer_id: str,
+    max_active: int = _MAX_ACTIVE_DISCOVERY_SESSIONS_PER_VIEWER,
+) -> None:
+    """Prunes older active discovery sessions if viewer exceeds max_active limit."""
+    try:
+        res = (
+            supabase_client.table("discovery_sessions")
+            .select("id, created_at")
+            .eq("viewer_id", viewer_id)
+            .gt("expires_at", utcnow().isoformat())
+            .order("created_at", desc=True)
+            .execute()
+        )
+        active_sessions = cast(list[dict[str, Any]], res.data or [])
+        if len(active_sessions) >= max_active:
+            # Keep newest (max_active - 1) so new session brings total to max_active
+            sessions_to_delete = [
+                str(s["id"]) for s in active_sessions[max_active - 1 :]
+            ]
+            if sessions_to_delete:
+                supabase_client.table("discovery_sessions").delete().in_(
+                    "id", sessions_to_delete,
+                ).execute()
+    except Exception as e:
+        logger.warning(
+            "Failed to prune excess discovery sessions for viewer",
+            extra={"viewer_id": viewer_id, "error": str(e)},
+        )
+
 
 def create_discovery_session(
     viewer_id: str,
@@ -26,6 +59,7 @@ def create_discovery_session(
     expires_in_minutes: int = 60,
 ) -> tuple[str, datetime]:
     """Creates a new discovery session and persists ranked candidate items."""
+    prune_excess_viewer_discovery_sessions(viewer_id)
     expires_at = utcnow() + timedelta(minutes=expires_in_minutes)
 
     positioned_items = assign_orbit_positions(

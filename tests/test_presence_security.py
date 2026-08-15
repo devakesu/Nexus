@@ -132,3 +132,39 @@ async def test_presence_blocked_by_target(
     assert res["target-1"].last_active_at is None
     mock_fetch_presence.assert_not_called()
     mock_fetch_flags.assert_not_called()
+
+
+def test_batch_presence_request_max_ids_validation_error() -> None:
+    from pydantic import ValidationError
+
+    # 51 user IDs should fail Pydantic max_length validation
+    too_many_ids = [f"user-{i}" for i in range(51)]
+    with pytest.raises(ValidationError):
+        BatchPresenceRequest(user_ids=too_many_ids)
+
+
+@pytest.mark.anyio
+async def test_batch_presence_endpoint_caps_at_50() -> None:
+    from fastapi import HTTPException
+
+    payload = BatchPresenceRequest(user_ids=[f"user-{i}" for i in range(50)])
+    # Artificially expand list to simulate raw model bypass
+    payload.user_ids.append("user-51")
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await batch_get_presence(
+            request=request,
+            payload=payload,
+            user_id="viewer-1",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Too many user IDs." in exc_info.value.detail

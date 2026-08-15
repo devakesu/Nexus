@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 from app.api.dependencies import (
     assert_safety_consent,
     get_active_user_id,
+    get_cached_public_user,
     verify_app_check_token,
 )
 from app.core.config import settings
@@ -20,7 +21,6 @@ from app.db.chat import (
     update_event_status,
 )
 from app.db.client import DatabaseAccessError, utcnow
-from app.db.users import fetch_public_user
 from app.models import (
     CreateEventRequest,
     EventResponse,
@@ -39,6 +39,12 @@ def _validate_event_status_transition(
     created_by: str,
 ) -> None:
     """Validates permitted meetup event status state transitions."""
+    if new_status == "proposed":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot revert event to proposed status.",
+        )
+
     if current_status == "cancelled":
         raise HTTPException(
             status_code=400,
@@ -87,7 +93,7 @@ async def create_chat_event(
             raise HTTPException(status_code=403, detail="This conversation is closed.")
 
         if payload.safety_enabled:
-            user_row = await asyncio.to_thread(fetch_public_user, user_id)
+            user_row = await get_cached_public_user(user_id)
             if not user_row:
                 raise HTTPException(status_code=404, detail="User not found.")
             assert_safety_consent(user_row)

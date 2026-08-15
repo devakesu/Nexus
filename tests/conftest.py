@@ -22,6 +22,16 @@ os.environ.setdefault(
 os.environ.setdefault("BLIND_INDEX_KEY", "test-blind-index-key")
 os.environ.setdefault("HMAC_SIGNING_KEY", "test-hmac-signing-key")
 os.environ.setdefault("DEBUG", "true")
-os.environ.setdefault("APP_DOMAIN", "test.com")
 os.environ.setdefault("BACKEND_PUBLIC_URL", "http://localhost:8000")
 os.environ.setdefault("ENFORCE_APP_CHECK", "false")
+os.environ.setdefault("ENABLE_RATE_LIMITING", "false")
+
+import pytest
+from app.core.infra.limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def disable_limiter_in_tests():
+    setattr(limiter, "_enabled", False)
+    yield
+    setattr(limiter, "_enabled", False)

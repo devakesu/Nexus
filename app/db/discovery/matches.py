@@ -165,23 +165,30 @@ def fetch_matches_for_user(
         raise DatabaseAccessError("Failed to fetch matches") from e
 
 
-def set_match_unmatched(user_id: str, target_id: str, tab: str = "Dating") -> None:
-    """Mark the match between user_id and target_id as dissolved."""
+def set_match_unmatched(
+    user_id: str,
+    target_id: str,
+    tab: DiscoveryTab | str | None = None,
+) -> None:
+    """Mark the match between user_id and target_id as dissolved.
+    If tab is None, dissolves active matches across all tabs between the two users.
+    """
     user_id = str(uuid.UUID(user_id)).lower()
     target_id = str(uuid.UUID(target_id)).lower()
     now = utcnow()
     try:
-        (
+        q = (
             supabase_client.table("matches")
             .update({"unmatched_at": now.isoformat(), "unmatched_by": user_id})
             .or_(
                 f"and(liker_id.eq.{user_id},liked_back_id.eq.{target_id}),"
                 f"and(liker_id.eq.{target_id},liked_back_id.eq.{user_id})",
             )
-            .eq("tab", tab)
             .is_("unmatched_at", "null")
-            .execute()
         )
+        if tab is not None:
+            q = q.eq("tab", str(tab))
+        q.execute()
     except APIError as e:
         logger.exception(
             "Failed to set match unmatched",

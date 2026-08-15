@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
     assert_account_active,
+    get_active_user_id,
     get_authenticated_user_payload,
     is_consent_stale,
     verify_app_check_with_replay_protection,
@@ -152,6 +153,7 @@ async def auth_bootstrap(
         bool(existing_user.get("is_suspended", False))
         or not bool(existing_user.get("is_active", True))
         or existing_user.get("purged_at") is not None
+        or existing_user.get("deletion_requested_at") is not None
     ):
         user_row = existing_user
         newly_created = False
@@ -364,11 +366,10 @@ async def request_account_phone_otp(
     request: Request,
     payload: AccountPhoneOtpRequestRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
+    user_id: str = Depends(get_active_user_id),
 ) -> AccountPhoneOtpRequestResponse:
     """Executes request account phone otp operation."""
     _ = request
-    user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
 
     resend_key = _otp_redis_key(user_id, "resend")
@@ -405,11 +406,10 @@ async def verify_account_phone_otp(
     request: Request,
     payload: AccountPhoneOtpVerifyRequest = Body(...),
     _device: None = Depends(verify_app_check_with_replay_protection),
-    auth_user: dict[str, Any] = Depends(get_authenticated_user_payload),
+    user_id: str = Depends(get_active_user_id),
 ) -> AccountPhoneOtpVerifyResponse:
     """Executes verify account phone otp operation."""
     _ = request
-    user_id = str(auth_user.get("id") or "").strip()
     phone_norm = normalize_phone(payload.phone)
 
     attempts_key = _otp_redis_key(user_id, "attempts")

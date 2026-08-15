@@ -38,6 +38,7 @@ from app.db.discovery import (
     record_user_report,
     revoke_incoming_like,
     set_match_unmatched,
+    unrevoke_incoming_like,
 )
 from app.db.profiles import decrypt_profile_rows as _decrypt_profiles
 from app.db.profiles import fetch_peer_profile_by_id
@@ -209,6 +210,12 @@ async def _verify_peer_access_and_infer_tab(
 
         Returns:
             DiscoveryTab: Response payload or result."""
+    if target_id == user_id_normalized:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Viewer not permitted.",
+        )
+
     block_ids = await get_cached_active_block_ids(user_id_normalized)
     if target_id in block_ids:
         raise HTTPException(
@@ -223,6 +230,7 @@ async def _verify_peer_access_and_infer_tab(
     query_like = query_like.eq("target_id", user_id_normalized)
     query_like = query_like.in_("action", ["like", "superlike"])
     query_like = query_like.is_("revoked_at", "null")
+    query_like = query_like.limit(1)
     access_check_res = await asyncio.to_thread(query_like.execute)
     has_like = bool(access_check_res.data)
 
@@ -237,6 +245,7 @@ async def _verify_peer_access_and_infer_tab(
             f"liked_back_id.eq.{target_id})",
         )
         query_match = query_match.is_("unmatched_at", "null")
+        query_match = query_match.limit(1)
         match_check_res = await asyncio.to_thread(query_match.execute)
         has_match = bool(match_check_res.data)
 
@@ -390,6 +399,16 @@ async def record_like_back_action(  # noqa: C901
             dict[str, Any]: Match creation outcome payload."""
     _ = request
     try:
+        # 1. Claim & revoke incoming like first to prevent race conditions or duplicate matches
+        claimed_like = False
+        if payload.action in ("like", "superlike", "pass", "block"):
+            claimed_like = await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
+            if not claimed_like:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No active incoming like found.",
+                )
+
         if payload.action == "report":
             await asyncio.to_thread(
                 record_user_report,
@@ -401,6 +420,19 @@ async def record_like_back_action(  # noqa: C901
             )
             # record_user_report creates a block internally; also invalidate cache
             await invalidate_block_cache(user_id, payload.target_id)
+            await asyncio.to_thread(
+                set_match_unmatched,
+                user_id,
+                payload.target_id,
+                payload.tab,
+            )
+            await asyncio.to_thread(
+                close_conversation_for_match_action,
+                user_id,
+                payload.target_id,
+                payload.tab,
+                "report",
+            )
         else:
             tab = None if payload.action == "block" else payload.tab
             expires = _LIKES_PASS_EXPIRY_DAYS if payload.action == "pass" else None
@@ -414,6 +446,19 @@ async def record_like_back_action(  # noqa: C901
             )
             if payload.action == "block":
                 await invalidate_block_cache(user_id, payload.target_id)
+                await asyncio.to_thread(
+                    set_match_unmatched,
+                    user_id,
+                    payload.target_id,
+                    payload.tab,
+                )
+                await asyncio.to_thread(
+                    close_conversation_for_match_action,
+                    user_id,
+                    payload.target_id,
+                    payload.tab,
+                    "block",
+                )
 
         matched = payload.action in ("like", "superlike")
         match_id: str | None = None
@@ -426,56 +471,29 @@ async def record_like_back_action(  # noqa: C901
                     user_id,
                     payload.tab,
                 )
-                safe_create_task(
-                    send_match_notification(
-                        user_a_id=payload.target_id,
-                        user_b_id=user_id,
-                    ),
-                )
-            except DatabaseAccessError as err:
-                orig = err.__cause__
-                if orig and "No active incoming like found" in str(orig):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No active incoming like found.",
-                    ) from err
+            except Exception as err:
+                if claimed_like:
+                    await asyncio.to_thread(unrevoke_incoming_like, user_id, payload.target_id)
+                if isinstance(err, DatabaseAccessError):
+                    orig = err.__cause__
+                    if orig and "No active incoming like found" in str(orig):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="No active incoming like found.",
+                        ) from err
                 raise
 
-        # Revoke their incoming like so it clears from the inbox
-        if payload.action in ("like", "superlike", "pass", "block"):
-            updated = await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
-            if not updated:
-                if matched and match_id:
-                    try:
-                        await asyncio.to_thread(
-                            lambda: supabase_client.table("matches")
-                            .delete()
-                            .eq("id", match_id)
-                            .execute()
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to delete orphaned match on concurrent revocation",
-                            extra={"match_id": match_id},
-                        )
-                raise HTTPException(
-                    status_code=400,
-                    detail="No active incoming like found.",
-                )
-            if matched:
-                await asyncio.to_thread(
-                    revoke_incoming_like,
-                    payload.target_id,
-                    user_id,
-                )
-
-        if payload.action in ("block", "report"):
+            safe_create_task(
+                send_match_notification(
+                    user_a_id=payload.target_id,
+                    user_b_id=user_id,
+                ),
+            )
+            # Revoke reciprocal like in the other direction if present
             await asyncio.to_thread(
-                close_conversation_for_match_action,
-                user_id,
+                revoke_incoming_like,
                 payload.target_id,
-                payload.tab,
-                payload.action,
+                user_id,
             )
 
         return LikeActionResponse(success=True, matched=matched, match_id=match_id)
@@ -585,6 +603,23 @@ async def record_match_action(
             dict[str, bool]: Success status dict."""
     _ = request
     try:
+        # 1. Dissolve the match row and close associated chat conversation first
+        await asyncio.to_thread(
+            set_match_unmatched,
+            user_id,
+            payload.target_id,
+            payload.tab,
+        )
+
+        await asyncio.to_thread(
+            close_conversation_for_match_action,
+            user_id,
+            payload.target_id,
+            payload.tab,
+            payload.action,
+        )
+
+        # 2. Record action-specific exclusions/reports/blocks
         if payload.action == "report":
             await asyncio.to_thread(
                 record_user_report,
@@ -613,23 +648,6 @@ async def record_match_action(
                 payload.tab,
                 14,
             )
-
-        # Dissolve the match row for all action types
-        await asyncio.to_thread(
-            set_match_unmatched,
-            user_id,
-            payload.target_id,
-            payload.tab,
-        )
-
-        # Close the associated chat conversation, if one was ever started.
-        await asyncio.to_thread(
-            close_conversation_for_match_action,
-            user_id,
-            payload.target_id,
-            payload.tab,
-            payload.action,
-        )
 
         return MatchActionResponse()
 

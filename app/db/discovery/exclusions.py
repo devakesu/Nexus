@@ -586,3 +586,18 @@ def revoke_incoming_like(viewer_id: str, actor_id: str) -> bool:
             extra={"viewer_id": viewer_id, "actor_id": actor_id},
         )
         raise DatabaseAccessError("Failed to revoke incoming like") from e
+
+
+def unrevoke_incoming_like(viewer_id: str, actor_id: str) -> None:
+    """Restores revoked_at to null if subsequent match creation fails."""
+    try:
+        supabase_client.table("profile_discovery_actions").update(
+            {"revoked_at": None},
+        ).eq("actor_id", actor_id).eq("target_id", viewer_id).in_(
+            "action", ["like", "superlike"],
+        ).execute()
+    except Exception:
+        logger.exception(
+            "Failed to restore incoming like",
+            extra={"viewer_id": viewer_id, "actor_id": actor_id},
+        )

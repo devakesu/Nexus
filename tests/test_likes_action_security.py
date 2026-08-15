@@ -2,7 +2,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 from app.api.discovery.likes import record_like_back_action
 from app.models import LikeActionRequest
@@ -11,9 +11,11 @@ from app.models import LikeActionRequest
 @pytest.mark.anyio
 @patch("app.api.discovery.likes.record_user_report")
 @patch("app.api.discovery.likes.invalidate_block_cache")
+@patch("app.api.discovery.likes.set_match_unmatched")
 @patch("app.api.discovery.likes.close_conversation_for_match_action")
 async def test_record_like_back_action_report_closes_convo(
     mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
     mock_invalidate_cache: AsyncMock,
     mock_record_report: MagicMock,
 ) -> None:
@@ -53,6 +55,11 @@ async def test_record_like_back_action_report_closes_convo(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
     )
+    mock_set_unmatched.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+    )
     mock_close_convo.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
@@ -65,9 +72,11 @@ async def test_record_like_back_action_report_closes_convo(
 @patch("app.api.discovery.likes.record_discovery_action")
 @patch("app.api.discovery.likes.invalidate_block_cache")
 @patch("app.api.discovery.likes.revoke_incoming_like")
+@patch("app.api.discovery.likes.set_match_unmatched")
 @patch("app.api.discovery.likes.close_conversation_for_match_action")
 async def test_record_like_back_action_block_closes_convo(
     mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
     mock_revoke: MagicMock,
     mock_invalidate_cache: AsyncMock,
     mock_record_action: MagicMock,
@@ -111,6 +120,11 @@ async def test_record_like_back_action_block_closes_convo(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
     )
+    mock_set_unmatched.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+    )
     mock_close_convo.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
@@ -120,27 +134,20 @@ async def test_record_like_back_action_block_closes_convo(
 
 
 @pytest.mark.anyio
-@patch("app.api.discovery.likes.supabase_client")
 @patch("app.api.discovery.likes.record_discovery_action")
 @patch("app.api.discovery.likes.record_match")
 @patch("app.api.discovery.likes.revoke_incoming_like")
 @patch("app.api.discovery.likes.send_match_notification")
-async def test_record_like_back_action_concurrent_revocation_cleans_up_and_fails(
+async def test_record_like_back_action_concurrent_revocation_fails_fast(
     mock_send_notif: MagicMock,
     mock_revoke: MagicMock,
     mock_record_match: MagicMock,
     mock_record_discovery: MagicMock,
-    mock_supabase: MagicMock,
 ) -> None:
     from fastapi import HTTPException
 
-    # 1. Setup mock
-    mock_record_match.return_value = "match-123"
-    mock_revoke.return_value = False  # Like is concurrently revoked!
-
-    # Mock supabase client table matches delete
-    mock_delete = MagicMock()
-    mock_supabase.table.return_value.delete.return_value.eq.return_value = mock_delete
+    # 1. Setup mock: like is concurrently revoked / missing
+    mock_revoke.return_value = False
 
     payload = LikeActionRequest(
         target_id="11111111-1111-1111-1111-111111111111",
@@ -163,13 +170,56 @@ async def test_record_like_back_action_concurrent_revocation_cleans_up_and_fails
             user_id="22222222-2222-2222-2222-222222222222",
         )
 
-    # 3. Assertions
+    # 3. Assertions: Fails fast before creating match or sending notification
     assert exc_info.value.status_code == 400
     assert "No active incoming like found" in exc_info.value.detail
-    mock_record_match.assert_called_once()
-    mock_supabase.table.assert_called_with("matches")
-    mock_supabase.table.return_value.delete.assert_called_once()
-    mock_delete.execute.assert_called_once()
+    mock_record_match.assert_not_called()
+    mock_send_notif.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.unrevoke_incoming_like")
+@patch("app.api.discovery.likes.record_discovery_action")
+@patch("app.api.discovery.likes.record_match")
+@patch("app.api.discovery.likes.revoke_incoming_like")
+@patch("app.api.discovery.likes.send_match_notification")
+async def test_record_like_back_action_match_failure_rollbacks_revocation(
+    mock_send_notif: MagicMock,
+    mock_revoke: MagicMock,
+    mock_record_match: MagicMock,
+    mock_record_discovery: MagicMock,
+    mock_unrevoke: MagicMock,
+) -> None:
+    from app.db.client import DatabaseAccessError
+
+    mock_revoke.return_value = True
+    mock_record_match.side_effect = DatabaseAccessError("DB connection error")
+
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="like",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await record_like_back_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 503
+    mock_unrevoke.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
 
 
 def test_record_match_returns_existing_when_present() -> None:
@@ -283,6 +333,56 @@ def test_set_match_unmatched_validates_uuid() -> None:
 
     with pytest.raises(ValueError):
         set_match_unmatched("11111111-1111-1111-1111-111111111111", "invalid-target-uuid")
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.record_user_report")
+@patch("app.api.discovery.likes.invalidate_block_cache")
+@patch("app.api.discovery.likes.set_match_unmatched")
+@patch("app.api.discovery.likes.close_conversation_for_match_action")
+async def test_record_like_back_action_report_dissolves_match_and_closes_conversation(
+    mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
+    mock_invalidate: AsyncMock,
+    mock_record_report: MagicMock,
+) -> None:
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="report",
+        tab="Dating",
+        reason="harassment",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await record_like_back_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+
+    assert res.matched is False
+    mock_record_report.assert_called_once()
+    mock_invalidate.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+    mock_set_unmatched.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+    )
+    mock_close_convo.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+        "report",
+    )
 
 
 

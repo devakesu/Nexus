@@ -1,7 +1,7 @@
 """Chat, messages, presence, events, and key-exchange Pydantic models."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Base64Bytes, BaseModel, Field, field_validator, model_validator
 
@@ -141,7 +141,7 @@ class SendMessageRequest(BaseModel):
 
     message_type: Literal["text", "image", "voice", "event", "location"] = "text"
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
-    ciphertext_metadata: dict[str, str | int | bool | None] = Field(
+    ciphertext_metadata: dict[str, Any] = Field(
         default_factory=dict,
         max_length=20,
         description="Bounded Signal protocol metadata (string/int/bool values only).",
@@ -179,7 +179,7 @@ class PresenceHeartbeatRequest(BaseModel):
 
 class BatchPresenceRequest(BaseModel):
     """Batch presence lookup request."""
-    user_ids: list[str] = Field(..., min_length=1, max_length=100)
+    user_ids: list[str] = Field(..., min_length=1, max_length=50)
 
 
 class PresenceResponse(BaseModel):
@@ -208,7 +208,7 @@ class CreateEventRequest(BaseModel):
     location_lng: float | None = Field(default=None, ge=-180, le=180)
     location_label: str | None = Field(default=None, max_length=200)
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
-    ciphertext_metadata: dict[str, str | int | bool | None] = Field(
+    ciphertext_metadata: dict[str, Any] = Field(
         default_factory=dict,
         max_length=20,
         description="Bounded Signal protocol metadata (string/int/bool values only).",

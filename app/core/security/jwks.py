@@ -1,6 +1,6 @@
 """JSON Web Key Set (JWKS) key retrieval and caching for Supabase JWT verification.
 
-Provides dynamic remote public key fetching with 24-hour in-memory caching and lock protection,
+Provides dynamic remote public key fetching with 1-hour in-memory caching and lock protection,
 along with static fallback resolution for offline or local execution modes.
 """
 
@@ -19,11 +19,21 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Cache TTL: 1 hour (3600s) to minimize exposure window on key rotation/revocation
+JWKS_CACHE_TTL_SECONDS: float = 3600.0
+
 # Shared memory cache primitives for zero-latency signature parsing
 _cached_jwks: PyJWKSet | None = None
 _last_fetch_time: float = 0.0
 _jwks_lock = asyncio.Lock()
 _http_client: httpx.AsyncClient | None = None
+
+
+def clear_jwks_cache() -> None:
+    """Clears the cached JWKS and resets the last fetch timestamp."""
+    global _cached_jwks, _last_fetch_time
+    _cached_jwks = None
+    _last_fetch_time = 0.0
 
 
 def _get_jwks_client() -> httpx.AsyncClient:
@@ -199,17 +209,21 @@ def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
     return None
 
 
-async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
+async def get_live_supabase_public_key(
+    token: str,
+    force_refresh: bool = False,
+) -> EllipticCurvePublicKey:
     """Retrieves the active Supabase Elliptic Curve public key for JWT verification.
 
     Args:
         token: Incoming JWT Bearer token string.
+        force_refresh: If True, forces a refresh of the JWKS cache from Supabase.
 
     Returns:
         EllipticCurvePublicKey: Active public key instance.
 
     Raises:
-        jwt.InvalidTokenError: If token header is malformed.
+        jwt.InvalidTokenError: If token header is malformed or key ID is revoked/invalid.
     """
     try:
         unverified_header = jwt.get_unverified_header(token)
@@ -221,27 +235,31 @@ async def get_live_supabase_public_key(token: str) -> EllipticCurvePublicKey:
 
     current_time = time.time()
 
-    cache_expired = (current_time - _last_fetch_time) > 86400
+    cache_expired = (current_time - _last_fetch_time) > JWKS_CACHE_TTL_SECONDS
     missing_kid = token_kid is not None and (
         _cached_jwks is None
         or not syntax_has_kid(_cached_jwks, token_kid)
     )
 
-    if not _cached_jwks or cache_expired or missing_kid:
+    if not _cached_jwks or cache_expired or missing_kid or force_refresh:
         async with _jwks_lock:
             current_time = time.time()
-            cache_expired = (current_time - _last_fetch_time) > 86400
+            cache_expired = (current_time - _last_fetch_time) > JWKS_CACHE_TTL_SECONDS
             missing_kid = token_kid is not None and (
                 _cached_jwks is None
                 or not syntax_has_kid(_cached_jwks, token_kid)
             )
-            if not _cached_jwks or cache_expired or missing_kid:
+            if not _cached_jwks or cache_expired or missing_kid or force_refresh:
                 await _fetch_and_update_cached_jwks(current_time)
 
     if token_kid:
         resolved = _resolve_key_from_cache(token_kid)
         if resolved:
             return resolved
+        if _cached_jwks is not None:
+            raise jwt.InvalidTokenError(
+                f"Specified key ID '{token_kid}' is not recognized or has been revoked.",
+            )
 
     return get_fallback_public_key(token_kid)
 

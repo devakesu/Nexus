@@ -82,6 +82,9 @@ async def send_presence_heartbeat(
         ) from err
 
 
+_MAX_BATCH_PRESENCE_IDS = 50
+
+
 @router.post("/api/v1/chat/presence/batch")
 @limiter.limit(settings.rate_limit_discover)
 async def batch_get_presence(
@@ -92,6 +95,11 @@ async def batch_get_presence(
 ) -> dict[str, PresenceResponse]:
     """Fetches presence status for multiple target user IDs in one request."""
     _ = request
+    if len(payload.user_ids) > _MAX_BATCH_PRESENCE_IDS:
+        raise HTTPException(
+            status_code=400,
+            detail="Too many user IDs.",
+        )
     try:
         results = await asyncio.gather(
             *[_resolve_single_presence(user_id, target_id) for target_id in payload.user_ids],

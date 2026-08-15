@@ -65,6 +65,28 @@ class AuthInterceptor extends Interceptor {
     }
     super.onRequest(options, handler);
   }
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    if (err.response?.statusCode == 401) {
+      try {
+        final res = await Supabase.instance.client.auth.refreshSession();
+        final newToken = res.session?.accessToken;
+        if (newToken != null) {
+          final requestOptions = err.requestOptions;
+          requestOptions.headers['Authorization'] = 'Bearer $newToken';
+          final response = await _globalDio.fetch<dynamic>(requestOptions);
+          return handler.resolve(response);
+        }
+      } on Object catch (_) {
+        // Refresh failed, propagate original 401
+      }
+    }
+    super.onError(err, handler);
+  }
 }
 
 class AppCheckInterceptor extends Interceptor {
@@ -110,11 +132,20 @@ class AppCheckInterceptor extends Interceptor {
 }
 
 class NetworkUtils {
-  /// Retrieves the current Supabase session access token or throws an exception if not signed in.
+  /// Retrieves the current Supabase session access token or proactively refreshes if expired.
   static Future<String> requireAccessToken() async {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not signed in');
-    return token;
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) throw Exception('Not signed in');
+    if (session.isExpired) {
+      try {
+        final res = await Supabase.instance.client.auth.refreshSession();
+        final refreshedToken = res.session?.accessToken;
+        if (refreshedToken != null) return refreshedToken;
+      } on Object catch (_) {
+        // Fall back to current access token
+      }
+    }
+    return session.accessToken;
   }
 
   /// Validates that the hostname of the untrusted certificate is a local/development host.

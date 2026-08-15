@@ -76,13 +76,14 @@ async def get_chats(
                 .in_("conversation_id", convo_ids)
                 .neq("sender_id", user_id)
                 .is_("read_at", "null")
+                .limit(500)
                 .execute(),
             )
             raw_unread = cast(list[dict[str, Any]], unread_res.data or [])
             for r in raw_unread:
                 c_id = str(r.get("conversation_id") or "")
                 if c_id:
-                    unread_counts[c_id] = unread_counts.get(c_id, 0) + 1
+                    unread_counts[c_id] = min(unread_counts.get(c_id, 0) + 1, 99)
 
         items: list[ChatConversationItem] = []
         for row in rows:

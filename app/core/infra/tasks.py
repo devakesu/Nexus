@@ -15,6 +15,9 @@ import sentry_sdk
 logger = logging.getLogger(__name__)
 
 
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
 def safe_create_task(
     coro: Coroutine[Any, Any, Any],
 ) -> asyncio.Task[Any] | None:
@@ -43,6 +46,7 @@ def safe_create_task(
         return None
 
     task = asyncio.create_task(coro)
+    _background_tasks.add(task)
 
     def done_callback(t: asyncio.Task[Any]) -> None:
         """Callback invoked upon task completion to capture and report unhandled exceptions to Sentry.
@@ -50,6 +54,7 @@ def safe_create_task(
         Args:
             t: The completed asyncio.Task instance.
         """
+        _background_tasks.discard(t)
         try:
             exc = t.exception()
             if exc:

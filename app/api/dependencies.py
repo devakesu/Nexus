@@ -132,8 +132,16 @@ async def get_authenticated_user_payload(
         public_key = None
         if settings.is_jwks:
             public_key = await get_live_supabase_public_key(token)
-
-        payload = _decode_jwt(token, secret, public_key)
+            try:
+                payload = _decode_jwt(token, secret, public_key)
+            except jwt.InvalidSignatureError:
+                logger.info(
+                    "JWT signature verification failed with cached JWKS; forcing cache refresh and retrying.",
+                )
+                public_key = await get_live_supabase_public_key(token, force_refresh=True)
+                payload = _decode_jwt(token, secret, public_key)
+        else:
+            payload = _decode_jwt(token, secret, public_key)
 
         user_uuid: str | None = payload.get("sub")
         if not user_uuid:
@@ -226,13 +234,17 @@ async def get_authenticated_user_id(
 async def get_optional_authenticated_user_id(
     token: str | None = Depends(get_optional_bearer_token),
 ) -> str | None:
-    """Executes get optional authenticated user id operation.
+    """Extract and verify optional HTTP Bearer token from request headers.
 
-        Args:
-            token: Input token parameter.
+    Args:
+        token: Input optional Bearer token string.
 
-        Returns:
-            str | None: Response payload or result."""
+    Returns:
+        str | None: Verified user UUID string if token is present and valid, or None if no token provided.
+
+    Raises:
+        HTTPException: 401 Unauthorized if a token was provided but is invalid or expired.
+    """
     if not token:
         return None
     try:
@@ -240,11 +252,31 @@ async def get_optional_authenticated_user_id(
         public_key = None
         if settings.is_jwks:
             public_key = await get_live_supabase_public_key(token)
-        payload = _decode_jwt(token, secret, public_key)
+            try:
+                payload = _decode_jwt(token, secret, public_key)
+            except jwt.InvalidSignatureError:
+                public_key = await get_live_supabase_public_key(token, force_refresh=True)
+                payload = _decode_jwt(token, secret, public_key)
+        else:
+            payload = _decode_jwt(token, secret, public_key)
         user_uuid: str | None = payload.get("sub")
+        if not user_uuid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: sub claim missing.",
+            )
         return user_uuid
-    except (jwt.PyJWTError, HTTPException, ValueError, AttributeError, KeyError):
-        return None
+    except jwt.ExpiredSignatureError as err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication session expired.",
+        ) from err
+    except (jwt.PyJWTError, ValueError, AttributeError, KeyError) as err:
+        logger.warning("Optional JWT validation failed: %s", err)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cryptographic signature verification failed.",
+        ) from err
 
 
 async def get_cached_public_user(user_id: str) -> dict[str, Any] | None:

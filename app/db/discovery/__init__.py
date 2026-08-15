@@ -12,6 +12,7 @@ from app.db.discovery.exclusions import (
     record_discovery_action,
     record_user_report,
     revoke_incoming_like,
+    unrevoke_incoming_like,
 )
 from app.db.discovery.matches import (
     fetch_matches_for_user,
@@ -49,4 +50,5 @@ __all__ = [
     "record_user_report",
     "revoke_incoming_like",
     "set_match_unmatched",
+    "unrevoke_incoming_like",
 ]

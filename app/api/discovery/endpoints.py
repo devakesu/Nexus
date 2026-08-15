@@ -15,12 +15,14 @@ from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.core.security.crypto import DecryptFailedError
+from app.db.chat import close_conversation_for_match_action
 from app.db.client import DatabaseAccessError, ProfileDecodeError
 from app.db.discovery import (
     build_tab_aware_orbit_node_detail,
     invalidate_block_cache,
     record_discovery_action,
     record_user_report,
+    set_match_unmatched,
 )
 from app.db.sessions import fetch_discovery_node_detail, fetch_spatial_viewport
 from app.models import (
@@ -298,6 +300,9 @@ async def get_discovery_viewport(
         ) from err
 
 
+_ALLOWED_REVERSAL_ACTIONS: frozenset[str] = frozenset({"unpass", "unhide", "unblock"})
+
+
 async def _validate_discovery_action(
     user_id: str,
     payload: DiscoveryActionRequest,
@@ -310,6 +315,12 @@ async def _validate_discovery_action(
     from app.db.discovery import has_active_discovery_action
 
     is_reversal = payload.action.startswith("un")
+    if is_reversal and payload.action not in _ALLOWED_REVERSAL_ACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Reversal action '{payload.action}' is not supported.",
+        )
+
     base_action = payload.action[2:] if is_reversal else payload.action
 
     if is_reversal:
@@ -395,6 +406,19 @@ async def handle_discovery_action(
                 tab=payload.tab,
             )
             await invalidate_block_cache(user_id, payload.target_id)
+            await asyncio.to_thread(
+                set_match_unmatched,
+                user_id,
+                payload.target_id,
+                payload.tab,
+            )
+            await asyncio.to_thread(
+                close_conversation_for_match_action,
+                user_id,
+                payload.target_id,
+                payload.tab,
+                "report",
+            )
         else:
             await asyncio.to_thread(
                 record_discovery_action,
@@ -405,6 +429,20 @@ async def handle_discovery_action(
             )
             if payload.action in ("block", "unblock"):
                 await invalidate_block_cache(user_id, payload.target_id)
+                if payload.action == "block":
+                    await asyncio.to_thread(
+                        set_match_unmatched,
+                        user_id,
+                        payload.target_id,
+                        payload.tab,
+                    )
+                    await asyncio.to_thread(
+                        close_conversation_for_match_action,
+                        user_id,
+                        payload.target_id,
+                        payload.tab,
+                        "block",
+                    )
             elif payload.action in ("like", "superlike"):
                 safe_create_task(
                     send_like_notification(

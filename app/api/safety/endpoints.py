@@ -30,7 +30,7 @@ from app.core.utils.sms import (
     send_sms,
     verify_escalation_cancel_token,
 )
-from app.db.client import DatabaseAccessError
+from app.db.client import DatabaseAccessError, utcnow
 from app.db.safety import (
     EscalationInProgressError,
     cancel_safety_escalation,
@@ -360,6 +360,12 @@ async def start_session(
 
     event_context = {"label": payload.event_label} if payload.event_label else None
 
+    if payload.next_checkin_at <= utcnow():
+        raise HTTPException(
+            status_code=400,
+            detail="next_checkin_at must be in the future.",
+        )
+
     try:
         row = await asyncio.to_thread(
             start_safety_session,
@@ -402,6 +408,12 @@ async def checkin_session(
     reschedule this mirrors.
     """
     _ = request
+
+    if payload.next_checkin_at <= utcnow():
+        raise HTTPException(
+            status_code=400,
+            detail="next_checkin_at must be in the future.",
+        )
 
     try:
         row = await asyncio.to_thread(
@@ -470,7 +482,7 @@ async def cancel_escalation(
     session_id: str,
     token: str = Query(...),
     reason: str = Query(...),
-    note: str | None = Query(default=None),
+    note: str | None = Query(default=None, max_length=500),
 ) -> HTMLResponse:
     """Lets a trusted contact stop further "device unreachable" alerts from
     a plain link in the SMS - they have no Nexus account, so a signed token

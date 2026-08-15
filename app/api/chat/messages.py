@@ -69,6 +69,12 @@ async def send_message(
                 status_code=403,
                 detail="Blocked.",
             )
+        sender_block_ids = await get_cached_active_block_ids(user_id)
+        if recipient_id in sender_block_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Blocked.",
+            )
 
         row = await asyncio.to_thread(
             insert_message,

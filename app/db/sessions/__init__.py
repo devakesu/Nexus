@@ -8,6 +8,7 @@ from app.db.sessions.auth_sessions import (
     invalidate_viewer_discovery_sessions,
     is_candidate_in_active_session,
     get_candidate_session_details,
+    prune_excess_viewer_discovery_sessions,
 )
 from app.db.sessions.node_details import fetch_discovery_node_detail
 from app.db.sessions.viewport import fetch_spatial_viewport
@@ -22,4 +23,5 @@ __all__ = [
     "invalidate_viewer_discovery_sessions",
     "is_candidate_in_active_session",
     "get_candidate_session_details",
+    "prune_excess_viewer_discovery_sessions",
 ]

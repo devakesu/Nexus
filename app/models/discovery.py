@@ -190,9 +190,8 @@ class DiscoveryActionRequest(BaseModel):
         "superlike",
         "block",
         "report",
+        "unpass",
         "unhide",
-        "unlike",
-        "unsuperlike",
         "unblock",
     ] = Field(
         ...,
@@ -242,9 +241,8 @@ class DiscoveryActionRequest(BaseModel):
             "hide",
             "like",
             "superlike",
+            "unpass",
             "unhide",
-            "unlike",
-            "unsuperlike",
         }
 
         # Global actions must not include tab context.
