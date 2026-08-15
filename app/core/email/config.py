@@ -163,15 +163,90 @@ class ProvidersConfig(BaseModel):
 ProviderFn = Callable[[SendEmailProps], Coroutine[Any, Any, ProviderResult]]
 
 
+class CircuitBreakerState(BaseModel):
+    """Tracks provider failure status and circuit breaker state."""
+
+    consecutive_failures: int = 0
+    last_failure_time: float = 0.0
+    is_open: bool = False
+
+
+_CIRCUIT_FAILURE_THRESHOLD = 5
+_CIRCUIT_COOLDOWN_SECONDS = 60.0
+
+_circuit_breakers: dict[str, CircuitBreakerState] = {
+    "Brevo": CircuitBreakerState(),
+    "SendPulse": CircuitBreakerState(),
+}
+
+
+def record_provider_success(provider: str) -> None:
+    """Records a successful email dispatch for a provider, resetting failure counts."""
+    state = _circuit_breakers.setdefault(provider, CircuitBreakerState())
+    state.consecutive_failures = 0
+    state.is_open = False
+
+
+def record_provider_failure(provider: str) -> None:
+    """Records a failed email dispatch for a provider, tripping the circuit if threshold exceeded."""
+    import time
+
+    state = _circuit_breakers.setdefault(provider, CircuitBreakerState())
+    state.consecutive_failures += 1
+    state.last_failure_time = time.monotonic()
+    if state.consecutive_failures >= _CIRCUIT_FAILURE_THRESHOLD:
+        if not state.is_open:
+            logger.warning(
+                "Circuit breaker tripped for email provider %s (%d consecutive failures). "
+                "Temporarily routing email traffic to fallback provider.",
+                provider,
+                state.consecutive_failures,
+            )
+        state.is_open = True
+
+
+def is_circuit_open(provider: str) -> bool:
+    """Checks if the provider circuit breaker is open (tripped)."""
+    import time
+
+    state = _circuit_breakers.get(provider)
+    if not state or not state.is_open:
+        return False
+    # If cooldown period has elapsed, allow trial request (half-open state)
+    return (time.monotonic() - state.last_failure_time) <= _CIRCUIT_COOLDOWN_SECONDS
+
+
+def reset_circuit_breakers() -> None:
+    """Resets all provider circuit breakers (used in tests or manual health resets)."""
+    for state in _circuit_breakers.values():
+        state.consecutive_failures = 0
+        state.last_failure_time = 0.0
+        state.is_open = False
+
+
 def should_use_sendpulse(email: str | None = None) -> bool:
-    """Executes should use sendpulse operation.
+    """Determines whether to route email dispatch to SendPulse or Brevo.
 
-        Args:
-            email: Email address string.
+    Respects provider circuit-breaker health:
+    - If Brevo circuit is open, routes 100% to SendPulse.
+    - If SendPulse circuit is open, routes 100% to Brevo.
+    - If both are healthy, applies consistent email hash load-balancing.
 
-        Returns:
-            bool: Response payload or result."""
+    Args:
+        email: Email address string.
+
+    Returns:
+        bool: True to route to SendPulse, False to route to Brevo.
+    """
     if has_brevo and has_sendpulse:
+        brevo_open = is_circuit_open("Brevo")
+        sendpulse_open = is_circuit_open("SendPulse")
+
+        if brevo_open and not sendpulse_open:
+            return True
+        if sendpulse_open and not brevo_open:
+            return False
+
         if email:
             import hashlib
 

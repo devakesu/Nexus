@@ -1,3 +1,4 @@
+import html
 from typing import Any, cast
 
 
@@ -9,14 +10,16 @@ def short_report_id(report_id: str) -> str:
 
         Returns:
             str: Response payload or result."""
-    return report_id.split("-")[0].upper()
+    return html.escape(report_id.split("-")[0].upper())
 
 
 def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> str:
     """
     Tries to extract the name of the user from auth_user metadata, or falls back to
     formatting the prefix of their email address.
+    Returns HTML-safe escaped user name.
     """
+    raw_name: str | None = None
     if auth_user:
         metadata = auth_user.get("user_metadata")
         if isinstance(metadata, dict):
@@ -24,9 +27,10 @@ def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> st
             for key in ("name", "full_name", "given_name", "display_name"):
                 name_val = metadata_dict.get(key)
                 if isinstance(name_val, str) and name_val.strip():
-                    return name_val.strip()
+                    raw_name = name_val.strip()
+                    break
 
-    if email and "@" in email:
+    if raw_name is None and email and "@" in email:
         prefix = email.split("@")[0]
         parts = [
             p.capitalize()
@@ -36,5 +40,6 @@ def extract_user_name(email: str, auth_user: dict[str, Any] | None = None) -> st
             .split()
         ]
         if parts:
-            return " ".join(parts)
-    return "User"
+            raw_name = " ".join(parts)
+
+    return html.escape(raw_name or "User")

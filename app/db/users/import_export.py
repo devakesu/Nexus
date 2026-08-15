@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
 from app.core.infra.cache import redis_client
+from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
 from app.db.client import parse_utc_datetime, supabase_client
 from app.db.users.auth import fetch_public_user
 
@@ -269,16 +270,57 @@ def execute_import(
     source_user = fetch_public_user(source["id"])
     source_variant, _ = _validate_import(source, target, target_variant, source_user)
 
-    # --- 5. Copy encrypted fields ---
+    # --- 5. Copy encrypted fields (re-encrypt with current active key) ---
     copy_payload: dict[str, Any] = {}
     copied_fields: list[str] = []
     for field in _IMPORTABLE_FIELDS:
         value = source.get(field)
         if value is not None:
-            copy_payload[field] = value
+            if isinstance(value, str) and value.startswith("\\x"):
+                try:
+                    decrypted = decrypt_pii(value)
+                    copy_payload[field] = encrypt_to_hex(decrypted) if decrypted else None
+                except DecryptFailedError:
+                    logger.warning(
+                        "Failed to re-encrypt imported field during flavor import; copying raw ciphertext",
+                        extra={"field": field, "source_id": source.get("id")},
+                    )
+                    copy_payload[field] = value
+            else:
+                copy_payload[field] = value
             copied_fields.append(field)
 
-    # --- 6. Set has_imported_data = True on target ---
+    # --- 5. Atomic consumption: Nullify source sync code first via CAS to prevent replay or race conditions ---
+    try:
+        nullify_res = (
+            supabase_client.table("profiles")
+            .update(
+                {
+                    "import_sync_code": None,
+                    "import_sync_expires_at": None,
+                    "updated_at": now.isoformat(),
+                },
+            )
+            .eq("id", source.get("id"))
+            .eq("import_sync_code", sync_code)
+            .execute()
+        )
+        if not nullify_res.data:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Export code was already claimed or consumed.",
+            )
+    except APIError as e:
+        logger.exception(
+            "Failed to claim source import_sync_code",
+            extra={"source_id": source.get("id")},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to process export code. Please try again.",
+        ) from e
+
+    # --- 6. Apply imported fields to target profile ---
     copy_payload["has_imported_data"] = True
     copy_payload["updated_at"] = now.isoformat()
 
@@ -295,25 +337,6 @@ def execute_import(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to apply imported data.",
-        ) from e
-
-    # --- 7. Nullify the source code to prevent re-use ---
-    try:
-        supabase_client.table("profiles").update(
-            {
-                "import_sync_code": None,
-                "import_sync_expires_at": None,
-                "updated_at": now.isoformat(),
-            },
-        ).eq("id", source.get("id")).execute()
-    except APIError as e:
-        logger.exception(
-            "Failed to nullify source import_sync_code after import",
-            extra={"source_id": source.get("id")},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to finalize import. Please try again.",
         ) from e
 
     logger.info(

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -175,4 +175,107 @@ async def test_import_from_flavor_other_error_does_not_increment_attempts() -> N
 
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
         mock_redis.incr.assert_not_called()
+
+
+def test_execute_import_reencrypts_encrypted_fields() -> None:
+    from app.db.users.import_export import execute_import
+
+    source_profile = {
+        "id": "flavor-user-10",
+        "app_variant": "nexus_mec",
+        "campus_branch": "CSE",
+        "lifestyle": "\\x6f6c64636970686572",
+        "search_bucket": "M",
+        "import_sync_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+    }
+    target_profile = {
+        "id": "main-user-10",
+        "app_variant": "nexus",
+        "campus_branch": "CSE",
+        "lifestyle": None,
+    }
+    source_user_row = {
+        "id": "flavor-user-10",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+        "deletion_requested_at": None,
+    }
+
+    with patch(
+        "app.db.users.import_export._fetch_import_profiles",
+        return_value=(source_profile, target_profile),
+    ), patch(
+        "app.db.users.import_export.fetch_public_user",
+        return_value=source_user_row,
+    ), patch(
+        "app.db.users.import_export.decrypt_pii",
+        return_value="Active gym goer",
+    ) as mock_decrypt, patch(
+        "app.db.users.import_export.encrypt_to_hex",
+        return_value="\\x6e6577636970686572",
+    ) as mock_encrypt, patch(
+        "app.db.users.import_export.supabase_client.table",
+    ) as mock_table:
+        # Mock CAS nullify and target update
+        mock_builder = MagicMock()
+        mock_builder.update.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data=[{"id": "flavor-user-10"}])
+        mock_table.return_value = mock_builder
+
+        copied = execute_import(target_user_id="main-user-10", sync_code="XYZ789")
+
+        assert "lifestyle" in copied
+        assert "search_bucket" in copied
+
+        mock_decrypt.assert_called_once_with("\\x6f6c64636970686572")
+        mock_encrypt.assert_called_once_with("Active gym goer")
+
+
+def test_execute_import_concurrent_claim_fails_409() -> None:
+    from app.db.users.import_export import execute_import
+
+    source_profile = {
+        "id": "flavor-user-11",
+        "app_variant": "nexus_mec",
+        "campus_branch": "CSE",
+        "import_sync_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+    }
+    target_profile = {
+        "id": "main-user-11",
+        "app_variant": "nexus",
+        "campus_branch": "CSE",
+    }
+    source_user_row = {
+        "id": "flavor-user-11",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+        "deletion_requested_at": None,
+    }
+
+    with patch(
+        "app.db.users.import_export._fetch_import_profiles",
+        return_value=(source_profile, target_profile),
+    ), patch(
+        "app.db.users.import_export.fetch_public_user",
+        return_value=source_user_row,
+    ), patch(
+        "app.db.users.import_export.supabase_client.table",
+    ) as mock_table:
+        # CAS nullify returns empty data (already claimed concurrently)
+        mock_builder = MagicMock()
+        mock_builder.update.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data=[])
+        mock_table.return_value = mock_builder
+
+        with pytest.raises(HTTPException) as exc_info:
+            execute_import(target_user_id="main-user-11", sync_code="RACE99")
+
+        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+        assert "Export code was already claimed" in exc_info.value.detail
+
+
 

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from app.api.dependencies import verify_app_check_with_replay_protection
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_app_check_fails_open_on_redis_error():
     future_exp = int(time.time()) + 3600
     with (
@@ -22,7 +22,7 @@ async def test_app_check_fails_open_on_redis_error():
         await verify_app_check_with_replay_protection("valid-app-check-token")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_app_check_blocks_replay_when_redis_returns_false():
     future_exp = int(time.time()) + 3600
     with (
@@ -39,7 +39,7 @@ async def test_app_check_blocks_replay_when_redis_returns_false():
         assert "already consumed" in exc_info.value.detail
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_app_check_allows_fresh_token_when_redis_returns_true():
     future_exp = int(time.time()) + 3600
     with (

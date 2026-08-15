@@ -322,3 +322,157 @@ async def test_complete_onboarding_with_accepted_terms_succeeds() -> None:
         assert response.profile_created is True
         mock_upsert_profile.assert_called_once()
 
+
+def test_upsert_public_user_with_xmax_zero() -> None:
+    from app.db.users.auth import upsert_public_user
+
+    mock_builder = MagicMock()
+    mock_builder.upsert.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": "new-user-1",
+                "app_variant": "nexus",
+                "is_active": True,
+                "is_suspended": False,
+                "xmax": "0",
+            },
+        ],
+    )
+
+    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+        "app.db.users.auth.invalidate_user_status_cache",
+    ):
+        row, newly_created = upsert_public_user("new-user-1", "nexus")
+        assert newly_created is True
+        assert row["id"] == "new-user-1"
+        assert "xmax" not in row
+
+
+def test_upsert_public_user_with_xmax_nonzero() -> None:
+    from app.db.users.auth import upsert_public_user
+
+    mock_builder = MagicMock()
+    mock_builder.upsert.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": "existing-user-1",
+                "app_variant": "nexus",
+                "is_active": True,
+                "is_suspended": False,
+                "xmax": "99999",
+            },
+        ],
+    )
+
+    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+        "app.db.users.auth.invalidate_user_status_cache",
+    ):
+        row, newly_created = upsert_public_user("existing-user-1", "nexus")
+        assert newly_created is False
+        assert row["id"] == "existing-user-1"
+
+
+def test_upsert_public_user_fallback_no_xmax_new_user() -> None:
+    from app.db.users.auth import upsert_public_user
+
+    mock_builder = MagicMock()
+    mock_builder.upsert.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    # result.data has no xmax
+    mock_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": "new-user-2",
+                "app_variant": "nexus",
+                "is_active": True,
+                "is_suspended": False,
+                "accepted_terms_version": None,
+                "terms_accepted_at": None,
+                "special_category_consent_version": None,
+                "deletion_requested_at": None,
+                "xmax": None,
+            },
+        ],
+    )
+
+    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+        "app.db.users.auth.invalidate_user_status_cache",
+    ):
+        row, newly_created = upsert_public_user("new-user-2", "nexus")
+        assert newly_created is True
+        assert row["id"] == "new-user-2"
+
+
+def test_upsert_public_user_fallback_no_xmax_existing_user() -> None:
+    from app.db.users.auth import upsert_public_user
+
+    mock_builder = MagicMock()
+    mock_builder.upsert.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": "existing-user-2",
+                "app_variant": "nexus",
+                "is_active": True,
+                "is_suspended": False,
+                "accepted_terms_version": "1.0",
+                "terms_accepted_at": "2026-08-01T00:00:00Z",
+                "xmax": None,
+            },
+        ],
+    )
+
+    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+        "app.db.users.auth.invalidate_user_status_cache",
+    ):
+        row, newly_created = upsert_public_user("existing-user-2", "nexus")
+        assert newly_created is False
+        assert row["id"] == "existing-user-2"
+
+
+def test_decrypt_mobile_handles_decryption_failure_with_error_log() -> None:
+    from app.core.security.crypto import DecryptFailedError
+    from app.db.users.auth import _decrypt_mobile
+
+    row = {"id": "user-corrupted", "mobile": "bad-ciphertext"}
+    with patch("app.db.users.auth.decrypt_pii", side_effect=DecryptFailedError("Corrupted PII")), patch(
+        "app.db.users.auth.logger.error",
+    ) as mock_log_error:
+        res = _decrypt_mobile(row)
+        assert res["mobile"] is None
+        mock_log_error.assert_called_once()
+        assert "Failed to decrypt mobile for user" in mock_log_error.call_args[0][0]
+
+
+def test_get_user_id_by_email_guards_and_success() -> None:
+    from app.db.users.auth import get_user_id_by_email
+
+    # Invalid / empty
+    assert get_user_id_by_email("") is None
+    # No @
+    assert get_user_id_by_email("invalid-email-address") is None
+    # Starts with @
+    assert get_user_id_by_email("@domain.com") is None
+    # Ends with @
+    assert get_user_id_by_email("user@") is None
+    # Oversized (>254 chars)
+    assert get_user_id_by_email("a" * 250 + "@example.com") is None
+
+    # Valid lookup via RPC
+    mock_rpc = MagicMock()
+    mock_rpc.execute.return_value = MagicMock(data="user-found-uuid")
+    with patch("app.db.users.auth.supabase_client.rpc", return_value=mock_rpc) as mock_supabase_rpc:
+        user_id = get_user_id_by_email("  Valid.User@Example.Com  ")
+        assert user_id == "user-found-uuid"
+        mock_supabase_rpc.assert_called_once_with(
+            "get_user_id_by_email",
+            {"email_addr": "valid.user@example.com"},
+        )
+
+
+

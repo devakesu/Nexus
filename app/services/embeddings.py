@@ -34,13 +34,24 @@ def get_embedding_model() -> SentenceTransformer:
 
     Returns:
         SentenceTransformer: Loaded sentence transformer model instance ('all-MiniLM-L6-v2').
+
+    Raises:
+        RuntimeError: If the embedding model fails to initialize or validate.
     """
     global _model
     if _model is None:
         with _model_lock:
             if _model is None:
                 logger.info("Loading sentence-transformer model (all-MiniLM-L6-v2)")
-                _model = SentenceTransformer("all-MiniLM-L6-v2")
+                try:
+                    loaded_model = SentenceTransformer("all-MiniLM-L6-v2")
+                    # Validation step: verify functional inference
+                    _ = loaded_model.encode("test")  # type: ignore[misc]
+                    _model = loaded_model
+                except Exception as err:
+                    _model = None
+                    logger.exception("Failed to initialize sentence-transformer embedding model")
+                    raise RuntimeError("Embedding model failed to initialize") from err
     return _model
 
 
@@ -63,8 +74,11 @@ def generate_nexus_intent_embeddings(
     """
 
     # ──────────────────────────────────────────────────────────────────
-    # 1. EXTRACT FIELDS WITH SAFE FALLBACKS
+    # 1. EXTRACT FIELDS WITH SAFE FALLBACKS & SANITIZATION
     # ──────────────────────────────────────────────────────────────────
+    # Sanitize and cap bio to prevent token starvation of subsequent structured intent fields
+    sanitized_bio: str = " ".join((raw_plaintext_bio or "").split())[:500]
+
     lifestyle: str = (profile.get("lifestyle") or "").strip()
     partner_values_raw: Any = profile.get("partner_values") or []
     if isinstance(partner_values_raw, str):
@@ -103,12 +117,12 @@ def generate_nexus_intent_embeddings(
 
     # Track A - Platonic / Romantic vibe focus
     bio_text_context = (
-        f"[BIO SPACE] Era: {raw_plaintext_bio} | "
+        f"[BIO SPACE] Era: {sanitized_bio} | "
         f"Lifestyle & Day Structure: {lifestyle} | "
         f"Intent/Values Checklist: {partner_values} | "
         f"Belief Structure: {religious_beliefs} | "
         f"Family Direction: {children_plans}"
-    )
+    )[:1024]
 
     # Track B - Technical / Professional focus
     career_text_context = (
@@ -117,14 +131,14 @@ def generate_nexus_intent_embeddings(
         f"Active Team Gaps: {', '.join(looking_for)} | "
         f"Technical Stack Keywords: {', '.join(tech_skills)} | "
         f"Granular Coding Dimensions: {', '.join(sub_interests_flat)}"
-    )
+    )[:1024]
 
     # Track C - Cultural identity & aesthetic alignment (shadow telemetry)
     identity_text_context = (
         f"[IDENTITY SPACE] Presentation Silhouette: {display_gender} ({pronouns}) | "
         f"Social Causes Supported: {', '.join(causes_supported)} | "
         f"Campus Context Engagements: {', '.join(activities)}"
-    )
+    )[:1024]
 
     # ──────────────────────────────────────────────────────────────────
     # 3. LOCAL INFERENCE - zero network latency

@@ -170,6 +170,12 @@ def _compile_filtered_text_for_dimension(
     """
     Surgically compiles profile tokens relevant ONLY to the evaluated dimension.
     Prevents unrelated visual/lifestyle noise from diluting transformer focus.
+
+    Note on Keyword Context Gating (Acknowledged Model Limitation):
+        If any domain keyword matches in `lifestyle` or `bio`, the corresponding
+        free-text string is appended to the context for semantic richness.
+        Adversarial crafting of anchor-aligned keywords in bio can increase
+        similarity scores for that dimension, which is an accepted domain tradeoff.
     """
     valid_signals = _SIGNAL_ROUTING_MATRIX[dimension]
     sentences: list[str] = []
@@ -290,10 +296,14 @@ def derive_value_dimensions(
 
 
 def recompile_value_dimensions(user_id: str) -> None:
-    """Executes recompile value dimensions operation.
+    """Fetch user profile, derive value dimensions matrix, and update database with encrypted dimensions.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user."""
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+
+    Raises:
+        Exception: If database access, decryption, derivation, or database update fails.
+    """
     try:
         res = (
             supabase_client.table("profiles")
@@ -336,3 +346,5 @@ def recompile_value_dimensions(user_id: str) -> None:
         )
     except Exception:
         logger.exception("Value dimension recompile failed for user %s", user_id)
+        raise
+

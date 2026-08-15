@@ -6,6 +6,7 @@ and failover execution logic.
 
 import base64
 import logging
+import time
 from typing import Any, Literal
 
 import httpx
@@ -21,6 +22,8 @@ from app.core.email.config import (
     get_sender_name,
     has_brevo,
     has_sendpulse,
+    record_provider_failure,
+    record_provider_success,
     redact,
     should_use_sendpulse,
     strip_tags,
@@ -28,12 +31,44 @@ from app.core.email.config import (
 
 logger = logging.getLogger(__name__)
 
+_email_http_client: httpx.AsyncClient | None = None
+_sendpulse_token: str | None = None
+_sendpulse_token_expires_at: float = 0.0
+
+
+def _get_email_client() -> httpx.AsyncClient:
+    """Returns or initializes a shared module-level httpx.AsyncClient for email dispatch."""
+    global _email_http_client
+    if _email_http_client is None or _email_http_client.is_closed:
+        _email_http_client = httpx.AsyncClient(timeout=15.0)
+    return _email_http_client
+
+
+async def close_email_client() -> None:
+    """Closes the shared email HTTP client (used during shutdown/cleanup)."""
+    global _email_http_client
+    if _email_http_client is not None and not _email_http_client.is_closed:
+        await _email_http_client.aclose()
+        _email_http_client = None
+
+
+def clear_sendpulse_token_cache() -> None:
+    """Clears cached SendPulse access token (useful for testing or token invalidation)."""
+    global _sendpulse_token, _sendpulse_token_expires_at
+    _sendpulse_token = None
+    _sendpulse_token_expires_at = 0.0
+
 
 async def get_sendpulse_token() -> str:
-    """Executes get sendpulse token operation.
+    """Fetches or returns cached SendPulse OAuth access token.
 
         Returns:
-            str: Response payload or result."""
+            str: Access token string."""
+    global _sendpulse_token, _sendpulse_token_expires_at
+    now = time.monotonic()
+    if _sendpulse_token and now < _sendpulse_token_expires_at:
+        return _sendpulse_token
+
     if not has_sendpulse:
         raise ValueError("SendPulse credentials not configured")
 
@@ -44,20 +79,24 @@ async def get_sendpulse_token() -> str:
         "client_secret": settings.sendpulse_client_secret,
     }
 
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(auth_url, json=payload, timeout=10.0)
-            if res.status_code != 200:
-                raise httpx.HTTPStatusError(
-                    f"SendPulse auth HTTP {res.status_code}",
-                    request=res.request,
-                    response=res,
-                )
-            data = res.json()
-            return data["access_token"]
-        except Exception as error:
-            wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
-            raise wrapped from error
+    client = _get_email_client()
+    try:
+        res = await client.post(auth_url, json=payload, timeout=10.0)
+        if res.status_code != 200:
+            raise httpx.HTTPStatusError(
+                f"SendPulse auth HTTP {res.status_code}",
+                request=res.request,
+                response=res,
+            )
+        data = res.json()
+        token = data["access_token"]
+        expires_in = float(data.get("expires_in", 3600))
+        _sendpulse_token = token
+        _sendpulse_token_expires_at = now + max(0.0, expires_in - 60.0)
+        return token
+    except Exception as error:
+        wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
+        raise wrapped from error
 
 
 async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
@@ -71,37 +110,38 @@ async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
     if not has_sendpulse:
         raise ValueError("SendPulse not configured")
 
-    token = await get_sendpulse_token()
-    email_url = "https://api.sendpulse.com/smtp/emails"
+    try:
+        token = await get_sendpulse_token()
+        email_url = "https://api.sendpulse.com/smtp/emails"
 
-    stripped_text = props.text or strip_tags(props.html)
-    sender_email = props.sender_email or get_sender_email()
-    sender_name = get_sender_name(props.from_name)
+        stripped_text = props.text or strip_tags(props.html)
+        sender_email = props.sender_email or get_sender_email()
+        sender_name = get_sender_name(props.from_name)
 
-    html_base64 = base64.b64encode(props.html.encode("utf-8")).decode("utf-8")
+        html_base64 = base64.b64encode(props.html.encode("utf-8")).decode("utf-8")
 
-    payload = {
-        "email": {
-            "html": html_base64,
-            "text": stripped_text,
-            "subject": props.subject,
-            "from": {
-                "email": sender_email,
-                "name": sender_name,
-            },
-            "to": [
-                {
-                    "email": props.to,
-                    "name": props.to_name or "User",
+        payload = {
+            "email": {
+                "html": html_base64,
+                "text": stripped_text,
+                "subject": props.subject,
+                "from": {
+                    "email": sender_email,
+                    "name": sender_name,
                 },
-            ],
-        },
-    }
+                "to": [
+                    {
+                        "email": props.to,
+                        "name": props.to_name or "User",
+                    },
+                ],
+            },
+        }
 
-    if props.reply_to:
-        payload["email"]["reply_to"] = {"email": props.reply_to}
+        if props.reply_to:
+            payload["email"]["reply_to"] = {"email": props.reply_to}
 
-    async with httpx.AsyncClient() as client:
+        client = _get_email_client()
         res = await client.post(
             email_url,
             json=payload,
@@ -125,7 +165,11 @@ async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:
         except Exception:  # noqa: BLE001
             message_id = ""
 
+        record_provider_success("SendPulse")
         return ProviderResult(success=True, provider="SendPulse", id=message_id)
+    except Exception:
+        record_provider_failure("SendPulse")
+        raise
 
 
 async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
@@ -139,29 +183,30 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
     if not has_brevo:
         raise ValueError("Brevo not configured")
 
-    url = "https://api.brevo.com/v3/smtp/email"
-    sender_email = props.sender_email or get_sender_email()
-    sender_name = get_sender_name(props.from_name)
-    stripped_text = props.text or strip_tags(props.html)
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        sender_email = props.sender_email or get_sender_email()
+        sender_name = get_sender_name(props.from_name)
+        stripped_text = props.text or strip_tags(props.html)
 
-    payload: dict[str, Any] = {
-        "sender": {
-            "email": sender_email,
-            "name": sender_name,
-        },
-        "to": [{"email": props.to}],
-        "subject": props.subject,
-        "htmlContent": props.html,
-        "textContent": stripped_text,
-    }
+        payload: dict[str, Any] = {
+            "sender": {
+                "email": sender_email,
+                "name": sender_name,
+            },
+            "to": [{"email": props.to}],
+            "subject": props.subject,
+            "htmlContent": props.html,
+            "textContent": stripped_text,
+        }
 
-    if props.to_name:
-        payload["to"][0]["name"] = props.to_name
+        if props.to_name:
+            payload["to"][0]["name"] = props.to_name
 
-    if props.reply_to:
-        payload["replyTo"] = {"email": props.reply_to}
+        if props.reply_to:
+            payload["replyTo"] = {"email": props.reply_to}
 
-    async with httpx.AsyncClient() as client:
+        client = _get_email_client()
         res = await client.post(
             url,
             json=payload,
@@ -189,7 +234,11 @@ async def send_via_brevo(props: SendEmailProps) -> ProviderResult:
         except Exception:  # noqa: BLE001
             message_id = ""
 
+        record_provider_success("Brevo")
         return ProviderResult(success=True, provider="Brevo", id=message_id)
+    except Exception:
+        record_provider_failure("Brevo")
+        raise
 
 
 def get_providers(use_sp: bool) -> ProvidersConfig:

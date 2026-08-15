@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Any
 
@@ -41,6 +42,7 @@ async def send_feedback_confirmation_email(
     user_name = extract_user_name(email, auth_user)
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
+    safe_subject = html.escape(subject)
     footer_html = f"""
           You are receiving this notice because ticket #{ticket_ref} was submitted for your Nexus account.
           <br>
@@ -91,7 +93,7 @@ async def send_feedback_confirmation_email(
                              font-size: 13px; line-height: 1.7; color: #4ECCA3;">
                     <span style="color: #9CA3AF;">TICKET_REF:</span> 🎫 #{ticket_ref}<br />
                     <span style="color: #9CA3AF;">CATEGORY:</span> {label.upper()} 📋<br />
-                    <span style="color: #9CA3AF;">SUBJECT:</span> {subject}<br />
+                    <span style="color: #9CA3AF;">SUBJECT:</span> {safe_subject}<br />
                     <span style="color: #9CA3AF;">STATUS:</span> 🟡 OPEN &amp; QUEUED 📥
                   </td>
                 </tr>
@@ -196,10 +198,9 @@ async def send_feedback_admin_notification_email(  # noqa: C901
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
     recipient = get_feedback_notify_email()
-
-    escaped_message = (
-        message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+    safe_subject = html.escape(subject)
+    safe_user_id = html.escape(user_id)
+    escaped_message = html.escape(message)
 
     def _detail_row(field: str, value: str) -> str:
         """Executes detail row operation.
@@ -213,38 +214,35 @@ async def send_feedback_admin_notification_email(  # noqa: C901
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (
-        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
-        f"{submitter_email}</a>"
+        f'<a href="mailto:{html.escape(submitter_email, quote=True)}" style="color: #4ECCA3;">'
+        f"{html.escape(submitter_email)}</a>"
         if submitter_email
         else "(none on file)"
     )
     detail_lines = [
         _detail_row("TICKET", f"#{ticket_ref}"),
         _detail_row("CATEGORY", label.upper()),
-        _detail_row("SUBJECT", subject),
-        _detail_row("USER_ID", user_id),
+        _detail_row("SUBJECT", safe_subject),
+        _detail_row("USER_ID", safe_user_id),
         _detail_row("CONTACT", contact_display),
     ]
     if submitter_name:
-        detail_lines.append(_detail_row("NAME", submitter_name))
+        detail_lines.append(_detail_row("NAME", html.escape(submitter_name)))
     if account_id_or_phone:
-        detail_lines.append(_detail_row("PHONE_OR_ID", account_id_or_phone))
+        detail_lines.append(_detail_row("PHONE_OR_ID", html.escape(account_id_or_phone)))
     if platform:
-        detail_lines.append(_detail_row("PLATFORM", platform))
+        detail_lines.append(_detail_row("PLATFORM", html.escape(platform)))
     if app_version:
-        detail_lines.append(_detail_row("APP_VERSION", app_version))
+        detail_lines.append(_detail_row("APP_VERSION", html.escape(app_version)))
     if attachment_names:
-        names_display = ", ".join(
-            name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            for name in attachment_names
-        )
+        names_display = ", ".join(html.escape(name) for name in attachment_names)
         detail_lines.append(_detail_row("ATTACHMENTS", f"{len(attachment_names)}: {names_display}"))
     elif attachment_count:
         detail_lines.append(_detail_row("ATTACHMENTS", str(attachment_count)))
     if github_issue_url:
         issue_link = (
-            f'<a href="{github_issue_url}" style="color: #4ECCA3;">'
-            f"{github_issue_url}</a>"
+            f'<a href="{html.escape(github_issue_url, quote=True)}" style="color: #4ECCA3;">'
+            f"{html.escape(github_issue_url)}</a>"
         )
         detail_lines.append(_detail_row("GITHUB_ISSUE", issue_link))
 
@@ -260,7 +258,7 @@ async def send_feedback_admin_notification_email(  # noqa: C901
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                {subject}
+                {safe_subject}
               </p>
             </td>
           </tr>
@@ -370,10 +368,9 @@ async def send_feedback_comment_admin_notification_email(
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
     recipient = get_feedback_notify_email()
-
-    escaped_comment = (
-        comment_body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+    safe_subject = html.escape(subject)
+    safe_user_id = html.escape(user_id)
+    escaped_comment = html.escape(comment_body)
 
     def _detail_row(field: str, value: str) -> str:
         """Executes detail row operation.
@@ -387,8 +384,8 @@ async def send_feedback_comment_admin_notification_email(
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (
-        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
-        f"{submitter_email}</a>"
+        f'<a href="mailto:{html.escape(submitter_email, quote=True)}" style="color: #4ECCA3;">'
+        f"{html.escape(submitter_email)}</a>"
         if submitter_email
         else "(none on file)"
     )
@@ -396,8 +393,8 @@ async def send_feedback_comment_admin_notification_email(
         _detail_row("TICKET", f"#{ticket_ref}"),
         _detail_row("ACTION", "NEW COMMENT"),
         _detail_row("CATEGORY", label.upper()),
-        _detail_row("SUBJECT", subject),
-        _detail_row("USER_ID", user_id),
+        _detail_row("SUBJECT", safe_subject),
+        _detail_row("USER_ID", safe_user_id),
         _detail_row("CONTACT", contact_display),
     ]
 
@@ -413,7 +410,7 @@ async def send_feedback_comment_admin_notification_email(
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                {subject}
+                {safe_subject}
               </p>
             </td>
           </tr>
@@ -513,10 +510,9 @@ async def send_feedback_closed_admin_notification_email(
     label = FEEDBACK_QUERY_TYPE_LABELS.get(query_type, "Request")
     ticket_ref = short_report_id(report_id)
     recipient = get_feedback_notify_email()
-
-    escaped_reason = (
-        reason.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    )
+    safe_subject = html.escape(subject)
+    safe_user_id = html.escape(user_id)
+    escaped_reason = html.escape(reason)
 
     def _detail_row(field: str, value: str) -> str:
         """Executes detail row operation.
@@ -530,8 +526,8 @@ async def send_feedback_closed_admin_notification_email(
         return f'<span style="color: #6B7280;">{field}:</span> {value}'
 
     contact_display = (
-        f'<a href="mailto:{submitter_email}" style="color: #4ECCA3;">'
-        f"{submitter_email}</a>"
+        f'<a href="mailto:{html.escape(submitter_email, quote=True)}" style="color: #4ECCA3;">'
+        f"{html.escape(submitter_email)}</a>"
         if submitter_email
         else "(none on file)"
     )
@@ -539,8 +535,8 @@ async def send_feedback_closed_admin_notification_email(
         _detail_row("TICKET", f"#{ticket_ref}"),
         _detail_row("STATUS", "CLOSED BY USER"),
         _detail_row("CATEGORY", label.upper()),
-        _detail_row("SUBJECT", subject),
-        _detail_row("USER_ID", user_id),
+        _detail_row("SUBJECT", safe_subject),
+        _detail_row("USER_ID", safe_user_id),
         _detail_row("CONTACT", contact_display),
     ]
 
@@ -556,7 +552,7 @@ async def send_feedback_closed_admin_notification_email(
               </h1>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                {subject}
+                {safe_subject}
               </p>
             </td>
           </tr>

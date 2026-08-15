@@ -17,7 +17,6 @@ from app.db.profiles import fetch_stage_1_candidates
 from app.db.sessions import (
     create_discovery_session,
     get_discovery_session,
-    get_discovery_session_by_id,
 )
 from app.models import DiscoveryFilters
 from Nexus_Engine import engine
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 def get_or_validate_session(
     session_id: str,
     user_id: str,
-    active_tab: DiscoveryTab | None = None,
+    active_tab: DiscoveryTab,
 ) -> tuple[str, datetime]:
     """Retrieve and validate an existing discovery session for expiration and viewer ownership.
 
@@ -42,19 +41,13 @@ def get_or_validate_session(
         tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
 
     Raises:
-        HTTPException: 404 if session not found, 410 if session expired, 500 if timestamp malformed.
+        HTTPException: 404 if session not found, 410 if session expired.
     """
-    if active_tab is not None:
-        session = get_discovery_session(
-            session_id=session_id,
-            viewer_id=user_id,
-            active_tab=active_tab,
-        )
-    else:
-        session = get_discovery_session_by_id(
-            session_id=session_id,
-            viewer_id=user_id,
-        )
+    session = get_discovery_session(
+        session_id=session_id,
+        viewer_id=user_id,
+        active_tab=active_tab,
+    )
 
     if not session:
         raise HTTPException(status_code=404, detail="Discovery session not found.")
@@ -62,10 +55,16 @@ def get_or_validate_session(
     expires_at_raw = session.get("expires_at")
     if not isinstance(expires_at_raw, (str, datetime)):
         raise HTTPException(
-            status_code=500,
-            detail="Discovery session expiry malformed.",
+            status_code=410,
+            detail="Discovery session expired. Please refresh.",
         )
-    expires_at = parse_utc_datetime(expires_at_raw)
+    try:
+        expires_at = parse_utc_datetime(expires_at_raw)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=410,
+            detail="Discovery session expired. Please refresh.",
+        ) from None
 
     if expires_at <= utcnow():
         raise HTTPException(

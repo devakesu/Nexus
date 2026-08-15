@@ -3,6 +3,8 @@
 Provides the core branded Nexus email wrapper template and CTA button row helper.
 """
 
+import html
+
 from app.core.config import settings
 
 
@@ -24,6 +26,9 @@ def render_email_template(
 
         Returns:
             str: Response payload or result."""
+    safe_subject = html.escape(subject)
+    safe_category = html.escape(preheader_category)
+    safe_action = html.escape(preheader_action)
     app_domain = settings.app_domain
     if footer_html is None:
         footer_html = f"""
@@ -53,7 +58,7 @@ def render_email_template(
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{subject}</title>
+  <title>{safe_subject}</title>
   <style type="text/css">
     body {{
       margin: 0;
@@ -236,12 +241,50 @@ def render_email_template(
         <div class="stars-bg"></div>
         <div class="constellations-bg"></div>
         <div class="comet"></div>
-        <div class="comet-2"></div>
-        <div class="comet-3"></div>
+      <td align="center" style="padding: 40px 16px;">
 
-        <table width="100%" border="0" cellspacing="0" cellpadding="0"
-               class="main-card" style="max-width: 580px; background-color: #0D0E12;
-               border: 1px solid #22252A; text-align: left;">
+        <!-- Main Card with Glowing Border -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="card-container"
+               style="max-width: 600px; background-color: #0A0B0E;
+                      border: 1px solid #1A1C20; border-radius: 8px;
+                      overflow: hidden; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+
+          <!-- Cosmic Header: Logo & Branding -->
+          <tr>
+            <td align="center"
+                style="padding: 36px 32px 28px 32px; background-color: #08090C;
+                       border-bottom: 1px solid #141619; text-align: center;">
+              <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" style="text-align: center;">
+                    <!-- Nexus Icon -->
+                    <div style="display: inline-block; width: 44px; height: 44px;
+                                line-height: 44px; border-radius: 10px;
+                                background-color: #00ADB5; color: #FFFFFF;
+                                font-size: 22px; font-weight: bold;
+                                text-align: center; margin-bottom: 12px;
+                                box-shadow: 0 0 16px rgba(0, 173, 181, 0.4);">
+                      🪐
+                    </div>
+                    <div style="font-family: -apple-system, BlinkMacSystemFont,
+                                'Segoe UI', Helvetica, Arial, sans-serif;
+                                font-size: 20px; font-weight: 300;
+                                letter-spacing: 0.35em; color: #FFFFFF;
+                                text-transform: uppercase;">
+                      NEXUS
+                    </div>
+                    <div style="font-family: ui-monospace, SFMono-Regular,
+                                Menlo, Monaco, Consolas, monospace;
+                                font-size: 10px; color: #00ADB5;
+                                letter-spacing: 0.25em; text-transform: uppercase;
+                                margin-top: 3px;">
+                      SPATIAL SOCIAL NETWORK
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
           <tr>
             <td style="padding: 16px 24px; border-bottom: 1px solid #22252A;
@@ -249,7 +292,7 @@ def render_email_template(
                        Menlo, Monaco, Consolas, 'Liberation Mono',
                        'Courier New', monospace; font-size: 11px;
                        color: #6B7280; letter-spacing: 0.05em;">
-              [ {preheader_category}: // {preheader_action} ]
+              [ {safe_category}: // {safe_action} ]
             </td>
           </tr>
 
@@ -271,13 +314,15 @@ def render_cta_button_row(cta_text: str, cta_url: str) -> str:
     """
     Renders a standard CTA button row.
     """
+    safe_cta_text = html.escape(cta_text)
+    safe_cta_url = html.escape(cta_url, quote=True)
     return f"""
           <tr>
             <td align="center" style="padding: 0 32px 48px 32px;">
               <table border="0" cellspacing="0" cellpadding="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="{cta_url}" target="_blank"
+                    <a href="{safe_cta_url}" target="_blank"
                        style="display: block; width: 100%; max-width: 280px;
                        background-color: #00ADB5; border: 1px solid #00ADB5;
                        color: #FFFFFF; font-family: -apple-system,
@@ -286,7 +331,7 @@ def render_cta_button_row(cta_text: str, cta_url: str) -> str:
                        text-transform: uppercase; text-decoration: none;
                        padding: 15px 0; text-align: center;
                        transition: background-color 0.2s, border-color 0.2s;">
-                      {cta_text}
+                      {safe_cta_text}
                     </a>
                   </td>
                 </tr>

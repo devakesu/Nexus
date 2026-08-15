@@ -175,8 +175,9 @@ def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
     try:
         row["mobile"] = decrypt_pii(raw) or None
     except DecryptFailedError:
-        logger.warning(
-            "Failed to decrypt mobile for user", extra={"user_id": row.get("id")},
+        logger.error(
+            "Failed to decrypt mobile for user due to key rotation or corrupted ciphertext",
+            extra={"user_id": row.get("id")},
         )
         row["mobile"] = None
     return row
@@ -362,6 +363,8 @@ def get_user_id_by_email(email: str) -> str | None:
     if not email:
         return None
     normalized = email.strip().lower()
+    if len(normalized) > 254 or "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+        return None
     try:
         res = (
             supabase_client.rpc("get_user_id_by_email", {"email_addr": normalized})
@@ -439,6 +442,17 @@ def upsert_public_user(
         xmax_val = None
         row_copy = fetched
 
-    newly_created = xmax_val is not None and str(xmax_val) == "0"
+    if xmax_val is not None:
+        newly_created = str(xmax_val) == "0"
+    else:
+        # Fallback when xmax is not returned by PostgREST or when row is fetched via fallback:
+        # A fresh un-onboarded account has no accepted terms, no special consent, no deletion request, and is active.
+        newly_created = (
+            row_copy.get("accepted_terms_version") is None
+            and row_copy.get("terms_accepted_at") is None
+            and row_copy.get("special_category_consent_version") is None
+            and row_copy.get("deletion_requested_at") is None
+            and bool(row_copy.get("is_active", True))
+        )
 
     return row_copy, newly_created

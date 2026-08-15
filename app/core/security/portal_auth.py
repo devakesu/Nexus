@@ -28,6 +28,23 @@ def generate_otp_code() -> str:
     return "".join(secrets.choice("0123456789") for _ in range(_OTP_LENGTH))
 
 
+def _get_signing_key() -> bytes:
+    """Returns the dedicated HMAC signing key for safety portal operations.
+
+    Enforces cryptographic key separation: portal tokens and OTP digests
+    use `hmac_signing_key` by default, falling back to `blind_index_key`
+    if unset, and raising RuntimeError if neither is configured.
+    """
+    key = settings.hmac_signing_key.strip() if settings.hmac_signing_key else ""
+    if not key and settings.blind_index_key:
+        key = settings.blind_index_key.strip()
+    if not key:
+        raise RuntimeError(
+            "HMAC_SIGNING_KEY or BLIND_INDEX_KEY must be configured for portal authentication.",
+        )
+    return key.encode("utf-8")
+
+
 def hash_otp(session_id: str, phone_norm: str, code: str) -> str:
     """Calculates an HMAC-SHA256 digest for a safety portal OTP code.
 
@@ -39,7 +56,7 @@ def hash_otp(session_id: str, phone_norm: str, code: str) -> str:
     Returns:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
-    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    key = _get_signing_key()
     message = f"{_OTP_DOMAIN_LABEL}:{session_id}:{phone_norm}:{code}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
@@ -69,13 +86,22 @@ def _sign_access_payload(payload: str) -> str:
 
     Args:
         payload: Access token payload string.
+         peculiarities: Uses dedicated HMAC signing key with domain separation.
 
     Returns:
         str: Hex-encoded HMAC signature.
     """
-    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    key = _get_signing_key()
     message = f"{_ACCESS_DOMAIN_LABEL}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
+
+
+def _hash_phone_identifier(phone_norm: str) -> str:
+    """Computes a one-way HMAC digest of the normalized phone number
+    to prevent embedding plaintext phone numbers in token payloads.
+    """
+    key = _get_signing_key()
+    return hmac.new(key, f"portal_phone_id:{phone_norm}".encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def make_portal_access_token(session_id: str, phone_norm: str) -> str:
@@ -93,7 +119,8 @@ def make_portal_access_token(session_id: str, phone_norm: str) -> str:
             datetime.now(timezone.utc) + timedelta(seconds=_ACCESS_TOKEN_TTL_SECONDS)
         ).timestamp(),
     )
-    payload = f"{session_id}:{phone_norm}:{expires_at}"
+    phone_id = _hash_phone_identifier(phone_norm)
+    payload = f"{session_id}:{phone_id}:{expires_at}"
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     signature = _sign_access_payload(payload)
     return f"{payload_b64}.{signature}"
@@ -107,13 +134,13 @@ def verify_portal_access_token(session_id: str, token: str) -> str | None:
         token: Bearer access token string.
 
     Returns:
-        str | None: Verified phone number, or None if token invalid/expired.
+        str | None: Verified phone identifier hash, or None if token invalid/expired.
     """
     try:
         payload_b64, signature = token.split(".", 1)
         padding = "=" * (-len(payload_b64) % 4)
         payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
-        token_session_id, phone_norm, expires_at_raw = payload.split(":", 2)
+        token_session_id, phone_id, expires_at_raw = payload.split(":", 2)
         expires_at = int(expires_at_raw)
     except (ValueError, UnicodeDecodeError):
         return None
@@ -124,5 +151,5 @@ def verify_portal_access_token(session_id: str, token: str) -> str | None:
         return None
     if datetime.now(timezone.utc).timestamp() >= expires_at:
         return None
-    return phone_norm
+    return phone_id
 

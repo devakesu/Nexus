@@ -1,3 +1,4 @@
+import html
 import logging
 
 import app.core.email as email_pkg
@@ -23,6 +24,9 @@ async def send_trusted_contact_removed_email(
     channels (alongside SMS and push) so this isn't missed the way a single
     email could be.
     """
+    safe_user_name = html.escape(user_name)
+    safe_contact_name = html.escape(contact_name)
+
     row_1 = f"""
           <tr>
             <td style="padding: 40px 32px 24px 32px;">
@@ -43,11 +47,11 @@ async def send_trusted_contact_removed_email(
               </h1>
               <p style="margin: 0 0 12px 0; font-size: 16px; line-height: 1.6;
                          color: #FFFFFF; font-weight: 400;">
-                Hi {user_name}! 👋
+                Hi {safe_user_name}! 👋
               </p>
               <p style="margin: 0; font-size: 15px; line-height: 1.6;
                          color: #9CA3AF; font-weight: 400;">
-                <strong style="color: #FFFFFF;">{contact_name}</strong> has removed themselves as one of your designated Meetup Safety trusted contacts.
+                <strong style="color: #FFFFFF;">{safe_contact_name}</strong> has removed themselves as one of your designated Meetup Safety trusted contacts.
               </p>
             </td>
           </tr>
@@ -63,7 +67,7 @@ async def send_trusted_contact_removed_email(
                   <td style="padding: 18px; font-family: ui-monospace,
                              SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                              font-size: 13px; line-height: 1.7; color: #F59E0B;">
-                    <span style="color: #9CA3AF;">CONTACT:</span> {contact_name}<br />
+                    <span style="color: #9CA3AF;">CONTACT:</span> {safe_contact_name}<br />
                     <span style="color: #9CA3AF;">ACTION:</span> REMOVED_SELF 🚪<br />
                     <span style="color: #9CA3AF;">SAFETY_ALERTS:</span> DEACTIVATED FOR THIS CONTACT
                   </td>
@@ -100,7 +104,7 @@ async def send_trusted_contact_removed_email(
         preheader_category="SAFETY",
         preheader_action="CONTACT_REMOVED",
         footer_html=f"""
-              You are receiving this notice because {contact_name} was added as a Meetup Safety trusted contact on Nexus.
+              You are receiving this notice because {safe_contact_name} was added as a Meetup Safety trusted contact on Nexus.
               <br>
               <a href="https://{settings.app_domain}/legal" target="_blank"
                  style="color: #9CA3AF; text-decoration: underline;">Privacy, Terms &amp; Legal</a>
