@@ -42,7 +42,7 @@ async def test_discovery_viewport_passes_tab_to_session_validation(
                 "x": 10.0,
                 "y": 20.0,
                 "orbit_tier": 1,
-            }
+            },
         ],
         1,
     )
@@ -140,7 +140,7 @@ def test_discovery_viewport_request_validation() -> None:
                 "center_x": 0.0,
                 "center_y": 0.0,
                 "radius": 100.0,
-            }
+            },
         )
 
     # Invalid tab should raise ValidationError
@@ -213,7 +213,7 @@ def test_create_discovery_session_derives_spotify_connected_without_extra_db_que
             "orbit_tier": 1,
             "music_match_grade": 85,
             "viewer_spotify_connected": True,
-        }
+        },
     ]
 
     mock_rpc_exec = MagicMock()

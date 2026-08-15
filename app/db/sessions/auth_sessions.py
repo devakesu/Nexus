@@ -44,7 +44,7 @@ def prune_excess_viewer_discovery_sessions(
                 supabase_client.table("discovery_sessions").delete().in_(
                     "id", sessions_to_delete,
                 ).execute()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to prune excess discovery sessions for viewer",
             extra={"viewer_id": viewer_id, "error": str(e)},

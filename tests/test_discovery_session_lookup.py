@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from app.db.client import DatabaseAccessError
@@ -15,7 +16,7 @@ def test_get_discovery_session_found(mock_table: MagicMock) -> None:
     builder.eq.return_value = builder
     builder.maybe_single.return_value = builder
     builder.execute.return_value = MagicMock(
-        data={"id": "s-1", "viewer_id": "v-1", "tab": "Dating", "expires_at": "2026-08-13T19:00:00Z"}
+        data={"id": "s-1", "viewer_id": "v-1", "tab": "Dating", "expires_at": "2026-08-13T19:00:00Z"},
     )
     mock_table.return_value = builder
 
@@ -59,7 +60,7 @@ def test_get_discovery_session_by_id_found(mock_table: MagicMock) -> None:
     builder.eq.return_value = builder
     builder.maybe_single.return_value = builder
     builder.execute.return_value = MagicMock(
-        data={"id": "s-1", "viewer_id": "v-1", "tab": "Friends", "expires_at": "2026-08-13T19:00:00Z"}
+        data={"id": "s-1", "viewer_id": "v-1", "tab": "Friends", "expires_at": "2026-08-13T19:00:00Z"},
     )
     mock_table.return_value = builder
 

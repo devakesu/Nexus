@@ -7,6 +7,7 @@ user's full PII is a comparably sensitive operation.
 import hmac
 import logging
 import secrets
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool

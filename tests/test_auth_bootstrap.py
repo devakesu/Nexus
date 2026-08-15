@@ -27,9 +27,9 @@ async def test_auth_bootstrap_suspended_user_does_not_upsert() -> None:
     mock_upsert = MagicMock()
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
-        "app.api.user.auth_otp.is_allowed_email", return_value=True
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
     ):
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -62,9 +62,9 @@ async def test_auth_bootstrap_inactive_user_does_not_upsert() -> None:
     mock_upsert = MagicMock()
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
-        "app.api.user.auth_otp.is_allowed_email", return_value=True
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
     ):
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -97,9 +97,9 @@ async def test_auth_bootstrap_purged_user_does_not_upsert() -> None:
     mock_upsert = MagicMock()
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
-        "app.api.user.auth_otp.is_allowed_email", return_value=True
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
     ):
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -138,9 +138,9 @@ async def test_auth_bootstrap_active_user_calls_upsert() -> None:
     mock_upsert = MagicMock(return_value=(upserted_row, False))
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
-        "app.api.user.auth_otp.is_allowed_email", return_value=True
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
     ):
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -173,9 +173,9 @@ async def test_auth_bootstrap_new_user_calls_upsert() -> None:
     mock_upsert = MagicMock(return_value=(upserted_row, True))
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
-        "app.api.user.auth_otp.is_allowed_email", return_value=True
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
     ), patch("app.api.user.auth_otp.send_bootstrap_welcome_email", AsyncMock()) as mock_welcome:
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -233,7 +233,7 @@ async def test_auth_bootstrap_phone_only_on_unrestricted_variant_allowed() -> No
     mock_upsert = MagicMock(return_value=(upserted_row, True))
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
-        "app.api.user.auth_otp.upsert_public_user", mock_upsert
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None):
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
@@ -307,9 +307,9 @@ async def test_complete_onboarding_with_accepted_terms_succeeds() -> None:
     mock_upsert_profile = MagicMock(return_value=({"id": "onboard-user-2"}, True))
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=user_row), patch(
-        "app.api.user.auth_otp.fetch_profile", return_value=None
+        "app.api.user.auth_otp.fetch_profile", return_value=None,
     ), patch(
-        "app.api.user.auth_otp.upsert_profile_variant", mock_upsert_profile
+        "app.api.user.auth_otp.upsert_profile_variant", mock_upsert_profile,
     ):
         response = await complete_onboarding(
             request=mock_request,

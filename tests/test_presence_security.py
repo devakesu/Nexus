@@ -23,7 +23,7 @@ async def test_presence_not_blocked(
     mock_has_match.return_value = True
 
     # We mock get_cached_active_block_ids returning empty sets
-    def get_blocks_side_effect(uid: str) -> set[str]:
+    def get_blocks_side_effect(_uid: str) -> set[str]:
         return set()
     mock_get_blocks.side_effect = get_blocks_side_effect
 

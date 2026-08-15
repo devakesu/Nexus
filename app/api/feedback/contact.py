@@ -65,6 +65,48 @@ async def verify_turnstile_token(
         return False
 
 
+def _validate_uploaded_image(file: UploadFile, content: bytes) -> str:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Invalid file uploaded.")
+
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
+    filename: str = file.filename
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail="Only image files (PNG, JPG, WEBP) are allowed.",
+        )
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File size exceeds maximum limit of 5MB.",
+        )
+    return ext
+
+
+def _list_storage_attachments(path: str) -> list[dict[str, Any]]:
+    return feedback_module.supabase_client.storage.from_("feedback_attachments").list(path)
+
+
+async def _check_session_upload_quota(clean_session: str) -> None:
+    try:
+        existing_objects = await asyncio.to_thread(
+            _list_storage_attachments,
+            f"web_contact/{clean_session}",
+        )
+        if existing_objects and len(existing_objects) >= _CONTACT_MAX_ATTACHMENTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum attachment limit of {_CONTACT_MAX_ATTACHMENTS} files reached for this session.",
+            )
+    except HTTPException:
+        raise
+    except Exception as err:  # noqa: BLE001
+        logger.warning("Failed to check attachment count for session %s: %s", clean_session, err)
+
+
 @router.post("/api/v1/contact/upload")
 @limiter.limit(settings.rate_limit_feedback)
 async def upload_contact_attachment(
@@ -82,44 +124,14 @@ async def upload_contact_attachment(
             detail="Security verification failed. Please refresh and try again.",
         )
 
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Invalid file uploaded.")
-
-    allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
-    filename: str = file.filename
-    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if ext not in allowed_exts:
-        raise HTTPException(
-            status_code=400,
-            detail="Only image files (PNG, JPG, WEBP) are allowed.",
-        )
-
     content = await file.read()
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail="File size exceeds maximum limit of 5MB.",
-        )
+    ext = _validate_uploaded_image(file, content)
 
     clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
     if not clean_session:
         raise HTTPException(status_code=400, detail="Invalid session_id.")
 
-    try:
-        existing_objects = await asyncio.to_thread(
-            lambda: feedback_module.supabase_client.storage.from_("feedback_attachments").list(
-                f"web_contact/{clean_session}",
-            ),
-        )
-        if existing_objects and len(existing_objects) >= _CONTACT_MAX_ATTACHMENTS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Maximum attachment limit of {_CONTACT_MAX_ATTACHMENTS} files reached for this session.",
-            )
-    except HTTPException:
-        raise
-    except Exception as err:
-        logger.warning("Failed to check attachment count for session %s: %s", clean_session, err)
+    await _check_session_upload_quota(clean_session)
 
     random_hex = secrets.token_hex(6)
     storage_path = f"web_contact/{clean_session}/{random_hex}{ext}"
@@ -146,7 +158,7 @@ async def upload_contact_attachment(
             detail="Failed to store attachment file.",
         ) from err
 
-    return {"storage_path": storage_path, "filename": filename}
+    return {"storage_path": storage_path, "filename": file.filename or ""}
 
 
 @router.delete("/api/v1/contact/upload")
@@ -299,6 +311,60 @@ async def _cleanup_attachments_on_failure(attachment_paths: list[str] | None) ->
         logger.warning("Failed to clean up attachments after ticket insert failure")
 
 
+def _parse_attachment_path(path: str) -> tuple[str, str]:
+    if not path.startswith("web_contact/") or ".." in path or "\\" in path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid attachment path.",
+        )
+    parts = path.split("/")
+    if len(parts) != 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid attachment path format.",
+        )
+    prefix, session_id, filename = parts
+    if prefix != "web_contact" or not session_id or not filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid attachment path format.",
+        )
+    clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
+    if clean_session != session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session identifier in attachment path.",
+        )
+    return clean_session, filename
+
+
+async def _verify_session_storage_files(session_id: str, filenames: list[str]) -> None:
+    try:
+        objects = await asyncio.to_thread(
+            _list_storage_attachments,
+            f"web_contact/{session_id}",
+        )
+        existing_names = {
+            obj.get("name")
+            for obj in (objects or [])
+            if obj.get("name")
+        }
+        for fname in filenames:
+            if fname not in existing_names:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attachment file not found: {fname}",
+                )
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.warning("Failed to verify attachments in storage for session %s: %s", session_id, err)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Attachment verification failed.",
+        ) from err
+
+
 async def _validate_contact_attachments(attachment_paths: list[str]) -> None:
     """Validates that attachment paths are well-formed and exist in feedback_attachments."""
     if not attachment_paths:
@@ -311,57 +377,11 @@ async def _validate_contact_attachments(attachment_paths: list[str]) -> None:
 
     session_files: dict[str, list[str]] = {}
     for path in attachment_paths:
-        if not path.startswith("web_contact/") or ".." in path or "\\" in path:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid attachment path.",
-            )
-        parts = path.split("/")
-        if len(parts) != 3:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid attachment path format.",
-            )
-        prefix, session_id, filename = parts
-        if prefix != "web_contact" or not session_id or not filename:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid attachment path format.",
-            )
-        clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
-        if clean_session != session_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid session identifier in attachment path.",
-            )
-        session_files.setdefault(clean_session, []).append(filename)
+        session_id, filename = _parse_attachment_path(path)
+        session_files.setdefault(session_id, []).append(filename)
 
     for session_id, filenames in session_files.items():
-        try:
-            objects = await asyncio.to_thread(
-                lambda: feedback_module.supabase_client.storage.from_("feedback_attachments").list(
-                    f"web_contact/{session_id}",
-                ),
-            )
-            existing_names = {
-                obj.get("name")
-                for obj in (objects or [])
-                if obj.get("name")
-            }
-            for fname in filenames:
-                if fname not in existing_names:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Attachment file not found: {fname}",
-                    )
-        except HTTPException:
-            raise
-        except Exception as err:
-            logger.warning("Failed to verify attachments in storage for session %s: %s", session_id, err)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Attachment verification failed.",
-            ) from err
+        await _verify_session_storage_files(session_id, filenames)
 
 
 @router.post("/api/v1/contact/submit")

@@ -6,9 +6,11 @@ triggering emergency SOS alerts (silent/loud), and uploading safety audio eviden
 
 import asyncio
 import html
+import json
 import logging
-import sentry_sdk
+from typing import Any
 
+import sentry_sdk
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
@@ -18,9 +20,9 @@ from app.api.dependencies import (
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
+from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
-from app.core.infra.cache import redis_client
 from app.core.security.portal_auth import normalize_phone
 from app.core.utils.sms import (
     compose_contact_added_message,
@@ -135,6 +137,110 @@ async def put_safety_contacts(
     )
 
 
+async def _check_cached_sos_alert(
+    idempotency_key: str,
+    user_id: str,
+    session_id: str | None,
+) -> SafetyAlertResponse | None:
+    try:
+        cached_val = await redis_client.get(idempotency_key)
+        if cached_val:
+            try:
+                cached_data = json.loads(cached_val)
+                logger.info(
+                    "Skipping duplicate safety alert: already sent in last 60s",
+                    extra={"user_id": user_id, "session_id": session_id},
+                )
+                return SafetyAlertResponse(
+                    id=cached_data["id"],
+                    contacts_notified=cached_data["contacts_notified"],
+                    contacts_total=cached_data["contacts_total"],
+                )
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as parse_err:
+                logger.debug("Failed to parse cached SOS idempotency: %s", parse_err)
+    except Exception as err:
+        logger.warning("Failed to check SOS idempotency in Redis", exc_info=err)
+    return None
+
+
+async def _send_alert_sms_to_contacts(
+    contacts: list[dict[str, Any]],
+    body: str,
+    user_id: str,
+    alert_type: str,
+) -> int:
+    notified = 0
+    for contact in contacts:
+        result = await send_sms(contact["phone"], body)
+        if result.success:
+            notified += 1
+        else:
+            logger.warning(
+                "Failed to notify a trusted contact",
+                extra={"user_id": user_id, "alert_type": alert_type},
+            )
+    return notified
+
+
+async def _record_safety_alert_response(
+    user_id: str,
+    payload: SafetyAlertRequest,
+    location: dict[str, Any] | None,
+    notified: int,
+    contacts_total: int,
+) -> SafetyAlertResponse:
+    try:
+        row = await asyncio.to_thread(
+            record_safety_alert,
+            user_id,
+            payload.alert_type,
+            location,
+            payload.session_id,
+        )
+        await asyncio.to_thread(
+            update_alert_contacts_notified,
+            str(row["id"]),
+            notified,
+        )
+        return SafetyAlertResponse(
+            id=str(row["id"]),
+            contacts_notified=notified,
+            contacts_total=contacts_total,
+        )
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
+        logger.exception(
+            "Database error recording safety alert after SMS delivery",
+            extra={"user_id": user_id, "alert_type": payload.alert_type, "notified": notified},
+        )
+        if notified > 0:
+            import uuid
+            return SafetyAlertResponse(
+                id=f"temp-{uuid.uuid4()}",
+                contacts_notified=notified,
+                contacts_total=contacts_total,
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable.",
+        ) from err
+
+
+async def _cache_sos_alert(idempotency_key: str, response: SafetyAlertResponse) -> None:
+    try:
+        await redis_client.set(
+            idempotency_key,
+            json.dumps({
+                "id": response.id,
+                "contacts_notified": response.contacts_notified,
+                "contacts_total": response.contacts_total,
+            }),
+            ex=60,
+        )
+    except Exception as err:
+        logger.warning("Failed to set SOS idempotency in Redis", exc_info=err)
+
+
 @router.post("/api/v1/safety/alert", response_model=SafetyAlertResponse)
 @limiter.limit(settings.rate_limit_safety)
 async def send_safety_alert(
@@ -151,25 +257,9 @@ async def send_safety_alert(
     _ = request
 
     idempotency_key = f"safety:sos:idempotency:{user_id}:{payload.session_id or 'none'}"
-    try:
-        cached_val = await redis_client.get(idempotency_key)
-        if cached_val:
-            import json
-            try:
-                cached_data = json.loads(cached_val)
-                logger.info(
-                    "Skipping duplicate safety alert: already sent in last 60s",
-                    extra={"user_id": user_id, "session_id": payload.session_id},
-                )
-                return SafetyAlertResponse(
-                    id=cached_data["id"],
-                    contacts_notified=cached_data["contacts_notified"],
-                    contacts_total=cached_data["contacts_total"],
-                )
-            except Exception:
-                pass
-    except Exception as err:
-        logger.warning("Failed to check SOS idempotency in Redis", exc_info=err)
+    cached_response = await _check_cached_sos_alert(idempotency_key, user_id, payload.session_id)
+    if cached_response is not None:
+        return cached_response
 
     try:
         contacts = await asyncio.to_thread(fetch_safety_contacts, user_id)
@@ -210,68 +300,9 @@ async def send_safety_alert(
             event_label=payload.event_label,
         )
 
-    notified = 0
-    for contact in contacts:
-        result = await send_sms(contact["phone"], body)
-        if result.success:
-            notified += 1
-        else:
-            logger.warning(
-                "Failed to notify a trusted contact",
-                extra={"user_id": user_id, "alert_type": payload.alert_type},
-            )
-
-    try:
-        row = await asyncio.to_thread(
-            record_safety_alert,
-            user_id,
-            payload.alert_type,
-            location,
-            payload.session_id,
-        )
-        await asyncio.to_thread(
-            update_alert_contacts_notified,
-            str(row["id"]),
-            notified,
-        )
-    except DatabaseAccessError as err:
-        sentry_sdk.capture_exception(err)
-        logger.exception(
-            "Database error recording safety alert after SMS delivery",
-            extra={"user_id": user_id, "alert_type": payload.alert_type, "notified": notified},
-        )
-        if notified > 0:
-            import uuid
-            return SafetyAlertResponse(
-                id=f"temp-{uuid.uuid4()}",
-                contacts_notified=notified,
-                contacts_total=len(contacts),
-            )
-        raise HTTPException(
-            status_code=503,
-            detail="Service temporarily unavailable.",
-        ) from err
-
-    response = SafetyAlertResponse(
-        id=str(row["id"]),
-        contacts_notified=notified,
-        contacts_total=len(contacts),
-    )
-
-    try:
-        import json
-        await redis_client.set(
-            idempotency_key,
-            json.dumps({
-                "id": response.id,
-                "contacts_notified": response.contacts_notified,
-                "contacts_total": response.contacts_total,
-            }),
-            ex=60,
-        )
-    except Exception as err:
-        logger.warning("Failed to set SOS idempotency in Redis", exc_info=err)
-
+    notified = await _send_alert_sms_to_contacts(contacts, body, user_id, payload.alert_type)
+    response = await _record_safety_alert_response(user_id, payload, location, notified, len(contacts))
+    await _cache_sos_alert(idempotency_key, response)
     return response
 
 
@@ -509,7 +540,7 @@ async def cancel_escalation(
                 _escalation_page("This safety session no longer exists."),
                 status_code=404,
             )
-        
+
         # Pause the current burst only, if it is already cancelled, acknowledge it
         if session.get("escalation_cancelled_at") is not None:
             return HTMLResponse(

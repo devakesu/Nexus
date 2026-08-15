@@ -142,7 +142,7 @@ async def test_record_like_back_action_concurrent_revocation_fails_fast(
     mock_send_notif: MagicMock,
     mock_revoke: MagicMock,
     mock_record_match: MagicMock,
-    mock_record_discovery: MagicMock,
+    _mock_record_discovery: MagicMock,
 ) -> None:
     from fastapi import HTTPException
 
@@ -184,10 +184,10 @@ async def test_record_like_back_action_concurrent_revocation_fails_fast(
 @patch("app.api.discovery.likes.revoke_incoming_like")
 @patch("app.api.discovery.likes.send_match_notification")
 async def test_record_like_back_action_match_failure_rollbacks_revocation(
-    mock_send_notif: MagicMock,
+    _mock_send_notif: MagicMock,
     mock_revoke: MagicMock,
     mock_record_match: MagicMock,
-    mock_record_discovery: MagicMock,
+    _mock_record_discovery: MagicMock,
     mock_unrevoke: MagicMock,
 ) -> None:
     from app.db.client import DatabaseAccessError
@@ -244,8 +244,9 @@ def test_record_match_returns_existing_when_present() -> None:
 
 
 def test_record_match_handles_23505_conflict() -> None:
-    from app.db.discovery.matches import record_match
     from postgrest.exceptions import APIError
+
+    from app.db.discovery.matches import record_match
 
     user_a = "11111111-1111-1111-1111-111111111111"
     user_b = "22222222-2222-2222-2222-222222222222"
@@ -313,8 +314,9 @@ def test_fetch_matches_for_user_pagination_and_warning() -> None:
 
 
 def test_match_action_request_validates_target_id_uuid() -> None:
-    from app.models import MatchActionRequest
     from pydantic import ValidationError
+
+    from app.models import MatchActionRequest
 
     with pytest.raises(ValidationError) as exc_info:
         MatchActionRequest(

@@ -32,7 +32,7 @@ async def test_get_optional_authenticated_user_id_valid_token() -> None:
         secret,
         algorithm="HS256",
     )
-    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda self: False)):
+    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda _self: False)):
         result = await get_optional_authenticated_user_id(token)
         assert result == "user-123"
 
@@ -56,7 +56,7 @@ async def test_get_optional_authenticated_user_id_expired_token_raises_401() -> 
         secret,
         algorithm="HS256",
     )
-    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda self: False)):
+    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda _self: False)):
         with pytest.raises(HTTPException) as exc_info:
             await get_optional_authenticated_user_id(token)
 
@@ -73,7 +73,7 @@ async def test_get_optional_authenticated_user_id_missing_sub_raises_401() -> No
         secret,
         algorithm="HS256",
     )
-    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda self: False)):
+    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda _self: False)):
         with pytest.raises(HTTPException) as exc_info:
             await get_optional_authenticated_user_id(token)
 

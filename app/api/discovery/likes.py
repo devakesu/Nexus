@@ -196,6 +196,33 @@ async def mark_likes_as_seen(
         ) from err
 
 
+async def _find_peer_like(target_id: str, viewer_id: str) -> dict[str, Any] | None:
+    query_like = supabase_client.table(
+        "profile_discovery_actions",
+    ).select("id, tab")
+    query_like = query_like.eq("actor_id", target_id)
+    query_like = query_like.eq("target_id", viewer_id)
+    query_like = query_like.in_("action", ["like", "superlike"])
+    query_like = query_like.is_("revoked_at", "null")
+    query_like = query_like.limit(1)
+    res = await asyncio.to_thread(query_like.execute)
+    return res.data[0] if (res.data and isinstance(res.data[0], dict)) else None
+
+
+async def _find_peer_match(target_id: str, viewer_id: str) -> dict[str, Any] | None:
+    query_match = supabase_client.table("matches").select("id, tab")
+    query_match = query_match.or_(
+        f"and(liker_id.eq.{target_id},"
+        f"liked_back_id.eq.{viewer_id}),"
+        f"and(liker_id.eq.{viewer_id},"
+        f"liked_back_id.eq.{target_id})",
+    )
+    query_match = query_match.is_("unmatched_at", "null")
+    query_match = query_match.limit(1)
+    res = await asyncio.to_thread(query_match.execute)
+    return res.data[0] if (res.data and isinstance(res.data[0], dict)) else None
+
+
 async def _verify_peer_access_and_infer_tab(
     target_id: str,
     user_id_normalized: str,
@@ -223,49 +250,18 @@ async def _verify_peer_access_and_infer_tab(
             detail="Access denied. Viewer not permitted.",
         )
 
-    query_like = supabase_client.table(
-        "profile_discovery_actions",
-    ).select("id, tab")
-    query_like = query_like.eq("actor_id", target_id)
-    query_like = query_like.eq("target_id", user_id_normalized)
-    query_like = query_like.in_("action", ["like", "superlike"])
-    query_like = query_like.is_("revoked_at", "null")
-    query_like = query_like.limit(1)
-    access_check_res = await asyncio.to_thread(query_like.execute)
-    has_like = bool(access_check_res.data)
+    like_row = await _find_peer_like(target_id, user_id_normalized)
+    if like_row:
+        return cast(DiscoveryTab, like_row.get("tab") or default_tab)
 
-    has_match = False
-    match_check_res = None
-    if not has_like:
-        query_match = supabase_client.table("matches").select("id, tab")
-        query_match = query_match.or_(
-            f"and(liker_id.eq.{target_id},"
-            f"liked_back_id.eq.{user_id_normalized}),"
-            f"and(liker_id.eq.{user_id_normalized},"
-            f"liked_back_id.eq.{target_id})",
-        )
-        query_match = query_match.is_("unmatched_at", "null")
-        query_match = query_match.limit(1)
-        match_check_res = await asyncio.to_thread(query_match.execute)
-        has_match = bool(match_check_res.data)
+    match_row = await _find_peer_match(target_id, user_id_normalized)
+    if match_row:
+        return cast(DiscoveryTab, match_row.get("tab") or default_tab)
 
-    if not has_like and not has_match:
-        raise HTTPException(
-            status_code=403,
-            detail="Access denied. Viewer not permitted.",
-        )
-
-    inferred_tab = default_tab
-    if has_like and access_check_res.data:
-        like_row = access_check_res.data[0]
-        if isinstance(like_row, dict) and like_row.get("tab"):
-            inferred_tab = cast(DiscoveryTab, like_row["tab"])
-    elif has_match and match_check_res and match_check_res.data:
-        match_row = match_check_res.data[0]
-        if isinstance(match_row, dict) and match_row.get("tab"):
-            inferred_tab = cast(DiscoveryTab, match_row["tab"])
-
-    return inferred_tab
+    raise HTTPException(
+        status_code=403,
+        detail="Access denied. Viewer not permitted.",
+    )
 
 
 @router.post("/api/v1/profile/peer", response_model=OrbitNodeDetailResponse)

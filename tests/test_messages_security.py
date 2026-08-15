@@ -57,7 +57,7 @@ async def test_send_message_not_blocked(
     assert res.message_id == "msg-123"
     assert mock_get_blocks.call_count == 2
     mock_insert.assert_called_once_with(
-        "convo-123", "user-a", "text", "c2VjcmV0", {}
+        "convo-123", "user-a", "text", "c2VjcmV0", {},
     )
     mock_notify.assert_called_once()
 
@@ -214,7 +214,7 @@ async def test_mark_messages_read_not_blocked(
 @patch("app.api.chat.messages.mark_messages_read")
 async def test_mark_messages_read_blocked(
     mock_mark: MagicMock,
-    mock_fetch_flags: MagicMock,
+    _mock_fetch_flags: MagicMock,
     mock_get_blocks: AsyncMock,
     mock_fetch_convo: MagicMock,
 ) -> None:

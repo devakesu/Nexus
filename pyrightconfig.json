@@ -1,7 +1,7 @@
 {
   "typeCheckingMode": "strict",
-  "venvPath": ".",
-  "venv": ".venv",
+  "venvPath": "/home/vscode/.virtualenvs",
+  "venv": "nexus",
   "reportMissingTypeStubs": false,
   "reportPrivateUsage": "none",
   "exclude": [

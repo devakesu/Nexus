@@ -17,7 +17,7 @@ from app.models import CreateEventRequest
 @patch("app.api.chat.events.get_cached_public_user")
 async def test_create_chat_event_safety_disabled_skips_consent(
     mock_get_cached_user: AsyncMock,
-    mock_notify: MagicMock,
+    _mock_notify: MagicMock,
     mock_create_event: MagicMock,
     mock_fetch_convo: MagicMock,
 ) -> None:
@@ -70,7 +70,7 @@ async def test_create_chat_event_safety_disabled_skips_consent(
 @patch("app.api.chat.events.get_cached_public_user")
 async def test_create_chat_event_safety_enabled_uses_cache_and_verifies_consent(
     mock_get_cached_user: AsyncMock,
-    mock_notify: MagicMock,
+    _mock_notify: MagicMock,
     mock_create_event: MagicMock,
     mock_fetch_convo: MagicMock,
 ) -> None:

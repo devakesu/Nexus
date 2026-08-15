@@ -1,9 +1,11 @@
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+
 from app.services.fcm_sender import (
-    send_like_notification,
     send_chat_message_notification,
+    send_like_notification,
 )
 
 
@@ -251,7 +253,10 @@ async def test_deactivate_fcm_token_success(mock_supabase: MagicMock) -> None:
     mock_exec = MagicMock()
     mock_supabase.table.return_value.update.return_value.eq.return_value = mock_exec
 
-    from app.services.fcm_sender import _deactivate_fcm_token, _fcm_deactivate_fail_counts
+    from app.services.fcm_sender import (
+        _deactivate_fcm_token,
+        _fcm_deactivate_fail_counts,
+    )
     _fcm_deactivate_fail_counts["token123"] = 2
 
     _deactivate_fcm_token("some_long_token123")
@@ -270,7 +275,10 @@ async def test_deactivate_fcm_token_captures_sentry_on_repeated_failures(
 ) -> None:
     mock_supabase.table.return_value.update.return_value.eq.return_value.execute.side_effect = Exception("DB timeout")
 
-    from app.services.fcm_sender import _deactivate_fcm_token, _fcm_deactivate_fail_counts
+    from app.services.fcm_sender import (
+        _deactivate_fcm_token,
+        _fcm_deactivate_fail_counts,
+    )
     _fcm_deactivate_fail_counts.clear()
 
     # Attempts 1 and 2: logged, Sentry not triggered yet

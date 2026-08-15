@@ -360,8 +360,8 @@ async def test_cancel_account_deletion_queues_email(
 @patch("app.db.users.account_deletion.supabase_client.table")
 def test_request_deletion_deletes_discovery_session_items(
     mock_table: MagicMock,
-    mock_invalidate: MagicMock,
-    mock_close_convos: MagicMock,
+    _mock_invalidate: MagicMock,
+    _mock_close_convos: MagicMock,
 ) -> None:
     from app.db.users.account_deletion import request_deletion
 

@@ -217,16 +217,7 @@ def close_conversation_for_match_action(
         raise DatabaseAccessError("Failed to close conversation") from e
 
 
-def reopen_conversations_for_reactivation(user_id: str) -> None:
-    """Reopens conversations closed by request_deletion() (reason=
-    'account_deletion') when the user cancels within the grace window.
-
-    The closed_reason='account_deletion' filter is exact, so this can never
-    reopen a conversation that was separately closed by a genuine
-    unmatch/block/report before the deletion request. Additionally, verifies
-    neither participant has an active block in place before reopening.
-    """
-    user_id = str(uuid.UUID(user_id)).lower()
+def _fetch_conversations_for_reactivation(user_id: str) -> list[dict[str, Any]]:
     try:
         res = (
             supabase_client.table("chat_conversations")
@@ -235,6 +226,7 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
             .eq("closed_reason", "account_deletion")
             .execute()
         )
+        return cast(list[dict[str, Any]], res.data or [])
     except APIError as e:
         logger.exception(
             "Failed to fetch conversations for reactivation",
@@ -248,14 +240,14 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
         )
         raise DatabaseAccessError("Unexpected error fetching conversations") from e
 
-    conversations = cast(list[dict[str, Any]], res.data or [])
-    if not conversations:
-        return
 
+def _partition_reactivation_conversations(
+    conversations: list[dict[str, Any]],
+    user_id: str,
+) -> tuple[list[str], list[str]]:
     from app.db.discovery.exclusions import fetch_active_block_ids
 
     blocked_ids = fetch_active_block_ids(user_id)
-
     reopen_ids: list[str] = []
     blocked_conv_ids: list[str] = []
 
@@ -270,6 +262,14 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
         else:
             reopen_ids.append(conv_id)
 
+    return reopen_ids, blocked_conv_ids
+
+
+def _apply_reactivation_updates(
+    reopen_ids: list[str],
+    blocked_conv_ids: list[str],
+    user_id: str,
+) -> None:
     if reopen_ids:
         try:
             (
@@ -304,6 +304,27 @@ def reopen_conversations_for_reactivation(user_id: str) -> None:
                 "Failed to update closed_reason for blocked conversations on reactivation",
                 extra={"user_id": user_id, "blocked_count": len(blocked_conv_ids)},
             )
+
+
+def reopen_conversations_for_reactivation(user_id: str) -> None:
+    """Reopens conversations closed by request_deletion() (reason=
+    'account_deletion') when the user cancels within the grace window.
+
+    The closed_reason='account_deletion' filter is exact, so this can never
+    reopen a conversation that was separately closed by a genuine
+    unmatch/block/report before the deletion request. Additionally, verifies
+    neither participant has an active block in place before reopening.
+    """
+    normalized_uid = str(uuid.UUID(user_id)).lower()
+    conversations = _fetch_conversations_for_reactivation(normalized_uid)
+    if not conversations:
+        return
+
+    reopen_ids, blocked_conv_ids = _partition_reactivation_conversations(
+        conversations,
+        normalized_uid,
+    )
+    _apply_reactivation_updates(reopen_ids, blocked_conv_ids, normalized_uid)
 
 
 def fetch_conversation_participants(conversation_id: str) -> dict[str, Any] | None:

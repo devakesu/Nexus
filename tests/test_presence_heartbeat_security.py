@@ -91,8 +91,9 @@ async def test_update_presence_suspended_user(
 
 @pytest.mark.anyio
 async def test_get_authenticated_user_id_throttles_at_capacity() -> None:
-    from app.api.dependencies import _background_tasks, get_authenticated_user_id
     import asyncio
+
+    from app.api.dependencies import _background_tasks, get_authenticated_user_id
 
     dummy_tasks = {asyncio.create_task(asyncio.sleep(10)) for _ in range(1000)}
     original_tasks = set(_background_tasks)

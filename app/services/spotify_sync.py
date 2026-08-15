@@ -706,6 +706,66 @@ async def _blend_playlist_genres_affinity(
 
 
 
+async def _sync_playlist_tracks(
+    client: httpx.AsyncClient,
+    access_token: str,
+    spotify_user_id: str,
+    user_id: str,
+    start: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    candidate_playlists = await fetch_owned_or_collaborative_playlists(
+        client,
+        access_token,
+        spotify_user_id,
+    )
+    playlists_with_tracks: list[dict[str, Any]] = []
+    all_tracks: list[dict[str, Any]] = []
+
+    for playlist in candidate_playlists:
+        if time.monotonic() - start > _SYNC_TIME_BUDGET_SECONDS:
+            logger.warning(
+                "Spotify sync time budget exceeded, persisting partial results",
+                extra={"user_id": user_id},
+            )
+            break
+        try:
+            tracks = await fetch_playlist_tracks(
+                client,
+                access_token,
+                playlist["spotify_playlist_id"],
+            )
+        except Exception:
+            logger.exception(
+                "Playlist track fetch failed, skipping playlist",
+                extra={
+                    "user_id": user_id,
+                    "playlist_id": playlist["spotify_playlist_id"],
+                },
+            )
+            continue
+        playlists_with_tracks.append({**playlist, "tracks": tracks})
+        all_tracks.extend(tracks)
+
+    return playlists_with_tracks, all_tracks
+
+
+async def _persist_native_fallback_signals(
+    user_id: str,
+    native_ranked: dict[str, float],
+    genre_affinity: dict[str, float],
+) -> None:
+    if native_ranked:
+        blended, casing_map = blend_artist_affinity(native_ranked, {})
+        display_names = top_display_names(blended, casing_map)
+        await asyncio.to_thread(
+            persist_artist_signals,
+            user_id,
+            blended,
+            display_names,
+            genre_affinity,
+        )
+
+
 async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -> None:
     """Full playlist + artist-affinity + genre-affinity sync for one user.
 
@@ -730,9 +790,6 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
     native_ranked = top_artists_result.ranked
     genre_affinity = compute_genre_affinity(top_artists_result.genre_weights)
 
-    playlists_with_tracks: list[dict[str, Any]] = []
-    all_tracks: list[dict[str, Any]] = []
-
     # Blend genre affinity from native top artists
     genre_acc: dict[str, float] = {}
     for genre, weight in top_artists_result.genre_weights.items():
@@ -742,35 +799,13 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
 
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT_SECONDS) as client:
-            candidate_playlists = await fetch_owned_or_collaborative_playlists(
+            playlists_with_tracks, all_tracks = await _sync_playlist_tracks(
                 client,
                 access_token,
                 spotify_user_id,
+                user_id,
+                start,
             )
-            for playlist in candidate_playlists:
-                if time.monotonic() - start > _SYNC_TIME_BUDGET_SECONDS:
-                    logger.warning(
-                        "Spotify sync time budget exceeded, persisting partial results",
-                        extra={"user_id": user_id},
-                    )
-                    break
-                try:
-                    tracks = await fetch_playlist_tracks(
-                        client,
-                        access_token,
-                        playlist["spotify_playlist_id"],
-                    )
-                except Exception:
-                    logger.exception(
-                        "Playlist track fetch failed, skipping playlist",
-                        extra={
-                            "user_id": user_id,
-                            "playlist_id": playlist["spotify_playlist_id"],
-                        },
-                    )
-                    continue
-                playlists_with_tracks.append({**playlist, "tracks": tracks})
-                all_tracks.extend(tracks)
 
             # Blend genre affinity from playlists using the existing HTTP client if budget allows
             if (time.monotonic() - start) < _SYNC_TIME_BUDGET_SECONDS:
@@ -790,18 +825,7 @@ async def run_full_sync(user_id: str, access_token: str, spotify_user_id: str) -
     except Exception as e:
         logger.exception("Spotify playlist sync failed", extra={"user_id": user_id})
         await asyncio.to_thread(mark_sync_result, user_id, "error", str(e)[:500])
-        if native_ranked:
-            # Still persist a native-only signal so matching isn't blank
-            # while the underlying playlist-fetch issue gets resolved.
-            blended, casing_map = blend_artist_affinity(native_ranked, {})
-            display_names = top_display_names(blended, casing_map)
-            await asyncio.to_thread(
-                persist_artist_signals,
-                user_id,
-                blended,
-                display_names,
-                genre_affinity,
-            )
+        await _persist_native_fallback_signals(user_id, native_ranked, genre_affinity)
         return
 
     playlist_freq = compute_artist_frequency(all_tracks)

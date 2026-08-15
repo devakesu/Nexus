@@ -47,7 +47,7 @@ def start_safety_session(
         for session in active_sessions:
             if int(session.get("escalations_sent") or 0) > 0:
                 raise EscalationInProgressError(
-                    "Cannot start session: escalation already in progress"
+                    "Cannot start session: escalation already in progress",
                 )
 
         supabase_client.table("safety_sessions").update({"status": "ended"}).eq(

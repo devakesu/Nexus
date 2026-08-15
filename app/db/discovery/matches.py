@@ -92,8 +92,8 @@ def record_match(
                 win_rows = cast(list[dict[str, Any]], existing_win.data or [])
                 if win_rows and win_rows[0].get("id"):
                     return str(win_rows[0]["id"])
-            except Exception:
-                pass
+            except Exception as lookup_err:  # noqa: BLE001
+                logger.debug("Failed duplicate-match check during race condition recovery: %s", lookup_err)
         logger.exception(
             "Failed to record match",
             extra={"liker_id": liker_id, "liked_back_id": liked_back_id, "tab": tab},

@@ -33,6 +33,7 @@ from app.db.safety.sessions import (
 )
 
 __all__ = [
+    "EscalationInProgressError",
     "cancel_safety_escalation",
     "create_evidence_download_url",
     "end_safety_session",
@@ -55,5 +56,4 @@ __all__ = [
     "start_safety_session",
     "sync_safety_contacts",
     "update_alert_contacts_notified",
-    "EscalationInProgressError",
 ]

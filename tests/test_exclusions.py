@@ -170,8 +170,8 @@ def test_fetch_likes_for_user_filters_deactivated(mock_supabase: MagicMock) -> N
             "action": "like",
             "created_at": "2026-08-11T20:00:00Z",
             "seen_at": None,
-            "actor": {"is_deactivated": False}
-        }
+            "actor": {"is_deactivated": False},
+        },
     ]
 
     mock_actions_query = MagicMock()
@@ -190,7 +190,7 @@ def test_fetch_likes_for_user_filters_deactivated(mock_supabase: MagicMock) -> N
     assert res[0]["actor_id"] == "actor-123"
 
     mock_actions_query.select.assert_called_once_with(
-        "actor_id, action, created_at, seen_at, actor:profiles!actor_id(is_deactivated)"
+        "actor_id, action, created_at, seen_at, actor:profiles!actor_id(is_deactivated)",
     )
     mock_actions_query.eq.assert_any_call("actor.is_deactivated", False)
 

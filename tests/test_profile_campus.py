@@ -304,6 +304,7 @@ def test_recompile_and_push_vectors_preserves_persisted_bio(
 @patch("app.api.user.settings.supabase_client")
 def test_update_privacy_settings_filters_allowed_fields(mock_supabase: MagicMock) -> None:
     from fastapi import Request
+
     from app.api.user.settings import update_privacy_settings
     from app.models import PrivacySettingsUpdate
 
@@ -313,7 +314,7 @@ def test_update_privacy_settings_filters_allowed_fields(mock_supabase: MagicMock
             "hidden_profile_fields": ["pronouns", "hometown"],
             "share_active_status": True,
             "share_read_receipts": False,
-        }
+        },
     ]
 
     payload = PrivacySettingsUpdate(

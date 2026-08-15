@@ -27,11 +27,12 @@ os.environ.setdefault("ENFORCE_APP_CHECK", "false")
 os.environ.setdefault("ENABLE_RATE_LIMITING", "false")
 
 import pytest
+
 from app.core.infra.limiter import limiter
 
 
 @pytest.fixture(autouse=True)
 def disable_limiter_in_tests():
-    setattr(limiter, "_enabled", False)
+    setattr(limiter, "_enabled", False)  # noqa: B010
     yield
-    setattr(limiter, "_enabled", False)
+    setattr(limiter, "_enabled", False)  # noqa: B010

@@ -26,7 +26,7 @@ async def test_create_export_code_rejected_when_deletion_pending() -> None:
     mock_request = MagicMock(spec=Request)
 
     with patch("app.api.user.sync.fetch_profile", return_value=mock_profile), patch(
-        "app.api.user.sync.fetch_public_user", return_value=mock_user_row
+        "app.api.user.sync.fetch_public_user", return_value=mock_user_row,
     ):
         with pytest.raises(HTTPException) as exc_info:
             await create_export_code(
@@ -58,7 +58,7 @@ async def test_create_export_code_succeeds_when_active_and_flavor_variant() -> N
     mock_request = MagicMock(spec=Request)
 
     with patch("app.api.user.sync.fetch_profile", return_value=mock_profile), patch(
-        "app.api.user.sync.fetch_public_user", return_value=mock_user_row
+        "app.api.user.sync.fetch_public_user", return_value=mock_user_row,
     ), patch("app.api.user.sync.generate_export_code", AsyncMock(return_value=("ABC123", mock_exp))):
         response = await create_export_code(
             request=mock_request,
@@ -88,7 +88,7 @@ async def test_import_from_flavor_rejected_when_deletion_pending() -> None:
     payload = ImportRequest(sync_code="ABC123")
 
     with patch("app.api.user.sync.fetch_public_user", return_value=mock_user_row), patch(
-        "app.api.user.sync.redis_client.get", AsyncMock(return_value=None)
+        "app.api.user.sync.redis_client.get", AsyncMock(return_value=None),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await import_from_flavor(
@@ -122,7 +122,7 @@ async def test_import_from_flavor_invalid_code_increments_attempts() -> None:
     mock_redis.get.return_value = None
 
     with patch("app.api.user.sync.fetch_public_user", return_value=mock_user_row), patch(
-        "app.api.user.sync.redis_client", mock_redis
+        "app.api.user.sync.redis_client", mock_redis,
     ), patch(
         "app.api.user.sync.execute_import",
         side_effect=HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or already-used export code."),
@@ -160,7 +160,7 @@ async def test_import_from_flavor_other_error_does_not_increment_attempts() -> N
     mock_redis.get.return_value = None
 
     with patch("app.api.user.sync.fetch_public_user", return_value=mock_user_row), patch(
-        "app.api.user.sync.redis_client", mock_redis
+        "app.api.user.sync.redis_client", mock_redis,
     ), patch(
         "app.api.user.sync.execute_import",
         side_effect=HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Export code has expired. Please generate a new one from the flavor app."),

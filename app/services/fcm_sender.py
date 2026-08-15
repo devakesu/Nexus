@@ -104,9 +104,9 @@ def _fetch_profile_name(user_id: str) -> str | None:
             return None
         try:
             return decrypt_pii(str(name_raw))
-        except Exception:
+        except Exception:  # noqa: BLE001
             return str(name_raw)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         logger.warning(
             "Failed to fetch profile name for user %s: %s",
             user_id,
@@ -176,14 +176,14 @@ def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
         if raw_name:
             try:
                 name = decrypt_pii(str(raw_name))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 name = str(raw_name)
 
         pic_path: str | None = None
         if raw_pic:
             try:
                 pic_path = decrypt_pii(str(raw_pic))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pic_path = str(raw_pic)
 
         return name, pic_path
@@ -211,7 +211,7 @@ def _send_to_tokens(
             body: Input body parameter.
             data: Input data parameter.
             channel_id: Input channel id parameter.
-            
+
         Returns:
             int: Number of successfully sent tokens."""
     if not tokens:
@@ -469,7 +469,7 @@ async def send_chat_event_reminder_notification(
             "conversation_id": conversation_id,
             "tab": tab,
         }
-        
+
         success_count = 0
         if tokens_a:
             success_count += await asyncio.to_thread(

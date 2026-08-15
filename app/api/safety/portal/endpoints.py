@@ -21,7 +21,11 @@ from app.core.security.portal_auth import (
     verify_otp_hash,
     verify_portal_access_token,
 )
-from app.core.utils.sms import compose_contact_self_removed_message, send_sms, verify_contact_portal_token
+from app.core.utils.sms import (
+    compose_contact_self_removed_message,
+    send_sms,
+    verify_contact_portal_token,
+)
 from app.db.client import DatabaseAccessError
 from app.db.safety import (
     create_evidence_download_url,

@@ -292,7 +292,9 @@ async def test_create_and_get_error_session_flow(mock_redis: MagicMock) -> None:
 @patch("app.api.feedback.supabase_client")
 async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> None:
     from io import BytesIO
+
     from fastapi import UploadFile
+
     from app.api.feedback.contact import upload_contact_attachment
 
     # Mock storage list returning 2 existing objects (under the limit of 5)
@@ -329,7 +331,9 @@ async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> No
 @patch("app.api.feedback.supabase_client")
 async def test_upload_contact_attachment_max_limit_exceeded(mock_supabase: MagicMock) -> None:
     from io import BytesIO
+
     from fastapi import UploadFile
+
     from app.api.feedback.contact import upload_contact_attachment
 
     # Mock storage list returning 5 existing objects (limit reached)

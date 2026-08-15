@@ -5,10 +5,12 @@ safety check-in escalations, FCM notification dispatches, and account deletion p
 """
 
 import asyncio
+import contextlib
 import functools
 import logging
+from collections.abc import Callable, Coroutine
 from datetime import timedelta
-from typing import Any, Callable, Coroutine, cast
+from typing import Any, cast
 
 import sentry_sdk
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -98,10 +100,8 @@ def with_distributed_lock(
             try:
                 await func(*args, **kwargs)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     await lock.release()
-                except Exception:
-                    pass
 
         return wrapper
 
@@ -232,6 +232,84 @@ def _next_escalation_due(session: dict[str, Any], now: Any) -> bool:
     return now >= last_escalated + timedelta(seconds=interval_seconds)
 
 
+async def _acquire_escalation_idempotency(session_id: str, escalation_number: int) -> bool:
+    idempotency_key = f"safety:escalation:sent:{session_id}:{escalation_number}"
+    try:
+        return bool(await redis_client.set(idempotency_key, "1", ex=86400, nx=True))
+    except Exception as err:
+        logger.warning(
+            "Failed to set idempotency key in Redis for session %s escalation %s; proceeding without idempotency guard",
+            session_id,
+            escalation_number,
+            exc_info=err,
+        )
+        return True
+
+
+def _compose_session_unreachable_message(
+    session: dict[str, Any],
+    session_id: str,
+    escalation_number: int,
+) -> str:
+    event_context = session.get("event_context")
+    event_label = (
+        cast(dict[str, Any], event_context).get("label")
+        if isinstance(event_context, dict)
+        else None
+    )
+    token = make_escalation_cancel_token(session_id, escalation_number)
+    cancel_link = (
+        f"{settings.backend_url}/api/v1/safety/escalation/"
+        f"{session_id}/cancel?token={token}&reason=safe"
+    )
+    return compose_unreachable_message(
+        name=session.get("label") or "A Nexus user",
+        escalation_number=escalation_number,
+        battery_percent=session.get("battery_percent"),
+        connection_type=session.get("connection_type"),
+        event_label=event_label,
+        cancel_link=cancel_link,
+    )
+
+
+async def _dispatch_escalation_sms_and_record(
+    contacts: list[dict[str, Any]],
+    body: str,
+    session_id: str,
+    escalation_number: int,
+    idempotency_key: str,
+) -> None:
+    notified = False
+    for contact in contacts:
+        result = await send_sms(contact["phone"], body)
+        notified = notified or result.success
+
+    if not notified:
+        sentry_sdk.capture_message(
+            "CRITICAL: All SMS deliveries failed for overdue safety session",
+            level="error",
+            extras={"session_id": session_id},
+        )
+        logger.error(
+            "Failed to reach any trusted contact for an overdue safety session",
+            extra={"session_id": session_id},
+        )
+        with contextlib.suppress(Exception):
+            await redis_client.delete(idempotency_key)
+        return
+
+    try:
+        await asyncio.to_thread(
+            record_safety_escalation_sent, session_id, escalation_number,
+        )
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
+        logger.exception(
+            "Failed to record safety escalation",
+            extra={"session_id": session_id},
+        )
+
+
 async def _escalate_safety_session(session: dict[str, Any]) -> None:
     """Escalate safety session.
 
@@ -254,25 +332,9 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
     if not contacts:
         return
 
-    event_context = session.get("event_context")
-    event_label = (
-        cast(dict[str, Any], event_context).get("label")
-        if isinstance(event_context, dict)
-        else None
-    )
     escalation_number = escalations_sent + 1
-
     idempotency_key = f"safety:escalation:sent:{session_id}:{escalation_number}"
-    try:
-        is_new = await redis_client.set(idempotency_key, "1", ex=86400, nx=True)
-    except Exception as err:
-        logger.warning(
-            "Failed to set idempotency key in Redis for session %s escalation %s; proceeding without idempotency guard",
-            session_id,
-            escalation_number,
-            exc_info=err,
-        )
-        is_new = True
+    is_new = await _acquire_escalation_idempotency(session_id, escalation_number)
 
     if not is_new:
         logger.warning(
@@ -280,60 +342,16 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
             extra={"session_id": session_id, "escalation_number": escalation_number},
         )
         # Self-healing: Reconcile DB escalation count if previous write failed
-        try:
+        with contextlib.suppress(Exception):
             await asyncio.to_thread(
                 record_safety_escalation_sent, session_id, escalation_number,
             )
-        except Exception:
-            pass
         return
 
-    token = make_escalation_cancel_token(session_id, escalation_number)
-    cancel_link = (
-        f"{settings.backend_url}/api/v1/safety/escalation/"
-        f"{session_id}/cancel?token={token}&reason=safe"
+    body = _compose_session_unreachable_message(session, session_id, escalation_number)
+    await _dispatch_escalation_sms_and_record(
+        contacts, body, session_id, escalation_number, idempotency_key,
     )
-
-    body = compose_unreachable_message(
-        name=session.get("label") or "A Nexus user",
-        escalation_number=escalation_number,
-        battery_percent=session.get("battery_percent"),
-        connection_type=session.get("connection_type"),
-        event_label=event_label,
-        cancel_link=cancel_link,
-    )
-
-    notified = False
-    for contact in contacts:
-        result = await send_sms(contact["phone"], body)
-        notified = notified or result.success
-
-    if not notified:
-        sentry_sdk.capture_message(
-            "CRITICAL: All SMS deliveries failed for overdue safety session",
-            level="error",
-            extras={"session_id": session_id},
-        )
-        logger.error(
-            "Failed to reach any trusted contact for an overdue safety session",
-            extra={"session_id": session_id},
-        )
-        try:
-            await redis_client.delete(idempotency_key)
-        except Exception:
-            pass
-        return
-
-    try:
-        await asyncio.to_thread(
-            record_safety_escalation_sent, session_id, escalation_number,
-        )
-    except DatabaseAccessError as err:
-        sentry_sdk.capture_exception(err)
-        logger.exception(
-            "Failed to record safety escalation",
-            extra={"session_id": session_id},
-        )
 
 
 @with_distributed_lock("meetup_safety_escalations", ttl_seconds=240)
@@ -429,10 +447,8 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
     if _scheduler is not None:
         if _scheduler.running:
             return _scheduler
-        try:
+        with contextlib.suppress(Exception):
             _scheduler.shutdown(wait=False)
-        except Exception:
-            pass
         _scheduler = None
 
     scheduler = AsyncIOScheduler()
@@ -525,9 +541,8 @@ def stop_reminder_scheduler() -> None:
     if _scheduler is not None:
         try:
             if _scheduler.running:
-                _scheduler.shutdown(wait=False)
-        except Exception:
-            pass
+                with contextlib.suppress(Exception):
+                    _scheduler.shutdown(wait=False)
         finally:
             _scheduler = None
 

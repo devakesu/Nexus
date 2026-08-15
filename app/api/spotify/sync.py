@@ -191,7 +191,7 @@ async def spotify_disconnect(
             background_tasks.add_task(revoke_refresh_token, refresh_token)
         try:
             invalidate_viewer_discovery_sessions(user_id)
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.warning(
                 "Failed to invalidate discovery sessions on Spotify disconnect",
                 extra={"user_id": user_id},

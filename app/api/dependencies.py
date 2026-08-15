@@ -175,31 +175,36 @@ _MAX_BACKGROUND_TASKS = 1000
 _background_tasks: set[asyncio.Task[None]] = set()
 
 
+def is_account_suspended(user_row: dict[str, Any]) -> bool:
+    """Returns True if user is actively suspended and suspension has not expired."""
+    if not bool(user_row.get("is_suspended", False)):
+        return False
+    suspended_until = user_row.get("suspended_until")
+    if not suspended_until:
+        return True
+    try:
+        dt = parse_utc_datetime(str(suspended_until))
+        return utcnow() < dt
+    except ValueError:
+        return True
+
+
 async def _update_presence_if_needed(user_id: str) -> None:
     """Updates the user's presence heartbeat, throttled to once per 60 seconds."""
     redis_key = f"user:presence:last_beat:{user_id}"
     try:
         # Set with ex=60 and nx=True to ensure it only executes once every 60 seconds
         was_set = await redis_client.set(redis_key, "1", ex=60, nx=True)
-        if was_set:
-            user_row = await get_cached_public_user(user_id)
-            if user_row:
-                is_suspended = bool(user_row.get("is_suspended", False))
-                if is_suspended:
-                    suspended_until = user_row.get("suspended_until")
-                    if suspended_until:
-                        try:
-                            dt = parse_utc_datetime(str(suspended_until))
-                            if utcnow() >= dt:
-                                is_suspended = False
-                        except ValueError:
-                            pass
-                if (
-                    not bool(user_row.get("is_active", True))
-                    or user_row.get("deletion_requested_at")
-                    or is_suspended
-                ):
-                    return
+        if not was_set:
+            return
+        user_row = await get_cached_public_user(user_id)
+        if user_row:
+            if (
+                not bool(user_row.get("is_active", True))
+                or user_row.get("deletion_requested_at")
+                or is_account_suspended(user_row)
+            ):
+                return
 
             from app.db.chat import upsert_presence_heartbeat
             await run_in_threadpool(upsert_presence_heartbeat, user_id, True)
@@ -331,6 +336,45 @@ async def get_active_user_id(
 # ---------------------------------------------------------------------------
 
 
+_SUSPENSION_REASON_MAP: dict[str, str] = {
+    "spam": "spam or promotional activity",
+    "harassment": "harassment or abusive behavior",
+    "csam": "content policy violations",
+    "fraud": "suspicious activity",
+    "inappropriate_content": "inappropriate content",
+    "terms_violation": "violating our Terms of Service",
+}
+
+
+def _build_suspension_error_detail(user_row: dict[str, Any]) -> str:
+    suspended_until = user_row.get("suspended_until")
+    reason_code = user_row.get("moderation_reason_code")
+    user_reason = (
+        _SUSPENSION_REASON_MAP.get(
+            str(reason_code).strip().lower(),
+            "violating community guidelines",
+        )
+        if reason_code
+        else None
+    )
+    reason_suffix = f" (Reason: {user_reason})" if user_reason else ""
+    if suspended_until:
+        try:
+            dt = parse_utc_datetime(str(suspended_until))
+            formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        except ValueError:
+            formatted_time = str(suspended_until)
+        return (
+            f"Your Account is suspended until {formatted_time}{reason_suffix}. "
+            f"Please contact support at support@{settings.email_domain} for "
+            "assistance."
+        )
+    return (
+        f"Your Account is suspended indefinitely{reason_suffix}. Please "
+        f"contact support at support@{settings.email_domain} for assistance."
+    )
+
+
 def assert_account_active(user_row: dict[str, Any]) -> None:
     """Raise 403 if the account is inactive or suspended."""
     if not bool(user_row.get("is_active", True)):
@@ -348,54 +392,10 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
             detail="Account is pending deletion.",
         )
 
-    if bool(user_row.get("is_suspended", False)):
-        suspended_until = user_row.get("suspended_until")
-        if suspended_until:
-            try:
-                dt = parse_utc_datetime(str(suspended_until))
-                if utcnow() >= dt:
-                    return
-            except ValueError:
-                pass
-
-        reason_code = user_row.get("moderation_reason_code")
-        # Map internal codes to generic user-facing categories
-        reason_map = {
-            "spam": "spam or promotional activity",
-            "harassment": "harassment or abusive behavior",
-            "csam": "content policy violations",
-            "fraud": "suspicious activity",
-            "inappropriate_content": "inappropriate content",
-            "terms_violation": "violating our Terms of Service",
-        }
-        user_reason = (
-            reason_map.get(
-                str(reason_code).strip().lower(),
-                "violating community guidelines",
-            )
-            if reason_code
-            else None
-        )
-        reason_suffix = f" (Reason: {user_reason})" if user_reason else ""
-        if suspended_until:
-            try:
-                dt = parse_utc_datetime(str(suspended_until))
-                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except ValueError:
-                formatted_time = str(suspended_until)
-            detail = (
-                f"Your Account is suspended until {formatted_time}{reason_suffix}. "
-                f"Please contact support at support@{settings.email_domain} for "
-                "assistance."
-            )
-        else:
-            detail = (
-                f"Your Account is suspended indefinitely{reason_suffix}. Please "
-                f"contact support at support@{settings.email_domain} for assistance."
-            )
+    if is_account_suspended(user_row):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=detail,
+            detail=_build_suspension_error_detail(user_row),
         )
 
 

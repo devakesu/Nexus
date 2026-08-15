@@ -115,6 +115,47 @@ def _html_result(
     return HTMLResponse(content=html_content, status_code=code)
 
 
+async def _fallback_playlist_sync(
+    access_token: str,
+    spotify_user_id: str,
+    native_ranked: dict[str, float],
+    user_id: str,
+) -> tuple[dict[str, float], list[str]]:
+    blended, casing_map = blend_artist_affinity(native_ranked, {})
+    display_names = top_display_names(blended, casing_map)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            candidate_playlists = await fetch_owned_or_collaborative_playlists(
+                client,
+                access_token,
+                spotify_user_id,
+            )
+            all_tracks: list[dict[str, Any]] = []
+            for playlist in candidate_playlists[:3]:
+                playlist_id = cast(str, playlist.get("spotify_playlist_id") or "")
+                if playlist_id:
+                    tracks = await fetch_playlist_tracks(
+                        client,
+                        access_token,
+                        playlist_id,
+                    )
+                    all_tracks.extend(tracks)
+
+            if all_tracks:
+                playlist_freq = compute_artist_frequency(all_tracks)
+                blended, casing_map = blend_artist_affinity(
+                    native_ranked,
+                    playlist_freq,
+                )
+                display_names = top_display_names(blended, casing_map)
+    except Exception:
+        logger.exception(
+            "Fallback playlist sync failed inline for user %s",
+            user_id,
+        )
+    return blended, display_names
+
+
 async def _seed_and_queue_sync(
     background_tasks: BackgroundTasks,
     user_id: str,
@@ -135,7 +176,7 @@ async def _seed_and_queue_sync(
 
     try:
         invalidate_viewer_discovery_sessions(user_id)
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning(
             "Failed to invalidate discovery sessions on Spotify connect",
             extra={"user_id": user_id},
@@ -148,38 +189,12 @@ async def _seed_and_queue_sync(
     display_names = top_display_names(blended, casing_map)
 
     if not display_names:
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                candidate_playlists = (
-                    await fetch_owned_or_collaborative_playlists(
-                        client,
-                        access_token,
-                        spotify_user_id,
-                    )
-                )
-                all_tracks: list[dict[str, Any]] = []
-                for playlist in candidate_playlists[:3]:
-                    playlist_id = cast(str, playlist.get("spotify_playlist_id") or "")
-                    if playlist_id:
-                        tracks = await fetch_playlist_tracks(
-                            client,
-                            access_token,
-                            playlist_id,
-                        )
-                        all_tracks.extend(tracks)
-
-                if all_tracks:
-                    playlist_freq = compute_artist_frequency(all_tracks)
-                    blended, casing_map = blend_artist_affinity(
-                        native_ranked,
-                        playlist_freq,
-                    )
-                    display_names = top_display_names(blended, casing_map)
-        except Exception:
-            logger.exception(
-                "Fallback playlist sync failed inline for user %s",
-                user_id,
-            )
+        blended, display_names = await _fallback_playlist_sync(
+            access_token,
+            spotify_user_id,
+            native_ranked,
+            user_id,
+        )
 
     if display_names:
         persist_artist_signals(user_id, blended, display_names, genre_affinity)

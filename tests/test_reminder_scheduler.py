@@ -1,8 +1,9 @@
 """Unit tests for reminder scheduler distributed leader locking."""
 
-import pytest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.services.reminder_scheduler import (
     _check_due_reminders,
@@ -88,9 +89,9 @@ async def test_with_distributed_lock_releases_on_exception():
     async def failing_job():
         raise ValueError("Job processing failed")
 
-    with patch("app.services.reminder_scheduler.redis_client.lock", return_value=mock_lock):
-        with pytest.raises(ValueError, match="Job processing failed"):
-            await failing_job()
+    with patch("app.services.reminder_scheduler.redis_client.lock", return_value=mock_lock), \
+         pytest.raises(ValueError, match="Job processing failed"):
+        await failing_job()
 
     mock_lock.release.assert_called_once()
 
@@ -332,10 +333,10 @@ def test_fetch_accounts_due_for_long_tail_purge_applies_limit():
 @patch("app.db.users.account_deletion.time.sleep")
 def test_purge_due_accounts_batches_and_sleeps(
     mock_sleep: MagicMock,
-    mock_ban: MagicMock,
-    mock_media: MagicMock,
-    mock_del_rows: MagicMock,
-    mock_anonymize: MagicMock,
+    _mock_ban: MagicMock,
+    _mock_media: MagicMock,
+    _mock_del_rows: MagicMock,
+    _mock_anonymize: MagicMock,
     mock_unmatch: MagicMock,
     mock_fetch: MagicMock,
 ):
@@ -358,11 +359,11 @@ def test_purge_due_accounts_batches_and_sleeps(
 @patch("app.db.users.account_deletion._delete_user_media_objects")
 @patch("app.db.users.account_deletion._ban_and_scrub_auth_user")
 def test_purge_due_accounts_blocklist_inserted_after_anonymization(
-    mock_ban: MagicMock,
-    mock_media: MagicMock,
-    mock_del_rows: MagicMock,
+    _mock_ban: MagicMock,
+    _mock_media: MagicMock,
+    _mock_del_rows: MagicMock,
     mock_anonymize: MagicMock,
-    mock_unmatch: MagicMock,
+    _mock_unmatch: MagicMock,
     mock_fetch: MagicMock,
 ):
     from app.db.users.account_deletion import purge_due_accounts
@@ -381,7 +382,7 @@ def test_purge_due_accounts_blocklist_inserted_after_anonymization(
 
     call_order: list[str] = []
 
-    def _mock_anon(uid: Any, now: Any) -> None:
+    def _mock_anon(_uid: Any, _now: Any) -> None:
         call_order.append("anonymize")
 
     def _mock_upsert() -> None:
@@ -404,7 +405,7 @@ def test_purge_due_accounts_blocklist_inserted_after_anonymization(
 @patch("app.db.users.account_deletion._anonymize_profile_and_user")
 def test_purge_due_accounts_anonymization_failure_skips_blocklist(
     mock_anonymize: MagicMock,
-    mock_unmatch: MagicMock,
+    _mock_unmatch: MagicMock,
     mock_fetch: MagicMock,
 ):
     from app.db.users.account_deletion import purge_due_accounts
@@ -430,8 +431,8 @@ def test_purge_due_accounts_anonymization_failure_skips_blocklist(
 
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.update_user_by_id")
 def test_ban_and_scrub_auth_user_appends_random_token(mock_update_user: MagicMock):
-    from app.db.users.account_deletion import _ban_and_scrub_auth_user
     from app.core.config import settings
+    from app.db.users.account_deletion import _ban_and_scrub_auth_user
 
     _ban_and_scrub_auth_user("user-xyz")
 
@@ -477,10 +478,10 @@ def test_hard_purge_long_tail_accounts_batches_and_sleeps(
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.delete_user")
 @patch("app.db.users.account_deletion.time.sleep")
 def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
-    mock_sleep: MagicMock,
+    _mock_sleep: MagicMock,
     mock_delete: MagicMock,
     mock_archive: MagicMock,
-    mock_fetch: MagicMock,
+    _mock_fetch: MagicMock,
 ):
     from app.db.users.account_deletion import hard_purge_long_tail_accounts
 
@@ -497,8 +498,9 @@ def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
 
 
 def test_archive_account_history_tracks_failures():
-    from app.db.users.account_deletion import _archive_account_history
     from postgrest.exceptions import APIError
+
+    from app.db.users.account_deletion import _archive_account_history
 
     builder = MagicMock()
     builder.select.return_value = builder
@@ -514,7 +516,10 @@ def test_archive_account_history_tracks_failures():
 
 
 def test_make_and_verify_escalation_cancel_token():
-    from app.core.utils.sms import make_escalation_cancel_token, verify_escalation_cancel_token
+    from app.core.utils.sms import (
+        make_escalation_cancel_token,
+        verify_escalation_cancel_token,
+    )
 
     session_id = "session-test-token"
     token = make_escalation_cancel_token(session_id, escalation_number=2)
@@ -561,7 +566,7 @@ def test_start_safety_session_no_escalation():
 
 
 def test_start_safety_session_with_active_escalation():
-    from app.db.safety.sessions import start_safety_session, EscalationInProgressError
+    from app.db.safety.sessions import EscalationInProgressError, start_safety_session
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
@@ -569,9 +574,9 @@ def test_start_safety_session_with_active_escalation():
     # Return active session with escalations_sent > 0
     mock_builder.execute.return_value = MagicMock(data=[{"id": "session-1", "escalations_sent": 1}])
 
-    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
-        with pytest.raises(EscalationInProgressError, match="Cannot start session: escalation already in progress"):
-            start_safety_session(
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder), \
+         pytest.raises(EscalationInProgressError, match="Cannot start session: escalation already in progress"):
+        start_safety_session(
                 user_id="user-123",
                 label="meetup",
                 interval_seconds=1800,
@@ -589,7 +594,7 @@ def test_start_safety_session_with_active_escalation():
 @patch("app.api.safety.endpoints.record_safety_alert")
 @patch("app.api.safety.endpoints.update_alert_contacts_notified")
 async def test_send_safety_alert_idempotency_new(
-    mock_update: MagicMock,
+    _mock_update: MagicMock,
     mock_record: MagicMock,
     mock_send_sms: MagicMock,
     mock_fetch_contacts: MagicMock,
@@ -628,9 +633,10 @@ async def test_send_safety_alert_idempotency_cached(
     mock_fetch_contacts: MagicMock,
     mock_redis: MagicMock,
 ):
+    import json
+
     from app.api.safety.endpoints import send_safety_alert
     from app.models.safety import SafetyAlertRequest
-    import json
 
     cached_response = {
         "id": "alert-cached",
@@ -669,8 +675,8 @@ async def test_send_safety_alert_db_error_with_sms(
     mock_redis: MagicMock,
 ):
     from app.api.safety.endpoints import send_safety_alert
-    from app.models.safety import SafetyAlertRequest
     from app.db.client import DatabaseAccessError
+    from app.models.safety import SafetyAlertRequest
 
     mock_redis.get = AsyncMock(return_value=None)
     mock_redis.set = AsyncMock()
@@ -707,10 +713,11 @@ async def test_send_safety_alert_db_error_no_sms(
     mock_fetch_contacts: MagicMock,
     mock_redis: MagicMock,
 ):
-    from app.api.safety.endpoints import send_safety_alert
-    from app.models.safety import SafetyAlertRequest
-    from app.db.client import DatabaseAccessError
     from fastapi import HTTPException
+
+    from app.api.safety.endpoints import send_safety_alert
+    from app.db.client import DatabaseAccessError
+    from app.models.safety import SafetyAlertRequest
 
     mock_redis.get = AsyncMock(return_value=None)
 
@@ -735,9 +742,10 @@ async def test_send_safety_alert_db_error_no_sms(
 
 @pytest.mark.anyio
 async def test_register_evidence_path_traversal():
+    from fastapi import HTTPException
+
     from app.api.safety.endpoints import register_evidence
     from app.models.safety import SafetyEvidenceRegisterRequest
-    from fastapi import HTTPException
 
     payload_wrong_user = SafetyEvidenceRegisterRequest(
         alert_id="alert-123",
@@ -765,7 +773,10 @@ async def test_register_evidence_path_traversal():
 
 
 def test_make_and_verify_contact_portal_token():
-    from app.core.utils.sms import make_contact_portal_token, verify_contact_portal_token
+    from app.core.utils.sms import (
+        make_contact_portal_token,
+        verify_contact_portal_token,
+    )
 
     contact_id = "contact-uuid-123"
     token = make_contact_portal_token(contact_id)
@@ -780,8 +791,9 @@ def test_make_and_verify_contact_portal_token():
 
 @pytest.mark.anyio
 async def test_contact_portal_page_invalid_token():
-    from app.api.safety.portal.endpoints import contact_portal_page
     from fastapi import HTTPException
+
+    from app.api.safety.portal.endpoints import contact_portal_page
 
     with pytest.raises(HTTPException) as exc_info:
         await contact_portal_page(request=MagicMock(), contact_id="invalid-token")
@@ -796,9 +808,10 @@ async def test_update_chat_event_non_participant(
     mock_fetch_event: MagicMock,
     mock_fetch_participants: MagicMock,
 ):
+    from fastapi import HTTPException
+
     from app.api.chat.events import update_chat_event
     from app.models.chat import UpdateEventStatusRequest
-    from fastapi import HTTPException
 
     # Set conversation participants to users other than "user-123"
     mock_fetch_participants.return_value = {
@@ -825,9 +838,11 @@ async def test_update_chat_event_non_participant(
 
 
 def test_create_event_request_validation():
-    from app.models.chat import CreateEventRequest
     from datetime import datetime, timezone
+
     from pydantic import ValidationError
+
+    from app.models.chat import CreateEventRequest
 
     # Valid with safety disabled and interval omitted
     req = CreateEventRequest(
@@ -1081,7 +1096,7 @@ def test_delete_user_media_objects_cleans_feedback_attachments():
     def _from_side_effect(bucket_name: str) -> Any:
         if bucket_name == "user_media":
             return mock_media_bucket
-        elif bucket_name == "feedback_attachments":
+        if bucket_name == "feedback_attachments":
             return mock_feedback_bucket
         return MagicMock()
 

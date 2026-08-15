@@ -1,11 +1,12 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi import HTTPException
 
 from app.db.users.consent import (
     _parse_version_tuple,
-    _validate_terms_versions,
     _update_consent_pair,
+    _validate_terms_versions,
 )
 
 
@@ -45,7 +46,7 @@ def test_validate_terms_versions_matching():
 def test_update_consent_pair_downgrade_rejected(
     mock_table: MagicMock,
     mock_fetch: MagicMock,
-    mock_invalidate: MagicMock,
+    _mock_invalidate: MagicMock,
 ):
     # Existing user has version 1.10 accepted
     mock_fetch.return_value = {
@@ -71,7 +72,7 @@ def test_update_consent_pair_downgrade_rejected(
 @patch("app.db.users.consent._fetch_existing_consent_pair")
 def test_update_consent_pair_noop_for_same_version(
     mock_fetch: MagicMock,
-    mock_invalidate: MagicMock,
+    _mock_invalidate: MagicMock,
 ):
     mock_fetch.return_value = {
         "accepted_terms_version": "1.10",
@@ -94,7 +95,7 @@ def test_update_consent_pair_noop_for_same_version(
 @patch("app.db.users.consent._fetch_existing_consent_pair")
 def test_update_special_category_consent_requires_general_terms(
     mock_fetch: MagicMock,
-    mock_log: MagicMock,
+    _mock_log: MagicMock,
 ):
     from app.db.users.consent import update_special_category_consent
 
@@ -120,7 +121,7 @@ def test_update_special_category_consent_requires_general_terms(
 @patch("app.db.users.consent._fetch_existing_consent_pair")
 def test_update_safety_data_consent_requires_general_terms(
     mock_fetch: MagicMock,
-    mock_log: MagicMock,
+    _mock_log: MagicMock,
 ):
     from app.db.users.consent import update_safety_data_consent
 

@@ -89,12 +89,15 @@ async def _validate_auth_user_allowed(
         or "nexus"
     )
 
-    if app_variant != "nexus" and settings.allowed_signup_domains.get(app_variant):
-        if not email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email authentication is required for {app_variant} registration.",
-            )
+    if (
+        app_variant != "nexus"
+        and settings.allowed_signup_domains.get(app_variant)
+        and not email
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Email authentication is required for {app_variant} registration.",
+        )
 
     if email:
         if is_disposable_email(email):
@@ -259,6 +262,47 @@ async def auth_bootstrap(
     )
 
 
+def _resolve_onboarding_profile_fields(
+    payload: OnboardingPayload,
+    email: str | None,
+    auth_user: dict[str, Any],
+) -> tuple[str, str | None, int | None, str | None, str | None]:
+    if isinstance(payload, MECOnboardingRequest):
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for campus NEXUS_MEC onboarding.",
+            )
+        user_name = extract_user_name(email, auth_user)
+        user_campus_name = payload.campus_name
+        if not user_campus_name or not user_campus_name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Institute name is required.",
+            )
+        cleaned_campus = user_campus_name.strip()
+        if sum(c.isalpha() for c in cleaned_campus) < 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Institute name must contain at least three letters.",
+            )
+        return (
+            user_name,
+            payload.campus_branch,
+            payload.campus_year,
+            cleaned_campus,
+            None,
+        )
+
+    return (
+        payload.name,
+        None,
+        None,
+        None,
+        payload.demographic_bucket,
+    )
+
+
 @router.post(
     "/api/v1/auth/complete-onboarding",
     response_model=CompleteOnboardingResponse,
@@ -304,35 +348,13 @@ async def complete_onboarding(
             detail="Onboarding has already been completed.",
         )
 
-    if isinstance(payload, MECOnboardingRequest):
-        if not email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email is required for campus NEXUS_MEC onboarding.",
-            )
-        user_name = extract_user_name(email, auth_user)
-        user_branch: str | None = payload.campus_branch
-        user_year: int | None = payload.campus_year
-        user_campus_name: str | None = payload.campus_name
-        if not user_campus_name or not user_campus_name.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Institute name is required.",
-            )
-        cleaned_campus = user_campus_name.strip()
-        if sum(c.isalpha() for c in cleaned_campus) < 3:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Institute name must contain at least three letters.",
-            )
-        user_campus_name = cleaned_campus
-        user_demographic_bucket = None
-    else:
-        user_name = payload.name
-        user_branch = None
-        user_year = None
-        user_campus_name = None
-        user_demographic_bucket = payload.demographic_bucket
+    (
+        user_name,
+        user_branch,
+        user_year,
+        user_campus_name,
+        user_demographic_bucket,
+    ) = _resolve_onboarding_profile_fields(payload, email, auth_user)
 
     profile_row, profile_created = await run_in_threadpool(
         upsert_profile_variant,

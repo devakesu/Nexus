@@ -10,7 +10,10 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from starlette.requests import Request
 
-from app.api.dependencies import get_authenticated_user_payload, get_optional_authenticated_user_id
+from app.api.dependencies import (
+    get_authenticated_user_payload,
+    get_optional_authenticated_user_id,
+)
 from app.core.security import jwks
 from app.core.security.jwks import (
     JWKS_CACHE_TTL_SECONDS,
@@ -175,7 +178,7 @@ async def test_auth_dependency_retries_on_signature_error() -> None:
     # First call returns old key (signature mismatch), second call returns new key
     mock_get_key = AsyncMock(side_effect=[pub_old, pub_new])
 
-    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda self: True)), \
+    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda _self: True)), \
          patch("app.api.dependencies.get_live_supabase_public_key", mock_get_key):
         payload = await get_authenticated_user_payload(request, token)
         assert payload["sub"] == "user-123"
@@ -199,7 +202,7 @@ async def test_optional_auth_dependency_retries_on_signature_error() -> None:
 
     mock_get_key = AsyncMock(side_effect=[pub_old, pub_new])
 
-    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda self: True)), \
+    with patch("app.core.config.Settings.is_jwks", new_callable=lambda: property(lambda _self: True)), \
          patch("app.api.dependencies.get_live_supabase_public_key", mock_get_key):
         user_id = await get_optional_authenticated_user_id(token)
         assert user_id == "user-123"

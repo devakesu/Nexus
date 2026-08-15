@@ -35,8 +35,8 @@ async def test_request_contact_portal_otp_success(
     mock_redis: MagicMock,
 ):
     mock_redis.exists = AsyncMock(return_value=False)
-    mock_redis.set = MagicMock()
-    mock_redis.setex = MagicMock()
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
 
     mock_fetch.return_value = {"id": "contact-123", "phone": "+1234567890", "user_id": "user-456"}
     mock_send_sms.return_value = MagicMock(success=True)
@@ -104,7 +104,7 @@ async def test_get_contact_portal_details_success(
     mock_verify_token: MagicMock,
     mock_fetch_profile: MagicMock,
     mock_fetch_contact: MagicMock,
-    mock_redis: MagicMock,
+    _mock_redis: MagicMock,
 ):
     mock_verify_token.return_value = "session-valid"
     mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456"}
@@ -137,7 +137,7 @@ async def test_remove_trusted_contact_success(
     mock_user: MagicMock,
     mock_verify_token: MagicMock,
     mock_remove: MagicMock,
-    mock_redis: MagicMock,
+    _mock_redis: MagicMock,
 ):
     mock_verify_token.return_value = "session-valid"
     mock_remove.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456"}

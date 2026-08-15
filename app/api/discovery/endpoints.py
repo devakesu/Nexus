@@ -343,9 +343,10 @@ async def _validate_discovery_action(
     else:
         # Forward actions (except block/report) must be validated against active session.
         if payload.action not in ("block", "report"):
-            from app.db.sessions import get_candidate_session_details
-            from app.db.client import utcnow
             from datetime import timedelta
+
+            from app.db.client import utcnow
+            from app.db.sessions import get_candidate_session_details
 
             session_details = await asyncio.to_thread(
                 get_candidate_session_details,

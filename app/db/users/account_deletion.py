@@ -605,6 +605,69 @@ _ARCHIVE_SOURCE_TABLES: tuple[_ArchiveSource, ...] = (
 )
 
 
+def _fetch_archive_source(
+    source: tuple[str, str, str | None, str],
+    user_id: str,
+) -> list[dict[str, Any]] | None:
+    table, or_filter_template, reason_field, outcome_field = source
+    try:
+        select_fields = "id, created_at"
+        if reason_field:
+            select_fields += f", {reason_field}"
+        select_fields += f", {outcome_field}"
+        query = supabase_client.table(table).select(select_fields)
+        if table == "user_reports":
+            query = query.or_(or_filter_template.format(uid=user_id))
+        else:
+            query = query.eq("user_id", user_id)
+        res = query.execute()
+        return cast(list[dict[str, Any]], res.data or [])
+    except APIError:
+        logger.exception(
+            "Failed to fetch %s for archival", table, extra={"user_id": user_id},
+        )
+        return None
+    except Exception:
+        logger.exception(
+            "Unexpected failure fetching %s for archival", table, extra={"user_id": user_id},
+        )
+        return None
+
+
+def _insert_archive_rows(
+    table: str,
+    rows: list[dict[str, Any]],
+    reason_field: str | None,
+    outcome_field: str,
+    user_id: str,
+) -> bool:
+    archive_rows: list[dict[str, Any]] = [
+        {
+            "source_table": table,
+            "reason_code": row.get(reason_field) if reason_field else None,
+            "outcome": row.get(outcome_field),
+            "event_occurred_at": row.get("created_at"),
+        }
+        for row in rows
+        if row.get("created_at")
+    ]
+    if not archive_rows:
+        return True
+    try:
+        supabase_client.table("account_history_archive").insert(archive_rows).execute()
+        return True
+    except APIError:
+        logger.exception(
+            "Failed to archive %s rows", table, extra={"user_id": user_id},
+        )
+        return False
+    except Exception:
+        logger.exception(
+            "Unexpected failure inserting %s rows to archive", table, extra={"user_id": user_id},
+        )
+        return False
+
+
 def _archive_account_history(user_id: str) -> list[str]:
     """Archive account history.
 
@@ -615,55 +678,12 @@ def _archive_account_history(user_id: str) -> list[str]:
             list[str]: List of table names that failed archival."""
     failed_tables: list[str] = []
     for source in _ARCHIVE_SOURCE_TABLES:
-        table, or_filter_template, reason_field, outcome_field = source
-        try:
-            select_fields = "id, created_at"
-            if reason_field:
-                select_fields += f", {reason_field}"
-            select_fields += f", {outcome_field}"
-            query = supabase_client.table(table).select(select_fields)
-            if table == "user_reports":
-                query = query.or_(or_filter_template.format(uid=user_id))
-            else:
-                query = query.eq("user_id", user_id)
-            res = query.execute()
-        except APIError:
-            logger.exception(
-                "Failed to fetch %s for archival", table, extra={"user_id": user_id},
-            )
+        table, _, reason_field, outcome_field = source
+        rows = _fetch_archive_source(source, user_id)
+        if rows is None:
             failed_tables.append(table)
             continue
-        except Exception:
-            logger.exception(
-                "Unexpected failure fetching %s for archival", table, extra={"user_id": user_id},
-            )
-            failed_tables.append(table)
-            continue
-
-        rows = cast(list[dict[str, Any]], res.data or [])
-        archive_rows: list[dict[str, Any]] = [
-            {
-                "source_table": table,
-                "reason_code": row.get(reason_field) if reason_field else None,
-                "outcome": row.get(outcome_field),
-                "event_occurred_at": row.get("created_at"),
-            }
-            for row in rows
-            if row.get("created_at")
-        ]
-        if not archive_rows:
-            continue
-        try:
-            supabase_client.table("account_history_archive").insert(archive_rows).execute()
-        except APIError:
-            logger.exception(
-                "Failed to archive %s rows", table, extra={"user_id": user_id},
-            )
-            failed_tables.append(table)
-        except Exception:
-            logger.exception(
-                "Unexpected failure inserting %s rows to archive", table, extra={"user_id": user_id},
-            )
+        if not _insert_archive_rows(table, rows, reason_field, outcome_field, user_id):
             failed_tables.append(table)
 
     return failed_tables

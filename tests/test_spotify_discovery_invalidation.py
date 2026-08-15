@@ -74,8 +74,8 @@ async def test_seed_and_queue_sync_invalidates_discovery_sessions(
     mock_upsert_connection: MagicMock,
     mock_invalidate: MagicMock,
     mock_fetch_top_artists: AsyncMock,
-    mock_persist_signals: MagicMock,
-    mock_run_full_sync: MagicMock,
+    _mock_persist_signals: MagicMock,
+    _mock_run_full_sync: MagicMock,
 ) -> None:
     mock_fetch_spotify_user_id.return_value = "spotify-user-123"
     mock_ranked_result = MagicMock()
@@ -94,7 +94,7 @@ async def test_seed_and_queue_sync_invalidates_discovery_sessions(
 
     assert isinstance(display_names, list)
     mock_upsert_connection.assert_called_once_with(
-        "user-123", "spotify-user-123", "refresh-xyz", "user-top-read"
+        "user-123", "spotify-user-123", "refresh-xyz", "user-top-read",
     )
     mock_invalidate.assert_called_once_with("user-123")
 
@@ -109,10 +109,10 @@ async def test_seed_and_queue_sync_invalidates_discovery_sessions(
 async def test_seed_and_queue_sync_upserts_connection_without_refresh_token(
     mock_fetch_spotify_user_id: AsyncMock,
     mock_upsert_connection: MagicMock,
-    mock_invalidate: MagicMock,
+    _mock_invalidate: MagicMock,
     mock_fetch_top_artists: AsyncMock,
-    mock_persist_signals: MagicMock,
-    mock_run_full_sync: MagicMock,
+    _mock_persist_signals: MagicMock,
+    _mock_run_full_sync: MagicMock,
 ) -> None:
     mock_fetch_spotify_user_id.return_value = "spotify-user-456"
     mock_ranked_result = MagicMock()
@@ -131,7 +131,7 @@ async def test_seed_and_queue_sync_upserts_connection_without_refresh_token(
 
     assert isinstance(display_names, list)
     mock_upsert_connection.assert_called_once_with(
-        "user-456", "spotify-user-456", None, "user-top-read"
+        "user-456", "spotify-user-456", None, "user-top-read",
     )
 
 
@@ -172,6 +172,7 @@ async def test_spotify_native_exchange_redirect_uri_validation(
     mock_exchange: AsyncMock,
 ) -> None:
     from fastapi import HTTPException
+
     from app.api.spotify.auth import _NativeExchangeRequest, spotify_native_exchange
     from app.core.config import settings
 
@@ -201,8 +202,8 @@ async def test_spotify_native_exchange_redirect_uri_validation(
         redirect_uri=allowed_uri,
     )
     mock_tokens = MagicMock()
-    mock_tokens.access_token = "access_token_123"
-    mock_tokens.refresh_token = "refresh_token_123"
+    mock_tokens.access_token = "access_token_123"  # noqa: S105
+    mock_tokens.refresh_token = "refresh_token_123"  # noqa: S105
     mock_tokens.scope = "user-top-read"
     mock_exchange.return_value = mock_tokens
     mock_seed.return_value = ["Artist A", "Artist B"]
@@ -214,8 +215,8 @@ async def test_spotify_native_exchange_redirect_uri_validation(
         _device=None,
         user_id="user-123",
     )
-    assert res["success"] is True
-    assert res["top_artists"] == ["Artist A", "Artist B"]
+    assert res["syncing"] is True
+    assert res["artists"] == ["Artist A", "Artist B"]
 
 
 @pytest.mark.anyio
@@ -225,7 +226,7 @@ async def test_spotify_native_exchange_redirect_uri_validation(
 @patch("app.api.spotify.sync.upsert_connection")
 @patch("app.api.spotify.sync.run_full_sync")
 async def test_spotify_resync_persists_rotated_refresh_token(
-    mock_run_full_sync: MagicMock,
+    _mock_run_full_sync: MagicMock,
     mock_upsert_connection: MagicMock,
     mock_get_connection: MagicMock,
     mock_refresh: AsyncMock,
@@ -235,8 +236,8 @@ async def test_spotify_resync_persists_rotated_refresh_token(
 
     mock_get_refresh_token.return_value = "old_refresh_token"
     mock_bundle = MagicMock()
-    mock_bundle.access_token = "new_access_token"
-    mock_bundle.refresh_token = "rotated_refresh_token"
+    mock_bundle.access_token = "new_access_token"  # noqa: S105
+    mock_bundle.refresh_token = "rotated_refresh_token"  # noqa: S105
     mock_bundle.scope = "user-top-read"
     mock_refresh.return_value = mock_bundle
 
@@ -252,15 +253,16 @@ async def test_spotify_resync_persists_rotated_refresh_token(
 
     assert res == {"syncing": True}
     mock_upsert_connection.assert_called_once_with(
-        "user-resync-1", "spot-user-999", "rotated_refresh_token", "user-top-read"
+        "user-resync-1", "spot-user-999", "rotated_refresh_token", "user-top-read",
     )
 
 
 @pytest.mark.anyio
 @patch("app.services.spotify_sync._get_with_retry")
 async def test_fetch_artist_genres_batch_keyed_by_id(mock_get: AsyncMock) -> None:
-    from app.services.spotify_sync import fetch_artist_genres_batch
     import httpx
+
+    from app.services.spotify_sync import fetch_artist_genres_batch
 
     mock_resp = MagicMock()
     mock_resp.json.return_value = {
@@ -275,7 +277,7 @@ async def test_fetch_artist_genres_batch_keyed_by_id(mock_get: AsyncMock) -> Non
                 "name": "Radiohead",
                 "genres": ["art rock", "alternative rock"],
             },
-        ]
+        ],
     }
     mock_get.return_value = mock_resp
 
@@ -291,8 +293,9 @@ async def test_fetch_artist_genres_batch_keyed_by_id(mock_get: AsyncMock) -> Non
 @pytest.mark.anyio
 @patch("app.services.spotify_sync.fetch_artist_genres_batch")
 async def test_blend_playlist_genres_affinity_looks_up_by_id(mock_fetch_genres: AsyncMock) -> None:
-    from app.services.spotify_sync import _blend_playlist_genres_affinity
     import httpx
+
+    from app.services.spotify_sync import _blend_playlist_genres_affinity
 
     mock_fetch_genres.return_value = {
         "artist_id_1": ["indie pop", "synth-pop"],
@@ -303,7 +306,7 @@ async def test_blend_playlist_genres_affinity_looks_up_by_id(mock_fetch_genres: 
             "name": "Song 1",
             "artists": ["Different Cased Name"],
             "artist_ids": ["artist_id_1"],
-        }
+        },
     ]
     genre_acc: dict[str, float] = {}
 
@@ -345,8 +348,9 @@ async def test_post_with_retry_succeeds_after_5xx(mock_sleep: AsyncMock) -> None
 @pytest.mark.anyio
 @patch("app.services.spotify_sync.fetch_artist_genres_batch")
 async def test_blend_playlist_genres_affinity_respects_time_budget(mock_fetch_genres: AsyncMock) -> None:
-    from app.services.spotify_sync import _blend_playlist_genres_affinity
     import httpx
+
+    from app.services.spotify_sync import _blend_playlist_genres_affinity
 
     all_tracks = [
         {
@@ -354,7 +358,7 @@ async def test_blend_playlist_genres_affinity_respects_time_budget(mock_fetch_ge
             "name": "Song 1",
             "artists": ["Artist 1"],
             "artist_ids": ["aid_1"],
-        }
+        },
     ]
     genre_acc: dict[str, float] = {}
 
