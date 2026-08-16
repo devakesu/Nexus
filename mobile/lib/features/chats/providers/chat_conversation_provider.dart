@@ -439,6 +439,9 @@ class ChatConversationController extends _$ChatConversationController {
       _consecutivePollFailures = 0;
       _sessionPollTimer?.cancel();
       _sessionPollTimer = null;
+    } on UntrustedPeerIdentityException {
+      _sessionPollTimer?.cancel();
+      _sessionPollTimer = null;
     } on Exception catch (e, stackTrace) {
       _consecutivePollFailures++;
       // Transient (offline, peer still hasn't set up chat, 5xx) - only log to Sentry
@@ -506,10 +509,15 @@ class ChatConversationController extends _$ChatConversationController {
     _peerAddress = address;
 
     final results = await Future.wait<dynamic>([
-      SessionManager.instance.ensureSessionForConversation(
-        conversationId: conversationId,
-        peerUserId: peerUserId,
-      ),
+      SessionManager.instance
+          .ensureSessionForConversation(
+            conversationId: conversationId,
+            peerUserId: peerUserId,
+          )
+          .catchError(
+            (Object e, StackTrace st) => false,
+            test: (e) => e is UntrustedPeerIdentityException,
+          ),
       Supabase.instance.client
           .from('chat_conversations')
           .select('closed_at')
@@ -1150,6 +1158,25 @@ class ChatConversationController extends _$ChatConversationController {
         );
       }
       return true;
+    } on UntrustedPeerIdentityException {
+      final currentVal = state.value ?? current;
+      final ts = DateTime.now();
+      final alertMsg = ChatMessageView(
+        id: 'security_alert_${ts.millisecondsSinceEpoch}',
+        senderId: '',
+        isMine: false,
+        createdAt: ts,
+        plaintext: 'Security code changed. Tap to verify.',
+        messageType: 'security_alert',
+        decryptFailed: false,
+      );
+      state = AsyncData(
+        currentVal.copyWith(
+          sessionReady: false,
+          messages: [...currentVal.messages, alertMsg],
+        ),
+      );
+      return false;
     } on Exception catch (e, st) {
       ErrorHandler.handleError(
         e,
@@ -1341,6 +1368,32 @@ class ChatConversationController extends _$ChatConversationController {
       );
       return false;
     }
+  }
+
+  /// Manually verifies and trusts the peer's new identity key after the user
+  /// confirms the Safety Number dialog, then rebuilds the Signal session.
+  Future<bool> verifyAndTrustPeerIdentity() async {
+    final current = state.value;
+    if (current == null || current.conversationClosed) return false;
+
+    final success = await SessionManager.instance
+        .trustPeerIdentityAndRebuildSession(
+          conversationId: conversationId,
+          peerUserId: peerUserId,
+        );
+    if (!success || _disposed) return false;
+
+    final updatedMessages = (state.value?.messages ?? [])
+        .where((m) => !m.id.startsWith('security_alert_'))
+        .toList();
+
+    state = AsyncData(
+      (state.value ?? current).copyWith(
+        sessionReady: true,
+        messages: updatedMessages,
+      ),
+    );
+    return true;
   }
 
   /// Fetches and decrypts an attachment's bytes given its pointer -

@@ -116,10 +116,14 @@ class MessageCodec {
       return await action();
     } on UntrustedIdentityException catch (e) {
       final newKey = e.key;
-      if (newKey == null) rethrow;
-      UntrustedIdentityRegistry.register(address.getName(), newKey);
-      await store.saveIdentity(address, newKey);
-      return action();
+      if (newKey != null) {
+        UntrustedIdentityRegistry.register(address.getName(), newKey);
+        throw UntrustedPeerIdentityException(
+          peerUserId: address.getName(),
+          newIdentityKey: newKey,
+        );
+      }
+      rethrow;
     }
   }
 }

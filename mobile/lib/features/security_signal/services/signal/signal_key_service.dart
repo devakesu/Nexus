@@ -227,7 +227,16 @@ class SignalKeyService {
       }
     }
 
-    if (!needsRotation) return;
+    if (!needsRotation) {
+      if (existing.length > 1 && latest != null) {
+        for (final key in existing) {
+          if (key.id != latest.id) {
+            await store.removeSignedPreKey(key.id);
+          }
+        }
+      }
+      return;
+    }
 
     final keyId =
         int.tryParse(
@@ -256,6 +265,14 @@ class SignalKeyService {
       key: _prefsSignedPreKeyConfirmedKeyId,
       value: '$keyId',
     );
+
+    // Clean up old signed prekeys so they don't accumulate in SQLite
+    final remainingKeys = await store.loadSignedPreKeys();
+    for (final key in remainingKeys) {
+      if (key.id != keyId) {
+        await store.removeSignedPreKey(key.id);
+      }
+    }
   }
 
   /// Tops up the server-side one-time prekey pool when it runs low. Safe to
@@ -277,14 +294,9 @@ class SignalKeyService {
         ) ??
         1;
     final newKeys = generatePreKeys(startId, _oneTimePrekeyBatchSize);
-    for (final key in newKeys) {
-      await store.storePreKey(key.id, key);
-    }
-    await _secureStorage.write(
-      key: _prefsNextPreKeyId,
-      value: '${startId + _oneTimePrekeyBatchSize}',
-    );
 
+    // Upload first: if the network call fails, local state remains untouched
+    // and the next retry will reuse the same startId without orphaning keys.
     await _dio.post<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/one-time-prekeys',
       data: {
@@ -300,10 +312,19 @@ class SignalKeyService {
             .toList(),
       },
     );
+
+    for (final key in newKeys) {
+      await store.storePreKey(key.id, key);
+    }
+    await _secureStorage.write(
+      key: _prefsNextPreKeyId,
+      value: '${startId + _oneTimePrekeyBatchSize}',
+    );
   }
 
   Future<void> wipeLocalData() async {
     _store = null;
+    _inFlight = null;
     await _db.clearAllData();
     await _secureStorage.delete(key: _prefsNextPreKeyId);
     await _secureStorage.delete(key: _prefsNextSignedPreKeyId);

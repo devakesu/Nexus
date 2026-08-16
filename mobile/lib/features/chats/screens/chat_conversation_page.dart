@@ -1293,7 +1293,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
 
     if (!mounted) return;
 
-    await showDialog<void>(
+    final shouldTrust = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
@@ -1355,9 +1355,18 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
-              'OK',
+              'Cancel',
+              style: GoogleFonts.inter(
+                color: Colors.white60,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Trust & Verify',
               style: GoogleFonts.manrope(
                 color: theme.primary,
                 fontWeight: FontWeight.w800,
@@ -1367,5 +1376,28 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
         ],
       ),
     );
+
+    if (shouldTrust == true && mounted) {
+      final provider = chatConversationControllerProvider(
+        widget.conversationId,
+        peerUserId,
+      );
+      final success = await ref
+          .read(provider.notifier)
+          .verifyAndTrustPeerIdentity();
+
+      if (mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Safety number verified with ${widget.name}. Session established.',
+              style: GoogleFonts.inter(),
+            ),
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }

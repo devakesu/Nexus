@@ -54,9 +54,36 @@ class SessionManager {
       final newKey = e.key;
       if (newKey == null) rethrow;
       UntrustedIdentityRegistry.register(peerUserId, newKey);
-      await store.saveIdentity(address, newKey);
-      await sessionBuilder.processPreKeyBundle(bundle);
+      throw UntrustedPeerIdentityException(
+        peerUserId: peerUserId,
+        newIdentityKey: newKey,
+      );
     }
+
+    unawaited(_notifyBackendSessionEstablished(conversationId));
+    return true;
+  }
+
+  /// Explicitly trusts the pending untrusted identity key for [peerUserId]
+  /// and rebuilds the Signal session after user verification.
+  Future<bool> trustPeerIdentityAndRebuildSession({
+    required String conversationId,
+    required String peerUserId,
+  }) async {
+    final newKey = UntrustedIdentityRegistry.pendingUntrustedKeys[peerUserId];
+    if (newKey == null) return false;
+
+    final store = await SignalKeyService.instance.ensureBootstrapped();
+    final address = SignalProtocolAddress(peerUserId, kSignalDeviceId);
+
+    await store.saveIdentity(address, newKey);
+    UntrustedIdentityRegistry.resolve(peerUserId);
+
+    final bundle = await _fetchPeerBundle(peerUserId);
+    if (bundle == null) return false;
+
+    final sessionBuilder = SessionBuilder(store, store, store, store, address);
+    await sessionBuilder.processPreKeyBundle(bundle);
 
     unawaited(_notifyBackendSessionEstablished(conversationId));
     return true;
@@ -160,12 +187,12 @@ class UntrustedIdentityRegistry {
         return a.length.compareTo(b.length);
       });
 
-    final sha256 = Sha256();
-    final hashObj = await sha256.hash([...sorted[0], ...sorted[1]]);
+    final sha512 = Sha512();
+    final hashObj = await sha512.hash([...sorted[0], ...sorted[1]]);
     final hash = hashObj.bytes;
 
     final buffer = StringBuffer();
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 12; i++) {
       final chunk =
           (hash[i * 4] << 24) |
           (hash[i * 4 + 1] << 16) |
@@ -173,8 +200,24 @@ class UntrustedIdentityRegistry {
           hash[i * 4 + 3];
       final group = (chunk.abs() % 100000).toString().padLeft(5, '0');
       buffer.write(group);
-      if (i < 5) buffer.write(' ');
+      if (i < 11) buffer.write(' ');
     }
     return buffer.toString();
   }
+}
+
+/// Thrown when a peer's identity key has changed and has not yet been confirmed
+/// by the local user.
+class UntrustedPeerIdentityException implements Exception {
+  const UntrustedPeerIdentityException({
+    required this.peerUserId,
+    required this.newIdentityKey,
+  });
+
+  final String peerUserId;
+  final IdentityKey newIdentityKey;
+
+  @override
+  String toString() =>
+      'UntrustedPeerIdentityException: Peer $peerUserId presented an untrusted identity key. Manual user confirmation required.';
 }
