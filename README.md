@@ -311,6 +311,7 @@ docker build -t nexus-sandbox -f .devcontainer/Dockerfile .
 # 3. Launch sandbox container
 docker run -d --name Nexus_Sandbox \
   --restart unless-stopped \
+  --group-add 989 \
   -v "$(pwd):/nexus" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$HOME/.ssh/agent.sock:/run/host-services/ssh-auth.sock" \
