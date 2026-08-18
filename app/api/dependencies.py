@@ -12,6 +12,7 @@ import time
 from typing import Any, cast
 
 import jwt
+import sentry_sdk
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
@@ -228,10 +229,15 @@ async def get_authenticated_user_id(
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
     else:
-        logger.warning(
-            "Background presence task queue at capacity (%d); skipping presence update for user %s",
+        logger.error(
+            "Background presence task queue at capacity (%d); dropping presence update for user %s",
             _MAX_BACKGROUND_TASKS,
             user_id,
+        )
+        sentry_sdk.capture_message(
+            f"Background presence task queue at capacity ({_MAX_BACKGROUND_TASKS}); dropping presence update",
+            level="error",
+            tags={"user_id": user_id, "location": "presence_background_task"},
         )
     return user_id
 

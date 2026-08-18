@@ -21,6 +21,7 @@ BLOCKED_DOTENV_KEYS: set[str] = {
     "pii_encryption_key",
     "blind_index_key",
     "hmac_signing_key",
+    "admin_api_key",
     "supabase_service_role_key",
     "supabase_jwt_secret",
     "firebase_service_account",
@@ -109,6 +110,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str | dict[str, Any] = ""
+    admin_api_key: str | None = None
 
     # --- General / Application Settings ---
     app_name: str = "Nexus Orbit"

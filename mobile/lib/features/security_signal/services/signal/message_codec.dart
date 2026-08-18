@@ -70,9 +70,21 @@ class MessageCodec {
         action: () {
           final cipher = SessionCipher(store, store, store, store, address);
           if (signalMessageType == 'prekey') {
+            try {
+              return cipher.decrypt(PreKeySignalMessage(bytes));
+            } on Object catch (_) {
+              return cipher.decryptFromSignal(
+                SignalMessage.fromSerialized(bytes),
+              );
+            }
+          }
+          try {
+            return cipher.decryptFromSignal(
+              SignalMessage.fromSerialized(bytes),
+            );
+          } on Object catch (_) {
             return cipher.decrypt(PreKeySignalMessage(bytes));
           }
-          return cipher.decryptFromSignal(SignalMessage.fromSerialized(bytes));
         },
       );
       return utf8.decode(plaintext);

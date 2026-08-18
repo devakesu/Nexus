@@ -148,6 +148,27 @@ def _maps_link(location: dict[str, float] | None) -> str | None:
     return f"https://maps.google.com/?q={lat},{lng}"
 
 
+def sanitize_sms_text(text: str | None, max_length: int = 100) -> str | None:
+    """Sanitizes user-supplied text for SMS messages by stripping control
+
+    characters, newlines, and excessive whitespace, and capping length.
+
+    Args:
+        text: Input string to sanitize.
+        max_length: Maximum allowed character length.
+
+    Returns:
+        str | None: Cleaned string, or None if empty.
+    """
+    if not text:
+        return None
+    cleaned = "".join(ch if (ch.isprintable() and ch not in "\r\n\t") else " " for ch in text)
+    cleaned = " ".join(cleaned.split()).strip()
+    if not cleaned:
+        return None
+    return cleaned[:max_length]
+
+
 def compose_sos_message(
     *,
     name: str,
@@ -166,24 +187,27 @@ def compose_sos_message(
     Returns:
         str: Composed multi-line SOS message text.
     """
-    lines = [f"\U0001f6a8 Emergency alert from {name} via Nexus."]
+    clean_name = sanitize_sms_text(name, max_length=50) or "A Nexus user"
+    clean_event = sanitize_sms_text(event_label, max_length=100)
+
+    lines = [f"\U0001f6a8 Emergency alert from {clean_name} via Nexus."]
     if silent:
         lines.append(
-            f"{name} triggered a silent SOS during a meetup and may need "
+            f"{clean_name} triggered a silent SOS during a meetup and may need "
             "help right now. They may not be able to talk or text back.",
         )
     else:
         lines.append(
-            f"{name} triggered an SOS during a meetup and may need help "
+            f"{clean_name} triggered an SOS during a meetup and may need help "
             "right now.",
         )
     maps_link = _maps_link(location)
     if maps_link:
         lines.append(f"\U0001f4cd Last known location: {maps_link}")
-    if event_label:
-        lines.append(f"\U0001f4c5 Meetup: {event_label}")
+    if clean_event:
+        lines.append(f"\U0001f4c5 Meetup: {clean_event}")
     lines.append(
-        f"If you can't reach {name}, consider contacting local authorities.",
+        f"If you can't reach {clean_name}, consider contacting local authorities.",
     )
     return "\n".join(lines)
 
@@ -204,18 +228,21 @@ def compose_inform_message(
     Returns:
         str: Formatted precautionary SMS message string.
     """
+    clean_name = sanitize_sms_text(name, max_length=50) or "A Nexus user"
+    clean_event = sanitize_sms_text(event_label, max_length=100)
+
     lines = [
-        f"⚠️ Safety check-in from {name} via Nexus.",
-        f"{name} is flagging a low-priority safety concern during a "
+        f"⚠️ Safety check-in from {clean_name} via Nexus.",
+        f"{clean_name} is flagging a low-priority safety concern during a "
         "meetup - no emergency reported, but they wanted you looped in "
         "now rather than after the fact.",
     ]
     maps_link = _maps_link(location)
     if maps_link:
         lines.append(f"\U0001f4cd Location: {maps_link}")
-    if event_label:
-        lines.append(f"\U0001f4c5 Meetup: {event_label}")
-    lines.append(f"Please check in with {name} when you can.")
+    if clean_event:
+        lines.append(f"\U0001f4c5 Meetup: {clean_event}")
+    lines.append(f"Please check in with {clean_name} when you can.")
     return "\n".join(lines)
 
 
@@ -229,8 +256,9 @@ def compose_contact_added_message(*, user_name: str, manage_link: str) -> str:
     Returns:
         str: Informational SMS text string.
     """
+    clean_name = sanitize_sms_text(user_name, max_length=50) or "A Nexus user"
     return "\n".join([
-        f"{user_name} added you as a trusted contact on Nexus Meetup Safety.",
+        f"{clean_name} added you as a trusted contact on Nexus Meetup Safety.",
         "If something feels off during a meetup, you may get a check-in "
         "or SOS text from us on their behalf.",
         f"Didn't expect this, or want out? {manage_link}",
@@ -246,8 +274,9 @@ def compose_contact_self_removed_message(*, contact_name: str) -> str:
     Returns:
         str: Formatted notification SMS text.
     """
+    clean_name = sanitize_sms_text(contact_name, max_length=50) or "A trusted contact"
     return "\n".join([
-        f"⚠️ {contact_name} removed themselves as your Nexus "
+        f"⚠️ {clean_name} removed themselves as your Nexus "
         "Meetup Safety trusted contact.",
         "They will no longer receive check-in or SOS alerts on your "
         "behalf. Add a replacement contact in Safety Center if you'd like.",
@@ -276,22 +305,26 @@ def compose_unreachable_message(
     Returns:
         str: Composed message string.
     """
+    clean_name = sanitize_sms_text(name, max_length=50) or "A Nexus user"
+    clean_event = sanitize_sms_text(event_label, max_length=100)
+    clean_conn = sanitize_sms_text(connection_type, max_length=30)
+
     lines = [
-        f"\U0001f4f5 {name}'s phone hasn't checked in via Nexus Meetup "
+        f"\U0001f4f5 {clean_name}'s phone hasn't checked in via Nexus Meetup "
         f"Safety (attempt {escalation_number} of 3).",
     ]
     context_bits: list[str] = []
     if battery_percent is not None:
         context_bits.append(f"last known battery: {battery_percent}%")
-    if connection_type:
-        context_bits.append(f"was on {connection_type}")
+    if clean_conn:
+        context_bits.append(f"was on {clean_conn}")
     if context_bits:
         lines.append(f"Last update: {', '.join(context_bits)}.")
-    if event_label:
-        lines.append(f"\U0001f4c5 Meetup: {event_label}")
-    lines.append(f"Please try to check on {name} if you can.")
+    if clean_event:
+        lines.append(f"\U0001f4c5 Meetup: {clean_event}")
+    lines.append(f"Please try to check on {clean_name} if you can.")
     lines.append(
-        f"If {name} is safe (or you'd rather not get further alerts for "
+        f"If {clean_name} is safe (or you'd rather not get further alerts for "
         f"this): {cancel_link}",
     )
     return "\n".join(lines)
@@ -378,29 +411,39 @@ def _sign_contact_portal_payload(payload: str) -> str:
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
-def make_contact_portal_token(contact_id: str) -> str:
-    """Generates a signed HMAC token for the contact portal link instead of passing the raw UUID.
+_CONTACT_PORTAL_DEFAULT_TTL_SECONDS = 30 * 86400  # 30 days
+
+
+def make_contact_portal_token(
+    contact_id: str,
+    ttl_seconds: int = _CONTACT_PORTAL_DEFAULT_TTL_SECONDS,
+) -> str:
+    """Generates a signed HMAC token with expiration for the contact portal link.
 
     Args:
         contact_id: Safety contact identifier.
+        ttl_seconds: Validity period in seconds (defaults to 30 days).
 
     Returns:
-        str: Formatted signed token string.
+        str: Formatted signed token string (base64_payload.signature).
     """
-    payload = f"{contact_id}"
+    expires_at = int(
+        (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).timestamp(),
+    )
+    payload = f"{contact_id}:{expires_at}"
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     signature = _sign_contact_portal_payload(payload)
     return f"{payload_b64}.{signature}"
 
 
 def verify_contact_portal_token(token: str) -> str | None:
-    """Verifies a contact portal token against expected HMAC.
+    """Verifies a contact portal token against expected HMAC and expiration.
 
     Args:
         token: Submitted token string.
 
     Returns:
-        str | None: The actual contact_id if valid, None otherwise.
+        str | None: The actual contact_id if valid and not expired, None otherwise.
     """
     if not token or "." not in token:
         return None
@@ -409,12 +452,21 @@ def verify_contact_portal_token(token: str) -> str | None:
         payload_b64, signature = token.split(".", 1)
         padding = "=" * (-len(payload_b64) % 4)
         payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
+        parts = payload.split(":", 1)
+        if len(parts) != 2:
+            return None
+        contact_id, expires_at_raw = parts
+        expires_at = int(expires_at_raw)
     except (ValueError, UnicodeDecodeError):
         return None
 
     if not hmac.compare_digest(_sign_contact_portal_payload(payload), signature):
         return None
 
-    return payload
+    if datetime.now(timezone.utc).timestamp() >= expires_at:
+        return None
+
+    return contact_id
+
 
 

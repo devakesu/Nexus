@@ -82,12 +82,13 @@ def with_distributed_lock(
                 lock = redis_client.lock(lock_key, timeout=ttl_seconds)
                 acquired = await lock.acquire(blocking=False)
             except Exception as err:
-                logger.warning(
-                    "Failed to communicate with Redis for job lock %s; executing without lock",
+                sentry_sdk.capture_exception(err)
+                logger.error(
+                    "Redis unavailable; skipping scheduled job %s to avoid duplicate execution across replicas: %s",
                     job_name,
+                    err,
                     exc_info=err,
                 )
-                await func(*args, **kwargs)
                 return
 
             if not acquired:
@@ -237,13 +238,15 @@ async def _acquire_escalation_idempotency(session_id: str, escalation_number: in
     try:
         return bool(await redis_client.set(idempotency_key, "1", ex=86400, nx=True))
     except Exception as err:
-        logger.warning(
-            "Failed to set idempotency key in Redis for session %s escalation %s; proceeding without idempotency guard",
+        sentry_sdk.capture_exception(err)
+        logger.error(
+            "Failed to communicate with Redis for escalation idempotency %s (%d); skipping escalation to prevent duplicate SMS dispatch: %s",
             session_id,
             escalation_number,
+            err,
             exc_info=err,
         )
-        return True
+        return False
 
 
 def _compose_session_unreachable_message(

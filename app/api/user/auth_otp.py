@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from slowapi.util import get_remote_address
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
@@ -69,6 +70,8 @@ _ACCOUNT_PHONE_OTP_TTL_SECONDS = 600
 _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS = 5
 _ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS = 60
 _LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS = 60
+_LOGIN_BY_PHONE_MAX_PHONE_ATTEMPTS = 3
+_LOGIN_BY_PHONE_PHONE_WINDOW_SECONDS = 30 * 60  # 30 minutes
 
 
 
@@ -467,8 +470,19 @@ async def verify_account_phone_otp(
     )
 
 
-def _login_by_phone_resend_key(phone_norm: str) -> str:
-    return f"login_by_phone:resend:{phone_norm}"
+def _login_by_phone_resend_key(ip: str, phone_norm: str) -> str:
+    """Generates a Redis key for phone login cooldown scoped by client IP and phone."""
+    return f"login_by_phone:resend:{ip}:{phone_norm}"
+
+
+def _login_by_phone_ip_resend_key(ip: str) -> str:
+    """Generates a Redis key for phone login cooldown scoped by client IP."""
+    return f"login_by_phone:resend:ip:{ip}"
+
+
+def _login_by_phone_phone_limit_key(phone_norm: str) -> str:
+    """Generates a Redis key for phone login rate limiting scoped globally to the target phone number."""
+    return f"login_by_phone:limit:phone:{phone_norm}"
 
 
 @router.post(
@@ -482,18 +496,40 @@ async def request_login_by_phone(
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> LoginByPhoneRequestResponse:
     """Executes request login by phone operation."""
-    _ = request
+    client_ip = get_remote_address(request)
     phone_norm = normalize_phone(payload.phone)
 
-    resend_key = _login_by_phone_resend_key(phone_norm)
-    if await redis_client.exists(resend_key):
+    # Tier 1: Per-IP resend cooldown (prevents rapid spamming from a single IP without locking out victim on another IP)
+    ip_resend_key = _login_by_phone_ip_resend_key(client_ip)
+    phone_ip_resend_key = _login_by_phone_resend_key(client_ip, phone_norm)
+
+    if await redis_client.exists(ip_resend_key) or await redis_client.exists(phone_ip_resend_key):
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
         )
+
+    # Tier 2: Global per-phone rate limit (caps total dispatches across all IPs to max 3 attempts per 30 minutes)
+    phone_limit_key = _login_by_phone_phone_limit_key(phone_norm)
+    phone_attempts = await redis_client.get(phone_limit_key)
+    if phone_attempts and int(phone_attempts) >= _LOGIN_BY_PHONE_MAX_PHONE_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts for this phone number. Please try again later.",
+        )
+
+    # Set Tier 1 cooldowns (60s)
     await redis_client.set(
-        resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
+        ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
     )
+    await redis_client.set(
+        phone_ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+
+    # Increment Tier 2 attempt counter with 30-minute expiration window
+    current_attempts = await redis_client.incr(phone_limit_key)
+    if current_attempts == 1:
+        await redis_client.expire(phone_limit_key, _LOGIN_BY_PHONE_PHONE_WINDOW_SECONDS)
 
     user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
     exists = False

@@ -2066,6 +2066,13 @@ ALTER TABLE "public"."vector_profiles" FORCE ROW LEVEL SECURITY;
 -- ==========================================================
 -- SECTION 9: REALTIME REPLICATION CONFIGURATION
 -- ==========================================================
+-- Note on Firebase App Check & Realtime Security Boundary:
+-- WebSocket/Realtime connections to Supabase bypass Firebase App Check gating.
+-- Direct access is restricted at the PostgreSQL Row-Level Security (RLS) layer
+-- (chat_conversations_select_participant, chat_events_select_participant,
+-- and chat_messages_select_participant) requiring verified Supabase JWTs.
+-- To prevent message type and protocol metadata leakage across WebSocket streams,
+-- column-level publication filtering is enforced on chat_messages below.
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
@@ -2073,7 +2080,17 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_conversation
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_events";
 
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_messages";
+-- Column-level filtering: Exclude ciphertext_metadata and message_type from Realtime payloads
+-- to prevent traffic analysis and metadata leakage to WebSocket eavesdroppers.
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."chat_messages" (
+    "id",
+    "conversation_id",
+    "sender_id",
+    "ciphertext",
+    "delivered_at",
+    "read_at",
+    "created_at"
+);
 
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";

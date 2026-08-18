@@ -61,7 +61,8 @@ async def test_with_distributed_lock_skips_when_not_acquired():
 
 
 @pytest.mark.anyio
-async def test_with_distributed_lock_handles_redis_communication_error():
+@patch("app.services.reminder_scheduler.sentry_sdk.capture_exception")
+async def test_with_distributed_lock_handles_redis_communication_error(mock_capture: MagicMock):
     mock_lock = MagicMock()
     mock_lock.acquire = AsyncMock(side_effect=Exception("Redis connection refused"))
 
@@ -75,8 +76,20 @@ async def test_with_distributed_lock_handles_redis_communication_error():
     with patch("app.services.reminder_scheduler.redis_client.lock", return_value=mock_lock):
         await sample_job()
 
-    # Falls back to executing the function
-    assert called is True
+    # Skips execution to avoid concurrent duplicate runs across replicas
+    assert called is False
+    mock_capture.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.services.reminder_scheduler.sentry_sdk.capture_exception")
+async def test_acquire_escalation_idempotency_handles_redis_error(mock_capture: MagicMock):
+    from app.services.reminder_scheduler import _acquire_escalation_idempotency
+
+    with patch("app.services.reminder_scheduler.redis_client.set", AsyncMock(side_effect=Exception("Redis outage"))):
+        res = await _acquire_escalation_idempotency("session-123", 1)
+        assert res is False
+        mock_capture.assert_called_once()
 
 
 @pytest.mark.anyio
@@ -785,7 +798,11 @@ def test_make_and_verify_contact_portal_token():
     val = verify_contact_portal_token(token)
     assert val == contact_id
 
-    # Verification returns None for expired or malformed token
+    # Expired token returns None
+    expired_token = make_contact_portal_token(contact_id, ttl_seconds=-10)
+    assert verify_contact_portal_token(expired_token) is None
+
+    # Verification returns None for malformed token
     assert verify_contact_portal_token("malformed-token") is None
 
 

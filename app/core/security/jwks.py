@@ -1,6 +1,6 @@
 """JSON Web Key Set (JWKS) key retrieval and caching for Supabase JWT verification.
 
-Provides dynamic remote public key fetching with 1-hour in-memory caching and lock protection,
+Provides dynamic remote public key fetching with 15-minute in-memory caching and lock protection,
 along with static fallback resolution for offline or local execution modes.
 """
 
@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import httpx
 import jwt
+import sentry_sdk
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from jwt import PyJWK, PyJWKSet
 
@@ -19,11 +20,12 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL: 1 hour (3600s) to minimize exposure window on key rotation/revocation
-JWKS_CACHE_TTL_SECONDS: float = 3600.0
+# Cache TTL: 15 minutes (900s) to minimize exposure window on key rotation/revocation
+JWKS_CACHE_TTL_SECONDS: float = 900.0
 
 # Shared memory cache primitives for zero-latency signature parsing
 _cached_jwks: PyJWKSet | None = None
+_cached_keys_by_kid: dict[str, EllipticCurvePublicKey] = {}
 _last_fetch_time: float = 0.0
 _jwks_lock = asyncio.Lock()
 _http_client: httpx.AsyncClient | None = None
@@ -31,8 +33,9 @@ _http_client: httpx.AsyncClient | None = None
 
 def clear_jwks_cache() -> None:
     """Clears the cached JWKS and resets the last fetch timestamp."""
-    global _cached_jwks, _last_fetch_time
+    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time
     _cached_jwks = None
+    _cached_keys_by_kid = {}
     _last_fetch_time = 0.0
 
 
@@ -157,7 +160,7 @@ def get_fallback_public_key(kid: str | None) -> EllipticCurvePublicKey:
 
 
 def syntax_has_kid(jwk_set: PyJWKSet, kid: str) -> bool:
-    """Checks whether a Key ID exists in a PyJWKSet.
+    """Checks whether a Key ID exists in a PyJWKSet or cached key dictionary.
 
     Args:
         jwk_set: Active cached PyJWKSet instance.
@@ -166,6 +169,8 @@ def syntax_has_kid(jwk_set: PyJWKSet, kid: str) -> bool:
     Returns:
         bool: True if key present, False otherwise.
     """
+    if _cached_keys_by_kid:
+        return kid in _cached_keys_by_kid
     return any(jwk.key_id == kid for jwk in jwk_set.keys)
 
 
@@ -175,20 +180,43 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
     Args:
         current_time: Epoch timestamp of fetch attempt.
     """
-    global _cached_jwks, _last_fetch_time
+    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
         client = _get_jwks_client()
         response = await client.get(jwks_url)
         if response.status_code == 200:
-            _cached_jwks = PyJWKSet.from_dict(response.json())
+            jwk_set = PyJWKSet.from_dict(response.json())
+            keys_dict: dict[str, EllipticCurvePublicKey] = {}
+            for jwk in jwk_set.keys:
+                if jwk.key_id:
+                    try:
+                        key_obj = jwk.key
+                        if isinstance(key_obj, EllipticCurvePublicKey):
+                            keys_dict[jwk.key_id] = key_obj
+                    except (ValueError, KeyError, AttributeError, TypeError) as err:
+                        logger.warning("Failed parsing public key for kid %s: %s", jwk.key_id, err)
+            _cached_jwks = jwk_set
+            _cached_keys_by_kid = keys_dict
             _last_fetch_time = current_time
+        else:
+            logger.error(
+                "Supabase JWKS fetch returned unexpected non-200 status %d: %s",
+                response.status_code,
+                response.text,
+            )
+            sentry_sdk.capture_message(
+                f"Supabase JWKS fetch returned unexpected status {response.status_code}",
+                level="error",
+                tags={"status_code": str(response.status_code), "location": "jwks_fetch"},
+            )
     except httpx.HTTPError as err:
         logger.warning("Supabase JWKS dynamic fetch failed: %r", err)
+        sentry_sdk.capture_exception(err)
 
 
 def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
-    """Resolves an EllipticCurvePublicKey from the active memory cache by Key ID.
+    """Resolves an EllipticCurvePublicKey from the active memory cache by Key ID in O(1) time.
 
     Args:
         token_kid: Target key identifier string.
@@ -196,17 +224,20 @@ def _resolve_key_from_cache(token_kid: str) -> EllipticCurvePublicKey | None:
     Returns:
         EllipticCurvePublicKey | None: Matching key object or None.
     """
-    if not _cached_jwks:
+    if not _cached_keys_by_kid:
+        # Fallback to linear scan if dictionary is empty but jwk_set is present
+        if not _cached_jwks:
+            return None
+        for jwk in _cached_jwks.keys:
+            if jwk.key_id == token_kid:
+                try:
+                    resolved_key = jwk.key
+                    if isinstance(resolved_key, EllipticCurvePublicKey):
+                        return resolved_key
+                except (ValueError, KeyError, AttributeError, TypeError) as err:
+                    logger.warning("Failed to resolve public key from cache: %s", err)
         return None
-    for jwk in _cached_jwks.keys:
-        if jwk.key_id == token_kid:
-            try:
-                resolved_key = jwk.key
-                if isinstance(resolved_key, EllipticCurvePublicKey):
-                    return resolved_key
-            except (ValueError, KeyError, AttributeError, TypeError) as err:
-                logger.warning("Failed to resolve public key from cache: %s", err)
-    return None
+    return _cached_keys_by_kid.get(token_kid)
 
 
 async def get_live_supabase_public_key(

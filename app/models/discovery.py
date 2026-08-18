@@ -223,6 +223,26 @@ class DiscoveryActionRequest(BaseModel):
         description="Reason code; required when action is report.",
     )
 
+    # Optional conversation id if the action is linked to a chat conversation.
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional conversation id if the discovery action is performed in context of a chat.",
+    )
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id_uuid(cls, v: str | None) -> str | None:
+        """Validates that conversation_id is a valid UUID if provided."""
+        if v is None:
+            return None
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("conversation_id must be a valid UUID") from e
+        return v
+
     reason_detail: str | None = Field(
         default=None,
         max_length=500,
@@ -550,6 +570,26 @@ class LikeActionRequest(BaseModel):
             raise ValueError("target_id must be a valid UUID") from e
         return v
 
+    # Optional conversation id if the action is linked to a chat conversation.
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional conversation id if the action is performed in context of a chat.",
+    )
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id_uuid(cls, v: str | None) -> str | None:
+        """Validates that conversation_id is a valid UUID if provided."""
+        if v is None:
+            return None
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("conversation_id must be a valid UUID") from e
+        return v
+
     action: Literal["like", "superlike", "pass", "hide", "block", "report"]
     tab: DiscoveryTab
     reason: (
@@ -636,6 +676,26 @@ class MatchActionRequest(BaseModel):
             uuid.UUID(v)
         except ValueError as e:
             raise ValueError("target_id must be a valid UUID") from e
+        return v
+
+    # Optional conversation id if the action is linked to a chat conversation.
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional conversation id if the match action is performed in context of a chat.",
+    )
+
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id_uuid(cls, v: str | None) -> str | None:
+        """Validates that conversation_id is a valid UUID if provided."""
+        if v is None:
+            return None
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("conversation_id must be a valid UUID") from e
         return v
 
     action: Literal["unmatch", "block", "report"]

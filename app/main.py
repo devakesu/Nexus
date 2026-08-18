@@ -21,6 +21,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
+from app.api.admin import router as admin_router
 from app.api.chat import router as chat_router
 from app.api.discovery import router as discovery_router
 from app.api.feedback import router as feedback_router
@@ -239,6 +240,7 @@ app.include_router(spotify_router)
 app.include_router(user_router)
 app.include_router(status_router)
 app.include_router(well_known_router)
+app.include_router(admin_router)
 
 
 if settings.debug:

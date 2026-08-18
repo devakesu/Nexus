@@ -335,3 +335,145 @@ def test_prune_excess_viewer_discovery_sessions() -> None:
 
     mock_builder.delete.assert_called_once()
     mock_builder.in_.assert_called_once_with("id", ["s-2", "s-1"])
+
+
+@pytest.mark.anyio
+@patch("app.db.chat.fetch_conversation_participants")
+@patch("app.api.discovery.endpoints.record_discovery_action")
+async def test_discovery_action_valid_conversation_id_succeeds(
+    mock_record: MagicMock,
+    mock_fetch_conv: MagicMock,
+) -> None:
+    conv_id = "33333333-3333-3333-3333-333333333333"
+    actor_id = "11111111-1111-1111-1111-111111111111"
+    target_id = "22222222-2222-2222-2222-222222222222"
+
+    mock_fetch_conv.return_value = {
+        "user_a_id": actor_id,
+        "user_b_id": target_id,
+        "tab": "Dating",
+    }
+
+    payload = DiscoveryActionRequest(
+        target_id=target_id,
+        action="block",
+        conversation_id=conv_id,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with patch("app.api.discovery.endpoints.invalidate_block_cache"), \
+         patch("app.api.discovery.endpoints.set_match_unmatched"), \
+         patch("app.api.discovery.endpoints.close_conversation_for_match_action"):
+        res = await handle_discovery_action(request=request, payload=payload, user_id=actor_id)
+        assert res.success is True
+        mock_record.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.db.chat.fetch_conversation_participants")
+async def test_discovery_action_nonexistent_conversation_id_returns_404(
+    mock_fetch_conv: MagicMock,
+) -> None:
+    mock_fetch_conv.return_value = None
+
+    payload = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        conversation_id="33333333-3333-3333-3333-333333333333",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="11111111-1111-1111-1111-111111111111",
+        )
+
+    assert exc_info.value.status_code == 404
+    assert "Referenced conversation not found" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.db.chat.fetch_conversation_participants")
+async def test_discovery_action_unauthorized_conversation_actor_returns_403(
+    mock_fetch_conv: MagicMock,
+) -> None:
+    # Conversation between strangers X and Y
+    mock_fetch_conv.return_value = {
+        "user_a_id": "88888888-8888-8888-8888-888888888888",
+        "user_b_id": "99999999-9999-9999-9999-999999999999",
+    }
+
+    payload = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        conversation_id="33333333-3333-3333-3333-333333333333",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="11111111-1111-1111-1111-111111111111",
+        )
+
+    assert exc_info.value.status_code == 403
+    assert "Actor is not a participant" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.db.chat.fetch_conversation_participants")
+async def test_discovery_action_mismatched_conversation_target_returns_400(
+    mock_fetch_conv: MagicMock,
+) -> None:
+    actor_id = "11111111-1111-1111-1111-111111111111"
+    # Conversation between actor and other_user
+    mock_fetch_conv.return_value = {
+        "user_a_id": actor_id,
+        "user_b_id": "88888888-8888-8888-8888-888888888888",
+    }
+
+    # Action targeting victim who is NOT in this conversation
+    payload = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        conversation_id="33333333-3333-3333-3333-333333333333",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id=actor_id,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Target user is not a participant" in exc_info.value.detail
+

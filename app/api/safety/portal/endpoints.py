@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import secrets
 from typing import Any, cast
 
 from fastapi import APIRouter, Body, Header, HTTPException, Request
@@ -161,6 +162,12 @@ async def request_portal_otp(
                 f"Your Nexus Meetup Safety verification code is {code}. It "
                 "expires in 10 minutes. Do not share this code.",
             ),
+        )
+    else:
+        await redis_client.setex(
+            _otp_key(session_id, phone_norm),
+            _OTP_TTL_SECONDS,
+            f"sentinel:{secrets.token_hex(32)}",
         )
 
     return SafetyPortalOtpRequestResponse(sent=True)
@@ -375,6 +382,12 @@ async def request_contact_portal_otp(
                 f"Your Nexus verification code is {code}. It expires in "
                 "10 minutes. Do not share this code.",
             ),
+        )
+    else:
+        await redis_client.setex(
+            _contact_otp_key(contact_id, phone_norm),
+            _OTP_TTL_SECONDS,
+            f"sentinel:{secrets.token_hex(32)}",
         )
 
     return SafetyContactPortalOtpRequestResponse(sent=True)

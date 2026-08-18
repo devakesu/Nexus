@@ -11,6 +11,7 @@ from typing import Any, cast
 from sentry_sdk.types import Event, Hint
 
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+_PHONE_RE = re.compile(r"(?:\+[1-9]\d{6,14}\b|\b[1-9]\d{7,14}\b)")
 _SECRET_RE = re.compile(
     r"(bearer|auth|token|authorization|key|password|secret|jwt|"
     r"access_token|refresh_token)[=\s:]+"
@@ -33,6 +34,19 @@ def _redact_email(match: re.Match[str]) -> str:
     return email if email.lower().startswith("support@") else "[EMAIL_REDACTED]"
 
 
+def _redact_phone(match: re.Match[str]) -> str:
+    """Redacts phone number strings.
+
+    Args:
+        match: Regex match object containing phone number string.
+
+    Returns:
+        str: Redacted phone placeholder.
+    """
+    _ = match
+    return "[PHONE_REDACTED]"
+
+
 def _redact_secret(match: re.Match[str]) -> str:
     """Redacts sensitive tokens and secret values.
 
@@ -46,7 +60,7 @@ def _redact_secret(match: re.Match[str]) -> str:
 
 
 def _scrub_string(value: str) -> str:
-    """Scrubs sensitive email addresses and token secrets from a string value.
+    """Scrubs sensitive email addresses, phone numbers, and token secrets from a string value.
 
     Args:
         value: Input string to scrub.
@@ -55,6 +69,7 @@ def _scrub_string(value: str) -> str:
         str: Sanitized string.
     """
     value = _EMAIL_RE.sub(_redact_email, value)
+    value = _PHONE_RE.sub(_redact_phone, value)
     return _SECRET_RE.sub(_redact_secret, value)
 
 

@@ -7,8 +7,7 @@ and managing blocked user lists.
 import asyncio
 import logging
 import uuid
-from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -18,7 +17,10 @@ from app.core.config import DiscoveryTab, settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.core.security.crypto import DecryptFailedError
-from app.db.chat import close_conversation_for_match_action
+from app.db.chat import (
+    close_conversation_for_match_action,
+    fetch_conversation_participants,
+)
 from app.db.client import (
     DatabaseAccessError,
     ProfileDecodeError,
@@ -69,10 +71,42 @@ def _parse_matched_at(raw_ts: Any) -> datetime:
 
         Returns:
             datetime: Response payload or result."""
-    with suppress(Exception):
-        if isinstance(raw_ts, (str, datetime)):
-            return parse_utc_datetime(raw_ts)
-    return datetime.now(tz=timezone.utc)
+    if isinstance(raw_ts, datetime):
+        return raw_ts
+    return parse_utc_datetime(raw_ts)
+
+
+async def _validate_conversation_membership(
+    user_id: str,
+    target_id: str,
+    conversation_id: str | None,
+) -> None:
+    """Validates that both user_id and target_id are participants of the conversation."""
+    if not conversation_id:
+        return
+
+    conv = await asyncio.to_thread(fetch_conversation_participants, conversation_id)
+    if not conv:
+        raise HTTPException(
+            status_code=404,
+            detail="Referenced conversation not found.",
+        )
+    user_a = str(conv.get("user_a_id") or "").lower()
+    user_b = str(conv.get("user_b_id") or "").lower()
+    actor = str(user_id).lower()
+    target = str(target_id).lower()
+
+    participants = {user_a, user_b}
+    if actor not in participants:
+        raise HTTPException(
+            status_code=403,
+            detail="Actor is not a participant in the referenced conversation.",
+        )
+    if target not in participants or actor == target:
+        raise HTTPException(
+            status_code=400,
+            detail="Target user is not a participant in the referenced conversation.",
+        )
 
 
 @router.get("/api/v1/likes", response_model=LikesListResponse)
@@ -395,6 +429,9 @@ async def record_like_back_action(  # noqa: C901
             dict[str, Any]: Match creation outcome payload."""
     _ = request
     try:
+        # Validate conversation_id membership if supplied
+        await _validate_conversation_membership(user_id, payload.target_id, payload.conversation_id)
+
         # 1. Claim & revoke incoming like first to prevent race conditions or duplicate matches
         claimed_like = False
         if payload.action in ("like", "superlike", "pass", "block"):
@@ -599,6 +636,9 @@ async def record_match_action(
             dict[str, bool]: Success status dict."""
     _ = request
     try:
+        # Validate conversation_id membership if supplied
+        await _validate_conversation_membership(user_id, payload.target_id, payload.conversation_id)
+
         # 1. Dissolve the match row and close associated chat conversation first
         await asyncio.to_thread(
             set_match_unmatched,

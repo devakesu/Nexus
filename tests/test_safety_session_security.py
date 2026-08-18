@@ -196,3 +196,95 @@ def test_fetch_evidence_decrypts_media_key() -> None:
 
     assert len(rows) == 1
     assert rows[0]["media_key_base64"] == raw_key
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.end_safety_session")
+async def test_end_session_succeeds(mock_end: MagicMock) -> None:
+    from app.api.safety.endpoints import end_session
+    from app.models import SafetySessionEndRequest
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/safety/session/end",
+    }
+    request = Request(scope)
+    payload = SafetySessionEndRequest(session_id="11111111-1111-1111-1111-111111111111")
+
+    res = await end_session(
+        request=request,
+        payload=payload,
+        user_id="user-123",
+    )
+    assert res == {"ok": True}
+    mock_end.assert_called_once_with("user-123", "11111111-1111-1111-1111-111111111111")
+
+
+def test_safety_endpoints_enforce_replay_protected_app_check() -> None:
+    from fastapi.routing import APIRoute
+
+    from app.api.dependencies import verify_app_check_with_replay_protection
+    from app.api.safety.endpoints import router
+
+    endpoints_to_check = {
+        "/api/v1/safety/session/checkin",
+        "/api/v1/safety/session/end",
+        "/api/v1/safety/session/start",
+        "/api/v1/safety/alert",
+        "/api/v1/safety/evidence",
+    }
+
+    found: set[str] = set()
+    for route in router.routes:
+        if isinstance(route, APIRoute) and route.path in endpoints_to_check:
+            dep_callables = [d.call for d in route.dependant.dependencies]
+            assert verify_app_check_with_replay_protection in dep_callables, (
+                f"Route {route.path} is missing verify_app_check_with_replay_protection"
+            )
+            found.add(route.path)
+
+    assert found == endpoints_to_check
+
+
+def test_sanitize_sms_text_strips_newlines_and_control_chars() -> None:
+    from app.core.utils.sms import sanitize_sms_text
+
+    # None and empty
+    assert sanitize_sms_text(None) is None
+    assert sanitize_sms_text("") is None
+    assert sanitize_sms_text("   \n\r\t  ") is None
+
+    # Strips newlines, control chars, and multi-spaces
+    malicious = "Alice\n\nDISREGARD: All safe\x00\x1f\r\tPlease wire $500"
+    cleaned = sanitize_sms_text(malicious, max_length=100)
+    assert cleaned == "Alice DISREGARD: All safe Please wire $500"
+    assert "\n" not in cleaned
+    assert "\r" not in cleaned
+    assert "\x00" not in cleaned
+
+    # Enforces max_length
+    assert sanitize_sms_text("A" * 200, max_length=50) == "A" * 50
+
+
+def test_compose_sos_message_sanitizes_injected_labels() -> None:
+    from app.core.utils.sms import compose_sos_message
+
+    injected_name = "Mallory\n🚨 FAKE ALERT 🚨\nIgnore previous texts"
+    injected_event = "Coffee\nCRITICAL: Call +19999999999"
+
+    msg = compose_sos_message(
+        name=injected_name,
+        silent=False,
+        location={"lat": 37.7749, "lng": -122.4194},
+        event_label=injected_event,
+    )
+
+    # Name is sanitized onto the single alert line without newline splitting
+    lines = msg.split("\n")
+    assert lines[0] == "🚨 Emergency alert from Mallory 🚨 FAKE ALERT 🚨 Ignore previous texts via Nexus."
+    # Meetup line contains cleaned event
+    assert "Meetup: Coffee CRITICAL: Call +19999999999" in msg
+
+

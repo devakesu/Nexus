@@ -16,7 +16,6 @@ from fastapi.responses import HTMLResponse
 
 from app.api.dependencies import (
     require_safety_consent,
-    verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
@@ -29,6 +28,7 @@ from app.core.utils.sms import (
     compose_inform_message,
     compose_sos_message,
     make_contact_portal_token,
+    sanitize_sms_text,
     send_sms,
     verify_escalation_cancel_token,
 )
@@ -279,7 +279,8 @@ async def send_safety_alert(
             detail="No trusted contacts on file to alert.",
         )
 
-    display_name = payload.session_label or "A Nexus user"
+    display_name = sanitize_sms_text(payload.session_label, max_length=50) or "A Nexus user"
+    clean_event_label = sanitize_sms_text(payload.event_label, max_length=100)
     location = (
         payload.current_location.model_dump()
         if payload.current_location is not None
@@ -290,14 +291,14 @@ async def send_safety_alert(
         body = compose_inform_message(
             name=display_name,
             location=location,
-            event_label=payload.event_label,
+            event_label=clean_event_label,
         )
     else:
         body = compose_sos_message(
             name=display_name,
             silent=payload.alert_type == "sos_silent",
             location=location,
-            event_label=payload.event_label,
+            event_label=clean_event_label,
         )
 
     notified = await _send_alert_sms_to_contacts(contacts, body, user_id, payload.alert_type)
@@ -431,7 +432,7 @@ async def start_session(
 async def checkin_session(
     request: Request,
     payload: SafetySessionCheckinRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> dict[str, bool]:
     """A successful "I'm Safe" check-in - proves the device is fine and
@@ -478,7 +479,7 @@ async def checkin_session(
 async def end_session(
     request: Request,
     payload: SafetySessionEndRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> dict[str, bool]:
     """Concludes an active Meetup Safety check-in monitoring session.

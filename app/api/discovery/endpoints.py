@@ -303,15 +303,82 @@ async def get_discovery_viewport(
 _ALLOWED_REVERSAL_ACTIONS: frozenset[str] = frozenset({"unpass", "unhide", "unblock"})
 
 
+async def _validate_conversation_membership(
+    user_id: str,
+    target_id: str,
+    conversation_id: str | None,
+) -> None:
+    """Validates that both user_id and target_id are participants of the conversation."""
+    if not conversation_id:
+        return
+
+    from app.db.chat import fetch_conversation_participants
+
+    conv = await asyncio.to_thread(
+        fetch_conversation_participants, conversation_id,
+    )
+    if not conv:
+        raise HTTPException(
+            status_code=404,
+            detail="Referenced conversation not found.",
+        )
+    user_a = str(conv.get("user_a_id") or "").lower()
+    user_b = str(conv.get("user_b_id") or "").lower()
+    actor = str(user_id).lower()
+    target = str(target_id).lower()
+
+    participants = {user_a, user_b}
+    if actor not in participants:
+        raise HTTPException(
+            status_code=403,
+            detail="Actor is not a participant in the referenced conversation.",
+        )
+    if target not in participants or actor == target:
+        raise HTTPException(
+            status_code=400,
+            detail="Target user is not a participant in the referenced conversation.",
+        )
+
+
+async def _validate_forward_session(
+    user_id: str,
+    target_id: str,
+) -> None:
+    """Validates that forward discovery actions occur within an active discovery session."""
+    from datetime import timedelta
+
+    from app.db.client import utcnow
+    from app.db.sessions import get_candidate_session_details
+
+    session_details = await asyncio.to_thread(
+        get_candidate_session_details,
+        user_id,
+        target_id,
+    )
+    if session_details is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Target user is not in any active discovery session.",
+        )
+
+    # 5-minute grace window: allow actions if expires_at + 5 minutes > now
+    now = utcnow()
+    expires_at = session_details["expires_at"]
+    if expires_at is None or now > expires_at + timedelta(minutes=5):
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "code": "SESSION_EXPIRED",
+                "message": "Discovery session has expired. Please refresh your feed.",
+            },
+        )
+
+
 async def _validate_discovery_action(
     user_id: str,
     payload: DiscoveryActionRequest,
 ) -> None:
-    """Validate discovery action.
-
-        Args:
-            user_id: Unique UUID string of the authenticated user.
-            payload: Validated request body model containing parameters."""
+    """Validate discovery action."""
     from app.db.discovery import has_active_discovery_action
 
     is_reversal = payload.action.startswith("un")
@@ -324,7 +391,6 @@ async def _validate_discovery_action(
     base_action = payload.action[2:] if is_reversal else payload.action
 
     if is_reversal:
-        # Reversal actions must be validated against an active action.
         is_valid = await asyncio.to_thread(
             has_active_discovery_action,
             user_id,
@@ -340,36 +406,12 @@ async def _validate_discovery_action(
                     "targeting this user to reverse."
                 ),
             )
-    else:
-        # Forward actions (except block/report) must be validated against active session.
-        if payload.action not in ("block", "report"):
-            from datetime import timedelta
+    elif payload.action not in ("block", "report"):
+        await _validate_forward_session(user_id, payload.target_id)
 
-            from app.db.client import utcnow
-            from app.db.sessions import get_candidate_session_details
-
-            session_details = await asyncio.to_thread(
-                get_candidate_session_details,
-                user_id,
-                payload.target_id,
-            )
-            if session_details is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Target user is not in any active discovery session.",
-                )
-
-            # 5-minute grace window: allow actions if expires_at + 5 minutes > now
-            now = utcnow()
-            expires_at = session_details["expires_at"]
-            if expires_at is None or now > expires_at + timedelta(minutes=5):
-                raise HTTPException(
-                    status_code=410,
-                    detail={
-                        "code": "SESSION_EXPIRED",
-                        "message": "Discovery session has expired. Please refresh your feed.",
-                    },
-                )
+    await _validate_conversation_membership(
+        user_id, payload.target_id, payload.conversation_id,
+    )
 
 
 @router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)

@@ -8,11 +8,15 @@ from app.api.safety.portal.endpoints import (
     get_contact_portal_details,
     remove_trusted_contact,
     request_contact_portal_otp,
+    request_portal_otp,
     verify_contact_portal_otp,
+    verify_portal_otp,
 )
 from app.models import (
     SafetyContactPortalOtpRequestRequest,
     SafetyContactPortalOtpVerifyRequest,
+    SafetyPortalOtpRequestRequest,
+    SafetyPortalOtpVerifyRequest,
 )
 
 
@@ -156,3 +160,145 @@ async def test_remove_trusted_contact_success(
     await asyncio.sleep(0.1)
     mock_send_sms.assert_called_once()
     mock_send_email.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.portal.endpoints.send_sms")
+async def test_request_portal_otp_matched_stores_hash_and_sends_sms(
+    mock_send_sms: MagicMock,
+    mock_fetch_contacts: MagicMock,
+    mock_fetch_session: MagicMock,
+    mock_redis: MagicMock,
+):
+    mock_redis.exists = AsyncMock(return_value=False)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+
+    mock_fetch_session.return_value = {"id": "session-123", "user_id": "user-456"}
+    mock_fetch_contacts.return_value = [{"id": "c-1", "phone": "+15551112233"}]
+    mock_send_sms.return_value = MagicMock(success=True)
+
+    payload = SafetyPortalOtpRequestRequest(phone="+15551112233")
+    res = await request_portal_otp(
+        request=MagicMock(),
+        session_id="session-123",
+        payload=payload,
+    )
+
+    assert res.sent is True
+    mock_send_sms.assert_called_once()
+    # Ensure setex was called for OTP storage
+    assert mock_redis.setex.call_count == 1
+    call_args = mock_redis.setex.call_args[0]
+    assert call_args[0] == "safety_portal:otp:session-123:+15551112233"
+    assert not call_args[2].startswith("sentinel:")
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.portal.endpoints.send_sms")
+async def test_request_portal_otp_unmatched_stores_sentinel_no_sms(
+    mock_send_sms: MagicMock,
+    mock_fetch_contacts: MagicMock,
+    mock_fetch_session: MagicMock,
+    mock_redis: MagicMock,
+):
+    mock_redis.exists = AsyncMock(return_value=False)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+
+    mock_fetch_session.return_value = {"id": "session-123", "user_id": "user-456"}
+    mock_fetch_contacts.return_value = [{"id": "c-1", "phone": "+15559998877"}]
+
+    payload = SafetyPortalOtpRequestRequest(phone="+15550000000")
+    res = await request_portal_otp(
+        request=MagicMock(),
+        session_id="session-123",
+        payload=payload,
+    )
+
+    assert res.sent is True
+    mock_send_sms.assert_not_called()
+    # Verify sentinel was stored to prevent enumeration
+    assert mock_redis.setex.call_count == 1
+    call_args = mock_redis.setex.call_args[0]
+    assert call_args[0] == "safety_portal:otp:session-123:+15550000000"
+    assert call_args[2].startswith("sentinel:")
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
+@patch("app.api.safety.portal.endpoints.send_sms")
+async def test_request_contact_portal_otp_unmatched_stores_sentinel_no_sms(
+    mock_send_sms: MagicMock,
+    mock_fetch: MagicMock,
+    mock_redis: MagicMock,
+):
+    mock_redis.exists = AsyncMock(return_value=False)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+
+    mock_fetch.return_value = {"id": "contact-123", "phone": "+15559998877", "user_id": "user-456"}
+
+    payload = SafetyContactPortalOtpRequestRequest(phone="+15550000000")
+    res = await request_contact_portal_otp(
+        request=MagicMock(),
+        contact_id="contact-123",
+        payload=payload,
+    )
+
+    assert res.sent is True
+    mock_send_sms.assert_not_called()
+    assert mock_redis.setex.call_count == 1
+    call_args = mock_redis.setex.call_args[0]
+    assert call_args[0] == "safety_contact_portal:otp:contact-123:+15550000000"
+    assert call_args[2].startswith("sentinel:")
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+async def test_verify_portal_otp_sentinel_returns_incorrect_code(
+    mock_redis: MagicMock,
+):
+    """When a sentinel OTP exists (unmatched phone was requested), verify returns 'Incorrect code.'."""
+    mock_redis.get = AsyncMock(side_effect=[None, "sentinel:abcdef1234567890"])
+    mock_redis.incr = AsyncMock()
+    mock_redis.expire = AsyncMock()
+
+    payload = SafetyPortalOtpVerifyRequest(phone="+15550000000", code="000000")
+    with pytest.raises(HTTPException) as exc_info:
+        await verify_portal_otp(
+            request=MagicMock(),
+            session_id="session-123",
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Incorrect code."
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+async def test_verify_portal_otp_never_requested_returns_expired_or_never_requested(
+    mock_redis: MagicMock,
+):
+    """When no OTP was ever requested (key absent), returns 'expired or was never requested'."""
+    mock_redis.get = AsyncMock(side_effect=[None, None])
+
+    payload = SafetyPortalOtpVerifyRequest(phone="+15550000000", code="000000")
+    with pytest.raises(HTTPException) as exc_info:
+        await verify_portal_otp(
+            request=MagicMock(),
+            session_id="session-123",
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "expired or was never requested" in exc_info.value.detail
+
