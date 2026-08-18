@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 
 /// Service to handle application security checks, including debugger detection,
 /// overlays, and screen recording/mirroring detection.
@@ -42,12 +42,7 @@ class SecurityService {
     if (await isDebuggerConnected()) {
       try {
         // 1. Wipe key vault and tokens
-        const storage = FlutterSecureStorage(
-          iOptions: IOSOptions(
-            accessibility: KeychainAccessibility.first_unlock_this_device,
-          ),
-        );
-        await storage.deleteAll();
+        await AppSecureStorage.instance.deleteAll();
         // 2. Best-effort purge of temporary evidence directory files from disk
         final tempDir = Directory.systemTemp;
         if (tempDir.existsSync()) {

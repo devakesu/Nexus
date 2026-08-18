@@ -117,3 +117,18 @@ def encrypt_to_hex(value: str | None) -> str | None:
     enc = encrypt_pii(value)
     return f"\\x{enc.hex()}" if enc else None
 
+
+def get_hmac_signing_key() -> bytes:
+    """Returns the dedicated HMAC signing key for token and OTP signatures.
+
+    Enforces cryptographic domain separation (NIST SP 800-57): strictly requires
+    `hmac_signing_key` and forbids fallback to `blind_index_key`.
+    """
+    key = settings.hmac_signing_key.strip() if settings.hmac_signing_key else ""
+    if not key:
+        raise RuntimeError(
+            "HMAC_SIGNING_KEY must be configured for signing and verifying tokens.",
+        )
+    return key.encode("utf-8")
+
+

@@ -369,8 +369,8 @@ class _LoginScreenState extends State<LoginScreen>
         throw Exception('Missing authentication tokens from Google.');
       }
 
-      final encryptedAccessToken = EncryptedString(accessToken);
-      final encryptedIdToken = EncryptedString(idToken);
+      final encryptedAccessToken = await EncryptedString.create(accessToken);
+      final encryptedIdToken = await EncryptedString.create(idToken);
 
       await encryptedAccessToken.use((accToken) async {
         await encryptedIdToken.use((idTok) async {
@@ -659,16 +659,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _verifyOtp() async {
     final target = _emailController.text.trim();
-    final encryptedCode = EncryptedString(_otpController.text.trim());
+    final otpText = _otpController.text.trim();
 
-    final isLengthValid = encryptedCode.use(
-      (code) => code.length == AppConfig.otpLength,
-    );
-    final isFormatValid = encryptedCode.use(
-      (code) => RegExp(r'^\d+$').hasMatch(code),
-    );
-
-    if (target.isEmpty || _otpController.text.trim().isEmpty) {
+    if (target.isEmpty || otpText.isEmpty) {
       NexusToast.show(
         context,
         'Please enter the OTP verification code.',
@@ -677,7 +670,17 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
+    final encryptedCode = await EncryptedString.create(otpText);
+
+    final isLengthValid = await encryptedCode.use(
+      (code) => code.length == AppConfig.otpLength,
+    );
+    final isFormatValid = await encryptedCode.use(
+      (code) => RegExp(r'^\d+$').hasMatch(code),
+    );
+
     if (!isLengthValid || !isFormatValid) {
+      if (!mounted) return;
       NexusToast.show(
         context,
         'Please enter a valid ${AppConfig.otpLength}-digit OTP code (digits only).',
@@ -686,6 +689,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
@@ -720,11 +724,9 @@ class _LoginScreenState extends State<LoginScreen>
   /// than ever knowing the account's email or performing its own OTP call.
   Future<void> _verifyLoginByPhoneOtp() async {
     final phone = _phoneController.text.trim();
-    final encryptedCode = EncryptedString(_otpController.text.trim());
+    final otpText = _otpController.text.trim();
 
-    final isCodeEmpty = encryptedCode.use((code) => code.isEmpty);
-
-    if (phone.isEmpty || isCodeEmpty) {
+    if (phone.isEmpty || otpText.isEmpty) {
       NexusToast.show(
         context,
         'Please enter the OTP verification code.',
@@ -733,6 +735,9 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
+    final encryptedCode = await EncryptedString.create(otpText);
+
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });

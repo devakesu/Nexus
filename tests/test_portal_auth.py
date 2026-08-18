@@ -74,25 +74,88 @@ def test_verify_portal_access_token_rejections() -> None:
 def test_get_signing_key_behavior() -> None:
     import pytest
 
+    from app.core.security.crypto import get_hmac_signing_key
     from app.core.security.portal_auth import _get_signing_key
 
-    # Prefer hmac_signing_key
-    with patch("app.core.security.portal_auth.settings.hmac_signing_key", "custom_hmac_key"), patch(
-        "app.core.security.portal_auth.settings.blind_index_key", "fallback_blind_key",
+    # Strictly use hmac_signing_key
+    with patch("app.core.security.crypto.settings.hmac_signing_key", "custom_hmac_key"), patch(
+        "app.core.security.crypto.settings.blind_index_key", "fallback_blind_key",
     ):
         assert _get_signing_key() == b"custom_hmac_key"
+        assert get_hmac_signing_key() == b"custom_hmac_key"
 
-    # Fallback to blind_index_key when hmac_signing_key is empty
-    with patch("app.core.security.portal_auth.settings.hmac_signing_key", ""), patch(
-        "app.core.security.portal_auth.settings.blind_index_key", "fallback_blind_key",
-    ):
-        assert _get_signing_key() == b"fallback_blind_key"
-
-    # Raise RuntimeError when neither key is configured
-    with patch("app.core.security.portal_auth.settings.hmac_signing_key", ""), patch(
-        "app.core.security.portal_auth.settings.blind_index_key", "",
+    # Strictly forbid fallback to blind_index_key when hmac_signing_key is empty
+    with patch("app.core.security.crypto.settings.hmac_signing_key", ""), patch(
+        "app.core.security.crypto.settings.blind_index_key", "fallback_blind_key",
     ):
         with pytest.raises(RuntimeError) as exc_info:
             _get_signing_key()
-        assert "HMAC_SIGNING_KEY or BLIND_INDEX_KEY must be configured" in str(exc_info.value)
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_info.value)
+
+        with pytest.raises(RuntimeError) as exc_crypto:
+            get_hmac_signing_key()
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_crypto.value)
+
+    # Raise RuntimeError when neither key is configured
+    with patch("app.core.security.crypto.settings.hmac_signing_key", ""), patch(
+        "app.core.security.crypto.settings.blind_index_key", "",
+    ):
+        with pytest.raises(RuntimeError) as exc_info:
+            _get_signing_key()
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_info.value)
+
+
+def test_domain_separation_across_all_signing_modules() -> None:
+    import pytest
+
+    from app.core.auth.phone_otp import hash_otp as phone_hash_otp
+    from app.core.utils.sms import (
+        _sign_contact_portal_payload,
+        _sign_escalation_cancel_payload,
+    )
+
+    # When HMAC_SIGNING_KEY is empty and only BLIND_INDEX_KEY is set:
+    with patch("app.core.security.crypto.settings.hmac_signing_key", ""), patch(
+        "app.core.security.crypto.settings.blind_index_key", "active_blind_index_key",
+    ):
+        with pytest.raises(RuntimeError) as exc_phone:
+            phone_hash_otp("user1", "+15551234567", "123456")
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_phone.value)
+
+        with pytest.raises(RuntimeError) as exc_sms_cancel:
+            _sign_escalation_cancel_payload("sess1:1:123456789")
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_sms_cancel.value)
+
+        with pytest.raises(RuntimeError) as exc_sms_portal:
+            _sign_contact_portal_payload("contact1:123456789")
+        assert "HMAC_SIGNING_KEY must be configured" in str(exc_sms_portal.value)
+
+
+def test_contact_portal_token_expiration_and_tampering() -> None:
+    from app.core.utils.sms import (
+        make_contact_portal_token,
+        verify_contact_portal_token,
+    )
+
+    contact_id = "test-contact-999"
+
+    # 1. Valid token verification
+    token = make_contact_portal_token(contact_id, ttl_seconds=3600)
+    assert verify_contact_portal_token(token) == contact_id
+
+    # 2. Expired token is rejected
+    expired_token = make_contact_portal_token(contact_id, ttl_seconds=-10)
+    assert verify_contact_portal_token(expired_token) is None
+
+    # 3. Tampered payload or signature is rejected
+    tampered_sig = token[:-4] + "abcd"
+    assert verify_contact_portal_token(tampered_sig) is None
+
+    # 4. Malformed tokens are rejected
+    assert verify_contact_portal_token("not-a-token") is None
+    assert verify_contact_portal_token("") is None
+    assert verify_contact_portal_token("abc.def.ghi") is None
+
+
+
 

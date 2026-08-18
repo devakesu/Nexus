@@ -82,16 +82,6 @@ android {
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
-        getByName("debug") {
-            val storePath = keystoreProperties.getProperty("storeFile") ?: "release_upload.p12"
-            val keystoreFile = rootProject.file(storePath)
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-            }
-        }
     }
 
     buildTypes {

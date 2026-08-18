@@ -15,6 +15,7 @@ import httpx
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.security.crypto import get_hmac_signing_key
 
 logger = logging.getLogger(__name__)
 
@@ -335,7 +336,7 @@ _ESCALATION_CANCEL_TOKEN_TTL_SECONDS = 86400  # 24 hours
 
 
 def _sign_escalation_cancel_payload(payload: str) -> str:
-    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    key = get_hmac_signing_key()
     message = f"{_ESCALATION_LABEL_DOMAIN}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
@@ -406,7 +407,7 @@ _CONTACT_PORTAL_LABEL_DOMAIN = "safety_contact_portal"
 
 
 def _sign_contact_portal_payload(payload: str) -> str:
-    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    key = get_hmac_signing_key()
     message = f"{_CONTACT_PORTAL_LABEL_DOMAIN}:{payload}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 

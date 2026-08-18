@@ -9,6 +9,7 @@ import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:nexus/features/security_signal/services/signal/local_key_vault.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_database.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_store.dart';
@@ -34,11 +35,7 @@ class SignalKeyService {
   // Prekey ID counters live in secure storage rather than SharedPreferences:
   // on a rooted/jailbroken device an attacker who rewinds a plaintext
   // counter could make the app re-upload already-used prekey IDs.
-  static const _secureStorage = FlutterSecureStorage(
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-  );
+  static const FlutterSecureStorage _secureStorage = AppSecureStorage.instance;
 
   final SignalDatabase _db = SignalDatabase.instance;
   // Reused for the app's lifetime rather than creating a new Dio/HttpClient

@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,6 +20,7 @@ class SafetyContact {
       phone: json['phone'] as String? ?? '',
     );
   }
+
   final String name;
   final String phone;
 
@@ -27,11 +29,7 @@ class SafetyContact {
 
 const _kSecureStorageKey = 'safety_contacts';
 
-const _kSecureStorageOptions = FlutterSecureStorage(
-  iOptions: IOSOptions(
-    accessibility: KeychainAccessibility.first_unlock_this_device,
-  ),
-);
+const FlutterSecureStorage _kSecureStorageOptions = AppSecureStorage.instance;
 
 /// Loads trusted contacts, migrating any legacy SharedPreferences copy into
 /// secure storage on first read (mirrors the migration `MeetupSafetyPage`

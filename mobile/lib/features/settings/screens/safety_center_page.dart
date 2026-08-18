@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
 import 'package:nexus/core/utils/consent_cache_manager.dart';
 import 'package:nexus/core/utils/secure_preferences.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:nexus/core/widgets/consent_prompt_dialog.dart';
 import 'package:nexus/core/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/core/widgets/scale_pressable.dart';
@@ -390,12 +390,7 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
       return;
     }
     try {
-      const secureStorage = FlutterSecureStorage(
-        iOptions: IOSOptions(
-          accessibility: KeychainAccessibility.first_unlock_this_device,
-        ),
-      );
-      final val = await secureStorage.read(key: 'safety_contacts');
+      final val = await AppSecureStorage.instance.read(key: 'safety_contacts');
       if (val != null) {
         final list = jsonDecode(val) as List<dynamic>;
         if (mounted) setState(() => _hasTrustedContacts = list.isNotEmpty);

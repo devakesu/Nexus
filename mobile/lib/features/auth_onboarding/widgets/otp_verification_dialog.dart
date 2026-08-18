@@ -126,8 +126,10 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
   }
 
   Future<void> _submitOtp() async {
-    final encryptedCode = EncryptedString(_otpController.text.trim());
-    final isCodeValid = encryptedCode.use(
+    final encryptedCode = await EncryptedString.create(
+      _otpController.text.trim(),
+    );
+    final isCodeValid = await encryptedCode.use(
       (code) => code.length == 6 && RegExp(r'^\d{6}$').hasMatch(code),
     );
     if (!isCodeValid) {

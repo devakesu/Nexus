@@ -152,7 +152,6 @@ mobile/.packages
 mobile/.pub-cache/
 mobile/.pub/
 mobile/build/
-mobile/pubspec.lock
 mobile/*.iml
 mobile/${workspaceFolder}*/
 mobile/$*

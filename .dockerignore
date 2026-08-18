@@ -1,30 +1,96 @@
-# Git & Submodules
+# ==========================================
+# 1. Git & Version Control
+# ==========================================
 .git
 .gitignore
 .gitmodules
 Nexus_Engine/
 
-# Virtual environments
+# ==========================================
+# 2. Virtual Environments & Packages
+# ==========================================
 .venv
+venv/
+ENV/
+env/
+dist/
+build/
+*.egg-info/
+.eggs/
 
-# Local build / caching
+# ==========================================
+# 3. Local Build, Bytecode & Caching
+# ==========================================
 __pycache__
 *.pyc
 *.pyo
 *.pyd
+
+# ==========================================
+# 4. Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.local
+.env.*
+*.env
+secrets.json
+*.pem
+*.key
+.infisical.json
+.certificates/
+app/api/dev_temp.py
+
+# ==========================================
+# 5. Testing, Linting & Coverage
+# ==========================================
+tests
 .pytest_cache
 .ruff_cache
+.mypy_cache
+.tox
+.nox
+.coverage
+coverage.xml
+htmlcov
+pytest.ini
+ruff.toml
+pyrightconfig.json
+codecov.yml
+trivy.yaml
+ruff.log
 
-# Tests, Mobile & Supabase
-tests
+# ==========================================
+# 6. Mobile Monorepo & Supabase
+# ==========================================
 mobile
 supabase
-.env.test
 
-# Certificates
-.certificates/
+# ==========================================
+# 7. Database & Local Storage Caches
+# ==========================================
+*.db
+*.sqlite3
+instance/
+temp/
+*.log
 
-# Documentation
+# ==========================================
+# 8. OS Generated / Temp Files
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.fuse_hidden*
+.directory
+
+# ==========================================
+# 9. Documentation
+# ==========================================
 README.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
@@ -34,20 +100,30 @@ PRODUCT.md
 DESIGN.md
 LICENSE
 
-# Tooling and IDE configs
+# ==========================================
+# 10. Tooling, Agent & IDE Configs
+# ==========================================
 .agents
 .agent
+.agent*
 .vscode
+.idea
+.ipynb_checkpoints
 .gemini
 .claude
 .codebuddy
 .codex
 .continue
 .cursor
+.cursorignore
 .devcontainer
 .githooks
 .impeccable
 .kiro
+.kris
+.mem
+.aider
+.aiderignore
 .opencode
 .qoder
 .roo
@@ -55,8 +131,5 @@ LICENSE
 .windsurf
 claude.json
 skills-lock.json
-trivy.yaml
-codecov.yml
-pyrightconfig.json
-pytest.ini
-ruff.toml
+artifacts
+.github

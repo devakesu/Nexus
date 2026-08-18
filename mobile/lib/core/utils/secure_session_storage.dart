@@ -1,14 +1,11 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // AES-256 encrypted session storage backed by Android Keystore / iOS Keychain.
 // Replaces the default SharedPreferences-based storage used by supabase_flutter.
 
-const _secureStorage = FlutterSecureStorage(
-  iOptions: IOSOptions(
-    accessibility: KeychainAccessibility.first_unlock_this_device,
-  ),
-);
+const FlutterSecureStorage _secureStorage = AppSecureStorage.instance;
 
 class SecureLocalStorage extends LocalStorage {
   const SecureLocalStorage();

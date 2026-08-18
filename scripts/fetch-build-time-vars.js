@@ -228,6 +228,49 @@ function generateFirebaseJson(secrets = []) {
 }
 
 /**
+ * Validates essential /public build-time variables.
+ * Fails the process with exit code 1 if critical configuration is missing or malformed.
+ */
+function validatePublicVariables(secrets) {
+  const secretMap = {};
+  for (const s of secrets) {
+    secretMap[s.secretKey] = s.secretValue;
+  }
+
+  const errors = [];
+
+  // Required core configuration
+  if (!secretMap['APP_DOMAIN'] || secretMap['APP_DOMAIN'].trim() === '') {
+    errors.push('APP_DOMAIN is required and cannot be empty.');
+  }
+
+  if (!secretMap['SUPABASE_URL'] || !secretMap['SUPABASE_URL'].startsWith('https://')) {
+    errors.push('SUPABASE_URL is required and must start with "https://".');
+  }
+
+  if (secretMap['ALLOWED_SIGNUP_DOMAINS']) {
+    try {
+      const parsed = JSON.parse(secretMap['ALLOWED_SIGNUP_DOMAINS']);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        errors.push('ALLOWED_SIGNUP_DOMAINS must be a valid JSON dictionary/object.');
+      }
+    } catch (e) {
+      errors.push(`ALLOWED_SIGNUP_DOMAINS is not valid JSON: ${e.message}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error('❌ Validation of /public variables failed:');
+    for (const err of errors) {
+      console.error(`   - ${err}`);
+    }
+    process.exit(1);
+  }
+
+  console.log('✓ Public variables validated successfully.');
+}
+
+/**
  * Main application entrypoint.
  */
 async function main() {
@@ -246,10 +289,12 @@ async function main() {
   const accessToken = await authenticate(apiBaseUrl, clientId, clientSecret);
   const projectId = await resolveProjectId(apiBaseUrl, accessToken, projectSlugOrId);
   const secrets = await fetchSecrets(apiBaseUrl, accessToken, projectId, envSlug, secretPath);
+  validatePublicVariables(secrets);
   exportSecrets(secrets);
 }
 
 module.exports = {
+  validatePublicVariables,
   generateFirebaseJson,
   exportSecrets,
   fetchSecrets,

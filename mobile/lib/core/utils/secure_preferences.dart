@@ -1,15 +1,12 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 
 /// A secure hardware-backed alternative to SharedPreferences using FlutterSecureStorage.
 class SecurePreferences {
   SecurePreferences._();
 
-  static const _storage = FlutterSecureStorage(
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-  );
+  static const FlutterSecureStorage _storage = AppSecureStorage.instance;
 
   static final SecurePreferences _instance = SecurePreferences._();
 

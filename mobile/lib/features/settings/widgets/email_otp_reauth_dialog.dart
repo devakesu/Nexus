@@ -176,7 +176,9 @@ class _EmailOtpReauthDialogState extends State<EmailOtpReauthDialog> {
       _errorMessage = null;
     });
 
-    final encryptedCode = EncryptedString(_otpController.text.trim());
+    final encryptedCode = await EncryptedString.create(
+      _otpController.text.trim(),
+    );
 
     try {
       await encryptedCode.use(

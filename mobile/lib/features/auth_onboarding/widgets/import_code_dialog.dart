@@ -40,10 +40,10 @@ class _ImportCodeDialogState extends State<ImportCodeDialog> {
   }
 
   Future<void> _submitCode() async {
-    final encryptedCode = EncryptedString(
+    final encryptedCode = await EncryptedString.create(
       _codeController.text.trim().toUpperCase(),
     );
-    final isCodeValid = encryptedCode.use(
+    final isCodeValid = await encryptedCode.use(
       (code) => code.length == 6 && RegExp(r'^[A-Z0-9]+$').hasMatch(code),
     );
     if (!isCodeValid) {

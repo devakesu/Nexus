@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from app.core.auth.phone_otp import normalize_phone as normalize_phone
-from app.core.config import settings
+from app.core.security.crypto import get_hmac_signing_key
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "safety_portal_otp"  # domain-separation label
@@ -31,18 +31,15 @@ def generate_otp_code() -> str:
 def _get_signing_key() -> bytes:
     """Returns the dedicated HMAC signing key for safety portal operations.
 
-    Enforces cryptographic key separation: portal tokens and OTP digests
-    use `hmac_signing_key` by default, falling back to `blind_index_key`
-    if unset, and raising RuntimeError if neither is configured.
+    Enforces cryptographic domain separation (NIST SP 800-57): strictly uses
+    `hmac_signing_key` and never falls back to `blind_index_key`.
     """
-    key = settings.hmac_signing_key.strip() if settings.hmac_signing_key else ""
-    if not key and settings.blind_index_key:
-        key = settings.blind_index_key.strip()
-    if not key:
+    try:
+        return get_hmac_signing_key()
+    except RuntimeError as err:
         raise RuntimeError(
-            "HMAC_SIGNING_KEY or BLIND_INDEX_KEY must be configured for portal authentication.",
-        )
-    return key.encode("utf-8")
+            "HMAC_SIGNING_KEY must be configured for portal authentication.",
+        ) from err
 
 
 def hash_otp(session_id: str, phone_norm: str, code: str) -> str:

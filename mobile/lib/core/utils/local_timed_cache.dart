@@ -1,12 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 
-const _secureStorage = FlutterSecureStorage(
-  iOptions: IOSOptions(
-    accessibility: KeychainAccessibility.first_unlock_this_device,
-  ),
-);
+const FlutterSecureStorage _secureStorage = AppSecureStorage.instance;
 
 /// Generic AES-256 encrypted local cache utility for type-safe JSON caching.
 class LocalTimedCache<T> {

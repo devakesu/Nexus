@@ -3,10 +3,11 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:nexus/core/utils/secure_storage_options.dart';
 
 /// Encrypts/decrypts the Signal Protocol local store's key material and
 /// session (ratchet) state before it touches disk. The AES-256 data key
-/// itself lives in the platform Keystore/Keychain via [FlutterSecureStorage]
+/// itself lives in the platform Keystore/Keychain via [AppSecureStorage]
 /// - the same secure-storage backing already used for the Supabase session
 /// in `secure_session_storage.dart`. This gives every sensitive blob in the
 /// local Signal database (private keys, chain keys, message-key caches)
@@ -20,11 +21,7 @@ class LocalKeyVault {
   static const _nonceLength = 12;
   static const _macLength = 16;
 
-  static const _secureStorage = FlutterSecureStorage(
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-  );
+  static const FlutterSecureStorage _secureStorage = AppSecureStorage.instance;
 
   final _algorithm = AesGcm.with256bits();
   SecretKey? _cachedKey;

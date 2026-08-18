@@ -1,30 +1,37 @@
-import 'package:encrypt/encrypt.dart' as enc;
+import 'dart:async';
+import 'dart:convert';
 
-/// A wrapper for sensitive strings that encrypts them in RAM.
+import 'package:cryptography/cryptography.dart';
+
+/// A wrapper for sensitive strings that encrypts them in RAM using AES-256-GCM.
 /// It temporarily decrypts the value during execution of a callback
 /// and does not expose a permanent plaintext getter.
 class EncryptedString {
-  /// Creates an encrypted representation of [plainText] in RAM.
-  factory EncryptedString(String plainText) {
-    final iv = enc.IV.fromSecureRandom(16);
-    final encrypted = _encrypter.encrypt(plainText, iv: iv);
-    return EncryptedString._(iv, encrypted);
+  EncryptedString._(this._secretBox, this._secretKey);
+
+  /// Asynchronously creates an encrypted representation of [plainText] in RAM using AES-256-GCM.
+  static Future<EncryptedString> create(String plainText) async {
+    final key = await _algorithm.newSecretKey();
+    final plainBytes = utf8.encode(plainText);
+    final secretBox = await _algorithm.encrypt(plainBytes, secretKey: key);
+    return EncryptedString._(secretBox, key);
   }
 
-  EncryptedString._(this._iv, this._encrypted);
+  static final _algorithm = AesGcm.with256bits();
 
-  static final enc.Key _key = enc.Key.fromSecureRandom(32);
-  static final enc.Encrypter _encrypter = enc.Encrypter(enc.AES(_key));
-
-  final enc.IV _iv;
-  final enc.Encrypted _encrypted;
+  final SecretBox _secretBox;
+  final SecretKey _secretKey;
 
   /// Temporarily decrypts the string and executes [action] with it.
   /// The decrypted value is only in RAM for the exact duration of the callback.
-  T use<T>(T Function(String plainText) action) {
-    final decrypted = _encrypter.decrypt(_encrypted, iv: _iv);
+  Future<T> use<T>(FutureOr<T> Function(String plainText) action) async {
+    final decryptedBytes = await _algorithm.decrypt(
+      _secretBox,
+      secretKey: _secretKey,
+    );
+    final decrypted = utf8.decode(decryptedBytes);
     try {
-      return action(decrypted);
+      return await action(decrypted);
     } finally {
       // Dart GC will collect 'decrypted'; explicit memory zeroing is not available in Dart.
     }

@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import secrets
 
-from app.core.config import settings
+from app.core.security.crypto import get_hmac_signing_key
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "account_phone_otp"  # domain-separation label
@@ -49,7 +49,7 @@ def hash_otp(user_id: str, phone_norm: str, code: str) -> str:
     Returns:
         str: Hex-encoded HMAC-SHA256 digest string.
     """
-    key = (settings.hmac_signing_key or settings.blind_index_key).encode()
+    key = get_hmac_signing_key()
     message = f"{_OTP_DOMAIN_LABEL}:{user_id}:{phone_norm}:{code}".encode()
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 

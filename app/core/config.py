@@ -115,6 +115,11 @@ class Settings(BaseSettings):
     # --- General / Application Settings ---
     app_name: str = "Nexus Orbit"
     app_version: str = "1.0.0"
+    app_commit_sha: str = "dev"
+    engine_commit_sha: str = ""
+    build_timestamp: str = ""
+    github_run_id: str = ""
+    github_run_number: str = ""
     debug: bool = False
     # Public scheme+host this API is reachable at, e.g. https://api.yourdomain.com.
     # Needed to build the trusted-contact escalation-cancel link sent by the
