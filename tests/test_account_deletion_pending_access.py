@@ -162,3 +162,39 @@ def test_anonymize_profile_and_user_sets_is_deactivated_true() -> None:
     user_payload = calls[1][0][0]
     assert user_payload["is_active"] is False
     assert user_payload["purged_at"] == now.isoformat()
+
+
+@pytest.mark.anyio
+async def test_concurrent_deletion_request_does_not_evict_otp_key_for_in_flight_request() -> None:
+    """Verify that idempotent deletion status returns do not prematurely delete the OTP key."""
+    from fastapi import BackgroundTasks
+    from app.api.user.account_deletion import request_account_deletion
+    from app.models import AccountDeletionRequestRequest
+
+    mock_request = MagicMock(spec=Request)
+    bg_tasks = MagicMock(spec=BackgroundTasks)
+    payload = AccountDeletionRequestRequest(confirmation_text="DELETE", email="user@example.com")
+
+    existing_status = {
+        "deletion_requested_at": "2026-08-15T12:00:00Z",
+        "scheduled_purge_at": "2026-08-22T12:00:00Z",
+    }
+
+    mock_delete = AsyncMock()
+
+    with patch("app.api.user.account_deletion.resolve_verified_user", AsyncMock(return_value=("user-123", "user@example.com"))), \
+         patch("app.api.user.account_deletion.fetch_deletion_status", return_value=existing_status), \
+         patch("app.api.user.account_deletion.redis_client.delete", mock_delete):
+
+        res = await request_account_deletion(
+            request=mock_request,
+            background_tasks=bg_tasks,
+            payload=payload,
+            _device=None,
+            auth_user_id="user-123",
+            access_token="test-token",
+        )
+
+        assert res.scheduled_purge_at is not None
+        mock_delete.assert_not_called()
+

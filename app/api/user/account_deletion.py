@@ -6,7 +6,6 @@ app/services/reminder_scheduler.py for the purge jobs.
 
 import hmac
 import logging
-import secrets
 
 from fastapi import (
     APIRouter,
@@ -35,7 +34,13 @@ from app.core.email import (
 )
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
-from app.core.infra.otp import OTP_VERIFIED_TTL_SECONDS, otp_verified_redis_key
+from app.core.infra.otp import (
+    OTP_VERIFIED_TTL_SECONDS,
+    check_and_increment_otp_attempts,
+    dummy_email_send_delay,
+    generate_otp_code,
+    otp_verified_redis_key,
+)
 from app.db.users import (
     cancel_deletion,
     compute_deletion_flag_reason,
@@ -61,6 +66,9 @@ router = APIRouter()
 
 _DELETION_OTP_MAX_ATTEMPTS = 5
 _DELETION_OTP_TTL_SECONDS = 600
+_DELETION_OTP_MAX_TARGET_ATTEMPTS = 3
+_DELETION_OTP_TARGET_WINDOW_SECONDS = 30 * 60  # 30 minutes
+_DELETION_OTP_RESEND_COOLDOWN_SECONDS = 60  # 60 seconds
 
 
 @router.post(
@@ -89,9 +97,31 @@ async def request_account_deletion_otp(
     email_in = payload.email if payload else None
     user_id, email = await resolve_verified_user(auth_user_id, email_in)
     if not user_id:
+        await dummy_email_send_delay()
         return AccountDeletionOtpRequestResponse(sent=True)
 
-    otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
+    target_limit_key = f"account_deletion:otp_limit:{user_id}"
+    target_cooldown_key = f"account_deletion:otp_cooldown:{user_id}"
+
+    if await redis_client.exists(target_cooldown_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait a bit before requesting another deletion code.",
+        )
+
+    target_attempts = await redis_client.get(target_limit_key)
+    if target_attempts and int(target_attempts) >= _DELETION_OTP_MAX_TARGET_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many deletion requests for this account. Please try again later.",
+        )
+
+    await redis_client.set(target_cooldown_key, "1", ex=_DELETION_OTP_RESEND_COOLDOWN_SECONDS, nx=True)
+    current_attempts = await redis_client.incr(target_limit_key)
+    if current_attempts == 1:
+        await redis_client.expire(target_limit_key, _DELETION_OTP_TARGET_WINDOW_SECONDS)
+
+    otp_code = generate_otp_code(8)
     await redis_client.setex(f"account_deletion:otp_code:{user_id}", _DELETION_OTP_TTL_SECONDS, otp_code)
     await redis_client.delete(f"account_deletion:otp_attempts:{user_id}")
     otp_res = await send_account_deletion_otp_email(email, otp_code)
@@ -136,12 +166,12 @@ async def verify_account_deletion_otp(
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
     attempts_key = f"account_deletion:otp_attempts:{user_id}"
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= _DELETION_OTP_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many incorrect attempts. Please request a new code.",
-        )
+    await check_and_increment_otp_attempts(
+        attempts_key,
+        _DELETION_OTP_MAX_ATTEMPTS,
+        _DELETION_OTP_TTL_SECONDS,
+        client=redis_client,
+    )
 
     stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
     if not stored_otp:
@@ -152,8 +182,6 @@ async def verify_account_deletion_otp(
         else stored_otp
     )
     if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
-        await redis_client.incr(attempts_key)
-        await redis_client.expire(attempts_key, _DELETION_OTP_TTL_SECONDS)
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"account_deletion:otp_code:{user_id}")
     await redis_client.delete(attempts_key)
@@ -201,7 +229,6 @@ async def request_account_deletion(
 
     existing = await run_in_threadpool(fetch_deletion_status, user_id)
     if existing and existing.get("deletion_requested_at"):
-        await redis_client.delete(otp_key)
         return AccountDeletionRequestResponse(
             scheduled_purge_at=existing["scheduled_purge_at"],
         )
@@ -266,6 +293,7 @@ async def cancel_account_deletion(
     user_email = await run_in_threadpool(get_user_email_by_id, user_id)
     await run_in_threadpool(cancel_deletion, user_id)
     await redis_client.delete(f"user:status:{user_id}")
+    await redis_client.delete(otp_verified_redis_key("account_deletion", user_id))
     if user_email:
         background_tasks.add_task(
             send_account_reactivated_email,

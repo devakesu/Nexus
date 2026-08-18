@@ -86,6 +86,7 @@ async def generate_export_code(user_id: str) -> tuple[str, datetime]:
             old_code = res.data.get("import_sync_code")
         if isinstance(old_code, str) and old_code:
             await redis_client.delete(f"import:code_attempts:{old_code}")
+        await redis_client.delete(f"import:attempts:{user_id}")
     except Exception:
         logger.exception("Failed to clean up old export code attempts in Redis")
 

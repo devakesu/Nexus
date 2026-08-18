@@ -389,11 +389,14 @@ def upsert_public_user(
 
         Returns:
             tuple[dict[str, Any], bool]: Response payload or result."""
+    existing = fetch_public_user(user_id)
+    if isinstance(existing, dict):
+        return existing, False
+
     payload: dict[str, Any] = {
         "id": user_id,
+        "app_variant": app_variant or "nexus",
     }
-    if app_variant is not None:
-        payload["app_variant"] = app_variant
 
     try:
         result = (

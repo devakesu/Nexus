@@ -11,6 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import (
     assert_account_active,
     get_active_user_id,
+    get_authenticated_user_id,
     get_authenticated_user_payload,
     is_consent_stale,
     verify_app_check_with_replay_protection,
@@ -22,6 +23,7 @@ from app.core.auth.passwordless_email import (
 from app.core.auth.phone_otp import (
     generate_otp_code,
     hash_otp,
+    mask_phone,
     normalize_phone,
     verify_otp_hash,
 )
@@ -29,6 +31,11 @@ from app.core.config import settings
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
+from app.core.infra.otp import (
+    check_and_increment_otp_attempts,
+    dummy_email_send_delay,
+)
+from app.core.security.crypto import compute_blind_index
 from app.core.utils.sms import send_sms
 from app.db.client import supabase_client
 from app.db.users import (
@@ -38,6 +45,7 @@ from app.db.users import (
     get_user_email_by_id,
     is_allowed_email,
     is_disposable_email,
+    is_phone_blocklisted,
     set_verified_mobile,
     update_safety_data_consent,
     update_special_category_consent,
@@ -86,11 +94,9 @@ async def _validate_auth_user_allowed(
         Args:
             email: Input email parameter.
             auth_user: Input auth user parameter."""
-    app_variant = (
-        auth_user.get("app_metadata", {}).get("app_variant")
-        or auth_user.get("user_metadata", {}).get("app_variant")
-        or "nexus"
-    )
+    app_variant = str(
+        auth_user.get("app_metadata", {}).get("app_variant") or "nexus"
+    ).strip()
 
     if (
         app_variant != "nexus"
@@ -148,19 +154,12 @@ async def auth_bootstrap(
 
     await _validate_auth_user_allowed(email, auth_user)
 
-    app_variant = (
-        auth_user.get("app_metadata", {}).get("app_variant")
-        or auth_user.get("user_metadata", {}).get("app_variant")
-        or "nexus"
-    )
+    app_variant = str(
+        auth_user.get("app_metadata", {}).get("app_variant") or "nexus"
+    ).strip()
 
     existing_user = await run_in_threadpool(fetch_public_user, user_id)
-    if existing_user is not None and (
-        bool(existing_user.get("is_suspended", False))
-        or not bool(existing_user.get("is_active", True))
-        or existing_user.get("purged_at") is not None
-        or existing_user.get("deletion_requested_at") is not None
-    ):
+    if existing_user is not None:
         user_row = existing_user
         newly_created = False
     else:
@@ -223,7 +222,7 @@ async def auth_bootstrap(
     )
 
     mobile_raw = user_row.get("mobile")
-    mobile = str(mobile_raw) if mobile_raw else None
+    mobile = mask_phone(str(mobile_raw)) if mobile_raw else None
     mobile_verified_at_raw = user_row.get("mobile_verified_at")
     mobile_verified_at = (
         datetime.fromisoformat(mobile_verified_at_raw.replace("Z", "+00:00"))
@@ -232,14 +231,17 @@ async def auth_bootstrap(
     )
 
     if newly_created and email:
-        try:
-            await send_bootstrap_welcome_email(
-                email=email,
-                auth_user=auth_user,
-                app_variant=app_variant,
-            )
-        except Exception:
-            logger.exception("Failed to send welcome email on auth bootstrap")
+        welcome_key = f"welcome_email_sent:{user_id}"
+        should_send = await redis_client.set(welcome_key, "1", ex=86400 * 7, nx=True)
+        if should_send:
+            try:
+                await send_bootstrap_welcome_email(
+                    email=email,
+                    auth_user=auth_user,
+                    app_variant=app_variant,
+                )
+            except Exception:
+                logger.exception("Failed to send welcome email on auth bootstrap")
 
     return AuthBootstrapResponse(
         user_id=user_id,
@@ -438,12 +440,12 @@ async def verify_account_phone_otp(
     phone_norm = normalize_phone(payload.phone)
 
     attempts_key = _otp_redis_key(user_id, "attempts")
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many incorrect attempts. Please request a new code.",
-        )
+    await check_and_increment_otp_attempts(
+        attempts_key,
+        _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS,
+        _ACCOUNT_PHONE_OTP_TTL_SECONDS,
+        client=redis_client,
+    )
 
     otp_key = _otp_redis_key(user_id, "otp")
     stored_hash = await redis_client.get(otp_key)
@@ -454,8 +456,6 @@ async def verify_account_phone_otp(
         )
 
     if not verify_otp_hash(user_id, phone_norm, payload.code, cast(str, stored_hash)):
-        await redis_client.incr(attempts_key)
-        await redis_client.expire(attempts_key, _ACCOUNT_PHONE_OTP_TTL_SECONDS)
         raise HTTPException(status_code=400, detail="Incorrect code.")
 
     await redis_client.delete(otp_key)
@@ -531,15 +531,22 @@ async def request_login_by_phone(
     if current_attempts == 1:
         await redis_client.expire(phone_limit_key, _LOGIN_BY_PHONE_PHONE_WINDOW_SECONDS)
 
+    blind_index = compute_blind_index(phone_norm)
+    if await run_in_threadpool(is_phone_blocklisted, blind_index):
+        await dummy_email_send_delay()
+        return LoginByPhoneRequestResponse(sent=True)
+
     user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
-    exists = False
     if user_id is not None:
         email = await run_in_threadpool(get_user_email_by_id, user_id)
         if email:
             await run_in_threadpool(send_login_email_otp, email)
-            exists = True
+        else:
+            await dummy_email_send_delay()
+    else:
+        await dummy_email_send_delay()
 
-    return LoginByPhoneRequestResponse(sent=exists, exists=exists)
+    return LoginByPhoneRequestResponse(sent=True)
 
 
 @router.post(
@@ -556,10 +563,20 @@ async def verify_login_by_phone(
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
+    blind_index = compute_blind_index(phone_norm)
+    if await run_in_threadpool(is_phone_blocklisted, blind_index):
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
     user_id = await run_in_threadpool(find_user_id_by_phone, phone_norm)
     email = await run_in_threadpool(get_user_email_by_id, user_id) if user_id else None
-    if not email:
+    if not email or not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    user_row = await run_in_threadpool(fetch_public_user, user_id)
+    if not user_row:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    assert_account_active(user_row)
 
     try:
         auth_response = await run_in_threadpool(
@@ -575,9 +592,7 @@ async def verify_login_by_phone(
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
 
     return LoginByPhoneVerifyResponse(
-        access_token=session.access_token,
         refresh_token=session.refresh_token,
-        expires_in=session.expires_in,
     )
 
 
@@ -682,3 +697,48 @@ async def accept_terms(
         safety_data_consent_version=safety_result[0] if safety_result else None,
         safety_data_consent_at=safety_result[1] if safety_result else None,
     )
+
+
+@router.post(
+    "/api/v1/auth/revoke-all-sessions",
+    response_model=dict[str, bool],
+)
+@limiter.limit(settings.rate_limit_auth)
+async def revoke_all_sessions(
+    request: Request,
+    _device: None = Depends(verify_app_check_with_replay_protection),
+    user_id: str = Depends(get_authenticated_user_id),
+) -> dict[str, bool]:
+    """Globally revokes all active Supabase auth sessions and deactivates all registered FCM device tokens.
+
+    Args:
+        request: Incoming HTTP request.
+        _device: App Check attestation token guard.
+        user_id: Verified caller user ID.
+
+    Returns:
+        dict[str, bool]: Success dictionary.
+    """
+    _ = request
+    # 1. Global sign out in Supabase auth admin
+    try:
+        await run_in_threadpool(supabase_client.auth.admin.sign_out, user_id, "global")
+    except Exception:
+        logger.warning("Supabase admin global sign-out failed for user %s", user_id, exc_info=True)
+
+    # 2. Deactivate all device push notification tokens
+    try:
+        await run_in_threadpool(
+            lambda: supabase_client.table("user_devices").update(
+                {"is_active": False},
+            ).eq("user_id", user_id).execute()
+        )
+    except Exception:
+        logger.warning("Failed to deactivate user_devices for user %s", user_id, exc_info=True)
+
+    # 3. Invalidate Redis user status cache and presence
+    await redis_client.delete(f"user:status:{user_id}")
+    await redis_client.delete(f"user:presence:last_beat:{user_id}")
+
+    return {"success": True}
+

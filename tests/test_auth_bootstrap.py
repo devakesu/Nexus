@@ -113,7 +113,7 @@ async def test_auth_bootstrap_purged_user_does_not_upsert() -> None:
 
 
 @pytest.mark.anyio
-async def test_auth_bootstrap_active_user_calls_upsert() -> None:
+async def test_auth_bootstrap_active_user_does_not_upsert() -> None:
     auth_user = {
         "id": "active-user-111",
         "email": "user@example.com",
@@ -126,16 +126,9 @@ async def test_auth_bootstrap_active_user_calls_upsert() -> None:
         "moderation_status": "approved",
         "purged_at": None,
     }
-    upserted_row = {
-        "id": "active-user-111",
-        "is_active": True,
-        "is_suspended": False,
-        "moderation_status": "approved",
-        "purged_at": None,
-    }
 
     mock_request = MagicMock(spec=Request)
-    mock_upsert = MagicMock(return_value=(upserted_row, False))
+    mock_upsert = MagicMock()
 
     with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), patch(
         "app.api.user.auth_otp.upsert_public_user", mock_upsert,
@@ -151,7 +144,8 @@ async def test_auth_bootstrap_active_user_calls_upsert() -> None:
         assert response.user_id == "active-user-111"
         assert response.is_active is True
         assert response.is_suspended is False
-        mock_upsert.assert_called_once_with("active-user-111", "nexus")
+        assert response.newly_created is False
+        mock_upsert.assert_not_called()
 
 
 @pytest.mark.anyio
@@ -176,7 +170,9 @@ async def test_auth_bootstrap_new_user_calls_upsert() -> None:
         "app.api.user.auth_otp.upsert_public_user", mock_upsert,
     ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
         "app.api.user.auth_otp.is_allowed_email", return_value=True,
-    ), patch("app.api.user.auth_otp.send_bootstrap_welcome_email", AsyncMock()) as mock_welcome:
+    ), patch("app.api.user.auth_otp.redis_client.set", AsyncMock(return_value=True)), patch(
+        "app.api.user.auth_otp.send_bootstrap_welcome_email", AsyncMock(),
+    ) as mock_welcome:
         response: AuthBootstrapResponse = await auth_bootstrap(
             request=mock_request,
             _device=None,
@@ -341,7 +337,9 @@ def test_upsert_public_user_with_xmax_zero() -> None:
         ],
     )
 
-    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+    with patch("app.db.users.auth.fetch_public_user", return_value=None), patch(
+        "app.db.users.auth.supabase_client.table", return_value=mock_builder,
+    ), patch(
         "app.db.users.auth.invalidate_user_status_cache",
     ):
         row, newly_created = upsert_public_user("new-user-1", "nexus")
@@ -368,7 +366,9 @@ def test_upsert_public_user_with_xmax_nonzero() -> None:
         ],
     )
 
-    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+    with patch("app.db.users.auth.fetch_public_user", return_value=None), patch(
+        "app.db.users.auth.supabase_client.table", return_value=mock_builder,
+    ), patch(
         "app.db.users.auth.invalidate_user_status_cache",
     ):
         row, newly_created = upsert_public_user("existing-user-1", "nexus")
@@ -399,7 +399,9 @@ def test_upsert_public_user_fallback_no_xmax_new_user() -> None:
         ],
     )
 
-    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
+    with patch("app.db.users.auth.fetch_public_user", return_value=None), patch(
+        "app.db.users.auth.supabase_client.table", return_value=mock_builder,
+    ), patch(
         "app.db.users.auth.invalidate_user_status_cache",
     ):
         row, newly_created = upsert_public_user("new-user-2", "nexus")
@@ -407,32 +409,154 @@ def test_upsert_public_user_fallback_no_xmax_new_user() -> None:
         assert row["id"] == "new-user-2"
 
 
-def test_upsert_public_user_fallback_no_xmax_existing_user() -> None:
+def test_upsert_public_user_existing_user_preserves_row() -> None:
     from app.db.users.auth import upsert_public_user
 
-    mock_builder = MagicMock()
-    mock_builder.upsert.return_value = mock_builder
-    mock_builder.select.return_value = mock_builder
-    mock_builder.execute.return_value = MagicMock(
-        data=[
-            {
-                "id": "existing-user-2",
-                "app_variant": "nexus",
-                "is_active": True,
-                "is_suspended": False,
-                "accepted_terms_version": "1.0",
-                "terms_accepted_at": "2026-08-01T00:00:00Z",
-                "xmax": None,
-            },
-        ],
-    )
+    existing_row = {
+        "id": "existing-user-2",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+    }
 
-    with patch("app.db.users.auth.supabase_client.table", return_value=mock_builder), patch(
-        "app.db.users.auth.invalidate_user_status_cache",
-    ):
+    with patch("app.db.users.auth.fetch_public_user", return_value=existing_row), patch(
+        "app.db.users.auth.supabase_client.table",
+    ) as mock_table:
         row, newly_created = upsert_public_user("existing-user-2", "nexus")
         assert newly_created is False
         assert row["id"] == "existing-user-2"
+        assert row["app_variant"] == "nexus_mec"
+        mock_table.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_auth_bootstrap_ignores_user_metadata_app_variant() -> None:
+    """Verifies that client-supplied user_metadata.app_variant is ignored in favor of server-set app_metadata."""
+    auth_user = {
+        "id": "flavor-user-999",
+        "email": "user@example.com",
+        "user_metadata": {"app_variant": "nexus"},  # Client-crafted
+        "app_metadata": {"app_variant": "nexus_mec"},  # Server-set
+    }
+    upserted_row = {
+        "id": "flavor-user-999",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+        "moderation_status": "approved",
+        "purged_at": None,
+    }
+
+    mock_request = MagicMock(spec=Request)
+    mock_upsert = MagicMock(return_value=(upserted_row, True))
+
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
+    ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
+    ), patch("app.api.user.auth_otp.redis_client.set", AsyncMock(return_value=True)), patch(
+        "app.api.user.auth_otp.send_bootstrap_welcome_email", AsyncMock(),
+    ) as mock_welcome:
+        response: AuthBootstrapResponse = await auth_bootstrap(
+            request=mock_request,
+            _device=None,
+            auth_user=auth_user,
+        )
+
+        assert response.user_id == "flavor-user-999"
+        mock_upsert.assert_called_once_with("flavor-user-999", "nexus_mec")
+        mock_welcome.assert_called_once_with(
+            email="user@example.com",
+            auth_user=auth_user,
+            app_variant="nexus_mec",
+        )
+
+
+@pytest.mark.anyio
+async def test_auth_bootstrap_defaults_to_nexus_when_app_metadata_missing_even_if_user_metadata_set() -> None:
+    """Verifies that if app_metadata has no app_variant, it defaults to 'nexus' and ignores user_metadata."""
+    auth_user = {
+        "id": "untrusted-user-111",
+        "email": "user@example.com",
+        "user_metadata": {"app_variant": "nexus_mec"},  # Client-injected variant attempt
+        "app_metadata": {},  # No server-set app_variant
+    }
+    upserted_row = {
+        "id": "untrusted-user-111",
+        "app_variant": "nexus",
+        "is_active": True,
+        "is_suspended": False,
+        "moderation_status": "approved",
+        "purged_at": None,
+    }
+
+    mock_request = MagicMock(spec=Request)
+    mock_upsert = MagicMock(return_value=(upserted_row, True))
+
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
+    ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
+    ), patch("app.api.user.auth_otp.redis_client.set", AsyncMock(return_value=True)), patch(
+        "app.api.user.auth_otp.send_bootstrap_welcome_email", AsyncMock(),
+    ) as mock_welcome:
+        response: AuthBootstrapResponse = await auth_bootstrap(
+            request=mock_request,
+            _device=None,
+            auth_user=auth_user,
+        )
+
+        assert response.user_id == "untrusted-user-111"
+        mock_upsert.assert_called_once_with("untrusted-user-111", "nexus")
+        mock_welcome.assert_called_once_with(
+            email="user@example.com",
+            auth_user=auth_user,
+            app_variant="nexus",
+        )
+
+
+@pytest.mark.anyio
+async def test_auth_bootstrap_welcome_email_deduplication_via_redis() -> None:
+    """Verifies that concurrent bootstrap calls do not duplicate welcome emails."""
+    auth_user = {
+        "id": "new-user-888",
+        "email": "newuser@example.com",
+        "app_metadata": {"app_variant": "nexus"},
+    }
+    upserted_row = {
+        "id": "new-user-888",
+        "is_active": True,
+        "is_suspended": False,
+        "moderation_status": "approved",
+        "purged_at": None,
+    }
+
+    mock_request = MagicMock(spec=Request)
+    mock_upsert = MagicMock(return_value=(upserted_row, True))
+    mock_welcome = AsyncMock()
+
+    # Case 1: First call acquires lock -> sends email
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
+    ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
+    ), patch("app.api.user.auth_otp.redis_client.set", AsyncMock(return_value=True)), patch(
+        "app.api.user.auth_otp.send_bootstrap_welcome_email", mock_welcome,
+    ):
+        await auth_bootstrap(request=mock_request, _device=None, auth_user=auth_user)
+        assert mock_welcome.call_count == 1
+
+    # Case 2: Concurrent/duplicate call fails to acquire lock -> skips email
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=None), patch(
+        "app.api.user.auth_otp.upsert_public_user", mock_upsert,
+    ), patch("app.api.user.auth_otp.fetch_profile", return_value=None), patch(
+        "app.api.user.auth_otp.is_allowed_email", return_value=True,
+    ), patch("app.api.user.auth_otp.redis_client.set", AsyncMock(return_value=None)), patch(
+        "app.api.user.auth_otp.send_bootstrap_welcome_email", mock_welcome,
+    ):
+        await auth_bootstrap(request=mock_request, _device=None, auth_user=auth_user)
+        # Call count remains 1 (did not increment)
+        assert mock_welcome.call_count == 1
 
 
 def test_decrypt_mobile_handles_decryption_failure_with_error_log() -> None:
@@ -473,6 +597,69 @@ def test_get_user_id_by_email_guards_and_success() -> None:
             "get_user_id_by_email",
             {"email_addr": "valid.user@example.com"},
         )
+
+
+@pytest.mark.anyio
+async def test_auth_bootstrap_returns_masked_mobile_number() -> None:
+    """Verify that auth_bootstrap returns a masked phone number in AuthBootstrapResponse."""
+    auth_user = {
+        "id": "user-mobile-123",
+        "email": "user@example.com",
+        "app_metadata": {"app_variant": "nexus"},
+    }
+    existing_row = {
+        "id": "user-mobile-123",
+        "is_active": True,
+        "is_suspended": False,
+        "moderation_status": "approved",
+        "accepted_terms_version": "1.0",
+        "purged_at": None,
+        "mobile": "+919876543210",
+        "mobile_verified_at": "2026-08-01T12:00:00+00:00",
+    }
+
+    mock_request = MagicMock(spec=Request)
+
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=existing_row), \
+         patch("app.api.user.auth_otp.fetch_profile", return_value=None), \
+         patch("app.api.user.auth_otp.is_allowed_email", return_value=True):
+        response: AuthBootstrapResponse = await auth_bootstrap(
+            request=mock_request,
+            _device=None,
+            auth_user=auth_user,
+        )
+
+        assert response.user_id == "user-mobile-123"
+        assert response.mobile == "+91******3210"
+        assert response.mobile != "+919876543210"
+        assert response.mobile_verified_at is not None
+
+
+@pytest.mark.anyio
+async def test_revoke_all_sessions_executes_global_signout_and_fcm_deactivation() -> None:
+    """Verify that revoke_all_sessions triggers Supabase admin global sign-out, FCM token deactivation, and Redis cache clearing."""
+    from app.api.user.auth_otp import revoke_all_sessions
+
+    mock_request = MagicMock(spec=Request)
+    mock_sign_out = MagicMock()
+    mock_devices_table = MagicMock()
+    mock_redis = AsyncMock()
+
+    with patch("app.api.user.auth_otp.supabase_client.auth.admin.sign_out", mock_sign_out), \
+         patch("app.api.user.auth_otp.supabase_client.table", return_value=mock_devices_table), \
+         patch("app.api.user.auth_otp.redis_client", mock_redis):
+
+        response = await revoke_all_sessions(
+            request=mock_request,
+            _device=None,
+            user_id="user-revoke-123",
+        )
+
+        assert response == {"success": True}
+        mock_sign_out.assert_called_once_with("user-revoke-123", "global")
+        mock_devices_table.update.assert_called_once_with({"is_active": False})
+        mock_devices_table.update().eq.assert_called_once_with("user_id", "user-revoke-123")
+        assert mock_redis.delete.call_count == 2
 
 
 

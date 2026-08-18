@@ -278,4 +278,30 @@ def test_execute_import_concurrent_claim_fails_409() -> None:
         assert "Export code was already claimed" in exc_info.value.detail
 
 
+@pytest.mark.anyio
+async def test_generate_export_code_deletes_both_old_code_and_user_attempts_in_redis() -> None:
+    """generate_export_code removes both old code attempts and per-user attempts from Redis."""
+    from app.db.users.import_export import generate_export_code
+
+    mock_redis = AsyncMock()
+    mock_redis.delete.return_value = True
+
+    with patch("app.db.users.import_export.supabase_client.table") as mock_table, \
+         patch("app.db.users.import_export.redis_client", mock_redis):
+        mock_builder = MagicMock()
+        mock_builder.select.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_builder.maybe_single.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data={"import_sync_code": "OLD123"})
+        mock_builder.update.return_value = mock_builder
+        mock_table.return_value = mock_builder
+
+        code, expires_at = await generate_export_code("user-reset-test")
+
+        assert len(code) == 6
+        assert isinstance(expires_at, datetime)
+        mock_redis.delete.assert_any_call("import:code_attempts:OLD123")
+        mock_redis.delete.assert_any_call("import:attempts:user-reset-test")
+
+
 

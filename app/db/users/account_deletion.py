@@ -529,6 +529,13 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
             "Failed to ban/scrub auth user during purge", extra={"user_id": user_id},
         )
 
+    try:
+        supabase_client.auth.admin.sign_out(user_id, "global")
+    except Exception:
+        logger.exception(
+            "Failed to globally sign out user during purge", extra={"user_id": user_id},
+        )
+
 
 def purge_due_accounts() -> None:
     """Tier-1 purge job body, run daily by the scheduler. Per-account

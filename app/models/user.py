@@ -374,7 +374,6 @@ class LoginByPhoneRequestResponse(BaseModel):
     """
 
     sent: bool = True
-    exists: bool = True
 
 
 class LoginByPhoneVerifyRequest(BaseModel):
@@ -403,9 +402,7 @@ class LoginByPhoneVerifyRequest(BaseModel):
 
 class LoginByPhoneVerifyResponse(BaseModel):
     """Loginbyphoneverifyresponse class representation."""
-    access_token: str
     refresh_token: str
-    expires_in: int
 
 
 class AccountDeletionSettingsResponse(BaseModel):

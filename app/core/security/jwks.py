@@ -22,21 +22,25 @@ logger = logging.getLogger(__name__)
 
 # Cache TTL: 15 minutes (900s) to minimize exposure window on key rotation/revocation
 JWKS_CACHE_TTL_SECONDS: float = 900.0
+# Retry backoff: 30 seconds between remote fetch attempts during an outage
+JWKS_RETRY_BACKOFF_SECONDS: float = 30.0
 
 # Shared memory cache primitives for zero-latency signature parsing
 _cached_jwks: PyJWKSet | None = None
 _cached_keys_by_kid: dict[str, EllipticCurvePublicKey] = {}
 _last_fetch_time: float = 0.0
+_last_fetch_failure_time: float = 0.0
 _jwks_lock = asyncio.Lock()
 _http_client: httpx.AsyncClient | None = None
 
 
 def clear_jwks_cache() -> None:
-    """Clears the cached JWKS and resets the last fetch timestamp."""
-    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time
+    """Clears the cached JWKS and resets fetch timestamps."""
+    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time, _last_fetch_failure_time
     _cached_jwks = None
     _cached_keys_by_kid = {}
     _last_fetch_time = 0.0
+    _last_fetch_failure_time = 0.0
 
 
 def _get_jwks_client() -> httpx.AsyncClient:
@@ -180,7 +184,7 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
     Args:
         current_time: Epoch timestamp of fetch attempt.
     """
-    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time
+    global _cached_jwks, _cached_keys_by_kid, _last_fetch_time, _last_fetch_failure_time
     try:
         jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
         client = _get_jwks_client()
@@ -199,9 +203,11 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
             _cached_jwks = jwk_set
             _cached_keys_by_kid = keys_dict
             _last_fetch_time = current_time
+            _last_fetch_failure_time = 0.0
         else:
+            _last_fetch_failure_time = current_time
             logger.error(
-                "Supabase JWKS fetch returned unexpected non-200 status %d: %s",
+                "Supabase JWKS fetch returned unexpected non-200 status %d: %s; serving from stale cache if available",
                 response.status_code,
                 response.text,
             )
@@ -211,7 +217,12 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
                 tags={"status_code": str(response.status_code), "location": "jwks_fetch"},
             )
     except httpx.HTTPError as err:
-        logger.warning("Supabase JWKS dynamic fetch failed: %r", err)
+        _last_fetch_failure_time = current_time
+        logger.warning("Supabase JWKS dynamic fetch failed: %r; serving from stale cache if available", err)
+        sentry_sdk.capture_exception(err)
+    except Exception as err:
+        _last_fetch_failure_time = current_time
+        logger.warning("Supabase JWKS fetch encountered error: %r; serving from stale cache if available", err)
         sentry_sdk.capture_exception(err)
 
 
@@ -267,20 +278,24 @@ async def get_live_supabase_public_key(
     current_time = time.time()
 
     cache_expired = (current_time - _last_fetch_time) > JWKS_CACHE_TTL_SECONDS
+    failure_backoff_active = _last_fetch_failure_time > 0 and (current_time - _last_fetch_failure_time) < JWKS_RETRY_BACKOFF_SECONDS
     missing_kid = token_kid is not None and (
         _cached_jwks is None
         or not syntax_has_kid(_cached_jwks, token_kid)
     )
 
-    if not _cached_jwks or cache_expired or missing_kid or force_refresh:
+    should_fetch = not _cached_jwks or ((cache_expired or missing_kid) and not failure_backoff_active) or force_refresh
+
+    if should_fetch:
         async with _jwks_lock:
             current_time = time.time()
             cache_expired = (current_time - _last_fetch_time) > JWKS_CACHE_TTL_SECONDS
+            failure_backoff_active = _last_fetch_failure_time > 0 and (current_time - _last_fetch_failure_time) < JWKS_RETRY_BACKOFF_SECONDS
             missing_kid = token_kid is not None and (
                 _cached_jwks is None
                 or not syntax_has_kid(_cached_jwks, token_kid)
             )
-            if not _cached_jwks or cache_expired or missing_kid or force_refresh:
+            if not _cached_jwks or ((cache_expired or missing_kid) and not failure_backoff_active) or force_refresh:
                 await _fetch_and_update_cached_jwks(current_time)
 
     if token_kid:

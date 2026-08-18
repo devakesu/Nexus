@@ -308,7 +308,7 @@ def test_fetch_accounts_due_for_purge_applies_limit():
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
-    mock_builder.not_.return_value = mock_builder
+    mock_builder.not_.is_.return_value = mock_builder
     mock_builder.is_.return_value = mock_builder
     mock_builder.lte.return_value = mock_builder
     mock_builder.limit.return_value = mock_builder
@@ -325,7 +325,7 @@ def test_fetch_accounts_due_for_long_tail_purge_applies_limit():
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
-    mock_builder.not_.return_value = mock_builder
+    mock_builder.not_.is_.return_value = mock_builder
     mock_builder.is_.return_value = mock_builder
     mock_builder.lte.return_value = mock_builder
     mock_builder.limit.return_value = mock_builder
@@ -442,8 +442,12 @@ def test_purge_due_accounts_anonymization_failure_skips_blocklist(
 
 
 
+@patch("app.db.users.account_deletion.supabase_client.auth.admin.sign_out")
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.update_user_by_id")
-def test_ban_and_scrub_auth_user_appends_random_token(mock_update_user: MagicMock):
+def test_ban_and_scrub_auth_user_appends_random_token(
+    mock_update_user: MagicMock,
+    mock_sign_out: MagicMock,
+):
     from app.core.config import settings
     from app.db.users.account_deletion import _ban_and_scrub_auth_user
 
@@ -460,6 +464,19 @@ def test_ban_and_scrub_auth_user_appends_random_token(mock_update_user: MagicMoc
     # Verify hex token length in email
     token_part = email.split("@")[0].replace("deleted-user-xyz-", "")
     assert len(token_part) == 16  # token_hex(8) produces 16 hex chars
+
+    # Verify global sign out of purged user
+    mock_sign_out.assert_called_once_with("user-xyz", "global")
+
+
+def test_invalidate_user_status_cache_synchronous_deletion():
+    """Verifies that invalidate_user_status_cache deletes user:status key synchronously."""
+    from app.core.infra.cache import invalidate_user_status_cache
+
+    with patch("app.core.infra.cache.sync_redis_client.delete") as mock_delete:
+        invalidate_user_status_cache("user-abc-123")
+        mock_delete.assert_called_once_with("user:status:user-abc-123")
+
 
 
 
@@ -497,6 +514,8 @@ def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
     _mock_fetch: MagicMock,
 ):
     from app.db.users.account_deletion import hard_purge_long_tail_accounts
+
+    _mock_fetch.return_value = ["user-ok", "user-fail"]
 
     def _mock_archive_side_effect(uid: str) -> list[str]:
         return ["user_reports"] if uid == "user-fail" else []
@@ -1119,8 +1138,9 @@ def test_delete_user_media_objects_cleans_feedback_attachments():
 
     mock_storage.from_.side_effect = _from_side_effect
 
+    from app.db.client import supabase_client
     user_id = "user-test-uuid"
-    with patch("app.db.users.account_deletion.supabase_client.storage", mock_storage):
+    with patch.object(type(supabase_client), "storage", new=mock_storage):
         _delete_user_media_objects(user_id)
 
     mock_media_bucket.list.assert_called_once_with(user_id)

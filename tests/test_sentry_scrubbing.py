@@ -55,3 +55,35 @@ def test_scrub_event_deep_scrubbing() -> None:
     assert result["extra"]["recipient_phone"] == "[PHONE_REDACTED]"
     assert result["extra"]["nested"]["contact_phone"] == "[PHONE_REDACTED]"
     assert result["breadcrumbs"][0]["message"] == "Attempted SMS to [PHONE_REDACTED]"
+
+
+def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
+    raw_event: dict[str, Any] = {
+        "extra": {
+            "response": {
+                "refresh_token": "super_secret_refresh_token_value_60_days",
+                "access_token": "ephemeral_access_token_value",
+                "session_id": "sess-12345",
+                "safe_field": "visible_data",
+            },
+            "auth_payload": {
+                "password": "mysecretpassword123",
+                "jwt": "eyJhbGciOi...",
+                "authorization": "Bearer token123",
+            },
+        },
+    }
+
+    event = cast(Event, raw_event)
+    scrubbed = scrub_event(event, {})
+    assert scrubbed is not None
+
+    result = cast(dict[str, Any], scrubbed)
+    extra = result["extra"]
+    assert extra["response"]["refresh_token"] == "[REDACTED_SENSITIVE]"
+    assert extra["response"]["access_token"] == "[REDACTED_SENSITIVE]"
+    assert extra["response"]["session_id"] == "[REDACTED_SENSITIVE]"
+    assert extra["response"]["safe_field"] == "visible_data"
+    assert extra["auth_payload"]["password"] == "[REDACTED_SENSITIVE]"
+    assert extra["auth_payload"]["jwt"] == "[REDACTED_SENSITIVE]"
+    assert extra["auth_payload"]["authorization"] == "[REDACTED_SENSITIVE]"

@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from app.api.dependencies import (
     _MAX_BACKGROUND_TASKS,
     _background_tasks,
+    _local_presence_last_seen,
     get_authenticated_user_id,
     get_optional_authenticated_user_id,
 )
@@ -83,11 +84,12 @@ async def test_get_optional_authenticated_user_id_missing_sub_raises_401() -> No
 
 @pytest.mark.anyio
 async def test_presence_background_task_creation_and_queue_capping() -> None:
-    """Verify presence task is queued normally, but skipped when queue reaches _MAX_BACKGROUND_TASKS."""
+    """Verify presence task is queued normally, throttled in-memory, and skipped when queue reaches _MAX_BACKGROUND_TASKS."""
     payload = {"sub": "user-presence-test"}
 
     # 1. Normal queue under limit
     _background_tasks.clear()
+    _local_presence_last_seen.clear()
     with patch("app.api.dependencies._update_presence_if_needed", AsyncMock()) as mock_presence:
         user_id = await get_authenticated_user_id(payload)
         assert user_id == "user-presence-test"
@@ -95,20 +97,30 @@ async def test_presence_background_task_creation_and_queue_capping() -> None:
         await asyncio.sleep(0.01)
         mock_presence.assert_called_once_with("user-presence-test")
 
-    # 2. Queue at capacity
+    # 2. In-memory throttle prevents repeated task creation within 30s
+    with patch("app.api.dependencies._update_presence_if_needed", AsyncMock()) as mock_presence_throttled:
+        user_id = await get_authenticated_user_id(payload)
+        assert user_id == "user-presence-test"
+        await asyncio.sleep(0.01)
+        # Should be throttled at the memory gate
+        mock_presence_throttled.assert_not_called()
+
+    # 3. Queue at capacity
     _background_tasks.clear()
+    _local_presence_last_seen.clear()
     dummy_tasks = [asyncio.create_task(asyncio.sleep(10)) for _ in range(_MAX_BACKGROUND_TASKS)]
     for dt in dummy_tasks:
         _background_tasks.add(dt)
 
     try:
-        with patch("app.api.dependencies._update_presence_if_needed", AsyncMock()) as mock_presence:
+        with patch("app.api.dependencies._update_presence_if_needed", AsyncMock()) as mock_presence_cap:
             user_id = await get_authenticated_user_id(payload)
             assert user_id == "user-presence-test"
             await asyncio.sleep(0.01)
-            # Should have skipped creating a new presence task
-            mock_presence.assert_not_called()
+            # Should have skipped creating a new presence task due to capacity
+            mock_presence_cap.assert_not_called()
     finally:
         for dt in dummy_tasks:
             dt.cancel()
         _background_tasks.clear()
+        _local_presence_last_seen.clear()

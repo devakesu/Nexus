@@ -6,7 +6,6 @@ user's full PII is a comparably sensitive operation.
 
 import hmac
 import logging
-import secrets
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -21,7 +20,13 @@ from app.core.config import settings
 from app.core.email import send_data_export_otp_email
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
-from app.core.infra.otp import OTP_VERIFIED_TTL_SECONDS, otp_verified_redis_key
+from app.core.infra.otp import (
+    OTP_VERIFIED_TTL_SECONDS,
+    check_and_increment_otp_attempts,
+    dummy_email_send_delay,
+    generate_otp_code,
+    otp_verified_redis_key,
+)
 from app.db.users import (
     build_user_data_export,
 )
@@ -45,6 +50,9 @@ router = APIRouter()
 
 _DATA_EXPORT_OTP_MAX_ATTEMPTS = 5
 _DATA_EXPORT_OTP_TTL_SECONDS = 600
+_DATA_EXPORT_OTP_MAX_TARGET_ATTEMPTS = 3
+_DATA_EXPORT_OTP_TARGET_WINDOW_SECONDS = 30 * 60  # 30 minutes
+_DATA_EXPORT_OTP_RESEND_COOLDOWN_SECONDS = 60  # 60 seconds
 
 
 @router.post(
@@ -72,9 +80,31 @@ async def request_data_export_otp(
     email_in = payload.email if payload else None
     user_id, email = await resolve_verified_user(auth_user_id, email_in)
     if not user_id:
+        await dummy_email_send_delay()
         return DataExportOtpRequestResponse(sent=True)
 
-    otp_code = "".join(secrets.choice("0123456789") for _ in range(8))
+    target_limit_key = f"data_export:otp_limit:{user_id}"
+    target_cooldown_key = f"data_export:otp_cooldown:{user_id}"
+
+    if await redis_client.exists(target_cooldown_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait a bit before requesting another data export code.",
+        )
+
+    target_attempts = await redis_client.get(target_limit_key)
+    if target_attempts and int(target_attempts) >= _DATA_EXPORT_OTP_MAX_TARGET_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many data export requests for this account. Please try again later.",
+        )
+
+    await redis_client.set(target_cooldown_key, "1", ex=_DATA_EXPORT_OTP_RESEND_COOLDOWN_SECONDS, nx=True)
+    current_attempts = await redis_client.incr(target_limit_key)
+    if current_attempts == 1:
+        await redis_client.expire(target_limit_key, _DATA_EXPORT_OTP_TARGET_WINDOW_SECONDS)
+
+    otp_code = generate_otp_code(8)
     await redis_client.setex(f"data_export:otp_code:{user_id}", _DATA_EXPORT_OTP_TTL_SECONDS, otp_code)
     await redis_client.delete(f"data_export:otp_attempts:{user_id}")
     otp_res = await send_data_export_otp_email(email, otp_code)
@@ -118,12 +148,12 @@ async def verify_data_export_otp(
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
     attempts_key = f"data_export:otp_attempts:{user_id}"
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= _DATA_EXPORT_OTP_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many incorrect attempts. Please request a new code.",
-        )
+    await check_and_increment_otp_attempts(
+        attempts_key,
+        _DATA_EXPORT_OTP_MAX_ATTEMPTS,
+        _DATA_EXPORT_OTP_TTL_SECONDS,
+        client=redis_client,
+    )
 
     stored_otp = await redis_client.get(f"data_export:otp_code:{user_id}")
     if not stored_otp:
@@ -134,8 +164,6 @@ async def verify_data_export_otp(
         else stored_otp
     )
     if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
-        await redis_client.incr(attempts_key)
-        await redis_client.expire(attempts_key, _DATA_EXPORT_OTP_TTL_SECONDS)
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
     await redis_client.delete(f"data_export:otp_code:{user_id}")
     await redis_client.delete(attempts_key)

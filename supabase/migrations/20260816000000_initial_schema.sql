@@ -305,6 +305,22 @@ ALTER FUNCTION "public"."guard_service_fields"() OWNER TO "postgres";
 
 COMMENT ON FUNCTION "public"."guard_service_fields"() IS 'SECURITY DEFINER trigger blocking non-service writes to server-governed profile fields: deactivation state, tab-active flags, and import sync fields.';
 
+CREATE OR REPLACE FUNCTION "public"."prevent_users_app_variant_update"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+    IF OLD.app_variant IS NOT NULL AND NEW.app_variant IS DISTINCT FROM OLD.app_variant THEN
+        RAISE EXCEPTION 'app_variant cannot be modified after user account creation.';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."prevent_users_app_variant_update"() OWNER TO "postgres";
+
+COMMENT ON FUNCTION "public"."prevent_users_app_variant_update"() IS 'Blocks updates to app_variant after user row creation to prevent privilege escalation.';
+
 CREATE OR REPLACE FUNCTION "public"."handle_deactivation_timestamp"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'pg_temp'
@@ -1718,6 +1734,8 @@ CREATE OR REPLACE TRIGGER "set_safety_sessions_updated_at" BEFORE UPDATE ON "pub
 CREATE OR REPLACE TRIGGER "set_user_devices_updated_at" BEFORE UPDATE ON "public"."user_devices" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 CREATE OR REPLACE TRIGGER "set_users_updated_at" BEFORE UPDATE ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+CREATE OR REPLACE TRIGGER "trg_prevent_users_app_variant_update" BEFORE UPDATE OF "app_variant" ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_users_app_variant_update"();
 
 CREATE OR REPLACE TRIGGER "trg_enforce_variant_age_range" BEFORE INSERT OR UPDATE OF "age" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_variant_age_range"();
 

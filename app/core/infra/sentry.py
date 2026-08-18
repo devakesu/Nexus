@@ -19,6 +19,16 @@ _SECRET_RE = re.compile(
     r"[A-Za-z0-9\-_.+/=]{8,})",
     re.IGNORECASE,
 )
+_SENSITIVE_KEY_RE = re.compile(
+    r"(bearer|auth|token|authorization|password|secret|jwt|"
+    r"access_token|refresh_token|credential|cookie|session)",
+    re.IGNORECASE,
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """Checks whether a dictionary key name indicates sensitive authentication data."""
+    return bool(_SENSITIVE_KEY_RE.search(key.strip()))
 
 
 def _redact_email(match: re.Match[str]) -> str:
@@ -86,7 +96,13 @@ def _scrub_object(value: Any) -> Any:
         return _scrub_string(value)
     if isinstance(value, dict):
         typed_dict = cast("dict[Any, Any]", value)
-        return {key: _scrub_object(item) for key, item in typed_dict.items()}
+        scrubbed_dict: dict[Any, Any] = {}
+        for key, item in typed_dict.items():
+            if isinstance(key, str) and _is_sensitive_key(key):
+                scrubbed_dict[key] = "[REDACTED_SENSITIVE]"
+            else:
+                scrubbed_dict[key] = _scrub_object(item)
+        return scrubbed_dict
     if isinstance(value, list):
         typed_list = cast("list[Any]", value)
         return [_scrub_object(item) for item in typed_list]

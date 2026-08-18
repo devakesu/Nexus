@@ -8,6 +8,7 @@ import logging
 import secrets
 from typing import Any, cast
 
+import redis
 import redis.asyncio as aioredis
 from redis.asyncio.connection import BlockingConnectionPool
 
@@ -37,24 +38,31 @@ pool = cast(Any, BlockingConnectionPool).from_url(
 )
 redis_client = aioredis.Redis(connection_pool=pool)
 
+# Synchronous Redis client for synchronous cache invalidations and operations outside event loops
+sync_pool = cast(Any, redis.BlockingConnectionPool).from_url(
+    settings.redis_url,
+    max_connections=20,
+    timeout=3.0,
+    socket_connect_timeout=5,
+    socket_timeout=5,
+    decode_responses=True,
+    encoding="utf-8",
+)
+sync_redis_client = redis.Redis(connection_pool=sync_pool)
+
 
 def invalidate_user_status_cache(user_id: str) -> None:
-    """Evicts the cached user status record from Redis asynchronously.
+    """Evicts the cached user status record from Redis synchronously.
 
     Args:
         user_id: Unique string identifier of the user whose status cache is to be evicted.
     """
     try:
-        from app.core.infra.tasks import safe_create_task
-
-        async def _delete_key() -> None:
-            """Asynchronously delete the cached user status key from Redis."""
-            await redis_client.delete(f"user:status:{user_id}")
-
-        safe_create_task(_delete_key())
+        sync_redis_client.delete(f"user:status:{user_id}")
     except Exception:
         logger.exception(
             "Failed to invalidate user status cache",
             extra={"user_id": user_id},
         )
+
 

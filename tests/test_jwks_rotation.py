@@ -294,3 +294,100 @@ async def test_admin_flush_jwks_cache_endpoint() -> None:
         assert jwks._cached_jwks is None
         assert jwks._last_fetch_time == 0.0
 
+
+@pytest.mark.anyio
+async def test_get_live_supabase_public_key_serves_from_stale_cache_during_outage() -> None:
+    """Verify that when remote fetch fails during an outage, expired cache continues to serve known good keys."""
+    import httpx
+
+    priv, pub = _generate_ec_key_pair()
+    token = jwt.encode({"sub": "user-123"}, priv, algorithm="ES256", headers={"kid": "valid-kid"})
+
+    mock_jwk = MagicMock()
+    mock_jwk.key_id = "valid-kid"
+    mock_jwk.key = pub
+
+    mock_jwk_set = MagicMock()
+    mock_jwk_set.keys = [mock_jwk]
+
+    # Pre-populate cache with known good keys
+    jwks._cached_jwks = mock_jwk_set
+    jwks._cached_keys_by_kid = {"valid-kid": pub}
+    # Expire TTL
+    jwks._last_fetch_time = time.time() - 1000
+    jwks._last_fetch_failure_time = 0.0
+
+    with patch("app.core.security.jwks._get_jwks_client") as mock_client_factory:
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = httpx.ConnectError("Supabase outage")
+        mock_client_factory.return_value = mock_client
+
+        # Key should be successfully resolved from stale cache without error
+        resolved_key = await get_live_supabase_public_key(token)
+        assert resolved_key == pub
+
+
+@pytest.mark.anyio
+async def test_get_live_supabase_public_key_rejects_revoked_kid_during_outage() -> None:
+    """Verify that unknown/revoked keys are never served even during an outage."""
+    import httpx
+
+    priv, pub = _generate_ec_key_pair()
+    token = jwt.encode({"sub": "user-123"}, priv, algorithm="ES256", headers={"kid": "unknown-revoked-kid"})
+
+    mock_jwk = MagicMock()
+    mock_jwk.key_id = "valid-kid"
+    mock_jwk.key = pub
+
+    mock_jwk_set = MagicMock()
+    mock_jwk_set.keys = [mock_jwk]
+
+    jwks._cached_jwks = mock_jwk_set
+    jwks._cached_keys_by_kid = {"valid-kid": pub}
+    jwks._last_fetch_time = time.time() - 1000
+    jwks._last_fetch_failure_time = 0.0
+
+    with patch("app.core.security.jwks._get_jwks_client") as mock_client_factory:
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = httpx.ConnectError("Supabase outage")
+        mock_client_factory.return_value = mock_client
+
+        with pytest.raises(jwt.InvalidTokenError, match="revoked"):
+            await get_live_supabase_public_key(token)
+
+
+@pytest.mark.anyio
+async def test_get_live_supabase_public_key_retry_backoff_during_outage() -> None:
+    """Verify that fetch attempts during an outage observe the 30s retry backoff."""
+    import httpx
+
+    priv, pub = _generate_ec_key_pair()
+    token = jwt.encode({"sub": "user-123"}, priv, algorithm="ES256", headers={"kid": "valid-kid"})
+
+    mock_jwk = MagicMock()
+    mock_jwk.key_id = "valid-kid"
+    mock_jwk.key = pub
+
+    mock_jwk_set = MagicMock()
+    mock_jwk_set.keys = [mock_jwk]
+
+    jwks._cached_jwks = mock_jwk_set
+    jwks._cached_keys_by_kid = {"valid-kid": pub}
+    jwks._last_fetch_time = time.time() - 1000
+    jwks._last_fetch_failure_time = 0.0
+
+    with patch("app.core.security.jwks._get_jwks_client") as mock_client_factory:
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = httpx.ConnectError("Supabase outage")
+        mock_client_factory.return_value = mock_client
+
+        # Call 1: triggers fetch attempt (and records failure time)
+        key1 = await get_live_supabase_public_key(token)
+        assert key1 == pub
+        assert mock_client.get.call_count == 1
+
+        # Call 2 immediately after: retry_allowed is False, so no HTTP request made
+        key2 = await get_live_supabase_public_key(token)
+        assert key2 == pub
+        assert mock_client.get.call_count == 1
+

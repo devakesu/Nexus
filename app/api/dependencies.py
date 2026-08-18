@@ -12,7 +12,6 @@ import time
 from typing import Any, cast
 
 import jwt
-import sentry_sdk
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
@@ -174,6 +173,23 @@ async def get_authenticated_user_payload(
 
 _MAX_BACKGROUND_TASKS = 1000
 _background_tasks: set[asyncio.Task[None]] = set()
+_local_presence_last_seen: dict[str, float] = {}
+_LOCAL_PRESENCE_THROTTLE_SECONDS = 30.0
+
+
+def _should_trigger_presence(user_id: str) -> bool:
+    """In-memory process-local throttle gate to prevent queue exhaustion under high request volume."""
+    now = time.monotonic()
+    last = _local_presence_last_seen.get(user_id, 0.0)
+    if now - last < _LOCAL_PRESENCE_THROTTLE_SECONDS:
+        return False
+    _local_presence_last_seen[user_id] = now
+    if len(_local_presence_last_seen) > 10000:
+        cutoff = now - _LOCAL_PRESENCE_THROTTLE_SECONDS
+        stale_keys = [k for k, v in _local_presence_last_seen.items() if v < cutoff]
+        for k in stale_keys:
+            _local_presence_last_seen.pop(k, None)
+    return True
 
 
 def is_account_suspended(user_row: dict[str, Any]) -> bool:
@@ -224,21 +240,17 @@ async def get_authenticated_user_id(
         Returns:
             str: Response payload or result."""
     user_id = payload["sub"]
-    if len(_background_tasks) < _MAX_BACKGROUND_TASKS:
-        task = asyncio.create_task(_update_presence_if_needed(user_id))
-        _background_tasks.add(task)
-        task.add_done_callback(_background_tasks.discard)
-    else:
-        logger.error(
-            "Background presence task queue at capacity (%d); dropping presence update for user %s",
-            _MAX_BACKGROUND_TASKS,
-            user_id,
-        )
-        sentry_sdk.capture_message(
-            f"Background presence task queue at capacity ({_MAX_BACKGROUND_TASKS}); dropping presence update",
-            level="error",
-            tags={"user_id": user_id, "location": "presence_background_task"},
-        )
+    if _should_trigger_presence(user_id):
+        if len(_background_tasks) < _MAX_BACKGROUND_TASKS:
+            task = asyncio.create_task(_update_presence_if_needed(user_id))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
+        else:
+            logger.warning(
+                "Background presence task queue at capacity (%d); dropping presence update for user %s",
+                _MAX_BACKGROUND_TASKS,
+                user_id,
+            )
     return user_id
 
 

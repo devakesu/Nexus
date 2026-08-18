@@ -55,7 +55,6 @@ class _LoginScreenState extends State<LoginScreen>
   /// backend never tells the client which email it went to; this flag just
   /// decides which backend call `_verifyOtp`/resend should make.
   bool _isPhoneLookupFlow = false;
-  bool _hidePhoneLogin = false;
 
   int _resendCountdown = 0;
   Timer? _countdownTimer;
@@ -513,71 +512,13 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final dio = createDio();
       final config = AppConfig.current;
-      final response = await dio.post<Map<String, dynamic>>(
+      await dio.post<Map<String, dynamic>>(
         '${config.backendUrl}/api/v1/auth/login-by-phone/request',
         data: {'phone': phone},
         options: Options(
           headers: {'X-App-Variant': config.variantString},
         ),
       );
-      final exists = response.data?['exists'] as bool? ?? false;
-      if (!exists) {
-        if (mounted) {
-          setState(() {
-            _currentView = LoginView.options;
-            _hidePhoneLogin = true;
-          });
-          await showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF161B26),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0xFF374151)),
-              ),
-              title: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
-                    color: AppColors.pulsarPink,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Registration Required',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-              content: Text(
-                'This phone number is not registered. Please sign in or register with Google or Email first.',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF9CA3AF),
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'OK',
-                    style: GoogleFonts.inter(
-                      color: AppColors.pulsarPink,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return;
-      }
       if (mounted) {
         setState(() {
           _isPhoneLookupFlow = true;
@@ -1095,18 +1036,16 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.mail_outline_rounded,
               label: 'Sign in with Email',
             ),
-            if (!_hidePhoneLogin) ...[
-              const SizedBox(height: 12),
-              _buildGreyButton(
-                onTap: () {
-                  setState(() {
-                    _currentView = LoginView.phone;
-                  });
-                },
-                icon: Icons.phone_iphone_rounded,
-                label: 'Sign in with Phone',
-              ),
-            ],
+            const SizedBox(height: 12),
+            _buildGreyButton(
+              onTap: () {
+                setState(() {
+                  _currentView = LoginView.phone;
+                });
+              },
+              icon: Icons.phone_iphone_rounded,
+              label: 'Sign in with Phone',
+            ),
             const SizedBox(height: 20),
             _buildFootnote('Find your orbit. Connect seamlessly.'),
           ],

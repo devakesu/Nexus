@@ -271,7 +271,7 @@ async def test_request_account_deletion_invalid_confirmation_preserves_otp(
 @patch("app.api.user.account_deletion.redis_client")
 @patch("app.api.user.account_deletion.resolve_verified_user")
 @patch("app.api.user.account_deletion.fetch_deletion_status")
-async def test_request_account_deletion_early_return_consumes_otp(
+async def test_request_account_deletion_early_return_preserves_otp_for_concurrency(
     mock_fetch_status: MagicMock,
     mock_resolve_user: AsyncMock,
     mock_redis: AsyncMock,
@@ -306,7 +306,7 @@ async def test_request_account_deletion_early_return_consumes_otp(
     )
 
     assert res.scheduled_purge_at == purge_time
-    mock_redis.delete.assert_called_once_with("account_deletion:otp_verified:user-123")
+    mock_redis.delete.assert_not_called()
 
 
 
@@ -348,7 +348,7 @@ async def test_cancel_account_deletion_queues_email(
 
     assert res.reactivated is True
     mock_cancel_deletion.assert_called_once_with("user-123")
-    mock_redis.delete.assert_called_once_with("user:status:user-123")
+    assert mock_redis.delete.call_count == 2
     bg_tasks.add_task.assert_called_once_with(
         mock_reactivated_email,
         email="user@example.com",
@@ -407,6 +407,7 @@ async def test_verify_account_deletion_otp_attempts_lockout(
         return "12345678"
 
     mock_redis.get = AsyncMock(side_effect=fake_redis_get)
+    mock_redis.incr = AsyncMock(return_value=6)
 
     payload = AccountDeletionOtpVerifyRequest(
         email="user@example.com",
@@ -451,6 +452,7 @@ async def test_verify_data_export_otp_attempts_lockout(
         return "12345678"
 
     mock_redis.get = AsyncMock(side_effect=fake_redis_get)
+    mock_redis.incr = AsyncMock(return_value=6)
 
     payload = DataExportOtpVerifyRequest(
         email="user@example.com",
@@ -562,6 +564,203 @@ def test_build_account_section_filters_tombstone_email(
     mock_get_email.return_value = f"deleted-{valid_uuid}@deleted.nexus.app"
     account_purged = _build_account_section(valid_uuid)
     assert account_purged.get("email") is None
+
+
+@pytest.mark.anyio
+@patch("app.api.user.account_deletion.dummy_email_send_delay")
+@patch("app.api.user.account_deletion.resolve_verified_user")
+async def test_request_account_deletion_otp_unregistered_email(
+    mock_resolve_user: AsyncMock,
+    mock_dummy_delay: AsyncMock,
+) -> None:
+    from app.api.user.account_deletion import request_account_deletion_otp
+    from app.models import AccountDeletionOtpRequestRequest
+
+    mock_resolve_user.return_value = (None, "unregistered@example.com")
+    payload = AccountDeletionOtpRequestRequest(email="unregistered@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    resp = await request_account_deletion_otp(
+        request=request,
+        payload=payload,
+        _device=None,
+        auth_user_id=None,
+    )
+    assert resp.sent is True
+    mock_dummy_delay.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.user.export.dummy_email_send_delay")
+@patch("app.api.user.export.resolve_verified_user")
+async def test_request_data_export_otp_unregistered_email(
+    mock_resolve_user: AsyncMock,
+    mock_dummy_delay: AsyncMock,
+) -> None:
+    from app.api.user.export import request_data_export_otp
+    from app.models import DataExportOtpRequestRequest
+
+    mock_resolve_user.return_value = (None, "unregistered@example.com")
+    payload = DataExportOtpRequestRequest(email="unregistered@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    resp = await request_data_export_otp(
+        request=request,
+        payload=payload,
+        _device=None,
+        auth_user_id=None,
+    )
+    assert resp.sent is True
+    mock_dummy_delay.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.user.account_deletion.resolve_verified_user")
+@patch("app.api.user.account_deletion.redis_client")
+async def test_request_account_deletion_otp_per_target_resend_cooldown_raises_429(
+    mock_redis: AsyncMock,
+    mock_resolve_user: AsyncMock,
+) -> None:
+    from app.api.user.account_deletion import request_account_deletion_otp
+    from app.models import AccountDeletionOtpRequestRequest
+
+    mock_resolve_user.return_value = ("target-user-1", "target@example.com")
+    mock_redis.exists.return_value = True  # Cooldown exists
+    payload = AccountDeletionOtpRequestRequest(email="target@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await request_account_deletion_otp(
+            request=request,
+            payload=payload,
+            _device=None,
+            auth_user_id=None,
+        )
+    assert exc_info.value.status_code == 429
+    assert "Please wait a bit before requesting another deletion code" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.user.account_deletion.resolve_verified_user")
+@patch("app.api.user.account_deletion.redis_client")
+async def test_request_account_deletion_otp_per_target_attempts_exceeded_raises_429(
+    mock_redis: AsyncMock,
+    mock_resolve_user: AsyncMock,
+) -> None:
+    from app.api.user.account_deletion import request_account_deletion_otp
+    from app.models import AccountDeletionOtpRequestRequest
+
+    mock_resolve_user.return_value = ("target-user-1", "target@example.com")
+    mock_redis.exists.return_value = False
+    mock_redis.get.return_value = "3"  # Max target attempts reached
+    payload = AccountDeletionOtpRequestRequest(email="target@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await request_account_deletion_otp(
+            request=request,
+            payload=payload,
+            _device=None,
+            auth_user_id=None,
+        )
+    assert exc_info.value.status_code == 429
+    assert "Too many deletion requests for this account" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.user.export.resolve_verified_user")
+@patch("app.api.user.export.redis_client")
+async def test_request_data_export_otp_per_target_resend_cooldown_raises_429(
+    mock_redis: AsyncMock,
+    mock_resolve_user: AsyncMock,
+) -> None:
+    from app.api.user.export import request_data_export_otp
+    from app.models import DataExportOtpRequestRequest
+
+    mock_resolve_user.return_value = ("target-user-2", "target2@example.com")
+    mock_redis.exists.return_value = True  # Cooldown active
+    payload = DataExportOtpRequestRequest(email="target2@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.2", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await request_data_export_otp(
+            request=request,
+            payload=payload,
+            _device=None,
+            auth_user_id=None,
+        )
+    assert exc_info.value.status_code == 429
+    assert "Please wait a bit before requesting another data export code" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.user.export.resolve_verified_user")
+@patch("app.api.user.export.redis_client")
+async def test_request_data_export_otp_per_target_attempts_exceeded_raises_429(
+    mock_redis: AsyncMock,
+    mock_resolve_user: AsyncMock,
+) -> None:
+    from app.api.user.export import request_data_export_otp
+    from app.models import DataExportOtpRequestRequest
+
+    mock_resolve_user.return_value = ("target-user-2", "target2@example.com")
+    mock_redis.exists.return_value = False
+    mock_redis.get.return_value = "3"  # Max target attempts reached
+    payload = DataExportOtpRequestRequest(email="target2@example.com")
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+        "client": ("10.0.0.2", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await request_data_export_otp(
+            request=request,
+            payload=payload,
+            _device=None,
+            auth_user_id=None,
+        )
+    assert exc_info.value.status_code == 429
+    assert "Too many data export requests for this account" in exc_info.value.detail
+
 
 
 

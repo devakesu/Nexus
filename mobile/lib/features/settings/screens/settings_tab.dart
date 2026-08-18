@@ -30,6 +30,8 @@ const _kAuthorUrl = 'https://devakesu.com';
 
 enum _PauseStatus { loading, active, paused, error }
 
+enum _SignOutScope { thisDevice, allDevices }
+
 class SettingsTab extends StatefulWidget {
   const SettingsTab({required this.onOpenOrbit, super.key});
 
@@ -1373,7 +1375,7 @@ class _AccountActionsSection extends StatelessWidget {
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+    final scope = await showDialog<_SignOutScope>(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.white,
@@ -1414,9 +1416,9 @@ class _AccountActionsSection extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Text(
-                "You'll need to sign in again to access your account.",
+                'Choose whether to sign out from this device only or revoke active sessions across all devices.',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: AppColors.inkMuted,
@@ -1424,63 +1426,105 @@ class _AccountActionsSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.manrope(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.inkMuted,
-                        ),
-                      ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.of(ctx).pop(_SignOutScope.thisDevice),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: AppColors.ink,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.of(ctx).pop(true),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: AppColors.ink,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Center(
-                              child: Text(
-                                'Sign out',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Center(
+                        child: Text(
+                          'Sign out this device',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.of(ctx).pop(_SignOutScope.allDevices),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.3),
+                      ),
+                      color: AppColors.error.withValues(alpha: 0.08),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Center(
+                        child: Text(
+                          'Sign out all devices',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 24,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.manrope(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-    if (confirmed == true && context.mounted) {
+    if (scope != null && context.mounted) {
+      if (scope == _SignOutScope.allDevices) {
+        try {
+          await createDio().post<dynamic>(
+            '${AppConfig.current.backendUrl}/api/v1/auth/revoke-all-sessions',
+          );
+        } on Object catch (e, st) {
+          ErrorHandler.handleError(
+            e,
+            stackTrace: st,
+            level: ErrorLevel.warning,
+            customMessage: 'Failed to revoke all sessions on server',
+            showUi: false,
+          );
+        }
+      }
       await SignalKeyService.instance.wipeLocalData();
       await Supabase.instance.client.auth.signOut();
     }

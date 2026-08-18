@@ -7,25 +7,16 @@ HMAC hashing, and signed stateless access token creation and verification.
 import base64
 import hashlib
 import hmac
-import secrets
 from datetime import datetime, timedelta, timezone
 
 from app.core.auth.phone_otp import normalize_phone as normalize_phone
+from app.core.infra.otp import generate_otp_code as generate_otp_code
 from app.core.security.crypto import get_hmac_signing_key
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "safety_portal_otp"  # domain-separation label
 _ACCESS_DOMAIN_LABEL = "safety_portal_access"  # domain-separation label
 _ACCESS_TOKEN_TTL_SECONDS = 30 * 60
-
-
-def generate_otp_code() -> str:
-    """Generates a random _OTP_LENGTH-digit numeric OTP string.
-
-    Returns:
-        str: _OTP_LENGTH-digit numeric OTP code.
-    """
-    return "".join(secrets.choice("0123456789") for _ in range(_OTP_LENGTH))
 
 
 def _get_signing_key() -> bytes:

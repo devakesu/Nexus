@@ -93,8 +93,13 @@ async def test_update_presence_suspended_user(
 async def test_get_authenticated_user_id_throttles_at_capacity() -> None:
     import asyncio
 
-    from app.api.dependencies import _background_tasks, get_authenticated_user_id
+    from app.api.dependencies import (
+        _background_tasks,
+        _local_presence_last_seen,
+        get_authenticated_user_id,
+    )
 
+    _local_presence_last_seen.clear()
     dummy_tasks = {asyncio.create_task(asyncio.sleep(10)) for _ in range(1000)}
     original_tasks = set(_background_tasks)
     _background_tasks.clear()
@@ -109,4 +114,5 @@ async def test_get_authenticated_user_id_throttles_at_capacity() -> None:
             t.cancel()
         _background_tasks.clear()
         _background_tasks.update(original_tasks)
+        _local_presence_last_seen.clear()
 
