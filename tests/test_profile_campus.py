@@ -197,12 +197,11 @@ def test_update_profile_details_tab_activation_conditional_pic_check(
         "name": "Alex",
         "age": 22,
         "profile_pic": "https://img.example.com/pic.jpg",
-        "normal_pics": [],
-        "interests": [],
-        "sub_interests": [],
+        "normal_pics": ["https://img.example.com/normal1.jpg"],
+        "sub_interests": {"tech": ["python", "fastapi"]},
         "drinking": "no",
         "smoking": "no",
-        "partner_values": [],
+        "partner_values": ["honesty"],
         "dating_target_buckets": ["F"],
         "dating_for": ["relationship"],
         "bio": "Hello there my friend",
@@ -230,6 +229,72 @@ def test_update_profile_details_tab_activation_conditional_pic_check(
 
     assert excinfo.value.status_code == 400
     assert "Cannot activate tab without a profile picture" in str(excinfo.value.detail)
+
+
+@patch("app.api.user.supabase_client")
+@patch("app.api.user.decrypt_profile_record")
+def test_update_profile_details_activation_toctou_profile_pic_race(
+    mock_decrypt: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    mock_select = MagicMock()
+    chain = mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single
+    chain.return_value.execute = mock_select
+
+    mock_select.return_value.data = {
+        "name": "Alex",
+        "age": 22,
+        "profile_pic": "enc_pic",
+        "normal_pics": "[]",
+        "interests": "[]",
+        "sub_interests": "[]",
+        "drinking": "no",
+        "smoking": "no",
+        "partner_values": "[]",
+        "dating_target_buckets": ["F"],
+        "dating_for": ["relationship"],
+        "bio": "Hello there my friend",
+        "is_dating_active": False,
+    }
+    mock_decrypt.return_value = {
+        "name": "Alex",
+        "age": 22,
+        "profile_pic": "https://img.example.com/pic.jpg",
+        "normal_pics": ["https://img.example.com/normal1.jpg"],
+        "sub_interests": {"tech": ["python", "fastapi"]},
+        "drinking": "no",
+        "smoking": "no",
+        "partner_values": ["honesty"],
+        "dating_target_buckets": ["F"],
+        "dating_for": ["relationship"],
+        "bio": "Hello there my friend",
+        "is_dating_active": False,
+    }
+
+    # Simulate conditional update failure
+    update_mock = MagicMock()
+    mock_supabase.table.return_value.update.return_value.eq.return_value = update_mock
+    update_mock.not_.is_.return_value.execute.return_value.data = []
+
+    # And fallback select finds profile where profile_pic was concurrently populated
+    fallback_select = MagicMock()
+    fallback_select.execute.return_value.data = {"id": "user123", "profile_pic": "https://example.com/pic.jpg"}
+    chain.return_value = fallback_select
+
+    payload = ProfileDetailsUpdate(is_dating_active=True)
+    with pytest.raises(HTTPException) as excinfo:
+        update_profile_details(
+            background_tasks=MagicMock(),
+            payload=payload,
+            user_id="user123",
+            _device=None,
+        )
+
+    # Must raise 400 with "Cannot activate tab without a profile picture", NOT 404
+    assert excinfo.value.status_code == 400
+    assert "Cannot activate tab without a profile picture" in str(excinfo.value.detail)
+
+
 
 
 def test_validate_common_activation_decryption_failed_profile_pic() -> None:

@@ -5,6 +5,7 @@ from unittest.mock import patch
 from app.core.security.portal_auth import (
     generate_otp_code,
     hash_otp,
+    hash_phone_identifier,
     make_portal_access_token,
     verify_otp_hash,
     verify_portal_access_token,
@@ -44,9 +45,9 @@ def test_make_portal_access_token_does_not_leak_plaintext_phone() -> None:
     assert phone_norm not in decoded_payload
     assert "9876543" not in decoded_payload
 
-    # Valid token verification succeeds
+    # Valid token verification succeeds and returns phone_id hash
     res = verify_portal_access_token(session_id, token)
-    assert res is not None
+    assert res == hash_phone_identifier(phone_norm)
 
 
 def test_verify_portal_access_token_rejections() -> None:

@@ -1,9 +1,4 @@
-"""Database discovery exclusion tracking, user blocks, and pass cooldown management layer.
-
-Manages discovery exclusions (likes, passes, unmatches, blocks) and provides Redis-cached
-user block list lookups to filter discovery orbits efficiently.
-"""
-
+import asyncio
 import contextlib
 import json
 import logging
@@ -488,16 +483,25 @@ def fetch_expired_pass_candidates(
 
 
 async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
-    """Executes invalidate block cache operation.
+    """Invalidates block redis caches and active discovery sessions for both users.
 
-        Args:
-            viewer_id: Input viewer id parameter.
-            target_id: Input target id parameter."""
+    Args:
+        viewer_id: Input viewer id parameter.
+        target_id: Input target id parameter.
+    """
     try:
         await redis_client.delete(f"discovery:block_ids:{viewer_id}")
         await redis_client.delete(f"discovery:block_ids:{target_id}")
     except Exception:
         logger.exception("Failed to invalidate block cache")
+
+    try:
+        from app.db.sessions.auth_sessions import invalidate_viewer_discovery_sessions
+
+        await asyncio.to_thread(invalidate_viewer_discovery_sessions, viewer_id)
+        await asyncio.to_thread(invalidate_viewer_discovery_sessions, target_id)
+    except Exception:
+        logger.exception("Failed to invalidate discovery sessions on block")
 
 
 def fetch_likes_for_user(

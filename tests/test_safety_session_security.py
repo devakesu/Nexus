@@ -110,6 +110,7 @@ async def test_cancel_escalation_valid_note(
     mock_verify.return_value = 1
     mock_fetch.return_value = {
         "id": "11111111-1111-1111-1111-111111111111",
+        "user_id": "user-123",
         "escalations_sent": 1,
         "escalation_cancelled_at": None,
     }
@@ -132,10 +133,118 @@ async def test_cancel_escalation_valid_note(
 
     assert res.status_code == 200
     mock_cancel.assert_called_once_with(
+        "user-123",
         "11111111-1111-1111-1111-111111111111",
         "safe",
         "User checked in via phone call.",
     )
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.verify_escalation_cancel_token")
+@patch("app.api.safety.endpoints.fetch_safety_session")
+@patch("app.api.safety.endpoints.cancel_safety_escalation")
+async def test_cancel_escalation_missing_user_id(
+    mock_cancel: MagicMock,
+    mock_fetch: MagicMock,
+    mock_verify: MagicMock,
+) -> None:
+    mock_verify.return_value = 1
+    mock_fetch.return_value = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "user_id": None,
+        "escalations_sent": 1,
+        "escalation_cancelled_at": None,
+    }
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await cancel_escalation(
+        request=request,
+        session_id="11111111-1111-1111-1111-111111111111",
+        token="valid-token",
+        reason="safe",
+        note=None,
+    )
+
+    assert res.status_code == 404
+    mock_cancel.assert_not_called()
+
+
+def test_cancel_safety_escalation_db_ownership() -> None:
+    from app.db.safety.sessions import cancel_safety_escalation
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "session-123", "user_id": "user-123"}])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        res = cancel_safety_escalation(
+            user_id="user-123",
+            session_id="session-123",
+            reason="safe",
+            note="All good",
+        )
+
+    assert res == {"id": "session-123", "user_id": "user-123"}
+    mock_builder.update.assert_called_once()
+    eq_calls = mock_builder.eq.call_args_list
+    assert eq_calls == [
+        (("id", "session-123"),),
+        (("user_id", "user-123"),),
+    ]
+    mock_builder.is_.assert_called_once_with("escalation_cancelled_at", "null")
+
+
+def test_fetch_safety_session_for_user_scopes_by_id_and_user_id() -> None:
+    from app.db.safety.sessions import fetch_safety_session_for_user
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data={"id": "session-456", "user_id": "user-123"})
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        res = fetch_safety_session_for_user(user_id="user-123", session_id="session-456")
+
+    assert res == {"id": "session-456", "user_id": "user-123"}
+    mock_builder.select.assert_called_once()
+    eq_calls = mock_builder.eq.call_args_list
+    assert eq_calls == [
+        (("id", "session-456"),),
+        (("user_id", "user-123"),),
+    ]
+    mock_builder.maybe_single.assert_called_once()
+
+
+def test_fetch_safety_session_portal_scopes_by_id() -> None:
+    from app.db.safety.sessions import fetch_safety_session
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data={"id": "session-456", "user_id": "user-123"})
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        res = fetch_safety_session(session_id="session-456")
+
+    assert res == {"id": "session-456", "user_id": "user-123"}
+    mock_builder.select.assert_called_once()
+    mock_builder.eq.assert_called_once_with("id", "session-456")
+    mock_builder.maybe_single.assert_called_once()
+
+
 
 
 def test_register_safety_evidence_encrypts_media_key() -> None:

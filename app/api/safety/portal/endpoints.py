@@ -1,6 +1,7 @@
 """FastAPI endpoints and business logic for the trusted contact and safety portals."""
 
 import asyncio
+import hmac
 import logging
 import secrets
 from typing import Any, cast
@@ -17,6 +18,7 @@ from app.core.infra.tasks import safe_create_task
 from app.core.security.portal_auth import (
     generate_otp_code,
     hash_otp,
+    hash_phone_identifier,
     make_portal_access_token,
     normalize_phone,
     verify_otp_hash,
@@ -460,7 +462,8 @@ async def get_contact_portal_details(
         )
     contact_id = actual_contact_id
     token = _extract_bearer_token(authorization)
-    if token is None or verify_portal_access_token(contact_id, token) is None:
+    token_phone_id = verify_portal_access_token(contact_id, token) if token else None
+    if token is None or token_phone_id is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired portal session. Please verify again.",
@@ -473,6 +476,15 @@ async def get_contact_portal_details(
                 status_code=404,
                 detail="This trusted contact listing no longer exists.",
             )
+
+        contact_phone = str(contact.get("phone") or "")
+        current_phone_id = hash_phone_identifier(normalize_phone(contact_phone))
+        if not hmac.compare_digest(token_phone_id, current_phone_id):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired portal session. Please verify again.",
+            )
+
         profile = await asyncio.to_thread(
             fetch_contact_facing_profile_summary, str(contact["user_id"]),
         )
@@ -554,13 +566,29 @@ async def remove_trusted_contact(
         )
     contact_id = actual_contact_id
     token = _extract_bearer_token(authorization)
-    if token is None or verify_portal_access_token(contact_id, token) is None:
+    token_phone_id = verify_portal_access_token(contact_id, token) if token else None
+    if token is None or token_phone_id is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired portal session. Please verify again.",
         )
 
     try:
+        contact = await asyncio.to_thread(fetch_safety_contact_by_id, contact_id)
+        if contact is None:
+            raise HTTPException(
+                status_code=404,
+                detail="This trusted contact listing no longer exists.",
+            )
+
+        contact_phone = str(contact.get("phone") or "")
+        current_phone_id = hash_phone_identifier(normalize_phone(contact_phone))
+        if not hmac.compare_digest(token_phone_id, current_phone_id):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired portal session. Please verify again.",
+            )
+
         removed = await asyncio.to_thread(
             remove_safety_contact_self_service, contact_id,
         )

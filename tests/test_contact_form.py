@@ -84,7 +84,11 @@ async def test_submit_contact_ticket_guest_flow(
 ) -> None:
     _ = mock_conf_email
     _ = mock_admin_email
-    mock_redis.get = AsyncMock(return_value="654321")
+
+    async def fake_redis_get(key: str) -> str | None:
+        return "0" if "otp_attempts" in key else "654321"
+
+    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
     mock_redis.delete = AsyncMock()
 
     # RPC returns None (unregistered email / guest visitor)
@@ -135,7 +139,10 @@ async def test_submit_contact_ticket_guest_flow(
 @pytest.mark.anyio
 @patch("app.api.feedback.redis_client")
 async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
-    mock_redis.get = AsyncMock(return_value="111222")
+    async def fake_invalid_otp(key: str) -> str | None:
+        return "0" if "otp_attempts" in key else "111222"
+
+    mock_redis.get = AsyncMock(side_effect=fake_invalid_otp)
 
     payload = ContactSubmitRequest(
         email="user@example.com",
@@ -411,7 +418,11 @@ async def test_submit_contact_ticket_validates_attachments_exist(
 ) -> None:
     _ = mock_conf_email
     _ = mock_admin_email
-    mock_redis.get = AsyncMock(return_value="123456")
+
+    async def fake_redis_get(key: str) -> str | None:
+        return "0" if "otp_attempts" in key else "123456"
+
+    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
     mock_redis.delete = AsyncMock()
 
     mock_storage = MagicMock()
@@ -458,7 +469,10 @@ async def test_submit_contact_ticket_rejects_nonexistent_attachment(
     mock_redis: MagicMock,
     mock_supabase: MagicMock,
 ) -> None:
-    _ = mock_redis
+    async def fake_redis_get(key: str) -> str | None:
+        return "0" if "otp_attempts" in key else "123456"
+
+    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
     mock_storage = MagicMock()
     mock_storage.list.return_value = [{"name": "actual_file.png"}]
     mock_supabase.storage.from_.return_value = mock_storage
@@ -496,7 +510,10 @@ async def test_submit_contact_ticket_rejects_nonexistent_attachment(
 async def test_submit_contact_ticket_rejects_malformed_attachment_path(
     mock_redis: MagicMock,
 ) -> None:
-    _ = mock_redis
+    async def fake_redis_get(key: str) -> str | None:
+        return "0" if "otp_attempts" in key else "123456"
+
+    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
     payload = ContactSubmitRequest(
         email="user@example.com",
         otp_code="123456",

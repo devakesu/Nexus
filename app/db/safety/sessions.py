@@ -177,7 +177,10 @@ def record_safety_escalation_sent(session_id: str, new_count: int) -> None:
 
 
 def fetch_safety_session(session_id: str) -> dict[str, Any] | None:
-    """Fetch single safety session by ID."""
+    """Fetch single safety session by ID for contact portal and escalation cancel token flows.
+
+    Note: Account-holder flows must use fetch_safety_session_for_user to enforce ownership.
+    """
     try:
         res = (
             supabase_client.table("safety_sessions")
@@ -197,7 +200,33 @@ def fetch_safety_session(session_id: str) -> dict[str, Any] | None:
         raise DatabaseAccessError("Failed to fetch safety session") from e
 
 
+def fetch_safety_session_for_user(
+    user_id: str,
+    session_id: str,
+) -> dict[str, Any] | None:
+    """Fetch single safety session scoped to caller's user_id."""
+    try:
+        res = (
+            supabase_client.table("safety_sessions")
+            .select(_SESSION_COLS)
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        if res and res.data:
+            return cast(dict[str, Any], res.data)
+        return None
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch safety session for user",
+            extra={"user_id": user_id, "session_id": session_id},
+        )
+        raise DatabaseAccessError("Failed to fetch safety session for user") from e
+
+
 def cancel_safety_escalation(
+    user_id: str,
     session_id: str,
     reason: str,
     note: str | None,
@@ -214,6 +243,7 @@ def cancel_safety_escalation(
                 },
             )
             .eq("id", session_id)
+            .eq("user_id", user_id)
             .is_("escalation_cancelled_at", "null")
             .select(_SESSION_COLS)
             .execute()
@@ -225,6 +255,7 @@ def cancel_safety_escalation(
     except APIError as e:
         logger.exception(
             "Failed to cancel safety escalation",
-            extra={"session_id": session_id},
+            extra={"user_id": user_id, "session_id": session_id},
         )
         raise DatabaseAccessError("Failed to cancel safety escalation") from e
+

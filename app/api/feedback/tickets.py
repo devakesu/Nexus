@@ -75,6 +75,54 @@ async def assemble_ticket_detail(
 _assemble_ticket_detail = assemble_ticket_detail
 
 
+async def _verify_user_storage_files(user_id: str, attachment_paths: list[str]) -> None:
+    if not attachment_paths:
+        return
+    own_prefix = f"{user_id}/"
+    filenames: list[str] = []
+    for path in attachment_paths:
+        if not path.startswith(own_prefix) or ".." in path or "\\" in path:
+            raise HTTPException(
+                status_code=422,
+                detail="attachment_paths may only reference your own uploads.",
+            )
+        parts = path.split("/")
+        if len(parts) != 2 or not parts[1]:
+            raise HTTPException(
+                status_code=422,
+                detail="attachment_paths may only reference your own uploads.",
+            )
+        filenames.append(parts[1])
+
+    try:
+        objects = await asyncio.to_thread(
+            lambda: feedback_module.supabase_client.storage.from_("feedback_attachments").list(user_id),
+        )
+        existing_names = {
+            obj.get("name")
+            for obj in (objects or [])
+            if obj.get("name")
+        }
+        for fname in filenames:
+            if fname not in existing_names:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Attachment file not found: {fname}",
+                )
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.warning(
+            "Failed to verify attachments in storage for user %s: %s",
+            user_id,
+            err,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Attachment verification failed.",
+        ) from err
+
+
 @router.post("/api/v1/feedback/submit", response_model=FeedbackSubmitResponse)
 @limiter.limit(settings.rate_limit_feedback)
 async def submit_feedback(
@@ -87,13 +135,7 @@ async def submit_feedback(
     """Submits a new user support ticket, bug report, or feature request."""
     _ = request
 
-    own_prefix = f"{user_id}/"
-    for path in payload.attachment_paths:
-        if not path.startswith(own_prefix):
-            raise HTTPException(
-                status_code=422,
-                detail="attachment_paths may only reference your own uploads.",
-            )
+    await _verify_user_storage_files(user_id, payload.attachment_paths)
 
     try:
         row = await asyncio.to_thread(

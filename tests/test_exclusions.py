@@ -1,6 +1,6 @@
 import uuid
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -249,4 +249,27 @@ def test_record_user_report_upserts_auto_block(mock_supabase: MagicMock) -> None
         },
         on_conflict="actor_id,target_id,action",
     )
+
+
+@pytest.mark.anyio
+@patch("app.db.discovery.exclusions.redis_client")
+@patch("app.db.sessions.auth_sessions.invalidate_viewer_discovery_sessions")
+async def test_invalidate_block_cache_deletes_redis_keys_and_discovery_sessions(
+    mock_invalidate_sessions: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.db.discovery.exclusions import invalidate_block_cache
+
+    mock_redis.delete = AsyncMock()
+
+    await invalidate_block_cache("user-111", "user-222")
+
+    assert mock_redis.delete.call_count == 2
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-111")
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-222")
+
+    assert mock_invalidate_sessions.call_count == 2
+    mock_invalidate_sessions.assert_any_call("user-111")
+    mock_invalidate_sessions.assert_any_call("user-222")
+
 

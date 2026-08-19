@@ -172,8 +172,13 @@ async def test_fetch_spatial_viewport_rejects_nan_and_inf() -> None:
 
 
 @pytest.mark.anyio
+@patch("app.db.sessions.viewport.get_cached_active_block_ids", new_callable=AsyncMock, return_value=set())
 @patch("app.db.sessions.viewport.supabase_client.table")
-async def test_fetch_spatial_viewport_clamps_radius(mock_table: MagicMock) -> None:
+async def test_fetch_spatial_viewport_clamps_radius(
+    mock_table: MagicMock,
+    mock_get_blocks: AsyncMock,
+) -> None:
+    _ = mock_get_blocks
     from app.db.sessions.viewport import fetch_spatial_viewport
 
     mock_builder = MagicMock()
@@ -229,9 +234,10 @@ def test_create_discovery_session_derives_spotify_connected_without_extra_db_que
 
     assert session_id == "session-uuid-123"
     mock_rpc.assert_called_once()
-    _, kwargs = mock_rpc.call_args
-    params = kwargs.get("params")
+    args, kwargs = mock_rpc.call_args
+    params = kwargs.get("params") or (args[1] if len(args) > 1 else None)
     assert params is not None
     assert params.get("p_viewer_spotify_connected") is True
+
 
 

@@ -180,7 +180,7 @@ async def test_assemble_ticket_detail_concurrent(
     from app.api.feedback.tickets import assemble_ticket_detail
 
     mock_history.return_value = [
-        {"old_status": "open", "new_status": "in_review", "changed_by": "staff-1", "created_at": "2026-08-01T00:00:00Z"},
+        {"status": "in_review", "note": "old: open", "changed_by": "staff-1", "created_at": "2026-08-01T00:00:00Z"},
     ]
     mock_comments.return_value = [
         {"id": "c-1", "author_id": "user-123", "body": "My comment", "created_at": "2026-08-01T00:00:00Z"},
@@ -213,4 +213,164 @@ async def test_assemble_ticket_detail_concurrent(
     assert res.comments[0].author_id == "user-123"
     assert res.comments[1].is_own is False
     assert res.comments[1].author_id == "staff"
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.record_feedback_submission")
+@patch("app.api.feedback.fetch_user_email")
+async def test_submit_feedback_with_valid_attachments_verified_in_storage(
+    mock_fetch_email: MagicMock,
+    mock_record: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    from app.api.feedback.tickets import submit_feedback
+    from app.models import FeedbackSubmitRequest
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": "screenshot1.png"}]
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    mock_record.return_value = {
+        "id": "ticket-555",
+        "status": "open",
+        "created_at": "2026-08-19T19:00:00Z",
+    }
+    mock_fetch_email.return_value = "user@example.com"
+
+    payload = FeedbackSubmitRequest(
+        query_type="bug_report",
+        subject="Button not responding",
+        message="The submit button is unresponsive on iOS.",
+        attachment_paths=["user-123/screenshot1.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/feedback/submit",
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    res = await submit_feedback(
+        request=request,
+        background_tasks=bg_tasks,
+        payload=payload,
+        user_id="user-123",
+    )
+
+    assert res.id == "ticket-555"
+    mock_storage.list.assert_called_once_with("user-123")
+    mock_record.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+@patch("app.api.feedback.record_feedback_submission")
+async def test_submit_feedback_rejects_nonexistent_attachment(
+    mock_record: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    from fastapi import HTTPException
+    from app.api.feedback.tickets import submit_feedback
+    from app.models import FeedbackSubmitRequest
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = [{"name": "other_file.png"}]
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    payload = FeedbackSubmitRequest(
+        query_type="bug_report",
+        subject="Button not responding",
+        message="The submit button is unresponsive on iOS.",
+        attachment_paths=["user-123/phantom.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/feedback/submit",
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_feedback(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+            user_id="user-123",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Attachment file not found: phantom.png" in exc_info.value.detail
+    mock_record.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_submit_feedback_rejects_other_user_prefix() -> None:
+    from fastapi import HTTPException
+    from app.api.feedback.tickets import submit_feedback
+    from app.models import FeedbackSubmitRequest
+
+    payload = FeedbackSubmitRequest(
+        query_type="bug_report",
+        subject="Button not responding",
+        message="The submit button is unresponsive on iOS.",
+        attachment_paths=["other-user/screenshot1.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/feedback/submit",
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_feedback(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+            user_id="user-123",
+        )
+
+    assert exc_info.value.status_code == 422
+    assert "attachment_paths may only reference your own uploads." in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_submit_feedback_rejects_traversal_in_attachment() -> None:
+    from fastapi import HTTPException
+    from app.api.feedback.tickets import submit_feedback
+    from app.models import FeedbackSubmitRequest
+
+    payload = FeedbackSubmitRequest(
+        query_type="bug_report",
+        subject="Button not responding",
+        message="The submit button is unresponsive on iOS.",
+        attachment_paths=["user-123/../victim/secret.png"],
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/feedback/submit",
+    }
+    request = Request(scope)
+    bg_tasks = MagicMock()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await submit_feedback(
+            request=request,
+            background_tasks=bg_tasks,
+            payload=payload,
+            user_id="user-123",
+        )
+
+    assert exc_info.value.status_code == 422
+    assert "attachment_paths may only reference your own uploads." in exc_info.value.detail
+
 

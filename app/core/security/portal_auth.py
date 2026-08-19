@@ -84,12 +84,16 @@ def _sign_access_payload(payload: str) -> str:
     return hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
-def _hash_phone_identifier(phone_norm: str) -> str:
+def hash_phone_identifier(phone_norm: str) -> str:
     """Computes a one-way HMAC digest of the normalized phone number
     to prevent embedding plaintext phone numbers in token payloads.
     """
     key = _get_signing_key()
     return hmac.new(key, f"portal_phone_id:{phone_norm}".encode(), hashlib.sha256).hexdigest()[:16]
+
+
+_hash_phone_identifier = hash_phone_identifier
+
 
 
 def make_portal_access_token(session_id: str, phone_norm: str) -> str:

@@ -387,5 +387,63 @@ async def test_record_like_back_action_report_dissolves_match_and_closes_convers
     )
 
 
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.set_match_unmatched")
+@patch("app.api.discovery.likes.close_conversation_for_match_action")
+@patch("app.api.discovery.likes.record_mutual_pass")
+@patch("app.db.sessions.auth_sessions.invalidate_viewer_discovery_sessions")
+async def test_record_match_action_unmatch_invalidates_discovery_sessions(
+    mock_invalidate_sessions: MagicMock,
+    mock_record_pass: MagicMock,
+    mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
+) -> None:
+    from app.api.discovery.likes import record_match_action
+    from app.models import MatchActionRequest
+
+    payload = MatchActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="unmatch",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await record_match_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+
+    assert res.success is True
+    mock_set_unmatched.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+    )
+    mock_close_convo.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+        "unmatch",
+    )
+    mock_record_pass.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Dating",
+        14,
+    )
+    assert mock_invalidate_sessions.call_count == 2
+    mock_invalidate_sessions.assert_any_call("22222222-2222-2222-2222-222222222222")
+    mock_invalidate_sessions.assert_any_call("11111111-1111-1111-1111-111111111111")
+
+
+
+
 
 

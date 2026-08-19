@@ -684,6 +684,13 @@ async def record_match_action(
                 payload.tab,
                 14,
             )
+            try:
+                from app.db.sessions.auth_sessions import invalidate_viewer_discovery_sessions
+
+                await asyncio.to_thread(invalidate_viewer_discovery_sessions, user_id)
+                await asyncio.to_thread(invalidate_viewer_discovery_sessions, payload.target_id)
+            except Exception:
+                logger.exception("Failed to invalidate discovery sessions on unmatch")
 
         return MatchActionResponse()
 

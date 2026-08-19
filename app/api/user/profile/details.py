@@ -623,11 +623,18 @@ def update_profile_details(  # noqa: C901
                 or update_data.get("is_friends_active") is True
                 or update_data.get("is_professional_active") is True
             )
-            if is_activating and "profile_pic" not in update_data:
+            conditional_pic_check = is_activating and "profile_pic" not in update_data
+            if conditional_pic_check:
                 query = query.not_.is_("profile_pic", "null")
 
             res = query.execute()
             if not getattr(res, "data", None):
+                if not conditional_pic_check:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Profile not found. Complete onboarding first.",
+                    )
+
                 existing = (
                     user_module.supabase_client.table("profiles")
                     .select("id, profile_pic")
@@ -641,14 +648,9 @@ def update_profile_details(  # noqa: C901
                         status_code=404,
                         detail="Profile not found. Complete onboarding first.",
                     )
-                if is_activating and not existing_data.get("profile_pic"):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Cannot activate tab without a profile picture.",
-                    )
                 raise HTTPException(
-                    status_code=404,
-                    detail="Profile not found. Complete onboarding first.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot activate tab without a profile picture.",
                 )
 
         plaintext_bio: str | None = (

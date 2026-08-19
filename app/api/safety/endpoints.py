@@ -556,7 +556,20 @@ async def cancel_escalation(
                 status_code=400,
             )
 
-        await asyncio.to_thread(cancel_safety_escalation, session_id, reason, note)
+        user_id = session.get("user_id")
+        if not user_id:
+            return HTMLResponse(
+                _escalation_page("This safety session no longer exists."),
+                status_code=404,
+            )
+
+        await asyncio.to_thread(
+            cancel_safety_escalation,
+            user_id,
+            session_id,
+            reason,
+            note,
+        )
     except DatabaseAccessError as err:
         logger.exception(
             "Database error cancelling safety escalation",

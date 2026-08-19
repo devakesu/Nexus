@@ -110,8 +110,11 @@ async def test_get_contact_portal_details_success(
     mock_fetch_contact: MagicMock,
     _mock_redis: MagicMock,
 ):
-    mock_verify_token.return_value = "session-valid"
-    mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456"}
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    phone_id = hash_phone_identifier("+1234567890")
+    mock_verify_token.return_value = phone_id
+    mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456", "phone": "+1234567890"}
     mock_fetch_profile.return_value = {"name": "User Alice", "profile_pic": None, "hometown": "Chicago"}
 
     res = await get_contact_portal_details(
@@ -126,6 +129,38 @@ async def test_get_contact_portal_details_success(
 
 @pytest.mark.anyio
 @patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
+@patch("app.api.safety.portal.endpoints.fetch_contact_facing_profile_summary")
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+async def test_get_contact_portal_details_stale_phone_rejected(
+    mock_verify_token: MagicMock,
+    mock_fetch_profile: MagicMock,
+    mock_fetch_contact: MagicMock,
+    _mock_redis: MagicMock,
+):
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    # Token issued for old phone
+    old_phone_id = hash_phone_identifier("+15551111111")
+    mock_verify_token.return_value = old_phone_id
+    # Stored contact has updated phone
+    mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456", "phone": "+15552222222"}
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_contact_portal_details(
+            request=MagicMock(),
+            contact_id="contact-123",
+            authorization="Bearer session-valid",
+        )
+
+    assert exc_info.value.status_code == 401
+    assert "Invalid or expired portal session" in exc_info.value.detail
+    mock_fetch_profile.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
 @patch("app.api.safety.portal.endpoints.remove_safety_contact_self_service")
 @patch("app.api.safety.portal.endpoints.verify_portal_access_token")
 @patch("app.api.safety.portal.endpoints.fetch_public_user")
@@ -141,9 +176,14 @@ async def test_remove_trusted_contact_success(
     mock_user: MagicMock,
     mock_verify_token: MagicMock,
     mock_remove: MagicMock,
+    mock_fetch_contact: MagicMock,
     _mock_redis: MagicMock,
 ):
-    mock_verify_token.return_value = "session-valid"
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    phone_id = hash_phone_identifier("+1234567890")
+    mock_verify_token.return_value = phone_id
+    mock_fetch_contact.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456", "phone": "+1234567890"}
     mock_remove.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456"}
     mock_user.return_value = {"mobile": "+1987654321"}
     mock_profile.return_value = {"name": "Bob"}
@@ -160,6 +200,38 @@ async def test_remove_trusted_contact_success(
     await asyncio.sleep(0.1)
     mock_send_sms.assert_called_once()
     mock_send_email.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
+@patch("app.api.safety.portal.endpoints.remove_safety_contact_self_service")
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+async def test_remove_trusted_contact_stale_phone_rejected(
+    mock_verify_token: MagicMock,
+    mock_remove: MagicMock,
+    mock_fetch_contact: MagicMock,
+    _mock_redis: MagicMock,
+):
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    # Token issued for old phone
+    old_phone_id = hash_phone_identifier("+15551111111")
+    mock_verify_token.return_value = old_phone_id
+    # Stored contact has updated new phone
+    mock_fetch_contact.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456", "phone": "+15552222222"}
+
+    with pytest.raises(HTTPException) as exc_info:
+        await remove_trusted_contact(
+            request=MagicMock(),
+            contact_id="contact-123",
+            authorization="Bearer session-valid",
+        )
+
+    assert exc_info.value.status_code == 401
+    assert "Invalid or expired portal session" in exc_info.value.detail
+    mock_remove.assert_not_called()
+
 
 
 @pytest.mark.anyio
