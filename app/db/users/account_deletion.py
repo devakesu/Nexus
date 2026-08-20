@@ -20,7 +20,6 @@ See 20260801000000_account_deletion_lifecycle.sql,
 import logging
 import secrets
 import time
-import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
@@ -29,7 +28,12 @@ from postgrest.exceptions import APIError
 from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
 from app.db.chat import reopen_conversations_for_reactivation
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    normalize_uuid,
+    supabase_client,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -236,9 +240,10 @@ def _close_all_conversations(user_id: str) -> None:
     Args:
         user_id: Unique UUID string of the authenticated user.
     """
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     now = utcnow()
     try:
+        # nosec: user_id validated via normalize_uuid
         supabase_client.table("chat_conversations").update(
             {"closed_at": now.isoformat(), "closed_reason": "account_deletion"},
         ).or_(
@@ -261,6 +266,7 @@ def request_deletion(
     the module docstring for why profiles/users/matches/chats are left
     alone here rather than deleted.
     """
+    user_id = normalize_uuid(user_id)
     now = utcnow()
     grace_days = settings.account_deletion_grace_period_days
     scheduled_purge_at = now + timedelta(days=grace_days)
@@ -300,6 +306,16 @@ def request_deletion(
     except APIError:
         logger.exception(
             "Failed to deactivate devices for deletion", extra={"user_id": user_id},
+        )
+
+    try:
+        supabase_client.table("safety_sessions").update(
+            {"status": "ended"},
+        ).eq("user_id", user_id).eq("status", "active").execute()
+    except APIError:
+        logger.exception(
+            "Failed to end active safety sessions on deletion request",
+            extra={"user_id": user_id},
         )
 
     try:
@@ -396,9 +412,10 @@ def _permanently_unmatch_all(user_id: str) -> None:
     Args:
         user_id: Unique UUID string of the authenticated user.
     """
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     now = utcnow()
     try:
+        # nosec: user_id validated via normalize_uuid
         supabase_client.table("matches").update(
             {"unmatched_at": now.isoformat(), "unmatched_by": user_id},
         ).or_(
@@ -412,30 +429,39 @@ def _permanently_unmatch_all(user_id: str) -> None:
 
 
 def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
-    """Anonymize profile and user.
+    """Anonymizes user profile PII fields and marks the account purged in users table.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user.
-            now: Input now parameter."""
+    Args:
+        user_id: Unique UUID string of the user being purged.
+        now: Timestamp of the purge operation.
+    """
+    user_id = normalize_uuid(user_id)
     profile_payload: dict[str, Any] = {col: None for col in _PROFILE_PII_COLUMNS}
     profile_payload.update({col: None for col in _PROFILE_BLIND_INDEX_COLUMNS})
     profile_payload["name"] = _ANONYMIZED_NAME
     profile_payload["is_deactivated"] = True
     profile_payload["deactivated_at"] = now.isoformat()
-    supabase_client.table("profiles").update(profile_payload).eq(
-        "id", user_id,
-    ).execute()
 
-    supabase_client.table("users").update(
-        {
-            "mobile": None,
-            "mobile_verified_at": None,
-            "mobile_blind_index": None,
-            "is_active": False,
-            "purged_at": now.isoformat(),
-        },
-    ).eq("id", user_id).execute()
-    invalidate_user_status_cache(user_id)
+    try:
+        supabase_client.table("profiles").update(profile_payload).eq(
+            "id", user_id,
+        ).execute()
+
+        supabase_client.table("users").update(
+            {
+                "mobile": None,
+                "mobile_verified_at": None,
+                "mobile_blind_index": None,
+                "is_active": False,
+                "purged_at": now.isoformat(),
+            },
+        ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
+    except APIError as e:
+        logger.exception(
+            "Failed to anonymize profile and user rows", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to anonymize profile and user") from e
 
 
 def _delete_no_retention_rows(user_id: str) -> None:
@@ -443,39 +469,41 @@ def _delete_no_retention_rows(user_id: str) -> None:
 
         Args:
             user_id: Unique UUID string of the authenticated user."""
+    valid_user_id = normalize_uuid(user_id)
     for table in _NO_RETENTION_TABLES:
         try:
-            supabase_client.table(table).delete().eq("user_id", user_id).execute()
+            supabase_client.table(table).delete().eq("user_id", valid_user_id).execute()
         except APIError:
             logger.exception(
-                "Failed to purge %s row(s) for user", table, extra={"user_id": user_id},
+                "Failed to purge %s row(s) for user", table, extra={"user_id": valid_user_id},
             )
 
     try:
         supabase_client.table("discovery_sessions").delete().eq(
-            "viewer_id", user_id,
+            "viewer_id", valid_user_id,
         ).execute()
     except APIError:
         logger.exception(
-            "Failed to purge discovery_sessions for user", extra={"user_id": user_id},
+            "Failed to purge discovery_sessions for user", extra={"user_id": valid_user_id},
         )
     try:
         supabase_client.table("discovery_session_items").delete().eq(
-            "candidate_id", user_id,
+            "candidate_id", valid_user_id,
         ).execute()
     except APIError:
         logger.exception(
             "Failed to purge discovery_session_items for user",
-            extra={"user_id": user_id},
+            extra={"user_id": valid_user_id},
         )
     try:
+        # nosec: valid_user_id validated via normalize_uuid
         supabase_client.table("profile_discovery_actions").delete().or_(
-            f"actor_id.eq.{user_id},target_id.eq.{user_id}",
+            f"actor_id.eq.{valid_user_id},target_id.eq.{valid_user_id}",
         ).execute()
     except APIError:
         logger.exception(
             "Failed to purge profile_discovery_actions for user",
-            extra={"user_id": user_id},
+            extra={"user_id": valid_user_id},
         )
 
 
@@ -616,7 +644,8 @@ def _fetch_archive_source(
     source: tuple[str, str, str | None, str],
     user_id: str,
 ) -> list[dict[str, Any]] | None:
-    table, or_filter_template, reason_field, outcome_field = source
+    valid_user_id = normalize_uuid(user_id)
+    table, _, reason_field, outcome_field = source
     try:
         select_fields = "id, created_at"
         if reason_field:
@@ -624,19 +653,20 @@ def _fetch_archive_source(
         select_fields += f", {outcome_field}"
         query = supabase_client.table(table).select(select_fields)
         if table == "user_reports":
-            query = query.or_(or_filter_template.format(uid=user_id))
+            # nosec: valid_user_id validated via normalize_uuid preventing filter injection
+            query = query.or_(f"reporter_id.eq.{valid_user_id},target_id.eq.{valid_user_id}")
         else:
-            query = query.eq("user_id", user_id)
+            query = query.eq("user_id", valid_user_id)
         res = query.execute()
         return cast(list[dict[str, Any]], res.data or [])
     except APIError:
         logger.exception(
-            "Failed to fetch %s for archival", table, extra={"user_id": user_id},
+            "Failed to fetch %s for archival", table, extra={"user_id": valid_user_id},
         )
         return None
     except Exception:
         logger.exception(
-            "Unexpected failure fetching %s for archival", table, extra={"user_id": user_id},
+            "Unexpected failure fetching %s for archival", table, extra={"user_id": valid_user_id},
         )
         return None
 

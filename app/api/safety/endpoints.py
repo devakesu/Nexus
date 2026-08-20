@@ -5,9 +5,11 @@ triggering emergency SOS alerts (silent/loud), and uploading safety audio eviden
 """
 
 import asyncio
+import hashlib
 import html
 import json
 import logging
+import uuid
 from typing import Any
 
 import sentry_sdk
@@ -214,7 +216,6 @@ async def _record_safety_alert_response(
             extra={"user_id": user_id, "alert_type": payload.alert_type, "notified": notified},
         )
         if notified > 0:
-            import uuid
             return SafetyAlertResponse(
                 id=f"temp-{uuid.uuid4()}",
                 contacts_notified=notified,
@@ -532,6 +533,23 @@ async def cancel_escalation(
         return HTMLResponse(
             _escalation_page("That link is invalid or has expired."),
             status_code=403,
+        )
+
+    # Replay protection: single-use token check in Redis
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    token_used_key = f"safety:cancel_token:used:{token_hash}"
+    try:
+        is_fresh = await redis_client.set(token_used_key, "1", ex=86400, nx=True)
+        if not is_fresh:
+            return HTMLResponse(
+                _escalation_page("That cancellation link has already been used."),
+                status_code=400,
+            )
+    except Exception:
+        logger.warning(
+            "Redis unavailable during cancel token replay check for session %s",
+            session_id,
+            exc_info=True,
         )
 
     try:

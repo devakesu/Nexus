@@ -9,6 +9,7 @@ import contextlib
 import functools
 import logging
 from collections.abc import Callable, Coroutine
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Any, cast
 
@@ -61,6 +62,15 @@ _scheduler: AsyncIOScheduler | None = None
 # multiple backend replicas.
 _REMINDER_WINDOW_MINUTES = 60
 _POLL_INTERVAL_MINUTES = 15
+
+
+def _mask_id(identifier: str) -> str:
+    """Masks a sensitive session or user identifier for safe structured logging."""
+    if not identifier:
+        return ""
+    if len(identifier) <= 8:
+        return "***"
+    return f"{identifier[:4]}...{identifier[-4:]}"
 
 
 def with_distributed_lock(
@@ -241,7 +251,7 @@ async def _acquire_escalation_idempotency(session_id: str, escalation_number: in
         sentry_sdk.capture_exception(err)
         logger.error(
             "Failed to communicate with Redis for escalation idempotency %s (%d); skipping escalation to prevent duplicate SMS dispatch: %s",
-            session_id,
+            _mask_id(session_id),
             escalation_number,
             err,
             exc_info=err,
@@ -281,6 +291,7 @@ async def _dispatch_escalation_sms_and_record(
     session_id: str,
     escalation_number: int,
     idempotency_key: str,
+    expected_count: int | None = None,
 ) -> None:
     notified = False
     for contact in contacts:
@@ -291,25 +302,36 @@ async def _dispatch_escalation_sms_and_record(
         sentry_sdk.capture_message(
             "CRITICAL: All SMS deliveries failed for overdue safety session",
             level="error",
-            extras={"session_id": session_id},
+            extras={"session_id_masked": _mask_id(session_id)},
         )
         logger.error(
             "Failed to reach any trusted contact for an overdue safety session",
-            extra={"session_id": session_id},
+            extra={"session_id_masked": _mask_id(session_id)},
         )
         with contextlib.suppress(Exception):
             await redis_client.delete(idempotency_key)
         return
 
     try:
-        await asyncio.to_thread(
-            record_safety_escalation_sent, session_id, escalation_number,
+        updated = await asyncio.to_thread(
+            record_safety_escalation_sent,
+            session_id,
+            escalation_number,
+            expected_count,
         )
+        if not updated:
+            logger.info(
+                "Safety escalation DB update touched 0 rows; already recorded concurrently by another worker",
+                extra={
+                    "session_id_masked": _mask_id(session_id),
+                    "escalation_number": escalation_number,
+                },
+            )
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception(
             "Failed to record safety escalation",
-            extra={"session_id": session_id},
+            extra={"session_id_masked": _mask_id(session_id)},
         )
 
 
@@ -328,7 +350,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
     except DatabaseAccessError:
         logger.exception(
             "Failed to fetch contacts for overdue safety session",
-            extra={"session_id": session_id},
+            extra={"session_id_masked": _mask_id(session_id)},
         )
         return
 
@@ -342,24 +364,37 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
     if not is_new:
         logger.warning(
             "Skipping safety escalation SMS: already sent according to Redis idempotency check",
-            extra={"session_id": session_id, "escalation_number": escalation_number},
+            extra={"session_id_masked": _mask_id(session_id), "escalation_number": escalation_number},
+        )
+        logger.debug(
+            "Skipping safety escalation SMS for session %s (attempt %d)",
+            session_id,
+            escalation_number,
         )
         # Self-healing: Reconcile DB escalation count if previous write failed
         with contextlib.suppress(Exception):
             await asyncio.to_thread(
-                record_safety_escalation_sent, session_id, escalation_number,
+                record_safety_escalation_sent,
+                session_id,
+                escalation_number,
+                escalations_sent,
             )
         return
 
     body = _compose_session_unreachable_message(session, session_id, escalation_number)
     await _dispatch_escalation_sms_and_record(
-        contacts, body, session_id, escalation_number, idempotency_key,
+        contacts,
+        body,
+        session_id,
+        escalation_number,
+        idempotency_key,
+        expected_count=escalations_sent,
     )
 
 
-@with_distributed_lock("meetup_safety_escalations", ttl_seconds=240)
+@with_distributed_lock("meetup_safety_escalations", ttl_seconds=300)
 async def _check_overdue_safety_sessions() -> None:
-    """Check overdue safety sessions."""
+    """Check overdue safety sessions and dispatch escalations concurrently with bounded concurrency."""
     try:
         overdue = await asyncio.to_thread(
             fetch_overdue_safety_sessions, _SAFETY_ESCALATION_GRACE_SECONDS,
@@ -370,9 +405,47 @@ async def _check_overdue_safety_sessions() -> None:
         return
 
     now = utcnow()
-    for session in overdue:
-        if _next_escalation_due(session, now):
-            await _escalate_safety_session(session)
+    due_sessions = [s for s in overdue if _next_escalation_due(s, now)]
+    if not due_sessions:
+        return
+
+    sem = asyncio.Semaphore(10)
+
+    async def _safe_escalate(session: dict[str, Any]) -> None:
+        async with sem:
+            try:
+                await _escalate_safety_session(session)
+            except Exception as e:
+                sentry_sdk.capture_exception(e)
+                logger.exception(
+                    "Error during safety escalation",
+                    extra={"session_id_masked": _mask_id(str(session.get("id") or ""))},
+                )
+
+    await asyncio.gather(*[_safe_escalate(s) for s in due_sessions])
+
+
+_maintenance_executor: ThreadPoolExecutor | None = None
+
+
+def get_maintenance_executor() -> ThreadPoolExecutor:
+    """Returns the dedicated ThreadPoolExecutor singleton for background maintenance jobs."""
+    global _maintenance_executor
+    if _maintenance_executor is None:
+        _maintenance_executor = ThreadPoolExecutor(
+            max_workers=2,
+            thread_name_prefix="maintenance_worker",
+        )
+    return _maintenance_executor
+
+
+async def _run_in_maintenance_executor(func: Callable[..., Any], *args: Any) -> Any:
+    """Executes long-running batch maintenance jobs on a dedicated ThreadPoolExecutor
+    to avoid starving the default asyncio threadpool used for request-serving I/O.
+    """
+    loop = asyncio.get_running_loop()
+    executor = get_maintenance_executor()
+    return await loop.run_in_executor(executor, func, *args)
 
 
 # Account deletion (Tier 1 grace-window purge, Tier-1 blocklist expiry, and
@@ -388,7 +461,7 @@ _ACCOUNT_DELETION_POLL_HOURS = 24
 async def _run_account_deletion_purge() -> None:
     """Run account deletion purge."""
     try:
-        await asyncio.to_thread(purge_due_accounts)
+        await _run_in_maintenance_executor(purge_due_accounts)
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception("Failed to run account deletion purge")
@@ -398,7 +471,7 @@ async def _run_account_deletion_purge() -> None:
 async def _run_blocklist_expiry() -> None:
     """Run blocklist expiry."""
     try:
-        await asyncio.to_thread(expire_blocklist_entries)
+        await _run_in_maintenance_executor(expire_blocklist_entries)
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception("Failed to expire deleted-account blocklist entries")
@@ -408,7 +481,7 @@ async def _run_blocklist_expiry() -> None:
 async def _run_account_deletion_long_tail_purge() -> None:
     """Run account deletion long tail purge."""
     try:
-        await asyncio.to_thread(hard_purge_long_tail_accounts)
+        await _run_in_maintenance_executor(hard_purge_long_tail_accounts)
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception("Failed to run account deletion long-tail purge")
@@ -421,7 +494,7 @@ async def _run_account_deletion_long_tail_purge() -> None:
 async def _run_safety_evidence_retention_purge() -> None:
     """Run safety evidence retention purge."""
     try:
-        await asyncio.to_thread(purge_expired_safety_evidence)
+        await _run_in_maintenance_executor(purge_expired_safety_evidence)
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception("Failed to run safety evidence retention purge")
@@ -431,7 +504,7 @@ async def _run_safety_evidence_retention_purge() -> None:
 async def _run_safety_data_legal_hold_purge() -> None:
     """Run safety data legal hold purge."""
     try:
-        await asyncio.to_thread(purge_safety_data_for_purged_accounts)
+        await _run_in_maintenance_executor(purge_safety_data_for_purged_accounts)
     except DatabaseAccessError as err:
         sentry_sdk.capture_exception(err)
         logger.exception("Failed to run safety data legal-hold purge")
@@ -540,7 +613,7 @@ def start_reminder_scheduler() -> AsyncIOScheduler:
 
 def stop_reminder_scheduler() -> None:
     """Stops the reminder scheduler singleton and resets the module-level reference."""
-    global _scheduler
+    global _scheduler, _maintenance_executor
     if _scheduler is not None:
         try:
             if _scheduler.running:
@@ -548,4 +621,9 @@ def stop_reminder_scheduler() -> None:
                     _scheduler.shutdown(wait=False)
         finally:
             _scheduler = None
+
+    if _maintenance_executor is not None:
+        with contextlib.suppress(Exception):
+            _maintenance_executor.shutdown(wait=False, cancel_futures=True)
+        _maintenance_executor = None
 

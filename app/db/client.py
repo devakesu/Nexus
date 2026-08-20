@@ -5,6 +5,8 @@ and date/UUID normalization helper utilities.
 """
 
 import logging
+import re
+import uuid
 from datetime import datetime, timezone
 
 import httpx
@@ -28,7 +30,11 @@ supabase_client: Client = create_client(
             # HTTP/2 explicitly disabled to prevent recurrent stream/read timeouts over cloud proxies (e.g. Cloudflare / ALB)
             http2=False,
             timeout=httpx.Timeout(30.0, read=20.0, connect=10.0),
-            limits=httpx.Limits(keepalive_expiry=30.0),
+            limits=httpx.Limits(
+                max_connections=100,
+                max_keepalive_connections=50,
+                keepalive_expiry=30.0,
+            ),
         ),
     ),
 )
@@ -84,9 +90,52 @@ def normalize_uuid(val: str | None) -> str:
     Raises:
         ValueError: If input string is empty, None, or invalid UUID format.
     """
-    import uuid
-
     if not val:
         raise ValueError("Invalid UUID: value is empty or None")
     return str(uuid.UUID(str(val).strip()))
+
+
+_FCM_TOKEN_PATTERN = re.compile(r"^[a-zA-Z0-9_\-:.]{1,4096}$")
+_DEVICE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\-:.]{1,256}$")
+
+
+def validate_fcm_token(val: str | None) -> str:
+    """Validates and returns a safe FCM token string representation.
+
+    Args:
+        val: Input FCM token string.
+
+    Returns:
+        str: Validated FCM token string.
+
+    Raises:
+        ValueError: If input string is empty, None, or contains invalid characters.
+    """
+    if not val:
+        raise ValueError("Invalid FCM token: value is empty or None")
+    token = str(val).strip()
+    if not _FCM_TOKEN_PATTERN.fullmatch(token):
+        raise ValueError("Invalid FCM token: contains disallowed characters or invalid length")
+    return token
+
+
+def validate_device_id(val: str | None) -> str:
+    """Validates and returns a safe client device identifier string.
+
+    Args:
+        val: Input device ID string.
+
+    Returns:
+        str: Validated device ID string.
+
+    Raises:
+        ValueError: If input string is empty, None, or contains invalid characters.
+    """
+    if not val:
+        raise ValueError("Invalid device ID: value is empty or None")
+    device_id = str(val).strip()
+    if not _DEVICE_ID_PATTERN.fullmatch(device_id):
+        raise ValueError("Invalid device ID: contains disallowed characters or invalid length")
+    return device_id
+
 

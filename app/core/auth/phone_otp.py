@@ -6,9 +6,10 @@ and HMAC-SHA256 hash calculation/verification for account phone verification flo
 
 import hashlib
 import hmac
-import re
 
 from fastapi import HTTPException, status
+import phonenumbers
+from phonenumbers import NumberParseException, PhoneNumberFormat
 
 from app.core.infra.otp import generate_otp_code
 from app.core.security.crypto import get_hmac_signing_key
@@ -23,11 +24,14 @@ __all__ = [
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "account_phone_otp"  # domain-separation label
-_E164_REGEX = re.compile(r"^\+[1-9][0-9]{7,14}$")
 
 
 def normalize_phone(raw: str) -> str:
-    """Canonicalizes a phone number string to E.164 format (+<digits>) and validates format.
+    """Canonicalizes a phone number string to E.164 format (+<digits>) and validates format using libphonenumber.
+
+    Handles standard international formats (+...), formatted numbers with punctuation/spaces,
+    embedded national trunk prefixes (e.g. +44 (0) ...), and international call prefixes (e.g. 00...).
+    Rejects ambiguous, non-routable, or malformed numbers.
 
     Args:
         raw: Raw phone number input string.
@@ -36,7 +40,7 @@ def normalize_phone(raw: str) -> str:
         str: Canonicalized E.164 phone string starting with '+'.
 
     Raises:
-        HTTPException: If the normalized phone number does not conform to E.164 format (8-15 digits starting with +[1-9]).
+        HTTPException: If the normalized phone number does not conform to E.164 format.
     """
     if not raw or not str(raw).strip():
         raise HTTPException(
@@ -44,14 +48,26 @@ def normalize_phone(raw: str) -> str:
             detail="Invalid phone number format. Phone number cannot be empty.",
         )
     cleaned = str(raw).strip()
-    digits = "".join(ch for ch in cleaned if ch.isdigit())
-    normalized = f"+{digits}"
-    if not _E164_REGEX.match(normalized):
+
+    # Pre-clean international prefix 00 to + if needed
+    if cleaned.startswith("00"):
+        cleaned = f"+{cleaned[2:]}"
+    elif not cleaned.startswith("+"):
+        cleaned = f"+{cleaned}"
+
+    try:
+        parsed = phonenumbers.parse(cleaned, None)
+        if not phonenumbers.is_possible_number(parsed):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number format. Must follow E.164 format with 8-15 digits (e.g. +1234567890).",
+            )
+        return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
+    except (NumberParseException, Exception) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number format. Must follow E.164 format with 8-15 digits (e.g. +1234567890).",
-        )
-    return normalized
+        ) from exc
 
 
 def hash_otp(user_id: str, phone_norm: str, code: str) -> str:

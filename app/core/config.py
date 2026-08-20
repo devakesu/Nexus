@@ -384,6 +384,18 @@ class Settings(BaseSettings):
                 f"Invalid app_domain '{self.app_domain}' in production mode (debug=False). "
                 "Production requires a valid domain name for email resolution.",
             )
+
+        # Validate that if Twilio SMS credentials are set, HMAC signing key is present
+        has_twilio_creds = bool(
+            self.twilio_account_sid
+            and self.twilio_auth_token
+            and self.twilio_from_number
+        )
+        if has_twilio_creds and not self.hmac_signing_key:
+            raise ValueError(
+                "hmac_signing_key is required when Twilio SMS credentials are configured to sign escalation cancel and portal tokens.",
+            )
+
         return self
 
     model_config = SettingsConfigDict(

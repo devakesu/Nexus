@@ -16,6 +16,7 @@ from app.core.config import DiscoveryTab
 from app.core.security.crypto import decrypt_pii, encrypt_to_hex
 from app.db.client import (
     DatabaseAccessError,
+    normalize_uuid,
     parse_utc_datetime,
     supabase_client,
     utcnow,
@@ -29,8 +30,9 @@ def fetch_conversations_for_user(
     user_id: str, tab: DiscoveryTab = "Dating",
 ) -> list[dict[str, Any]]:
     """Return active, already-started conversations for user_id in a tab."""
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     try:
+        # nosec: user_id validated via normalize_uuid
         res = (
             supabase_client.table("chat_conversations")
             .select("id, user_a_id, user_b_id, last_message_at")
@@ -68,8 +70,9 @@ def fetch_conversations_for_user(
 
 def fetch_started_match_ids(user_id: str, tab: DiscoveryTab = "Dating") -> set[str]:
     """Return match_ids whose conversation already has at least one message."""
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     try:
+        # nosec: user_id validated via normalize_uuid
         res = (
             supabase_client.table("chat_conversations")
             .select("match_id")
@@ -193,10 +196,11 @@ def close_conversation_for_match_action(
     """Close the conversation between two users (mirrors set_match_unmatched).
     If tab is None, closes active conversations across all discovery tabs.
     """
-    user_id = str(uuid.UUID(user_id)).lower()
-    target_id = str(uuid.UUID(target_id)).lower()
+    user_id = normalize_uuid(user_id)
+    target_id = normalize_uuid(target_id)
     now = utcnow()
     try:
+        # nosec: user_id and target_id validated via normalize_uuid
         q = (
             supabase_client.table("chat_conversations")
             .update({"closed_at": now.isoformat(), "closed_reason": reason})
@@ -218,11 +222,13 @@ def close_conversation_for_match_action(
 
 
 def _fetch_conversations_for_reactivation(user_id: str) -> list[dict[str, Any]]:
+    valid_user_id = normalize_uuid(user_id)
     try:
+        # nosec: valid_user_id validated via normalize_uuid
         res = (
             supabase_client.table("chat_conversations")
             .select("id, user_a_id, user_b_id")
-            .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+            .or_(f"user_a_id.eq.{valid_user_id},user_b_id.eq.{valid_user_id}")
             .eq("closed_reason", "account_deletion")
             .execute()
         )

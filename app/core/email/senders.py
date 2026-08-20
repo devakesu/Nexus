@@ -4,6 +4,7 @@ Contains the SendPulse and Brevo send implementations, provider selection,
 and failover execution logic.
 """
 
+import asyncio
 import base64
 import logging
 import time
@@ -31,9 +32,22 @@ from app.core.email.config import (
 
 logger = logging.getLogger(__name__)
 
-_email_http_client: httpx.AsyncClient | None = None
+# Module-level cached SendPulse access token, expiry timestamp, and lock
 _sendpulse_token: str | None = None
 _sendpulse_token_expires_at: float = 0.0
+_sendpulse_token_lock: asyncio.Lock | None = None
+
+
+def _get_sendpulse_token_lock() -> asyncio.Lock:
+    """Lazily initializes the asyncio Lock on the running event loop."""
+    global _sendpulse_token_lock
+    if _sendpulse_token_lock is None:
+        _sendpulse_token_lock = asyncio.Lock()
+    return _sendpulse_token_lock
+
+
+# Shared HTTP client for email sending to enable connection pooling
+_email_http_client: httpx.AsyncClient | None = None
 
 
 def _get_email_client() -> httpx.AsyncClient:
@@ -60,43 +74,49 @@ def clear_sendpulse_token_cache() -> None:
 
 
 async def get_sendpulse_token() -> str:
-    """Fetches or returns cached SendPulse OAuth access token.
+    """Fetches or returns cached SendPulse OAuth access token with concurrency-safe locking.
 
-        Returns:
-            str: Access token string."""
+    Returns:
+        str: Access token string."""
     global _sendpulse_token, _sendpulse_token_expires_at
     now = time.monotonic()
     if _sendpulse_token and now < _sendpulse_token_expires_at:
         return _sendpulse_token
 
-    if not has_sendpulse:
-        raise ValueError("SendPulse credentials not configured")
+    async with _get_sendpulse_token_lock():
+        # Double-check inside lock to prevent token stampedes
+        now = time.monotonic()
+        if _sendpulse_token and now < _sendpulse_token_expires_at:
+            return _sendpulse_token
 
-    auth_url = "https://api.sendpulse.com/oauth/access_token"
-    payload = {
-        "grant_type": "client_credentials",
-        "client_id": settings.sendpulse_client_id,
-        "client_secret": settings.sendpulse_client_secret,
-    }
+        if not has_sendpulse:
+            raise ValueError("SendPulse credentials not configured")
 
-    client = _get_email_client()
-    try:
-        res = await client.post(auth_url, json=payload, timeout=10.0)
-        if res.status_code != 200:
-            raise httpx.HTTPStatusError(
-                f"SendPulse auth HTTP {res.status_code}",
-                request=res.request,
-                response=res,
-            )
-        data = res.json()
-        token = data["access_token"]
-        expires_in = float(data.get("expires_in", 3600))
-        _sendpulse_token = token
-        _sendpulse_token_expires_at = now + max(0.0, expires_in - 60.0)
-        return token
-    except Exception as error:
-        wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
-        raise wrapped from error
+        auth_url = "https://api.sendpulse.com/oauth/access_token"
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": settings.sendpulse_client_id,
+            "client_secret": settings.sendpulse_client_secret,
+        }
+
+        client = _get_email_client()
+        try:
+            res = await client.post(auth_url, json=payload, timeout=10.0)
+            if res.status_code != 200:
+                raise httpx.HTTPStatusError(
+                    f"SendPulse auth HTTP {res.status_code}",
+                    request=res.request,
+                    response=res,
+                )
+            data = res.json()
+            token = data["access_token"]
+            expires_in = float(data.get("expires_in", 3600))
+            _sendpulse_token = token
+            _sendpulse_token_expires_at = now + max(0.0, expires_in - 60.0)
+            return token
+        except Exception as error:
+            wrapped = RuntimeError(f"SendPulse Auth Failed: {error!s}")
+            raise wrapped from error
 
 
 async def send_via_sendpulse(props: SendEmailProps) -> ProviderResult:

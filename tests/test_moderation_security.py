@@ -146,7 +146,10 @@ async def test_submit_appeal_ticket_flow(
     mock_supabase: MagicMock,
 ) -> None:
     # 1. Mock redis get
-    mock_redis.get = AsyncMock(return_value="123456")
+    def _mock_redis_get(k: Any) -> str | None:
+        return "123456" if str(k) == "appeal:otp:test@example.com" else None
+
+    mock_redis.get = AsyncMock(side_effect=_mock_redis_get)
     mock_redis.delete = AsyncMock()
 
     # 2. Mock user lookup RPC
@@ -180,8 +183,9 @@ async def test_submit_appeal_ticket_flow(
     )
 
     assert res == {"success": True, "ticket_id": "ticket-uuid-abc", "status": "open"}
-    mock_redis.get.assert_called_once_with("appeal:otp:test@example.com")
-    mock_redis.delete.assert_called_once_with("appeal:otp:test@example.com")
+    mock_redis.get.assert_any_call("appeal:otp:test@example.com")
+    mock_redis.delete.assert_any_call("appeal:otp:test@example.com")
+    mock_redis.delete.assert_any_call("appeal:otp_attempts:test@example.com")
     mock_record_sub.assert_called_once()
     bg_tasks.add_task.assert_any_call(
         mock_conf_email,

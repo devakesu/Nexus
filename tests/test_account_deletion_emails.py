@@ -379,13 +379,14 @@ def test_request_deletion_deletes_discovery_session_items(
 
     mock_table.side_effect = get_table_builder
 
-    purge_time = request_deletion("user-123", "user_requested")
+    valid_uid = "00000000-0000-0000-0000-000000000123"
+    purge_time = request_deletion(valid_uid, "user_requested")
 
     assert purge_time is not None
     assert "discovery_session_items" in table_builders
     discovery_builder = table_builders["discovery_session_items"]
     discovery_builder.delete.assert_called_once()
-    discovery_builder.eq.assert_called_once_with("candidate_id", "user-123")
+    discovery_builder.eq.assert_called_once_with("candidate_id", valid_uid)
     discovery_builder.execute.assert_called_once()
 
 
@@ -760,6 +761,27 @@ async def test_request_data_export_otp_per_target_attempts_exceeded_raises_429(
         )
     assert exc_info.value.status_code == 429
     assert "Too many data export requests for this account" in exc_info.value.detail
+
+
+def test_request_deletion_ends_active_safety_sessions():
+    """request_deletion immediately transitions active safety sessions to ended."""
+    from app.db.users.account_deletion import request_deletion
+
+    user_id = "00000000-0000-0000-0000-000000000123"
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.delete.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_builder), \
+         patch("app.db.users.account_deletion.invalidate_user_status_cache"), \
+         patch("app.db.users.account_deletion._close_all_conversations"):
+        request_deletion(user_id=user_id, flagged_reason_code=None)
+
+    # Verify update({"status": "ended"}) was called
+    update_calls = [c for c in mock_builder.update.call_args_list]
+    assert any(c[0][0] == {"status": "ended"} for c in update_calls)
 
 
 

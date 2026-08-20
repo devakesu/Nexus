@@ -42,10 +42,10 @@ async def test_request_contact_portal_otp_success(
     mock_redis.set = AsyncMock()
     mock_redis.setex = AsyncMock()
 
-    mock_fetch.return_value = {"id": "contact-123", "phone": "+1234567890", "user_id": "user-456"}
+    mock_fetch.return_value = {"id": "contact-123", "phone": "+14155552671", "user_id": "user-456"}
     mock_send_sms.return_value = MagicMock(success=True)
 
-    payload = SafetyContactPortalOtpRequestRequest(phone="+1234567890")
+    payload = SafetyContactPortalOtpRequestRequest(phone="+14155552671")
     res = await request_contact_portal_otp(
         request=MagicMock(),
         contact_id="contact-123",
@@ -65,7 +65,7 @@ async def test_request_contact_portal_otp_cooldown(
 ):
     mock_redis.exists = AsyncMock(return_value=True)
 
-    payload = SafetyContactPortalOtpRequestRequest(phone="+1234567890")
+    payload = SafetyContactPortalOtpRequestRequest(phone="+14155552671")
     with pytest.raises(HTTPException) as exc_info:
         await request_contact_portal_otp(
             request=MagicMock(),
@@ -88,7 +88,7 @@ async def test_verify_contact_portal_otp_success(
     mock_redis.delete = AsyncMock()
     mock_verify.return_value = True
 
-    payload = SafetyContactPortalOtpVerifyRequest(phone="+1234567890", code="123456")
+    payload = SafetyContactPortalOtpVerifyRequest(phone="+14155552671", code="123456")
     res = await verify_contact_portal_otp(
         request=MagicMock(),
         contact_id="contact-123",
@@ -112,9 +112,9 @@ async def test_get_contact_portal_details_success(
 ):
     from app.core.security.portal_auth import hash_phone_identifier
 
-    phone_id = hash_phone_identifier("+1234567890")
+    phone_id = hash_phone_identifier("+14155552671")
     mock_verify_token.return_value = phone_id
-    mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456", "phone": "+1234567890"}
+    mock_fetch_contact.return_value = {"id": "contact-123", "user_id": "user-456", "phone": "+14155552671"}
     mock_fetch_profile.return_value = {"name": "User Alice", "profile_pic": None, "hometown": "Chicago"}
 
     res = await get_contact_portal_details(
@@ -181,9 +181,9 @@ async def test_remove_trusted_contact_success(
 ):
     from app.core.security.portal_auth import hash_phone_identifier
 
-    phone_id = hash_phone_identifier("+1234567890")
+    phone_id = hash_phone_identifier("+14155552671")
     mock_verify_token.return_value = phone_id
-    mock_fetch_contact.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456", "phone": "+1234567890"}
+    mock_fetch_contact.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456", "phone": "+14155552671"}
     mock_remove.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456"}
     mock_user.return_value = {"mobile": "+1987654321"}
     mock_profile.return_value = {"name": "Bob"}

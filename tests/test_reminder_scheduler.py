@@ -150,13 +150,27 @@ def test_fetch_due_safety_reminders_applies_limit():
     mock_builder.eq.return_value = mock_builder
     mock_builder.is_.return_value = mock_builder
     mock_builder.neq.return_value = mock_builder
-    mock_builder.limit.return_value = mock_builder
-    mock_builder.execute.return_value = MagicMock(data=[])
-
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_builder):
         fetch_due_safety_reminders(window_minutes=35)
 
     mock_builder.limit.assert_called_once_with(500)
+
+
+def test_fetch_overdue_safety_sessions_applies_limit():
+    from app.db.safety.sessions import fetch_overdue_safety_sessions
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.lt.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        fetch_overdue_safety_sessions(grace_seconds=300)
+
+    mock_builder.limit.assert_called_once_with(50)
 
 
 def test_mark_reminder_sent_claimed():
@@ -239,7 +253,7 @@ async def test_escalate_safety_session_idempotency_new(
 
     mock_set.assert_called_once_with("safety:escalation:sent:session-123:2", "1", ex=86400, nx=True)
     mock_send_sms.assert_called_once()
-    mock_record.assert_called_once_with("session-123", 2)
+    mock_record.assert_called_once_with("session-123", 2, 1)
 
 
 @pytest.mark.anyio
@@ -268,7 +282,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
 
     mock_set.assert_called_once_with("safety:escalation:sent:session-123:2", "1", ex=86400, nx=True)
     mock_send_sms.assert_not_called()
-    mock_record.assert_called_once_with("session-123", 2)
+    mock_record.assert_called_once_with("session-123", 2, 1)
 
 
 @pytest.mark.anyio
@@ -541,7 +555,7 @@ def test_archive_account_history_tracks_failures():
     builder.execute.side_effect = APIError({"message": "DB error"})
 
     with patch("app.db.users.account_deletion.supabase_client.table", return_value=builder):
-        failed_tables = _archive_account_history("user-123")
+        failed_tables = _archive_account_history("00000000-0000-0000-0000-000000000123")
 
     assert "user_reports" in failed_tables
     assert len(failed_tables) == 3
@@ -901,6 +915,7 @@ def test_create_event_request_validation():
 
 
 @pytest.mark.anyio
+@patch("app.services.reminder_scheduler.redis_client")
 @patch("app.services.reminder_scheduler.fetch_due_event_reminders")
 @patch("app.services.reminder_scheduler.fetch_conversation_participants")
 @patch("app.services.reminder_scheduler.send_chat_event_reminder_notification")
@@ -910,8 +925,14 @@ async def test_check_due_reminders_notification_success(
     mock_send_notif: MagicMock,
     mock_fetch_convo: MagicMock,
     mock_fetch_due: MagicMock,
+    mock_redis: MagicMock,
 ):
     from app.services.reminder_scheduler import _check_due_reminders
+
+    mock_lock = MagicMock()
+    mock_lock.acquire = AsyncMock(return_value=True)
+    mock_lock.release = AsyncMock()
+    mock_redis.lock = MagicMock(return_value=mock_lock)
 
     mock_fetch_due.return_value = [{"id": "event-123", "conversation_id": "conv-456", "location_label": "Café"}]
     mock_fetch_convo.return_value = {"user_a_id": "user-a", "user_b_id": "user-b", "tab": "Dating"}
@@ -924,6 +945,7 @@ async def test_check_due_reminders_notification_success(
 
 
 @pytest.mark.anyio
+@patch("app.services.reminder_scheduler.redis_client")
 @patch("app.services.reminder_scheduler.fetch_due_event_reminders")
 @patch("app.services.reminder_scheduler.fetch_conversation_participants")
 @patch("app.services.reminder_scheduler.send_chat_event_reminder_notification")
@@ -933,8 +955,14 @@ async def test_check_due_reminders_already_claimed(
     mock_send_notif: MagicMock,
     mock_fetch_convo: MagicMock,
     mock_fetch_due: MagicMock,
+    mock_redis: MagicMock,
 ):
     from app.services.reminder_scheduler import _check_due_reminders
+
+    mock_lock = MagicMock()
+    mock_lock.acquire = AsyncMock(return_value=True)
+    mock_lock.release = AsyncMock()
+    mock_redis.lock = MagicMock(return_value=mock_lock)
 
     mock_fetch_due.return_value = [{"id": "event-123", "conversation_id": "conv-456", "location_label": "Café"}]
     mock_mark_sent.return_value = False  # Already claimed by another worker
@@ -950,22 +978,26 @@ async def test_check_due_reminders_already_claimed(
 def test_fetch_key_bundle_prekey_used_true():
     from app.db.chat.keys import fetch_key_bundle
 
+    valid_uid = "00000000-0000-0000-0000-000000000123"
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
     mock_builder.eq.return_value = mock_builder
     mock_builder.limit.return_value = mock_builder
-    mock_builder.rpc.return_value = mock_builder
+    mock_builder.order.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
 
-    # Returns identity prekey, signed prekey, and one-time prekey
     mock_builder.execute.side_effect = [
-        MagicMock(data={"identity_public_key": "\\x01\\x02", "registration_id": 123}), # identity_public_key
-        MagicMock(data={"key_id": 1, "public_key": "\\x03\\x04", "signature": "\\x05\\x06"}), # signed_prekey
-        MagicMock(data=[{"key_id": 99, "public_key": "\\x07\\x08"}]), # claim_one_time_prekey
+        MagicMock(data={"identity_public_key": "\\x0102", "registration_id": 123}),
+        MagicMock(data={"key_id": 1, "public_key": "\\x0304", "signature": "\\x0506"}),
     ]
 
+    mock_rpc = MagicMock()
+    mock_rpc.execute.return_value = MagicMock(data=[{"key_id": 99, "public_key": "\\x0708"}])
+
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_builder), \
-         patch("app.db.chat.keys.supabase_client.rpc", return_value=mock_builder):
-        res = fetch_key_bundle("user-123")
+         patch("app.db.chat.keys.supabase_client.rpc", return_value=mock_rpc):
+        res = fetch_key_bundle(valid_uid)
 
     assert res is not None
     assert res["one_time_prekey_used"] is True
@@ -975,22 +1007,26 @@ def test_fetch_key_bundle_prekey_used_true():
 def test_fetch_key_bundle_prekey_used_false():
     from app.db.chat.keys import fetch_key_bundle
 
+    valid_uid = "00000000-0000-0000-0000-000000000123"
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
     mock_builder.eq.return_value = mock_builder
     mock_builder.limit.return_value = mock_builder
-    mock_builder.rpc.return_value = mock_builder
+    mock_builder.order.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
 
-    # Returns identity prekey, signed prekey, and empty list for one-time prekey
     mock_builder.execute.side_effect = [
-        MagicMock(data={"identity_public_key": "\\x01\\x02", "registration_id": 123}),
-        MagicMock(data={"key_id": 1, "public_key": "\\x03\\x04", "signature": "\\x05\\x06"}),
-        MagicMock(data=[]), # claim_one_time_prekey empty (exhausted)
+        MagicMock(data={"identity_public_key": "\\x0102", "registration_id": 123}),
+        MagicMock(data={"key_id": 1, "public_key": "\\x0304", "signature": "\\x0506"}),
     ]
 
+    mock_rpc = MagicMock()
+    mock_rpc.execute.return_value = MagicMock(data=[])
+
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_builder), \
-         patch("app.db.chat.keys.supabase_client.rpc", return_value=mock_builder):
-        res = fetch_key_bundle("user-123")
+         patch("app.db.chat.keys.supabase_client.rpc", return_value=mock_rpc):
+        res = fetch_key_bundle(valid_uid)
 
     assert res is not None
     assert res["one_time_prekey_used"] is False
@@ -1202,13 +1238,40 @@ def test_delete_no_retention_rows_purges_profile_discovery_actions():
         builder.execute.return_value = MagicMock(data=[])
         return builder
 
-    user_id = "user-delete-456"
+    user_id = "00000000-0000-0000-0000-000000000456"
     with patch("app.db.users.account_deletion.supabase_client.table", side_effect=_mock_table):
         _delete_no_retention_rows(user_id)
 
     assert "profile_discovery_actions" in tables_deleted
     assert "discovery_sessions" in tables_deleted
     assert "discovery_session_items" in tables_deleted
+
+
+@pytest.mark.anyio
+@patch("app.services.reminder_scheduler.redis_client")
+@patch("app.services.reminder_scheduler.fetch_overdue_safety_sessions")
+@patch("app.services.reminder_scheduler._escalate_safety_session")
+async def test_check_overdue_safety_sessions_concurrency(
+    mock_escalate: AsyncMock,
+    mock_fetch: MagicMock,
+    mock_redis: MagicMock,
+):
+    from app.services.reminder_scheduler import _check_overdue_safety_sessions
+
+    mock_lock = MagicMock()
+    mock_lock.acquire = AsyncMock(return_value=True)
+    mock_lock.release = AsyncMock()
+    mock_redis.lock = MagicMock(return_value=mock_lock)
+
+    # 3 sessions due for escalation
+    mock_fetch.return_value = [
+        {"id": f"session-{i}", "escalations_sent": 0, "next_checkin_at": "2020-01-01T00:00:00Z"}
+        for i in range(3)
+    ]
+
+    await _check_overdue_safety_sessions()
+
+    assert mock_escalate.call_count == 3
 
 
 

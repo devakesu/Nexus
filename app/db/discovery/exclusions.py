@@ -2,7 +2,6 @@ import asyncio
 import contextlib
 import json
 import logging
-import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
@@ -12,6 +11,7 @@ from app.core.config import DiscoveryTab
 from app.core.infra.cache import get_block_ids_cache_ttl, redis_client
 from app.db.client import (
     DatabaseAccessError,
+    normalize_uuid,
     parse_utc_datetime,
     supabase_client,
     utcnow,
@@ -171,11 +171,12 @@ def fetch_active_discovery_excluded_ids(
     - pass: actor -> target for this tab while not yet expired
     - like/superlike: actor -> target for this tab
     """
-    viewer_id = str(uuid.UUID(viewer_id)).lower()
+    viewer_id = normalize_uuid(viewer_id)
     excluded: set[str] = set()
     now = utcnow()
 
     try:
+        # nosec: viewer_id validated via normalize_uuid
         res = (
             supabase_client.table("profile_discovery_actions")
             .select("actor_id, target_id, action, tab, expires_at")
@@ -194,6 +195,7 @@ def fetch_active_discovery_excluded_ids(
                 _process_exclusion_row(row_dict, viewer_id, active_tab, now, excluded)
 
         # Exclude users with active matches in this orbit
+        # nosec: viewer_id validated via normalize_uuid
         matches_res = (
             supabase_client.table("matches")
             .select("liker_id, liked_back_id")
@@ -234,8 +236,9 @@ def fetch_active_block_ids(viewer_id: str) -> set[str]:
     Return ids of users with an active block in either direction.
     Used for lightweight re-check at snapshot page read time.
     """
-    viewer_id = str(uuid.UUID(viewer_id)).lower()
+    viewer_id = normalize_uuid(viewer_id)
     try:
+        # nosec: viewer_id validated via normalize_uuid
         res = (
             supabase_client.table("profile_discovery_actions")
             .select("actor_id, target_id")
@@ -272,8 +275,8 @@ def has_active_discovery_action(
     from actor_id targeting target_id.
     """
     try:
-        actor_id = str(uuid.UUID(actor_id)).lower()
-        target_id = str(uuid.UUID(target_id)).lower()
+        actor_id = normalize_uuid(actor_id)
+        target_id = normalize_uuid(target_id)
 
         q = (
             supabase_client.table("profile_discovery_actions")

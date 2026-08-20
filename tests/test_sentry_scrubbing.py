@@ -87,3 +87,67 @@ def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
     assert extra["auth_payload"]["password"] == "[REDACTED_SENSITIVE]"
     assert extra["auth_payload"]["jwt"] == "[REDACTED_SENSITIVE]"
     assert extra["auth_payload"]["authorization"] == "[REDACTED_SENSITIVE]"
+
+
+def test_scrub_event_scrubs_stack_frame_local_vars() -> None:
+    raw_event: dict[str, Any] = {
+        "exception": {
+            "values": [
+                {
+                    "value": "KeyError: 'decrypted_user_record'",
+                    "stacktrace": {
+                        "frames": [
+                            {
+                                "function": "get_authenticated_user_profile",
+                                "filename": "app/db/profiles/crud.py",
+                                "lineno": 142,
+                                "vars": {
+                                    "user_id": "00000000-0000-0000-0000-000000000123",
+                                    "user_phone": "+14155552671",
+                                    "user_email": "victim@example.com",
+                                    "user_bio": "I love coding and hiking",
+                                    "auth_token": "bearer eyJhbGciOi...",
+                                    "nested_profile": {
+                                        "emergency_contact": "+919876543210",
+                                        "secret_code": "secret_passphrase_xyz",
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+        "threads": {
+            "values": [
+                {
+                    "stacktrace": {
+                        "frames": [
+                            {
+                                "vars": {
+                                    "phone": "+447911123456",
+                                    "access_token": "token-xyz-12345",
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+    }
+
+    event = cast(Event, raw_event)
+    scrubbed = scrub_event(event, {})
+    assert scrubbed is not None
+
+    result = cast(dict[str, Any], scrubbed)
+    exc_frame_vars = result["exception"]["values"][0]["stacktrace"]["frames"][0]["vars"]
+    assert exc_frame_vars["user_phone"] == "[PHONE_REDACTED]"
+    assert exc_frame_vars["user_email"] == "[EMAIL_REDACTED]"
+    assert exc_frame_vars["auth_token"] == "[REDACTED_SENSITIVE]"
+    assert exc_frame_vars["nested_profile"]["emergency_contact"] == "[PHONE_REDACTED]"
+    assert exc_frame_vars["nested_profile"]["secret_code"] == "[REDACTED_SENSITIVE]"
+
+    thread_frame_vars = result["threads"]["values"][0]["stacktrace"]["frames"][0]["vars"]
+    assert thread_frame_vars["phone"] == "[PHONE_REDACTED]"
+    assert thread_frame_vars["access_token"] == "[REDACTED_SENSITIVE]"

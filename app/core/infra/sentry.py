@@ -109,6 +109,21 @@ def _scrub_object(value: Any) -> Any:
     return value
 
 
+def _scrub_stacktrace(stacktrace: Any) -> None:
+    """Recursively scrubs local variable dictionaries inside stack frames."""
+    if not isinstance(stacktrace, dict):
+        return
+    typed_stacktrace = cast(dict[str, Any], stacktrace)
+    frames = typed_stacktrace.get("frames")
+    if isinstance(frames, list):
+        typed_frames = cast(list[Any], frames)
+        for frame in typed_frames:
+            if isinstance(frame, dict):
+                typed_frame = cast(dict[str, Any], frame)
+                if isinstance(typed_frame.get("vars"), dict):
+                    typed_frame["vars"] = _scrub_object(typed_frame["vars"])
+
+
 def scrub_event(event: Event, hint: Hint) -> Event | None:  # noqa: C901
     """Sentry `before_send` hook callback function.
 
@@ -128,6 +143,20 @@ def scrub_event(event: Event, hint: Hint) -> Event | None:  # noqa: C901
             for exc in exc_values:
                 if isinstance(exc.get("value"), str):
                     exc["value"] = _scrub_string(exc["value"])
+                if isinstance(exc.get("stacktrace"), dict):
+                    _scrub_stacktrace(exc["stacktrace"])
+
+    threads = event.get("threads")
+    if isinstance(threads, dict):
+        thread_values = threads.get("values")
+        if isinstance(thread_values, list):
+            for thread in thread_values:
+                if isinstance(thread.get("stacktrace"), dict):
+                    _scrub_stacktrace(thread["stacktrace"])
+
+    stacktrace = event.get("stacktrace")
+    if isinstance(stacktrace, dict):
+        _scrub_stacktrace(stacktrace)
 
     message = event.get("message")
     if isinstance(message, str):

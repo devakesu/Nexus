@@ -22,8 +22,18 @@ def test_normalize_phone_valid_formatted_inputs():
     """Formatted phone numbers with spaces, dashes, and parentheses normalize to E.164."""
     assert normalize_phone("+1 (415) 555-2671") == "+14155552671"
     assert normalize_phone("+44-7911-123456") == "+447911123456"
+    assert normalize_phone("+44 (0) 7911 123456") == "+447911123456"
+    assert normalize_phone("+33 (0) 6 12 34 56 78") == "+33612345678"
     assert normalize_phone("+91 98765 43210") == "+919876543210"
     assert normalize_phone("14155552671") == "+14155552671"
+
+
+def test_normalize_phone_international_00_prefix():
+    """International dialing prefix '00' is normalized identically to '+' prefix without collisions."""
+    assert normalize_phone("0014155552671") == "+14155552671"
+    assert normalize_phone("00447911123456") == "+447911123456"
+    assert normalize_phone("00919876543210") == "+919876543210"
+    assert normalize_phone("001 (800) 555-1234") == "+18005551234"
 
 
 @pytest.mark.parametrize(
@@ -37,10 +47,16 @@ def test_normalize_phone_valid_formatted_inputs():
         "   ",
         "+0123456789",  # Country code cannot start with 0
         "0123456789",
+        "000123456789",  # Triple zero prefix invalid
         "+12345",  # Too short (<8 digits)
         "+1234567",
         "+1234567890123456",  # Too long (>15 digits)
+        "+99912345678",  # Non-existent country code 999
         "abc-def-ghij",
+        "14155552671bad",
+        "14155552671; DROP TABLE",
+        "1+4155552671",
+        "+1415+5552671",
     ],
 )
 def test_normalize_phone_invalid_inputs_raise_http_400(invalid_input: str):

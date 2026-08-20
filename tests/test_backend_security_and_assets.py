@@ -167,3 +167,19 @@ def test_footers_and_active_page_bars():
     assert res_delete.status_code == 200
     assert 'class="footer-link active"' in res_delete.text
     assert 'href="/delete-account" class="footer-link active"' in res_delete.text
+
+
+def test_settings_twilio_signing_key_validation():
+    import pytest
+    from app.core.config import Settings
+
+    # Setting Twilio without hmac_signing_key should raise ValueError
+    with pytest.raises(ValueError, match="hmac_signing_key is required when Twilio SMS credentials are configured"):
+        Settings(
+            app_domain="test.example.com",
+            debug=True,
+            twilio_account_sid="AC1234567890",
+            twilio_auth_token="auth_tok_123",
+            twilio_from_number="+15555555555",
+            hmac_signing_key="",
+        )

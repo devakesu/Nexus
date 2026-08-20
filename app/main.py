@@ -34,6 +34,7 @@ from app.api.status import router as status_router
 from app.api.user import router as user_router
 from app.api.well_known import router as well_known_router
 from app.core.config import settings
+from app.core.email.senders import close_email_client
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.sentry import scrub_event
@@ -95,6 +96,7 @@ async def lifespan(_app: FastAPI):
 
     On shutdown:
     - Stops the reminder scheduler.
+    - Closes the shared email HTTP client connection pool.
     - Gracefully closes the Redis connection pool.
 
     Args:
@@ -124,6 +126,8 @@ async def lifespan(_app: FastAPI):
     yield
 
     stop_reminder_scheduler()
+    with suppress(Exception):
+        await close_email_client()
     with suppress(Exception):
         await redis_client.aclose()
 

@@ -144,7 +144,7 @@ def test_anonymize_profile_and_user_sets_is_deactivated_true() -> None:
     mock_builder.execute.return_value = MagicMock(data=[])
 
     now = datetime(2026, 8, 15, 12, 0, 0, tzinfo=timezone.utc)
-    user_id = "user-to-anonymize-123"
+    user_id = "00000000-0000-0000-0000-000000000123"
 
     with patch("app.db.users.account_deletion.supabase_client.table", return_value=mock_builder), \
          patch("app.db.users.account_deletion.invalidate_user_status_cache"):

@@ -68,9 +68,8 @@ async def test_safe_create_task_drops_and_alerts_at_capacity(mock_capture: Magic
 
 
 @pytest.mark.anyio
-@patch("app.api.dependencies.sentry_sdk.capture_message")
-async def test_presence_task_drop_alerts_sentry_at_capacity(mock_capture: MagicMock) -> None:
-    """Verifies that presence background task drops at capacity alert Sentry."""
+async def test_presence_task_drop_logs_warning_at_capacity(caplog: pytest.LogCaptureFixture) -> None:
+    """Verifies that presence background task drops at capacity log warning."""
     dep_background_tasks.clear()
     dummy_tasks = [asyncio.create_task(asyncio.sleep(10)) for _ in range(DEP_MAX_TASKS)]
     for dt in dummy_tasks:
@@ -80,10 +79,7 @@ async def test_presence_task_drop_alerts_sentry_at_capacity(mock_capture: MagicM
     try:
         user_id = await get_authenticated_user_id(payload)
         assert user_id == "user-cap-alert"
-        mock_capture.assert_called_once()
-        call_args, call_kwargs = mock_capture.call_args
-        assert "capacity" in call_args[0]
-        assert call_kwargs.get("level") == "error"
+        assert "Background presence task queue at capacity" in caplog.text
     finally:
         for dt in dummy_tasks:
             dt.cancel()

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, Request
@@ -138,6 +138,43 @@ async def test_cancel_escalation_valid_note(
         "safe",
         "User checked in via phone call.",
     )
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.verify_escalation_cancel_token")
+@patch("app.api.safety.endpoints.fetch_safety_session")
+@patch("app.api.safety.endpoints.cancel_safety_escalation")
+@patch("app.api.safety.endpoints.redis_client.set", new_callable=AsyncMock)
+async def test_cancel_escalation_replay_rejected(
+    mock_redis_set: AsyncMock,
+    mock_cancel: MagicMock,
+    mock_fetch: MagicMock,
+    mock_verify: MagicMock,
+) -> None:
+    mock_verify.return_value = 1
+    # Redis set with NX returns None/False when key already exists (token already consumed)
+    mock_redis_set.return_value = None
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await cancel_escalation(
+        request=request,
+        session_id="11111111-1111-1111-1111-111111111111",
+        token="replayed-token",
+        reason="safe",
+        note=None,
+    )
+
+    assert res.status_code == 400
+    assert b"already been used" in res.body
+    mock_cancel.assert_not_called()
+    mock_fetch.assert_not_called()
 
 
 @pytest.mark.anyio
@@ -395,5 +432,40 @@ def test_compose_sos_message_sanitizes_injected_labels() -> None:
     assert lines[0] == "🚨 Emergency alert from Mallory 🚨 FAKE ALERT 🚨 Ignore previous texts via Nexus."
     # Meetup line contains cleaned event
     assert "Meetup: Coffee CRITICAL: Call +19999999999" in msg
+
+
+def test_record_safety_escalation_sent_optimistic_locking_success() -> None:
+    from app.db.safety.sessions import record_safety_escalation_sent
+
+    session_id = "00000000-0000-0000-0000-000000000123"
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": session_id, "escalations_sent": 2}])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        updated = record_safety_escalation_sent(session_id, new_count=2, expected_count=1)
+
+    assert updated is True
+    # Verify both .eq("id", session_id) and .eq("escalations_sent", 1) were invoked
+    eq_calls = mock_builder.eq.call_args_list
+    assert any(c[0] == ("id", session_id) for c in eq_calls)
+    assert any(c[0] == ("escalations_sent", 1) for c in eq_calls)
+
+
+def test_record_safety_escalation_sent_optimistic_locking_mismatch() -> None:
+    from app.db.safety.sessions import record_safety_escalation_sent
+
+    session_id = "00000000-0000-0000-0000-000000000123"
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    # 0 rows returned because escalations_sent did not match expected_count
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        updated = record_safety_escalation_sent(session_id, new_count=2, expected_count=1)
+
+    assert updated is False
 
 

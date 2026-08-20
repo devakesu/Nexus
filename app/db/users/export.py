@@ -28,7 +28,7 @@ from postgrest.exceptions import APIError
 
 from app.core.security.crypto import DecryptFailedError, decrypt_pii
 from app.db.chat import decrypt_event_row
-from app.db.client import supabase_client
+from app.db.client import normalize_uuid, supabase_client
 from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 from app.db.safety import fetch_safety_contacts
 from app.db.spotify import fetch_playlists_for_owner
@@ -207,8 +207,9 @@ def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     try:
+        # nosec: user_id validated via normalize_uuid
         matches_res = (
             supabase_client.table("matches")
             .select("id, liker_id, liked_back_id, tab, created_at, unmatched_at")
@@ -243,8 +244,9 @@ def _build_chat_section(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     try:
+        # nosec: user_id validated via normalize_uuid
         conv_res = (
             supabase_client.table("chat_conversations")
             .select(
@@ -333,10 +335,11 @@ def _build_reports_section(user_id: str) -> dict[str, Any]:
 
         Returns:
             dict[str, Any]: Response payload or result."""
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     filed_by_you: list[dict[str, Any]] = []
     against_you: list[dict[str, Any]] = []
     try:
+        # nosec: user_id validated via normalize_uuid
         res = (
             supabase_client.table("user_reports")
             .select(

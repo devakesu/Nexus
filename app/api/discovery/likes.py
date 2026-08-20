@@ -24,6 +24,7 @@ from app.db.chat import (
 from app.db.client import (
     DatabaseAccessError,
     ProfileDecodeError,
+    normalize_uuid,
     parse_utc_datetime,
     supabase_client,
 )
@@ -244,12 +245,15 @@ async def _find_peer_like(target_id: str, viewer_id: str) -> dict[str, Any] | No
 
 
 async def _find_peer_match(target_id: str, viewer_id: str) -> dict[str, Any] | None:
+    valid_target_id = normalize_uuid(target_id)
+    valid_viewer_id = normalize_uuid(viewer_id)
     query_match = supabase_client.table("matches").select("id, tab")
+    # nosec: valid_target_id and valid_viewer_id validated via normalize_uuid
     query_match = query_match.or_(
-        f"and(liker_id.eq.{target_id},"
-        f"liked_back_id.eq.{viewer_id}),"
-        f"and(liker_id.eq.{viewer_id},"
-        f"liked_back_id.eq.{target_id})",
+        f"and(liker_id.eq.{valid_target_id},"
+        f"liked_back_id.eq.{valid_viewer_id}),"
+        f"and(liker_id.eq.{valid_viewer_id},"
+        f"liked_back_id.eq.{valid_target_id})",
     )
     query_match = query_match.is_("unmatched_at", "null")
     query_match = query_match.limit(1)

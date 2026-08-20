@@ -34,7 +34,7 @@ def test_upsert_device_token_deactivates_older_tokens_for_same_device(mock_table
     mock_table.return_value = builder
 
     _upsert_device_token(
-        user_id="user-123",
+        user_id="00000000-0000-0000-0000-000000000123",
         fcm_token="new-fcm-token",
         platform="android",
         device_id="hardware-device-abc",
@@ -55,7 +55,7 @@ def test_deactivate_device_token_uses_device_id_filter(mock_table: MagicMock) ->
     mock_table.return_value = builder
 
     deactivated = _deactivate_device_token(
-        user_id="user-123",
+        user_id="00000000-0000-0000-0000-000000000123",
         fcm_token="rotated-fcm-token",
         device_id="hardware-device-abc",
     )

@@ -5,13 +5,17 @@ with cooldown period exclusions.
 """
 
 import logging
-import uuid
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    normalize_uuid,
+    supabase_client,
+    utcnow,
+)
 from app.db.discovery import record_discovery_action
 
 logger = logging.getLogger(__name__)
@@ -35,11 +39,12 @@ def record_match(
     Returns:
         str: Match record ID string.
     """
-    liker_id = str(uuid.UUID(liker_id)).lower()
-    liked_back_id = str(uuid.UUID(liked_back_id)).lower()
+    liker_id = normalize_uuid(liker_id)
+    liked_back_id = normalize_uuid(liked_back_id)
 
     try:
         # Check if an active match already exists between the pair in either direction
+        # nosec: liker_id and liked_back_id validated via normalize_uuid
         existing = (
             supabase_client.table("matches")
             .select("id")
@@ -77,6 +82,7 @@ def record_match(
         # If symmetric constraint or duplicate constraint violated by concurrent insert, return winning match
         if getattr(e, "code", None) == "23505":
             try:
+                # nosec: liker_id and liked_back_id validated via normalize_uuid
                 existing_win = (
                     supabase_client.table("matches")
                     .select("id")
@@ -119,8 +125,9 @@ def fetch_matches_for_user(
     Returns:
         list[dict[str, Any]]: List of match dictionaries.
     """
-    user_id = str(uuid.UUID(user_id)).lower()
+    user_id = normalize_uuid(user_id)
     try:
+        # nosec: user_id validated via normalize_uuid
         query = (
             supabase_client.table("matches")
             .select("id, liker_id, liked_back_id, created_at")
@@ -173,10 +180,11 @@ def set_match_unmatched(
     """Mark the match between user_id and target_id as dissolved.
     If tab is None, dissolves active matches across all tabs between the two users.
     """
-    user_id = str(uuid.UUID(user_id)).lower()
-    target_id = str(uuid.UUID(target_id)).lower()
+    user_id = normalize_uuid(user_id)
+    target_id = normalize_uuid(target_id)
     now = utcnow()
     try:
+        # nosec: user_id and target_id validated via normalize_uuid
         q = (
             supabase_client.table("matches")
             .update({"unmatched_at": now.isoformat(), "unmatched_by": user_id})

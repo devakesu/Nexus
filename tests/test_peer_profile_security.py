@@ -84,10 +84,11 @@ async def test_verify_peer_access_with_match(
         return mock_builder
 
     mock_supabase.table.side_effect = mock_table_router
-
+    target_uuid = "00000000-0000-0000-0000-000000000001"
+    viewer_uuid = "00000000-0000-0000-0000-000000000002"
     tab = await _verify_peer_access_and_infer_tab(
-        "target-id", "viewer-id", "Dating",
+        target_uuid, viewer_uuid, "Dating",
     )
 
     assert tab == "Friends"
-    mock_get_blocks.assert_called_once_with("viewer-id")
+    mock_get_blocks.assert_called_once_with(viewer_uuid)

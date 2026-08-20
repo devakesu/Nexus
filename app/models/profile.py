@@ -603,12 +603,27 @@ class EmailNotificationSettingsUpdate(BaseModel):
 class RegisterDeviceRequest(BaseModel):
     """Register or refresh an FCM push token for the authenticated user's device."""
 
-    fcm_token: str = Field(..., min_length=1)
+    fcm_token: str = Field(..., min_length=1, max_length=4096)
     platform: Literal["android", "ios"] = "android"
     device_id: str | None = Field(
         default=None,
+        max_length=256,
         description="Client-supplied stable device identifier (optional).",
     )
+
+    @field_validator("fcm_token")
+    @classmethod
+    def validate_fcm_token_format(cls, v: str) -> str:
+        from app.db.client import validate_fcm_token
+        return validate_fcm_token(v)
+
+    @field_validator("device_id")
+    @classmethod
+    def validate_device_id_format(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        from app.db.client import validate_device_id
+        return validate_device_id(v)
 
 
 class ModerationSubjectItem(BaseModel):

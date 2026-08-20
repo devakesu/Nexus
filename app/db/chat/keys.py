@@ -5,7 +5,6 @@ and one-time prekey bundles required for Signal Protocol key exchange.
 """
 
 import logging
-import uuid
 from typing import Any, cast
 
 import sentry_sdk
@@ -158,9 +157,10 @@ def count_unused_one_time_prekeys(user_id: str) -> int:
 
 def has_active_match(user_a: str, user_b: str) -> bool:
     """Whether two users currently share any active match, in any tab."""
-    user_a = str(uuid.UUID(user_a)).lower()
-    user_b = str(uuid.UUID(user_b)).lower()
+    user_a = normalize_uuid(user_a)
+    user_b = normalize_uuid(user_b)
     try:
+        # nosec: user_a and user_b validated via normalize_uuid
         res = (
             supabase_client.table("matches")
             .select("id")
@@ -258,6 +258,7 @@ def mark_session_established(user_id: str, conversation_id: str) -> None:
         # PostgREST chains separate filter methods with an implicit logical AND.
         # This query evaluates to: id = conversation_id AND (user_a_id = valid_user_id OR user_b_id = valid_user_id).
         # This ensures we strictly target only the specific conversation_id, while validating caller membership.
+        # nosec: valid_user_id validated via normalize_uuid
         (
             supabase_client.table("chat_conversations")
             .update({"session_established_at": now.isoformat()})

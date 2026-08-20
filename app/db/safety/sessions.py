@@ -7,7 +7,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import settings
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import DatabaseAccessError, normalize_uuid, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,10 @@ def end_safety_session(user_id: str, session_id: str) -> None:
         raise DatabaseAccessError("Failed to end safety session") from e
 
 
-def fetch_overdue_safety_sessions(grace_seconds: int) -> list[dict[str, Any]]:
+def fetch_overdue_safety_sessions(
+    grace_seconds: int,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
     """Fetch active safety sessions that missed a checkin beyond grace_seconds."""
     try:
         cutoff = (utcnow() - timedelta(seconds=grace_seconds)).isoformat()
@@ -150,7 +153,7 @@ def fetch_overdue_safety_sessions(grace_seconds: int) -> list[dict[str, Any]]:
             .is_("escalation_cancelled_at", "null")
             .lt("escalations_sent", settings.max_safety_escalations)
             .lt("next_checkin_at", cutoff)
-            .limit(500)
+            .limit(limit)
             .execute()
         )
         return cast(list[dict[str, Any]], res.data or [])
@@ -159,15 +162,41 @@ def fetch_overdue_safety_sessions(grace_seconds: int) -> list[dict[str, Any]]:
         raise DatabaseAccessError("Failed to fetch overdue safety sessions") from e
 
 
-def record_safety_escalation_sent(session_id: str, new_count: int) -> None:
-    """Record escalation attempt count and timestamp."""
+def record_safety_escalation_sent(
+    session_id: str,
+    new_count: int,
+    expected_count: int | None = None,
+) -> bool:
+    """Record escalation attempt count and timestamp with optimistic-locking idempotency.
+
+    Args:
+        session_id: Safety session UUID.
+        new_count: The new escalations_sent count (e.g. N + 1).
+        expected_count: Optional expected current escalations_sent (e.g. N) for optimistic locking.
+
+    Returns:
+        bool: True if row updated, False if update matched 0 rows (concurrent execution).
+    """
+    session_id = normalize_uuid(session_id)
     try:
-        supabase_client.table("safety_sessions").update(
-            {
-                "escalations_sent": new_count,
-                "last_escalated_at": utcnow().isoformat(),
-            },
-        ).eq("id", session_id).execute()
+        builder = (
+            supabase_client.table("safety_sessions")
+            .update(
+                {
+                    "escalations_sent": new_count,
+                    "last_escalated_at": utcnow().isoformat(),
+                },
+            )
+            .eq("id", session_id)
+        )
+        if expected_count is not None:
+            builder = builder.eq("escalations_sent", expected_count)
+        else:
+            builder = builder.lt("escalations_sent", new_count)
+
+        res = builder.execute()
+        rows = cast(list[Any], getattr(res, "data", None) or [])
+        return len(rows) > 0
     except APIError as e:
         logger.exception(
             "Failed to record safety escalation",

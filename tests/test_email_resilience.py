@@ -199,3 +199,30 @@ async def test_close_email_client() -> None:
     new_client = _get_email_client()
     assert new_client is not client
     assert not new_client.is_closed
+
+
+@pytest.mark.anyio
+async def test_sendpulse_token_concurrency_lock() -> None:
+    import asyncio
+    from app.core.email.senders import clear_sendpulse_token_cache
+
+    clear_sendpulse_token_cache()
+    with patch("app.core.email.senders.has_sendpulse", True), patch(
+        "app.core.email.senders.settings.sendpulse_client_id", "test_id",
+    ), patch(
+        "app.core.email.senders.settings.sendpulse_client_secret", "test_secret",
+    ):
+        mock_post = AsyncMock(
+            return_value=httpx.Response(
+                200,
+                json={"access_token": "concurrent_sp_token", "expires_in": 3600},
+                request=httpx.Request("POST", "https://api.sendpulse.com/oauth/access_token"),
+            ),
+        )
+        with patch.object(_get_email_client(), "post", mock_post):
+            # Run 5 concurrent token requests
+            tokens = await asyncio.gather(*[get_sendpulse_token() for _ in range(5)])
+
+            assert all(t == "concurrent_sp_token" for t in tokens)
+            # Only 1 HTTP request made due to double-checked locking
+            assert mock_post.call_count == 1

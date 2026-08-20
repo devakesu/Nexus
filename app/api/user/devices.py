@@ -12,7 +12,12 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from app.api.dependencies import get_active_user_id, verify_app_check_token
 from app.core.config import settings
 from app.core.infra.limiter import limiter
-from app.db.client import supabase_client
+from app.db.client import (
+    normalize_uuid,
+    supabase_client,
+    validate_device_id,
+    validate_fcm_token,
+)
 from app.models import RegisterDeviceRequest
 
 router = APIRouter()
@@ -36,24 +41,28 @@ def _upsert_device_token(
         platform: Operating system platform string ('android' | 'ios').
         device_id: Optional client device ID string.
     """
-    if device_id:
+    valid_user_id = normalize_uuid(user_id)
+    valid_fcm_token = validate_fcm_token(fcm_token)
+    valid_device_id = validate_device_id(device_id) if device_id else None
+
+    if valid_device_id:
         try:
             supabase_client.table("user_devices").update(
                 {"is_active": False},
-            ).eq("user_id", user_id).eq("device_id", device_id).neq("fcm_token", fcm_token).execute()
+            ).eq("user_id", valid_user_id).eq("device_id", valid_device_id).neq("fcm_token", valid_fcm_token).execute()
         except Exception:
             logger.warning(
                 "Failed to deactivate prior device tokens for device %s",
-                device_id,
+                valid_device_id,
                 exc_info=True,
             )
 
     supabase_client.table("user_devices").upsert(
         {
-            "user_id": user_id,
-            "fcm_token": fcm_token,
+            "user_id": valid_user_id,
+            "fcm_token": valid_fcm_token,
             "platform": platform,
-            "device_id": device_id or str(uuid.uuid4()),
+            "device_id": valid_device_id or str(uuid.uuid4()),
             "is_active": True,
             "last_seen_at": "now()",
         },
@@ -76,14 +85,19 @@ def _deactivate_device_token(
     Returns:
         bool: True if an active record was updated.
     """
+    valid_user_id = normalize_uuid(user_id)
+    valid_fcm_token = validate_fcm_token(fcm_token)
+    valid_device_id = validate_device_id(device_id) if device_id else None
+
     query = supabase_client.table("user_devices").update(
         {"is_active": False},
-    ).eq("user_id", user_id)
+    ).eq("user_id", valid_user_id)
 
-    if device_id:
-        res = query.or_(f"device_id.eq.{device_id},fcm_token.eq.{fcm_token}").execute()
+    if valid_device_id:
+        # nosec: valid_device_id and valid_fcm_token validated against strict patterns preventing PostgREST filter injection
+        res = query.or_(f"device_id.eq.{valid_device_id},fcm_token.eq.{valid_fcm_token}").execute()
     else:
-        res = query.eq("fcm_token", fcm_token).execute()
+        res = query.eq("fcm_token", valid_fcm_token).execute()
 
     return bool(res.data)
 
