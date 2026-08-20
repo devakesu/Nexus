@@ -411,5 +411,144 @@ def test_update_privacy_settings_filters_allowed_fields(mock_supabase: MagicMock
         assert f in {"pronouns", "hometown"}
 
 
+@patch("app.api.user.settings.supabase_client")
+def test_update_email_notification_settings_allowlist(mock_supabase: MagicMock) -> None:
+    from fastapi import Request
+
+    from app.api.user.settings import update_email_notification_settings
+    from app.models import EmailNotificationSettingsUpdate
+
+    mock_update_chain = mock_supabase.table.return_value.update.return_value.eq.return_value.select.return_value.execute
+    mock_update_chain.return_value.data = [
+        {
+            "email_notify_matches": True,
+            "email_notify_messages": False,
+            "email_notify_digest": True,
+            "email_notify_product_updates": False,
+            "email_notify_promotions": False,
+        },
+    ]
+
+    payload = EmailNotificationSettingsUpdate(
+        email_notify_messages=False,
+        email_notify_promotions=False,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/profile/email-notification-settings",
+    }
+    request = Request(scope)
+
+    res = update_email_notification_settings(
+        request=request,
+        payload=payload,
+        user_id="user123",
+        _device=None,
+    )
+
+    assert res.email_notify_messages is False
+    assert res.email_notify_promotions is False
+    assert res.email_notify_matches is True
+
+    # Verify update payload passed to DB contains strictly allowlisted fields
+    update_call_arg = mock_supabase.table.return_value.update.call_args[0][0]
+    assert update_call_arg == {
+        "email_notify_messages": False,
+        "email_notify_promotions": False,
+    }
+
+
+@patch("app.api.user.settings.supabase_client")
+def test_update_email_notification_settings_empty_raises_400(mock_supabase: MagicMock) -> None:
+    from fastapi import HTTPException, Request
+
+    from app.api.user.settings import update_email_notification_settings
+    from app.models import EmailNotificationSettingsUpdate
+
+    payload = EmailNotificationSettingsUpdate()
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/profile/email-notification-settings",
+    }
+    request = Request(scope)
+
+    import pytest
+
+    with pytest.raises(HTTPException) as exc_info:
+        update_email_notification_settings(
+            request=request,
+            payload=payload,
+            user_id="user123",
+            _device=None,
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "No fields to update."
+
+
+@patch("app.db.profiles.crud.supabase_client")
+def test_is_active_profile_returns_true_for_active_user(mock_supabase: MagicMock) -> None:
+    from app.db.profiles import is_active_profile
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"id": "11111111-1111-1111-1111-111111111111"}
+    ]
+
+    assert is_active_profile("11111111-1111-1111-1111-111111111111") is True
+
+
+@patch("app.db.profiles.crud.supabase_client")
+def test_is_active_profile_returns_false_for_inactive_or_missing(mock_supabase: MagicMock) -> None:
+    from app.db.profiles import is_active_profile
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+
+    assert is_active_profile("11111111-1111-1111-1111-111111111111") is False
+    assert is_active_profile("not-a-valid-uuid") is False
+
+
+@patch("app.db.profiles.crud.supabase_client")
+def test_fetch_music_affinities_success(mock_supabase: MagicMock) -> None:
+    import json
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.profiles import fetch_music_affinities
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {
+            "artist_affinity": encrypt_to_hex(json.dumps({"The Beatles": 1.0})),
+            "genre_affinity": encrypt_to_hex(json.dumps({"Rock": 0.8})),
+        }
+    ]
+
+    artists, genres = fetch_music_affinities("11111111-1111-1111-1111-111111111111")
+    assert artists == {"The Beatles": 1.0}
+    assert genres == {"Rock": 0.8}
+
+    # Verify query strictly selected only artist_affinity and genre_affinity
+    select_call = mock_supabase.table.return_value.select.call_args[0][0]
+    assert select_call == "artist_affinity, genre_affinity"
+
+
+@patch("app.db.profiles.crud.supabase_client")
+def test_fetch_music_affinities_missing_or_invalid(mock_supabase: MagicMock) -> None:
+    from app.db.profiles import fetch_music_affinities
+
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+
+    artists, genres = fetch_music_affinities("11111111-1111-1111-1111-111111111111")
+    assert artists == {}
+    assert genres == {}
+
+    artists, genres = fetch_music_affinities("invalid-uuid")
+    assert artists == {}
+    assert genres == {}
+
+
+
+
+
 
 

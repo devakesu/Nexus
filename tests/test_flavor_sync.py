@@ -141,6 +141,45 @@ async def test_import_from_flavor_invalid_code_increments_attempts() -> None:
 
 
 @pytest.mark.anyio
+async def test_import_from_flavor_reaching_max_attempts_raises_429() -> None:
+    auth_user = {
+        "id": "main-user-2",
+        "email": "main2@example.com",
+    }
+    mock_user_row = {
+        "id": "main-user-2",
+        "app_variant": "nexus",
+        "is_active": True,
+        "is_suspended": False,
+        "deletion_requested_at": None,
+    }
+    mock_request = MagicMock(spec=Request)
+    payload = ImportRequest(sync_code="INVLD1")
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = "4"
+    mock_redis.incr.return_value = 5
+
+    with patch("app.api.user.sync.fetch_public_user", return_value=mock_user_row), patch(
+        "app.api.user.sync.redis_client", mock_redis,
+    ), patch(
+        "app.api.user.sync.execute_import",
+        side_effect=HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or already-used export code."),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await import_from_flavor(
+                request=mock_request,
+                payload=payload,
+                _device=None,
+                auth_user=auth_user,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "Too many failed import attempts" in exc_info.value.detail
+
+
+
+@pytest.mark.anyio
 async def test_import_from_flavor_other_error_does_not_increment_attempts() -> None:
     auth_user = {
         "id": "main-user-3",

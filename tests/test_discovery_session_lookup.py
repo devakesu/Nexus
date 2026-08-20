@@ -163,3 +163,20 @@ def test_get_or_validate_session_malformed_expiry_raises_410(mock_get_session: M
     assert exc_info.value.status_code == 410
     assert "Discovery session expired" in exc_info.value.detail
 
+
+@patch("app.services.discovery.get_discovery_session")
+def test_get_or_validate_session_mismatched_tab_raises_404(mock_get_session: MagicMock) -> None:
+    future_time = datetime.now(timezone.utc) + timedelta(hours=1)
+    # Session exists for Dating, but active_tab is Friends
+    mock_get_session.return_value = {
+        "id": "sess-123",
+        "viewer_id": "user-456",
+        "tab": "Dating",
+        "expires_at": future_time.isoformat(),
+    }
+    with pytest.raises(HTTPException) as exc_info:
+        get_or_validate_session("sess-123", "user-456", "Friends")
+    assert exc_info.value.status_code == 404
+    assert "Discovery session not found" in exc_info.value.detail
+
+

@@ -378,5 +378,50 @@ async def test_blend_playlist_genres_affinity_respects_time_budget(mock_fetch_ge
     assert genre_acc == {}
 
 
+def test_spotify_disconnect_clears_affinity_signals() -> None:
+    from app.db.spotify import disconnect
+
+    mock_table = MagicMock()
+    mock_builder = MagicMock()
+    mock_builder.delete.return_value = mock_builder
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+    mock_table.return_value = mock_builder
+
+    with patch("app.db.spotify.supabase_client.table", mock_table):
+        disconnect("user-123")
+
+        # Verify profiles update explicitly nullifies artist_affinity, genre_affinity, top_artists
+        mock_builder.update.assert_called_once_with({
+            "artist_affinity": None,
+            "genre_affinity": None,
+            "top_artists": None,
+            "music_taste_synced_at": None,
+        })
+
+
+@pytest.mark.anyio
+@patch("app.db.spotify.supabase_client.table")
+async def test_get_connection_selects_disconnected_at(mock_table: MagicMock) -> None:
+    from app.db.spotify import get_connection
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[{"user_id": "u-1", "disconnected_at": "2026-08-20T00:00:00Z"}],
+    )
+    mock_table.return_value = mock_builder
+
+    conn = get_connection("u-1")
+    assert conn is not None
+    assert conn.get("disconnected_at") == "2026-08-20T00:00:00Z"
+    select_cols = mock_builder.select.call_args[0][0]
+    assert "disconnected_at" in select_cols
+
+
+
 
 

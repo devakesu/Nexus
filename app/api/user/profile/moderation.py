@@ -60,6 +60,7 @@ def get_moderation_subjects(
                 "hometown, current_place, profile_pic",
             )
             .in_("id", valid_ids)
+            .eq("is_deactivated", False)
             .execute()
         )
 

@@ -165,9 +165,17 @@ def update_email_notification_settings(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> EmailNotificationSettingsResponse:
-    """Executes update email notification settings operation."""
-    _ = request
-    update_data = payload.model_dump(exclude_none=True)
+    update_data: dict[str, Any] = {}
+    if payload.email_notify_matches is not None:
+        update_data["email_notify_matches"] = payload.email_notify_matches
+    if payload.email_notify_messages is not None:
+        update_data["email_notify_messages"] = payload.email_notify_messages
+    if payload.email_notify_digest is not None:
+        update_data["email_notify_digest"] = payload.email_notify_digest
+    if payload.email_notify_product_updates is not None:
+        update_data["email_notify_product_updates"] = payload.email_notify_product_updates
+    if payload.email_notify_promotions is not None:
+        update_data["email_notify_promotions"] = payload.email_notify_promotions
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update.")
 

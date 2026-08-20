@@ -101,6 +101,15 @@ class SafetyAlertRequest(BaseModel):
     event_label: str | None = Field(default=None, max_length=200)
     current_location: SafetyLocation | None = None
 
+    @field_validator("session_label", "event_label")
+    @classmethod
+    def sanitize_label_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        from app.core.utils.sms import sanitize_sms_text
+
+        return sanitize_sms_text(v, max_length=200)
+
 
 class SafetyAlertResponse(BaseModel):
     """Safetyalertresponse class representation."""

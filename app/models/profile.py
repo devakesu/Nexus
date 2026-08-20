@@ -642,3 +642,13 @@ class ModerationSubjectItem(BaseModel):
 class ModerationSubjectsRequest(BaseModel):
     """Moderationsubjectsrequest class representation."""
     target_ids: list[str] = Field(..., min_length=1, max_length=50)
+
+    @field_validator("target_ids")
+    @classmethod
+    def validate_target_ids(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("target_ids cannot be empty.")
+        if len(v) > 50:
+            raise ValueError("target_ids cannot contain more than 50 items.")
+        from app.db.client import normalize_uuid
+        return list(dict.fromkeys(normalize_uuid(tid) for tid in v))

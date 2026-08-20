@@ -28,7 +28,8 @@ def get_connection(user_id: str) -> dict[str, Any] | None:
             supabase_client.table("spotify_connections")
             .select(
                 "user_id, spotify_user_id, refresh_token, granted_scopes, "
-                "connected_at, last_synced_at, last_sync_status, last_sync_error",
+                "connected_at, last_synced_at, last_sync_status, last_sync_error, "
+                "disconnected_at",
             )
             .eq("user_id", user_id)
             .limit(1)

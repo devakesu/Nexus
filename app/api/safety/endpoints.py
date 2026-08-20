@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse
 from app.api.dependencies import (
     require_safety_consent,
     verify_app_check_with_replay_protection,
+    verify_app_check_with_strict_replay_protection,
 )
 from app.core.config import settings
 from app.core.infra.cache import redis_client
@@ -247,7 +248,7 @@ async def _cache_sos_alert(idempotency_key: str, response: SafetyAlertResponse) 
 async def send_safety_alert(
     request: Request,
     payload: SafetyAlertRequest = Body(...),
-    _device: None = Depends(verify_app_check_with_replay_protection),
+    _device: None = Depends(verify_app_check_with_strict_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyAlertResponse:
     """Composes and sends the SOS/inform SMS to every trusted contact on
@@ -316,7 +317,7 @@ async def send_safety_alert(
 async def register_evidence(
     request: Request,
     payload: SafetyEvidenceRegisterRequest = Body(...),
-    _device: None = Depends(verify_app_check_with_replay_protection),
+    _device: None = Depends(verify_app_check_with_strict_replay_protection),
     user_id: str = Depends(require_safety_consent),
 ) -> SafetyEvidenceRegisterResponse:
     """Registers a Digital Witness (Silent SOS) evidence segment already

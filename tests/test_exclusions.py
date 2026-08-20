@@ -273,3 +273,58 @@ async def test_invalidate_block_cache_deletes_redis_keys_and_discovery_sessions(
     mock_invalidate_sessions.assert_any_call("user-222")
 
 
+def test_fetch_stage_1_candidates_filters_large_exclusion_set(mock_supabase: MagicMock) -> None:
+    from app.db.profiles.crud import fetch_stage_1_candidates
+    from app.models import DiscoveryFilters
+
+    viewer_id = "00000000-0000-0000-0000-000000000001"
+    # Create 1005 excluded IDs
+    excluded_set = {f"excluded-{i}" for i in range(1005)}
+
+    viewer_data = {
+        "id": viewer_id,
+        "search_bucket": "M",
+        "dating_target_bucket": ["F"],
+        "app_variant": "nexus",
+    }
+
+    # Candidate whose ID is beyond the 1000 DB cap
+    leaked_candidate_id = "excluded-1004"
+    valid_candidate_id = "valid-candidate-9999"
+
+    mock_candidates_res = MagicMock()
+    mock_candidates_res.data = [
+        {
+            "id": leaked_candidate_id,
+            "search_bucket": "F",
+            "dating_target_bucket": ["M"],
+            "age": 25,
+        },
+        {
+            "id": valid_candidate_id,
+            "search_bucket": "F",
+            "dating_target_bucket": ["M"],
+            "age": 26,
+        },
+    ]
+
+    with (
+        patch("app.db.profiles.crud._fetch_and_decrypt_viewer", return_value=viewer_data),
+        patch("app.db.profiles.crud.fetch_active_discovery_excluded_ids", return_value=excluded_set),
+        patch("app.db.profiles.crud._execute_and_filter_candidates", return_value=list(mock_candidates_res.data)),
+        patch("app.db.profiles.crud._enrich_candidates_with_vectors"),
+    ):
+        filters = DiscoveryFilters()
+        viewer, candidates = fetch_stage_1_candidates(
+            viewer_id=viewer_id,
+            active_tab="Dating",
+            filters=filters,
+        )
+
+        assert viewer is not None
+        assert len(candidates) == 1
+        assert candidates[0]["id"] == valid_candidate_id
+        assert not any(c["id"] == leaked_candidate_id for c in candidates)
+
+
+

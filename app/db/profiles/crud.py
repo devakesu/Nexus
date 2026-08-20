@@ -9,7 +9,7 @@ from postgrest.exceptions import APIError
 import app.db.profiles as profiles_module
 from app.core.config import DiscoveryTab
 from app.core.security.crypto import DecryptFailedError, compute_blind_index
-from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
+from app.db.client import DatabaseAccessError, ProfileDecodeError, normalize_uuid, supabase_client
 from app.db.discovery import fetch_active_discovery_excluded_ids
 from app.db.profiles.encryption import decrypt_profile_record
 from app.db.profiles.media import sign_profile_media
@@ -496,6 +496,11 @@ def fetch_stage_1_candidates(
         candidate_limit=effective_limit,
     )
 
+    if excluded_ids:
+        candidates_to_enrich = [
+            c for c in candidates_to_enrich if str(c.get("id") or "") not in excluded_ids
+        ]
+
     candidates_to_enrich = _apply_post_fetch_filters(candidates_to_enrich, filters)
 
     if not candidates_to_enrich:
@@ -558,3 +563,77 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
         raise DatabaseAccessError(
             "Failed to fetch peer profile",
         ) from e
+
+
+def is_active_profile(user_id: str) -> bool:
+    """Check if a profile exists and is active (not deactivated)."""
+    try:
+        valid_id = normalize_uuid(user_id)
+    except (ValueError, TypeError):
+        return False
+
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("id")
+            .eq("id", valid_id)
+            .eq("is_deactivated", False)
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], getattr(res, "data", None) or [])
+        return len(rows) > 0
+    except APIError as e:
+        logger.exception(
+            "Failed to check if profile is active",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to verify user profile status") from e
+
+
+def fetch_music_affinities(user_id: str) -> tuple[dict[str, float], dict[str, float]]:
+    """Fetch and decrypt only artist_affinity and genre_affinity for music match grading.
+
+    Avoids fetching, decrypting, or signing the entire peer profile payload.
+    """
+    try:
+        valid_id = normalize_uuid(user_id)
+    except (ValueError, TypeError):
+        return {}, {}
+
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("artist_affinity, genre_affinity")
+            .eq("id", valid_id)
+            .eq("is_deactivated", False)
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], getattr(res, "data", None) or [])
+        if not rows:
+            return {}, {}
+        row = dict(rows[0])
+        from app.db.profiles.encryption import _parse_encrypted_dict
+
+        _parse_encrypted_dict(row, "artist_affinity")
+        _parse_encrypted_dict(row, "genre_affinity")
+        raw_artist = row.get("artist_affinity")
+        raw_genre = row.get("genre_affinity")
+        artist_affinity: dict[str, float] = (
+            cast(dict[str, float], raw_artist)
+            if isinstance(raw_artist, dict) and "__DECRYPTION_FAILED__" not in raw_artist
+            else {}
+        )
+        genre_affinity: dict[str, float] = (
+            cast(dict[str, float], raw_genre)
+            if isinstance(raw_genre, dict) and "__DECRYPTION_FAILED__" not in raw_genre
+            else {}
+        )
+        return artist_affinity, genre_affinity
+    except APIError:
+        logger.exception("Failed to fetch music affinities", extra={"user_id": user_id})
+        return {}, {}
+    except Exception:
+        logger.exception("Unexpected error fetching music affinities", extra={"user_id": user_id})
+        return {}, {}

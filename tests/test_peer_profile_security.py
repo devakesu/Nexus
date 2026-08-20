@@ -20,8 +20,11 @@ async def test_verify_peer_access_self_access_denied() -> None:
 
 @pytest.mark.anyio
 @patch("app.api.discovery.likes.get_cached_active_block_ids")
-async def test_verify_peer_access_blocked(mock_get_blocks: AsyncMock) -> None:
-    mock_get_blocks.return_value = {"target-id"}  # Blocked!
+async def test_verify_peer_access_blocked_by_viewer(mock_get_blocks: AsyncMock) -> None:
+    def _mock_blocks(uid: str) -> set[str]:
+        return {"target-id"} if uid == "viewer-id" else set()
+
+    mock_get_blocks.side_effect = _mock_blocks
 
     with pytest.raises(HTTPException) as exc_info:
         await _verify_peer_access_and_infer_tab(
@@ -30,7 +33,23 @@ async def test_verify_peer_access_blocked(mock_get_blocks: AsyncMock) -> None:
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Access denied. Viewer not permitted."
-    mock_get_blocks.assert_called_once_with("viewer-id")
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.get_cached_active_block_ids")
+async def test_verify_peer_access_blocked_by_target(mock_get_blocks: AsyncMock) -> None:
+    def _mock_blocks(uid: str) -> set[str]:
+        return {"viewer-id"} if uid == "target-id" else set()
+
+    mock_get_blocks.side_effect = _mock_blocks
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _verify_peer_access_and_infer_tab(
+            "target-id", "viewer-id", "Dating",
+        )
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Access denied. Viewer not permitted."
 
 
 @pytest.mark.anyio
@@ -40,7 +59,7 @@ async def test_verify_peer_access_not_blocked_with_like(
     mock_supabase: MagicMock,
     mock_get_blocks: AsyncMock,
 ) -> None:
-    mock_get_blocks.return_value = set()  # No blocks
+    mock_get_blocks.return_value = set()  # No blocks in either direction
 
     # Mock like query to return a like row
     mock_exec = MagicMock()
@@ -55,7 +74,7 @@ async def test_verify_peer_access_not_blocked_with_like(
     )
 
     assert tab == "Dating"
-    mock_get_blocks.assert_called_once_with("viewer-id")
+    assert mock_get_blocks.call_count == 2
 
 
 @pytest.mark.anyio
@@ -91,4 +110,4 @@ async def test_verify_peer_access_with_match(
     )
 
     assert tab == "Friends"
-    mock_get_blocks.assert_called_once_with(viewer_uuid)
+    assert mock_get_blocks.call_count == 2

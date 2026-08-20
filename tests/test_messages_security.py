@@ -287,3 +287,40 @@ async def test_mark_messages_read_closed_conversation(
     mock_mark.assert_not_called()
 
 
+def test_send_message_request_metadata_valid() -> None:
+    req = SendMessageRequest(
+        ciphertext="c2VjcmV0",
+        ciphertext_metadata={
+            "ephemeral_key": "valid_key_string",
+            "sequence_number": 42,
+            "ratchet_flag": True,
+            "latency": 12.34,
+        },
+    )
+    assert len(req.ciphertext_metadata) == 4
+    assert req.ciphertext_metadata["sequence_number"] == 42
+
+
+def test_send_message_request_metadata_rejects_nested_or_non_primitive() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as exc_info:
+        SendMessageRequest(
+            ciphertext="c2VjcmV0",
+            ciphertext_metadata={
+                "nested_obj": {"malicious": "payload"},
+            },
+        )
+    assert "only string, number, or boolean allowed" in str(exc_info.value)
+
+    with pytest.raises(ValidationError) as exc_info:
+        SendMessageRequest(
+            ciphertext="c2VjcmV0",
+            ciphertext_metadata={
+                "long_val": "x" * 501,
+            },
+        )
+    assert "exceeds 500 characters" in str(exc_info.value)
+
+
+

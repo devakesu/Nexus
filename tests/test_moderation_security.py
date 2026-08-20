@@ -237,3 +237,94 @@ def test_set_user_suspension_invalidates_cache() -> None:
         mock_builder.eq.assert_called_once_with("id", "user-susp-123")
         mock_invalidate.assert_called_once_with("user-susp-123")
 
+
+def test_get_moderation_subjects_filters_deactivated_users() -> None:
+    from app.api.user.profile.moderation import get_moderation_subjects
+    from app.models import ModerationSubjectsRequest
+
+    # Mock discovery actions table returning valid blocked IDs
+    mock_discovery_builder = MagicMock()
+    mock_discovery_builder.select.return_value = mock_discovery_builder
+    mock_discovery_builder.eq.return_value = mock_discovery_builder
+    mock_discovery_builder.in_.return_value = mock_discovery_builder
+    mock_discovery_builder.is_.return_value = mock_discovery_builder
+    mock_discovery_builder.execute.return_value = MagicMock(
+        data=[{"target_id": "11111111-1111-1111-1111-111111111111"}],
+    )
+
+    # Mock profiles table
+    mock_profiles_builder = MagicMock()
+    mock_profiles_builder.select.return_value = mock_profiles_builder
+    mock_profiles_builder.in_.return_value = mock_profiles_builder
+    mock_profiles_builder.eq.return_value = mock_profiles_builder
+    mock_profiles_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "name": "Alice",
+                "age": 22,
+                "campus_year": 3,
+                "campus_name": "mec",
+                "campus_branch": "CS",
+                "hometown": "NY",
+                "current_place": "Campus",
+                "profile_pic": "pic.jpg",
+            },
+        ],
+    )
+
+    def _table_side_effect(name: str) -> MagicMock:
+        if name == "profile_discovery_actions":
+            return mock_discovery_builder
+        return mock_profiles_builder
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+    payload = ModerationSubjectsRequest(
+        target_ids=["11111111-1111-1111-1111-111111111111"],
+    )
+
+    with (
+        patch("app.api.user.profile.moderation.supabase_client.table", side_effect=_table_side_effect),
+        patch("app.api.user.profile.moderation.sign_profile_media_bulk"),
+    ):
+        res = get_moderation_subjects(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+            _device=None,
+        )
+
+        assert len(res) == 1
+        assert res[0]["id"] == "11111111-1111-1111-1111-111111111111"
+        # Verify is_deactivated=False was queried on profiles
+        mock_profiles_builder.eq.assert_called_once_with("is_deactivated", False)
+
+
+def test_moderation_subjects_request_validation() -> None:
+    from pydantic import ValidationError
+
+    from app.models import ModerationSubjectsRequest
+
+    # Valid list of UUIDs
+    req = ModerationSubjectsRequest(target_ids=["11111111-1111-1111-1111-111111111111"])
+    assert req.target_ids == ["11111111-1111-1111-1111-111111111111"]
+
+    # Reject empty list
+    with pytest.raises(ValidationError):
+        ModerationSubjectsRequest(target_ids=[])
+
+    # Reject invalid UUID
+    with pytest.raises(ValidationError):
+        ModerationSubjectsRequest(target_ids=["not-a-valid-uuid"])
+
+    # Reject exceeding upper bound of 50
+    with pytest.raises(ValidationError):
+        ModerationSubjectsRequest(target_ids=[f"{i:08x}-0000-0000-0000-000000000000" for i in range(51)])
+
+

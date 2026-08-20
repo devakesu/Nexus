@@ -58,12 +58,12 @@ async def test_record_like_back_action_report_closes_convo(
     mock_set_unmatched.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
     )
     mock_close_convo.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
         "report",
     )
 
@@ -123,12 +123,12 @@ async def test_record_like_back_action_block_closes_convo(
     mock_set_unmatched.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
     )
     mock_close_convo.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
         "block",
     )
 
@@ -198,6 +198,88 @@ async def test_record_like_back_action_match_failure_rollbacks_revocation(
     payload = LikeActionRequest(
         target_id="11111111-1111-1111-1111-111111111111",
         action="like",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await record_like_back_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 503
+    mock_unrevoke.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.unrevoke_incoming_like")
+@patch("app.api.discovery.likes.record_discovery_action")
+@patch("app.api.discovery.likes.revoke_incoming_like")
+async def test_record_like_back_action_discovery_action_failure_rollbacks_revocation(
+    mock_revoke: MagicMock,
+    mock_record_discovery: MagicMock,
+    mock_unrevoke: MagicMock,
+) -> None:
+    from app.db.client import DatabaseAccessError
+
+    mock_revoke.return_value = True
+    mock_record_discovery.side_effect = DatabaseAccessError("DB connection error")
+
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="like",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await record_like_back_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 503
+    mock_unrevoke.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.unrevoke_incoming_like")
+@patch("app.api.discovery.likes.record_discovery_action")
+@patch("app.api.discovery.likes.revoke_incoming_like")
+async def test_record_like_back_action_pass_discovery_failure_rollbacks_revocation(
+    mock_revoke: MagicMock,
+    mock_record_discovery: MagicMock,
+    mock_unrevoke: MagicMock,
+) -> None:
+    from app.db.client import DatabaseAccessError
+
+    mock_revoke.return_value = True
+    mock_record_discovery.side_effect = DatabaseAccessError("DB connection error")
+
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="pass",
         tab="Dating",
     )
     scope: dict[str, Any] = {
@@ -377,12 +459,12 @@ async def test_record_like_back_action_report_dissolves_match_and_closes_convers
     mock_set_unmatched.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
     )
     mock_close_convo.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
-        "Dating",
+        None,
         "report",
     )
 
@@ -441,6 +523,118 @@ async def test_record_match_action_unmatch_invalidates_discovery_sessions(
     assert mock_invalidate_sessions.call_count == 2
     mock_invalidate_sessions.assert_any_call("22222222-2222-2222-2222-222222222222")
     mock_invalidate_sessions.assert_any_call("11111111-1111-1111-1111-111111111111")
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.set_match_unmatched")
+@patch("app.api.discovery.likes.close_conversation_for_match_action")
+@patch("app.api.discovery.likes.record_discovery_action")
+@patch("app.api.discovery.likes.invalidate_block_cache")
+async def test_record_match_action_block_passes_none_tab(
+    mock_invalidate_cache: AsyncMock,
+    mock_record_discovery: MagicMock,
+    mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
+) -> None:
+    from app.api.discovery.likes import record_match_action
+    from app.models import MatchActionRequest
+
+    payload = MatchActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="block",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await record_match_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+
+    assert res.success is True
+    mock_set_unmatched.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        None,
+    )
+    mock_close_convo.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        None,
+        "block",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.get_cached_active_block_ids", return_value=set())
+@patch("app.api.discovery.likes._find_peer_like", return_value={"tab": "Dating"})
+@patch("app.api.discovery.likes.fetch_peer_profile_by_id")
+@patch("app.db.spotify.get_connection")
+@patch("app.db.profiles.fetch_music_affinities")
+async def test_get_peer_profile_uses_fetch_music_affinities(
+    mock_fetch_affinities: MagicMock,
+    mock_get_connection: MagicMock,
+    mock_fetch_peer: MagicMock,
+    _mock_like: MagicMock,
+    _mock_blocks: MagicMock,
+) -> None:
+    from app.api.discovery.likes import get_peer_profile
+    from app.models import PeerProfileRequest
+
+    # Candidate profile returned by fetch_peer_profile_by_id
+    mock_fetch_peer.return_value = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "Candidate User",
+        "age": 25,
+        "campus_name": "mec",
+        "campus_year": 3,
+        "campus_branch": "CS",
+        "bio": "Hello",
+    }
+
+    # Both users connected to Spotify
+    mock_get_connection.return_value = {"user_id": "u", "disconnected_at": None}
+
+    # Affinities returned for viewer and candidate
+    mock_fetch_affinities.side_effect = [
+        ({"The Beatles": 1.0}, {"Rock": 0.9}),  # Viewer
+        ({"The Beatles": 1.0}, {"Rock": 0.9}),  # Candidate
+    ]
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/profile/peer",
+    }
+    request = Request(scope)
+    payload = PeerProfileRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        tab="Dating",
+    )
+
+    res = await get_peer_profile(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+        _device=None,
+    )
+
+    assert res.id == "11111111-1111-1111-1111-111111111111"
+    assert res.viewer_spotify_connected is True
+    assert res.candidate_spotify_connected is True
+    assert res.music_match_grade is not None
+    # fetch_peer_profile_by_id should only be called once (for candidate), not for viewer!
+    assert mock_fetch_peer.call_count == 1
+    assert mock_fetch_peer.call_args[0][0] == "11111111-1111-1111-1111-111111111111"
+
 
 
 

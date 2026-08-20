@@ -101,6 +101,18 @@ async def create_export_code(
     return ExportCodeResponse(code=code, expires_at=expires_at)
 
 
+async def _record_failed_attempt(key: str, ttl_seconds: int = 900) -> int:
+    """Atomically increments attempt counter and ensures TTL is set."""
+    try:
+        new_count = await redis_client.incr(key)
+        if new_count == 1:
+            await redis_client.expire(key, ttl_seconds)
+        return int(new_count)
+    except Exception:
+        logger.exception("Failed to record failed attempt in Redis", extra={"key": key})
+        return 1
+
+
 @router.post(
     "/api/v1/profiles/import",
     response_model=ImportResponse,
@@ -176,10 +188,21 @@ async def import_from_flavor(
         )
     except HTTPException as e:
         if e.status_code == status.HTTP_400_BAD_REQUEST and "Invalid or already-used" in str(e.detail):
-            await redis_client.incr(attempts_key)
-            await redis_client.expire(attempts_key, 900)
-            await redis_client.incr(code_attempts_key)
-            await redis_client.expire(code_attempts_key, 900)
+            user_count = await _record_failed_attempt(attempts_key, 900)
+            code_count = await _record_failed_attempt(code_attempts_key, 900)
+            if user_count >= 5:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many failed import attempts. Please try again in 15 minutes.",
+                ) from e
+            if code_count >= 10:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        "This sync code has had too many failed validation attempts. "
+                        "Please export a new code."
+                    ),
+                ) from e
         raise e
 
     await redis_client.delete(attempts_key)

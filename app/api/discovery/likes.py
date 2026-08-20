@@ -281,8 +281,11 @@ async def _verify_peer_access_and_infer_tab(
             detail="Access denied. Viewer not permitted.",
         )
 
-    block_ids = await get_cached_active_block_ids(user_id_normalized)
-    if target_id in block_ids:
+    viewer_blocks, target_blocks = await asyncio.gather(
+        get_cached_active_block_ids(user_id_normalized),
+        get_cached_active_block_ids(target_id),
+    )
+    if target_id in viewer_blocks or user_id_normalized in target_blocks:
         raise HTTPException(
             status_code=403,
             detail="Access denied. Viewer not permitted.",
@@ -361,24 +364,27 @@ async def get_peer_profile(
         profile["viewer_spotify_connected"] = viewer_connected
 
         # If both are connected, calculate the playlist match grade!
-        candidate_connected = bool(
-            profile.get("artist_affinity") or profile.get("genre_affinity"),
+        candidate_conn = await asyncio.to_thread(get_connection, payload.target_id)
+        candidate_connected = candidate_conn is not None and not candidate_conn.get(
+            "disconnected_at",
         )
         profile["candidate_spotify_connected"] = candidate_connected
 
         if viewer_connected and candidate_connected:
-            viewer_profile = await asyncio.to_thread(
-                fetch_peer_profile_by_id,
-                user_id_normalized,
+            from app.db.profiles import fetch_music_affinities
+
+            (viewer_artists, viewer_genres), (cand_artists, cand_genres) = await asyncio.gather(
+                asyncio.to_thread(fetch_music_affinities, user_id_normalized),
+                asyncio.to_thread(fetch_music_affinities, payload.target_id),
             )
-            if viewer_profile:
+            if viewer_artists or cand_artists or viewer_genres or cand_genres:
                 from Nexus_Engine.engine import calculate_playlist_match_grade
 
                 grade = calculate_playlist_match_grade(
-                    viewer_profile.get("artist_affinity"),
-                    profile.get("artist_affinity"),
-                    viewer_profile.get("genre_affinity"),
-                    profile.get("genre_affinity"),
+                    viewer_artists,
+                    cand_artists,
+                    viewer_genres,
+                    cand_genres,
                 )
                 profile["music_match_grade"] = grade
 
@@ -446,94 +452,107 @@ async def record_like_back_action(  # noqa: C901
                     detail="No active incoming like found.",
                 )
 
-        if payload.action == "report":
-            await asyncio.to_thread(
-                record_user_report,
-                user_id,
-                payload.target_id,
-                payload.reason or "other",
-                payload.reason_detail,
-                payload.tab,
-            )
-            # record_user_report creates a block internally; also invalidate cache
-            await invalidate_block_cache(user_id, payload.target_id)
-            await asyncio.to_thread(
-                set_match_unmatched,
-                user_id,
-                payload.target_id,
-                payload.tab,
-            )
-            await asyncio.to_thread(
-                close_conversation_for_match_action,
-                user_id,
-                payload.target_id,
-                payload.tab,
-                "report",
-            )
-        else:
-            tab = None if payload.action == "block" else payload.tab
-            expires = _LIKES_PASS_EXPIRY_DAYS if payload.action == "pass" else None
-            await asyncio.to_thread(
-                record_discovery_action,
-                user_id,
-                payload.target_id,
-                payload.action,
-                tab,
-                expires,
-            )
-            if payload.action == "block":
+        unrevoke_needed = claimed_like
+        try:
+            if payload.action == "report":
+                await asyncio.to_thread(
+                    record_user_report,
+                    user_id,
+                    payload.target_id,
+                    payload.reason or "other",
+                    payload.reason_detail,
+                    payload.tab,
+                )
+                # record_user_report creates a block internally; also invalidate cache
                 await invalidate_block_cache(user_id, payload.target_id)
                 await asyncio.to_thread(
                     set_match_unmatched,
                     user_id,
                     payload.target_id,
-                    payload.tab,
+                    None,
                 )
                 await asyncio.to_thread(
                     close_conversation_for_match_action,
                     user_id,
                     payload.target_id,
-                    payload.tab,
-                    "block",
+                    None,
+                    "report",
                 )
-
-        matched = payload.action in ("like", "superlike")
-        match_id: str | None = None
-        if matched:
-            try:
-                # payload.target_id is the original liker; user_id liked back
-                match_id = await asyncio.to_thread(
-                    record_match,
-                    payload.target_id,
+            else:
+                tab = None if payload.action == "block" else payload.tab
+                expires = _LIKES_PASS_EXPIRY_DAYS if payload.action == "pass" else None
+                await asyncio.to_thread(
+                    record_discovery_action,
                     user_id,
-                    payload.tab,
+                    payload.target_id,
+                    payload.action,
+                    tab,
+                    expires,
                 )
-            except Exception as err:
-                if claimed_like:
-                    await asyncio.to_thread(unrevoke_incoming_like, user_id, payload.target_id)
-                if isinstance(err, DatabaseAccessError):
+                if payload.action == "block":
+                    await invalidate_block_cache(user_id, payload.target_id)
+                    await asyncio.to_thread(
+                        set_match_unmatched,
+                        user_id,
+                        payload.target_id,
+                        None,
+                    )
+                    await asyncio.to_thread(
+                        close_conversation_for_match_action,
+                        user_id,
+                        payload.target_id,
+                        None,
+                        "block",
+                    )
+                if payload.action in ("pass", "block"):
+                    unrevoke_needed = False
+
+            matched = payload.action in ("like", "superlike")
+            match_id: str | None = None
+            if matched:
+                try:
+                    # payload.target_id is the original liker; user_id liked back
+                    match_id = await asyncio.to_thread(
+                        record_match,
+                        payload.target_id,
+                        user_id,
+                        payload.tab,
+                    )
+                    unrevoke_needed = False
+                except DatabaseAccessError as err:
                     orig = err.__cause__
                     if orig and "No active incoming like found" in str(orig):
                         raise HTTPException(
                             status_code=400,
                             detail="No active incoming like found.",
                         ) from err
-                raise
+                    raise
 
-            safe_create_task(
-                send_match_notification(
-                    user_a_id=payload.target_id,
-                    user_b_id=user_id,
-                ),
-            )
-            # Revoke reciprocal like in the other direction if present
-            await asyncio.to_thread(
-                revoke_incoming_like,
-                payload.target_id,
-                user_id,
-            )
+                safe_create_task(
+                    send_match_notification(
+                        user_a_id=payload.target_id,
+                        user_b_id=user_id,
+                    ),
+                )
+                # Revoke reciprocal like in the other direction if present
+                await asyncio.to_thread(
+                    revoke_incoming_like,
+                    payload.target_id,
+                    user_id,
+                )
 
-        return LikeActionResponse(success=True, matched=matched, match_id=match_id)
+            return LikeActionResponse(success=True, matched=matched, match_id=match_id)
+
+        except Exception:
+            if unrevoke_needed:
+                try:
+                    await asyncio.to_thread(unrevoke_incoming_like, user_id, payload.target_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to unrevoke claimed like on error",
+                        extra={"user_id": user_id, "target_id": payload.target_id},
+                    )
+            raise
 
     except DatabaseAccessError as err:
         logger.exception(
@@ -644,18 +663,19 @@ async def record_match_action(
         await _validate_conversation_membership(user_id, payload.target_id, payload.conversation_id)
 
         # 1. Dissolve the match row and close associated chat conversation first
+        match_tab = None if payload.action in ("block", "report") else payload.tab
         await asyncio.to_thread(
             set_match_unmatched,
             user_id,
             payload.target_id,
-            payload.tab,
+            match_tab,
         )
 
         await asyncio.to_thread(
             close_conversation_for_match_action,
             user_id,
             payload.target_id,
-            payload.tab,
+            match_tab,
             payload.action,
         )
 

@@ -319,6 +319,63 @@ async def test_complete_onboarding_with_accepted_terms_succeeds() -> None:
         mock_upsert_profile.assert_called_once()
 
 
+@pytest.mark.anyio
+async def test_complete_onboarding_mismatched_app_variant_rejected() -> None:
+    from app.api.user.auth_otp import complete_onboarding
+    from app.models.user import NexusOnboardingRequest
+
+    auth_user = {
+        "id": "onboard-user-mec",
+        "email": "student@mec.edu",
+    }
+    user_row = {
+        "id": "onboard-user-mec",
+        "is_active": True,
+        "is_suspended": False,
+        "accepted_terms_version": "1.0",
+        "app_variant": "nexus_mec",
+    }
+    # Attempting to send NexusOnboardingRequest to a campus account
+    payload = NexusOnboardingRequest(
+        app_variant="nexus",
+        name="Campus Student",
+        age=35,
+        demographic_bucket="M",
+    )
+    mock_request = MagicMock(spec=Request)
+
+    with patch("app.api.user.auth_otp.fetch_public_user", return_value=user_row), patch(
+        "app.api.user.auth_otp.fetch_profile", return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await complete_onboarding(
+                request=mock_request,
+                payload=payload,
+                _device=None,
+                auth_user=auth_user,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid onboarding payload for account variant 'nexus_mec'" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_complete_onboarding_campus_age_validation() -> None:
+    from pydantic import ValidationError
+
+    from app.models.user import MECOnboardingRequest
+
+    # Pydantic schema validation rejects age > 27 for MECOnboardingRequest
+    with pytest.raises(ValidationError):
+        MECOnboardingRequest(
+            app_variant="nexus_mec",
+            campus_branch="CS",
+            campus_year=3,
+            campus_name="Model Engineering College",
+            age=28,
+        )
+
+
 def test_upsert_public_user_with_xmax_zero() -> None:
     from app.db.users.auth import upsert_public_user
 

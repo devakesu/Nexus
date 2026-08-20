@@ -90,6 +90,7 @@ async def test_discovery_action_like_session_expired(
 
 
 @pytest.mark.anyio
+@patch("app.db.profiles.is_active_profile", return_value=True)
 @patch("app.db.sessions.is_candidate_in_active_session")
 @patch("app.api.discovery.endpoints.record_discovery_action")
 @patch("app.api.discovery.endpoints.invalidate_block_cache")
@@ -101,6 +102,7 @@ async def test_discovery_action_block_skips_session_check(
     mock_invalidate: AsyncMock,
     mock_record: MagicMock,
     mock_in_session: MagicMock,
+    _mock_is_active: MagicMock,
 ) -> None:
     # 1. Setup mock returning false, which would fail if called
     mock_in_session.return_value = False
@@ -152,6 +154,7 @@ async def test_discovery_action_block_skips_session_check(
 
 
 @pytest.mark.anyio
+@patch("app.db.profiles.is_active_profile", return_value=True)
 @patch("app.db.sessions.is_candidate_in_active_session")
 @patch("app.api.discovery.endpoints.record_user_report")
 @patch("app.api.discovery.endpoints.invalidate_block_cache")
@@ -163,6 +166,7 @@ async def test_discovery_action_report_skips_session_check(
     mock_invalidate: AsyncMock,
     mock_record_report: MagicMock,
     mock_in_session: MagicMock,
+    _mock_is_active: MagicMock,
 ) -> None:
     # 1. Setup mock returning false, which would fail if called
     mock_in_session.return_value = False
@@ -214,6 +218,61 @@ async def test_discovery_action_report_skips_session_check(
         None,
         "report",
     )
+
+
+@pytest.mark.anyio
+@patch("app.db.profiles.is_active_profile", return_value=False)
+async def test_discovery_action_block_inactive_target_returns_400(
+    _mock_is_active: MagicMock,
+) -> None:
+    payload = DiscoveryActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="block",
+        tab=None,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Target user not found or is inactive" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_discovery_action_self_target_returns_400() -> None:
+    payload = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        tab=None,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Cannot perform discovery actions on yourself" in exc_info.value.detail
 
 
 @pytest.mark.anyio

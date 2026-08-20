@@ -538,14 +538,10 @@ def verify_app_check_token(
         ) from err
 
 
-async def verify_app_check_with_replay_protection(
-    x_firebase_appcheck: str | None = Header(None),
+async def _verify_app_check_with_replay_impl(
+    x_firebase_appcheck: str | None,
+    strict: bool = False,
 ) -> None:
-    """
-    App Check verifier with one-time token consumption for sensitive routes.
-    Uses atomic Redis SET NX EX to prevent replay without race conditions.
-    Only active when ENFORCE_APP_CHECK and ENABLE_REPLAY_PROTECTION are both true.
-    """
     if not settings.enforce_app_check:
         return
 
@@ -583,7 +579,15 @@ async def verify_app_check_with_replay_protection(
     try:
         # Atomic NX+EX: sets key ONLY if it does not already exist, with TTL
         was_set = await redis_client.set(redis_key, "1", ex=ttl, nx=True)
-    except Exception:
+    except Exception as err:
+        if strict:
+            logger.exception(
+                "[REPLAY] Redis unavailable during App Check consume check on critical route; failing closed.",
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service temporarily unavailable. Replay protection service offline.",
+            ) from err
         logger.exception(
             "[REPLAY] Redis unavailable during App Check consume check; failing open for safety availability.",
         )
@@ -597,6 +601,20 @@ async def verify_app_check_with_replay_protection(
                 "Access Denied: App Check token already consumed. Obtain a fresh token."
             ),
         )
+
+
+async def verify_app_check_with_replay_protection(
+    x_firebase_appcheck: str | None = Header(None),
+) -> None:
+    """App Check verifier with one-time token consumption (fails open on Redis outage for standard routes)."""
+    await _verify_app_check_with_replay_impl(x_firebase_appcheck, strict=False)
+
+
+async def verify_app_check_with_strict_replay_protection(
+    x_firebase_appcheck: str | None = Header(None),
+) -> None:
+    """App Check verifier with one-time token consumption (fails closed with 503 on Redis outage for critical routes)."""
+    await _verify_app_check_with_replay_impl(x_firebase_appcheck, strict=True)
 
 
 async def resolve_verified_user(

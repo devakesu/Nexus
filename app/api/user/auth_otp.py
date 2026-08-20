@@ -353,6 +353,20 @@ async def complete_onboarding(
             detail="Onboarding has already been completed.",
         )
 
+    expected_variant = str(user_row.get("app_variant") or "nexus")
+    if payload.app_variant != expected_variant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid onboarding payload for account variant '{expected_variant}'.",
+        )
+
+    max_age = 80 if expected_variant == "nexus" else 27
+    if payload.age > max_age:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Age must be between 18 and {max_age} for your account type.",
+        )
+
     (
         user_name,
         user_branch,

@@ -371,27 +371,38 @@ async def test_end_session_succeeds(mock_end: MagicMock) -> None:
 def test_safety_endpoints_enforce_replay_protected_app_check() -> None:
     from fastapi.routing import APIRoute
 
-    from app.api.dependencies import verify_app_check_with_replay_protection
+    from app.api.dependencies import (
+        verify_app_check_with_replay_protection,
+        verify_app_check_with_strict_replay_protection,
+    )
     from app.api.safety.endpoints import router
 
-    endpoints_to_check = {
+    strict_endpoints = {
+        "/api/v1/safety/alert",
+        "/api/v1/safety/evidence",
+    }
+    standard_endpoints = {
         "/api/v1/safety/session/checkin",
         "/api/v1/safety/session/end",
         "/api/v1/safety/session/start",
-        "/api/v1/safety/alert",
-        "/api/v1/safety/evidence",
     }
 
     found: set[str] = set()
     for route in router.routes:
-        if isinstance(route, APIRoute) and route.path in endpoints_to_check:
+        if isinstance(route, APIRoute):
             dep_callables = [d.call for d in route.dependant.dependencies]
-            assert verify_app_check_with_replay_protection in dep_callables, (
-                f"Route {route.path} is missing verify_app_check_with_replay_protection"
-            )
-            found.add(route.path)
+            if route.path in strict_endpoints:
+                assert verify_app_check_with_strict_replay_protection in dep_callables, (
+                    f"Route {route.path} is missing verify_app_check_with_strict_replay_protection"
+                )
+                found.add(route.path)
+            elif route.path in standard_endpoints:
+                assert verify_app_check_with_replay_protection in dep_callables, (
+                    f"Route {route.path} is missing verify_app_check_with_replay_protection"
+                )
+                found.add(route.path)
 
-    assert found == endpoints_to_check
+    assert found == (strict_endpoints | standard_endpoints)
 
 
 def test_sanitize_sms_text_strips_newlines_and_control_chars() -> None:
@@ -467,5 +478,22 @@ def test_record_safety_escalation_sent_optimistic_locking_mismatch() -> None:
         updated = record_safety_escalation_sent(session_id, new_count=2, expected_count=1)
 
     assert updated is False
+
+
+def test_safety_alert_request_sanitizes_labels() -> None:
+    from app.models import SafetyAlertRequest
+
+    req = SafetyAlertRequest(
+        alert_type="sos_silent",
+        session_label="Alice\n\nDISREGARD\x00\r\tTest",
+        event_label="Coffee Date\n\x1fSpecial Location",
+    )
+
+    assert req.session_label == "Alice DISREGARD Test"
+    assert req.event_label == "Coffee Date Special Location"
+    assert "\n" not in (req.session_label or "")
+    assert "\r" not in (req.session_label or "")
+    assert "\x00" not in (req.session_label or "")
+
 
 

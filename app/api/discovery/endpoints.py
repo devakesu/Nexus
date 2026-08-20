@@ -381,6 +381,16 @@ async def _validate_discovery_action(
     """Validate discovery action."""
     from app.db.discovery import has_active_discovery_action
 
+    if str(user_id).lower() == str(payload.target_id).lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot perform discovery actions on yourself.",
+        )
+
+    await _validate_conversation_membership(
+        user_id, payload.target_id, payload.conversation_id,
+    )
+
     is_reversal = payload.action.startswith("un")
     if is_reversal and payload.action not in _ALLOWED_REVERSAL_ACTIONS:
         raise HTTPException(
@@ -408,10 +418,15 @@ async def _validate_discovery_action(
             )
     elif payload.action not in ("block", "report"):
         await _validate_forward_session(user_id, payload.target_id)
+    elif not payload.conversation_id:
+        from app.db.profiles import is_active_profile
 
-    await _validate_conversation_membership(
-        user_id, payload.target_id, payload.conversation_id,
-    )
+        is_active = await asyncio.to_thread(is_active_profile, payload.target_id)
+        if not is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Target user not found or is inactive.",
+            )
 
 
 @router.post("/api/v1/discover/action", response_model=DiscoveryActionResponse)

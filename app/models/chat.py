@@ -147,6 +147,27 @@ class SendMessageRequest(BaseModel):
         description="Bounded Signal protocol metadata (string/int/bool values only).",
     )
 
+    @field_validator("ciphertext_metadata")
+    @classmethod
+    def validate_ciphertext_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if len(v) > 20:
+            raise ValueError("ciphertext_metadata may contain at most 20 keys")
+        for key, val in v.items():
+            if len(key) > 50:
+                raise ValueError("Metadata keys must be strings up to 50 characters")
+            if isinstance(val, bool):
+                continue
+            if isinstance(val, (int, float)):
+                continue
+            if isinstance(val, str):
+                if len(val) > 500:
+                    raise ValueError(f"Metadata string value for key '{key}' exceeds 500 characters")
+            else:
+                raise ValueError(
+                    f"Invalid metadata value type for key '{key}': only string, number, or boolean allowed"
+                )
+        return v
+
     @field_validator("ciphertext")
     @classmethod
     def validate_base64(cls, v: str) -> str:

@@ -49,7 +49,7 @@ def get_or_validate_session(
         active_tab=active_tab,
     )
 
-    if not session:
+    if not session or session.get("tab") != active_tab:
         raise HTTPException(status_code=404, detail="Discovery session not found.")
 
     expires_at_raw = session.get("expires_at")
