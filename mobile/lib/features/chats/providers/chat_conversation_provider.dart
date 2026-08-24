@@ -1381,7 +1381,7 @@ class ChatConversationController extends _$ChatConversationController {
         e,
         stackTrace: st,
         level: ErrorLevel.warning,
-        customMessage: 'Failed to create event "$title"',
+        customMessage: 'Failed to create chat event',
         showUi: false,
       );
       return false;

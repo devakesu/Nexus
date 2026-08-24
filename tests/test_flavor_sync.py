@@ -137,7 +137,9 @@ async def test_import_from_flavor_invalid_code_increments_attempts() -> None:
 
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
         mock_redis.incr.assert_any_call("import:attempts:main-user-2")
-        mock_redis.incr.assert_any_call("import:code_attempts:INVLD1")
+        import hashlib
+        invld_hash = hashlib.sha256(b"INVLD1").hexdigest()[:16]
+        mock_redis.incr.assert_any_call(f"import:code_attempts:{invld_hash}")
 
 
 @pytest.mark.anyio
@@ -320,6 +322,7 @@ def test_execute_import_concurrent_claim_fails_409() -> None:
 @pytest.mark.anyio
 async def test_generate_export_code_deletes_both_old_code_and_user_attempts_in_redis() -> None:
     """generate_export_code removes both old code attempts and per-user attempts from Redis."""
+    import hashlib
     from app.db.users.import_export import generate_export_code
 
     mock_redis = AsyncMock()
@@ -339,8 +342,34 @@ async def test_generate_export_code_deletes_both_old_code_and_user_attempts_in_r
 
         assert len(code) == 6
         assert isinstance(expires_at, datetime)
-        mock_redis.delete.assert_any_call("import:code_attempts:OLD123")
+        expected_hash = hashlib.sha256(b"OLD123").hexdigest()[:16]
+        mock_redis.delete.assert_any_call(f"import:code_attempts:{expected_hash}")
         mock_redis.delete.assert_any_call("import:attempts:user-reset-test")
 
 
+@pytest.mark.anyio
+async def test_import_from_flavor_hashes_sync_code_in_redis_key() -> None:
+    """import_from_flavor checks and records code attempts using sha256 hash."""
+    import hashlib
 
+    auth_user = {"id": "main-user-hash-test"}
+    mock_user_row = {"id": "main-user-hash-test", "app_variant": "nexus", "is_active": True}
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = None
+
+    sync_code = "SEC999"
+    expected_hash = hashlib.sha256(b"SEC999").hexdigest()[:16]
+
+    with patch("app.api.user.sync.redis_client", mock_redis), \
+         patch("app.api.user.sync.fetch_public_user", return_value=mock_user_row), \
+         patch("app.api.user.sync.execute_import", return_value=["display_gender"]):
+        req = MagicMock(spec=Request)
+        res = await import_from_flavor(
+            request=req,
+            payload=ImportRequest(sync_code=sync_code),
+            _device=None,
+            auth_user=auth_user,
+        )
+
+        assert res.success is True
+        mock_redis.get.assert_any_call(f"import:code_attempts:{expected_hash}")

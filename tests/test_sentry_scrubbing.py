@@ -1,10 +1,17 @@
-"""Unit tests for Sentry before_send event scrubbing (phone numbers, emails, secrets)."""
-
+import io
+import logging
 from typing import Any, cast
+from unittest.mock import MagicMock, patch
 
+import pytest
 from sentry_sdk.types import Event
 
-from app.core.infra.sentry import _scrub_string, scrub_event
+from app.core.infra.sentry import (
+    SensitiveDataFilter,
+    SensitiveDataFormatter,
+    _scrub_string,
+    scrub_event,
+)
 
 
 def test_scrub_string_redacts_phones() -> None:
@@ -155,3 +162,184 @@ def test_scrub_event_scrubs_stack_frame_local_vars() -> None:
     thread_frame_vars = result["threads"]["values"][0]["stacktrace"]["frames"][0]["vars"]
     assert thread_frame_vars["phone"] == "[PHONE_REDACTED]"
     assert thread_frame_vars["access_token"] == "[REDACTED_SENSITIVE]"
+
+
+def test_sensitive_data_filter_redacts_log_record_msg() -> None:
+    record = logging.LogRecord(
+        name="test_logger",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=10,
+        msg="Login with bearer eyJhbGciOi... from user@example.com",
+        args=(),
+        exc_info=None,
+    )
+    data_filter = SensitiveDataFilter()
+    assert data_filter.filter(record) is True
+    assert "[REDACTED_SENSITIVE]" in record.msg
+    assert "[EMAIL_REDACTED]" in record.msg
+    assert "user@example.com" not in record.msg
+
+
+def test_sensitive_data_filter_redacts_log_record_args_and_extras() -> None:
+    record = logging.LogRecord(
+        name="test_logger",
+        level=logging.WARNING,
+        pathname="test.py",
+        lineno=20,
+        msg="Dispatch error for user %s with phone %s",
+        args=("user@victim.com", "+14155552671"),
+        exc_info=None,
+    )
+    # Extra fields attached to LogRecord
+    setattr(record, "auth_token", "Bearer secret_jwt_token_12345")
+    setattr(record, "user_email", "victim@example.com")
+    setattr(record, "metadata", {"nested_phone": "+919876543210"})
+
+    data_filter = SensitiveDataFilter()
+    assert data_filter.filter(record) is True
+    assert record.args == ("[EMAIL_REDACTED]", "[PHONE_REDACTED]")
+    assert getattr(record, "auth_token") == "[REDACTED_SENSITIVE]"
+    assert getattr(record, "user_email") == "[EMAIL_REDACTED]"
+    assert getattr(record, "metadata") == {"nested_phone": "[PHONE_REDACTED]"}
+
+
+def test_sensitive_data_filter_with_stream_handler() -> None:
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handler.addFilter(SensitiveDataFilter())
+
+    test_logger = logging.getLogger("nexus.test_stream_scrubbing")
+    test_logger.setLevel(logging.INFO)
+    test_logger.handlers = [handler]
+    test_logger.propagate = False
+
+    test_logger.info("Bearer eyJhbGciOi... issued for user@example.com")
+    output = stream.getvalue()
+
+    assert "[REDACTED_SENSITIVE]" in output
+    assert "[EMAIL_REDACTED]" in output
+    assert "eyJhbGciOi" not in output
+    assert "user@example.com" not in output
+
+
+def test_sensitive_data_formatter_redacts_formatted_messages_and_exceptions() -> None:
+    formatter = SensitiveDataFormatter("%(levelname)s: %(message)s")
+    record = logging.LogRecord(
+        name="test_logger",
+        level=logging.ERROR,
+        pathname="test.py",
+        lineno=30,
+        msg="Failed auth with token: secret_api_key_12345",
+        args=(),
+        exc_info=None,
+    )
+    formatted = formatter.format(record)
+    assert "[REDACTED_SENSITIVE]" in formatted
+    assert "secret_api_key_12345" not in formatted
+
+    record_json = logging.LogRecord(
+        name="test_logger",
+        level=logging.ERROR,
+        pathname="test.py",
+        lineno=35,
+        msg='Payload error: {"password": "supersecretpassword", "phone": "(555) 123-4567"}',
+        args=(),
+        exc_info=None,
+    )
+    formatted_json = formatter.format(record_json)
+    assert "[REDACTED_SENSITIVE]" in formatted_json
+    assert "supersecretpassword" not in formatted_json
+    assert "[PHONE_REDACTED]" in formatted_json
+    assert "(555) 123-4567" not in formatted_json
+
+
+@pytest.mark.anyio
+@patch("app.api.dependencies.sentry_sdk.set_user")
+@patch("app.api.dependencies._decode_jwt")
+async def test_get_authenticated_user_payload_sets_sentry_user(
+    mock_decode: MagicMock,
+    mock_set_user: MagicMock,
+) -> None:
+    from app.api.dependencies import get_authenticated_user_payload
+    from fastapi import Request
+
+    mock_decode.return_value = {"sub": "user-uuid-1234", "email": "test@example.com"}
+    scope: dict[str, Any] = {"type": "http", "headers": [], "state": {}}
+    request = Request(scope)
+
+    payload = await get_authenticated_user_payload(request, token="fake.jwt.token")
+    assert payload["sub"] == "user-uuid-1234"
+    mock_set_user.assert_called_once_with({"id": "user-uuid-1234"})
+
+
+@pytest.mark.anyio
+@patch("app.api.dependencies.sentry_sdk.set_user")
+@patch("app.api.dependencies._decode_jwt")
+async def test_get_optional_authenticated_user_id_sets_sentry_user(
+    mock_decode: MagicMock,
+    mock_set_user: MagicMock,
+) -> None:
+    from app.api.dependencies import get_optional_authenticated_user_id
+
+    mock_decode.return_value = {"sub": "user-uuid-5678"}
+    user_id = await get_optional_authenticated_user_id(token="fake.jwt.token")
+    assert user_id == "user-uuid-5678"
+    mock_set_user.assert_called_once_with({"id": "user-uuid-5678"})
+
+
+@pytest.mark.anyio
+async def test_correlation_id_middleware_generates_and_propagates_request_id() -> None:
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+    from app.core.infra.correlation import CorrelationIdFilter, CorrelationIdMiddleware, get_request_id
+
+    test_app = FastAPI()
+    test_app.add_middleware(CorrelationIdMiddleware)
+
+    captured_ctx_id = None
+    captured_record_id = None
+
+    class CaptureFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            nonlocal captured_record_id
+            captured_record_id = getattr(record, "request_id", None)
+            return True
+
+    logger = logging.getLogger("test_correlation")
+    logger.setLevel(logging.INFO)
+    logger.addFilter(CorrelationIdFilter())
+    logger.addFilter(CaptureFilter())
+
+    @test_app.get("/test-correlation")
+    async def sample_endpoint() -> dict[str, str]:
+        nonlocal captured_ctx_id
+        captured_ctx_id = get_request_id()
+        logger.info("Handling correlation test request")
+        return {"status": "ok"}
+
+    _ = sample_endpoint
+
+    async with AsyncClient(
+        transport=ASGITransport(app=test_app), base_url="http://test",
+    ) as client:
+        # Case 1: Client does not provide X-Request-ID -> Middleware auto-generates UUID
+        resp1 = await client.get("/test-correlation")
+        assert resp1.status_code == 200
+        req_id1 = resp1.headers.get("X-Request-ID")
+        assert req_id1 is not None
+        assert len(req_id1) >= 16
+        assert captured_ctx_id == req_id1
+        assert captured_record_id == req_id1
+
+        # Case 2: Client provides custom safe X-Request-ID -> Middleware propagates it
+        resp2 = await client.get(
+            "/test-correlation",
+            headers={"X-Request-ID": "custom-req-id-12345"},
+        )
+        assert resp2.status_code == 200
+        assert resp2.headers.get("X-Request-ID") == "custom-req-id-12345"
+        assert captured_ctx_id == "custom-req-id-12345"
+        assert captured_record_id == "custom-req-id-12345"
+

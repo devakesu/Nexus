@@ -310,7 +310,7 @@ async def execute_failover(
         sentry_sdk.capture_exception(
             err2,
             tags={"type": "email_critical"},
-            extras={
+            extra={
                 "to": redact("email", props.to),
                 "primary_error": err_msg,
                 "secondary_error": err2_msg,

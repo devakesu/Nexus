@@ -31,6 +31,7 @@ from app.api.feedback.models import (
     ErrorSessionCreateRequest,
 )
 from app.core.config import settings
+from app.core.email.config import redact_email
 from app.core.infra.limiter import limiter
 from app.core.infra.otp import verify_and_consume_raw_otp
 
@@ -81,7 +82,7 @@ async def verify_turnstile_token(
             data = resp.json()
             return bool(data.get("success", False))
     except Exception as err:
-        logger.exception("Failed to verify Turnstile token: %s", err)
+        logger.warning("Failed to verify Turnstile token: %s", err)
         return False
 
 
@@ -290,7 +291,7 @@ async def send_contact_otp(
         await feedback_module.redis_client.set(otp_key, otp_code, ex=_CONTACT_OTP_TTL_SECONDS)
         await feedback_module.redis_client.delete(attempts_key)
     except Exception as err:
-        logger.exception("Failed to store appeal OTP in Redis")
+        logger.exception("Failed to store appeal OTP in Redis for %s", redact_email(email))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Support service temporarily unavailable.",
@@ -321,7 +322,7 @@ async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
     except HTTPException:
         raise
     except (RedisError, RuntimeError) as err:
-        logger.exception("Failed to fetch appeal OTP from Redis")
+        logger.exception("Failed to fetch appeal OTP from Redis for %s", redact_email(email))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Support service temporarily unavailable.",
@@ -338,7 +339,7 @@ async def _get_user_id_by_email(email: str) -> str | None:
         if rpc_res.data and isinstance(rpc_res.data, str):
             return rpc_res.data
     except (APIError, RuntimeError, ValueError) as err:
-        logger.warning("Optional user lookup by email failed: %s", err)
+        logger.warning("Optional user lookup by email failed for %s: %s", redact_email(email), err)
     return None
 
 

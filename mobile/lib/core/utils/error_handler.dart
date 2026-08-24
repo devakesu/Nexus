@@ -68,14 +68,44 @@ class ErrorHandler {
       return '$field: "[REDACTED_SENSITIVE]"';
     });
 
-    // 4. Sanitize phone numbers, e.g. +91 98765 43210, (555) 123-4567
+    // 4. Sanitize phone numbers, e.g. +91 98765 43210, (555) 123-4567, +14155552671
     final phoneRegex = RegExp(
-      r'\+?\d{1,3}?[-.\s]?\(?\d{3,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b',
+      r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,5}\)?[-.\s]?\d{3,5}(?:[-.\s]?\d{3,5})?\b|\+[1-9]\d{6,14}\b|\b[1-9]\d{7,14}\b',
     );
     return sanitized.replaceAllMapped(
       phoneRegex,
       (match) => '[PHONE_REDACTED]',
     );
+  }
+
+  /// Checks whether a key indicates sensitive authentication or security data.
+  static bool isSensitiveKey(String key) {
+    final sensitiveKeyRegex = RegExp(
+      '(bearer|auth|token|authorization|password|secret|jwt|access_token|refresh_token|credential|cookie|session|media_key|private_key)',
+      caseSensitive: false,
+    );
+    return sensitiveKeyRegex.hasMatch(key.trim());
+  }
+
+  /// Recursively sanitizes nested maps, lists, and strings.
+  static dynamic sanitizeObject(dynamic value) {
+    if (value is String) {
+      return sanitize(value);
+    } else if (value is Map) {
+      return value.map(
+        (k, v) => MapEntry(
+          k is String ? (isSensitiveKey(k) ? k : sanitize(k)) : k,
+          k is String && isSensitiveKey(k)
+              ? '[REDACTED_SENSITIVE]'
+              : sanitizeObject(v),
+        ),
+      );
+    } else if (value is List) {
+      return value.map(sanitizeObject).toList();
+    } else if (value is Set) {
+      return value.map(sanitizeObject).toSet();
+    }
+    return value;
   }
 
   /// Public API to get a sanitized, user-friendly message for any error.
@@ -195,6 +225,15 @@ class ErrorHandler {
         sentryEventId != '00000000000000000000000000000000') {
       buffer.writeln('Sentry Report ID: $sentryEventId');
     }
+    if (error is DioException) {
+      final reqId =
+          error.response?.headers.value('x-request-id') ??
+          error.requestOptions.headers['X-Request-ID'] as String? ??
+          error.requestOptions.headers['x-request-id'] as String?;
+      if (reqId != null && reqId.isNotEmpty) {
+        buffer.writeln('Request ID: $reqId');
+      }
+    }
     buffer
       ..writeln('App Version: ${AppConfig.current.appVersion}')
       ..writeln('Platform: ${Platform.isIOS ? 'iOS' : 'Android'}')
@@ -281,12 +320,30 @@ class ErrorHandler {
       final sentryLevel = _getSentryLevel(level);
 
       if (error != null) {
+        String? requestId;
+        if (error is DioException) {
+          requestId =
+              error.response?.headers.value('x-request-id') ??
+              error.requestOptions.headers['X-Request-ID'] as String? ??
+              error.requestOptions.headers['x-request-id'] as String?;
+        }
+
         final eventId = await Sentry.captureException(
           error,
           stackTrace: stackTrace,
           withScope: (scope) async {
             scope.level = sentryLevel;
-            await scope.setTag('custom_message', sanitizedMessage);
+
+            /// Retain custom_message extra for legacy Sentry dashboards.
+            // ignore: deprecated_member_use
+            await scope.setExtra('custom_message', sanitizedMessage);
+            if (requestId != null && requestId.isNotEmpty) {
+              await scope.setTag('request_id', requestId);
+
+              /// Retain request_id extra for legacy Sentry dashboards.
+              // ignore: deprecated_member_use
+              await scope.setExtra('request_id', requestId);
+            }
           },
         );
         return eventId.toString();

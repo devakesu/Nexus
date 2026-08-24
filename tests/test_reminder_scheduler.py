@@ -286,6 +286,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
 
 
 @pytest.mark.anyio
+@patch("app.services.reminder_scheduler.sentry_sdk.capture_message")
 @patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
 @patch("app.services.reminder_scheduler.send_sms")
 @patch("app.services.reminder_scheduler.record_safety_escalation_sent")
@@ -293,6 +294,7 @@ async def test_escalate_safety_session_idempotency_failed_sms(
     mock_record: AsyncMock,
     mock_send_sms: AsyncMock,
     mock_fetch_contacts: AsyncMock,
+    mock_capture_message: MagicMock,
 ):
     from app.services.reminder_scheduler import _escalate_safety_session
 
@@ -315,6 +317,15 @@ async def test_escalate_safety_session_idempotency_failed_sms(
     mock_send_sms.assert_called_once()
     mock_delete.assert_called_once_with("safety:escalation:sent:session-123:2")
     mock_record.assert_not_called()
+
+    # Verify sentry_sdk.capture_message received extra kwarg with session_id
+    mock_capture_message.assert_called_once()
+    args, kwargs = mock_capture_message.call_args
+    assert "CRITICAL: All SMS deliveries failed" in args[0]
+    assert kwargs.get("level") == "error"
+    assert "extra" in kwargs
+    assert kwargs["extra"].get("session_id") == "session-123"
+    assert "extras" not in kwargs
 
 
 def test_fetch_accounts_due_for_purge_applies_limit():

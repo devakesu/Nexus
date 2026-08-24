@@ -20,6 +20,7 @@ import 'package:nexus/features/auth_onboarding/screens/terms_consent_screen.dart
 import 'package:nexus/features/home/screens/home_screen.dart';
 import 'package:nexus/features/security_signal/services/notification_service.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatefulWidget {
@@ -85,8 +86,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
     // Listen to Supabase auth state changes
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (data) {
+      (data) async {
         if (data.event == AuthChangeEvent.signedOut) {
+          await Sentry.configureScope((scope) async {
+            await scope.setUser(null);
+          });
           unawaited(NotificationService.unregisterToken());
           unawaited(NotificationService.dispose());
           // Central sign-out hook so no cached profile/discovery-hub
@@ -100,6 +104,11 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           // OS permissions are device-scoped (not session-scoped) - they survive
           // sign-out, so forcing the permissions page again on every login is
           // unnecessary friction.
+        } else if (data.session?.user.id != null) {
+          final userId = data.session!.user.id;
+          await Sentry.configureScope((scope) async {
+            await scope.setUser(SentryUser(id: userId));
+          });
         }
         if (mounted) {
           setState(() {});
@@ -138,7 +147,12 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Future<void> _performInitialAuthCheck() async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
+      await Sentry.configureScope(
+        (scope) => scope.setUser(SentryUser(id: session.user.id)),
+      );
       await _checkBootstrap();
+    } else {
+      await Sentry.configureScope((scope) => scope.setUser(null));
     }
     if (mounted) {
       _authCheckCompleted = true;

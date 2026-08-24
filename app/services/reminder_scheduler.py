@@ -340,7 +340,10 @@ async def _dispatch_escalation_sms_and_record(
         sentry_sdk.capture_message(
             "CRITICAL: All SMS deliveries failed for overdue safety session",
             level="error",
-            extras={"session_id_masked": _mask_id(session_id)},
+            extra={
+                "session_id": session_id,
+                "session_id_masked": _mask_id(session_id),
+            },
         )
         logger.error(
             "Failed to reach any trusted contact for an overdue safety session",

@@ -743,4 +743,51 @@ async def test_submit_contact_ticket_rejects_malformed_attachment_path(
     assert "Invalid attachment path" in exc_info.value.detail
 
 
+@pytest.mark.anyio
+@patch("app.api.feedback.contact.logger")
+@patch("app.api.feedback.redis_client")
+async def test_verify_and_consume_otp_redis_error_redacts_email(
+    mock_redis: MagicMock,
+    mock_logger: MagicMock,
+) -> None:
+    from redis.exceptions import RedisError
+    from app.api.feedback.contact import _verify_and_consume_otp
+
+    mock_redis.get = AsyncMock(side_effect=RedisError("Redis connection lost"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _verify_and_consume_otp("sensitive_victim@example.com", "123456")
+
+    assert exc_info.value.status_code == 503
+    mock_logger.exception.assert_called_once()
+    log_args = mock_logger.exception.call_args[0]
+    formatted_msg = log_args[0] % log_args[1:]
+    assert "sensitive_victim@example.com" not in formatted_msg
+    assert "s***m@example.com" in formatted_msg
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.contact.logger")
+@patch("app.api.feedback.contact.httpx.AsyncClient")
+@patch("app.api.feedback.contact.settings")
+async def test_verify_turnstile_token_error_logs_warning_not_exception(
+    mock_settings: MagicMock,
+    mock_client_cls: MagicMock,
+    mock_logger: MagicMock,
+) -> None:
+    import httpx
+    from app.api.feedback.contact import verify_turnstile_token
+
+    mock_settings.turnstile_secret_key = "dummy_secret_key"
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.post.side_effect = httpx.ConnectTimeout("Cloudflare Turnstile connection timeout")
+    mock_client_cls.return_value = mock_client
+
+    result = await verify_turnstile_token("dummy_token", "1.2.3.4")
+    assert result is False
+
+    mock_logger.warning.assert_called_once()
+    assert "Failed to verify Turnstile token" in mock_logger.warning.call_args[0][0]
+    mock_logger.exception.assert_not_called()
 

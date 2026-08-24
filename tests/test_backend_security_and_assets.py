@@ -183,3 +183,23 @@ def test_settings_twilio_signing_key_validation():
             twilio_from_number="+15555555555",
             hmac_signing_key="",
         )
+
+
+def test_cors_preflight_allows_sentry_tracing_and_request_id_headers():
+    res = cast(
+        Response,
+        client.options(
+            "/api/v1/profile/details",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "authorization,content-type,sentry-trace,baggage,x-request-id",
+            },
+        ),
+    )
+    assert res.status_code == 200
+    allowed_headers = res.headers.get("access-control-allow-headers", "").lower()
+    assert "sentry-trace" in allowed_headers
+    assert "baggage" in allowed_headers
+    assert "x-request-id" in allowed_headers
+

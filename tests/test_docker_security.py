@@ -273,6 +273,30 @@ def test_entrypoint_strictly_enforces_pinned_commit_sha():
     assert '[ -z "$TARGET_SHA" ] || [ "$TARGET_SHA" = "main" ]' in content
 
 
+def test_entrypoint_and_dockerfile_do_not_echo_secrets():
+    entrypoint_path = Path("entrypoint.sh")
+    content = entrypoint_path.read_text(encoding="utf-8")
+
+    # 1. Verify set -x (bash debug execution echo) is strictly absent
+    assert "set -x" not in content, "entrypoint.sh must not enable bash debug tracing (set -x)"
+
+    # 2. Verify secrets and tokens are never echoed to stdout or stderr
+    assert "echo $ENGINE_PAT" not in content
+    assert 'echo "$ENGINE_PAT"' not in content
+    assert "echo $INFISICAL" not in content
+    assert "printenv" not in content
+
+    # 3. Verify Infisical CLI calls redirect stderr to /dev/null
+    assert "infisical secrets get ENGINE_PAT" in content
+    assert "2>/dev/null" in content
+
+    # 4. Verify Dockerfile CMD executes infisical run directly without intermediate echo
+    dockerfile_content = Path("Dockerfile").read_text(encoding="utf-8")
+    assert 'exec infisical run' in dockerfile_content
+    assert 'echo' not in dockerfile_content.split('CMD')[1]
+
+
+
 def test_fetch_build_time_vars_validates_public_variables():
     script_path = Path("scripts/fetch-build-time-vars.js")
     assert script_path.exists(), "fetch-build-time-vars.js must exist"

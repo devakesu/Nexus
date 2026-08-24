@@ -37,8 +37,9 @@ from app.api.well_known import router as well_known_router
 from app.core.config import settings
 from app.core.email.senders import close_email_client
 from app.core.infra.cache import redis_client
+from app.core.infra.correlation import CorrelationIdFilter, CorrelationIdMiddleware
 from app.core.infra.limiter import limiter
-from app.core.infra.sentry import scrub_event
+from app.core.infra.sentry import SensitiveDataFilter, scrub_event
 from app.core.security.security import (
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -49,6 +50,16 @@ from app.services.reminder_scheduler import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Configure standard Python logging sensitive data scrubbing and correlation ID filters
+_root_logger = logging.getLogger()
+_sensitive_data_filter = SensitiveDataFilter()
+_correlation_id_filter = CorrelationIdFilter()
+_root_logger.addFilter(_sensitive_data_filter)
+_root_logger.addFilter(_correlation_id_filter)
+for _handler in _root_logger.handlers:
+    _handler.addFilter(_sensitive_data_filter)
+    _handler.addFilter(_correlation_id_filter)
 
 # Optional - a no-op if unset, unlike enforce_app_check's hard-fail style
 # below. Until this runs, the capture_exception/capture_message calls
@@ -157,6 +168,7 @@ if settings.proxy_headers:
         ProxyHeadersMiddleware,
         trusted_hosts=settings.forwarded_allow_ips,
     )
+app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -170,7 +182,12 @@ app.add_middleware(
         "Content-Type",
         "X-Firebase-AppCheck",
         "X-App-Variant",
+        "X-Request-ID",
+        "X-Correlation-ID",
+        "sentry-trace",
+        "baggage",
     ],
+    expose_headers=["X-Request-ID", "sentry-trace", "baggage"],
 )
 
 app.state.limiter = limiter

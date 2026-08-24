@@ -4,6 +4,7 @@ Handles sync code generation, validation, profile retrieval by code, and field c
 from flavor variant source profiles to the main Nexus target profile.
 """
 
+import hashlib
 import logging
 import secrets
 import string
@@ -85,7 +86,8 @@ async def generate_export_code(user_id: str) -> tuple[str, datetime]:
         if res and isinstance(res.data, dict):
             old_code = res.data.get("import_sync_code")
         if isinstance(old_code, str) and old_code:
-            await redis_client.delete(f"import:code_attempts:{old_code}")
+            old_code_hash = hashlib.sha256(old_code.strip().upper().encode()).hexdigest()[:16]
+            await redis_client.delete(f"import:code_attempts:{old_code_hash}")
         await redis_client.delete(f"import:attempts:{user_id}")
     except Exception:
         logger.exception("Failed to clean up old export code attempts in Redis")

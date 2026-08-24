@@ -454,5 +454,31 @@ def test_fetch_stage_1_candidates_lazy_decryption(mock_supabase: MagicMock) -> N
         assert matched["bio"] == raw_bio_token
 
 
+@patch("app.db.profiles.crud.supabase_client")
+def test_fetch_stage_1_candidates_emits_debug_logs_not_info(mock_supabase: MagicMock) -> None:
+    from app.db.profiles.crud import fetch_stage_1_candidates
+    from app.models import DiscoveryFilters
 
+    _ = mock_supabase
+    viewer_data = {
+        "id": "viewer-123",
+        "app_variant": "nexus",
+        "interests": "{}",
+    }
 
+    with (
+        patch("app.db.profiles.crud.logger") as mock_logger,
+        patch("app.db.profiles.crud._fetch_and_decrypt_viewer", return_value=viewer_data),
+        patch("app.db.profiles.crud.fetch_active_discovery_excluded_ids", return_value=set()),
+        patch("app.db.profiles.crud._execute_and_filter_candidates", return_value=[]),
+        patch("app.db.profiles.crud._attach_empty_embeddings"),
+    ):
+        filters = DiscoveryFilters()
+        fetch_stage_1_candidates(
+            viewer_id="viewer-123",
+            active_tab="Dating",
+            filters=filters,
+        )
+
+        mock_logger.info.assert_not_called()
+        assert mock_logger.debug.call_count >= 1

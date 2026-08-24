@@ -16,6 +16,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
 from redis.exceptions import RedisError
+import sentry_sdk
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -156,6 +157,7 @@ async def get_authenticated_user_payload(
 
         request.state.authenticated_user_payload = payload
         request.state.user_id = user_uuid
+        sentry_sdk.set_user({"id": user_uuid})
         return payload
 
     except jwt.ExpiredSignatureError as err:
@@ -289,6 +291,8 @@ async def get_optional_authenticated_user_id(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: sub claim missing.",
             )
+        if user_uuid:
+            sentry_sdk.set_user({"id": user_uuid})
         return user_uuid
     except jwt.ExpiredSignatureError as err:
         raise HTTPException(

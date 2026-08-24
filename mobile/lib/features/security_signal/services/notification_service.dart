@@ -109,7 +109,12 @@ class NotificationService {
     _initialized = true;
 
     final token = await _getAndRegisterToken();
-    if (kDebugMode) debugPrint('[FCM] Token: $token');
+    if (kDebugMode) {
+      final maskedToken = token != null && token.length > 8
+          ? '...${token.substring(token.length - 8)}'
+          : '[MASKED]';
+      debugPrint('[FCM] Token: $maskedToken');
+    }
 
     _tokenRefreshSub = _messaging.onTokenRefresh.listen(_registerToken);
     _foregroundSub = FirebaseMessaging.onMessage.listen(

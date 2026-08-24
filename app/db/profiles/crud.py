@@ -460,7 +460,7 @@ def fetch_stage_1_candidates(
     candidate_limit: int = 200,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Execute the Stage 1 database filtering pass."""
-    logger.info(
+    logger.debug(
         "Fetching stage 1 candidates",
         extra={"viewer_id": viewer_id, "active_tab": active_tab},
     )
@@ -504,7 +504,7 @@ def fetch_stage_1_candidates(
     candidates_to_enrich = _apply_post_fetch_filters(candidates_to_enrich, filters)
 
     if not candidates_to_enrich:
-        logger.info(
+        logger.debug(
             "No candidates matched stage 1 filters",
             extra={"viewer_id": viewer_id, "active_tab": active_tab},
         )
@@ -518,7 +518,7 @@ def fetch_stage_1_candidates(
     candidate_map = {c["id"]: c for c in candidates_to_enrich if "id" in c}
     _enrich_candidates_with_vectors(viewer, list(candidate_map.values()), viewer_id)
 
-    logger.info(
+    logger.debug(
         "Stage 1 candidate fetch complete",
         extra={
             "viewer_id": viewer_id,

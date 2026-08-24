@@ -355,7 +355,7 @@ def recompile_value_dimensions(user_id: str) -> None:
 
         logger.info(
             "Value dimensions recompiled cleanly",
-            extra={"user_id": user_id, "dimensions": dimensions},
+            extra={"user_id": user_id, "dimension_count": len(dimensions)},
         )
     except Exception:
         logger.exception("Value dimension recompile failed for user %s", user_id)

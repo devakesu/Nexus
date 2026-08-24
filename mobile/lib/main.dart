@@ -23,12 +23,7 @@ import 'package:nexus/firebase_options_nexus_mec.dart' as nexus_mec_opts;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-Future<void> main() async {
-  if (!kDebugMode) {
-    debugPrint = (message, {wrapWidth}) {};
-  }
-  GoogleFonts.config.allowRuntimeFetching = false;
-  SentryWidgetsFlutterBinding.ensureInitialized();
+Future<void> _initializeApp() async {
   SecurityService.initialize();
   await SecurityService.checkDebugger();
 
@@ -43,24 +38,9 @@ Future<void> main() async {
   );
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
 
-  // Setup uncaught Flutter error handler
+  // Present uncaught Flutter errors locally; SentryFlutter automatically captures uncaught exceptions
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    ErrorHandler.handleError(
-      details.exception,
-      stackTrace: details.stack,
-      customMessage: details.exceptionAsString(),
-    );
-  };
-
-  // Setup uncaught platform / asynchronous error handler
-  PlatformDispatcher.instance.onError = (error, stack) {
-    ErrorHandler.handleError(
-      error,
-      stackTrace: stack,
-      level: ErrorLevel.critical,
-    );
-    return true;
   };
 
   // Set global HTTP overrides to handle custom connection timeout
@@ -138,6 +118,16 @@ Future<void> main() async {
   // mid-upload) - a no-op if the queue is empty. Fire-and-forget: this is a
   // background catch-up, not something app startup should wait on.
   unawaited(PendingEvidenceUploadQueue.drain());
+}
+
+Future<void> main() async {
+  if (!kDebugMode) {
+    debugPrint = (message, {wrapWidth}) {};
+  }
+  GoogleFonts.config.allowRuntimeFetching = false;
+  SentryWidgetsFlutterBinding.ensureInitialized();
+
+  final config = AppConfig.current;
 
   if (config.sentryDsn.isNotEmpty) {
     await SentryFlutter.init(
@@ -161,58 +151,131 @@ Future<void> main() async {
           ..tracesSampleRate = isStagingOrDev ? 1.0 : 0.1
           // The sampling rate for profiling is relative to tracesSampleRate
           // Setting to 1.0 will profile 100% of sampled transactions:
+          /// Allow experimental profiling sampling rate.
           // ignore: experimental_member_use
-          ..profilesSampleRate = isStagingOrDev ? 1.0 : 0.1;
-
-        // Configure Session Replay - fully disabled to prevent recording screen frames and E2EE/PII content
-        options.replay.sessionSampleRate = 0.0;
-        options.replay.onErrorSampleRate = 0.0;
-        // Defense-in-depth: mask all text and images for screenshot/replay privacy
-        options.privacy.maskAllText = true;
-        options.privacy.maskAllImages = true;
-
-        // Sanitize sensitive info in all events sent to Sentry
-        options.beforeSend = (event, hint) {
-          if (event.exceptions != null) {
-            for (final exception in event.exceptions!) {
-              if (exception.value != null) {
-                exception.value = ErrorHandler.sanitize(exception.value!);
+          ..profilesSampleRate = isStagingOrDev ? 1.0 : 0.1
+          // Configure Session Replay - fully disabled to prevent recording screen frames and E2EE/PII content
+          ..replay.sessionSampleRate = 0.0
+          ..replay.onErrorSampleRate = 0.0
+          // Defense-in-depth: mask all text and images for screenshot/replay privacy
+          ..privacy.maskAllText = true
+          ..privacy.maskAllImages = true
+          // Sanitize sensitive info in all breadcrumbs recorded by Sentry
+          ..beforeBreadcrumb = (breadcrumb, hint) {
+            if (breadcrumb == null) return null;
+            if (breadcrumb.message != null) {
+              breadcrumb.message = ErrorHandler.sanitize(breadcrumb.message!);
+            }
+            if (breadcrumb.data != null) {
+              breadcrumb.data =
+                  (ErrorHandler.sanitizeObject(breadcrumb.data) as Map?)
+                      ?.cast<String, dynamic>();
+            }
+            return breadcrumb;
+          }
+          // Sanitize sensitive info in all events sent to Sentry
+          ..beforeSend = (event, hint) {
+            if (event.exceptions != null) {
+              for (final exception in event.exceptions!) {
+                if (exception.value != null) {
+                  exception.value = ErrorHandler.sanitize(exception.value!);
+                }
               }
             }
-          }
-          final msg = event.message;
-          if (msg != null) {
-            msg.formatted = ErrorHandler.sanitize(msg.formatted);
-          }
-          if (event.contexts.isNotEmpty) {
-            event.contexts.forEach((key, value) {
-              if (value is Map<String, dynamic>) {
-                final sanitized = <String, dynamic>{};
-                value.forEach((k, v) {
-                  if (v is String) {
-                    sanitized[k] = ErrorHandler.sanitize(v);
-                  } else {
-                    sanitized[k] = v;
-                  }
-                });
-                event.contexts[key] = sanitized;
-              } else if (value is String) {
-                event.contexts[key] = ErrorHandler.sanitize(value);
+            final msg = event.message;
+            if (msg != null) {
+              msg.formatted = ErrorHandler.sanitize(msg.formatted);
+            }
+            if (event.breadcrumbs != null) {
+              for (final b in event.breadcrumbs!) {
+                if (b.message != null) {
+                  b.message = ErrorHandler.sanitize(b.message!);
+                }
+                if (b.data != null) {
+                  b.data = (ErrorHandler.sanitizeObject(b.data) as Map?)
+                      ?.cast<String, dynamic>();
+                }
               }
-            });
-          }
-          return event;
-        };
+            }
+            final request = event.request;
+            if (request != null) {
+              /// Retain copyWith for SentryRequest property sanitization.
+              // ignore: deprecated_member_use
+              event.request = request.copyWith(
+                url: request.url != null
+                    ? ErrorHandler.sanitize(request.url!)
+                    : null,
+                queryString: request.queryString != null
+                    ? ErrorHandler.sanitize(request.queryString!)
+                    : null,
+                fragment: request.fragment != null
+                    ? ErrorHandler.sanitize(request.fragment!)
+                    : null,
+                cookies: request.cookies != null
+                    ? ErrorHandler.sanitize(request.cookies!)
+                    : null,
+                headers: request.headers.map(
+                  (k, v) => MapEntry(
+                    k,
+                    ErrorHandler.isSensitiveKey(k)
+                        ? '[REDACTED_SENSITIVE]'
+                        : ErrorHandler.sanitize(v),
+                  ),
+                ),
+                data: ErrorHandler.sanitizeObject(request.data),
+              );
+            }
+
+            /// Retain extra field sanitization for backwards compatibility.
+            // ignore: deprecated_member_use
+            if (event.extra != null) {
+              /// Retain extra field sanitization for backwards compatibility.
+              // ignore: deprecated_member_use
+              event.extra = (ErrorHandler.sanitizeObject(event.extra) as Map?)
+                  ?.cast<String, dynamic>();
+            }
+            if (event.tags != null) {
+              final sanitizedTags = <String, String>{};
+              event.tags!.forEach((k, v) {
+                sanitizedTags[k] = ErrorHandler.isSensitiveKey(k)
+                    ? '[REDACTED_SENSITIVE]'
+                    : ErrorHandler.sanitize(v);
+              });
+              event.tags = sanitizedTags;
+            }
+            if (event.contexts.isNotEmpty) {
+              event.contexts.forEach((key, value) {
+                if (value is Map<String, dynamic>) {
+                  final sanitized = <String, dynamic>{};
+                  value.forEach((k, v) {
+                    if (ErrorHandler.isSensitiveKey(k)) {
+                      sanitized[k] = '[REDACTED_SENSITIVE]';
+                    } else if (v is String) {
+                      sanitized[k] = ErrorHandler.sanitize(v);
+                    } else {
+                      sanitized[k] = v;
+                    }
+                  });
+                  event.contexts[key] = sanitized;
+                } else if (value is String) {
+                  event.contexts[key] = ErrorHandler.sanitize(value);
+                }
+              });
+            }
+            return event;
+          };
       },
-      appRunner: () {
-        // Explicitly tag the active variant for filtering in Sentry dashboard
-        unawaited(
-          Future.value(
-            Sentry.configureScope(
-              (scope) => scope.setTag('variant', config.variantString),
-            ),
-          ),
-        );
+      appRunner: () async {
+        await _initializeApp();
+
+        // Explicitly tag active variant and set current user if session exists
+        await Sentry.configureScope((scope) async {
+          await scope.setTag('variant', config.variantString);
+          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+          if (currentUserId != null) {
+            await scope.setUser(SentryUser(id: currentUserId));
+          }
+        });
         runApp(
           SentryWidget(
             child: const ProviderScope(
@@ -223,6 +286,7 @@ Future<void> main() async {
       },
     );
   } else {
+    await _initializeApp();
     runApp(
       const ProviderScope(
         child: MyApp(),

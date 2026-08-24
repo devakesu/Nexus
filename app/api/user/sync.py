@@ -14,6 +14,7 @@ Direction: flavor variants (e.g. nexus_mec) → main nexus.
 """
 
 import asyncio
+import hashlib
 import logging
 from typing import Any
 
@@ -144,9 +145,10 @@ async def import_from_flavor(
             detail="Authenticated user payload is incomplete.",
         )
 
-    # Redis key for tracking failed attempts by target user_id
+    # Redis key for tracking failed attempts by target user_id and hashed sync_code
     attempts_key = f"import:attempts:{user_id}"
-    code_attempts_key = f"import:code_attempts:{payload.sync_code}"
+    code_hash = hashlib.sha256(payload.sync_code.strip().upper().encode()).hexdigest()[:16]
+    code_attempts_key = f"import:code_attempts:{code_hash}"
 
     attempts = await redis_client.get(attempts_key)
     if attempts and int(attempts) >= 5:

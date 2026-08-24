@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Headers;
+import 'package:uuid/uuid.dart';
 
 /// Backend requests get longer slack in debug builds, where the app is
 /// often talking to a local server under a debugger, cold-starting
@@ -42,6 +43,7 @@ Dio _createDioInstance() {
 
   dio
     ..addSentry()
+    ..interceptors.add(CorrelationInterceptor())
     ..interceptors.add(RateLimitInterceptor())
     ..interceptors.add(AuthInterceptor())
     ..interceptors.add(AppCheckInterceptor());
@@ -298,5 +300,22 @@ class NetworkUtils {
       return response.data;
     }
     return null;
+  }
+}
+
+/// Attaches a unique X-Request-ID correlation header to every outgoing HTTP request.
+class CorrelationInterceptor extends Interceptor {
+  static const _uuid = Uuid();
+
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) {
+    if (options.headers['X-Request-ID'] == null &&
+        options.headers['x-request-id'] == null) {
+      options.headers['X-Request-ID'] = _uuid.v4();
+    }
+    handler.next(options);
   }
 }

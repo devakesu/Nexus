@@ -482,7 +482,25 @@ def test_replace_playlists_trims_bloated_tracks() -> None:
     assert first_track["artists"] == ["Artist 0", "Featured Artist"]
 
 
+@pytest.mark.anyio
+@patch("app.services.spotify_sync.logger")
+@patch("app.services.spotify_sync.httpx.AsyncClient")
+async def test_revoke_refresh_token_logs_exception_class_without_exc_info(
+    mock_client_cls: MagicMock,
+    mock_logger: MagicMock,
+) -> None:
+    import httpx
+    from app.services.spotify_sync import revoke_refresh_token
 
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.post.side_effect = httpx.ConnectTimeout("Connection to Spotify API timed out with bearer=secret123")
+    mock_client_cls.return_value = mock_client
 
+    result = await revoke_refresh_token("sample_refresh_token_12345")
+    assert result is False
 
-
+    mock_logger.warning.assert_called_once()
+    args, kwargs = mock_logger.warning.call_args
+    assert "Failed to revoke Spotify token at provider: ConnectTimeout" in (args[0] % args[1:])
+    assert kwargs.get("exc_info") is not True

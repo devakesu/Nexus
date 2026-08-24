@@ -392,7 +392,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
         });
       } else {
         if (kDebugMode) {
-          debugPrint('Google Places Autocomplete API Error: ${response.data}');
+          debugPrint(
+            'Google Places Autocomplete API Error status: ${response.data?['status']}',
+          );
         }
         setState(() {
           _suggestions = [];
@@ -400,7 +402,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
       }
     } on Object catch (e) {
       if (kDebugMode) {
-        debugPrint('Google Places Autocomplete Request Exception: $e');
+        debugPrint(
+          'Google Places Autocomplete Request Exception: ${e.runtimeType}',
+        );
       }
       if (!mounted) return;
       // Fallback on network errors
@@ -444,12 +448,16 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           );
         } else {
           if (kDebugMode) {
-            debugPrint('Google Places Details API Error: ${response.data}');
+            debugPrint(
+              'Google Places Details API Error status: ${response.data?['status']}',
+            );
           }
         }
       } on Object catch (e) {
         if (kDebugMode) {
-          debugPrint('Google Places Details Request Exception: $e');
+          debugPrint(
+            'Google Places Details Request Exception: ${e.runtimeType}',
+          );
         }
         // Fall back to default coordinate lookup if API details fetch fails
       } finally {

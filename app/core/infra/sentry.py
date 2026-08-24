@@ -5,18 +5,26 @@ exception values, the top-level message, and extras, mirroring mobile error hand
 sanitize implementation so both platforms apply identical redaction policies before Sentry ingestion.
 """
 
+import logging
 import re
 from typing import Any, cast
 
 from sentry_sdk.types import Event, Hint
 
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-_PHONE_RE = re.compile(r"(?:\+[1-9]\d{6,14}\b|\b[1-9]\d{7,14}\b)")
+_PHONE_RE = re.compile(
+    r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,5}\)?[-.\s]?\d{3,5}(?:[-.\s]?\d{3,5})?\b|\+[1-9]\d{6,14}\b|\b[1-9]\d{7,14}\b",
+)
 _SECRET_RE = re.compile(
     r"(bearer|auth|token|authorization|key|password|secret|jwt|"
     r"access_token|refresh_token)[=\s:]+"
     r"([A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*|"
     r"[A-Za-z0-9\-_.+/=]{8,})",
+    re.IGNORECASE,
+)
+_JSON_FIELD_RE = re.compile(
+    r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|'
+    r'"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
     re.IGNORECASE,
 )
 _SENSITIVE_KEY_RE = re.compile(
@@ -69,6 +77,11 @@ def _redact_secret(match: re.Match[str]) -> str:
     return f"{match.group(1)}: [REDACTED_SENSITIVE]"
 
 
+def _redact_json_field(match: re.Match[str]) -> str:
+    """Redacts typical JSON fields or raw query parameters with passwords/secrets."""
+    return f'{match.group(1)}: "[REDACTED_SENSITIVE]"'
+
+
 def _scrub_string(value: str) -> str:
     """Scrubs sensitive email addresses, phone numbers, and token secrets from a string value.
 
@@ -80,7 +93,8 @@ def _scrub_string(value: str) -> str:
     """
     value = _EMAIL_RE.sub(_redact_email, value)
     value = _PHONE_RE.sub(_redact_phone, value)
-    return _SECRET_RE.sub(_redact_secret, value)
+    value = _SECRET_RE.sub(_redact_secret, value)
+    return _JSON_FIELD_RE.sub(_redact_json_field, value)
 
 
 def _scrub_object(value: Any) -> Any:
@@ -182,4 +196,73 @@ def scrub_event(event: Event, hint: Hint) -> Event | None:  # noqa: C901
         event["contexts"] = _scrub_object(contexts)
 
     return event
+
+
+_STANDARD_LOGRECORD_ATTRS = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "message",
+    "asctime",
+    "taskName",
+}
+
+
+class SensitiveDataFilter(logging.Filter):
+    """Logging filter that scrubs sensitive emails, phone numbers, and secrets from log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = _scrub_string(record.msg)
+        elif record.msg is not None:
+            record.msg = _scrub_object(record.msg)
+
+        if isinstance(record.args, tuple):
+            record.args = tuple(_scrub_object(a) for a in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {k: _scrub_object(v) for k, v in record.args.items()}
+
+        if isinstance(record.exc_text, str):
+            record.exc_text = _scrub_string(record.exc_text)
+        if isinstance(record.stack_info, str):
+            record.stack_info = _scrub_string(record.stack_info)
+
+        for key, val in list(record.__dict__.items()):
+            if key not in _STANDARD_LOGRECORD_ATTRS:
+                if _is_sensitive_key(key):
+                    record.__dict__[key] = "[REDACTED_SENSITIVE]"
+                else:
+                    record.__dict__[key] = _scrub_object(val)
+
+        return True
+
+
+class SensitiveDataFormatter(logging.Formatter):
+    """Logging formatter that scrubs sensitive data from formatted log messages and tracebacks."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        formatted = super().format(record)
+        return _scrub_string(formatted)
+
+    def formatException(self, ei: Any) -> str:
+        exc_text = super().formatException(ei)
+        return _scrub_string(exc_text)
+
 

@@ -5,6 +5,7 @@ import pytest
 from app.services.value_dimensions import recompile_value_dimensions
 
 
+@patch("app.services.value_dimensions.logger")
 @patch("app.services.value_dimensions.supabase_client")
 @patch("app.services.value_dimensions.decrypt_profile_record")
 @patch("app.services.value_dimensions.derive_value_dimensions")
@@ -14,6 +15,7 @@ def test_recompile_value_dimensions_success(
     mock_derive: MagicMock,
     mock_decrypt: MagicMock,
     mock_supabase: MagicMock,
+    mock_logger: MagicMock,
 ) -> None:
     mock_select = MagicMock()
     mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = mock_select
@@ -30,6 +32,14 @@ def test_recompile_value_dimensions_success(
 
     mock_update.assert_called_once()
     mock_encrypt.assert_called_once()
+
+    # Verify log output does not leak raw dimensions dict
+    info_calls = [c for c in mock_logger.info.call_args_list if c[0][0] == "Value dimensions recompiled cleanly"]
+    assert len(info_calls) == 1
+    extra = info_calls[0][1].get("extra", {})
+    assert "dimensions" not in extra
+    assert extra.get("dimension_count") == 3
+    assert extra.get("user_id") == "user123"
 
 
 @patch("app.services.value_dimensions.supabase_client")
