@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -534,6 +535,81 @@ async def test_get_portal_details_stale_location_suppressed(
     assert res.last_location_at is None
 
 
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contacts")
+async def test_get_portal_details_removed_contact_rejected(
+    mock_fetch_contacts: MagicMock,
+    mock_session: MagicMock,
+    mock_verify: MagicMock,
+):
+    from app.api.safety.portal.endpoints import get_portal_details
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    token_phone_id = hash_phone_identifier("+15551112222")
+    mock_verify.return_value = token_phone_id
+    mock_session.return_value = {
+        "id": "session-123",
+        "user_id": "user-456",
+        "status": "active",
+        "label": "Coffee meetup",
+    }
+    # User's current contacts do NOT include +15551112222 (it was removed)
+    mock_fetch_contacts.return_value = [
+        {"id": "c-1", "phone": "+15559998888"},
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_portal_details(
+            request=MagicMock(),
+            session_id="session-123",
+            authorization="Bearer valid-token",
+        )
+
+    assert exc_info.value.status_code == 401
+    assert "Invalid or expired portal session" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.portal.endpoints.fetch_alerts_for_session")
+@patch("app.api.safety.portal.endpoints.fetch_evidence_for_alert_ids")
+async def test_get_portal_details_active_contact_verified(
+    mock_evidence: MagicMock,
+    mock_alerts: MagicMock,
+    mock_fetch_contacts: MagicMock,
+    mock_session: MagicMock,
+    mock_verify: MagicMock,
+):
+    from app.api.safety.portal.endpoints import get_portal_details
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    token_phone_id = hash_phone_identifier("+15551112222")
+    mock_verify.return_value = token_phone_id
+    mock_session.return_value = {
+        "id": "session-123",
+        "user_id": "user-456",
+        "status": "active",
+        "label": "Coffee meetup",
+    }
+    mock_fetch_contacts.return_value = [
+        {"id": "c-1", "phone": "+15551112222"},
+    ]
+    mock_alerts.return_value = []
+    mock_evidence.return_value = []
+
+    res = await get_portal_details(
+        request=MagicMock(),
+        session_id="session-123",
+        authorization="Bearer valid-token",
+    )
+    assert res.status == "active"
+    assert res.label == "Coffee meetup"
+
+
 def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
     import json
     from datetime import datetime, timedelta, timezone
@@ -565,5 +641,116 @@ def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
         alerts_no_decrypt = fetch_alerts_for_session("session-1", decrypt_locations=False)
         assert alerts_no_decrypt[0]["current_location"] is None
         assert alerts_no_decrypt[1]["current_location"] is None
+
+
+def test_sync_safety_contacts_atomic_rpc_and_opt_out_enforcement() -> None:
+    from unittest.mock import MagicMock, patch
+    from app.core.security.portal_auth import normalize_phone
+    from app.core.security.crypto import compute_blind_index
+    from app.db.safety.contacts import sync_safety_contacts
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    phone_blocked = "+15551112222"
+    phone_new = "+15553334444"
+    blind_index_blocked = compute_blind_index(normalize_phone(phone_blocked))
+    blind_index_new = compute_blind_index(normalize_phone(phone_new))
+
+    contacts = [
+        {"name": "Blocked Contact", "phone": phone_blocked},
+        {"name": "New Contact", "phone": phone_new},
+    ]
+
+    with patch("app.db.safety.contacts.supabase_client") as mock_supabase:
+        mock_rpc = MagicMock()
+        mock_rpc.execute.return_value = MagicMock(
+            data={
+                "blocked_indices": [blind_index_blocked],
+                "newly_notified_indices": [blind_index_new],
+            }
+        )
+        mock_supabase.rpc.return_value = mock_rpc
+
+        blocked, newly_notified = sync_safety_contacts(user_id, contacts)
+
+        # Verify RPC was called with p_contacts containing phone_blind_index
+        mock_supabase.rpc.assert_called_once()
+        rpc_call_args = mock_supabase.rpc.call_args[0]
+        assert rpc_call_args[0] == "sync_safety_contacts"
+        payload = rpc_call_args[1]
+        assert payload["p_user_id"] == user_id
+        assert len(payload["p_contacts"]) == 2
+        assert any(c["phone_blind_index"] == blind_index_blocked for c in payload["p_contacts"])
+        assert any(c["phone_blind_index"] == blind_index_new for c in payload["p_contacts"])
+
+        # Verify blocked and newly_notified return partitioning
+        assert len(blocked) == 1
+        assert blocked[0]["name"] == "Blocked Contact"
+        assert len(newly_notified) == 1
+        assert newly_notified[0]["name"] == "New Contact"
+
+
+def test_remove_safety_contact_self_service_sets_notice_first() -> None:
+    from unittest.mock import MagicMock, patch
+    from app.db.safety.contacts import remove_safety_contact_self_service
+
+    contact_id = "00000000-0000-0000-0000-000000000099"
+    contact_data = {
+        "id": contact_id,
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "name": "Trusted Friend",
+        "phone": "+15559998888",
+    }
+
+    call_order: list[str] = []
+
+    with patch("app.db.safety.contacts.fetch_safety_contact_by_id", return_value=contact_data), \
+         patch("app.db.safety.contacts.supabase_client") as mock_supabase:
+
+        def table_side_effect(table_name: str) -> MagicMock:
+            mock_table = MagicMock()
+            if table_name == "safety_contact_notices":
+                def upsert_fn(*_args: Any, **_kwargs: Any) -> MagicMock:
+                    call_order.append("upsert_notice")
+                    mock_exec = MagicMock()
+                    mock_exec.execute.return_value = MagicMock()
+                    return mock_exec
+                mock_table.upsert = upsert_fn
+            elif table_name == "safety_contacts":
+                def delete_fn(*_args: Any, **_kwargs: Any) -> MagicMock:
+                    mock_eq = MagicMock()
+                    def eq_fn(*_a: Any, **_k: Any) -> MagicMock:
+                        call_order.append("delete_contact")
+                        mock_exec = MagicMock()
+                        mock_exec.execute.return_value = MagicMock()
+                        return mock_exec
+                    mock_eq.eq = eq_fn
+                    return mock_eq
+                mock_table.delete = delete_fn
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        res = remove_safety_contact_self_service(contact_id)
+        assert res is not None
+        assert res["name"] == "Trusted Friend"
+
+        # Notice MUST be upserted before contact deletion to prevent race condition
+        assert call_order == ["upsert_notice", "delete_contact"]
+
+
+def test_sync_safety_contacts_exceeding_max_limit_raises_value_error() -> None:
+    from app.db.safety.contacts import sync_safety_contacts
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    contacts = [
+        {"name": "C1", "phone": "+15551111111"},
+        {"name": "C2", "phone": "+15552222222"},
+        {"name": "C3", "phone": "+15553333333"},
+        {"name": "C4", "phone": "+15554444444"},
+    ]
+
+    with pytest.raises(ValueError, match="Cannot sync more than 3 safety contacts"):
+        sync_safety_contacts(user_id, contacts)
+
 
 

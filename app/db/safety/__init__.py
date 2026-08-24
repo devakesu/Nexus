@@ -3,6 +3,7 @@
 from app.db.safety.alerts import (
     fetch_alerts_for_session,
     fetch_contact_facing_profile_summary,
+    fetch_recent_safety_alert,
     fetch_safety_alert,
     purge_expired_safety_evidence,
     purge_safety_data_for_purged_accounts,
@@ -42,6 +43,7 @@ __all__ = [
     "fetch_contact_facing_profile_summary",
     "fetch_evidence_for_alert_ids",
     "fetch_overdue_safety_sessions",
+    "fetch_recent_safety_alert",
     "fetch_safety_alert",
     "fetch_safety_contact_by_id",
     "fetch_safety_contacts",

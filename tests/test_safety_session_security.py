@@ -40,7 +40,7 @@ async def test_start_session_interval_minimum_enforced() -> None:
     from pydantic import ValidationError
 
     now = datetime.now(timezone.utc)
-    # Intervals under 60 seconds rejected
+    # Intervals under 300 seconds (5 mins) rejected
     with pytest.raises(ValidationError):
         SafetySessionStartRequest(
             interval_seconds=1,
@@ -48,15 +48,15 @@ async def test_start_session_interval_minimum_enforced() -> None:
         )
     with pytest.raises(ValidationError):
         SafetySessionStartRequest(
-            interval_seconds=59,
-            next_checkin_at=now + timedelta(seconds=59),
+            interval_seconds=299,
+            next_checkin_at=now + timedelta(seconds=299),
         )
-    # Valid interval >= 60
+    # Valid interval >= 300
     req = SafetySessionStartRequest(
-        interval_seconds=60,
-        next_checkin_at=now + timedelta(seconds=60),
+        interval_seconds=300,
+        next_checkin_at=now + timedelta(seconds=300),
     )
-    assert req.interval_seconds == 60
+    assert req.interval_seconds == 300
 
 
 @pytest.mark.anyio
@@ -433,6 +433,17 @@ async def test_cancel_escalation_post_success(
     )
 
 
+def test_escalation_cancel_request_sanitizes_html_note() -> None:
+    from app.models import EscalationCancelRequest
+
+    req = EscalationCancelRequest(
+        token="dummy-token",
+        reason="other",
+        note="<script>alert(1)</script>Safe & Sound",
+    )
+    assert req.note == "&lt;script&gt;alert(1)&lt;/script&gt;Safe &amp; Sound"
+
+
 def test_backend_url_https_validation() -> None:
     from app.core.config import Settings
 
@@ -777,6 +788,424 @@ def test_export_build_safety_alerts_deserializes_json_location() -> None:
         assert isinstance(alerts[0]["current_location"], dict)
         assert alerts[0]["current_location"] == {"lat": 37.7749, "lng": -122.4194}
         assert alerts[1]["current_location"] is None
+
+
+def test_sanitize_sms_text_unicode_normalization_and_separators() -> None:
+    from app.core.utils.sms import sanitize_sms_text
+
+    # NFKC compatibility normalization (fullwidth -> ASCII standard)
+    fullwidth_input = "Ａｌｉｃｅ\u3000Ｓｍｉｔｈ"
+    cleaned = sanitize_sms_text(fullwidth_input)
+    assert cleaned == "Alice Smith"
+
+    # Unicode line separator (U+2028) and paragraph separator (U+2029)
+    injected_separators = "Alice\u2028Fake Bank Alert\u2029Urgent Action"
+    cleaned_sep = sanitize_sms_text(injected_separators)
+    assert cleaned_sep == "Alice Fake Bank Alert Urgent Action"
+    assert "\u2028" not in (cleaned_sep or "")
+    assert "\u2029" not in (cleaned_sep or "")
+
+    # Control chars and whitespace collapsing
+    raw_str = "   Mallory \x00\x07\x1b \n\n Test \r\t Alert   "
+    assert sanitize_sms_text(raw_str) == "Mallory Test Alert"
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.redis_client")
+@patch("app.api.safety.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.endpoints.fetch_contact_facing_profile_summary")
+@patch("app.api.safety.endpoints.send_sms")
+@patch("app.api.safety.endpoints.record_safety_alert")
+@patch("app.api.safety.endpoints.update_alert_contacts_notified")
+async def test_send_safety_alert_uses_profile_name_preventing_spoofing(
+    _mock_update: MagicMock,
+    mock_record: MagicMock,
+    mock_send_sms: MagicMock,
+    mock_profile: MagicMock,
+    mock_contacts: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.api.safety.endpoints import send_safety_alert
+    from app.models import SafetyAlertRequest
+
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+    mock_contacts.return_value = [{"phone": "+15551234567"}]
+    mock_send_sms.return_value = MagicMock(success=True)
+    mock_record.return_value = {"id": "alert-test-123"}
+    # The authenticated user's actual profile name in DB
+    mock_profile.return_value = {"name": "Mallory Attacker"}
+
+    # Attacker attempts to spoof identity via session_label and inject newlines
+    payload = SafetyAlertRequest(
+        alert_type="sos_loud",
+        session_label="Police Department\n\nYour friend is in custody. Call 911 immediately.",
+        event_label="Emergency Action\n\nWire $1000",
+    )
+
+    res = await send_safety_alert(request=MagicMock(), payload=payload, user_id="user-attacker-uuid")
+    assert res.id == "alert-test-123"
+
+    mock_send_sms.assert_called_once()
+    sms_to, sms_body = mock_send_sms.call_args[0]
+    assert sms_to == "+15551234567"
+
+    # Verify SMS body sender identity is strictly Mallory Attacker (the verified profile name)
+    # and NOT "Police Department" or any injected display name
+    assert "🚨 Emergency alert from Mallory Attacker via Nexus." in sms_body
+    assert "Police Department" not in sms_body.splitlines()[0]
+
+    # Verify meetup line has sanitized event context without newlines
+    assert "Meetup: Emergency Action Wire $1000" in sms_body
+    assert "\n\nWire $1000" not in sms_body
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.redis_client")
+@patch("app.api.safety.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.endpoints.fetch_contact_facing_profile_summary")
+@patch("app.api.safety.endpoints.send_sms")
+@patch("app.api.safety.endpoints.record_safety_alert")
+@patch("app.api.safety.endpoints.update_alert_contacts_notified")
+async def test_send_safety_alert_fallback_to_session_label_for_event_context(
+    _mock_update: MagicMock,
+    mock_record: MagicMock,
+    mock_send_sms: MagicMock,
+    mock_profile: MagicMock,
+    mock_contacts: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.api.safety.endpoints import send_safety_alert
+    from app.models import SafetyAlertRequest
+
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+    mock_contacts.return_value = [{"phone": "+15551234567"}]
+    mock_send_sms.return_value = MagicMock(success=True)
+    mock_record.return_value = {"id": "alert-test-fallback"}
+    # Profile has no name
+    mock_profile.return_value = None
+
+    payload = SafetyAlertRequest(
+        alert_type="inform",
+        session_label="Coffee at Blue Bottle",
+        event_label=None,
+    )
+
+    res = await send_safety_alert(request=MagicMock(), payload=payload, user_id="user-uuid-2")
+    assert res.id == "alert-test-fallback"
+
+    mock_send_sms.assert_called_once()
+    _, sms_body = mock_send_sms.call_args[0]
+    # Sender falls back to generic default
+    assert "⚠️ Safety check-in from A Nexus user via Nexus." in sms_body
+    # session_label is used as meetup event context
+    assert "Meetup: Coffee at Blue Bottle" in sms_body
+
+
+def test_safety_alert_request_max_length_validation() -> None:
+    from pydantic import ValidationError
+    from app.models import SafetyAlertRequest
+
+    # Exceeding 200 chars raises ValidationError
+    with pytest.raises(ValidationError):
+        SafetyAlertRequest(
+            alert_type="sos_loud",
+            session_label="A" * 201,
+        )
+
+    with pytest.raises(ValidationError):
+        SafetyAlertRequest(
+            alert_type="sos_loud",
+            event_label="B" * 201,
+        )
+
+
+def test_safety_contact_in_name_sanitizes_newlines_and_injections() -> None:
+    from pydantic import ValidationError
+    from app.models import SafetyContactIn
+
+    # Injected newlines and control characters are stripped
+    injected_name = "Alice Smith\n\nDISREGARD: All safe\r\t\x00Wire $500"
+    contact = SafetyContactIn(name=injected_name, phone="+15551234567")
+    assert contact.name == "Alice Smith DISREGARD: All safe Wire $500"
+    assert "\n" not in contact.name
+    assert "\r" not in contact.name
+    assert "\x00" not in contact.name
+
+    # Unicode line separators are stripped
+    unicode_sep = "Alice\u2028Urgent Account Alert\u2029Verify"
+    contact_uni = SafetyContactIn(name=unicode_sep, phone="+15551234567")
+    assert contact_uni.name == "Alice Urgent Account Alert Verify"
+    assert "\u2028" not in contact_uni.name
+    assert "\u2029" not in contact_uni.name
+
+    # Blank or whitespace-only raises ValidationError
+    with pytest.raises(ValidationError):
+        SafetyContactIn(name="   \n\r\t   ", phone="+15551234567")
+
+
+def test_compose_contact_self_removed_message_sanitizes_contact_name() -> None:
+    from app.core.utils.sms import compose_contact_self_removed_message
+
+    injected = "Alice\n\nYour bank alert: SCAM"
+    msg = compose_contact_self_removed_message(contact_name=injected)
+
+    # First line contains sanitized name without splitting onto arbitrary fake paragraphs
+    lines = msg.splitlines()
+    assert lines[0] == "⚠️ Alice Your bank alert: SCAM removed themselves as your Nexus Meetup Safety trusted contact."
+    assert "Your bank alert: SCAM" in lines[0]
+    assert "\n\n" not in msg
+
+
+def test_safety_session_start_request_sanitizes_labels() -> None:
+    from datetime import datetime, timezone
+    from app.models import SafetySessionStartRequest
+
+    now = datetime.now(timezone.utc)
+    req = SafetySessionStartRequest(
+        interval_seconds=300,
+        label="Dinner at Bob's\n\nCRITICAL SCAM",
+        event_label="Meetup Date\r\nFake Info",
+        next_checkin_at=now,
+    )
+    assert req.label == "Dinner at Bob's CRITICAL SCAM"
+    assert req.event_label == "Meetup Date Fake Info"
+    assert "\n" not in (req.label or "")
+    assert "\r" not in (req.event_label or "")
+
+
+@pytest.mark.anyio
+async def test_send_safety_alert_hourly_quota_throttling() -> None:
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from fastapi import HTTPException
+    from app.api.safety.endpoints import send_safety_alert
+    from app.models import SafetyAlertRequest
+
+    payload = SafetyAlertRequest(alert_type="sos_loud")
+
+    with patch("app.api.safety.endpoints.redis_client") as mock_redis:
+        # Simulate 6th alert in the hour
+        mock_redis.incr = AsyncMock(return_value=6)
+        mock_redis.expire = AsyncMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await send_safety_alert(
+                request=MagicMock(),
+                payload=payload,
+                user_id="user-spam-123",
+            )
+
+        assert exc_info.value.status_code == 429
+        assert "Hourly safety alert limit reached" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_notify_newly_added_contacts_throttles_recipient_sms_bombing() -> None:
+    from unittest.mock import AsyncMock, patch
+    from app.api.safety.endpoints import _notify_newly_added_contacts
+
+    user_id = "user-123"
+    newly_notified = [
+        {"phone": "+15551234567"},
+    ]
+    contacts = [
+        {"id": "contact-uuid-1", "phone": "+15551234567"},
+    ]
+
+    with patch("app.api.safety.endpoints.fetch_contact_facing_profile_summary", return_value={"name": "Alice"}), \
+         patch("app.api.safety.endpoints.fetch_safety_contacts_with_id", return_value=contacts), \
+         patch("app.api.safety.endpoints.redis_client") as mock_redis, \
+         patch("app.api.safety.endpoints.send_sms") as mock_send_sms:
+
+        # 1. Normal notice (1st time) sends SMS
+        mock_redis.incr = AsyncMock(return_value=1)
+        mock_redis.expire = AsyncMock()
+        await _notify_newly_added_contacts(user_id, newly_notified)
+        mock_send_sms.assert_called_once()
+
+        mock_send_sms.reset_mock()
+
+        # 2. Throttled notice (4th time in hour) skips SMS
+        mock_redis.incr = AsyncMock(return_value=4)
+        await _notify_newly_added_contacts(user_id, newly_notified)
+        mock_send_sms.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_notify_newly_added_contacts_logs_delivery_failure() -> None:
+    from unittest.mock import AsyncMock, patch
+    from app.api.safety.endpoints import _notify_newly_added_contacts
+    from app.core.utils.sms import ProviderResult
+
+    user_id = "user-123"
+    newly_notified = [
+        {"phone": "+15551234567"},
+    ]
+    contacts = [
+        {"id": "contact-uuid-1", "phone": "+15551234567"},
+    ]
+
+    with patch("app.api.safety.endpoints.fetch_contact_facing_profile_summary", return_value={"name": "Alice"}), \
+         patch("app.api.safety.endpoints.fetch_safety_contacts_with_id", return_value=contacts), \
+         patch("app.api.safety.endpoints.redis_client") as mock_redis, \
+         patch("app.api.safety.endpoints.send_sms", return_value=ProviderResult(success=False, provider="Twilio", error="Provider unreachable", error_code="NETWORK_ERR")), \
+         patch("app.api.safety.endpoints.logger.warning") as mock_log_warn:
+
+        mock_redis.incr = AsyncMock(return_value=1)
+        mock_redis.expire = AsyncMock()
+
+        await _notify_newly_added_contacts(user_id, newly_notified)
+
+        # Verify failure was caught and logged with masked phone
+        assert mock_log_warn.called
+        log_args, log_kwargs = mock_log_warn.call_args
+        assert "Failed to deliver 'contact added' notice SMS" in log_args[0]
+        assert log_kwargs["extra"]["user_id"] == "user-123"
+        assert log_kwargs["extra"]["error"] == "Provider unreachable"
+
+
+def test_start_and_fetch_safety_session_encrypts_label_and_event_context() -> None:
+    from unittest.mock import MagicMock, patch
+    from app.db.safety.sessions import fetch_safety_session, start_safety_session
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session_id = "00000000-0000-0000-0000-000000000099"
+    plain_label = "Dinner date at Blue Bottle Cafe"
+    plain_event_context = {"label": "Tech Meetup in SOMA"}
+
+    inserted_payload: dict[str, Any] = {}
+
+    with patch("app.db.safety.sessions.supabase_client") as mock_supabase:
+        def table_fn(t_name: str) -> MagicMock:
+            if t_name == "safety_sessions":
+                m = MagicMock()
+                # Mock select for active check
+                m.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+                # Mock update for ending previous sessions
+                m.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+                # Mock insert
+                def insert_fn(payload: dict[str, Any]) -> MagicMock:
+                    inserted_payload.update(payload)
+                    m_exec = MagicMock()
+                    # Return row with encrypted fields as DB would store
+                    m_exec.select.return_value.execute.return_value = MagicMock(data=[{
+                        "id": session_id,
+                        "user_id": user_id,
+                        "label": payload["label"],
+                        "interval_seconds": 300,
+                        "next_checkin_at": "2026-08-24T18:00:00Z",
+                        "event_context": payload["event_context"],
+                        "status": "active",
+                        "battery_percent": 90,
+                        "connection_type": "wifi",
+                        "escalations_sent": 0,
+                        "last_escalated_at": None,
+                    }])
+                    return m_exec
+                m.insert = insert_fn
+                # Mock select for fetch_safety_session
+                m.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(data={
+                    "id": session_id,
+                    "user_id": user_id,
+                    "label": inserted_payload.get("label"),
+                    "interval_seconds": 300,
+                    "next_checkin_at": "2026-08-24T18:00:00Z",
+                    "event_context": inserted_payload.get("event_context"),
+                    "status": "active",
+                    "battery_percent": 90,
+                    "connection_type": "wifi",
+                    "escalations_sent": 0,
+                    "last_escalated_at": None,
+                })
+                return m
+            return MagicMock()
+
+        mock_supabase.table.side_effect = table_fn
+
+        # 1. Test start_safety_session encrypts fields in database payload
+        res = start_safety_session(
+            user_id=user_id,
+            label=plain_label,
+            interval_seconds=300,
+            next_checkin_at="2026-08-24T18:00:00Z",
+            event_context=plain_event_context,
+            battery_percent=90,
+            connection_type="wifi",
+        )
+
+        # Database payload MUST be encrypted (start with \\x)
+        assert inserted_payload["label"].startswith("\\x")
+        assert plain_label not in inserted_payload["label"]
+        assert inserted_payload["event_context"].startswith("\\x")
+        assert "Tech Meetup" not in inserted_payload["event_context"]
+
+        # Returned object MUST be decrypted for the caller
+        assert res["label"] == plain_label
+        assert res["event_context"] == plain_event_context
+
+        # 2. Test fetch_safety_session decrypts fields from DB
+        fetched = fetch_safety_session(session_id)
+        assert fetched is not None
+        assert fetched["label"] == plain_label
+        assert fetched["event_context"] == plain_event_context
+
+
+@pytest.mark.anyio
+async def test_check_cached_sos_alert_redis_failure_falls_back_to_db() -> None:
+    from unittest.mock import patch
+    from app.api.safety.endpoints import _check_cached_sos_alert
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session_id = "00000000-0000-0000-0000-000000000099"
+
+    # Redis throws an exception (simulating Redis outage)
+    with patch("app.api.safety.endpoints.redis_client.get", side_effect=Exception("Redis connection refused")), \
+         patch("app.api.safety.endpoints.fetch_recent_safety_alert") as mock_db_alert:
+
+        mock_db_alert.return_value = {
+            "id": "alert-recent-123",
+            "contacts_notified": 3,
+            "created_at": "2026-08-24T18:00:00Z",
+        }
+
+        res = await _check_cached_sos_alert(
+            idempotency_key="dummy-key",
+            user_id=user_id,
+            session_id=session_id,
+            alert_type="sos",
+        )
+
+        assert res is not None
+        assert res.id == "alert-recent-123"
+        assert res.contacts_notified == 3
+        mock_db_alert.assert_called_once_with(user_id, "sos", session_id, 60)
+
+
+@pytest.mark.anyio
+async def test_check_cached_sos_alert_redis_and_db_miss() -> None:
+    from unittest.mock import patch
+    from app.api.safety.endpoints import _check_cached_sos_alert
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session_id = "00000000-0000-0000-0000-000000000099"
+
+    # Redis throws an exception, DB returns None
+    with patch("app.api.safety.endpoints.redis_client.get", side_effect=Exception("Redis connection refused")), \
+         patch("app.api.safety.endpoints.fetch_recent_safety_alert", return_value=None):
+
+        res = await _check_cached_sos_alert(
+            idempotency_key="dummy-key",
+            user_id=user_id,
+            session_id=session_id,
+            alert_type="sos",
+        )
+
+        # Proceeds with sending (fails open)
+        assert res is None
+
+
+
 
 
 

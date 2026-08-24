@@ -34,6 +34,7 @@ from app.db.chat import (
 )
 from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.safety import (
+    fetch_contact_facing_profile_summary,
     fetch_overdue_safety_sessions,
     fetch_safety_contacts_with_id,
     purge_expired_safety_evidence,
@@ -264,6 +265,7 @@ def _compose_session_unreachable_message(
     session: dict[str, Any],
     session_id: str,
     escalation_number: int,
+    user_name: str | None = None,
     contact_id: str | None = None,
 ) -> str:
     event_context = session.get("event_context")
@@ -271,7 +273,7 @@ def _compose_session_unreachable_message(
         cast(dict[str, Any], event_context).get("label")
         if isinstance(event_context, dict)
         else None
-    )
+    ) or session.get("label")
     token = make_escalation_cancel_token(
         session_id,
         escalation_number,
@@ -282,7 +284,7 @@ def _compose_session_unreachable_message(
         f"{session_id}/cancel?token={token}&reason=safe"
     )
     return compose_unreachable_message(
-        name=session.get("label") or "A Nexus user",
+        name=user_name or "A Nexus user",
         escalation_number=escalation_number,
         battery_percent=session.get("battery_percent"),
         connection_type=session.get("connection_type"),
@@ -300,12 +302,22 @@ async def _dispatch_escalation_sms_and_record(
     expected_count: int | None = None,
 ) -> None:
     notified = False
+    profile = None
+    user_id = session.get("user_id")
+    if user_id:
+        with contextlib.suppress(Exception):
+            profile = await asyncio.to_thread(
+                fetch_contact_facing_profile_summary,
+                str(user_id),
+            )
+    user_name = (profile or {}).get("name")
     for contact in contacts:
         contact_id = str(contact.get("id") or "") if contact.get("id") else None
         body = _compose_session_unreachable_message(
             session,
             session_id,
             escalation_number,
+            user_name=user_name,
             contact_id=contact_id,
         )
         phone = str(contact.get("phone") or "")

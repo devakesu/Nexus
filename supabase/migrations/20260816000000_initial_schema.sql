@@ -245,6 +245,27 @@ ALTER FUNCTION "public"."get_user_id_by_email"("email_addr" "text") OWNER TO "po
 
 COMMENT ON FUNCTION "public"."get_user_id_by_email"("email_addr" "text") IS 'Resolves a user UUID from auth.users by email. SECURITY DEFINER to bypass schema permissions.';
 
+CREATE OR REPLACE FUNCTION "public"."end_safety_sessions_on_account_disable"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+    IF (NEW.is_suspended = true AND (OLD.is_suspended IS DISTINCT FROM NEW.is_suspended))
+       OR (NEW.deletion_requested_at IS NOT NULL AND (OLD.deletion_requested_at IS DISTINCT FROM NEW.deletion_requested_at))
+       OR (NEW.is_active = false AND (OLD.is_active IS DISTINCT FROM NEW.is_active))
+       OR (NEW.moderation_status = 'banned' AND (OLD.moderation_status IS DISTINCT FROM NEW.moderation_status)) THEN
+        UPDATE public.safety_sessions
+        SET status = 'ended', updated_at = timezone('utc'::text, now())
+        WHERE user_id = NEW.id AND status = 'active';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."end_safety_sessions_on_account_disable"() OWNER TO "postgres";
+
+COMMENT ON FUNCTION "public"."end_safety_sessions_on_account_disable"() IS 'Ends active safety sessions immediately when an account is suspended, deleted, deactivated, or banned.';
+
 CREATE OR REPLACE FUNCTION "public"."guard_safety_sessions_escalation_columns"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -386,23 +407,67 @@ $$;
 
 ALTER FUNCTION "public"."set_updated_at"() OWNER TO "postgres";
 
-CREATE OR REPLACE FUNCTION "public"."sync_safety_contacts"("p_user_id" "uuid", "p_contacts" "jsonb") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."sync_safety_contacts"("p_user_id" "uuid", "p_contacts" "jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
     AS $$
 DECLARE
     contact_record RECORD;
+    is_blocked BOOLEAN;
+    notice_exists BOOLEAN;
+    v_blocked_indices TEXT[] := ARRAY[]::TEXT[];
+    v_newly_notified_indices TEXT[] := ARRAY[]::TEXT[];
 BEGIN
+    -- Advisory lock per user to serialize concurrent sync and removal operations
+    PERFORM pg_advisory_xact_lock(hashtext('safety_contacts_' || p_user_id::text));
+
     -- Delete all existing contacts for the user
     DELETE FROM public.safety_contacts WHERE user_id = p_user_id;
 
-    -- Insert new contacts if any
+    -- Enforce defense-in-depth 3-contact limit
+    IF p_contacts IS NOT NULL AND jsonb_array_length(p_contacts) > 3 THEN
+        RAISE EXCEPTION 'Cannot sync more than 3 safety contacts';
+    END IF;
+
+    -- Process submitted contacts
     IF p_contacts IS NOT NULL AND jsonb_array_length(p_contacts) > 0 THEN
-        FOR contact_record IN SELECT * FROM jsonb_to_recordset(p_contacts) AS x(name TEXT, phone TEXT) LOOP
-            INSERT INTO public.safety_contacts (user_id, name, phone)
-            VALUES (p_user_id, contact_record.name::bytea, contact_record.phone::bytea);
+        FOR contact_record IN SELECT * FROM jsonb_to_recordset(p_contacts) AS x(name TEXT, phone TEXT, phone_blind_index TEXT) LOOP
+            -- Check if this phone number has permanently opted out (self_removed_at is set)
+            SELECT EXISTS (
+                SELECT 1 FROM public.safety_contact_notices
+                WHERE user_id = p_user_id
+                  AND phone_blind_index = contact_record.phone_blind_index
+                  AND self_removed_at IS NOT NULL
+            ) INTO is_blocked;
+
+            IF is_blocked THEN
+                v_blocked_indices := array_append(v_blocked_indices, contact_record.phone_blind_index);
+            ELSE
+                INSERT INTO public.safety_contacts (user_id, name, phone)
+                VALUES (p_user_id, contact_record.name::bytea, contact_record.phone::bytea);
+
+                -- Check if a notice row already exists
+                SELECT EXISTS (
+                    SELECT 1 FROM public.safety_contact_notices
+                    WHERE user_id = p_user_id
+                      AND phone_blind_index = contact_record.phone_blind_index
+                ) INTO notice_exists;
+
+                IF NOT notice_exists THEN
+                    INSERT INTO public.safety_contact_notices (user_id, phone_blind_index, first_notified_at)
+                    VALUES (p_user_id, contact_record.phone_blind_index, timezone('utc'::text, now()))
+                    ON CONFLICT (user_id, phone_blind_index) DO NOTHING;
+
+                    v_newly_notified_indices := array_append(v_newly_notified_indices, contact_record.phone_blind_index);
+                END IF;
+            END IF;
         END LOOP;
     END IF;
+
+    RETURN jsonb_build_object(
+        'blocked_indices', to_jsonb(v_blocked_indices),
+        'newly_notified_indices', to_jsonb(v_newly_notified_indices)
+    );
 END;
 $$;
 
@@ -1103,11 +1168,11 @@ CREATE TABLE IF NOT EXISTS "public"."safety_sessions" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
     "status" "text" DEFAULT 'active'::"text" NOT NULL,
-    "label" "text",
+    "label" "bytea",
     "interval_seconds" integer NOT NULL,
     "battery_percent" smallint,
     "connection_type" "text",
-    "event_context" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "event_context" "bytea",
     "escalations_sent" smallint DEFAULT 0 NOT NULL,
     "escalation_cancel_reason" "text",
     "escalation_cancel_note" "text",
@@ -1118,8 +1183,7 @@ CREATE TABLE IF NOT EXISTS "public"."safety_sessions" (
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     CONSTRAINT "safety_sessions_escalation_cancel_reason_check" CHECK ((("escalation_cancel_reason" IS NULL) OR ("escalation_cancel_reason" = ANY (ARRAY['safe'::"text", 'other'::"text"])))),
-    CONSTRAINT "safety_sessions_event_context_object_check" CHECK (("jsonb_typeof"("event_context") = 'object'::"text")),
-    CONSTRAINT "safety_sessions_interval_positive_check" CHECK (("interval_seconds" > 0)),
+    CONSTRAINT "safety_sessions_interval_range_check" CHECK (("interval_seconds" >= 300 AND "interval_seconds" <= 86400)),
     CONSTRAINT "safety_sessions_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'ended'::"text"])))
 );
 
@@ -1127,7 +1191,9 @@ ALTER TABLE "public"."safety_sessions" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."safety_sessions" IS 'Mirrors the on-device recurring Meetup Safety check-in loop state, for alert message context and future server-side escalation.';
 
-COMMENT ON COLUMN "public"."safety_sessions"."event_context" IS 'Optional linked chat event details (venue, tab, scheduled time) for richer alert copy.';
+COMMENT ON COLUMN "public"."safety_sessions"."label" IS 'Encrypted session label.';
+
+COMMENT ON COLUMN "public"."safety_sessions"."event_context" IS 'Encrypted JSON object containing optional linked chat event details (venue, tab, scheduled time) for richer alert copy.';
 
 COMMENT ON COLUMN "public"."safety_sessions"."last_heartbeat_at" IS 'Last time the device successfully checked in or started this session.';
 
@@ -1736,6 +1802,8 @@ CREATE OR REPLACE TRIGGER "set_user_devices_updated_at" BEFORE UPDATE ON "public
 CREATE OR REPLACE TRIGGER "set_users_updated_at" BEFORE UPDATE ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 CREATE OR REPLACE TRIGGER "trg_prevent_users_app_variant_update" BEFORE UPDATE OF "app_variant" ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_users_app_variant_update"();
+
+CREATE OR REPLACE TRIGGER "trg_end_safety_sessions_on_account_disable" AFTER UPDATE OF "is_suspended", "deletion_requested_at", "is_active", "moderation_status" ON "public"."users" FOR EACH ROW EXECUTE FUNCTION "public"."end_safety_sessions_on_account_disable"();
 
 CREATE OR REPLACE TRIGGER "trg_enforce_variant_age_range" BEFORE INSERT OR UPDATE OF "age" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_variant_age_range"();
 

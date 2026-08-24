@@ -68,40 +68,31 @@ _OTP_RESEND_COOLDOWN_SECONDS = 60
 _EVIDENCE_URL_TTL_SECONDS = 600
 
 
+def _portal_otp_key(domain: str, target_id: str, phone_norm: str) -> str:
+    """Unified helper for domain-namespaced OTP keys."""
+    return f"{domain}:otp:{target_id}:{phone_norm}"
+
+
+def _portal_attempts_key(domain: str, target_id: str, phone_norm: str) -> str:
+    """Unified helper for domain-namespaced OTP attempt counter keys."""
+    return f"{domain}:otp_attempts:{target_id}:{phone_norm}"
+
+
+def _portal_resend_key(domain: str, target_id: str, phone_norm: str) -> str:
+    """Unified helper for domain-namespaced OTP resend cooldown keys."""
+    return f"{domain}:otp_resend:{target_id}:{phone_norm}"
+
+
 def _otp_key(session_id: str, phone_norm: str) -> str:
-    """Executes otp key operation.
-
-        Args:
-            session_id: Input session id parameter.
-            phone_norm: Input phone norm parameter.
-
-        Returns:
-            str: Response payload or result."""
-    return f"safety_portal:otp:{session_id}:{phone_norm}"
+    return _portal_otp_key("safety_portal", session_id, phone_norm)
 
 
 def _attempts_key(session_id: str, phone_norm: str) -> str:
-    """Executes attempts key operation.
-
-        Args:
-            session_id: Input session id parameter.
-            phone_norm: Input phone norm parameter.
-
-        Returns:
-            str: Response payload or result."""
-    return f"safety_portal:otp_attempts:{session_id}:{phone_norm}"
+    return _portal_attempts_key("safety_portal", session_id, phone_norm)
 
 
 def _resend_key(session_id: str, phone_norm: str) -> str:
-    """Executes resend key operation.
-
-        Args:
-            session_id: Input session id parameter.
-            phone_norm: Input phone norm parameter.
-
-        Returns:
-            str: Response payload or result."""
-    return f"safety_portal:otp_resend:{session_id}:{phone_norm}"
+    return _portal_resend_key("safety_portal", session_id, phone_norm)
 
 
 _PORTAL_SESSION_MAX_STALE_DAYS = 7
@@ -249,7 +240,8 @@ async def get_portal_details(
     """Executes get portal details operation."""
     _ = request
     token = _extract_bearer_token(authorization)
-    if token is None or verify_portal_access_token(session_id, token) is None:
+    token_phone_id = verify_portal_access_token(session_id, token) if token else None
+    if token is None or token_phone_id is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired portal session. Please verify again.",
@@ -262,6 +254,23 @@ async def get_portal_details(
                 status_code=404,
                 detail="This safety session no longer exists.",
             )
+
+        user_id = session.get("user_id")
+        if user_id:
+            contacts = await asyncio.to_thread(fetch_safety_contacts, str(user_id))
+            is_active_contact = False
+            for c in contacts:
+                c_phone = str(c.get("phone") or "")
+                if c_phone:
+                    c_phone_id = hash_phone_identifier(normalize_phone(c_phone))
+                    if hmac.compare_digest(token_phone_id, c_phone_id):
+                        is_active_contact = True
+                        break
+            if not is_active_contact:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid or expired portal session. Please verify again.",
+                )
 
         is_active = session.get("status") == "active"
         alerts = await asyncio.to_thread(
@@ -335,18 +344,15 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
 
 
 def _contact_otp_key(contact_id: str, phone_norm: str) -> str:
-    """Contact otp key."""
-    return f"safety_contact_portal:otp:{contact_id}:{phone_norm}"
+    return _portal_otp_key("safety_contact_portal", contact_id, phone_norm)
 
 
 def _contact_attempts_key(contact_id: str, phone_norm: str) -> str:
-    """Contact attempts key."""
-    return f"safety_contact_portal:otp_attempts:{contact_id}:{phone_norm}"
+    return _portal_attempts_key("safety_contact_portal", contact_id, phone_norm)
 
 
 def _contact_resend_key(contact_id: str, phone_norm: str) -> str:
-    """Contact resend key."""
-    return f"safety_contact_portal:otp_resend:{contact_id}:{phone_norm}"
+    return _portal_resend_key("safety_contact_portal", contact_id, phone_norm)
 
 
 @router.post(

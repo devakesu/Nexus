@@ -1,5 +1,4 @@
-"""Meetup Safety, safety portal, and trusted-contact portal Pydantic models."""
-
+import html
 import re
 import unicodedata
 import urllib.parse
@@ -17,17 +16,13 @@ class SafetyContactIn(BaseModel):
     @field_validator("name")
     @classmethod
     def strip_and_require_non_blank(cls, v: str) -> str:
-        """Executes strip and require non blank operation.
+        """Sanitizes contact name by stripping control characters, newlines, and excess whitespace."""
+        from app.core.utils.sms import sanitize_sms_text
 
-            Args:
-                v: Input v parameter.
-
-            Returns:
-                str: Response payload or result."""
-        v = v.strip()
-        if not v:
+        cleaned = sanitize_sms_text(v, max_length=100)
+        if not cleaned:
             raise ValueError("must not be blank")
-        return v
+        return cleaned
 
     @field_validator("phone")
     @classmethod
@@ -165,13 +160,27 @@ class SafetyEvidenceRegisterResponse(BaseModel):
 
 
 class SafetySessionStartRequest(BaseModel):
-    """Safetysessionstartrequest class representation."""
-    interval_seconds: int = Field(..., ge=60, le=86400)
+    """Request model to initiate a Meetup Safety check-in loop.
+
+    Requires interval_seconds between 300 (5 min) and 86400 (24h).
+    next_checkin_at must be in the future, bounded within max(interval_seconds * 2, 3600s)
+    to prevent zombie sessions and ensure alignment with the escalation scheduler.
+    """
+    interval_seconds: int = Field(..., ge=300, le=86400)
     label: str | None = Field(default=None, max_length=200)
     event_label: str | None = Field(default=None, max_length=200)
     next_checkin_at: datetime
     battery_percent: int | None = Field(default=None, ge=0, le=100)
     connection_type: Literal["wifi", "cellular", "offline"] | None = None
+
+    @field_validator("label", "event_label")
+    @classmethod
+    def sanitize_label_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        from app.core.utils.sms import sanitize_sms_text
+
+        return sanitize_sms_text(v, max_length=200)
 
 
 class SafetySessionStartResponse(BaseModel):
@@ -180,7 +189,11 @@ class SafetySessionStartResponse(BaseModel):
 
 
 class SafetySessionCheckinRequest(BaseModel):
-    """Safetysessioncheckinrequest class representation."""
+    """Request model for active safety session heartbeat check-in.
+
+    next_checkin_at must be strictly in the future and bounded within a maximum window
+    of 2 days to prevent arbitrary future scheduling.
+    """
     session_id: str = Field(..., min_length=1)
 
     @field_validator("session_id")
@@ -234,6 +247,14 @@ class EscalationCancelRequest(BaseModel):
     token: str = Field(..., min_length=1)
     reason: Literal["safe", "other"]
     note: str | None = Field(default=None, max_length=500)
+
+    @field_validator("note")
+    @classmethod
+    def sanitize_note(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = html.escape(v.strip())[:500]
+        return cleaned or None
 
 
 class SafetyPortalOtpRequestRequest(BaseModel):
@@ -372,7 +393,13 @@ class SafetyContactPortalOtpVerifyResponse(BaseModel):
 
 
 class SafetyContactPortalDetailsResponse(BaseModel):
-    """Safetycontactportaldetailsresponse class representation."""
+    """Minimal contact-facing profile summary for trusted contact self-removal portal.
+
+    Authorizes and returns only recognizing identifiers (display name, profile photo,
+    and home/current city) to allow an authenticated contact to verify who designated
+    them before deciding to opt out. Excludes sensitive profile PII (bio, DOB, full address,
+    email, phone, orientation, religion).
+    """
     user_name: str
     profile_pic: str | None = None
     hometown: str | None = None

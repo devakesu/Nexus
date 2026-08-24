@@ -1473,6 +1473,92 @@ async def test_send_alert_sms_to_contacts_failure_logs_contact_identifier(
     assert any("Failed to notify a trusted contact" in r.message for r in caplog.records)
 
 
+def test_fetch_overdue_safety_sessions_filters_account_status() -> None:
+    from unittest.mock import MagicMock, patch
+    from app.db.safety.sessions import fetch_overdue_safety_sessions
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.lt.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+
+    sample_row = {
+        "id": "session-1",
+        "user_id": "user-1",
+        "label": "Coffee",
+        "status": "active",
+        "escalations_sent": 0,
+        "users": {"is_active": True, "is_suspended": False, "deletion_requested_at": None, "purged_at": None},
+    }
+    mock_builder.execute.return_value = MagicMock(data=[sample_row])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        results = fetch_overdue_safety_sessions(grace_seconds=300)
+
+    # Verify query includes users!inner join and filters
+    select_call = mock_builder.select.call_args[0][0]
+    assert "users!inner(is_active, is_suspended, deletion_requested_at, purged_at)" in select_call
+
+    # Verify eq/is_ filters were applied for active, non-suspended, non-deleted users
+    eq_calls = [call[0] for call in mock_builder.eq.call_args_list]
+    assert ("users.is_active", True) in eq_calls
+    assert ("users.is_suspended", False) in eq_calls
+
+    is_calls = [call[0] for call in mock_builder.is_.call_args_list]
+    assert ("users.deletion_requested_at", "null") in is_calls
+    assert ("users.purged_at", "null") in is_calls
+
+    # Verify returned row stripped the nested users dict
+    assert len(results) == 1
+    assert results[0]["id"] == "session-1"
+    assert "users" not in results[0]
+
+
+@pytest.mark.anyio
+async def test_dispatch_escalation_sms_uses_profile_name_not_session_label() -> None:
+    from unittest.mock import patch
+    from app.services.reminder_scheduler import _dispatch_escalation_sms_and_record
+    from app.core.utils.sms import ProviderResult
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session = {
+        "id": "session-123",
+        "user_id": user_id,
+        "label": "Coffee meetup at Starbucks",
+        "event_context": {"label": "Tech Networking Meetup"},
+        "battery_percent": 85,
+        "connection_type": "cellular",
+    }
+    contacts = [
+        {"id": "contact-1", "phone": "+15551234567"},
+    ]
+
+    with patch("app.services.reminder_scheduler.fetch_contact_facing_profile_summary", return_value={"name": "Alice Smith"}), \
+         patch("app.services.reminder_scheduler.send_sms", return_value=ProviderResult(success=True, provider="Twilio")) as mock_send_sms, \
+         patch("app.services.reminder_scheduler.record_safety_escalation_sent", return_value=True):
+
+        await _dispatch_escalation_sms_and_record(
+            contacts=contacts,
+            session=session,
+            session_id="session-123",
+            escalation_number=1,
+            idempotency_key="dummy-key",
+        )
+
+        mock_send_sms.assert_called_once()
+        phone_arg, body_arg = mock_send_sms.call_args[0]
+        assert phone_arg == "+15551234567"
+        # User name MUST be the verified profile name ("Alice Smith")
+        assert "Alice Smith's phone hasn't checked in" in body_arg
+        # Meetup event context label is retained in the body
+        assert "Tech Networking Meetup" in body_arg
+        # Session label was NOT substituted for user's identity name
+        assert "Coffee meetup at Starbucks's phone" not in body_arg
+
+
+
 
 
 

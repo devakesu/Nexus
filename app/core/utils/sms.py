@@ -8,6 +8,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -152,9 +153,9 @@ def _maps_link(location: dict[str, float] | None) -> str | None:
 
 
 def sanitize_sms_text(text: str | None, max_length: int = 100) -> str | None:
-    """Sanitizes user-supplied text for SMS messages by stripping control
-
-    characters, newlines, and excessive whitespace, and capping length.
+    """Sanitizes user-supplied text for SMS messages by applying NFKC normalization,
+    stripping control characters, newlines, Unicode line/paragraph separators,
+    and excessive whitespace, and capping length.
 
     Args:
         text: Input string to sanitize.
@@ -165,7 +166,17 @@ def sanitize_sms_text(text: str | None, max_length: int = 100) -> str | None:
     """
     if not text:
         return None
-    cleaned = "".join(ch if (ch.isprintable() and ch not in "\r\n\t") else " " for ch in text)
+    normalized = unicodedata.normalize("NFKC", str(text))
+    chars: list[str] = []
+    for ch in normalized:
+        cat = unicodedata.category(ch)
+        if cat.startswith("C") or cat in ("Zl", "Zp") or ch in "\r\n\t\x00":
+            chars.append(" ")
+        elif ch.isprintable():
+            chars.append(ch)
+        else:
+            chars.append(" ")
+    cleaned = "".join(chars)
     cleaned = " ".join(cleaned.split()).strip()
     if not cleaned:
         return None

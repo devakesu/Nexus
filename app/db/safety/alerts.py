@@ -105,6 +105,36 @@ def fetch_safety_alert(alert_id: str) -> dict[str, Any] | None:
         raise DatabaseAccessError("Failed to fetch safety alert") from e
 
 
+def fetch_recent_safety_alert(
+    user_id: str,
+    alert_type: str,
+    session_id: str | None = None,
+    window_seconds: int = 60,
+) -> dict[str, Any] | None:
+    """Fallback query to find a recently recorded safety alert within window_seconds."""
+    try:
+        cutoff = (utcnow() - timedelta(seconds=window_seconds)).isoformat()
+        builder = (
+            supabase_client.table("safety_alerts")
+            .select("id, contacts_notified, created_at")
+            .eq("user_id", user_id)
+            .eq("alert_type", alert_type)
+            .gte("created_at", cutoff)
+            .order("created_at", desc=True)
+            .limit(1)
+        )
+        if session_id is not None:
+            builder = builder.eq("session_id", session_id)
+        res = builder.execute()
+        rows = cast(list[Any], res.data or [])
+        if rows and isinstance(rows[0], dict):
+            return cast(dict[str, Any], rows[0])
+        return None
+    except Exception as e:
+        logger.warning("Failed to fetch recent safety alert DB fallback", exc_info=e)
+        return None
+
+
 def update_alert_contacts_notified(alert_id: str, count: int) -> None:
     """Update contacts notified count on safety alert."""
     try:

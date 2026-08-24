@@ -45,6 +45,7 @@ from app.db.safety import (
     cancel_safety_escalation,
     end_safety_session,
     fetch_contact_facing_profile_summary,
+    fetch_recent_safety_alert,
     fetch_safety_alert,
     fetch_safety_contacts,
     fetch_safety_contacts_with_id,
@@ -74,9 +75,15 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+_MAX_NOTICES_PER_PHONE_HOURLY = 3
+_PHONE_NOTICE_THROTTLE_SECONDS = 3600
+_MAX_ALERTS_PER_USER_HOURLY = 5
+_USER_ALERT_THROTTLE_SECONDS = 3600
+
+
 async def _notify_newly_added_contacts(
     user_id: str,
-    newly_notified: list[dict[str, str]],
+    newly_notified: list[dict[str, Any]],
 ) -> None:
     """Fire-and-forget: sends the one-time "you were added" notice SMS
     (with the self-removal portal link) to each phone number seen for the
@@ -99,20 +106,48 @@ async def _notify_newly_added_contacts(
 
     by_phone = {normalize_phone(str(c["phone"])): c for c in contacts}
     for n in newly_notified:
-        contact = by_phone.get(normalize_phone(str(n.get("phone") or "")))
+        raw_phone = str(n.get("phone") or "")
+        norm_phone = normalize_phone(raw_phone)
+        contact = by_phone.get(norm_phone)
         if contact is None:
             continue
+
+        # Per-recipient throttle to prevent SMS bombing single phone numbers
+        recipient_key = f"safety:recipient:added_notice:{norm_phone}"
+        try:
+            notice_count = await redis_client.incr(recipient_key)
+            if notice_count == 1:
+                await redis_client.expire(recipient_key, _PHONE_NOTICE_THROTTLE_SECONDS)
+            if notice_count > _MAX_NOTICES_PER_PHONE_HOURLY:
+                logger.warning(
+                    "Throttling safety contact addition SMS to recipient",
+                    extra={"phone_masked": redact_phone(raw_phone)},
+                )
+                continue
+        except Exception:
+            logger.warning("Redis failure checking recipient notice throttle; proceeding with send")
+
         manage_link = (
             f"{settings.backend_url}/api/v1/safety/contact/{make_contact_portal_token(contact['id'])}"
         )
         body = compose_contact_added_message(
             user_name=str(user_name), manage_link=manage_link,
         )
-        await send_sms(str(n.get("phone") or ""), body)
+        sms_res = await send_sms(raw_phone, body)
+        if not sms_res.success:
+            logger.warning(
+                "Failed to deliver 'contact added' notice SMS to recipient",
+                extra={
+                    "user_id": user_id,
+                    "contact_phone_masked": redact_phone(raw_phone),
+                    "error": sms_res.error,
+                    "error_code": sms_res.error_code,
+                },
+            )
 
 
 @router.put("/api/v1/safety/contacts", response_model=SafetyContactsSyncResponse)
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_contacts_sync)
 async def put_safety_contacts(
     request: Request,
     payload: SafetyContactsSyncRequest = Body(...),
@@ -149,14 +184,16 @@ async def _check_cached_sos_alert(
     idempotency_key: str,
     user_id: str,
     session_id: str | None,
+    alert_type: str | None = None,
 ) -> SafetyAlertResponse | None:
+    """Checks for duplicate SOS alert within 60s window (Redis with DB fallback)."""
     try:
         cached_val = await redis_client.get(idempotency_key)
         if cached_val:
             try:
                 cached_data = json.loads(cached_val)
                 logger.info(
-                    "Skipping duplicate safety alert: already sent in last 60s",
+                    "Skipping duplicate safety alert: already sent in last 60s (Redis hit)",
                     extra={"user_id": user_id, "session_id": session_id},
                 )
                 return SafetyAlertResponse(
@@ -167,7 +204,24 @@ async def _check_cached_sos_alert(
             except (json.JSONDecodeError, KeyError, TypeError, ValueError) as parse_err:
                 logger.debug("Failed to parse cached SOS idempotency: %s", parse_err)
     except Exception as err:
-        logger.warning("Failed to check SOS idempotency in Redis", exc_info=err)
+        logger.warning("Failed to check SOS idempotency in Redis; attempting DB fallback", exc_info=err)
+        if alert_type is not None:
+            try:
+                db_recent = await asyncio.to_thread(
+                    fetch_recent_safety_alert, user_id, alert_type, session_id, 60,
+                )
+                if db_recent:
+                    logger.info(
+                        "Skipping duplicate safety alert: already sent in last 60s (DB fallback hit)",
+                        extra={"user_id": user_id, "session_id": session_id},
+                    )
+                    return SafetyAlertResponse(
+                        id=str(db_recent["id"]),
+                        contacts_notified=int(db_recent.get("contacts_notified") or 0),
+                        contacts_total=int(db_recent.get("contacts_notified") or 0),
+                    )
+            except Exception as db_err:
+                logger.warning("Database fallback for SOS idempotency failed; failing open", exc_info=db_err)
     return None
 
 
@@ -256,7 +310,7 @@ async def _cache_sos_alert(idempotency_key: str, response: SafetyAlertResponse) 
 
 
 @router.post("/api/v1/safety/alert", response_model=SafetyAlertResponse)
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_alert)
 async def send_safety_alert(
     request: Request,
     payload: SafetyAlertRequest = Body(...),
@@ -270,11 +324,33 @@ async def send_safety_alert(
     """
     _ = request
 
+    # Check per-user hourly alert rate quota in Redis
+    user_alert_key = f"safety:alert:throttle:{user_id}"
+    try:
+        alert_count = await redis_client.incr(user_alert_key)
+        if alert_count == 1:
+            await redis_client.expire(user_alert_key, _USER_ALERT_THROTTLE_SECONDS)
+        if alert_count > _MAX_ALERTS_PER_USER_HOURLY:
+            logger.warning(
+                "User exceeded hourly SOS alert quota",
+                extra={"user_id": user_id, "alert_count": alert_count},
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Hourly safety alert limit reached. Please contact emergency services directly if you are in danger.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning("Redis failure checking user alert throttle; proceeding with alert")
+
     hashed_suffix = hashlib.sha256(
         f"{user_id}:{payload.alert_type}:{payload.session_id or 'none'}".encode(),
     ).hexdigest()
     idempotency_key = f"safety:sos:idempotency:{hashed_suffix}"
-    cached_response = await _check_cached_sos_alert(idempotency_key, user_id, payload.session_id)
+    cached_response = await _check_cached_sos_alert(
+        idempotency_key, user_id, payload.session_id, alert_type=payload.alert_type,
+    )
     if cached_response is not None:
         return cached_response
 
@@ -296,8 +372,20 @@ async def send_safety_alert(
             detail="No trusted contacts on file to alert.",
         )
 
-    display_name = sanitize_sms_text(payload.session_label, max_length=50) or "A Nexus user"
-    clean_event_label = sanitize_sms_text(payload.event_label, max_length=100)
+    profile = None
+    try:
+        profile = await asyncio.to_thread(fetch_contact_facing_profile_summary, user_id)
+    except Exception as err:
+        logger.warning(
+            "Could not fetch profile for safety alert sender name",
+            extra={"user_id": user_id, "error": str(err)},
+        )
+
+    user_name = (profile or {}).get("name")
+    display_name = sanitize_sms_text(user_name, max_length=50) or "A Nexus user"
+
+    event_label = payload.event_label or payload.session_label
+    clean_event_label = sanitize_sms_text(event_label, max_length=100)
     location = (
         payload.current_location.model_dump()
         if payload.current_location is not None
@@ -408,7 +496,7 @@ async def register_evidence(
     "/api/v1/safety/session/start",
     response_model=SafetySessionStartResponse,
 )
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_session)
 async def start_session(
     request: Request,
     payload: SafetySessionStartRequest = Body(...),
@@ -467,7 +555,7 @@ async def start_session(
 
 
 @router.post("/api/v1/safety/session/checkin")
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_session)
 async def checkin_session(
     request: Request,
     payload: SafetySessionCheckinRequest = Body(...),
@@ -520,7 +608,7 @@ async def checkin_session(
 
 
 @router.post("/api/v1/safety/session/end")
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_session)
 async def end_session(
     request: Request,
     payload: SafetySessionEndRequest = Body(...),
@@ -647,7 +735,7 @@ async def _handle_cancel_escalation(
 
 
 @router.get("/api/v1/safety/escalation/{session_id}/cancel")
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_escalation_cancel)
 async def cancel_escalation(
     request: Request,
     session_id: str,
@@ -669,7 +757,7 @@ async def cancel_escalation(
 
 
 @router.post("/api/v1/safety/escalation/{session_id}/cancel")
-@limiter.limit(settings.rate_limit_safety)
+@limiter.limit(settings.rate_limit_safety_escalation_cancel)
 async def cancel_escalation_post(
     request: Request,
     session_id: str,
