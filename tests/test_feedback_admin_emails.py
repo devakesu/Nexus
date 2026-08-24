@@ -374,3 +374,25 @@ async def test_submit_feedback_rejects_traversal_in_attachment() -> None:
     assert "attachment_paths may only reference your own uploads." in exc_info.value.detail
 
 
+def test_close_ticket_db_sets_reviewed_by_none() -> None:
+    from app.db.feedback.feedback import close_ticket
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.neq.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "ticket-123", "status": "closed"}])
+
+    with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_builder):
+        res = close_ticket(user_id="user-123", report_id="ticket-123", reason="Resolved by user")
+        assert res == {"id": "ticket-123", "status": "closed"}
+        
+        # Verify update payload has reviewed_by: None
+        update_args = mock_builder.update.call_args[0][0]
+        assert update_args["status"] == "closed"
+        assert update_args["reviewed_by"] is None
+        assert update_args["reviewer_notes"] == "Resolved by user"
+        assert "reviewed_at" in update_args
+
+

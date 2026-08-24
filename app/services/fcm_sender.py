@@ -221,8 +221,11 @@ async def send_like_notification(
     if not _is_firebase_initialized():
         return
     try:
-        block_ids = await get_cached_active_block_ids(target_id)
-        if actor_id in block_ids:
+        target_block_ids, actor_block_ids = await asyncio.gather(
+            get_cached_active_block_ids(target_id),
+            get_cached_active_block_ids(actor_id),
+        )
+        if actor_id in target_block_ids or target_id in actor_block_ids:
             logger.info(
                 "Skipping like notification: actor is blocked by target or vice versa",
                 extra={"actor_id": actor_id, "target_id": target_id},
@@ -268,6 +271,17 @@ async def send_match_notification(
     if not _is_firebase_initialized():
         return
     try:
+        blocks_a, blocks_b = await asyncio.gather(
+            get_cached_active_block_ids(user_a_id),
+            get_cached_active_block_ids(user_b_id),
+        )
+        if user_b_id in blocks_a or user_a_id in blocks_b:
+            logger.info(
+                "Skipping match notification: user_a is blocked by user_b or vice versa",
+                extra={"user_a_id": user_a_id, "user_b_id": user_b_id},
+            )
+            return
+
         tokens_a, tokens_b, name_a, name_b = await asyncio.gather(
             asyncio.to_thread(_fetch_user_fcm_tokens, user_a_id),
             asyncio.to_thread(_fetch_user_fcm_tokens, user_b_id),
@@ -322,8 +336,11 @@ async def send_chat_message_notification(
     if not _is_firebase_initialized():
         return
     try:
-        block_ids = await get_cached_active_block_ids(recipient_id)
-        if sender_id in block_ids:
+        recipient_block_ids, sender_block_ids = await asyncio.gather(
+            get_cached_active_block_ids(recipient_id),
+            get_cached_active_block_ids(sender_id),
+        )
+        if sender_id in recipient_block_ids or recipient_id in sender_block_ids:
             logger.info(
                 "Skipping chat notification: sender is blocked by recipient or vice versa",
                 extra={"sender_id": sender_id, "recipient_id": recipient_id},

@@ -86,6 +86,24 @@ async def test_get_active_user_id_deletion_pending() -> None:
         assert exc_info.value.detail == "Account is pending deletion."
 
 
+@pytest.mark.anyio
+async def test_get_active_user_id_banned() -> None:
+    user_row = {
+        "id": "user123",
+        "is_active": True,
+        "is_suspended": False,
+        "moderation_status": "banned",
+    }
+    with patch(
+        "app.api.dependencies.get_cached_public_user",
+        AsyncMock(return_value=user_row),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_active_user_id("user123")
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert exc_info.value.detail == "Account is permanently banned."
+
+
 def test_build_candidate_query_moderation_filters() -> None:
     filters = DiscoveryFilters()
     query = _build_candidate_query(

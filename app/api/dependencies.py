@@ -219,6 +219,7 @@ async def _update_presence_if_needed(user_id: str) -> None:
             if (
                 not bool(user_row.get("is_active", True))
                 or user_row.get("deletion_requested_at")
+                or str(user_row.get("moderation_status") or "").lower() == "banned"
                 or is_account_suspended(user_row)
             ):
                 return
@@ -408,6 +409,12 @@ def assert_account_active(user_row: dict[str, Any]) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is pending deletion.",
+        )
+
+    if str(user_row.get("moderation_status") or "").lower() == "banned":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is permanently banned.",
         )
 
     if is_account_suspended(user_row):

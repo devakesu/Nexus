@@ -6,6 +6,8 @@ from typing import Any, cast
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.core.config import settings
+from app.core.infra.limiter import limiter
 from app.db.client import supabase_client
 from app.db.profiles import (
     decrypt_profile_record,
@@ -23,6 +25,7 @@ router = APIRouter()
     "/api/v1/users/moderation-subjects",
     response_model=list[ModerationSubjectItem],
 )
+@limiter.limit(settings.rate_limit_discover)
 def get_moderation_subjects(
     request: Request,
     payload: ModerationSubjectsRequest = Body(...),

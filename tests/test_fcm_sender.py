@@ -1,10 +1,11 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from app.services.fcm_sender import (
     send_chat_message_notification,
     send_like_notification,
+    send_match_notification,
 )
 
 
@@ -28,7 +29,8 @@ async def test_send_like_notification_not_blocked(
 
     await send_like_notification("actor-id", "target-id", False)
 
-    mock_get_blocks.assert_called_once_with("target-id")
+    assert mock_get_blocks.call_count == 2
+    mock_get_blocks.assert_has_calls([call("target-id"), call("actor-id")], any_order=True)
     mock_fetch_tokens.assert_called_once_with("target-id")
     mock_fetch_name.assert_called_once_with("actor-id")
     mock_send.assert_called_once()
@@ -40,7 +42,7 @@ async def test_send_like_notification_not_blocked(
 @patch("app.services.fcm_sender._fetch_user_fcm_tokens")
 @patch("app.services.fcm_sender._fetch_profile_name")
 @patch("app.services.fcm_sender._send_to_tokens")
-async def test_send_like_notification_blocked(
+async def test_send_like_notification_blocked_by_target(
     mock_send: MagicMock,
     mock_fetch_name: MagicMock,
     mock_fetch_tokens: MagicMock,
@@ -48,11 +50,43 @@ async def test_send_like_notification_blocked(
     mock_firebase_init: MagicMock,
 ) -> None:
     mock_firebase_init.return_value = True
-    mock_get_blocks.return_value = {"actor-id"}  # Blocked!
+    # Target blocked actor
+    def side_effect_target(uid: str) -> set[str]:
+        return {"actor-id"} if uid == "target-id" else set()
+
+    mock_get_blocks.side_effect = side_effect_target
 
     await send_like_notification("actor-id", "target-id", False)
 
-    mock_get_blocks.assert_called_once_with("target-id")
+    assert mock_get_blocks.call_count == 2
+    mock_fetch_tokens.assert_not_called()
+    mock_fetch_name.assert_not_called()
+    mock_send.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.services.fcm_sender._fetch_profile_name")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_like_notification_blocked_by_actor(
+    mock_send: MagicMock,
+    mock_fetch_name: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    mock_firebase_init.return_value = True
+    # Actor blocked target
+    def side_effect_actor(uid: str) -> set[str]:
+        return {"target-id"} if uid == "actor-id" else set()
+
+    mock_get_blocks.side_effect = side_effect_actor
+
+    await send_like_notification("actor-id", "target-id", False)
+
+    assert mock_get_blocks.call_count == 2
     mock_fetch_tokens.assert_not_called()
     mock_fetch_name.assert_not_called()
     mock_send.assert_not_called()
@@ -84,7 +118,6 @@ async def test_send_like_notification_deactivated_actor_skipped(
     mock_send.assert_not_called()
 
 
-
 @pytest.mark.anyio
 @patch("app.services.fcm_sender._is_firebase_initialized")
 @patch("app.services.fcm_sender.get_cached_active_block_ids")
@@ -110,7 +143,8 @@ async def test_send_chat_notification_not_blocked(
         ciphertext_metadata="{}",
     )
 
-    mock_get_blocks.assert_called_once_with("recipient-id")
+    assert mock_get_blocks.call_count == 2
+    mock_get_blocks.assert_has_calls([call("recipient-id"), call("sender-id")], any_order=True)
     mock_fetch_tokens.assert_called_once_with("recipient-id")
     mock_send.assert_called_once()
     data = mock_send.call_args[0][3]
@@ -168,14 +202,18 @@ async def test_send_chat_notification_large_ciphertext_capped(
 @patch("app.services.fcm_sender.get_cached_active_block_ids")
 @patch("app.services.fcm_sender._fetch_user_fcm_tokens")
 @patch("app.services.fcm_sender._send_to_tokens")
-async def test_send_chat_notification_blocked(
+async def test_send_chat_notification_blocked_by_recipient(
     mock_send: MagicMock,
     mock_fetch_tokens: MagicMock,
     mock_get_blocks: AsyncMock,
     mock_firebase_init: MagicMock,
 ) -> None:
     mock_firebase_init.return_value = True
-    mock_get_blocks.return_value = {"sender-id"}  # Blocked!
+    # Recipient blocked sender
+    def side_effect_recipient(uid: str) -> set[str]:
+        return {"sender-id"} if uid == "recipient-id" else set()
+
+    mock_get_blocks.side_effect = side_effect_recipient
 
     await send_chat_message_notification(
         sender_id="sender-id",
@@ -187,8 +225,96 @@ async def test_send_chat_notification_blocked(
         ciphertext_metadata="{}",
     )
 
-    mock_get_blocks.assert_called_once_with("recipient-id")
+    assert mock_get_blocks.call_count == 2
     mock_fetch_tokens.assert_not_called()
+    mock_send.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_chat_notification_blocked_by_sender(
+    mock_send: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    mock_firebase_init.return_value = True
+    # Sender blocked recipient
+    def side_effect_sender(uid: str) -> set[str]:
+        return {"recipient-id"} if uid == "sender-id" else set()
+
+    mock_get_blocks.side_effect = side_effect_sender
+
+    await send_chat_message_notification(
+        sender_id="sender-id",
+        recipient_id="recipient-id",
+        conversation_id="convo-id",
+        tab="Dating",
+        message_id="msg-id",
+        ciphertext="secret",
+        ciphertext_metadata="{}",
+    )
+
+    assert mock_get_blocks.call_count == 2
+    mock_fetch_tokens.assert_not_called()
+    mock_send.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.services.fcm_sender._fetch_profile_name")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_match_notification_not_blocked(
+    mock_send: MagicMock,
+    mock_fetch_name: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    mock_firebase_init.return_value = True
+    mock_get_blocks.return_value = set()
+    def fetch_tokens_side_effect(uid: str) -> list[str]:
+        return [f"token_{uid}"]
+
+    def fetch_name_side_effect(uid: str) -> str:
+        return f"Name_{uid}"
+
+    mock_fetch_tokens.side_effect = fetch_tokens_side_effect
+    mock_fetch_name.side_effect = fetch_name_side_effect
+
+    await send_match_notification("user-a", "user-b")
+
+    assert mock_get_blocks.call_count == 2
+    assert mock_send.call_count == 2
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.services.fcm_sender._fetch_profile_name")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_match_notification_blocked(
+    mock_send: MagicMock,
+    mock_fetch_name: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    mock_firebase_init.return_value = True
+    def side_effect_match(uid: str) -> set[str]:
+        return {"user-a"} if uid == "user-b" else set()
+
+    mock_get_blocks.side_effect = side_effect_match
+
+    await send_match_notification("user-a", "user-b")
+
+    assert mock_get_blocks.call_count == 2
     mock_send.assert_not_called()
 
 

@@ -294,7 +294,7 @@ def close_ticket(user_id: str, report_id: str, reason: str) -> dict[str, Any] | 
             .update(
                 {
                     "status": "closed",
-                    "reviewed_by": user_id,
+                    "reviewed_by": None,
                     "reviewed_at": utcnow().isoformat(),
                     "reviewer_notes": reason.strip(),
                 },
