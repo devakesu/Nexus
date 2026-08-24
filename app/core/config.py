@@ -396,6 +396,15 @@ class Settings(BaseSettings):
                 "hmac_signing_key is required when Twilio SMS credentials are configured to sign escalation cancel and portal tokens.",
             )
 
+        # Enforce that backend_url starts with https:// in production
+        if self.backend_url:
+            clean_backend_url = self.backend_url.strip().rstrip("/")
+            self.backend_url = clean_backend_url
+            if not self.debug and not clean_backend_url.startswith("https://"):
+                raise ValueError(
+                    "backend_url must start with 'https://' in production.",
+                )
+
         return self
 
     model_config = SettingsConfigDict(

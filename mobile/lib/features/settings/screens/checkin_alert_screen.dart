@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:geolocator/geolocator.dart';
@@ -49,6 +50,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   AudioPlayer? _alarmPlayer;
   String? _lastAlertId;
   bool _alertSent = false;
+  Timer? _retryAlertTimer;
 
   @override
   void initState() {
@@ -61,6 +63,7 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   void dispose() {
     unawaited(SecurityService.exitSensitiveScreen());
     _sosTimer?.cancel();
+    _retryAlertTimer?.cancel();
     unawaited(_alarmPlayer?.dispose());
     super.dispose();
   }
@@ -160,6 +163,10 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
       );
     }
 
+    if (!_alertSent) {
+      _startSosBackgroundRetry(alertType: silent ? 'sos_silent' : 'sos_loud');
+    }
+
     if (silent) {
       setState(() => _phase = _SosPhase.silentActive);
       await _attemptRecording();
@@ -171,6 +178,44 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         // Non-fatal, alarm failed to start
       }
     }
+  }
+
+  void _startSosBackgroundRetry({required String alertType}) {
+    _retryAlertTimer?.cancel();
+    var retryDelaySeconds = 3;
+
+    void scheduleNextRetry() {
+      if (_alertSent || _phase == _SosPhase.idle || !mounted) return;
+      _retryAlertTimer = Timer(Duration(seconds: retryDelaySeconds), () async {
+        if (_alertSent || _phase == _SosPhase.idle || !mounted) return;
+        try {
+          final position = await _tryGetLocation();
+          final session = MeetupSafetySession.instance;
+          final result = await SafetyAlertApi.sendAlert(
+            alertType: alertType,
+            sessionId: session.serverSessionId,
+            sessionLabel: session.checkInLabel,
+            latitude: position?.latitude,
+            longitude: position?.longitude,
+          );
+          if (result != null && mounted) {
+            setState(() {
+              _lastAlertId = result.alertId;
+              _alertSent = true;
+            });
+            _retryAlertTimer?.cancel();
+            _retryAlertTimer = null;
+            return;
+          }
+        } on Object catch (_) {
+          // Retry failed, will back off and try again
+        }
+        retryDelaySeconds = (retryDelaySeconds * 1.5).clamp(3.0, 15.0).toInt();
+        scheduleNextRetry();
+      });
+    }
+
+    scheduleNextRetry();
   }
 
   /// Attempts to start Digital Witness recording, offering an explicit
@@ -229,6 +274,8 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
 
   /// Stops everything (alarm and/or recording) without calling anyone.
   Future<void> _stopSos() async {
+    _retryAlertTimer?.cancel();
+    _retryAlertTimer = null;
     await _stopAlarm();
     if (DigitalWitnessRecorder.instance.isRecording) {
       await DigitalWitnessRecorder.instance.stop();
@@ -648,6 +695,42 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                   ),
                 ],
               ),
+              if (!_alertSent) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _red.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _red, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.triangleAlert,
+                        color: _red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '⚠️ ALERT NOT SENT — no network connection.\nRetrying in background... Call 112 if in danger.',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Expanded(
                 child: ClipRRect(
@@ -686,6 +769,38 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                   height: 1.45,
                 ),
               ),
+              if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.info,
+                        color: Colors.white70,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Recording pauses when the app is in the background.',
+                        style: GoogleFonts.inter(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               ScalePressable(
                 onTap: _stopSos,
@@ -772,6 +887,43 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
                 letterSpacing: 2,
               ),
             ),
+            if (!_alertSent) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: _red.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _red, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.triangleAlert,
+                      color: _red,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '⚠️ ALERT NOT SENT — no network connection.\nRetrying in background... Call 112 if in danger.',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),

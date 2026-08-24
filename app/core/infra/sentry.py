@@ -21,7 +21,7 @@ _SECRET_RE = re.compile(
 )
 _SENSITIVE_KEY_RE = re.compile(
     r"(bearer|auth|token|authorization|password|secret|jwt|"
-    r"access_token|refresh_token|credential|cookie|session)",
+    r"access_token|refresh_token|credential|cookie|session|media_key|private_key)",
     re.IGNORECASE,
 )
 

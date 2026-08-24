@@ -873,6 +873,39 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
     return Column(
       key: const ValueKey('checkin_active'),
       children: [
+        if (_session.hasSyncWarning) ...[
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  LucideIcons.triangleAlert,
+                  color: AppColors.error,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Server heartbeat failed due to poor connectivity. Check your connection to avoid false escalations.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: const Color(0xFF991B1B),
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),

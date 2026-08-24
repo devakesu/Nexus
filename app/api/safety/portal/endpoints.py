@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import logging
 import secrets
+from datetime import timedelta
 from typing import Any, cast
 
 from fastapi import APIRouter, Body, Header, HTTPException, Request
@@ -29,7 +30,7 @@ from app.core.utils.sms import (
     send_sms,
     verify_contact_portal_token,
 )
-from app.db.client import DatabaseAccessError, parse_utc_datetime
+from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.safety import (
     create_evidence_download_url,
     fetch_alerts_for_session,
@@ -103,6 +104,9 @@ def _resend_key(session_id: str, phone_norm: str) -> str:
     return f"safety_portal:otp_resend:{session_id}:{phone_norm}"
 
 
+_PORTAL_SESSION_MAX_STALE_DAYS = 7
+
+
 @router.post(
     "/api/v1/safety/portal/{session_id}/otp/request",
     response_model=SafetyPortalOtpRequestResponse,
@@ -127,9 +131,24 @@ async def request_portal_otp(
 
     try:
         session = await asyncio.to_thread(fetch_safety_session, session_id)
+        session_accessible = False
+        if session is not None:
+            if session.get("status") == "active":
+                session_accessible = True
+            else:
+                # Ended sessions remain accessible only within the 7-day post-session window
+                checkin_raw = session.get("next_checkin_at") or session.get("last_escalated_at")
+                if checkin_raw:
+                    try:
+                        checkin_dt = parse_utc_datetime(str(checkin_raw))
+                        if (utcnow() - checkin_dt) <= timedelta(days=_PORTAL_SESSION_MAX_STALE_DAYS):
+                            session_accessible = True
+                    except Exception:
+                        session_accessible = False
+
         contacts = (
             await asyncio.to_thread(fetch_safety_contacts, str(session["user_id"]))
-            if session is not None
+            if session is not None and session_accessible
             else []
         )
     except DatabaseAccessError as err:

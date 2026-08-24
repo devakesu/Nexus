@@ -82,10 +82,11 @@ def sync_safety_contacts(
                 ],
                 on_conflict="user_id,phone_blind_index",
             ).execute()
-        except APIError:
+        except APIError as e:
             logger.exception(
                 "Failed to record safety contact notices", extra={"user_id": user_id},
             )
+            raise DatabaseAccessError("Failed to record safety contact notices") from e
 
     return blocked, newly_notified
 

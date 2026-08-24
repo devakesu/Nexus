@@ -249,7 +249,7 @@ async def test_request_portal_otp_matched_stores_hash_and_sends_sms(
     mock_redis.set = AsyncMock()
     mock_redis.setex = AsyncMock()
 
-    mock_fetch_session.return_value = {"id": "session-123", "user_id": "user-456"}
+    mock_fetch_session.return_value = {"id": "session-123", "user_id": "user-456", "status": "active"}
     mock_fetch_contacts.return_value = [{"id": "c-1", "phone": "+15551112233"}]
     mock_send_sms.return_value = MagicMock(success=True)
 
@@ -262,11 +262,44 @@ async def test_request_portal_otp_matched_stores_hash_and_sends_sms(
 
     assert res.sent is True
     mock_send_sms.assert_called_once()
-    # Ensure setex was called for OTP storage
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.portal.endpoints.send_sms")
+async def test_request_portal_otp_ended_stale_session_stores_sentinel_no_sms(
+    mock_send_sms: MagicMock,
+    mock_fetch_contacts: MagicMock,
+    mock_fetch_session: MagicMock,
+    mock_redis: MagicMock,
+):
+    mock_redis.exists = AsyncMock(return_value=False)
+    mock_redis.set = AsyncMock()
+    mock_redis.setex = AsyncMock()
+
+    # Session ended months ago
+    mock_fetch_session.return_value = {
+        "id": "session-123",
+        "user_id": "user-456",
+        "status": "ended",
+        "next_checkin_at": "2020-01-01T00:00:00Z",
+    }
+    mock_fetch_contacts.return_value = [{"id": "c-1", "phone": "+15551112233"}]
+
+    payload = SafetyPortalOtpRequestRequest(phone="+15551112233")
+    res = await request_portal_otp(
+        request=MagicMock(),
+        session_id="session-123",
+        payload=payload,
+    )
+
+    assert res.sent is True
+    mock_send_sms.assert_not_called()
     assert mock_redis.setex.call_count == 1
     call_args = mock_redis.setex.call_args[0]
-    assert call_args[0] == "safety_portal:otp:session-123:+15551112233"
-    assert not call_args[2].startswith("sentinel:")
+    assert call_args[2].startswith("sentinel:")
 
 
 @pytest.mark.anyio

@@ -188,6 +188,13 @@ def purge_expired_safety_evidence() -> None:
     if not rows:
         return
 
+    ids = [str(r["id"]) for r in rows if r.get("id")]
+    try:
+        supabase_client.table("safety_evidence").delete().in_("id", ids).execute()
+    except APIError:
+        logger.exception("Failed to delete expired safety evidence rows")
+        return
+
     paths = [str(r["storage_path"]) for r in rows if r.get("storage_path")]
     if paths:
         try:
@@ -196,12 +203,6 @@ def purge_expired_safety_evidence() -> None:
             logger.exception(
                 "Failed to remove expired safety evidence storage objects",
             )
-
-    ids = [str(r["id"]) for r in rows if r.get("id")]
-    try:
-        supabase_client.table("safety_evidence").delete().in_("id", ids).execute()
-    except APIError:
-        logger.exception("Failed to delete expired safety evidence rows")
 
 
 def purge_safety_data_for_purged_accounts() -> None:
@@ -238,12 +239,16 @@ def purge_safety_data_for_purged_accounts() -> None:
         paths = [
             str(r["storage_path"]) for r in evidence_rows if r.get("storage_path")
         ]
-        if paths:
-            with contextlib.suppress(Exception):
-                supabase_client.storage.from_("safety_evidence").remove(paths)
+
+        # Delete database records first to avoid orphan state on partial failures
         supabase_client.table("safety_evidence").delete().in_(
             "user_id", user_ids,
         ).execute()
+
+        # Clean up storage objects afterwards
+        if paths:
+            with contextlib.suppress(Exception):
+                supabase_client.storage.from_("safety_evidence").remove(paths)
     except APIError:
         logger.exception(
             "Failed to purge safety_evidence for purged accounts",

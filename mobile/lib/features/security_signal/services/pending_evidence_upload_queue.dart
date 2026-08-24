@@ -195,6 +195,7 @@ class PendingEvidenceUploadQueue {
             contentType: 'video',
             durationSeconds: segment.durationSeconds,
           );
+          segment.encryptedMediaKeyBase64 = null;
         }
 
         try {

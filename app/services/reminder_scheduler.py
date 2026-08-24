@@ -22,6 +22,7 @@ from app.core.infra.cache import redis_client
 from app.core.utils.sms import (
     compose_unreachable_message,
     make_escalation_cancel_token,
+    redact_phone,
     send_sms,
 )
 from app.db.chat import (
@@ -34,7 +35,7 @@ from app.db.chat import (
 from app.db.client import DatabaseAccessError, parse_utc_datetime, utcnow
 from app.db.safety import (
     fetch_overdue_safety_sessions,
-    fetch_safety_contacts,
+    fetch_safety_contacts_with_id,
     purge_expired_safety_evidence,
     purge_safety_data_for_purged_accounts,
     record_safety_escalation_sent,
@@ -263,6 +264,7 @@ def _compose_session_unreachable_message(
     session: dict[str, Any],
     session_id: str,
     escalation_number: int,
+    contact_id: str | None = None,
 ) -> str:
     event_context = session.get("event_context")
     event_label = (
@@ -270,7 +272,11 @@ def _compose_session_unreachable_message(
         if isinstance(event_context, dict)
         else None
     )
-    token = make_escalation_cancel_token(session_id, escalation_number)
+    token = make_escalation_cancel_token(
+        session_id,
+        escalation_number,
+        contact_id=contact_id,
+    )
     cancel_link = (
         f"{settings.backend_url}/api/v1/safety/escalation/"
         f"{session_id}/cancel?token={token}&reason=safe"
@@ -287,7 +293,7 @@ def _compose_session_unreachable_message(
 
 async def _dispatch_escalation_sms_and_record(
     contacts: list[dict[str, Any]],
-    body: str,
+    session: dict[str, Any],
     session_id: str,
     escalation_number: int,
     idempotency_key: str,
@@ -295,8 +301,28 @@ async def _dispatch_escalation_sms_and_record(
 ) -> None:
     notified = False
     for contact in contacts:
-        result = await send_sms(contact["phone"], body)
-        notified = notified or result.success
+        contact_id = str(contact.get("id") or "") if contact.get("id") else None
+        body = _compose_session_unreachable_message(
+            session,
+            session_id,
+            escalation_number,
+            contact_id=contact_id,
+        )
+        phone = str(contact.get("phone") or "")
+        result = await send_sms(phone, body)
+        if result.success:
+            notified = True
+        else:
+            logger.warning(
+                "Failed to send escalation SMS to trusted contact",
+                extra={
+                    "session_id_masked": _mask_id(session_id),
+                    "escalation_number": escalation_number,
+                    "contact_phone_masked": redact_phone(phone),
+                    "error": result.error,
+                    "error_code": result.error_code,
+                },
+            )
 
     if not notified:
         sentry_sdk.capture_message(
@@ -345,7 +371,7 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
 
     try:
         contacts = await asyncio.to_thread(
-            fetch_safety_contacts, str(session.get("user_id") or ""),
+            fetch_safety_contacts_with_id, str(session.get("user_id") or ""),
         )
     except DatabaseAccessError:
         logger.exception(
@@ -381,10 +407,9 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
             )
         return
 
-    body = _compose_session_unreachable_message(session, session_id, escalation_number)
     await _dispatch_escalation_sms_and_record(
         contacts,
-        body,
+        session,
         session_id,
         escalation_number,
         idempotency_key,
@@ -409,7 +434,7 @@ async def _check_overdue_safety_sessions() -> None:
     if not due_sessions:
         return
 
-    sem = asyncio.Semaphore(10)
+    sem = asyncio.Semaphore(20)
 
     async def _safe_escalate(session: dict[str, Any]) -> None:
         async with sem:

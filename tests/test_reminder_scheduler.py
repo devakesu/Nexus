@@ -225,7 +225,7 @@ def test_mark_safety_reminder_sent_claimed():
 
 
 @pytest.mark.anyio
-@patch("app.services.reminder_scheduler.fetch_safety_contacts")
+@patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
 @patch("app.services.reminder_scheduler.send_sms")
 @patch("app.services.reminder_scheduler.record_safety_escalation_sent")
 async def test_escalate_safety_session_idempotency_new(
@@ -243,7 +243,7 @@ async def test_escalate_safety_session_idempotency_new(
         "battery_percent": 80,
         "connection_type": "wifi",
     }
-    mock_fetch_contacts.return_value = [{"phone": "+1234567890"}]
+    mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
     mock_send_sms.return_value = MagicMock(success=True)
 
     mock_set = AsyncMock(return_value=True)
@@ -257,7 +257,7 @@ async def test_escalate_safety_session_idempotency_new(
 
 
 @pytest.mark.anyio
-@patch("app.services.reminder_scheduler.fetch_safety_contacts")
+@patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
 @patch("app.services.reminder_scheduler.send_sms")
 @patch("app.services.reminder_scheduler.record_safety_escalation_sent")
 async def test_escalate_safety_session_idempotency_duplicate(
@@ -273,7 +273,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
         "user_id": "user-456",
         "label": "Test User",
     }
-    mock_fetch_contacts.return_value = [{"phone": "+1234567890"}]
+    mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
 
     mock_set = AsyncMock(return_value=False)
 
@@ -286,7 +286,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
 
 
 @pytest.mark.anyio
-@patch("app.services.reminder_scheduler.fetch_safety_contacts")
+@patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
 @patch("app.services.reminder_scheduler.send_sms")
 @patch("app.services.reminder_scheduler.record_safety_escalation_sent")
 async def test_escalate_safety_session_idempotency_failed_sms(
@@ -302,7 +302,7 @@ async def test_escalate_safety_session_idempotency_failed_sms(
         "user_id": "user-456",
         "label": "Test User",
     }
-    mock_fetch_contacts.return_value = [{"phone": "+1234567890"}]
+    mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
     mock_send_sms.return_value = MagicMock(success=False)
 
     mock_set = AsyncMock(return_value=True)
@@ -568,7 +568,7 @@ def test_make_and_verify_escalation_cancel_token():
     )
 
     session_id = "session-test-token"
-    token = make_escalation_cancel_token(session_id, escalation_number=2)
+    token = make_escalation_cancel_token(session_id, escalation_number=2, contact_id="contact-abc")
 
     # Valid token verification returns the escalation number
     val = verify_escalation_cancel_token(session_id, token)
@@ -669,9 +669,62 @@ async def test_send_safety_alert_idempotency_new(
     assert res.id == "alert-789"
     assert res.contacts_notified == 1
     import hashlib
-    expected_hash = hashlib.sha256(b"user-123:00000000-0000-0000-0000-000000000000").hexdigest()
+    expected_hash = hashlib.sha256(b"user-123:sos_loud:00000000-0000-0000-0000-000000000000").hexdigest()
     mock_redis.get.assert_called_once_with(f"safety:sos:idempotency:{expected_hash}")
     mock_redis.set.assert_called_once()
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.redis_client")
+@patch("app.api.safety.endpoints.fetch_safety_contacts")
+@patch("app.api.safety.endpoints.send_sms")
+@patch("app.api.safety.endpoints.record_safety_alert")
+@patch("app.api.safety.endpoints.update_alert_contacts_notified")
+async def test_send_safety_alert_different_alert_types_distinct_idempotency(
+    _mock_update: MagicMock,
+    mock_record: MagicMock,
+    mock_send_sms: MagicMock,
+    mock_fetch_contacts: MagicMock,
+    mock_redis: MagicMock,
+):
+    from app.api.safety.endpoints import send_safety_alert
+    from app.models.safety import SafetyAlertRequest
+
+    # First call: inform
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+    mock_fetch_contacts.return_value = [{"phone": "+1234567890"}]
+    mock_send_sms.return_value = MagicMock(success=True)
+    mock_record.return_value = {"id": "alert-inform"}
+
+    payload_inform = SafetyAlertRequest(
+        alert_type="inform",
+        session_id="00000000-0000-0000-0000-000000000000",
+        session_label="test session",
+        event_label=None,
+        current_location=None,
+    )
+    res_inform = await send_safety_alert(request=MagicMock(), payload=payload_inform, user_id="user-123")
+    assert res_inform.id == "alert-inform"
+
+    # Second call: sos_loud within 60s for same session_id should NOT be blocked by inform cache
+    mock_record.return_value = {"id": "alert-sos"}
+    payload_sos = SafetyAlertRequest(
+        alert_type="sos_loud",
+        session_id="00000000-0000-0000-0000-000000000000",
+        session_label="test session",
+        event_label=None,
+        current_location=None,
+    )
+    res_sos = await send_safety_alert(request=MagicMock(), payload=payload_sos, user_id="user-123")
+    assert res_sos.id == "alert-sos"
+
+    import hashlib
+    inform_hash = hashlib.sha256(b"user-123:inform:00000000-0000-0000-0000-000000000000").hexdigest()
+    sos_hash = hashlib.sha256(b"user-123:sos_loud:00000000-0000-0000-0000-000000000000").hexdigest()
+    assert inform_hash != sos_hash
+    mock_redis.get.assert_any_call(f"safety:sos:idempotency:{inform_hash}")
+    mock_redis.get.assert_any_call(f"safety:sos:idempotency:{sos_hash}")
 
 
 @pytest.mark.anyio
@@ -791,10 +844,12 @@ async def test_send_safety_alert_db_error_no_sms(
 @pytest.mark.anyio
 async def test_register_evidence_path_traversal():
     from fastapi import HTTPException
+    from pydantic import ValidationError
 
     from app.api.safety.endpoints import register_evidence
     from app.models.safety import SafetyEvidenceRegisterRequest
 
+    # Wrong user prefix rejected by endpoint
     payload_wrong_user = SafetyEvidenceRegisterRequest(
         alert_id="alert-123",
         storage_path="other_user/file.mp4",
@@ -807,17 +862,26 @@ async def test_register_evidence_path_traversal():
         await register_evidence(request=MagicMock(), payload=payload_wrong_user, user_id="user-123")
     assert exc_info.value.status_code == 422
 
-    payload_traversal = SafetyEvidenceRegisterRequest(
-        alert_id="alert-123",
-        storage_path="user-123/../other_user/file.mp4",
-        media_key_base64="key",
-        content_type="video",
-        duration_seconds=10.0,
-    )
-
-    with pytest.raises(HTTPException) as exc_info:
-        await register_evidence(request=MagicMock(), payload=payload_traversal, user_id="user-123")
-    assert exc_info.value.status_code == 422
+    # Traversal patterns rejected by Pydantic model validation
+    invalid_traversal_paths = [
+        "user-123/../other_user/file.mp4",
+        "user-123/%2e%2e/other_user/file.mp4",
+        "user-123/%2E%2E/other_user/file.mp4",
+        "user-123\\other_user\\file.mp4",
+        "/user-123/file.mp4",
+        "user-123/\x00file.mp4",
+        "user-123/..",
+        "user-123/.",
+    ]
+    for invalid_path in invalid_traversal_paths:
+        with pytest.raises(ValidationError):
+            SafetyEvidenceRegisterRequest(
+                alert_id="alert-123",
+                storage_path=invalid_path,
+                media_key_base64="key",
+                content_type="video",
+                duration_seconds=10.0,
+            )
 
 
 def test_make_and_verify_contact_portal_token():
@@ -1330,6 +1394,83 @@ async def test_check_overdue_safety_sessions_concurrency(
     await _check_overdue_safety_sessions()
 
     assert mock_escalate.call_count == 3
+
+
+def test_purge_expired_safety_evidence_db_first() -> None:
+    from app.db.client import supabase_client
+    from app.db.safety.alerts import purge_expired_safety_evidence
+
+    mock_table = MagicMock()
+    mock_select = MagicMock()
+    mock_select.lt.return_value.execute.return_value = MagicMock(
+        data=[
+            {"id": "ev-1", "storage_path": "user-1/ev-1.enc"},
+            {"id": "ev-2", "storage_path": "user-2/ev-2.enc"},
+        ],
+    )
+    mock_table.select.return_value = mock_select
+    mock_delete = MagicMock()
+    mock_delete.in_.return_value.execute.return_value = MagicMock(data=[])
+    mock_table.delete.return_value = mock_delete
+
+    mock_storage = MagicMock()
+    mock_bucket = MagicMock()
+    mock_storage.from_.return_value = mock_bucket
+
+    with patch.object(type(supabase_client), "storage", new=mock_storage), \
+         patch.object(supabase_client, "table", return_value=mock_table):
+        purge_expired_safety_evidence()
+
+    # Verify DB deletion was executed
+    mock_table.delete.assert_called_once()
+    mock_delete.in_.assert_called_once_with("id", ["ev-1", "ev-2"])
+    # Verify storage removal was called with paths
+    mock_storage.from_.assert_called_once_with("safety_evidence")
+    mock_bucket.remove.assert_called_once_with(["user-1/ev-1.enc", "user-2/ev-2.enc"])
+
+
+def test_compose_unreachable_message_battery_copy() -> None:
+    from app.core.utils.sms import compose_unreachable_message
+
+    msg = compose_unreachable_message(
+        name="Alice",
+        escalation_number=1,
+        battery_percent=85,
+        connection_type="cellular",
+        event_label="Dinner",
+        cancel_link="https://nexus.test/cancel",
+    )
+    assert "device last reported battery 85%" in msg
+    assert "was on cellular" in msg
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.send_sms")
+async def test_send_alert_sms_to_contacts_failure_logs_contact_identifier(
+    mock_send_sms: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.api.safety.endpoints import _send_alert_sms_to_contacts
+    from app.core.utils.sms import ProviderResult
+
+    mock_send_sms.return_value = ProviderResult(
+        success=False,
+        provider="Twilio",
+        error="Invalid phone number",
+        error_code=21211,
+    )
+
+    contacts = [{"id": "c-1", "phone": "+14155551234"}]
+    with caplog.at_level("WARNING"):
+        notified = await _send_alert_sms_to_contacts(
+            contacts=contacts,
+            body="Emergency alert",
+            user_id="user-123",
+            alert_type="sos_loud",
+        )
+
+    assert notified == 0
+    assert any("Failed to notify a trusted contact" in r.message for r in caplog.records)
 
 
 

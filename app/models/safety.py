@@ -1,6 +1,8 @@
 """Meetup Safety, safety portal, and trusted-contact portal Pydantic models."""
 
 import re
+import unicodedata
+import urllib.parse
 from datetime import datetime
 from typing import Literal
 
@@ -126,6 +128,36 @@ class SafetyEvidenceRegisterRequest(BaseModel):
     content_type: Literal["video", "audio"]
     duration_seconds: float | None = None
 
+    @field_validator("storage_path")
+    @classmethod
+    def validate_storage_path(cls, value: str) -> str:
+        """Validates that storage_path does not contain traversal, backslashes, leading slashes, null bytes, or URL-encoded escapes."""
+        if not value or not value.strip():
+            raise ValueError("storage_path is mandatory.")
+        stripped = value.strip()
+        if len(stripped) > 500:
+            raise ValueError("storage_path must be less than 500 characters.")
+
+        # URL decode and NFKC normalize
+        decoded = urllib.parse.unquote(stripped)
+        normalized = unicodedata.normalize("NFKC", decoded).strip()
+
+        if (
+            "\x00" in normalized
+            or "\\" in normalized
+            or normalized.startswith("/")
+            or ".." in normalized
+        ):
+            raise ValueError("storage_path contains invalid characters or traversal sequences.")
+
+        parts = normalized.split("/")
+        if len(parts) < 2:
+            raise ValueError("storage_path must contain at least user_id and filename.")
+        for segment in parts:
+            if not segment or segment in (".", "..") or ".." in segment:
+                raise ValueError("storage_path contains invalid path segments.")
+        return normalized
+
 
 class SafetyEvidenceRegisterResponse(BaseModel):
     """Safetyevidenceregisterresponse class representation."""
@@ -134,7 +166,7 @@ class SafetyEvidenceRegisterResponse(BaseModel):
 
 class SafetySessionStartRequest(BaseModel):
     """Safetysessionstartrequest class representation."""
-    interval_seconds: int = Field(..., gt=0, le=86400)
+    interval_seconds: int = Field(..., ge=60, le=86400)
     label: str | None = Field(default=None, max_length=200)
     event_label: str | None = Field(default=None, max_length=200)
     next_checkin_at: datetime
@@ -195,6 +227,13 @@ class SafetySessionEndRequest(BaseModel):
         except ValueError as e:
             raise ValueError("session_id must be a valid UUID") from e
         return v
+
+
+class EscalationCancelRequest(BaseModel):
+    """Request model for POST-based escalation cancellation."""
+    token: str = Field(..., min_length=1)
+    reason: Literal["safe", "other"]
+    note: str | None = Field(default=None, max_length=500)
 
 
 class SafetyPortalOtpRequestRequest(BaseModel):

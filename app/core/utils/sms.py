@@ -33,6 +33,7 @@ class ProviderResult(BaseModel):
     provider: Literal["Twilio"]
     id: str | None = None
     error: str | None = None
+    error_code: int | str | None = None
 
 
 def redact_phone(phone: str) -> str:
@@ -57,20 +58,14 @@ async def send_via_twilio(to: str, body: str) -> ProviderResult:
 
     Returns:
         ProviderResult: Execution status and Twilio message SID or error details.
-
-    Raises:
-        ValueError: If Twilio credentials are missing.
     """
-    if not has_twilio:
-        raise ValueError("Twilio not configured")
-
     account_sid = settings.twilio_account_sid
     auth_token = settings.twilio_auth_token
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+    from_number = settings.twilio_from_number or ""
 
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
     basic_auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
 
-    from_number = settings.twilio_from_number or ""
     post_data = {
         "To": to,
         "Body": body,
@@ -94,9 +89,16 @@ async def send_via_twilio(to: str, body: str) -> ProviderResult:
             try:
                 err_data = res.json()
                 err_msg = err_data.get("message", f"Twilio error: {res.status_code}")
+                err_code = err_data.get("code")
             except Exception:  # noqa: BLE001
                 err_msg = f"Twilio error: {res.status_code}"
-            return ProviderResult(success=False, provider="Twilio", error=err_msg)
+                err_code = None
+            return ProviderResult(
+                success=False,
+                provider="Twilio",
+                error=err_msg,
+                error_code=err_code,
+            )
 
         try:
             data = res.json()
@@ -316,7 +318,7 @@ def compose_unreachable_message(
     ]
     context_bits: list[str] = []
     if battery_percent is not None:
-        context_bits.append(f"last known battery: {battery_percent}%")
+        context_bits.append(f"device last reported battery {battery_percent}%")
     if clean_conn:
         context_bits.append(f"was on {clean_conn}")
     if context_bits:
@@ -344,13 +346,15 @@ def _sign_escalation_cancel_payload(payload: str) -> str:
 def make_escalation_cancel_token(
     session_id: str,
     escalation_number: int,
+    contact_id: str | None = None,
     ttl_seconds: int = _ESCALATION_CANCEL_TOKEN_TTL_SECONDS,
 ) -> str:
-    """Generates a signed, time-bound cancellation token for an escalation session and attempt.
+    """Generates a signed, time-bound cancellation token bound to an escalation session, attempt, and contact.
 
     Args:
         session_id: Safety session identifier string.
         escalation_number: The escalation attempt number (1..3).
+        contact_id: Optional trusted contact UUID identifier string.
         ttl_seconds: Validity period in seconds (defaults to 24 hours).
 
     Returns:
@@ -359,7 +363,7 @@ def make_escalation_cancel_token(
     expires_at = int(
         (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).timestamp(),
     )
-    payload = f"{session_id}:{escalation_number}:{expires_at}"
+    payload = f"{session_id}:{escalation_number}:{contact_id or 'all'}:{expires_at}"
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     signature = _sign_escalation_cancel_payload(payload)
     return f"{payload_b64}.{signature}"
@@ -382,10 +386,13 @@ def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
         payload_b64, signature = token.split(".", 1)
         padding = "=" * (-len(payload_b64) % 4)
         payload = base64.urlsafe_b64decode(payload_b64 + padding).decode()
-        parts = payload.split(":", 2)
-        if len(parts) != 3:
+        parts = payload.split(":")
+        if len(parts) == 4:
+            token_session_id, escalation_number_str, _contact_id_str, expires_at_raw = parts
+        elif len(parts) == 3:
+            token_session_id, escalation_number_str, expires_at_raw = parts
+        else:
             return None
-        token_session_id, escalation_number_str, expires_at_raw = parts
         escalation_number = int(escalation_number_str)
         expires_at = int(expires_at_raw)
     except (ValueError, UnicodeDecodeError):

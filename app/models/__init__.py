@@ -82,6 +82,7 @@ from app.models.profile import (
     RegisterDeviceRequest,
 )
 from app.models.safety import (
+    EscalationCancelRequest,
     SafetyAlertRequest,
     SafetyAlertResponse,
     SafetyContactIn,
@@ -192,6 +193,7 @@ __all__ = [
     "DiscoveryViewportResponse",
     "EmailNotificationSettingsResponse",
     "EmailNotificationSettingsUpdate",
+    "EscalationCancelRequest",
     "EstablishSessionRequest",
     "EventResponse",
     "ExportCodeResponse",

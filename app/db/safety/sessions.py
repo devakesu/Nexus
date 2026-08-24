@@ -1,5 +1,6 @@
 """Safety check-in session lifecycle and dead-man-switch escalation scheduling."""
 
+import html
 import logging
 from datetime import timedelta
 from typing import Any, cast
@@ -261,6 +262,7 @@ def cancel_safety_escalation(
     note: str | None,
 ) -> dict[str, Any] | None:
     """Cancel safety escalation idempotently."""
+    sanitized_note = html.escape(note.strip())[:500] if note else None
     try:
         res = (
             supabase_client.table("safety_sessions")
@@ -268,7 +270,7 @@ def cancel_safety_escalation(
                 {
                     "escalation_cancelled_at": utcnow().isoformat(),
                     "escalation_cancel_reason": reason,
-                    "escalation_cancel_note": note,
+                    "escalation_cancel_note": sanitized_note,
                 },
             )
             .eq("id", session_id)

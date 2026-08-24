@@ -141,3 +141,51 @@ def test_update_safety_data_consent_requires_general_terms(
     assert exc_info.value.status_code == 409
     assert "General terms must be accepted" in exc_info.value.detail
 
+
+@pytest.mark.anyio
+@patch("app.api.user.auth_otp.redis_client.delete", new_callable=MagicMock)
+@patch("app.api.user.auth_otp.update_safety_data_consent")
+@patch("app.api.user.auth_otp.update_user_terms")
+@patch("app.api.user.auth_otp.fetch_public_user")
+async def test_update_consent_invalidates_user_status_cache(
+    mock_fetch_user: MagicMock,
+    mock_update_terms: MagicMock,
+    mock_update_safety: MagicMock,
+    mock_redis_delete: MagicMock,
+) -> None:
+    from typing import Any
+    from unittest.mock import AsyncMock
+    from fastapi import Request
+    from app.core.config import settings
+    from app.api.user.auth_otp import accept_terms
+    from app.models import ConsentUpdateRequest
+
+    mock_redis_delete.return_value = AsyncMock()()
+    mock_fetch_user.return_value = {
+        "id": "user-999",
+        "is_suspended": False,
+        "is_banned": False,
+        "is_under_review": False,
+        "scheduled_for_deletion_at": None,
+    }
+    mock_update_terms.return_value = (settings.current_terms_version, "2026-08-24T12:00:00Z")
+    mock_update_safety.return_value = (settings.current_terms_version, "2026-08-24T12:00:00Z")
+
+    scope: dict[str, Any] = {"type": "http", "headers": [], "path": "/"}
+    request = Request(scope)
+
+    payload = ConsentUpdateRequest(
+        terms_version=settings.current_terms_version,
+        general_accepted=True,
+        safety_data_accepted=True,
+    )
+
+    res = await accept_terms(
+        request=request,
+        payload=payload,
+        auth_user={"id": "user-999", "email": "test@example.com"},
+    )
+
+    assert res.user_id == "user-999"
+    mock_redis_delete.assert_called_once_with("user:status:user-999")
+

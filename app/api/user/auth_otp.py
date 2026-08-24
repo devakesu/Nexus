@@ -702,6 +702,12 @@ async def accept_terms(
             granted=payload.safety_data_accepted,
         )
 
+    # Proactively invalidate user:status cache so consent updates take effect immediately
+    try:
+        await redis_client.delete(f"user:status:{user_id}")
+    except Exception:
+        logger.warning("Failed to invalidate user status cache on consent update", exc_info=True)
+
     return ConsentUpdateResponse(
         user_id=user_id,
         accepted_terms_version=general_result[0] if general_result else None,

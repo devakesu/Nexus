@@ -9,7 +9,10 @@ import hashlib
 import html
 import json
 import logging
+import unicodedata
+import urllib.parse
 import uuid
+from datetime import timedelta
 from typing import Any
 
 import sentry_sdk
@@ -31,6 +34,7 @@ from app.core.utils.sms import (
     compose_inform_message,
     compose_sos_message,
     make_contact_portal_token,
+    redact_phone,
     sanitize_sms_text,
     send_sms,
     verify_escalation_cancel_token,
@@ -53,6 +57,7 @@ from app.db.safety import (
     update_alert_contacts_notified,
 )
 from app.models import (
+    EscalationCancelRequest,
     SafetyAlertRequest,
     SafetyAlertResponse,
     SafetyContactsSyncRequest,
@@ -174,13 +179,20 @@ async def _send_alert_sms_to_contacts(
 ) -> int:
     notified = 0
     for contact in contacts:
-        result = await send_sms(contact["phone"], body)
+        phone = str(contact.get("phone") or "")
+        result = await send_sms(phone, body)
         if result.success:
             notified += 1
         else:
             logger.warning(
                 "Failed to notify a trusted contact",
-                extra={"user_id": user_id, "alert_type": alert_type},
+                extra={
+                    "user_id": user_id,
+                    "alert_type": alert_type,
+                    "contact_phone_masked": redact_phone(phone),
+                    "error": result.error,
+                    "error_code": result.error_code,
+                },
             )
     return notified
 
@@ -259,7 +271,7 @@ async def send_safety_alert(
     _ = request
 
     hashed_suffix = hashlib.sha256(
-        f"{user_id}:{payload.session_id or 'none'}".encode(),
+        f"{user_id}:{payload.alert_type}:{payload.session_id or 'none'}".encode(),
     ).hexdigest()
     idempotency_key = f"safety:sos:idempotency:{hashed_suffix}"
     cached_response = await _check_cached_sos_alert(idempotency_key, user_id, payload.session_id)
@@ -330,8 +342,23 @@ async def register_evidence(
     """
     _ = request
 
+    decoded_path = urllib.parse.unquote(payload.storage_path)
+    normalized_path = unicodedata.normalize("NFKC", decoded_path).strip()
     own_prefix = f"{user_id}/"
-    if not payload.storage_path.startswith(own_prefix) or ".." in payload.storage_path:
+    if (
+        not normalized_path.startswith(own_prefix)
+        or ".." in normalized_path
+        or "\\" in normalized_path
+        or "\x00" in normalized_path
+        or normalized_path.startswith("/")
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="storage_path may only reference your own uploads.",
+        )
+
+    parts = normalized_path.split("/")
+    if len(parts) < 2 or parts[0] != user_id or any(s in (".", "..") or ".." in s for s in parts):
         raise HTTPException(
             status_code=422,
             detail="storage_path may only reference your own uploads.",
@@ -359,7 +386,7 @@ async def register_evidence(
             register_safety_evidence,
             user_id,
             payload.alert_id,
-            payload.storage_path,
+            normalized_path,
             payload.media_key_base64,
             payload.content_type,
             payload.duration_seconds,
@@ -397,10 +424,17 @@ async def start_session(
 
     event_context = {"label": payload.event_label} if payload.event_label else None
 
-    if payload.next_checkin_at <= utcnow():
+    now = utcnow()
+    if payload.next_checkin_at <= now:
         raise HTTPException(
             status_code=400,
             detail="next_checkin_at must be in the future.",
+        )
+    max_start_checkin = now + timedelta(seconds=max(payload.interval_seconds * 2, 3600))
+    if payload.next_checkin_at > max_start_checkin:
+        raise HTTPException(
+            status_code=400,
+            detail="next_checkin_at exceeds maximum allowed window for this interval.",
         )
 
     try:
@@ -446,10 +480,16 @@ async def checkin_session(
     """
     _ = request
 
-    if payload.next_checkin_at <= utcnow():
+    now = utcnow()
+    if payload.next_checkin_at <= now:
         raise HTTPException(
             status_code=400,
             detail="next_checkin_at must be in the future.",
+        )
+    if payload.next_checkin_at > now + timedelta(days=2):
+        raise HTTPException(
+            status_code=400,
+            detail="next_checkin_at exceeds maximum allowed window.",
         )
 
     try:
@@ -512,20 +552,13 @@ async def end_session(
     return {"ok": True}
 
 
-@router.get("/api/v1/safety/escalation/{session_id}/cancel")
-@limiter.limit(settings.rate_limit_safety)
-async def cancel_escalation(
-    request: Request,
+async def _handle_cancel_escalation(
     session_id: str,
-    token: str = Query(...),
-    reason: str = Query(...),
-    note: str | None = Query(default=None, max_length=500),
+    token: str,
+    reason: str,
+    note: str | None,
 ) -> HTMLResponse:
-    """Lets a trusted contact stop further "device unreachable" alerts from
-    a plain link in the SMS - they have no Nexus account, so a signed token
-    in the URL stands in for auth instead of the usual dependency stack.
-    """
-    _ = request
+    """Internal helper to process escalation cancellation for both GET and POST requests."""
     if reason not in ("safe", "other"):
         return HTMLResponse(
             _escalation_page("That link looks malformed."),
@@ -585,12 +618,13 @@ async def cancel_escalation(
                 status_code=404,
             )
 
+        sanitized_note = html.escape(note.strip())[:500] if note else None
         await asyncio.to_thread(
             cancel_safety_escalation,
             user_id,
             session_id,
             reason,
-            note,
+            sanitized_note,
         )
     except DatabaseAccessError as err:
         logger.exception(
@@ -609,6 +643,47 @@ async def cancel_escalation(
             if reason == "safe"
             else "Got it - further alerts for this check-in are now stopped.",
         ),
+    )
+
+
+@router.get("/api/v1/safety/escalation/{session_id}/cancel")
+@limiter.limit(settings.rate_limit_safety)
+async def cancel_escalation(
+    request: Request,
+    session_id: str,
+    token: str = Query(...),
+    reason: str = Query(...),
+    note: str | None = Query(default=None, max_length=500),
+) -> HTMLResponse:
+    """Lets a trusted contact stop further "device unreachable" alerts from
+    a plain link in the SMS - they have no Nexus account, so a signed token
+    in the URL stands in for auth instead of the usual dependency stack.
+    """
+    _ = request
+    return await _handle_cancel_escalation(
+        session_id=session_id,
+        token=token,
+        reason=reason,
+        note=note,
+    )
+
+
+@router.post("/api/v1/safety/escalation/{session_id}/cancel")
+@limiter.limit(settings.rate_limit_safety)
+async def cancel_escalation_post(
+    request: Request,
+    session_id: str,
+    payload: EscalationCancelRequest,
+) -> HTMLResponse:
+    """Lets a trusted contact landing page or client cancel escalations via POST body
+    without exposing the security token in URL query strings.
+    """
+    _ = request
+    return await _handle_cancel_escalation(
+        session_id=session_id,
+        token=payload.token,
+        reason=payload.reason,
+        note=payload.note,
     )
 
 

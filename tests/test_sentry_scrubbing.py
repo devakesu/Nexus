@@ -64,12 +64,14 @@ def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
                 "refresh_token": "super_secret_refresh_token_value_60_days",
                 "access_token": "ephemeral_access_token_value",
                 "session_id": "sess-12345",
+                "media_key_base64": "dGVzdC1rZXktYmFzZTY0",
                 "safe_field": "visible_data",
             },
             "auth_payload": {
                 "password": "mysecretpassword123",
                 "jwt": "eyJhbGciOi...",
                 "authorization": "Bearer token123",
+                "media_key": "raw_media_key_bytes",
             },
         },
     }
@@ -83,10 +85,12 @@ def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
     assert extra["response"]["refresh_token"] == "[REDACTED_SENSITIVE]"
     assert extra["response"]["access_token"] == "[REDACTED_SENSITIVE]"
     assert extra["response"]["session_id"] == "[REDACTED_SENSITIVE]"
+    assert extra["response"]["media_key_base64"] == "[REDACTED_SENSITIVE]"
     assert extra["response"]["safe_field"] == "visible_data"
     assert extra["auth_payload"]["password"] == "[REDACTED_SENSITIVE]"
     assert extra["auth_payload"]["jwt"] == "[REDACTED_SENSITIVE]"
     assert extra["auth_payload"]["authorization"] == "[REDACTED_SENSITIVE]"
+    assert extra["auth_payload"]["media_key"] == "[REDACTED_SENSITIVE]"
 
 
 def test_scrub_event_scrubs_stack_frame_local_vars() -> None:

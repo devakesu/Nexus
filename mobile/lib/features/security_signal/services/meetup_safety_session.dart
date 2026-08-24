@@ -97,6 +97,7 @@ class MeetupSafetySession extends ChangeNotifier {
   Timer? _dueTimer;
 
   bool isActive = false;
+  bool hasSyncWarning = false;
   Duration checkInInterval = const Duration(hours: 1);
   DateTime? nextCheckInAt;
   String checkInLabel = '';
@@ -475,12 +476,44 @@ class MeetupSafetySession extends ChangeNotifier {
     final at = nextCheckInAt;
     if (sessionId == null || at == null) return;
     final (batteryPercent, connectionType) = await _gatherDeviceState();
-    await SafetyAlertApi.checkinSession(
-      sessionId: sessionId,
-      nextCheckInAt: at,
-      batteryPercent: batteryPercent,
-      connectionType: connectionType,
-    );
+
+    const maxAttempts = 3;
+    var attempt = 0;
+    var success = false;
+
+    while (attempt < maxAttempts && !success) {
+      attempt++;
+      try {
+        final res = await SafetyAlertApi.checkinSession(
+          sessionId: sessionId,
+          nextCheckInAt: at,
+          batteryPercent: batteryPercent,
+          connectionType: connectionType,
+        );
+        if (res) {
+          success = true;
+        } else if (attempt < maxAttempts) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 500 * (1 << (attempt - 1))),
+          );
+        }
+      } on Exception catch (e) {
+        ErrorHandler.handleError(e, showUi: false);
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 500 * (1 << (attempt - 1))),
+          );
+        }
+      }
+    }
+
+    if (!success) {
+      hasSyncWarning = true;
+      notifyListeners();
+    } else if (hasSyncWarning) {
+      hasSyncWarning = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _mirrorEnd() async {
@@ -541,6 +574,7 @@ class MeetupSafetySession extends ChangeNotifier {
     final permissionStatus = await ensureAndroidPermissions();
     final generation = ++_sessionGeneration;
     isActive = true;
+    hasSyncWarning = false;
     checkInInterval = interval;
     checkInLabel = label;
     nextCheckInAt = DateTime.now().add(interval);
@@ -578,6 +612,7 @@ class MeetupSafetySession extends ChangeNotifier {
   Future<void> end() async {
     ++_sessionGeneration;
     isActive = false;
+    hasSyncWarning = false;
     nextCheckInAt = null;
     checkInLabel = '';
     _dueTimer?.cancel();

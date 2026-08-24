@@ -36,6 +36,57 @@ async def test_start_session_past_checkin_rejected() -> None:
 
 
 @pytest.mark.anyio
+async def test_start_session_interval_minimum_enforced() -> None:
+    from pydantic import ValidationError
+
+    now = datetime.now(timezone.utc)
+    # Intervals under 60 seconds rejected
+    with pytest.raises(ValidationError):
+        SafetySessionStartRequest(
+            interval_seconds=1,
+            next_checkin_at=now + timedelta(seconds=1),
+        )
+    with pytest.raises(ValidationError):
+        SafetySessionStartRequest(
+            interval_seconds=59,
+            next_checkin_at=now + timedelta(seconds=59),
+        )
+    # Valid interval >= 60
+    req = SafetySessionStartRequest(
+        interval_seconds=60,
+        next_checkin_at=now + timedelta(seconds=60),
+    )
+    assert req.interval_seconds == 60
+
+
+@pytest.mark.anyio
+async def test_start_session_far_future_checkin_rejected() -> None:
+    now = datetime.now(timezone.utc)
+    # interval is 30m (1800s); next_checkin_at 5 hours in future exceeds max window
+    payload = SafetySessionStartRequest(
+        interval_seconds=1800,
+        next_checkin_at=now + timedelta(hours=5),
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await start_session(
+            request=request,
+            payload=payload,
+            user_id="user-123",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "next_checkin_at exceeds maximum allowed window for this interval." in exc_info.value.detail
+
+
+@pytest.mark.anyio
 async def test_checkin_session_past_checkin_rejected() -> None:
     now = datetime.now(timezone.utc)
     payload = SafetySessionCheckinRequest(
@@ -59,6 +110,33 @@ async def test_checkin_session_past_checkin_rejected() -> None:
 
     assert exc_info.value.status_code == 400
     assert "next_checkin_at must be in the future." in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_checkin_session_far_future_checkin_rejected() -> None:
+    now = datetime.now(timezone.utc)
+    # next_checkin_at 10 years in the future rejected
+    payload = SafetySessionCheckinRequest(
+        session_id="11111111-1111-1111-1111-111111111111",
+        next_checkin_at=now + timedelta(days=3650),
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await checkin_session(
+            request=request,
+            payload=payload,
+            user_id="user-123",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "next_checkin_at exceeds maximum allowed window." in exc_info.value.detail
 
 
 @pytest.mark.anyio
@@ -240,6 +318,139 @@ def test_cancel_safety_escalation_db_ownership() -> None:
         (("user_id", "user-123"),),
     ]
     mock_builder.is_.assert_called_once_with("escalation_cancelled_at", "null")
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.verify_escalation_cancel_token")
+@patch("app.api.safety.endpoints.fetch_safety_session")
+@patch("app.api.safety.endpoints.cancel_safety_escalation")
+async def test_cancel_escalation_escapes_html_note(
+    mock_cancel: MagicMock,
+    mock_fetch: MagicMock,
+    mock_verify: MagicMock,
+) -> None:
+    mock_verify.return_value = 1
+    mock_fetch.return_value = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "user_id": "user-123",
+        "escalations_sent": 1,
+        "escalation_cancelled_at": None,
+    }
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await cancel_escalation(
+        request=request,
+        session_id="11111111-1111-1111-1111-111111111111",
+        token="valid-token",
+        reason="safe",
+        note="<script>alert(1)</script>Safe & Sound",
+    )
+
+    assert res.status_code == 200
+    mock_cancel.assert_called_once_with(
+        "user-123",
+        "11111111-1111-1111-1111-111111111111",
+        "safe",
+        "&lt;script&gt;alert(1)&lt;/script&gt;Safe &amp; Sound",
+    )
+
+
+def test_cancel_safety_escalation_db_escapes_html() -> None:
+    from app.db.safety.sessions import cancel_safety_escalation
+
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "session-123", "user_id": "user-123"}])
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+        cancel_safety_escalation(
+            user_id="user-123",
+            session_id="session-123",
+            reason="safe",
+            note="<img src=x onerror=alert(1)>",
+        )
+
+    update_args = mock_builder.update.call_args[0][0]
+    assert update_args["escalation_cancel_note"] == "&lt;img src=x onerror=alert(1)&gt;"
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.endpoints.verify_escalation_cancel_token")
+@patch("app.api.safety.endpoints.fetch_safety_session")
+@patch("app.api.safety.endpoints.cancel_safety_escalation")
+async def test_cancel_escalation_post_success(
+    mock_cancel: MagicMock,
+    mock_fetch: MagicMock,
+    mock_verify: MagicMock,
+) -> None:
+    from app.api.safety.endpoints import cancel_escalation_post
+    from app.models import EscalationCancelRequest
+
+    mock_verify.return_value = 1
+    mock_fetch.return_value = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "user_id": "user-123",
+        "escalations_sent": 1,
+        "escalation_cancelled_at": None,
+    }
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    payload = EscalationCancelRequest(
+        token="valid-post-token",
+        reason="safe",
+        note="Everything is fine",
+    )
+
+    res = await cancel_escalation_post(
+        request=request,
+        session_id="11111111-1111-1111-1111-111111111111",
+        payload=payload,
+    )
+
+    assert res.status_code == 200
+    mock_cancel.assert_called_once_with(
+        "user-123",
+        "11111111-1111-1111-1111-111111111111",
+        "safe",
+        "Everything is fine",
+    )
+
+
+def test_backend_url_https_validation() -> None:
+    from app.core.config import Settings
+
+    # In production (debug=False), http:// should raise ValueError
+    with pytest.raises(ValueError, match="backend_url must start with 'https://' in production"):
+        Settings(
+            app_domain="nexus.example.com",
+            backend_url="http://insecure-backend.com",
+            debug=False,
+        )
+
+    # In production with https://, should succeed
+    s = Settings(
+        app_domain="nexus.example.com",
+        backend_url="https://secure-backend.com",
+        debug=False,
+    )
+    assert s.backend_url == "https://secure-backend.com"
 
 
 def test_fetch_safety_session_for_user_scopes_by_id_and_user_id() -> None:
