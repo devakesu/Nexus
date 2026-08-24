@@ -16,9 +16,11 @@ from app.api.dependencies import (
 )
 from app.core.config import settings
 from app.core.infra.limiter import limiter
+from app.core.security.crypto import verify_signed_prekey_signature
 from app.db.chat import (
     bulk_insert_one_time_prekeys,
     count_unused_one_time_prekeys,
+    fetch_identity_key,
     fetch_key_bundle,
     has_active_match,
     mark_session_established,
@@ -84,6 +86,31 @@ async def upload_signed_prekey(
     """Stores caller's signed prekey for Signal protocol session establishment."""
     _ = request
     try:
+        identity = await asyncio.to_thread(fetch_identity_key, user_id)
+        if identity is None:
+            logger.warning(
+                "Upload signed prekey requested before identity key registered",
+                extra={"user_id": user_id},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Identity key not registered. Upload identity key first.",
+            )
+
+        if not verify_signed_prekey_signature(
+            identity["identity_public_key"],
+            payload.public_key,
+            payload.signature,
+        ):
+            logger.warning(
+                "Invalid signed prekey signature",
+                extra={"user_id": user_id, "key_id": payload.key_id},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Signed prekey signature invalid",
+            )
+
         await asyncio.to_thread(
             upsert_signed_prekey,
             user_id,
@@ -92,6 +119,8 @@ async def upload_signed_prekey(
             payload.signature,
         )
         return {"success": True}
+    except HTTPException:
+        raise
     except ProfileNotFoundError as err:
         logger.warning(
             "Upload signed prekey requested but profile not found",

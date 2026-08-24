@@ -26,6 +26,7 @@ from app.db.chat.chat import (
 from app.db.chat.keys import (
     bulk_insert_one_time_prekeys,
     count_unused_one_time_prekeys,
+    fetch_identity_key,
     fetch_key_bundle,
     has_active_match,
     mark_session_established,
@@ -48,6 +49,7 @@ __all__ = [
     "fetch_due_event_reminders",
     "fetch_due_safety_reminders",
     "fetch_event",
+    "fetch_identity_key",
     "fetch_key_bundle",
     "fetch_presence",
     "fetch_started_match_ids",

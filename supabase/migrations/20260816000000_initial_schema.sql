@@ -434,14 +434,14 @@ BEGIN
       AND rotated_at IS NULL
       AND key_id <> new_key_id;
 
-    -- Insert the new key, or update it in-place if the same key_id was already
-    -- uploaded (idempotent re-upload after reactivation / retry).
+    -- Insert the new key, or update it in-place only if currently un-rotated.
+    -- (Never re-activate a previously rotated key_id).
     INSERT INTO public.chat_signed_prekeys (user_id, key_id, public_key, signature)
     VALUES (target_user_id, new_key_id, new_public_key, new_signature)
     ON CONFLICT (user_id, key_id) DO UPDATE
         SET public_key  = EXCLUDED.public_key,
-            signature   = EXCLUDED.signature,
-            rotated_at  = NULL;  -- re-activate if it was previously rotated
+            signature   = EXCLUDED.signature
+        WHERE chat_signed_prekeys.rotated_at IS NULL;
 END;
 $$;
 
@@ -570,7 +570,7 @@ CREATE TABLE IF NOT EXISTS "public"."chat_identity_keys" (
 
 ALTER TABLE "public"."chat_identity_keys" OWNER TO "postgres";
 
-COMMENT ON TABLE "public"."chat_identity_keys" IS 'One Signal Protocol identity public key per user (single device for v1). Private key never leaves the device.';
+COMMENT ON TABLE "public"."chat_identity_keys" IS 'One Signal Protocol identity public key per user (single device for v1). Private key never leaves the device. Write access (INSERT, UPDATE, DELETE) is intentionally restricted to service-role only via backend APIs; direct writes by authenticated or anon roles are strictly disallowed.';
 
 CREATE TABLE IF NOT EXISTS "public"."chat_messages" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -604,7 +604,7 @@ CREATE TABLE IF NOT EXISTS "public"."chat_one_time_prekeys" (
 
 ALTER TABLE "public"."chat_one_time_prekeys" OWNER TO "postgres";
 
-COMMENT ON TABLE "public"."chat_one_time_prekeys" IS 'One-time prekey pool for X3DH. Each row may be claimed (used_at set) exactly once via claim_one_time_prekey().';
+COMMENT ON TABLE "public"."chat_one_time_prekeys" IS 'One-time prekey pool for X3DH. Each row may be claimed (used_at set) exactly once via claim_one_time_prekey(). Write access (INSERT, UPDATE, DELETE) is intentionally restricted to service-role only via backend APIs and claim_one_time_prekey() RPC; direct writes by authenticated or anon roles are strictly disallowed.';
 
 CREATE TABLE IF NOT EXISTS "public"."chat_presence" (
     "user_id" "uuid" NOT NULL,
@@ -629,7 +629,7 @@ CREATE TABLE IF NOT EXISTS "public"."chat_signed_prekeys" (
 
 ALTER TABLE "public"."chat_signed_prekeys" OWNER TO "postgres";
 
-COMMENT ON TABLE "public"."chat_signed_prekeys" IS 'Rotating signed prekeys used in X3DH. Current key for a user = most recent row with rotated_at IS NULL.';
+COMMENT ON TABLE "public"."chat_signed_prekeys" IS 'Rotating signed prekeys used in X3DH. Current key for a user = most recent row with rotated_at IS NULL. Write access (INSERT, UPDATE, DELETE) is intentionally restricted to service-role only via upsert_signed_prekey() RPC; direct writes by authenticated or anon roles are strictly disallowed.';
 
 CREATE TABLE IF NOT EXISTS "public"."deleted_account_blocklist" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
@@ -1968,6 +1968,8 @@ CREATE POLICY "chat_events_select_participant" ON "public"."chat_events" FOR SEL
    FROM "public"."chat_conversations" "c"
   WHERE (("c"."id" = "chat_events"."conversation_id") AND (("c"."user_a_id" = ( SELECT "auth"."uid"() AS "uid")) OR ("c"."user_b_id" = ( SELECT "auth"."uid"() AS "uid")))))));
 
+-- Chat key tables: writes (INSERT, UPDATE, DELETE) are intentionally restricted to service-role only.
+-- Authenticated users only have SELECT policies on their own keys.
 ALTER TABLE "public"."chat_identity_keys" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."chat_identity_keys" FORCE ROW LEVEL SECURITY;
 CREATE POLICY "chat_identity_keys_owner_select" ON "public"."chat_identity_keys" FOR SELECT TO "authenticated" USING (("user_id" = ( SELECT "auth"."uid"() AS "uid")));

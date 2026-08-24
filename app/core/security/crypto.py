@@ -8,7 +8,9 @@ import hashlib
 import hmac
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from app.core.config import settings
 
@@ -130,5 +132,74 @@ def get_hmac_signing_key() -> bytes:
             "HMAC_SIGNING_KEY must be configured for signing and verifying tokens.",
         )
     return key.encode("utf-8")
+
+
+def verify_signed_prekey_signature(
+    identity_public_key: bytes,
+    signed_prekey_public: bytes,
+    signature: bytes,
+) -> bool:
+    """Verifies that a signed prekey's public key was signed by the owner's identity key.
+
+    Supports XEdDSA (Curve25519-to-Ed25519) as used by Signal Protocol and libsignal,
+    as well as standard Ed25519 signatures.
+
+    Args:
+        identity_public_key: 32-byte or 33-byte (0x05-prefixed) identity public key.
+        signed_prekey_public: 32-byte or 33-byte (0x05-prefixed) signed prekey public key.
+        signature: 64-byte cryptographic signature.
+
+    Returns:
+        bool: True if signature is cryptographically valid, False otherwise.
+    """
+    if len(signature) != 64:
+        return False
+
+    mont_pub = (
+        identity_public_key[1:]
+        if (len(identity_public_key) == 33 and identity_public_key[0] == 0x05)
+        else identity_public_key
+    )
+    if len(mont_pub) != 32:
+        return False
+
+    # 1. Attempt XEdDSA / Curve25519-to-Edwards conversion (standard in libsignal)
+    try:
+        p = 2**255 - 19
+        mont_bytes = bytearray(mont_pub)
+        mont_bytes[31] &= 0x7F
+        u = int.from_bytes(mont_bytes, "little")
+        if u < p:
+            y = ((u - 1) * pow(u + 1, p - 2, p)) % p
+            y_bytes = bytearray(y.to_bytes(32, "little"))
+            sig_bytes = bytearray(signature)
+            y_bytes[31] |= sig_bytes[63] & 0x80
+            sig_bytes[63] &= 0x7F
+
+            ed_pub = ed25519.Ed25519PublicKey.from_public_bytes(bytes(y_bytes))
+            ed_pub.verify(bytes(sig_bytes), signed_prekey_public)
+            return True
+    except (InvalidSignature, ValueError):
+        pass
+
+    # 2. Fallback: direct Ed25519 verification over signed_prekey_public
+    try:
+        ed_pub = ed25519.Ed25519PublicKey.from_public_bytes(mont_pub)
+        ed_pub.verify(signature, signed_prekey_public)
+        return True
+    except (InvalidSignature, ValueError):
+        pass
+
+    # 3. Fallback: direct Ed25519 verification over stripped 32-byte signed_prekey_public
+    if len(signed_prekey_public) == 33 and signed_prekey_public[0] == 0x05:
+        try:
+            ed_pub = ed25519.Ed25519PublicKey.from_public_bytes(mont_pub)
+            ed_pub.verify(signature, signed_prekey_public[1:])
+            return True
+        except (InvalidSignature, ValueError):
+            pass
+
+    return False
+
 
 

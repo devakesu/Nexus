@@ -81,6 +81,36 @@ def upsert_identity_key(
         raise DatabaseAccessError("Failed to upsert identity key") from e
 
 
+def fetch_identity_key(user_id: str) -> dict[str, Any] | None:
+    """Fetch a user's registered Signal identity public key and registration ID.
+
+    Args:
+        user_id: Unique UUID string identifier of the user.
+
+    Returns:
+        dict[str, Any] | None: Stored identity dictionary with raw bytes, or None if uninitialized.
+    """
+    try:
+        res = (
+            supabase_client.table("chat_identity_keys")
+            .select("identity_public_key, registration_id")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        row = cast(dict[str, Any] | None, getattr(res, "data", None))
+        if row is None:
+            return None
+        return {
+            "identity_public_key": _from_bytea(row["identity_public_key"]),
+            "registration_id": row["registration_id"],
+        }
+    except APIError as e:
+        logger.exception("Failed to fetch identity key", extra={"user_id": user_id})
+        raise DatabaseAccessError("Failed to fetch identity key") from e
+
+
+
 def upsert_signed_prekey(
     user_id: str, key_id: int, public_key: bytes, signature: bytes,
 ) -> None:

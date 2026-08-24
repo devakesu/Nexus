@@ -404,6 +404,12 @@ async def send_chat_message_notification(
             else str(created_at or "")
         )
 
+        # FCM has a strict 4KB payload limit. When ciphertext exceeds 3,500 bytes,
+        # omit inline ciphertext/metadata so FCM does not truncate or fail, and let the
+        # client fetch and decrypt directly from Supabase upon receiving the message_id wakeup.
+        max_fcm_ciphertext_bytes = 3500
+        include_inline_ciphertext = len(ciphertext) <= max_fcm_ciphertext_bytes
+
         data = {
             "type": "chat_message",
             "actor_id": sender_id,
@@ -412,11 +418,12 @@ async def send_chat_message_notification(
             "name": name,
             "profile_pic": profile_pic or "",
             "message_id": message_id,
-            "ciphertext": ciphertext,
-            "ciphertext_metadata": meta_str,
             "msg_type": message_type,
             "created_at": created_at_str,
         }
+        if include_inline_ciphertext:
+            data["ciphertext"] = ciphertext
+            data["ciphertext_metadata"] = meta_str
 
         await asyncio.to_thread(
             _send_to_tokens,

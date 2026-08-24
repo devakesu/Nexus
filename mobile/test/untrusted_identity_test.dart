@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
+import 'package:nexus/features/security_signal/services/signal/message_codec.dart';
 import 'package:nexus/features/security_signal/services/signal/session_manager.dart';
 
 void main() {
@@ -73,5 +74,38 @@ void main() {
         }
       },
     );
+
+    test(
+      'PrekeyExhaustionRegistry marks, checks, and clears exhausted peers',
+      () {
+        const peerId = 'exhausted-peer-123';
+        expect(PrekeyExhaustionRegistry.isExhausted(peerId), isFalse);
+
+        PrekeyExhaustionRegistry.markExhausted(peerId);
+        expect(PrekeyExhaustionRegistry.isExhausted(peerId), isTrue);
+
+        PrekeyExhaustionRegistry.clear(peerId);
+        expect(PrekeyExhaustionRegistry.isExhausted(peerId), isFalse);
+      },
+    );
+
+    test('SignalCryptoLock serializes concurrent async executions', () async {
+      final order = <int>[];
+
+      final f1 = SignalCryptoLock.synchronized(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        order.add(1);
+        return 1;
+      });
+
+      final f2 = SignalCryptoLock.synchronized(() async {
+        order.add(2);
+        return 2;
+      });
+
+      final results = await Future.wait<int>([f1, f2]);
+      expect(results, equals([1, 2]));
+      expect(order, equals([1, 2]));
+    });
   });
 }

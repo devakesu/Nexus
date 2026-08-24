@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/app_config.dart';
 import 'package:nexus/core/theme/app_colors.dart';
@@ -560,6 +561,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               return Column(
                 children: [
                   if (showNewDeviceBanner) _newDeviceBanner(theme),
+                  if (chatState.isReducedEncryption)
+                    _reducedEncryptionBanner(theme),
                   if (chatState.conversationClosed)
                     _conversationClosedBanner(theme),
                   if (chatState.isRevalidating) _syncingIndicator(theme),
@@ -823,6 +826,30 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               'This is a new device. Messages sent before you set up Nexus '
               "chat here can't be decrypted.",
               style: TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reducedEncryptionBanner(ChatTabTheme theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFFFEF3C7),
+      child: Row(
+        children: [
+          const Icon(
+            LucideIcons.shieldAlert,
+            size: 15,
+            color: Color(0xFFB45309),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Encryption is slightly reduced — ask ${widget.name} to open the app to strengthen it.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
             ),
           ),
         ],
@@ -1278,34 +1305,68 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     );
   }
 
-  Future<void> _showSafetyNumberDialog() async {
+  Future<void> _showSafetyNumberDialog({bool isProactive = false}) async {
     final theme = chatTabTheme(widget.tab);
     final peerUserId = widget.matchedUserId;
-    final newKey = UntrustedIdentityRegistry.pendingUntrustedKeys[peerUserId];
-    if (newKey == null) return;
+    final pendingKey =
+        UntrustedIdentityRegistry.pendingUntrustedKeys[peerUserId];
 
     final store = await SignalKeyService.instance.ensureBootstrapped();
     final localKeyPair = await store.getIdentityKeyPair();
+    final address = SignalProtocolAddress(peerUserId, kSignalDeviceId);
+
+    var peerIdentityKey = pendingKey ?? await store.getIdentity(address);
+
+    if (peerIdentityKey == null) {
+      // Try to ensure/fetch bundle if not yet loaded locally
+      await SessionManager.instance.ensureSessionForConversation(
+        conversationId: widget.conversationId,
+        peerUserId: peerUserId,
+      );
+      peerIdentityKey = await store.getIdentity(address);
+    }
+
+    if (peerIdentityKey == null) {
+      if (mounted) {
+        NexusToast.show(
+          context,
+          'Encryption keys for ${widget.name} are not available yet.',
+        );
+      }
+      return;
+    }
 
     final safetyNumber = await UntrustedIdentityRegistry.computeSafetyNumber(
       localKeyPair,
-      newKey,
+      peerIdentityKey,
     );
 
     if (!mounted) return;
+
+    final isKeyChange = pendingKey != null;
 
     final shouldTrust = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Verify Safety Number',
-          style: GoogleFonts.manrope(
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            fontSize: 18,
-          ),
+        title: Row(
+          children: [
+            Icon(
+              isKeyChange ? LucideIcons.shieldAlert : LucideIcons.shieldCheck,
+              color: isKeyChange ? const Color(0xFFF59E0B) : theme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Verify Safety Number',
+              style: GoogleFonts.manrope(
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1332,8 +1393,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
               child: SelectableText(
                 safetyNumber,
                 textAlign: TextAlign.center,
-                // JetBrains Mono, not Space Mono - DESIGN.md's one mono
-                // family, used everywhere else the app shows a code.
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1344,8 +1403,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
             ),
             const SizedBox(height: 10),
             Text(
-              'If the numbers match, the session is secure. If they do not match, '
-              'the connection may have been intercepted.',
+              'If the numbers match, the session is secure and private.',
               style: GoogleFonts.inter(
                 fontSize: 12.5,
                 color: Colors.white60,
@@ -1355,30 +1413,43 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.inter(
-                color: Colors.white60,
+          if (isKeyChange) ...[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: Colors.white60,
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              'Trust & Verify',
-              style: GoogleFonts.manrope(
-                color: theme.primary,
-                fontWeight: FontWeight.w800,
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                'Trust & Verify',
+                style: GoogleFonts.manrope(
+                  color: theme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
+          ] else ...[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                'Done',
+                style: GoogleFonts.manrope(
+                  color: theme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
 
-    if (shouldTrust == true && mounted) {
+    if (isKeyChange && shouldTrust == true && mounted) {
       final provider = chatConversationControllerProvider(
         widget.conversationId,
         peerUserId,

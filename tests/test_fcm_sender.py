@@ -118,6 +118,48 @@ async def test_send_chat_notification_not_blocked(
     mock_fetch_tokens.assert_called_once_with("recipient-id")
     mock_fetch_details.assert_called_once_with("sender-id")
     mock_send.assert_called_once()
+    data = mock_send.call_args[0][3]
+    assert data["ciphertext"] == "secret"
+    assert data["ciphertext_metadata"] == "{}"
+    assert data["message_id"] == "msg-id"
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.services.fcm_sender._fetch_profile_details")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_chat_notification_large_ciphertext_capped(
+    mock_send: MagicMock,
+    mock_fetch_details: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    mock_firebase_init.return_value = True
+    mock_get_blocks.return_value = set()
+    mock_fetch_tokens.return_value = ["token1"]
+    mock_fetch_details.return_value = ("Sender", "pic_url")
+
+    large_ciphertext = "A" * 4000
+    await send_chat_message_notification(
+        sender_id="sender-id",
+        recipient_id="recipient-id",
+        conversation_id="convo-id",
+        tab="Dating",
+        message_id="msg-large-id",
+        ciphertext=large_ciphertext,
+        ciphertext_metadata="{}",
+    )
+
+    mock_send.assert_called_once()
+    data = mock_send.call_args[0][3]
+    assert "ciphertext" not in data
+    assert "ciphertext_metadata" not in data
+    assert data["message_id"] == "msg-large-id"
+    assert data["type"] == "chat_message"
+
 
 
 @pytest.mark.anyio

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
@@ -21,6 +23,43 @@ class EncryptedEnvelope {
   final String signalMessageType;
 }
 
+/// Provides sequential execution of Double Ratchet crypto operations across
+/// foreground and background FCM isolates via in-memory queue + OS file lock.
+class SignalCryptoLock {
+  static Future<void> _lastTask = Future.value();
+
+  static Future<T> synchronized<T>(Future<T> Function() action) async {
+    final prev = _lastTask;
+    final completer = Completer<void>();
+    _lastTask = completer.future;
+    await prev;
+
+    RandomAccessFile? raf;
+    try {
+      final lockFile = File('${Directory.systemTemp.path}/signal_crypto.lock');
+      if (!lockFile.existsSync()) {
+        try {
+          lockFile.createSync(recursive: true);
+        } on Object catch (_) {}
+      }
+      try {
+        raf = await lockFile.open(mode: FileMode.write);
+        await raf.lock(FileLock.blockingExclusive);
+      } on Object catch (_) {}
+
+      return await action();
+    } finally {
+      if (raf != null) {
+        try {
+          await raf.unlock();
+          await raf.close();
+        } on Object catch (_) {}
+      }
+      completer.complete();
+    }
+  }
+}
+
 /// Wraps [SessionCipher] encrypt/decrypt and maps to/from the wire shape
 /// used by `chat_messages`. Callers must never attempt to decrypt their own
 /// outbound ciphertext - Double Ratchet message keys are single-use and
@@ -38,20 +77,27 @@ class MessageCodec {
     required SignalProtocolAddress address,
     required String text,
   }) async {
-    final plaintext = Uint8List.fromList(utf8.encode(text));
-    final message = await _withIdentityRepin(
-      store: store,
-      address: address,
-      action: () =>
-          SessionCipher(store, store, store, store, address).encrypt(plaintext),
-    );
-    final type = message.getType() == CiphertextMessage.prekeyType
-        ? 'prekey'
-        : 'whisper';
-    return EncryptedEnvelope(
-      ciphertextBase64: base64Encode(message.serialize()),
-      signalMessageType: type,
-    );
+    return SignalCryptoLock.synchronized(() async {
+      final plaintext = Uint8List.fromList(utf8.encode(text));
+      final message = await _withIdentityRepin(
+        store: store,
+        address: address,
+        action: () => SessionCipher(
+          store,
+          store,
+          store,
+          store,
+          address,
+        ).encrypt(plaintext),
+      );
+      final type = message.getType() == CiphertextMessage.prekeyType
+          ? 'prekey'
+          : 'whisper';
+      return EncryptedEnvelope(
+        ciphertextBase64: base64Encode(message.serialize()),
+        signalMessageType: type,
+      );
+    });
   }
 
   /// Returns null if decryption fails (corrupt envelope, replay, or a
@@ -62,46 +108,48 @@ class MessageCodec {
     required String ciphertextBase64,
     required String signalMessageType,
   }) async {
-    final bytes = base64Decode(ciphertextBase64);
-    try {
-      final plaintext = await _withIdentityRepin(
-        store: store,
-        address: address,
-        action: () {
-          final cipher = SessionCipher(store, store, store, store, address);
-          if (signalMessageType == 'prekey') {
+    return SignalCryptoLock.synchronized(() async {
+      final bytes = base64Decode(ciphertextBase64);
+      try {
+        final plaintext = await _withIdentityRepin(
+          store: store,
+          address: address,
+          action: () {
+            final cipher = SessionCipher(store, store, store, store, address);
+            if (signalMessageType == 'prekey') {
+              try {
+                return cipher.decrypt(PreKeySignalMessage(bytes));
+              } on Object catch (_) {
+                return cipher.decryptFromSignal(
+                  SignalMessage.fromSerialized(bytes),
+                );
+              }
+            }
             try {
-              return cipher.decrypt(PreKeySignalMessage(bytes));
-            } on Object catch (_) {
               return cipher.decryptFromSignal(
                 SignalMessage.fromSerialized(bytes),
               );
+            } on Object catch (_) {
+              return cipher.decrypt(PreKeySignalMessage(bytes));
             }
-          }
-          try {
-            return cipher.decryptFromSignal(
-              SignalMessage.fromSerialized(bytes),
-            );
-          } on Object catch (_) {
-            return cipher.decrypt(PreKeySignalMessage(bytes));
-          }
-        },
-      );
-      return utf8.decode(plaintext);
-    } on Object catch (e, st) {
-      // Catches `Error`s too, not just `Exception`s - a malformed envelope
-      // can throw either, and both need forensic visibility even though
-      // both fail the same way from the caller's perspective (return null).
-      ErrorHandler.handleError(
-        e,
-        stackTrace: st,
-        level: ErrorLevel.warning,
-        customMessage:
-            'Signal decryptText failed for $address (${e.runtimeType})',
-        showUi: false,
-      );
-      return null;
-    }
+          },
+        );
+        return utf8.decode(plaintext);
+      } on Object catch (e, st) {
+        // Catches `Error`s too, not just `Exception`s - a malformed envelope
+        // can throw either, and both need forensic visibility even though
+        // both fail the same way from the caller's perspective (return null).
+        ErrorHandler.handleError(
+          e,
+          stackTrace: st,
+          level: ErrorLevel.warning,
+          customMessage:
+              'Signal decryptText failed for $address (${e.runtimeType})',
+          showUi: false,
+        );
+        return null;
+      }
+    });
   }
 
   /// Runs [action] once; if it fails because the peer's pinned identity key

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -13,6 +14,7 @@ import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:nexus/features/security_signal/services/signal/local_key_vault.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_database.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_store.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Bootstraps this device's Signal Protocol identity: generates the
 /// identity key pair, a signed prekey, and a pool of one-time prekeys on
@@ -323,6 +325,22 @@ class SignalKeyService {
     _store = null;
     _inFlight = null;
     await _db.clearAllData();
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final supDir = await getApplicationSupportDirectory();
+      for (final dir in [docDir, supDir]) {
+        for (final ext in ['', '.sqlite', '.db']) {
+          for (final suffix in ['', '-wal', '-shm', '-journal']) {
+            final f = File('${dir.path}/nexus_signal_store$ext$suffix');
+            if (f.existsSync()) {
+              try {
+                f.deleteSync();
+              } on Object catch (_) {}
+            }
+          }
+        }
+      }
+    } on Object catch (_) {}
     await _secureStorage.delete(key: _prefsNextPreKeyId);
     await _secureStorage.delete(key: _prefsNextSignedPreKeyId);
     await _secureStorage.delete(key: _prefsIdentityUploadConfirmedRegId);

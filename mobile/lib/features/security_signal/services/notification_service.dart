@@ -490,9 +490,35 @@ class NotificationService {
 
   static Future<String?> _decryptMessage(Map<String, dynamic> data) async {
     final senderId = data['actor_id'] as String?;
-    final ciphertext = data['ciphertext'] as String?;
-    final metadataStr = data['ciphertext_metadata'] as String?;
-    if (senderId == null || ciphertext == null) return null;
+    var ciphertext = data['ciphertext'] as String?;
+    var metadataStr = data['ciphertext_metadata'] as String?;
+    final messageId = data['message_id'] as String?;
+    if (senderId == null) return null;
+
+    // If ciphertext wasn't inlined (e.g. exceeded FCM 4KB payload limit),
+    // fetch the encrypted row directly from Supabase
+    if ((ciphertext == null || ciphertext.isEmpty) && messageId != null) {
+      try {
+        final res = await Supabase.instance.client
+            .from('chat_messages')
+            .select('ciphertext, ciphertext_metadata, message_type, created_at')
+            .eq('id', messageId)
+            .maybeSingle();
+        if (res != null) {
+          ciphertext = res['ciphertext'] as String?;
+          final rawMeta = res['ciphertext_metadata'];
+          metadataStr = rawMeta is Map
+              ? json.encode(rawMeta)
+              : rawMeta as String?;
+        }
+      } on Object catch (e) {
+        if (kDebugMode) {
+          debugPrint('[FCM] Failed to fetch message payload from DB: $e');
+        }
+      }
+    }
+
+    if (ciphertext == null || ciphertext.isEmpty) return null;
 
     try {
       final store = await SignalKeyService.instance.ensureBootstrapped();

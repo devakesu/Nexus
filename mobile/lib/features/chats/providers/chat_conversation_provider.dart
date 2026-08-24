@@ -227,6 +227,7 @@ class ChatConversationState {
     required this.sessionReady,
     required this.sending,
     this.isNewLocalIdentity = false,
+    this.isReducedEncryption = false,
     this.conversationClosed = false,
     this.hasMoreHistory = true,
     this.loadingOlder = false,
@@ -241,6 +242,10 @@ class ChatConversationState {
   /// this device has no local key material predating this conversation,
   /// so any of its historical messages will show as undecryptable.
   final bool isNewLocalIdentity;
+
+  /// True when the peer's one-time prekey pool was exhausted during session
+  /// establishment, temporarily operating in prekey-less X3DH mode.
+  final bool isReducedEncryption;
 
   /// True once the peer has unmatched/blocked (or this user did, from
   /// another device) - detected live via a realtime listener on
@@ -265,6 +270,7 @@ class ChatConversationState {
     bool? sessionReady,
     bool? sending,
     bool? isNewLocalIdentity,
+    bool? isReducedEncryption,
     bool? conversationClosed,
     bool? hasMoreHistory,
     bool? loadingOlder,
@@ -275,6 +281,7 @@ class ChatConversationState {
       sessionReady: sessionReady ?? this.sessionReady,
       sending: sending ?? this.sending,
       isNewLocalIdentity: isNewLocalIdentity ?? this.isNewLocalIdentity,
+      isReducedEncryption: isReducedEncryption ?? this.isReducedEncryption,
       conversationClosed: conversationClosed ?? this.conversationClosed,
       hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
       loadingOlder: loadingOlder ?? this.loadingOlder,
@@ -435,7 +442,12 @@ class ChatConversationController extends _$ChatConversationController {
       );
       if (_disposed || !ready) return;
       final latest = state.value ?? current;
-      state = AsyncData(latest.copyWith(sessionReady: true));
+      state = AsyncData(
+        latest.copyWith(
+          sessionReady: true,
+          isReducedEncryption: PrekeyExhaustionRegistry.isExhausted(peerUserId),
+        ),
+      );
       _consecutivePollFailures = 0;
       _sessionPollTimer?.cancel();
       _sessionPollTimer = null;
@@ -576,6 +588,7 @@ class ChatConversationController extends _$ChatConversationController {
       sessionReady: sessionReady,
       sending: false,
       isNewLocalIdentity: isNewLocalIdentity,
+      isReducedEncryption: PrekeyExhaustionRegistry.isExhausted(peerUserId),
       conversationClosed: conversationClosed,
       hasMoreHistory: rows.length == _pageSize,
     );

@@ -114,6 +114,15 @@ class SessionManager {
           ? Curve.decodePoint(base64Decode(oneTimePrekeyPublicRaw), 0)
           : null;
 
+      final oneTimePrekeyUsed =
+          data['one_time_prekey_used'] as bool? ??
+          (oneTimePrekeyPublic != null);
+      if (!oneTimePrekeyUsed) {
+        PrekeyExhaustionRegistry.markExhausted(peerUserId);
+      } else {
+        PrekeyExhaustionRegistry.clear(peerUserId);
+      }
+
       return PreKeyBundle(
         data['registration_id'] as int,
         kSignalDeviceId,
@@ -220,4 +229,22 @@ class UntrustedPeerIdentityException implements Exception {
   @override
   String toString() =>
       'UntrustedPeerIdentityException: Peer $peerUserId presented an untrusted identity key. Manual user confirmation required.';
+}
+
+/// Tracks peers whose one-time prekey pool was exhausted during X3DH session
+/// establishment, resulting in degraded prekey-less forward secrecy.
+class PrekeyExhaustionRegistry {
+  static final Set<String> _exhaustedPeers = {};
+
+  static void markExhausted(String peerUserId) {
+    _exhaustedPeers.add(peerUserId);
+  }
+
+  static bool isExhausted(String peerUserId) {
+    return _exhaustedPeers.contains(peerUserId);
+  }
+
+  static void clear(String peerUserId) {
+    _exhaustedPeers.remove(peerUserId);
+  }
 }
