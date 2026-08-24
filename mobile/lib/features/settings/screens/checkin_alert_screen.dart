@@ -339,13 +339,16 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   }
 
   void _informContacts() {
-    unawaited(
-      SafetyAlertApi.sendAlert(
+    unawaited(() async {
+      final position = await _tryGetLocation();
+      await SafetyAlertApi.sendAlert(
         alertType: 'inform',
         sessionId: MeetupSafetySession.instance.serverSessionId,
         sessionLabel: MeetupSafetySession.instance.checkInLabel,
-      ),
-    );
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+      );
+    }());
     showInformContactsToast(context, _contacts);
   }
 

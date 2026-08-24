@@ -10,7 +10,7 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
-from app.db.client import DatabaseAccessError, supabase_client, utcnow
+from app.db.client import DatabaseAccessError, parse_utc_datetime, supabase_client, utcnow
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _ALERT_INSERT_COLS = "id, created_at"
 _PORTAL_ALERT_COLS = "id, alert_type, current_location, created_at"
+_PORTAL_LOCATION_MAX_AGE = timedelta(hours=4)
 
 
 def fetch_contact_facing_profile_summary(user_id: str) -> dict[str, Any] | None:
@@ -120,8 +121,16 @@ def update_alert_contacts_notified(alert_id: str, count: int) -> None:
         ) from e
 
 
-def fetch_alerts_for_session(session_id: str) -> list[dict[str, Any]]:
-    """Fetch decrypted safety alerts for a given safety session."""
+def fetch_alerts_for_session(
+    session_id: str,
+    decrypt_locations: bool = True,
+    max_location_age: timedelta | None = _PORTAL_LOCATION_MAX_AGE,
+) -> list[dict[str, Any]]:
+    """Fetch safety alerts for a given safety session.
+    
+    Locations are only decrypted if decrypt_locations is True and the alert timestamp
+    is within max_location_age (staleness guard against exposure of old coordinates).
+    """
     try:
         res = (
             supabase_client.table("safety_alerts")
@@ -131,12 +140,25 @@ def fetch_alerts_for_session(session_id: str) -> list[dict[str, Any]]:
             .execute()
         )
         alerts = cast(list[dict[str, Any]], res.data or [])
+        now = utcnow()
         for a in alerts:
             loc = a.get("current_location")
-            if loc:
-                with contextlib.suppress(Exception):
-                    dec = decrypt_pii(loc)
-                    a["current_location"] = json.loads(dec) if dec else None
+            created_at_raw = a.get("created_at")
+            if loc and decrypt_locations:
+                is_stale = False
+                if max_location_age is not None and created_at_raw:
+                    with contextlib.suppress(Exception):
+                        alert_time = parse_utc_datetime(created_at_raw)
+                        if now - alert_time > max_location_age:
+                            is_stale = True
+                if not is_stale:
+                    with contextlib.suppress(Exception):
+                        dec = decrypt_pii(loc)
+                        a["current_location"] = json.loads(dec) if dec else None
+                else:
+                    a["current_location"] = None
+            else:
+                a["current_location"] = None
         return alerts
     except APIError as e:
         logger.exception(

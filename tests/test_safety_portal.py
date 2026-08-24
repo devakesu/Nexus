@@ -374,3 +374,163 @@ async def test_verify_portal_otp_never_requested_returns_expired_or_never_reques
     assert exc_info.value.status_code == 400
     assert "expired or was never requested" in exc_info.value.detail
 
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_alerts_for_session")
+@patch("app.api.safety.portal.endpoints.fetch_evidence_for_alert_ids")
+async def test_get_portal_details_active_fresh_location(
+    mock_evidence: MagicMock,
+    mock_alerts: MagicMock,
+    mock_session: MagicMock,
+    mock_verify: MagicMock,
+):
+    from datetime import datetime, timezone
+    from app.api.safety.portal.endpoints import get_portal_details
+
+    mock_verify.return_value = "phone-id"
+    mock_session.return_value = {
+        "id": "session-123",
+        "status": "active",
+        "label": "Coffee meetup",
+    }
+    mock_alerts.return_value = [
+        {
+            "id": "alert-1",
+            "current_location": {"lat": 37.7749, "lng": -122.4194},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ]
+    mock_evidence.return_value = []
+
+    res = await get_portal_details(
+        request=MagicMock(),
+        session_id="session-123",
+        authorization="Bearer valid-token",
+    )
+
+    assert res.status == "active"
+    assert res.last_location is not None
+    assert res.last_location.lat == 37.7749
+    assert res.last_location.lng == -122.4194
+    assert res.last_location_at is not None
+    # Check that is_active=True was passed to fetch_alerts_for_session
+    mock_alerts.assert_called_once_with("session-123", True)
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_alerts_for_session")
+@patch("app.api.safety.portal.endpoints.fetch_evidence_for_alert_ids")
+async def test_get_portal_details_ended_session_hides_location(
+    mock_evidence: MagicMock,
+    mock_alerts: MagicMock,
+    mock_session: MagicMock,
+    mock_verify: MagicMock,
+):
+    from datetime import datetime, timezone
+    from app.api.safety.portal.endpoints import get_portal_details
+
+    mock_verify.return_value = "phone-id"
+    mock_session.return_value = {
+        "id": "session-123",
+        "status": "ended",
+        "label": "Coffee meetup",
+    }
+    mock_alerts.return_value = [
+        {
+            "id": "alert-1",
+            "current_location": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ]
+    mock_evidence.return_value = []
+
+    res = await get_portal_details(
+        request=MagicMock(),
+        session_id="session-123",
+        authorization="Bearer valid-token",
+    )
+
+    assert res.status == "ended"
+    assert res.last_location is None
+    assert res.last_location_at is None
+    # Check that is_active=False was passed to fetch_alerts_for_session
+    mock_alerts.assert_called_once_with("session-123", False)
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_safety_session")
+@patch("app.api.safety.portal.endpoints.fetch_alerts_for_session")
+@patch("app.api.safety.portal.endpoints.fetch_evidence_for_alert_ids")
+async def test_get_portal_details_stale_location_suppressed(
+    mock_evidence: MagicMock,
+    mock_alerts: MagicMock,
+    mock_session: MagicMock,
+    mock_verify: MagicMock,
+):
+    from app.api.safety.portal.endpoints import get_portal_details
+
+    mock_verify.return_value = "phone-id"
+    mock_session.return_value = {
+        "id": "session-123",
+        "status": "active",
+        "label": "Coffee meetup",
+    }
+    # fetch_alerts_for_session already strips stale location
+    mock_alerts.return_value = [
+        {
+            "id": "alert-1",
+            "current_location": None,
+            "created_at": "2026-08-20T10:00:00+00:00",
+        },
+    ]
+    mock_evidence.return_value = []
+
+    res = await get_portal_details(
+        request=MagicMock(),
+        session_id="session-123",
+        authorization="Bearer valid-token",
+    )
+
+    assert res.status == "active"
+    assert res.last_location is None
+    assert res.last_location_at is None
+
+
+def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
+    import json
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import MagicMock, patch
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.safety.alerts import fetch_alerts_for_session
+
+    fresh_time = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    stale_time = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
+    enc_loc = encrypt_to_hex(json.dumps({"lat": 40.7128, "lng": -74.0060}))
+
+    mock_rows = [
+        {"id": "a-fresh", "alert_type": "sos", "current_location": enc_loc, "created_at": fresh_time},
+        {"id": "a-stale", "alert_type": "sos", "current_location": enc_loc, "created_at": stale_time},
+    ]
+
+    with patch("app.db.safety.alerts.supabase_client") as mock_supabase:
+        mock_execute = MagicMock()
+        mock_execute.execute.return_value = MagicMock(data=list(mock_rows))
+        mock_supabase.table.return_value.select.return_value.eq.return_value.order.return_value = mock_execute
+
+        # 1. When decrypt_locations is True, fresh is decrypted, stale is None
+        alerts = fetch_alerts_for_session("session-1", decrypt_locations=True)
+        assert alerts[0]["current_location"] == {"lat": 40.7128, "lng": -74.0060}
+        assert alerts[1]["current_location"] is None
+
+        # 2. When decrypt_locations is False, both are None
+        mock_execute.execute.return_value = MagicMock(data=[dict(r) for r in mock_rows])
+        alerts_no_decrypt = fetch_alerts_for_session("session-1", decrypt_locations=False)
+        assert alerts_no_decrypt[0]["current_location"] is None
+        assert alerts_no_decrypt[1]["current_location"] is None
+
+

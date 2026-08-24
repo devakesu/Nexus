@@ -20,6 +20,7 @@ and created_by (staff-internal); blind-index hash columns and the
 matching-engine-only artist_affinity field are never included anywhere.
 """
 
+import json
 import logging
 import uuid
 from typing import Any, cast
@@ -437,13 +438,7 @@ def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
 
 
 def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
-    """Build safety alerts.
-
-        Args:
-            user_id: Unique UUID string of the authenticated user.
-
-        Returns:
-            list[dict[str, Any]]: Response payload or result."""
+    """Build safety alerts with structured decrypted locations."""
     alerts: list[dict[str, Any]] = []
     try:
         alerts_res = (
@@ -459,7 +454,11 @@ def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
             loc = row_dict.get("current_location")
             if loc:
                 try:
-                    row_dict["current_location"] = decrypt_pii(loc)
+                    dec = decrypt_pii(loc)
+                    try:
+                        row_dict["current_location"] = json.loads(dec)
+                    except (json.JSONDecodeError, ValueError):
+                        row_dict["current_location"] = dec
                 except DecryptFailedError:
                     row_dict["current_location"] = None
             alerts.append(row_dict)

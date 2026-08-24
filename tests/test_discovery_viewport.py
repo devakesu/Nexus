@@ -154,6 +154,26 @@ def test_discovery_viewport_request_validation() -> None:
             radius=100.0,
         )
 
+    # Out of bounds center_x
+    with pytest.raises(ValidationError):
+        DiscoveryViewportRequest(
+            tab="Dating",
+            session_id=session_id,
+            center_x=99999.0,
+            center_y=0.0,
+            radius=100.0,
+        )
+
+    # Out of bounds center_y
+    with pytest.raises(ValidationError):
+        DiscoveryViewportRequest(
+            tab="Dating",
+            session_id=session_id,
+            center_x=0.0,
+            center_y=-99999.0,
+            radius=100.0,
+        )
+
 
 @pytest.mark.anyio
 async def test_fetch_spatial_viewport_rejects_nan_and_inf() -> None:
@@ -175,7 +195,7 @@ async def test_fetch_spatial_viewport_rejects_nan_and_inf() -> None:
 @pytest.mark.anyio
 @patch("app.db.sessions.viewport.get_cached_active_block_ids", new_callable=AsyncMock, return_value=set())
 @patch("app.db.sessions.viewport.supabase_client.table")
-async def test_fetch_spatial_viewport_clamps_radius(
+async def test_fetch_spatial_viewport_clamps_coordinates_and_radius(
     mock_table: MagicMock,
     mock_get_blocks: AsyncMock,
 ) -> None:
@@ -193,13 +213,16 @@ async def test_fetch_spatial_viewport_clamps_radius(
     session_id = "11111111-1111-1111-1111-111111111111"
     user_id = "22222222-2222-2222-2222-222222222222"
 
-    # Pass excessive radius 999999.0 -> should clamp to 1000.0
-    items, _ = await fetch_spatial_viewport(session_id, user_id, 0.0, 0.0, 999999.0)
+    # Pass excessive center_x, center_y and radius -> should clamp center to 5000.0 and radius to 1000.0
+    items, _ = await fetch_spatial_viewport(session_id, user_id, 99999.0, -99999.0, 999999.0)
 
     assert items == []
-    # Verify bounding box uses clamped radius of 1000.0 (-1000 to +1000)
-    mock_builder.gte.assert_any_call("x", -1000.0)
-    mock_builder.lte.assert_any_call("x", 1000.0)
+    # Clamped center_x: 5000.0 - 1000.0 = 4000.0 to 6000.0
+    mock_builder.gte.assert_any_call("x", 4000.0)
+    mock_builder.lte.assert_any_call("x", 6000.0)
+    # Clamped center_y: -5000.0 - 1000.0 = -6000.0 to -4000.0
+    mock_builder.gte.assert_any_call("y", -6000.0)
+    mock_builder.lte.assert_any_call("y", -4000.0)
 
 
 @patch("app.db.sessions.auth_sessions.supabase_client.rpc")

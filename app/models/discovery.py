@@ -440,8 +440,8 @@ class DiscoveryViewportRequest(BaseModel):
         description="Target matching pipeline matrix ('Dating', 'Friends', or 'Professional').",
     )
     session_id: str = Field(..., min_length=1)
-    center_x: float
-    center_y: float
+    center_x: float = Field(..., ge=-5000.0, le=5000.0)
+    center_y: float = Field(..., ge=-5000.0, le=5000.0)
     radius: float = Field(..., gt=0.0, le=2000.0)
 
     @field_validator("session_id")

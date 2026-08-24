@@ -154,6 +154,26 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.info,
+                        size: 13,
+                        color: Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Your exact pin coordinates will be shared with the other participant.',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,

@@ -68,8 +68,8 @@ class SafetyContactsSyncResponse(BaseModel):
 
 class SafetyLocation(BaseModel):
     """Safetylocation class representation."""
-    lat: float
-    lng: float
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lng: float = Field(..., ge=-180.0, le=180.0)
 
 
 class SafetyAlertRequest(BaseModel):

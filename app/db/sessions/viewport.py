@@ -117,7 +117,9 @@ async def fetch_spatial_viewport(
     if not (math.isfinite(center_x) and math.isfinite(center_y) and math.isfinite(radius)):
         raise ValueError("Spatial viewport parameters (center_x, center_y, radius) must be finite floats.")
 
-    # Clamp radius to positive range within max viewport span
+    # Clamp spatial parameters to valid canvas bounds and positive viewport radius span
+    center_x = max(-5000.0, min(center_x, 5000.0))
+    center_y = max(-5000.0, min(center_y, 5000.0))
     radius = max(0.001, min(radius, 1000.0))
 
     x_min, x_max = center_x - radius, center_x + radius

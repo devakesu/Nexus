@@ -119,10 +119,10 @@ class EventPayload {
   };
 }
 
-/// Balanced-storage half of an event: time/location/status live in
-/// plaintext on `chat_events` (needed for reminder scheduling), so unlike
-/// [ChatMessageView.plaintext] this is never cached locally - always
-/// refetched/refreshed live from the server, same as [ChatMessageView.readAt].
+/// Event metadata model: time/location/status are encrypted at rest with
+/// MultiFernet on the server, and fetched on demand. Unlike [ChatMessageView.plaintext]
+/// this is never cached locally - always refetched/refreshed live from the server,
+/// same as [ChatMessageView.readAt].
 class ChatEventInfo {
   const ChatEventInfo({
     required this.eventId,

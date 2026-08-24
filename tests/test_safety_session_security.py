@@ -496,4 +496,79 @@ def test_safety_alert_request_sanitizes_labels() -> None:
     assert "\x00" not in (req.session_label or "")
 
 
+def test_safety_location_lat_lng_range_validation() -> None:
+    from pydantic import ValidationError
+    from app.models import SafetyLocation
+
+    # Valid coordinates
+    loc = SafetyLocation(lat=37.7749, lng=-122.4194)
+    assert loc.lat == 37.7749
+    assert loc.lng == -122.4194
+
+    # Boundary coordinates
+    loc_bound = SafetyLocation(lat=90.0, lng=180.0)
+    assert loc_bound.lat == 90.0
+    assert loc_bound.lng == 180.0
+
+    loc_bound_neg = SafetyLocation(lat=-90.0, lng=-180.0)
+    assert loc_bound_neg.lat == -90.0
+    assert loc_bound_neg.lng == -180.0
+
+    # Invalid lat > 90
+    with pytest.raises(ValidationError):
+        SafetyLocation(lat=90.1, lng=0.0)
+
+    # Invalid lat < -90
+    with pytest.raises(ValidationError):
+        SafetyLocation(lat=-90.1, lng=0.0)
+
+    # Invalid lng > 180
+    with pytest.raises(ValidationError):
+        SafetyLocation(lat=0.0, lng=180.1)
+
+    # Invalid lng < -180
+    with pytest.raises(ValidationError):
+        SafetyLocation(lat=0.0, lng=-180.1)
+
+
+def test_export_build_safety_alerts_deserializes_json_location() -> None:
+    import json
+    from unittest.mock import MagicMock, patch
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.users.export import _build_safety_alerts
+
+    enc_loc = encrypt_to_hex(json.dumps({"lat": 37.7749, "lng": -122.4194}))
+    mock_rows = [
+        {
+            "id": "alert-1",
+            "alert_type": "sos_silent",
+            "current_location": enc_loc,
+            "created_at": "2026-08-24T12:00:00Z",
+        },
+        {
+            "id": "alert-2",
+            "alert_type": "inform",
+            "current_location": None,
+            "created_at": "2026-08-24T12:05:00Z",
+        },
+    ]
+
+    with patch("app.db.users.export.supabase_client.table") as mock_table:
+        mock_builder = MagicMock()
+        mock_builder.select.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data=mock_rows)
+        mock_table.return_value = mock_builder
+
+        alerts = _build_safety_alerts("user-123")
+        assert len(alerts) == 2
+        # Verify current_location is a deserialized dict, not a raw string
+        assert isinstance(alerts[0]["current_location"], dict)
+        assert alerts[0]["current_location"] == {"lat": 37.7749, "lng": -122.4194}
+        assert alerts[1]["current_location"] is None
+
+
+
+
+
 

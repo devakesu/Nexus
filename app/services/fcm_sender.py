@@ -437,6 +437,8 @@ async def send_chat_event_reminder_notification(
 ) -> bool:
     """Reminds both participants about an upcoming plan.
 
+    Note: The human-readable location_label (if provided by the creator) is used in the
+    notification body for utility. Exact GPS coordinates (lat/lng) are never included in push payloads.
     Returns True if at least one notification was successfully delivered, False otherwise.
     """
     if not _is_firebase_initialized():

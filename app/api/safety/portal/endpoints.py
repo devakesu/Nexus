@@ -29,7 +29,7 @@ from app.core.utils.sms import (
     send_sms,
     verify_contact_portal_token,
 )
-from app.db.client import DatabaseAccessError
+from app.db.client import DatabaseAccessError, parse_utc_datetime
 from app.db.safety import (
     create_evidence_download_url,
     fetch_alerts_for_session,
@@ -244,7 +244,10 @@ async def get_portal_details(
                 detail="This safety session no longer exists.",
             )
 
-        alerts = await asyncio.to_thread(fetch_alerts_for_session, session_id)
+        is_active = session.get("status") == "active"
+        alerts = await asyncio.to_thread(
+            fetch_alerts_for_session, session_id, is_active,
+        )
         alert_ids = [str(a["id"]) for a in alerts]
         evidence_rows = await asyncio.to_thread(
             fetch_evidence_for_alert_ids, alert_ids,
@@ -261,11 +264,12 @@ async def get_portal_details(
 
     last_location = None
     last_location_at = None
-    for alert in alerts:
-        if alert.get("current_location"):
-            last_location = SafetyLocation(**alert["current_location"])
-            last_location_at = alert.get("created_at")
-            break
+    if session.get("status") == "active":
+        for alert in alerts:
+            if alert.get("current_location") and alert.get("created_at"):
+                last_location = SafetyLocation(**alert["current_location"])
+                last_location_at = parse_utc_datetime(alert["created_at"])
+                break
 
     evidence: list[SafetyPortalEvidenceItem] = []
     for row in evidence_rows:

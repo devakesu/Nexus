@@ -219,9 +219,9 @@ class MarkMessagesReadResponse(BaseModel):
 
 class CreateEventRequest(BaseModel):
     """
-    Balanced storage: event_time/location are plaintext (needed for
-    reminder scheduling); title/notes travel as a ratchet-encrypted
-    ciphertext envelope, identical to a normal text message.
+    Event request model. Server-side event_time, location_lat, location_lng,
+    and location_label are encrypted at rest using Field-Level Encryption (MultiFernet).
+    Title and notes travel as a ratchet-encrypted ciphertext envelope.
     """
 
     event_time: datetime
