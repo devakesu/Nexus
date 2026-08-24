@@ -99,4 +99,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Wrap the start command with Infisical CLI to dynamically fetch runtime secrets into memory at boot time.
-CMD ["sh", "-c", "exec infisical run --projectId \"${INFISICAL_PROJECT_ID}\" --path /runtime --env prod -- uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "exec infisical run --projectId \"${INFISICAL_PROJECT_ID}\" --path /runtime --env prod -- uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]

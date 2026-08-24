@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -54,20 +54,13 @@ async def test_verify_peer_access_blocked_by_target(mock_get_blocks: AsyncMock) 
 
 @pytest.mark.anyio
 @patch("app.api.discovery.likes.get_cached_active_block_ids")
-@patch("app.api.discovery.likes.supabase_client")
+@patch("app.api.discovery.likes._find_peer_like")
 async def test_verify_peer_access_not_blocked_with_like(
-    mock_supabase: MagicMock,
+    mock_find_like: AsyncMock,
     mock_get_blocks: AsyncMock,
 ) -> None:
     mock_get_blocks.return_value = set()  # No blocks in either direction
-
-    # Mock like query to return a like row
-    mock_exec = MagicMock()
-    mock_exec.execute.return_value.data = [{"id": "like-123", "tab": "Dating"}]
-    # Chain matching target table/select query builders with limit
-    mock_table = MagicMock()
-    mock_table.select.return_value.eq.return_value.eq.return_value.in_.return_value.is_.return_value.limit.return_value = mock_exec
-    mock_supabase.table.return_value = mock_table
+    mock_find_like.return_value = {"id": "like-123", "tab": "Dating"}
 
     tab = await _verify_peer_access_and_infer_tab(
         "target-id", "viewer-id", "Dating",
@@ -75,34 +68,22 @@ async def test_verify_peer_access_not_blocked_with_like(
 
     assert tab == "Dating"
     assert mock_get_blocks.call_count == 2
+    mock_find_like.assert_called_once_with("target-id", "viewer-id")
 
 
 @pytest.mark.anyio
 @patch("app.api.discovery.likes.get_cached_active_block_ids")
-@patch("app.api.discovery.likes.supabase_client")
+@patch("app.api.discovery.likes._find_peer_like")
+@patch("app.api.discovery.likes._find_peer_match")
 async def test_verify_peer_access_with_match(
-    mock_supabase: MagicMock,
+    mock_find_match: AsyncMock,
+    mock_find_like: AsyncMock,
     mock_get_blocks: AsyncMock,
 ) -> None:
     mock_get_blocks.return_value = set()
+    mock_find_like.return_value = None
+    mock_find_match.return_value = {"id": "match-123", "tab": "Friends"}
 
-    # Like query returns empty
-    mock_like_exec = MagicMock()
-    mock_like_exec.execute.return_value.data = []
-
-    # Match query returns a match
-    mock_match_exec = MagicMock()
-    mock_match_exec.execute.return_value.data = [{"id": "match-123", "tab": "Friends"}]
-
-    def mock_table_router(table_name: str) -> MagicMock:
-        mock_builder = MagicMock()
-        if table_name == "profile_discovery_actions":
-            mock_builder.select.return_value.eq.return_value.eq.return_value.in_.return_value.is_.return_value.limit.return_value = mock_like_exec
-        elif table_name == "matches":
-            mock_builder.select.return_value.or_.return_value.is_.return_value.limit.return_value = mock_match_exec
-        return mock_builder
-
-    mock_supabase.table.side_effect = mock_table_router
     target_uuid = "00000000-0000-0000-0000-000000000001"
     viewer_uuid = "00000000-0000-0000-0000-000000000002"
     tab = await _verify_peer_access_and_infer_tab(
@@ -111,3 +92,6 @@ async def test_verify_peer_access_with_match(
 
     assert tab == "Friends"
     assert mock_get_blocks.call_count == 2
+    mock_find_like.assert_called_once_with(target_uuid, viewer_uuid)
+    mock_find_match.assert_called_once_with(target_uuid, viewer_uuid)
+

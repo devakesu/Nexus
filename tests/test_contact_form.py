@@ -175,12 +175,8 @@ async def test_submit_contact_ticket_invalid_otp(mock_redis: MagicMock) -> None:
 @pytest.mark.anyio
 @patch("app.api.feedback.redis_client")
 async def test_submit_contact_ticket_otp_attempts_lockout(mock_redis: MagicMock) -> None:
-    async def fake_redis_get(key: str) -> str | None:
-        if "otp_attempts" in key:
-            return "5"
-        return "111222"
-
-    mock_redis.get = AsyncMock(side_effect=fake_redis_get)
+    mock_redis.incr = AsyncMock(return_value=6)
+    mock_redis.get = AsyncMock(return_value="111222")
 
     payload = ContactSubmitRequest(
         email="user@example.com",

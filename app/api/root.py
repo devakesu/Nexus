@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 
 from app.core.config import settings
+from app.core.infra.limiter import limiter
 from app.core.utils.templates import (
     render_contact,
     render_delete_account,
@@ -175,8 +176,10 @@ async def sitemap_xml() -> Response:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def render_landing_page() -> HTMLResponse:
+@limiter.limit("60/minute")
+async def render_landing_page(request: Request) -> HTMLResponse:
     """Renders the main public landing page HTML."""
+    _ = request
     turnstile_site_key = settings.turnstile_site_key or ""
     return HTMLResponse(
         render_landing(
@@ -188,8 +191,10 @@ async def render_landing_page() -> HTMLResponse:
 
 @router.get("/help", response_class=HTMLResponse)
 @router.get("/faq", response_class=HTMLResponse)
-async def render_help_page() -> HTMLResponse:
+@limiter.limit("60/minute")
+async def render_help_page(request: Request) -> HTMLResponse:
     """Renders the Help Center and FAQ page HTML."""
+    _ = request
     return HTMLResponse(render_help())
 
 
@@ -197,14 +202,17 @@ async def render_help_page() -> HTMLResponse:
 @router.get("/appeal", response_class=HTMLResponse)
 @router.get("/grievance", response_class=HTMLResponse)
 @router.get("/support", response_class=HTMLResponse)
-async def render_contact_page() -> HTMLResponse:
+@limiter.limit("60/minute")
+async def render_contact_page(request: Request) -> HTMLResponse:
     """Renders the Contact & Grievance support page HTML."""
+    _ = request
     turnstile_site_key = settings.turnstile_site_key or ""
     return HTMLResponse(render_contact(turnstile_site_key=turnstile_site_key))
 
 
 
 @router.get("/delete-account", response_class=HTMLResponse)
+@limiter.limit("60/minute")
 async def render_delete_account_page(request: Request, embed: bool = False) -> HTMLResponse:
     """Public, unauthenticated portal for account deletion disclosure & data export.
     When embed=true (or embed=1), header and footer are omitted for clean in-app rendering.

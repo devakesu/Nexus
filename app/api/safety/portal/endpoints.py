@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.email import send_trusted_contact_removed_email
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
+from app.core.infra.otp import verify_and_consume_hashed_otp
 from app.core.infra.tasks import safe_create_task
 from app.core.security.portal_auth import (
     generate_otp_code,
@@ -199,29 +200,17 @@ async def verify_portal_otp(
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
-    attempts_key = _attempts_key(session_id, phone_norm)
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= _OTP_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many incorrect attempts. Please request a new code.",
-        )
-
-    otp_key = _otp_key(session_id, phone_norm)
-    stored_hash = await redis_client.get(otp_key)
-    if not stored_hash:
-        raise HTTPException(
-            status_code=400,
-            detail="That code has expired or was never requested. Request a new one.",
-        )
-
-    if not verify_otp_hash(session_id, phone_norm, payload.code, cast(str, stored_hash)):
-        await redis_client.incr(attempts_key)
-        await redis_client.expire(attempts_key, _OTP_TTL_SECONDS)
-        raise HTTPException(status_code=400, detail="Incorrect code.")
-
-    await redis_client.delete(otp_key)
-    await redis_client.delete(attempts_key)
+    await verify_and_consume_hashed_otp(
+        otp_key=_otp_key(session_id, phone_norm),
+        attempts_key=_attempts_key(session_id, phone_norm),
+        user_identifier=session_id,
+        phone_norm=phone_norm,
+        submitted_code=payload.code,
+        max_attempts=_OTP_MAX_ATTEMPTS,
+        ttl_seconds=_OTP_TTL_SECONDS,
+        client=redis_client,
+        verify_func=verify_otp_hash,
+    )
 
     token = make_portal_access_token(session_id, phone_norm)
     return SafetyPortalOtpVerifyResponse(token=token, expires_in=30 * 60)
@@ -444,29 +433,17 @@ async def verify_contact_portal_otp(
     contact_id = actual_contact_id
     phone_norm = normalize_phone(payload.phone)
 
-    attempts_key = _contact_attempts_key(contact_id, phone_norm)
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= _OTP_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many incorrect attempts. Please request a new code.",
-        )
-
-    otp_key = _contact_otp_key(contact_id, phone_norm)
-    stored_hash = await redis_client.get(otp_key)
-    if not stored_hash:
-        raise HTTPException(
-            status_code=400,
-            detail="That code has expired or was never requested. Request a new one.",
-        )
-
-    if not verify_otp_hash(contact_id, phone_norm, payload.code, cast(str, stored_hash)):
-        await redis_client.incr(attempts_key)
-        await redis_client.expire(attempts_key, _OTP_TTL_SECONDS)
-        raise HTTPException(status_code=400, detail="Incorrect code.")
-
-    await redis_client.delete(otp_key)
-    await redis_client.delete(attempts_key)
+    await verify_and_consume_hashed_otp(
+        otp_key=_contact_otp_key(contact_id, phone_norm),
+        attempts_key=_contact_attempts_key(contact_id, phone_norm),
+        user_identifier=contact_id,
+        phone_norm=phone_norm,
+        submitted_code=payload.code,
+        max_attempts=_OTP_MAX_ATTEMPTS,
+        ttl_seconds=_OTP_TTL_SECONDS,
+        client=redis_client,
+        verify_func=verify_otp_hash,
+    )
 
     token = make_portal_access_token(contact_id, phone_norm)
     return SafetyContactPortalOtpVerifyResponse(token=token, expires_in=30 * 60)

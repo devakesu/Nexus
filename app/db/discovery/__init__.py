@@ -3,6 +3,7 @@
 from app.db.discovery.exclusions import (
     fetch_active_block_ids,
     fetch_active_discovery_excluded_ids,
+    fetch_active_like_action,
     fetch_expired_pass_candidates,
     fetch_likes_for_user,
     get_cached_active_block_ids,
@@ -15,6 +16,7 @@ from app.db.discovery.exclusions import (
     unrevoke_incoming_like,
 )
 from app.db.discovery.matches import (
+    fetch_active_match_between,
     fetch_matches_for_user,
     record_match,
     record_mutual_pass,
@@ -36,9 +38,11 @@ __all__ = [
     # exclusions
     "fetch_active_block_ids",
     "fetch_active_discovery_excluded_ids",
+    "fetch_active_like_action",
     "fetch_expired_pass_candidates",
     "fetch_likes_for_user",
     # matches
+    "fetch_active_match_between",
     "fetch_matches_for_user",
     "get_cached_active_block_ids",
     "has_active_discovery_action",

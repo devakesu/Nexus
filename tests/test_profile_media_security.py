@@ -204,6 +204,7 @@ def test_update_profile_details_rejects_foreign_profile_pic(
     background_tasks = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         update_profile_details(
+            request=_make_dummy_request(),
             background_tasks=background_tasks,
             payload=payload,
             user_id=attacker_id,
@@ -231,6 +232,7 @@ def test_update_profile_details_rejects_foreign_normal_pics(
     background_tasks = MagicMock()
     with pytest.raises(HTTPException) as exc_info:
         update_profile_details(
+            request=_make_dummy_request(),
             background_tasks=background_tasks,
             payload=payload,
             user_id=attacker_id,

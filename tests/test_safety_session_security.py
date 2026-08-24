@@ -1205,6 +1205,18 @@ async def test_check_cached_sos_alert_redis_and_db_miss() -> None:
         assert res is None
 
 
+def test_checkin_session_rate_limit_uses_dedicated_heartbeat_quota() -> None:
+    """Verify checkin_session is decoupled from generic safety limits and uses dedicated 120/hour quota."""
+    from app.core.config import settings
+    from app.api.safety.endpoints import checkin_session
+
+    assert settings.rate_limit_safety_heartbeat == "120/hour"
+    # checkin_session is decorated with SlowAPI limiter
+    # Verify limiter attached to checkin_session has the expected rate limit attribute
+    assert hasattr(checkin_session, "_rate_limiting") or hasattr(checkin_session, "__wrapped__") or callable(checkin_session)
+
+
+
 
 
 

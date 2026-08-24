@@ -88,3 +88,26 @@ def test_get_embedding_model_initialization_failure(mock_st_class: MagicMock) ->
     assert "Embedding model failed to initialize" in str(exc_info.value)
     assert emb_module._model is None
 
+
+@patch("app.services.profile.supabase_client")
+@patch("app.services.profile.sync_redis_client")
+def test_recompile_and_push_vectors_cooldown(
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    from app.services.profile import recompile_and_push_vectors
+
+    # 1. Cooldown active -> set returns False -> skips DB fetch
+    mock_redis.set.return_value = False
+    recompile_and_push_vectors("user-123")
+    mock_supabase.table.assert_not_called()
+
+    # 2. Cooldown not active -> set returns True -> proceeds to DB fetch
+    mock_redis.set.return_value = True
+    mock_select = MagicMock()
+    mock_select.return_value.data = None  # profile not found
+    mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = mock_select
+    recompile_and_push_vectors("user-123")
+    mock_supabase.table.assert_called_with("profiles")
+
+

@@ -64,3 +64,24 @@ def test_recompile_value_dimensions_propagates_db_error(
         recompile_value_dimensions("user123")
 
     assert "DB update connection failure" in str(exc_info.value)
+
+
+@patch("app.services.value_dimensions.supabase_client")
+@patch("app.services.value_dimensions.sync_redis_client")
+def test_recompile_value_dimensions_cooldown(
+    mock_redis: MagicMock,
+    mock_supabase: MagicMock,
+) -> None:
+    # 1. Cooldown active -> set returns False -> skips DB fetch
+    mock_redis.set.return_value = False
+    recompile_value_dimensions("user-123")
+    mock_supabase.table.assert_not_called()
+
+    # 2. Cooldown not active -> set returns True -> proceeds to DB fetch
+    mock_redis.set.return_value = True
+    mock_select = MagicMock()
+    mock_select.return_value.data = None
+    mock_supabase.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = mock_select
+    recompile_value_dimensions("user-123")
+    mock_supabase.table.assert_called_with("profiles")
+

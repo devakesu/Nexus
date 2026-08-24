@@ -6,6 +6,8 @@ from typing import Any, cast
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.core.config import settings
+from app.core.infra.limiter import limiter
 from app.db.client import supabase_client
 from app.models import (
     ALLOWED_HIDDEN_FIELDS,
@@ -39,6 +41,7 @@ def _to_privacy_settings_response(data: dict[str, Any]) -> PrivacySettingsRespon
     "/api/v1/profile/privacy-settings",
     response_model=PrivacySettingsResponse,
 )
+@limiter.limit(settings.rate_limit_discover)
 def get_privacy_settings(
     request: Request,
     _device: None = Depends(verify_app_check_token),
@@ -69,6 +72,7 @@ def get_privacy_settings(
     "/api/v1/profile/privacy-settings",
     response_model=PrivacySettingsResponse,
 )
+@limiter.limit(settings.rate_limit_discover)
 def update_privacy_settings(
     request: Request,
     payload: PrivacySettingsUpdate = Body(...),
@@ -127,6 +131,7 @@ def _to_email_notification_settings_response(
     "/api/v1/profile/email-notification-settings",
     response_model=EmailNotificationSettingsResponse,
 )
+@limiter.limit(settings.rate_limit_discover)
 def get_email_notification_settings(
     request: Request,
     _device: None = Depends(verify_app_check_token),
@@ -160,6 +165,7 @@ def get_email_notification_settings(
     "/api/v1/profile/email-notification-settings",
     response_model=EmailNotificationSettingsResponse,
 )
+@limiter.limit(settings.rate_limit_discover)
 def update_email_notification_settings(
     request: Request,
     payload: EmailNotificationSettingsUpdate = Body(...),

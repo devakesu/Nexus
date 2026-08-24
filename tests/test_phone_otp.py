@@ -184,3 +184,55 @@ def test_generate_otp_code_lengths_and_validation():
         generate_otp_code(-5)
 
 
+@pytest.mark.anyio
+async def test_request_account_phone_otp_multi_account_phone_cooldown():
+    """Verify requesting OTP for the same phone number from two different accounts enforces phone-level cooldown."""
+    from typing import Any
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from starlette.requests import Request
+    from app.api.user.auth_otp import request_account_phone_otp
+    from app.models import AccountPhoneOtpRequestRequest
+
+    redis_store: dict[str, str] = {}
+
+    async def mock_exists(key: str) -> bool:
+        return key in redis_store
+
+    async def mock_set(key: str, val: str, *args: Any, **kwargs: Any) -> bool:
+        _ = args, kwargs
+        redis_store[key] = val
+        return True
+
+    mock_redis = MagicMock()
+    mock_redis.exists = AsyncMock(side_effect=mock_exists)
+    mock_redis.set = AsyncMock(side_effect=mock_set)
+    mock_redis.setex = AsyncMock()
+
+    mock_request = Request({"type": "http", "client": ("127.0.0.1", 1234), "headers": []})
+    payload = AccountPhoneOtpRequestRequest(phone="+14155552671")
+
+    with patch("app.api.user.auth_otp.redis_client", mock_redis), \
+         patch("app.api.user.auth_otp.send_sms", AsyncMock()):
+        # 1. First user requests OTP -> succeeds
+        res1 = await request_account_phone_otp(
+            request=mock_request,
+            payload=payload,
+            _device=None,
+            user_id="user-account-1",
+        )
+        assert res1.sent is True
+        assert "account_phone_otp:resend_phone:+14155552671" in redis_store
+
+        # 2. Second distinct user tries to target the same phone number within cooldown window -> HTTP 429
+        with pytest.raises(HTTPException) as exc_info:
+            await request_account_phone_otp(
+                request=mock_request,
+                payload=payload,
+                _device=None,
+                user_id="user-account-2",
+            )
+        assert exc_info.value.status_code == 429
+        assert "Please wait a bit before requesting another code" in exc_info.value.detail
+
+
+

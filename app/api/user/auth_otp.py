@@ -25,15 +25,14 @@ from app.core.auth.phone_otp import (
     hash_otp,
     mask_phone,
     normalize_phone,
-    verify_otp_hash,
 )
 from app.core.config import settings
 from app.core.email import extract_user_name, send_bootstrap_welcome_email
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.otp import (
-    check_and_increment_otp_attempts,
     dummy_email_send_delay,
+    verify_and_consume_hashed_otp,
 )
 from app.core.security.crypto import compute_blind_index
 from app.core.utils.sms import send_sms
@@ -414,13 +413,17 @@ async def request_account_phone_otp(
     phone_norm = normalize_phone(payload.phone)
 
     resend_key = _otp_redis_key(user_id, "resend")
-    if await redis_client.exists(resend_key):
+    phone_resend_key = f"account_phone_otp:resend_phone:{phone_norm}"
+    if await redis_client.exists(resend_key) or await redis_client.exists(phone_resend_key):
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
         )
     await redis_client.set(
         resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+    await redis_client.set(
+        phone_resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
     )
 
     code = generate_otp_code()
@@ -453,27 +456,16 @@ async def verify_account_phone_otp(
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
-    attempts_key = _otp_redis_key(user_id, "attempts")
-    await check_and_increment_otp_attempts(
-        attempts_key,
-        _ACCOUNT_PHONE_OTP_MAX_ATTEMPTS,
-        _ACCOUNT_PHONE_OTP_TTL_SECONDS,
+    await verify_and_consume_hashed_otp(
+        otp_key=_otp_redis_key(user_id, "otp"),
+        attempts_key=_otp_redis_key(user_id, "attempts"),
+        user_identifier=user_id,
+        phone_norm=phone_norm,
+        submitted_code=payload.code,
+        max_attempts=_ACCOUNT_PHONE_OTP_MAX_ATTEMPTS,
+        ttl_seconds=_ACCOUNT_PHONE_OTP_TTL_SECONDS,
         client=redis_client,
     )
-
-    otp_key = _otp_redis_key(user_id, "otp")
-    stored_hash = await redis_client.get(otp_key)
-    if not stored_hash:
-        raise HTTPException(
-            status_code=400,
-            detail="That code has expired or was never requested. Request a new one.",
-        )
-
-    if not verify_otp_hash(user_id, phone_norm, payload.code, cast(str, stored_hash)):
-        raise HTTPException(status_code=400, detail="Incorrect code.")
-
-    await redis_client.delete(otp_key)
-    await redis_client.delete(attempts_key)
 
     await run_in_threadpool(set_verified_mobile, user_id, phone_norm)
 

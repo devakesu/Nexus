@@ -85,7 +85,7 @@ async def test_verify_contact_portal_otp_success(
     mock_verify: MagicMock,
     mock_redis: MagicMock,
 ):
-    mock_redis.get = AsyncMock(side_effect=[None, "hashed-code"])
+    mock_redis.get = AsyncMock(return_value="hashed-code")
     mock_redis.delete = AsyncMock()
     mock_verify.return_value = True
 
@@ -373,7 +373,7 @@ async def test_verify_portal_otp_sentinel_returns_incorrect_code(
     mock_redis: MagicMock,
 ):
     """When a sentinel OTP exists (unmatched phone was requested), verify returns 'Incorrect code.'."""
-    mock_redis.get = AsyncMock(side_effect=[None, "sentinel:abcdef1234567890"])
+    mock_redis.get = AsyncMock(return_value="sentinel:abcdef1234567890")
     mock_redis.incr = AsyncMock()
     mock_redis.expire = AsyncMock()
 
@@ -395,7 +395,7 @@ async def test_verify_portal_otp_never_requested_returns_expired_or_never_reques
     mock_redis: MagicMock,
 ):
     """When no OTP was ever requested (key absent), returns 'expired or was never requested'."""
-    mock_redis.get = AsyncMock(side_effect=[None, None])
+    mock_redis.get = AsyncMock(return_value=None)
 
     payload = SafetyPortalOtpVerifyRequest(phone="+15550000000", code="000000")
     with pytest.raises(HTTPException) as exc_info:

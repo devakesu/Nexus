@@ -12,6 +12,7 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
+from app.core.infra.cache import sync_redis_client
 from app.core.security.crypto import encrypt_to_hex
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
@@ -304,6 +305,18 @@ def recompile_value_dimensions(user_id: str) -> None:
     Raises:
         Exception: If database access, decryption, derivation, or database update fails.
     """
+    cooldown_key = f"user:value_dimensions_cooldown:{user_id}"
+    try:
+        if not sync_redis_client.set(cooldown_key, "1", ex=60, nx=True):
+            logger.info(
+                "Value dimension recompile skipped: cooldown active",
+                extra={"user_id": user_id},
+            )
+            return
+    except Exception:
+        # Non-fatal: if Redis is unavailable, continue with recompilation
+        pass
+
     try:
         res = (
             supabase_client.table("profiles")

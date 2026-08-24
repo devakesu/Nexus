@@ -4,7 +4,6 @@ app/db/account_deletion.py for the full lifecycle and
 app/services/reminder_scheduler.py for the purge jobs.
 """
 
-import hmac
 import logging
 
 from fastapi import (
@@ -36,10 +35,10 @@ from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.otp import (
     OTP_VERIFIED_TTL_SECONDS,
-    check_and_increment_otp_attempts,
     dummy_email_send_delay,
     generate_otp_code,
     otp_verified_redis_key,
+    verify_and_consume_raw_otp,
 )
 from app.db.users import (
     cancel_deletion,
@@ -165,26 +164,14 @@ async def verify_account_deletion_otp(
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
-    attempts_key = f"account_deletion:otp_attempts:{user_id}"
-    await check_and_increment_otp_attempts(
-        attempts_key,
-        _DELETION_OTP_MAX_ATTEMPTS,
-        _DELETION_OTP_TTL_SECONDS,
+    await verify_and_consume_raw_otp(
+        otp_key=f"account_deletion:otp_code:{user_id}",
+        attempts_key=f"account_deletion:otp_attempts:{user_id}",
+        submitted_code=payload.code,
+        max_attempts=_DELETION_OTP_MAX_ATTEMPTS,
+        ttl_seconds=_DELETION_OTP_TTL_SECONDS,
         client=redis_client,
     )
-
-    stored_otp = await redis_client.get(f"account_deletion:otp_code:{user_id}")
-    if not stored_otp:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
-    stored_otp_str = (
-        stored_otp.decode("utf-8")
-        if isinstance(stored_otp, bytes)
-        else stored_otp
-    )
-    if not hmac.compare_digest(stored_otp_str.strip(), payload.code.strip()):
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
-    await redis_client.delete(f"account_deletion:otp_code:{user_id}")
-    await redis_client.delete(attempts_key)
 
     await redis_client.setex(
         otp_verified_redis_key("account_deletion", user_id),

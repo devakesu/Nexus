@@ -209,3 +209,35 @@ def record_mutual_pass(user_a: str, user_b: str, tab: DiscoveryTab, days: int) -
     """Record a pass in both directions so neither user appears in the other's orbit."""
     record_discovery_action(user_a, user_b, "pass", tab, days)
     record_discovery_action(user_b, user_a, "pass", tab, days)
+
+
+def fetch_active_match_between(user_a: str, user_b: str) -> dict[str, Any] | None:
+    """Fetches any active match between two users across any tab."""
+    try:
+        valid_user_a = normalize_uuid(user_a)
+        valid_user_b = normalize_uuid(user_b)
+    except Exception:
+        return None
+
+    try:
+        # nosec: valid_user_a and valid_user_b validated via normalize_uuid
+        res = (
+            supabase_client.table("matches")
+            .select("id, tab, liker_id, liked_back_id, created_at, unmatched_at")
+            .or_(
+                f"and(liker_id.eq.{valid_user_a},liked_back_id.eq.{valid_user_b}),"
+                f"and(liker_id.eq.{valid_user_b},liked_back_id.eq.{valid_user_a})",
+            )
+            .is_("unmatched_at", "null")
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return cast(dict[str, Any], rows[0]) if (rows and isinstance(rows[0], dict)) else None
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch active match between users",
+            extra={"user_a": valid_user_a, "user_b": valid_user_b},
+        )
+        raise DatabaseAccessError("Failed to fetch active match") from e
+

@@ -47,6 +47,7 @@ BLOCKED_DOTENV_KEYS: set[str] = {
     "rate_limit_health",
     "rate_limit_login_by_phone",
     "rate_limit_safety",
+    "rate_limit_safety_heartbeat",
     "rate_limit_safety_portal",
     "rate_limit_spotify",
     "rate_limit_spotify_resync",
@@ -200,6 +201,7 @@ class Settings(BaseSettings):
     rate_limit_safety_contacts_sync: str = "5/hour"
     rate_limit_safety_alert: str = "5/hour"
     rate_limit_safety_session: str = "30/hour"
+    rate_limit_safety_heartbeat: str = "120/hour"
     rate_limit_safety_portal: str = "10/hour"
     rate_limit_safety_escalation_cancel: str = "10/hour"
     rate_limit_account_phone_otp: str = "10/hour"
@@ -210,6 +212,13 @@ class Settings(BaseSettings):
     rate_limit_account_deletion: str = "5/hour"
     rate_limit_data_export_otp: str = "5/hour"
     rate_limit_data_export: str = "3/day"
+
+    # --- Reverse Proxy / Forwarded Headers ---
+    # Comma-separated list of trusted proxy IP addresses or CIDRs.
+    # Set to "*" to trust all proxies (common in Docker/Kubernetes ingress setups).
+    # When enabled, ProxyHeadersMiddleware / Uvicorn parses X-Forwarded-For to derive client IP.
+    proxy_headers: bool = True
+    forwarded_allow_ips: str = "*"
 
     # --- App Link / Universal Link verification ---
     apple_team_id: str | None = None

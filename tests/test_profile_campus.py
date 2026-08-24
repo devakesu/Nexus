@@ -99,6 +99,7 @@ def test_update_profile_details_endpoint_campus_validation(
     payload = ProfileDetailsUpdate(campus_year=2)
     with pytest.raises(HTTPException) as excinfo:
         update_profile_details(
+            request=MagicMock(),
             background_tasks=MagicMock(),
             payload=payload,
             user_id="user123",
@@ -125,6 +126,7 @@ def test_update_profile_details_endpoint_campus_validation(
     update_chain.return_value.data = {"status": "success"}
 
     res = update_profile_details(
+        request=MagicMock(),
         background_tasks=MagicMock(),
         payload=payload,
         user_id="user123",
@@ -221,6 +223,7 @@ def test_update_profile_details_tab_activation_conditional_pic_check(
     payload = ProfileDetailsUpdate(is_dating_active=True)
     with pytest.raises(HTTPException) as excinfo:
         update_profile_details(
+            request=MagicMock(),
             background_tasks=MagicMock(),
             payload=payload,
             user_id="user123",
@@ -284,6 +287,7 @@ def test_update_profile_details_activation_toctou_profile_pic_race(
     payload = ProfileDetailsUpdate(is_dating_active=True)
     with pytest.raises(HTTPException) as excinfo:
         update_profile_details(
+            request=MagicMock(),
             background_tasks=MagicMock(),
             payload=payload,
             user_id="user123",

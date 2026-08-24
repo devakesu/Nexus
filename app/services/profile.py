@@ -7,6 +7,7 @@ and upserts vector representations to the `vector_profiles` database table.
 import logging
 from typing import Any, cast
 
+from app.core.infra.cache import sync_redis_client
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record, sanitize_decrypted_profile
 from app.services.embeddings import generate_nexus_intent_embeddings
@@ -21,6 +22,17 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str | None = None) -
         user_id: Unique user identifier string.
         plaintext_bio: Optional plaintext bio string if updated in current request.
     """
+    cooldown_key = f"user:vector_recompile_cooldown:{user_id}"
+    try:
+        if not sync_redis_client.set(cooldown_key, "1", ex=60, nx=True):
+            logger.info(
+                "Vector recompile skipped: cooldown active",
+                extra={"user_id": user_id},
+            )
+            return
+    except Exception:
+        # Non-fatal: if Redis is unavailable, continue with recompilation
+        pass
 
     try:
         select_cols = (

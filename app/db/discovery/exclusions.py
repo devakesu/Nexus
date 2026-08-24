@@ -618,3 +618,39 @@ def unrevoke_incoming_like(viewer_id: str, actor_id: str) -> None:
             "Failed to restore incoming like",
             extra={"viewer_id": viewer_id, "actor_id": actor_id},
         )
+
+
+def fetch_active_like_action(
+    actor_id: str,
+    target_id: str,
+) -> dict[str, Any] | None:
+    """Fetches an active, unrevoked like or superlike action between actor and target."""
+    try:
+        valid_actor_id = normalize_uuid(actor_id)
+    except Exception:
+        valid_actor_id = str(actor_id)
+    try:
+        valid_target_id = normalize_uuid(target_id)
+    except Exception:
+        valid_target_id = str(target_id)
+
+    try:
+        res = (
+            supabase_client.table("profile_discovery_actions")
+            .select("id, tab, action, actor_id, target_id, created_at, revoked_at")
+            .eq("actor_id", valid_actor_id)
+            .eq("target_id", valid_target_id)
+            .in_("action", ["like", "superlike"])
+            .is_("revoked_at", "null")
+            .limit(1)
+            .execute()
+        )
+        rows = cast(list[Any], res.data or [])
+        return cast(dict[str, Any], rows[0]) if (rows and isinstance(rows[0], dict)) else None
+    except APIError as e:
+        logger.exception(
+            "Failed to fetch active like action",
+            extra={"actor_id": valid_actor_id, "target_id": valid_target_id},
+        )
+        raise DatabaseAccessError("Failed to fetch active like action") from e
+

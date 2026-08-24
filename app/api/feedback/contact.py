@@ -1,7 +1,6 @@
 """Public web contact form, attachment uploads, turnstile verification, and OTP support endpoints."""
 
 import asyncio
-import hmac
 import io
 import logging
 import secrets
@@ -33,6 +32,7 @@ from app.api.feedback.models import (
 )
 from app.core.config import settings
 from app.core.infra.limiter import limiter
+from app.core.infra.otp import verify_and_consume_raw_otp
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -310,13 +310,14 @@ async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
     otp_key = f"appeal:otp:{email}"
     attempts_key = f"appeal:otp_attempts:{email}"
     try:
-        attempts = await feedback_module.redis_client.get(attempts_key)
-        if attempts and int(attempts) >= _CONTACT_OTP_MAX_ATTEMPTS:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many incorrect attempts. Please request a new code.",
-            )
-        stored_otp = await feedback_module.redis_client.get(otp_key)
+        await verify_and_consume_raw_otp(
+            otp_key=otp_key,
+            attempts_key=attempts_key,
+            submitted_code=otp_code,
+            max_attempts=_CONTACT_OTP_MAX_ATTEMPTS,
+            ttl_seconds=_CONTACT_OTP_TTL_SECONDS,
+            client=feedback_module.redis_client,
+        )
     except HTTPException:
         raise
     except (RedisError, RuntimeError) as err:
@@ -325,28 +326,6 @@ async def _verify_and_consume_otp(email: str, otp_code: str) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Support service temporarily unavailable.",
         ) from err
-
-    stored_otp_str = (
-        stored_otp.decode("utf-8")
-        if isinstance(stored_otp, bytes)
-        else (stored_otp or "")
-    )
-    if not stored_otp or not hmac.compare_digest(stored_otp_str.strip(), otp_code.strip()):
-        try:
-            await feedback_module.redis_client.incr(attempts_key)
-            await feedback_module.redis_client.expire(attempts_key, _CONTACT_OTP_TTL_SECONDS)
-        except (RedisError, RuntimeError):
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification code.",
-        )
-
-    try:
-        await feedback_module.redis_client.delete(otp_key)
-        await feedback_module.redis_client.delete(attempts_key)
-    except (RedisError, RuntimeError) as err:
-        logger.warning("Failed to delete appeal OTP key %s: %s", otp_key, err)
 
 
 async def _get_user_id_by_email(email: str) -> str | None:

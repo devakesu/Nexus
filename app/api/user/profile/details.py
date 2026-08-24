@@ -11,6 +11,7 @@ from fastapi import (
     Body,
     Depends,
     HTTPException,
+    Request,
     status,
 )
 from postgrest.exceptions import APIError
@@ -22,6 +23,8 @@ from app.api.dependencies import (
     verify_app_check_token,
     verify_app_check_with_replay_protection,
 )
+from app.core.config import settings
+from app.core.infra.limiter import limiter
 from app.api.user.profile.helpers import (
     _AGE_CHANGE_MAX_PER_WINDOW,
     _AGE_CHANGE_WINDOW_DAYS,
@@ -56,11 +59,14 @@ router = APIRouter()
 
 
 @router.get("/api/v1/profile/details", response_model=ProfileDetailsResponse)
+@limiter.limit(settings.rate_limit_discover)
 def get_profile_details(
+    request: Request,
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> dict[str, Any]:
     """Retrieves the caller's complete decrypted profile details."""
+    _ = request
     try:
         select_cols = (
             "id, name, age, campus_year, campus_branch, campus_name, "
@@ -196,13 +202,16 @@ def _validate_tab_activation(
 
 
 @router.patch("/api/v1/profile/details", response_model=ProfileUpdateResponse)
+@limiter.limit("10/minute")
 def update_profile_details(  # noqa: C901
+    request: Request,
     background_tasks: BackgroundTasks,
     payload: ProfileDetailsUpdate = Body(...),
     user_id: str = Depends(get_active_user_id),
     _device: None = Depends(verify_app_check_with_replay_protection),
 ) -> dict[str, Any]:
     """Updates existing user profile fields and re-indexes discovery vectors."""
+    _ = request
     if _sets_special_category_data(payload):
         consent_user_row = fetch_public_user(user_id)
         if not consent_user_row:

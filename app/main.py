@@ -20,6 +20,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.api.admin import router as admin_router
 from app.api.chat import router as chat_router
@@ -151,6 +152,11 @@ if "*" in origins:
             "when allow_credentials is True.",
         )
 
+if settings.proxy_headers:
+    app.add_middleware(
+        ProxyHeadersMiddleware,
+        trusted_hosts=settings.forwarded_allow_ips,
+    )
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)

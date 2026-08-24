@@ -24,12 +24,13 @@ from app.db.chat import (
 from app.db.client import (
     DatabaseAccessError,
     ProfileDecodeError,
-    normalize_uuid,
     parse_utc_datetime,
     supabase_client,
 )
 from app.db.discovery import (
     build_tab_aware_orbit_node_detail,
+    fetch_active_like_action,
+    fetch_active_match_between,
     fetch_likes_for_user,
     fetch_matches_for_user,
     get_cached_active_block_ids,
@@ -232,33 +233,11 @@ async def mark_likes_as_seen(
 
 
 async def _find_peer_like(target_id: str, viewer_id: str) -> dict[str, Any] | None:
-    query_like = supabase_client.table(
-        "profile_discovery_actions",
-    ).select("id, tab")
-    query_like = query_like.eq("actor_id", target_id)
-    query_like = query_like.eq("target_id", viewer_id)
-    query_like = query_like.in_("action", ["like", "superlike"])
-    query_like = query_like.is_("revoked_at", "null")
-    query_like = query_like.limit(1)
-    res = await asyncio.to_thread(query_like.execute)
-    return res.data[0] if (res.data and isinstance(res.data[0], dict)) else None
+    return await asyncio.to_thread(fetch_active_like_action, target_id, viewer_id)
 
 
 async def _find_peer_match(target_id: str, viewer_id: str) -> dict[str, Any] | None:
-    valid_target_id = normalize_uuid(target_id)
-    valid_viewer_id = normalize_uuid(viewer_id)
-    query_match = supabase_client.table("matches").select("id, tab")
-    # nosec: valid_target_id and valid_viewer_id validated via normalize_uuid
-    query_match = query_match.or_(
-        f"and(liker_id.eq.{valid_target_id},"
-        f"liked_back_id.eq.{valid_viewer_id}),"
-        f"and(liker_id.eq.{valid_viewer_id},"
-        f"liked_back_id.eq.{valid_target_id})",
-    )
-    query_match = query_match.is_("unmatched_at", "null")
-    query_match = query_match.limit(1)
-    res = await asyncio.to_thread(query_match.execute)
-    return res.data[0] if (res.data and isinstance(res.data[0], dict)) else None
+    return await asyncio.to_thread(fetch_active_match_between, target_id, viewer_id)
 
 
 async def _verify_peer_access_and_infer_tab(

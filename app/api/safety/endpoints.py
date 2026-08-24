@@ -555,7 +555,7 @@ async def start_session(
 
 
 @router.post("/api/v1/safety/session/checkin")
-@limiter.limit(settings.rate_limit_safety_session)
+@limiter.limit(settings.rate_limit_safety_heartbeat)
 async def checkin_session(
     request: Request,
     payload: SafetySessionCheckinRequest = Body(...),

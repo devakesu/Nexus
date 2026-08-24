@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -307,15 +308,17 @@ class ChatConversationController extends _$ChatConversationController {
   /// writing to `state` on a disposed autoDispose provider.
   bool _disposed = false;
 
-  /// Retries the peer's key-bundle fetch every [_sessionPollInterval] while
-  /// `sessionReady` is false and the conversation is still open - the
+  /// Retries the peer's key-bundle fetch starting from [_baseSessionPollInterval] with
+  /// exponential backoff while `sessionReady` is false and the conversation is still open - the
   /// backstop for a brand-new match where neither side has ever opened a
   /// chat screen before, so the composer doesn't stay stuck on "Waiting for
   /// a secure connection..." until the user manually leaves and re-enters.
   Timer? _sessionPollTimer;
   bool _pollInFlight = false;
   int _consecutivePollFailures = 0;
-  static const _sessionPollInterval = Duration(seconds: 10);
+  static const _baseSessionPollInterval = Duration(seconds: 10);
+  static const _maxSessionPollInterval = Duration(seconds: 60);
+  static final Random _pollRandom = Random();
 
   @override
   Future<ChatConversationState> build(
@@ -415,14 +418,35 @@ class ChatConversationController extends _$ChatConversationController {
   void _syncSessionPolling(ChatConversationState s) {
     final shouldPoll = !s.sessionReady && !s.conversationClosed;
     if (shouldPoll && _sessionPollTimer == null && !_disposed) {
-      _sessionPollTimer = Timer.periodic(
-        _sessionPollInterval,
-        (_) => unawaited(_pollSessionReady()),
-      );
+      _scheduleNextSessionPoll();
     } else if (!shouldPoll && _sessionPollTimer != null) {
-      _sessionPollTimer!.cancel();
+      _sessionPollTimer?.cancel();
       _sessionPollTimer = null;
     }
+  }
+
+  void _scheduleNextSessionPoll() {
+    if (_disposed) return;
+    _sessionPollTimer?.cancel();
+
+    // Exponential backoff: 10s * 2^_consecutivePollFailures (10s -> 20s -> 40s -> 60s max)
+    final backoffMultiplier = pow(
+      2,
+      min(_consecutivePollFailures, 3),
+    ).toDouble();
+    final backoffSeconds = min(
+      _baseSessionPollInterval.inSeconds * backoffMultiplier,
+      _maxSessionPollInterval.inSeconds.toDouble(),
+    );
+
+    // Apply ±20% jitter (0.8 to 1.2 multiplier)
+    final jitter = 0.8 + (_pollRandom.nextDouble() * 0.4);
+    final delayMs = (backoffSeconds * 1000 * jitter).round();
+
+    _sessionPollTimer = Timer(
+      Duration(milliseconds: delayMs),
+      () => unawaited(_pollSessionReady()),
+    );
   }
 
   Future<void> _pollSessionReady() async {
@@ -440,23 +464,30 @@ class ChatConversationController extends _$ChatConversationController {
         conversationId: conversationId,
         peerUserId: peerUserId,
       );
-      if (_disposed || !ready) return;
-      final latest = state.value ?? current;
-      state = AsyncData(
-        latest.copyWith(
-          sessionReady: true,
-          isReducedEncryption: PrekeyExhaustionRegistry.isExhausted(peerUserId),
-        ),
-      );
-      _consecutivePollFailures = 0;
-      _sessionPollTimer?.cancel();
-      _sessionPollTimer = null;
+      if (_disposed) return;
+      if (ready) {
+        final latest = state.value ?? current;
+        state = AsyncData(
+          latest.copyWith(
+            sessionReady: true,
+            isReducedEncryption: PrekeyExhaustionRegistry.isExhausted(
+              peerUserId,
+            ),
+          ),
+        );
+        _consecutivePollFailures = 0;
+        _sessionPollTimer?.cancel();
+        _sessionPollTimer = null;
+      } else {
+        _consecutivePollFailures++;
+        _scheduleNextSessionPoll();
+      }
     } on UntrustedPeerIdentityException {
       _sessionPollTimer?.cancel();
       _sessionPollTimer = null;
     } on Exception catch (e, stackTrace) {
       _consecutivePollFailures++;
-      // Transient (offline, peer still hasn't set up chat, 5xx) - only log to Sentry
+      // Transient (offline, peer still hasn't set up chat, 5xx, 429) - only log to Sentry
       // after 3 consecutive failures to avoid quota spam.
       if (_consecutivePollFailures == 3) {
         ErrorHandler.handleError(
@@ -468,6 +499,7 @@ class ChatConversationController extends _$ChatConversationController {
               'Session-ready poll failed 3 consecutive times for $conversationId.',
         );
       }
+      _scheduleNextSessionPoll();
     } finally {
       _pollInFlight = false;
     }
