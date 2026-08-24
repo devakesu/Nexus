@@ -412,6 +412,41 @@ def test_update_privacy_settings_filters_allowed_fields(mock_supabase: MagicMock
 
 
 @patch("app.api.user.settings.supabase_client")
+def test_update_privacy_settings_disabling_active_status(mock_supabase: MagicMock) -> None:
+    from fastapi import Request
+
+    from app.api.user.settings import update_privacy_settings
+    from app.models import PrivacySettingsUpdate
+
+    mock_update_chain = mock_supabase.table.return_value.update.return_value.eq.return_value.select.return_value.execute
+    mock_update_chain.return_value.data = [
+        {
+            "hidden_profile_fields": [],
+            "share_active_status": False,
+            "share_read_receipts": True,
+        },
+    ]
+
+    payload = PrivacySettingsUpdate(share_active_status=False)
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/profile/privacy-settings",
+    }
+    request = Request(scope)
+
+    res = update_privacy_settings(
+        request=request,
+        payload=payload,
+        user_id="user123",
+        _device=None,
+    )
+
+    assert res.share_active_status is False
+
+
+@patch("app.api.user.settings.supabase_client")
 def test_update_email_notification_settings_allowlist(mock_supabase: MagicMock) -> None:
     from fastapi import Request
 

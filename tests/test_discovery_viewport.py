@@ -63,9 +63,10 @@ async def test_discovery_viewport_passes_tab_to_session_validation(
 
     assert isinstance(response, DiscoveryViewportResponse)
     assert response.session_id == session_id
-    assert response.total_nodes == 1
+    assert response.total_nodes == 10
     assert len(response.nodes) == 1
     assert response.nodes[0].name == "Alice"
+    assert response.nodes[0].score == 90.0
 
     mock_get_or_validate_session.assert_called_once_with(
         session_id,
@@ -238,6 +239,38 @@ def test_create_discovery_session_derives_spotify_connected_without_extra_db_que
     params = kwargs.get("params") or (args[1] if len(args) > 1 else None)
     assert params is not None
     assert params.get("p_viewer_spotify_connected") is True
+
+
+def test_coarsen_total_nodes() -> None:
+    from app.api.discovery.endpoints import _coarsen_total_nodes
+
+    assert _coarsen_total_nodes(0) == 0
+    assert _coarsen_total_nodes(-5) == 0
+    assert _coarsen_total_nodes(1) == 10
+    assert _coarsen_total_nodes(7) == 10
+    assert _coarsen_total_nodes(10) == 10
+    assert _coarsen_total_nodes(11) == 25
+    assert _coarsen_total_nodes(25) == 25
+    assert _coarsen_total_nodes(26) == 50
+    assert _coarsen_total_nodes(50) == 50
+    assert _coarsen_total_nodes(73) == 100
+    assert _coarsen_total_nodes(150) == 250
+    assert _coarsen_total_nodes(320) == 500
+    assert _coarsen_total_nodes(840) == 800
+
+
+def test_quantize_score() -> None:
+    from app.db.discovery.orbit import quantize_score
+
+    assert quantize_score(0.0) == 0.0
+    assert quantize_score(0.12) == 0.2
+    assert quantize_score(0.38) == 0.4
+    assert quantize_score(0.55) == 0.6
+    assert quantize_score(0.79) == 0.8
+    assert quantize_score(0.96) == 1.0
+    assert quantize_score(85.5) == 90.0
+    assert quantize_score(72.0) == 70.0
+
 
 
 

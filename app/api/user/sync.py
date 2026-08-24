@@ -156,7 +156,7 @@ async def import_from_flavor(
         )
 
     code_attempts = await redis_client.get(code_attempts_key)
-    if code_attempts and int(code_attempts) >= 10:
+    if code_attempts and int(code_attempts) >= 5:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(

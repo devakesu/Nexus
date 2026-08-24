@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 
@@ -22,6 +22,19 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _PRESENCE_STALE_AFTER = timedelta(seconds=90)
+_COARSE_PRESENCE_INTERVAL_MINUTES = 30
+
+
+def _coarsen_last_active_timestamp(
+    dt: datetime, interval_minutes: int = _COARSE_PRESENCE_INTERVAL_MINUTES,
+) -> datetime:
+    """Rounds last_active_at down to the nearest coarse interval to prevent timing side-channels."""
+    discard = timedelta(
+        minutes=dt.minute % interval_minutes,
+        seconds=dt.second,
+        microseconds=dt.microsecond,
+    )
+    return dt - discard
 
 
 async def _resolve_single_presence(
@@ -55,7 +68,8 @@ async def _resolve_single_presence(
     is_online = bool(presence.get("is_online", False)) and (
         utcnow() - last_active_at < _PRESENCE_STALE_AFTER
     )
-    return PresenceResponse(is_online=is_online, last_active_at=last_active_at)
+    coarsened_last_active = _coarsen_last_active_timestamp(last_active_at)
+    return PresenceResponse(is_online=is_online, last_active_at=coarsened_last_active)
 
 
 @router.post("/api/v1/chat/presence/heartbeat")

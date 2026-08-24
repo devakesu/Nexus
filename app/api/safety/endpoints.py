@@ -258,7 +258,10 @@ async def send_safety_alert(
     """
     _ = request
 
-    idempotency_key = f"safety:sos:idempotency:{user_id}:{payload.session_id or 'none'}"
+    hashed_suffix = hashlib.sha256(
+        f"{user_id}:{payload.session_id or 'none'}".encode(),
+    ).hexdigest()
+    idempotency_key = f"safety:sos:idempotency:{hashed_suffix}"
     cached_response = await _check_cached_sos_alert(idempotency_key, user_id, payload.session_id)
     if cached_response is not None:
         return cached_response

@@ -668,7 +668,9 @@ async def test_send_safety_alert_idempotency_new(
 
     assert res.id == "alert-789"
     assert res.contacts_notified == 1
-    mock_redis.get.assert_called_once_with("safety:sos:idempotency:user-123:00000000-0000-0000-0000-000000000000")
+    import hashlib
+    expected_hash = hashlib.sha256(b"user-123:00000000-0000-0000-0000-000000000000").hexdigest()
+    mock_redis.get.assert_called_once_with(f"safety:sos:idempotency:{expected_hash}")
     mock_redis.set.assert_called_once()
 
 

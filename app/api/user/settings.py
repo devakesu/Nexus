@@ -100,6 +100,7 @@ def update_privacy_settings(
         rows = cast(list[dict[str, Any]], getattr(res, "data", None) or [])
         if not rows:
             raise HTTPException(status_code=404, detail="Profile not found")
+
         return _to_privacy_settings_response(rows[0])
     except HTTPException:
         raise

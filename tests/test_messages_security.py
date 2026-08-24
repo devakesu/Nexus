@@ -106,7 +106,7 @@ async def test_send_message_blocked_by_recipient(
 
     # 3. Assertions
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
-    assert exc_info.value.detail == "Blocked."
+    assert exc_info.value.detail == "Not a participant of this conversation."
     mock_get_blocks.assert_called_with("user-b")
     mock_insert.assert_not_called()
     mock_notify.assert_not_called()
@@ -157,7 +157,7 @@ async def test_send_message_blocked_by_sender(
 
     # 3. Assertions
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
-    assert exc_info.value.detail == "Blocked."
+    assert exc_info.value.detail == "Not a participant of this conversation."
     mock_insert.assert_not_called()
     mock_notify.assert_not_called()
 
@@ -203,7 +203,8 @@ async def test_mark_messages_read_not_blocked(
 
     # 3. Assertions
     assert res_read.marked_count == 5
-    mock_get_blocks.assert_called_with("user-b")
+    mock_get_blocks.assert_any_call("user-b")
+    mock_get_blocks.assert_any_call("user-a")
     mock_mark.assert_called_once_with("convo-123", "user-a")
 
 
@@ -246,7 +247,7 @@ async def test_mark_messages_read_blocked(
 
     # 3. Assertions
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
-    assert exc_info.value.detail == "Blocked."
+    assert exc_info.value.detail == "Not a participant of this conversation."
     mock_get_blocks.assert_called_once_with("user-b")
     mock_mark.assert_not_called()
 

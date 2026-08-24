@@ -168,3 +168,17 @@ async def test_batch_presence_endpoint_caps_at_50() -> None:
 
     assert exc_info.value.status_code == 400
     assert "Too many user IDs." in exc_info.value.detail
+
+
+def test_coarsen_last_active_timestamp() -> None:
+    from app.api.chat.presence import _coarsen_last_active_timestamp
+
+    dt = datetime(2026, 8, 24, 14, 43, 27, 856123, tzinfo=timezone.utc)
+    coarsened = _coarsen_last_active_timestamp(dt, interval_minutes=30)
+    assert coarsened == datetime(2026, 8, 24, 14, 30, 0, 0, tzinfo=timezone.utc)
+
+    dt2 = datetime(2026, 8, 24, 14, 12, 5, 0, tzinfo=timezone.utc)
+    coarsened2 = _coarsen_last_active_timestamp(dt2, interval_minutes=30)
+    assert coarsened2 == datetime(2026, 8, 24, 14, 0, 0, 0, tzinfo=timezone.utc)
+
+

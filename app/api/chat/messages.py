@@ -67,13 +67,13 @@ async def send_message(
         if user_id in recipient_block_ids:
             raise HTTPException(
                 status_code=403,
-                detail="Blocked.",
+                detail="Not a participant of this conversation.",
             )
         sender_block_ids = await get_cached_active_block_ids(user_id)
         if recipient_id in sender_block_ids:
             raise HTTPException(
                 status_code=403,
-                detail="Blocked.",
+                detail="Not a participant of this conversation.",
             )
 
         row = await asyncio.to_thread(
@@ -156,7 +156,13 @@ async def mark_conversation_messages_read(
         if user_id in recipient_block_ids:
             raise HTTPException(
                 status_code=403,
-                detail="Blocked.",
+                detail="Not a participant of this conversation.",
+            )
+        sender_block_ids = await get_cached_active_block_ids(user_id)
+        if recipient_id in sender_block_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Not a participant of this conversation.",
             )
 
         flags = await asyncio.to_thread(fetch_user_share_flags, user_id)

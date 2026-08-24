@@ -66,6 +66,16 @@ def coerce_score(value: Any) -> float:
     return coerce_float(value, 0.0)
 
 
+def quantize_score(score: float) -> float:
+    """Quantize raw compatibility scores to coarse tiers (e.g. 0.2, 0.4, 0.6, 0.8, 1.0)
+    to prevent profile attribute extraction and engine reverse-engineering attacks."""
+    if score <= 0.0:
+        return 0.0
+    if score <= 1.0:
+        return round(round(score * 5.0) / 5.0, 2)
+    return round(round(score / 10.0) * 10.0, 1)
+
+
 def coerce_float(value: Any, default: float = 0.0) -> float:
     """Safely convert a numeric or string value to float, returning default on failure.
 
@@ -187,7 +197,7 @@ def build_tab_aware_orbit_node_detail(
         "campus_year": p.get("campus_year"),
         "campus_name": p.get("campus_name"),
         "role_at": p.get("role_at"),
-        "score": coerce_score(p.get("score")),
+        "score": quantize_score(coerce_score(p.get("score"))),
         "x": coerce_float(p.get("x")),
         "y": coerce_float(p.get("y")),
         "orbit_tier": int(coerce_float(p.get("orbit_tier"), 3.0)),

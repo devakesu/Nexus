@@ -636,6 +636,74 @@ async def test_get_peer_profile_uses_fetch_music_affinities(
     assert mock_fetch_peer.call_args[0][0] == "11111111-1111-1111-1111-111111111111"
 
 
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.fetch_likes_for_user")
+@patch("app.api.discovery.likes.get_cached_active_block_ids")
+@patch("app.api.discovery.likes.supabase_client")
+async def test_get_likes_inbox_filters_blocked_users(
+    mock_supabase: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_fetch_likes: MagicMock,
+) -> None:
+    from app.api.discovery.likes import get_likes_inbox
+
+    viewer_id = "viewer-uuid-123"
+    liker_1 = "liker-uuid-1"
+    liker_2 = "liker-uuid-2"  # blocked
+
+    mock_fetch_likes.return_value = [
+        {
+            "actor_id": liker_1,
+            "action": "like",
+            "created_at": "2026-08-24T10:00:00Z",
+            "seen_at": None,
+        },
+        {
+            "actor_id": liker_2,
+            "action": "superlike",
+            "created_at": "2026-08-24T10:05:00Z",
+            "seen_at": None,
+        },
+    ]
+
+    # liker_2 is in block_ids (bidirectional block collected by get_cached_active_block_ids)
+    mock_get_blocks.return_value = {liker_2}
+
+    mock_profile_exec = MagicMock()
+    mock_profile_exec.execute.return_value.data = [
+        {
+            "id": liker_1,
+            "name": "Liker One",
+            "age": 24,
+            "profile_pic": "https://example.com/pic1.jpg",
+            "is_deactivated": False,
+        },
+    ]
+    mock_supabase.table.return_value.select.return_value.in_.return_value.eq.return_value = mock_profile_exec
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/likes",
+    }
+    request = Request(scope)
+
+    res = await get_likes_inbox(
+        request=request,
+        tab="Dating",
+        _device=None,
+        user_id=viewer_id,
+    )
+
+    assert len(res.likes) == 1
+    assert res.likes[0].actor_id == liker_1
+    assert res.likes[0].name == "Liker One"
+    assert res.unseen_count == 1
+    mock_get_blocks.assert_called_once_with(viewer_id)
+
+
+
 
 
 

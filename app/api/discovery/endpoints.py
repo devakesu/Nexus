@@ -24,6 +24,7 @@ from app.db.discovery import (
     record_user_report,
     set_match_unmatched,
 )
+from app.db.discovery.orbit import quantize_score
 from app.db.sessions import fetch_discovery_node_detail, fetch_spatial_viewport
 from app.models import (
     DiscoveryActionRequest,
@@ -44,13 +45,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _coarsen_total_nodes(count: int) -> int:
+    """Buckets total_nodes to coarse intervals to prevent differential pool size inference and block detection."""
+    if count <= 0:
+        return 0
+    if count <= 10:
+        return 10
+    if count <= 25:
+        return 25
+    if count <= 50:
+        return 50
+    if count <= 100:
+        return 100
+    if count <= 250:
+        return 250
+    if count <= 500:
+        return 500
+    return (count // 100) * 100
+
+
 def _node_to_out(node: dict[str, Any]) -> OrbitNodeOut:
-    """Converts a raw node dictionary to an OrbitNodeOut model instance."""
+    """Converts a raw node dictionary to an OrbitNodeOut model instance with quantized score."""
+    raw_score = float(node.get("score") or 0.0)
     return OrbitNodeOut(
         id=node["id"],
         name=node.get("name"),
         profile_pic=node.get("profile_pic"),
-        score=float(node.get("score") or 0.0),
+        score=quantize_score(raw_score),
         x=float(node.get("x") or 0.0),
         y=float(node.get("y") or 0.0),
         orbit_tier=int(node.get("orbit_tier") or 0),
@@ -103,7 +124,7 @@ async def get_discovery_orbit(
         return OrbitDiscoverResponse(
             session_id=session_id,
             expires_at=expires_at,
-            total_nodes=total_nodes,
+            total_nodes=_coarsen_total_nodes(total_nodes),
             nodes=[_node_to_out(node) for node in nodes],
         )
 
@@ -253,7 +274,7 @@ async def get_discovery_viewport(
         return DiscoveryViewportResponse(
             session_id=session_id,
             expires_at=expires_at,
-            total_nodes=total_nodes,
+            total_nodes=_coarsen_total_nodes(total_nodes),
             nodes=[_node_to_out(node) for node in nodes],
         )
 
