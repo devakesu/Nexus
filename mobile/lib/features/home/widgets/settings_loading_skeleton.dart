@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 /// Shimmer skeleton shown while profile settings data loads.
@@ -241,7 +239,7 @@ class _ShimmerState extends State<_Shimmer>
       vsync: this,
       duration: const Duration(milliseconds: 1300),
     );
-    unawaited(_ctrl.repeat());
+    _ctrl.repeat();
   }
 
   @override

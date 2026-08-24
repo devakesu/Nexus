@@ -15,6 +15,14 @@ analyzer:
     missing_required_param: error
     missing_return: error
     unawaited_futures: error
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:

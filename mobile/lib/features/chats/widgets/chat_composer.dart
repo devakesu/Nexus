@@ -690,7 +690,7 @@ class _AnimatedRecordingWaveState extends State<AnimatedRecordingWave>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    unawaited(_controller.repeat());
+    _controller.repeat();
   }
 
   @override

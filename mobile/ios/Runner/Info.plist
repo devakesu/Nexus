@@ -15,8 +15,7 @@
 			<string>com.devakesu.apps.nexus</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>devakesu-nexus</string>
-				<string>devakesu-nexus-mec</string>
+				<string>$(APP_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
@@ -50,6 +49,8 @@
 	<string>Nexus needs camera access to take photos to send in chat, and to record video evidence during a Meetup Safety Silent SOS.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nexus needs your location to share it in chat and to include with a Meetup Safety alert.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Nexus needs contact access to add a trusted contact for Meetup Safety.</string>
 	<!-- Required by workmanager for the periodic one-time-prekey top-up
 	     background task (see lib/services/signal/background_prekey_task.dart
 	     and AppDelegate.swift). The identifier must exactly match
@@ -61,6 +62,8 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.devakesu.nexus.prekeyReplenish</string>
+		<string>com.devakesu.nexus.evidenceUploadRetry</string>
+		<string>com.devakesu.nexus.sessionEndRetry</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

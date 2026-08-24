@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -390,13 +391,17 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
           }).toList();
         });
       } else {
-        debugPrint('Google Places Autocomplete API Error: ${response.data}');
+        if (kDebugMode) {
+          debugPrint('Google Places Autocomplete API Error: ${response.data}');
+        }
         setState(() {
           _suggestions = [];
         });
       }
     } on Object catch (e) {
-      debugPrint('Google Places Autocomplete Request Exception: $e');
+      if (kDebugMode) {
+        debugPrint('Google Places Autocomplete Request Exception: $e');
+      }
       if (!mounted) return;
       // Fallback on network errors
       final query = text.toLowerCase();
@@ -438,10 +443,14 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
             (loc['lng'] as num).toDouble(),
           );
         } else {
-          debugPrint('Google Places Details API Error: ${response.data}');
+          if (kDebugMode) {
+            debugPrint('Google Places Details API Error: ${response.data}');
+          }
         }
       } on Object catch (e) {
-        debugPrint('Google Places Details Request Exception: $e');
+        if (kDebugMode) {
+          debugPrint('Google Places Details Request Exception: $e');
+        }
         // Fall back to default coordinate lookup if API details fetch fails
       } finally {
         if (mounted) {

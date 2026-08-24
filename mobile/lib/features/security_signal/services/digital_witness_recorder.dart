@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexus/features/security_signal/services/pending_evidence_upload_queue.dart';
+import 'package:nexus/features/security_signal/services/signal/media_crypto.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -44,7 +45,8 @@ class DigitalWitnessRecorder extends ChangeNotifier
   CameraController? controller;
   bool isRecording = false;
   DateTime? _segmentStartedAt;
-  final List<(File file, double durationSeconds)> _segments = [];
+  final List<(File file, double durationSeconds, String mediaKeyBase64)>
+  _segments = [];
   String? _alertId;
 
   Duration get elapsed => _segmentStartedAt == null
@@ -137,8 +139,23 @@ class DigitalWitnessRecorder extends ChangeNotifier
       final durationSeconds = startedAt == null
           ? 0.0
           : DateTime.now().difference(startedAt).inMilliseconds / 1000.0;
-      _segments.add((File(file.path), durationSeconds));
-    } on CameraException {
+
+      // Immediately encrypt the captured video file to disk and purge the unencrypted file
+      final rawFile = File(file.path);
+      if (rawFile.existsSync()) {
+        final bytes = await rawFile.readAsBytes();
+        final encrypted = await MediaCrypto.instance.encrypt(bytes);
+        final encPath = '${file.path}.enc';
+        final encFile = File(encPath);
+        await encFile.writeAsBytes(encrypted.ciphertext, flush: true);
+        try {
+          await rawFile.delete();
+        } on Exception {
+          // Best-effort cleanup
+        }
+        _segments.add((encFile, durationSeconds, encrypted.mediaKeyBase64));
+      }
+    } on Exception {
       // Best-effort - a failed segment shouldn't crash the SOS flow.
     }
   }
@@ -153,7 +170,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
   Future<void> _handoffSegments() async {
     final alertId = _alertId;
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    final segments = List<(File, double)>.from(_segments);
+    final segments = List<(File, double, String)>.from(_segments);
     _segments.clear();
     _alertId = null;
 
@@ -161,7 +178,7 @@ class DigitalWitnessRecorder extends ChangeNotifier
       // No alert to register against (e.g. the SMS alert send failed) -
       // still clean up the local files rather than leaking them on disk
       // forever, even though the evidence itself can't be preserved.
-      for (final (file, _) in segments) {
+      for (final (file, _, _) in segments) {
         try {
           await file.delete();
         } on Exception {

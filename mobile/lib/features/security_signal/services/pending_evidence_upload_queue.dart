@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:nexus/core/utils/error_handler.dart';
 import 'package:nexus/core/utils/secure_preferences.dart';
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
+import 'package:nexus/features/security_signal/services/signal/local_key_vault.dart';
 import 'package:nexus/features/security_signal/services/signal/media_crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:workmanager/workmanager.dart';
@@ -25,7 +27,7 @@ class _PendingSegment {
     required this.alertId,
     required this.durationSeconds,
     this.storagePath,
-    this.mediaKeyBase64,
+    this.encryptedMediaKeyBase64,
   });
 
   factory _PendingSegment.fromJson(Map<String, dynamic> json) =>
@@ -34,22 +36,49 @@ class _PendingSegment {
         alertId: json['alertId'] as String,
         durationSeconds: (json['durationSeconds'] as num).toDouble(),
         storagePath: json['storagePath'] as String?,
-        mediaKeyBase64: json['mediaKeyBase64'] as String?,
+        encryptedMediaKeyBase64:
+            (json['encryptedMediaKeyBase64'] ?? json['mediaKeyBase64'])
+                as String?,
       );
 
   final String filePath;
   final String alertId;
   final double durationSeconds;
   String? storagePath;
-  String? mediaKeyBase64;
+  String? encryptedMediaKeyBase64;
 
   Map<String, dynamic> toJson() => {
     'filePath': filePath,
     'alertId': alertId,
     'durationSeconds': durationSeconds,
     if (storagePath != null) 'storagePath': storagePath,
-    if (mediaKeyBase64 != null) 'mediaKeyBase64': mediaKeyBase64,
+    if (encryptedMediaKeyBase64 != null)
+      'encryptedMediaKeyBase64': encryptedMediaKeyBase64,
   };
+
+  Future<String?> getDecryptedMediaKey() async {
+    if (encryptedMediaKeyBase64 == null) return null;
+    try {
+      final ciphertext = base64Decode(encryptedMediaKeyBase64!);
+      final decrypted = await LocalKeyVault.instance.decryptBytes(ciphertext);
+      return utf8.decode(decrypted);
+    } on Object catch (_) {
+      // Fallback for legacy unencrypted key
+      return encryptedMediaKeyBase64;
+    }
+  }
+
+  static Future<String?> encryptMediaKey(String? rawKeyBase64) async {
+    if (rawKeyBase64 == null) return null;
+    try {
+      final encryptedBytes = await LocalKeyVault.instance.encryptBytes(
+        Uint8List.fromList(utf8.encode(rawKeyBase64)),
+      );
+      return base64Encode(encryptedBytes);
+    } on Object catch (_) {
+      return rawKeyBase64;
+    }
+  }
 }
 
 /// Durable handoff point for Digital Witness evidence segments between being
@@ -87,30 +116,30 @@ class PendingEvidenceUploadQueue {
     );
   }
 
-  /// Persists every captured segment to the queue. Call this and await it
-  /// before doing anything fire-and-forget with the segments - once this
-  /// returns, the segments survive an app kill regardless of what happens to
-  /// the actual upload afterwards.
+  /// Persists every captured segment to the queue with vault-encrypted media keys.
+  /// Call this and await it before doing anything fire-and-forget with the segments.
   static Future<void> enqueueAll({
     required String alertId,
-    required List<(File, double)> segments,
+    required List<(File, double, String)> segments,
   }) async {
     if (segments.isEmpty) return;
     final existing = await _read();
-    existing.addAll(
-      segments.map(
-        (s) => _PendingSegment(
+    for (final s in segments) {
+      final encKey = await _PendingSegment.encryptMediaKey(s.$3);
+      existing.add(
+        _PendingSegment(
           filePath: s.$1.path,
           alertId: alertId,
           durationSeconds: s.$2,
+          encryptedMediaKeyBase64: encKey,
         ),
-      ),
-    );
+      );
+    }
     await _write(existing);
   }
 
   /// Attempts to upload+register every currently-queued segment. Successful
-  /// ones are dequeued and their local plaintext file deleted; failures are
+  /// ones are dequeued and their local encrypted file deleted; failures are
   /// left queued for the next drain. Returns true once the queue is fully
   /// cleared (including "there was never anything queued").
   static Future<bool> drain() async {
@@ -131,35 +160,42 @@ class PendingEvidenceUploadQueue {
       final file = File(segment.filePath);
       try {
         var storagePath = segment.storagePath;
-        var mediaKeyBase64 = segment.mediaKeyBase64;
+        var mediaKeyBase64 = await segment.getDecryptedMediaKey();
 
-        // Only encrypt and upload ciphertext if not already uploaded in a previous attempt
-        if (storagePath == null || mediaKeyBase64 == null) {
+        // Upload encrypted ciphertext if not already uploaded in a previous attempt
+        if (storagePath == null) {
           if (!file.existsSync()) {
-            // Plaintext file is gone and was never uploaded - nothing left to retry.
+            // File is gone and was never uploaded - nothing left to retry.
             continue;
           }
-          final bytes = await file.readAsBytes();
-          final encrypted = await MediaCrypto.instance.encrypt(bytes);
+          final fileBytes = await file.readAsBytes();
+          Uint8List uploadBytes;
+          if (mediaKeyBase64 == null) {
+            // Backwards compatibility if an unencrypted legacy file was queued
+            final encrypted = await MediaCrypto.instance.encrypt(fileBytes);
+            uploadBytes = encrypted.ciphertext;
+            mediaKeyBase64 = encrypted.mediaKeyBase64;
+            segment.encryptedMediaKeyBase64 =
+                await _PendingSegment.encryptMediaKey(mediaKeyBase64);
+          } else {
+            uploadBytes = fileBytes;
+          }
           final path = '$userId/${DateTime.now().microsecondsSinceEpoch}.enc';
-          await storage.uploadBinary(path, encrypted.ciphertext);
+          await storage.uploadBinary(path, uploadBytes);
           storagePath = path;
-          mediaKeyBase64 = encrypted.mediaKeyBase64;
-          segment
-            ..storagePath = storagePath
-            ..mediaKeyBase64 = mediaKeyBase64;
-          // Persist the uploaded storagePath and mediaKeyBase64 immediately
-          await _write(pending);
+          segment.storagePath = storagePath;
         }
 
         // Register evidence with backend using the uploaded storage path and key
-        await SafetyAlertApi.registerEvidence(
-          alertId: segment.alertId,
-          storagePath: storagePath,
-          mediaKeyBase64: mediaKeyBase64,
-          contentType: 'video',
-          durationSeconds: segment.durationSeconds,
-        );
+        if (mediaKeyBase64 != null) {
+          await SafetyAlertApi.registerEvidence(
+            alertId: segment.alertId,
+            storagePath: storagePath,
+            mediaKeyBase64: mediaKeyBase64,
+            contentType: 'video',
+            durationSeconds: segment.durationSeconds,
+          );
+        }
 
         try {
           if (file.existsSync()) {

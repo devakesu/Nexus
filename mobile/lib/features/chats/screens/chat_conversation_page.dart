@@ -23,6 +23,7 @@ import 'package:nexus/features/home/widgets/profile_detail_sheet.dart';
 import 'package:nexus/features/orbit/widgets/constellation_loader.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
 import 'package:nexus/features/security_signal/services/notification_service.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 import 'package:nexus/features/security_signal/services/signal/session_manager.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
 
@@ -68,6 +69,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
     _scrollController
@@ -231,6 +233,7 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
 
   @override
   void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
     WidgetsBinding.instance.removeObserver(this);
     _heartbeatTimer?.cancel();
     _floatingDateTimer?.cancel();
@@ -276,12 +279,10 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
 
   void _scrollToBottom() {
     if (!_scrollController.hasClients) return;
-    unawaited(
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      ),
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
     );
   }
 

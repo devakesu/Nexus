@@ -90,13 +90,11 @@ class EventCard extends ConsumerWidget {
         : (untilEvent > const Duration(hours: 3)
               ? const Duration(hours: 3)
               : untilEvent);
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => MeetupSafetyPage(
-            initialCheckInLabel: payload.title,
-            initialCheckInDuration: clamped,
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MeetupSafetyPage(
+          initialCheckInLabel: payload.title,
+          initialCheckInDuration: clamped,
         ),
       ),
     );

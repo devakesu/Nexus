@@ -1,6 +1,5 @@
 // CustomPainter math calculations benefit from explicit double literals and nested canvas calls.
 // ignore_for_file: prefer_int_literals, cascade_invocations
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -38,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen>
       }
     });
 
-    unawaited(_controller.forward());
+    _controller.forward();
   }
 
   @override

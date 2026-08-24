@@ -1,6 +1,7 @@
 package com.devakesu.apps.nexus
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
@@ -126,7 +127,9 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "isDebuggerConnected" -> {
-                        val connected = android.os.Debug.isDebuggerConnected() || android.os.Debug.waitingForDebugger()
+                        val connected = android.os.Debug.isDebuggerConnected() ||
+                            android.os.Debug.waitingForDebugger() ||
+                            isTraced()
                         result.success(connected)
                     }
                     "setSecureFlag" -> {
@@ -293,6 +296,7 @@ class MainActivity : FlutterActivity() {
                 ).apply {
                     description = "When you receive a new chat message"
                     group = "chats"
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
                 },
                 NotificationChannel(
                     "chat_event_reminder",
@@ -390,6 +394,32 @@ class MainActivity : FlutterActivity() {
                 pending.error("SPOTIFY_AUTH_ERROR", response.error ?: "Unknown error", null)
             else ->
                 pending.error("SPOTIFY_AUTH_CANCELLED", "User cancelled", null)
+        }
+    }
+
+    private fun isTraced(): Boolean {
+        return try {
+            val statusFile = java.io.File("/proc/self/status")
+            if (statusFile.exists()) {
+                val reader = java.io.BufferedReader(java.io.FileReader(statusFile))
+                var line: String?
+                var traced = false
+                while (reader.readLine().also { line = it } != null) {
+                    if (line?.startsWith("TracerPid:") == true) {
+                        val pid = line!!.substringAfter("TracerPid:").trim().toIntOrNull() ?: 0
+                        if (pid > 0) {
+                            traced = true
+                            break
+                        }
+                    }
+                }
+                reader.close()
+                traced
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 }

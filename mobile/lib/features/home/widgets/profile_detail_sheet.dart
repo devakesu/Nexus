@@ -11,6 +11,7 @@ import 'package:nexus/core/utils/network_utils.dart';
 import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/profile/utils/emoji_helper.dart';
 import 'package:nexus/features/profile/widgets/storage_image.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 import 'package:nexus/features/spotify/providers/spotify_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -66,6 +67,7 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     _viewerConnected =
         widget.data['viewer_spotify_connected'] as bool? ?? false;
     WidgetsBinding.instance.addObserver(this);
@@ -73,6 +75,7 @@ class _ProfileDetailSheetState extends ConsumerState<ProfileDetailSheet>
 
   @override
   void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

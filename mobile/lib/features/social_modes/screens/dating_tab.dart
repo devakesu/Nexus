@@ -76,7 +76,7 @@ class _DatingTabState extends ConsumerState<DatingTab>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    unawaited(_pulseController.repeat(reverse: true));
+    _pulseController.repeat(reverse: true);
     // Renders instantly from DiscoveryHubController's cached snapshot (if
     // any) via this immediate callback, then again whenever it reconciles
     // with the network in the background or is explicitly refreshed after

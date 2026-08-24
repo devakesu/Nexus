@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -172,9 +173,11 @@ class MeetupSafetySession extends ChangeNotifier {
         onDidReceiveNotificationResponse: _onNotificationResponse,
       );
     } on Object catch (e) {
-      debugPrint(
-        '[Safety] Failed to initialize with ic_notification, falling back: $e',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[Safety] Failed to initialize with ic_notification, falling back: $e',
+        );
+      }
       const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       await _plugin.initialize(
         settings: InitializationSettings(

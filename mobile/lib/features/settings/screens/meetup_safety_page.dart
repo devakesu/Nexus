@@ -17,6 +17,7 @@ import 'package:nexus/core/widgets/scale_pressable.dart';
 import 'package:nexus/features/security_signal/services/meetup_safety_session.dart';
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/security_signal/services/safety_contacts.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 class MeetupSafetyPage extends StatefulWidget {
@@ -69,6 +70,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     WidgetsBinding.instance.addObserver(this);
     unawaited(_checkPermissions());
     unawaited(_loadContacts());
@@ -86,6 +88,7 @@ class _MeetupSafetyPageState extends State<MeetupSafetyPage>
 
   @override
   void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
     WidgetsBinding.instance.removeObserver(this);
     _session.removeListener(_onSessionChanged);
     _tickTimer?.cancel();

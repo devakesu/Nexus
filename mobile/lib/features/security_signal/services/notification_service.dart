@@ -30,11 +30,12 @@ import 'package:nexus/features/security_signal/services/signal/session_manager.d
 import 'package:nexus/features/security_signal/services/signal/signal_database.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 /// Top-level background message handler - must be a top-level function.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM] Background message: ${message.messageId}');
+  if (kDebugMode) debugPrint('[FCM] Background message: ${message.messageId}');
   await NotificationService.handlePushMessage(message);
 }
 
@@ -66,9 +67,11 @@ class NotificationService {
       );
       _localPluginInitialized = true;
     } on Object catch (e) {
-      debugPrint(
-        '[FCM] Failed to initialize with ic_notification, falling back: $e',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[FCM] Failed to initialize with ic_notification, falling back: $e',
+        );
+      }
       const fallbackInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       await _localPlugin.initialize(
         settings: const InitializationSettings(
@@ -149,7 +152,7 @@ class NotificationService {
         ),
       );
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to unregister token: $e');
+      if (kDebugMode) debugPrint('[FCM] Failed to unregister token: $e');
     }
   }
 
@@ -210,7 +213,7 @@ class NotificationService {
       if (token != null) await _registerToken(token);
       return token;
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to get token: $e');
+      if (kDebugMode) debugPrint('[FCM] Failed to get token: $e');
       return null;
     }
   }
@@ -231,7 +234,7 @@ class NotificationService {
         ),
       );
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to register token: $e');
+      if (kDebugMode) debugPrint('[FCM] Failed to register token: $e');
     }
   }
 
@@ -311,7 +314,9 @@ class NotificationService {
           ),
         );
       } on Object catch (e) {
-        debugPrint('[FCM] Failed to initialize Supabase in background: $e');
+        if (kDebugMode) {
+          debugPrint('[FCM] Failed to initialize Supabase in background: $e');
+        }
       }
     }
     final data = message.data;
@@ -349,7 +354,7 @@ class NotificationService {
       return;
     }
 
-    // Background push: retrieve and update active notifications to support merging within 3 hours
+    // Background push: retrieve and update active notifications to support merging within 30 minutes
     final prefs = await SecurePreferences.getInstance();
     final activeJson = await prefs.getString('active_notifications');
     var activeMap = <String, dynamic>{};
@@ -366,26 +371,67 @@ class NotificationService {
       final lastMsgAt = lastMsgAtStr != null
           ? DateTime.tryParse(lastMsgAtStr)
           : null;
-      return lastMsgAt == null || now.difference(lastMsgAt).inHours > 3;
+      return lastMsgAt == null || now.difference(lastMsgAt).inMinutes > 30;
     });
 
-    var messages = <String>[];
+    var messageIds = <String>[];
     if (activeMap.containsKey(senderId)) {
       final entry = activeMap[senderId] as Map<String, dynamic>;
-      messages = List<String>.from(entry['messages'] as List);
+      if (entry['message_ids'] is List) {
+        messageIds = List<String>.from(entry['message_ids'] as List);
+      }
     }
 
-    messages.add(plaintext);
+    final messageId = data['message_id'] as String?;
+    if (messageId != null && !messageIds.contains(messageId)) {
+      messageIds.add(messageId);
+    }
+    if (messageIds.length > 5) {
+      messageIds = messageIds.sublist(messageIds.length - 5);
+    }
+
     activeMap[senderId] = {
       'sender_name': senderName,
       'conversation_id': conversationId,
       'last_message_at': now.toIso8601String(),
-      'messages': messages,
+      'message_ids': messageIds,
     };
     await prefs.setString('active_notifications', json.encode(activeMap));
 
+    var notificationBody = plaintext;
+    if (messageIds.length > 1) {
+      try {
+        final db = SignalDatabase.instance;
+        final rows = await (db.select(
+          db.localMessages,
+        )..where((tbl) => tbl.id.isIn(messageIds))).get();
+        final textMap = <String, String>{};
+        for (final row in rows) {
+          if (row.plaintextEnc != null) {
+            try {
+              final decryptedBytes = await LocalKeyVault.instance.decryptBytes(
+                row.plaintextEnc!,
+              );
+              textMap[row.id] = utf8.decode(decryptedBytes);
+            } on Object catch (_) {}
+          }
+        }
+        final lines = <String>[];
+        for (final id in messageIds) {
+          final t = textMap[id] ?? (id == messageId ? plaintext : null);
+          if (t != null && t.isNotEmpty) {
+            lines.add(t);
+          }
+        }
+        if (lines.isNotEmpty) {
+          notificationBody = lines.reversed.join('\n');
+        }
+      } on Object catch (_) {
+        notificationBody = plaintext;
+      }
+    }
+
     final largeIconPath = await _downloadProfilePic(profilePic);
-    final notificationBody = messages.reversed.join('\n');
     final notificationId = senderId.hashCode;
 
     final androidDetails = AndroidNotificationDetails(
@@ -394,6 +440,7 @@ class NotificationService {
       channelDescription: 'When you receive a new chat message',
       importance: Importance.high,
       priority: Priority.high,
+      visibility: NotificationVisibility.secret,
       largeIcon: largeIconPath != null
           ? FilePathAndroidBitmap(largeIconPath)
           : null,
@@ -431,7 +478,9 @@ class NotificationService {
             file.deleteSync();
           }
         } on Object catch (e) {
-          debugPrint('[FCM] Failed to cleanup temp avatar file: $e');
+          if (kDebugMode) {
+            debugPrint('[FCM] Failed to cleanup temp avatar file: $e');
+          }
         }
       }
     }
@@ -487,20 +536,24 @@ class NotificationService {
                     decryptFailed: const Value(false),
                   ),
                 );
-            debugPrint(
-              '[FCM] Successfully decrypted and cached message $messageId',
-            );
+            if (kDebugMode) {
+              debugPrint(
+                '[FCM] Successfully decrypted and cached message $messageId',
+              );
+            }
           } on Object catch (e, st) {
-            debugPrint(
-              '[FCM] Failed to cache decrypted message $messageId: $e\n$st',
-            );
+            if (kDebugMode) {
+              debugPrint(
+                '[FCM] Failed to cache decrypted message $messageId: $e\n$st',
+              );
+            }
           }
         }
       }
 
       return plaintext;
     } on Object catch (e) {
-      debugPrint('[FCM] Decryption failed: $e');
+      if (kDebugMode) debugPrint('[FCM] Decryption failed: $e');
       return null;
     }
   }
@@ -532,8 +585,22 @@ class NotificationService {
 
       final dio = Dio();
       final tempDir = Directory.systemTemp;
-      final filePath =
-          '${tempDir.path}/notification_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      // Best-effort cleanup of any stale notification avatar files
+      try {
+        if (tempDir.existsSync()) {
+          final entities = tempDir.listSync();
+          for (final e in entities) {
+            if (e.path.contains('notification_avatar_')) {
+              try {
+                e.deleteSync();
+              } on Object catch (_) {}
+            }
+          }
+        }
+      } on Object catch (_) {}
+
+      final uniqueId = const Uuid().v4();
+      final filePath = '${tempDir.path}/notification_avatar_$uniqueId.jpg';
       try {
         await dio.download(
           url,
@@ -545,7 +612,7 @@ class NotificationService {
         dio.close(force: true);
       }
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to download profile pic: $e');
+      if (kDebugMode) debugPrint('[FCM] Failed to download profile pic: $e');
       return null;
     }
   }
@@ -575,7 +642,7 @@ class NotificationService {
         await localPlugin.cancel(id: matchedSenderId.hashCode);
       }
     } on Object catch (e) {
-      debugPrint('[FCM] Failed to clear notifications: $e');
+      if (kDebugMode) debugPrint('[FCM] Failed to clear notifications: $e');
     }
   }
 

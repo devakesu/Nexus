@@ -1,5 +1,5 @@
 // Telemetry rendering and CustomPainter math benefit from direct double representation and nested cascades.
-// ignore_for_file: cascade_invocations, prefer_int_literals
+// ignore_for_file: prefer_int_literals
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(seconds: 1),
     )..addListener(_updatePhysics);
 
-    unawaited(_physicsController.repeat());
+    _physicsController.repeat();
 
     // Switch Matrix Drift configuration every 4.5 seconds
     _matrixTimer = Timer.periodic(const Duration(milliseconds: 4500), (timer) {

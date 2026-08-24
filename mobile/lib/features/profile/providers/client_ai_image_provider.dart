@@ -302,9 +302,11 @@ class ClientAIImageManager extends _$ClientAIImageManager {
           await storage.remove(state.pendingDeletions);
         } on Object catch (e) {
           // Non-fatal: log storage removal error but proceed with transaction
-          debugPrint(
-            '[ClientAIImageManager] Failed to remove old media files: $e',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              '[ClientAIImageManager] Failed to remove old media files: $e',
+            );
+          }
         }
       }
 
@@ -321,9 +323,11 @@ class ClientAIImageManager extends _$ClientAIImageManager {
         try {
           await storage.remove(uploadedPaths);
         } on Object catch (err) {
-          debugPrint(
-            '[ClientAIImageManager] Failed to roll back uploaded media files on failure: $err',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              '[ClientAIImageManager] Failed to roll back uploaded media files on failure: $err',
+            );
+          }
         }
       }
       if (ref.mounted) {
@@ -657,9 +661,11 @@ class RefinedEdgeVisionBroker {
       // Cap at 5 highly specific tags to enforce tight Pydantic payload tracking boundaries
       return uniquePayloadFeed.take(5).toList();
     } on Object catch (e) {
-      debugPrint(
-        '[VisionBroker Critical] On-device labeling execution aborted: $e',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[VisionBroker Critical] On-device labeling execution aborted: $e',
+        );
+      }
       return ['cosmic-dreamer'];
     } finally {
       await imageLabeler.close(); // Hard memory-leak prevention lock

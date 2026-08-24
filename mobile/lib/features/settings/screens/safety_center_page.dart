@@ -12,6 +12,7 @@ import 'package:nexus/core/utils/secure_storage_options.dart';
 import 'package:nexus/core/widgets/consent_prompt_dialog.dart';
 import 'package:nexus/core/widgets/safety_score_ring_painter.dart';
 import 'package:nexus/core/widgets/scale_pressable.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 import 'package:nexus/features/settings/screens/blocked_users_page.dart';
 import 'package:nexus/features/settings/screens/crisis_helplines_page.dart';
 import 'package:nexus/features/settings/screens/feedback_page.dart';
@@ -305,8 +306,18 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     unawaited(_loadHasTrustedContacts());
     unawaited(_loadChecklistFlags());
+  }
+
+  @override
+  void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
+    for (final controller in _accordionControllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   // --- Safety Score checklist persistence ---
@@ -450,10 +461,8 @@ class _SafetyCenterPageState extends State<SafetyCenterPage> {
   }
 
   void _openCrisisHelplinesPage() {
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const CrisisHelplinesPage()),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const CrisisHelplinesPage()),
     );
   }
 

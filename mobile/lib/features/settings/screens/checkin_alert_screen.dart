@@ -17,6 +17,7 @@ import 'package:nexus/features/security_signal/services/meetup_safety_session.da
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/security_signal/services/safety_contacts.dart';
 import 'package:nexus/features/security_signal/services/safety_dialer.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 
 enum _SosPhase { idle, countdown, silentActive, loudActive }
 
@@ -52,11 +53,13 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     unawaited(_loadContacts());
   }
 
   @override
   void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
     _sosTimer?.cancel();
     unawaited(_alarmPlayer?.dispose());
     super.dispose();

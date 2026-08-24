@@ -24,6 +24,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
+  if (!kDebugMode) {
+    debugPrint = (message, {wrapWidth}) {};
+  }
   SentryWidgetsFlutterBinding.ensureInitialized();
   SecurityService.initialize();
   await SecurityService.checkDebugger();
@@ -160,9 +163,12 @@ Future<void> main() async {
           // ignore: experimental_member_use
           ..profilesSampleRate = isStagingOrDev ? 1.0 : 0.1;
 
-        // Configure Session Replay
-        options.replay.sessionSampleRate = kDebugMode ? 0.0 : 0.1;
-        options.replay.onErrorSampleRate = kDebugMode ? 0.0 : 1.0;
+        // Configure Session Replay - fully disabled to prevent recording screen frames and E2EE/PII content
+        options.replay.sessionSampleRate = 0.0;
+        options.replay.onErrorSampleRate = 0.0;
+        // Defense-in-depth: mask all text and images for screenshot/replay privacy
+        options.privacy.maskAllText = true;
+        options.privacy.maskAllImages = true;
 
         // Sanitize sensitive info in all events sent to Sentry
         options.beforeSend = (event, hint) {
@@ -224,8 +230,38 @@ Future<void> main() async {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  bool _isBackgroundShielded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    unawaited(SecurityService.handleAppLifecycleState(state));
+    final shouldShield = state != AppLifecycleState.resumed;
+    if (_isBackgroundShielded != shouldShield && mounted) {
+      setState(() {
+        _isBackgroundShielded = shouldShield;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -240,11 +276,101 @@ class MyApp extends StatelessWidget {
       // to grow with the OS text-size setting. Clamp system text scaling to
       // a range those layouts can absorb without overflowing, while still
       // giving low-vision users real enlargement.
-      builder: (context, child) => MediaQuery.withClampedTextScaling(
-        minScaleFactor: 0.8,
-        maxScaleFactor: 1.3,
-        child: child!,
-      ),
+      builder: (context, child) {
+        final clampedChild = MediaQuery.withClampedTextScaling(
+          minScaleFactor: 0.8,
+          maxScaleFactor: 1.3,
+          child: child ?? const SizedBox.shrink(),
+        );
+
+        var content = clampedChild;
+
+        if (_isBackgroundShielded) {
+          content = Stack(
+            children: [
+              clampedChild,
+              Positioned.fill(
+                child: ColoredBox(
+                  color: AppColors.canvas,
+                  child: Center(
+                    child: Image.asset(
+                      isMec ? 'assets/nexus_mec.png' : 'assets/nexus.png',
+                      width: 72,
+                      height: 72,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: SecurityService.isScreenRecordingDetected,
+            builder: (context, isRecording, _) {
+              if (!isRecording || !SecurityService.isSensitiveScreenActive) {
+                return content;
+              }
+              return Stack(
+                children: [
+                  content,
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 16,
+                    right: 16,
+                    child: IgnorePointer(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFFD97706,
+                            ).withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.videocam,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Screen recording or display mirroring detected',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: AppColors.canvas,

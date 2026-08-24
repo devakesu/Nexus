@@ -390,34 +390,32 @@ class _FriendsSettingsOverlayState extends State<FriendsSettingsOverlay> {
                       ),
                     ),
                     onPressed: () {
-                      unawaited(
-                        Navigator.push<void>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => InterestsOverlay(
-                              initialSelected: localInterests,
-                              onSave: (selected) {
-                                setState(() {
-                                  localInterests = List<String>.from(selected);
-                                });
-                                final dict = <String, List<String>>{};
-                                for (final item in selected) {
-                                  final idx = item.indexOf(': ');
-                                  if (idx > 0) {
-                                    final parent = item.substring(0, idx);
-                                    final sub = item.substring(idx + 2);
-                                    dict.putIfAbsent(parent, () => []).add(sub);
-                                  }
+                      Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => InterestsOverlay(
+                            initialSelected: localInterests,
+                            onSave: (selected) {
+                              setState(() {
+                                localInterests = List<String>.from(selected);
+                              });
+                              final dict = <String, List<String>>{};
+                              for (final item in selected) {
+                                final idx = item.indexOf(': ');
+                                if (idx > 0) {
+                                  final parent = item.substring(0, idx);
+                                  final sub = item.substring(idx + 2);
+                                  dict.putIfAbsent(parent, () => []).add(sub);
                                 }
-                                unawaited(
-                                  widget.onSaveFriendsField(
-                                    'sub_interests',
-                                    dict,
-                                    setState,
-                                  ),
-                                );
-                              },
-                            ),
+                              }
+                              unawaited(
+                                widget.onSaveFriendsField(
+                                  'sub_interests',
+                                  dict,
+                                  setState,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       );

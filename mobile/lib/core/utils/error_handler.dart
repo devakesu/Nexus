@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -222,9 +223,11 @@ class ErrorHandler {
     final sanitizedMessage = sanitize(rawMessage);
 
     // Log to console in debug mode
-    debugPrint('[ErrorHandler] [$level] $sanitizedMessage');
-    if (stackTrace != null) {
-      debugPrint(stackTrace.toString());
+    if (kDebugMode) {
+      debugPrint('[ErrorHandler] [$level] $sanitizedMessage');
+      if (stackTrace != null) {
+        debugPrint(stackTrace.toString());
+      }
     }
 
     // 2. Log to Sentry asynchronously
@@ -295,7 +298,9 @@ class ErrorHandler {
         return eventId.toString();
       }
     } on Object catch (e) {
-      debugPrint('Failed to send error logs to Sentry: $e');
+      if (kDebugMode) {
+        debugPrint('Failed to send error logs to Sentry: $e');
+      }
       return null;
     }
   }
@@ -392,309 +397,299 @@ class ErrorHandler {
     Future.delayed(Duration.zero, () {
       final state = navigatorKey.currentState;
       if (state == null || !state.mounted) return;
-      unawaited(
-        state.push(
-          DialogRoute<void>(
-            context: state.context,
-            barrierDismissible: !isCritical,
-            barrierColor: Colors.black.withValues(alpha: 0.75),
-            builder: (context) {
-              return Dialog(
-                backgroundColor: Colors.transparent,
-                insetPadding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
-                child:
-                    Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF161B26),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: dialogAccentColor.withValues(alpha: 0.4),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: dialogAccentColor.withValues(
-                                  alpha: 0.15,
-                                ),
-                                blurRadius: 32,
-                                spreadRadius: 2,
-                              ),
-                            ],
+      state.push(
+        DialogRoute<void>(
+          context: state.context,
+          barrierDismissible: !isCritical,
+          barrierColor: Colors.black.withValues(alpha: 0.75),
+          builder: (context) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 32,
+              ),
+              child:
+                  Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF161B26),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: dialogAccentColor.withValues(alpha: 0.4),
+                            width: 2,
                           ),
-                          child: SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Glow icon header
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: dialogAccentColor.withValues(
+                                alpha: 0.15,
+                              ),
+                              blurRadius: 32,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Glow icon header
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: dialogAccentColor.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
                                       color: dialogAccentColor.withValues(
-                                        alpha: 0.1,
+                                        alpha: 0.3,
                                       ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: dialogAccentColor.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        width: 1.5,
-                                      ),
+                                      width: 1.5,
                                     ),
-                                    child: Icon(
-                                      icon,
-                                      color: dialogAccentColor,
-                                      size: 44,
-                                    ),
-                                  ).animate().scale(
-                                    begin: const Offset(0.8, 0.8),
-                                    end: const Offset(1, 1),
-                                    duration: 400.ms,
-                                    curve: Curves.elasticOut,
                                   ),
-                                  const SizedBox(height: 20),
+                                  child: Icon(
+                                    icon,
+                                    color: dialogAccentColor,
+                                    size: 44,
+                                  ),
+                                ).animate().scale(
+                                  begin: const Offset(0.8, 0.8),
+                                  end: const Offset(1, 1),
+                                  duration: 400.ms,
+                                  curve: Curves.elasticOut,
+                                ),
+                                const SizedBox(height: 20),
 
-                                  // Title
-                                  Text(
-                                    title,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
+                                // Title
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Message
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF07080A),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    message,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
+                                      fontSize: 14,
+                                      height: 1.45,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 12),
+                                ),
+                                const SizedBox(height: 24),
 
-                                  // Message
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 16,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF07080A),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.05,
+                                // Dialog buttons
+                                Column(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(
+                                          12,
                                         ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      message,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.85,
-                                        ),
-                                        fontSize: 14,
-                                        height: 1.45,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-
-                                  // Dialog buttons
-                                  Column(
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.pulsarPink
+                                                .withValues(alpha: 0.3),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 4),
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.pulsarPink
-                                                  .withValues(alpha: 0.3),
-                                              blurRadius: 12,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          height: 48,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () async {
-                                              if (isCritical) {
-                                                final user = Supabase
-                                                    .instance
-                                                    .client
-                                                    .auth
-                                                    .currentUser;
-                                                final userEmail = user?.email;
-                                                final metadata =
-                                                    user?.userMetadata;
-                                                final userName =
-                                                    metadata?['name']
+                                        ],
+                                      ),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        height: 48,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () async {
+                                            if (isCritical) {
+                                              final user = Supabase
+                                                  .instance
+                                                  .client
+                                                  .auth
+                                                  .currentUser;
+                                              final userEmail = user?.email;
+                                              final metadata =
+                                                  user?.userMetadata;
+                                              final userName =
+                                                  metadata?['name'] as String?;
+
+                                              final backendUrl =
+                                                  AppConfig.current.backendUrl;
+                                              String? sessionId;
+
+                                              try {
+                                                final dio = Dio();
+                                                final response = await dio
+                                                    .post<Map<String, dynamic>>(
+                                                      '$backendUrl/api/v1/contact/error-session',
+                                                      data: {
+                                                        'query_type':
+                                                            'bug_report',
+                                                        'subject':
+                                                            'Critical Error: $message',
+                                                        'message':
+                                                            diagnosticDetails,
+                                                        'email': userEmail,
+                                                        'name': userName,
+                                                        'sentry_event_id':
+                                                            sentryEventId,
+                                                        'app_version': AppConfig
+                                                            .current
+                                                            .appVersion,
+                                                        'platform':
+                                                            Platform.isIOS
+                                                            ? 'ios'
+                                                            : 'android',
+                                                      },
+                                                    );
+                                                sessionId =
+                                                    response.data?['session_id']
                                                         as String?;
-
-                                                final backendUrl = AppConfig
-                                                    .current
-                                                    .backendUrl;
-                                                String? sessionId;
-
-                                                try {
-                                                  final dio = Dio();
-                                                  final response = await dio
-                                                      .post<
-                                                        Map<String, dynamic>
-                                                      >(
-                                                        '$backendUrl/api/v1/contact/error-session',
-                                                        data: {
-                                                          'query_type':
-                                                              'bug_report',
-                                                          'subject':
-                                                              'Critical Error: $message',
-                                                          'message':
-                                                              diagnosticDetails,
-                                                          'email': userEmail,
-                                                          'name': userName,
-                                                          'sentry_event_id':
-                                                              sentryEventId,
-                                                          'app_version':
-                                                              AppConfig
-                                                                  .current
-                                                                  .appVersion,
-                                                          'platform':
-                                                              Platform.isIOS
-                                                              ? 'ios'
-                                                              : 'android',
-                                                        },
-                                                      );
-                                                  sessionId =
-                                                      response.data?['session_id']
-                                                          as String?;
-                                                } on Exception catch (e) {
+                                              } on Exception catch (e) {
+                                                if (kDebugMode) {
                                                   debugPrint(
                                                     'Failed to create error session: $e',
                                                   );
                                                 }
-
-                                                final webUrlStr =
-                                                    sessionId != null
-                                                    ? '$backendUrl/contact?err_id=$sessionId'
-                                                    : '$backendUrl/contact?topic=bug_report';
-                                                final uri = Uri.parse(
-                                                  webUrlStr,
-                                                );
-                                                if (await canLaunchUrl(uri)) {
-                                                  await launchUrl(
-                                                    uri,
-                                                    mode: LaunchMode
-                                                        .externalApplication,
-                                                  );
-                                                }
-                                              } else {
-                                                Navigator.of(context).pop();
-                                                final navState =
-                                                    navigatorKey.currentState;
-                                                if (navState != null &&
-                                                    navState.mounted) {
-                                                  unawaited(
-                                                    navState.push(
-                                                      MaterialPageRoute<void>(
-                                                        builder: (_) => FeedbackPage(
-                                                          initialQueryType:
-                                                              FeedbackQueryType
-                                                                  .bugReport,
-                                                          initialSubject:
-                                                              'Bug Report: $message',
-                                                          initialMessage:
-                                                              diagnosticDetails,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
                                               }
-                                            },
-                                            icon: const Icon(
-                                              Icons.support_agent_rounded,
-                                              color: Colors.white,
-                                            ),
-                                            label: const Text(
-                                              'Report Issue',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  AppColors.pulsarPink,
-                                              elevation: 0,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        height: 46,
-                                        child: OutlinedButton(
-                                          onPressed: () {
-                                            if (isCritical) {
-                                              unawaited(SystemNavigator.pop());
+
+                                              final webUrlStr =
+                                                  sessionId != null
+                                                  ? '$backendUrl/contact?err_id=$sessionId'
+                                                  : '$backendUrl/contact?topic=bug_report';
+                                              final uri = Uri.parse(
+                                                webUrlStr,
+                                              );
+                                              if (await canLaunchUrl(uri)) {
+                                                await launchUrl(
+                                                  uri,
+                                                  mode: LaunchMode
+                                                      .externalApplication,
+                                                );
+                                              }
                                             } else {
                                               Navigator.of(context).pop();
+                                              final navState =
+                                                  navigatorKey.currentState;
+                                              if (navState != null &&
+                                                  navState.mounted) {
+                                                navState.push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) => FeedbackPage(
+                                                      initialQueryType:
+                                                          FeedbackQueryType
+                                                              .bugReport,
+                                                      initialSubject:
+                                                          'Bug Report: $message',
+                                                      initialMessage:
+                                                          diagnosticDetails,
+                                                    ),
+                                                  ),
+                                                );
+                                              }
                                             }
                                           },
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.2,
-                                              ),
-                                              width: 1.5,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    12,
-                                                  ),
+                                          icon: const Icon(
+                                            Icons.support_agent_rounded,
+                                            color: Colors.white,
+                                          ),
+                                          label: const Text(
+                                            'Report Issue',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
                                             ),
                                           ),
-                                          child: Text(
-                                            isCritical
-                                                ? 'Close App'
-                                                : 'Dismiss',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppColors.pulsarPink,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 46,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          if (isCritical) {
+                                            unawaited(SystemNavigator.pop());
+                                          } else {
+                                            Navigator.of(context).pop();
+                                          }
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            width: 1.5,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isCritical ? 'Close App' : 'Dismiss',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        )
-                        .animate()
-                        .scale(
-                          begin: const Offset(0.9, 0.9),
-                          end: const Offset(1, 1),
-                          duration: 250.ms,
-                          curve: Curves.easeOutBack,
-                        )
-                        .fadeIn(duration: 200.ms),
-              );
-            },
-          ),
+                        ),
+                      )
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.9, 0.9),
+                        end: const Offset(1, 1),
+                        duration: 250.ms,
+                        curve: Curves.easeOutBack,
+                      )
+                      .fadeIn(duration: 200.ms),
+            );
+          },
         ),
       );
     });

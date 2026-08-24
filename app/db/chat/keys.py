@@ -72,6 +72,8 @@ def upsert_identity_key(
             },
             on_conflict="user_id",
         ).execute()
+        # Invalidate old one-time prekeys associated with any previous device identity
+        supabase_client.table("chat_one_time_prekeys").delete().eq("user_id", user_id).execute()
     except APIError as e:
         if e.code == "23503":
             raise ProfileNotFoundError(f"Profile not found for user {user_id}") from e

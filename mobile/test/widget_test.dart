@@ -16,5 +16,11 @@ void main() {
     });
 
     expect(decrypted, original);
+
+    // Test wipe functionality
+    expect(encrypted.isWiped, isFalse);
+    encrypted.wipe();
+    expect(encrypted.isWiped, isTrue);
+    expect(() => encrypted.use((_) => null), throwsA(isA<StateError>()));
   });
 }

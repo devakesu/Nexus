@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -95,13 +94,13 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
         ..stop()
         ..value = 0;
     } else {
-      unawaited(_ring1.repeat());
-      unawaited(_ring2.repeat());
-      unawaited(_ring3.repeat());
-      unawaited(_sweep.repeat());
-      unawaited(_pulse.repeat(reverse: true));
-      unawaited(_twinkle.repeat(reverse: true));
-      unawaited(_dots.repeat());
+      _ring1.repeat();
+      _ring2.repeat();
+      _ring3.repeat();
+      _sweep.repeat();
+      _pulse.repeat(reverse: true);
+      _twinkle.repeat(reverse: true);
+      _dots.repeat();
     }
   }
 

@@ -453,25 +453,21 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   void _scrollToKey(GlobalKey key) {
     final ctx = key.currentContext;
     if (ctx != null) {
-      unawaited(
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          alignment: 0.08,
-        ),
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.08,
       );
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final retryCtx = key.currentContext;
         if (retryCtx != null) {
-          unawaited(
-            Scrollable.ensureVisible(
-              retryCtx,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-              alignment: 0.08,
-            ),
+          Scrollable.ensureVisible(
+            retryCtx,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.08,
           );
         }
       });

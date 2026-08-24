@@ -17,6 +17,7 @@ import 'package:nexus/core/widgets/nexus_toast.dart';
 import 'package:nexus/features/security_signal/services/meetup_safety_session.dart';
 import 'package:nexus/features/security_signal/services/safety_alert_api.dart';
 import 'package:nexus/features/security_signal/services/safety_contacts.dart';
+import 'package:nexus/features/security_signal/services/security_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FieldDescriptor {
@@ -137,6 +138,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(SecurityService.enterSensitiveScreen());
     _dio = createDio();
     // Default all fields to visible.
     for (final f in _kHideableFields) {
@@ -155,6 +157,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
 
   @override
   void dispose() {
+    unawaited(SecurityService.exitSensitiveScreen());
     unawaited(_profileRefreshSub?.cancel());
     super.dispose();
   }

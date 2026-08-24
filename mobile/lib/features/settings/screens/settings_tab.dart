@@ -450,27 +450,25 @@ class _NexusPlusPromoCard extends StatelessWidget {
   final Color accentColor;
 
   void _showNexusPlusOverlay(BuildContext context) {
-    unawaited(
-      showGeneralDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'NexusPlus',
-        barrierColor: Colors.black.withValues(alpha: 0.65),
-        transitionDuration: const Duration(milliseconds: 350),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return _NexusPlusOverlay(accentColor: accentColor);
-        },
-        transitionBuilder: (context, animation, secondaryAnimation, child) {
-          final curvedValue = Curves.easeOutQuart.transform(animation.value);
-          return FadeTransition(
-            opacity: animation,
-            child: Transform.scale(
-              scale: 0.94 + 0.06 * curvedValue,
-              child: child,
-            ),
-          );
-        },
-      ),
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'NexusPlus',
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      transitionDuration: const Duration(milliseconds: 350),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _NexusPlusOverlay(accentColor: accentColor);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedValue = Curves.easeOutQuart.transform(animation.value);
+        return FadeTransition(
+          opacity: animation,
+          child: Transform.scale(
+            scale: 0.94 + 0.06 * curvedValue,
+            child: child,
+          ),
+        );
+      },
     );
   }
 

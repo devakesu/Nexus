@@ -13,3 +13,19 @@
 -keep class * extends androidx.work.ListenableWorker {
     <init>(android.content.Context, androidx.work.WorkerParameters);
 }
+
+# ── Flutter & Plugins ────────────────────────────────────────────────────────
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.** { *; }
+-keep class io.flutter.plugins.** { *; }
+
+# ── App Native Classes & Services ─────────────────────────────────────────────
+-keep class com.devakesu.apps.nexus.** { *; }
+
+# ── Spotify SDK ───────────────────────────────────────────────────────────────
+-keep class com.spotify.sdk.** { *; }
+-keep class com.spotify.android.auth.** { *; }
+

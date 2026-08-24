@@ -67,12 +67,10 @@ class _ImageMessageBubbleState extends ConsumerState<ImageMessageBubble>
   void _openFullScreen() {
     final bytes = _bytes;
     if (bytes == null) return;
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (_) => _FullScreenImageViewer(bytes: bytes),
-        ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => _FullScreenImageViewer(bytes: bytes),
       ),
     );
   }

@@ -87,6 +87,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResourcesEnabled = true
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
             }

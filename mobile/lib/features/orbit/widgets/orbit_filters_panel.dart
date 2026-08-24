@@ -636,23 +636,21 @@ class _OrbitFiltersPanelState extends State<OrbitFiltersPanel> {
             label: 'Interests',
             action: customAddButton(
               onTap: () {
-                unawaited(
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => InterestsOverlay(
-                        initialSelected: widget.selectedSubInterests,
-                        saveButtonText: 'Save Filter',
-                        themeColor: theme,
-                        onSave: (newInterests) {
-                          setState(() {
-                            widget.selectedSubInterests
-                              ..clear()
-                              ..addAll(newInterests);
-                          });
-                          unawaited(widget.onFetchOrbitNodes());
-                        },
-                      ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => InterestsOverlay(
+                      initialSelected: widget.selectedSubInterests,
+                      saveButtonText: 'Save Filter',
+                      themeColor: theme,
+                      onSave: (newInterests) {
+                        setState(() {
+                          widget.selectedSubInterests
+                            ..clear()
+                            ..addAll(newInterests);
+                        });
+                        unawaited(widget.onFetchOrbitNodes());
+                      },
                     ),
                   ),
                 );

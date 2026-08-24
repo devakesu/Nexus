@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
@@ -131,7 +132,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       );
       ProfileRefreshNotifier.notifyChanged();
     } on Exception catch (e) {
-      debugPrint('[ProfileTab] Error saving visibility setting: $e');
+      if (kDebugMode) {
+        debugPrint('[ProfileTab] Error saving visibility setting: $e');
+      }
       if (mounted) {
         setState(() {
           if (visible) {
@@ -284,13 +287,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       Future.delayed(const Duration(milliseconds: 100), () {
         final context = key.currentContext;
         if (context != null && context.mounted) {
-          unawaited(
-            Scrollable.ensureVisible(
-              context,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-              alignment: 0.3,
-            ),
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+            alignment: 0.3,
           );
         }
       });
@@ -526,14 +527,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       duration: const Duration(seconds: 3),
     );
     _pulseController = pulse;
-    unawaited(pulse.repeat(reverse: true));
+    pulse.repeat(reverse: true);
 
     final rotation = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     );
     _rotationController = rotation;
-    unawaited(rotation.repeat());
+    rotation.repeat();
 
     _entryController = AnimationController(
       vsync: this,
@@ -589,7 +590,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         _isRevalidating = false;
       });
       if (_entryController != null && !_entryController!.isCompleted) {
-        unawaited(_entryController!.forward(from: 0));
+        _entryController!.forward(from: 0);
       }
     }
   }
@@ -701,7 +702,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         });
       }
     } on Object catch (e) {
-      debugPrint('[ProfileTab] Error loading profile details: $e');
+      if (kDebugMode) {
+        debugPrint('[ProfileTab] Error loading profile details: $e');
+      }
       if (mounted) {
         if (!silent) {
           final friendlyMsg = ErrorHandler.getFriendlyMessage(e);
@@ -728,7 +731,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           _isRevalidating = false;
         });
         if (_entryController != null && !_entryController!.isCompleted) {
-          unawaited(_entryController!.forward(from: 0));
+          _entryController!.forward(from: 0);
         }
       }
     }
@@ -1337,7 +1340,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
           }
         }
       } on Object catch (e) {
-        debugPrint('[ProfileTab] Error saving profile details: $e');
+        if (kDebugMode) {
+          debugPrint('[ProfileTab] Error saving profile details: $e');
+        }
         if (mounted) {
           setState(() {
             if (currentPayload.containsKey('name')) _name = _savedName;

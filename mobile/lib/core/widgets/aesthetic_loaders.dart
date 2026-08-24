@@ -35,7 +35,7 @@ class _NexusOrbitLoaderState extends State<NexusOrbitLoader>
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     );
-    unawaited(_controller.repeat());
+    _controller.repeat();
   }
 
   @override
@@ -204,13 +204,13 @@ class _ConstellationAlignLoaderState extends State<ConstellationAlignLoader>
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     );
-    unawaited(_rippleController.repeat());
+    _rippleController.repeat();
 
     _twinkleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4000),
     );
-    unawaited(_twinkleController.repeat());
+    _twinkleController.repeat();
 
     _statusController = AnimationController(
       vsync: this,
@@ -226,7 +226,7 @@ class _ConstellationAlignLoaderState extends State<ConstellationAlignLoader>
               setState(() {
                 _currentPhrase = (_currentPhrase + 1) % _statusPhrases.length;
               });
-              unawaited(_statusController.reverse());
+              _statusController.reverse();
             }
           }),
         );

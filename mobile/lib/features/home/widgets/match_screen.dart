@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/theme/app_colors.dart';
@@ -61,7 +59,7 @@ class _MatchScreenState extends State<MatchScreen>
             curve: const Interval(0.4, 1, curve: Curves.easeOut),
           ),
         );
-    unawaited(_ctrl.forward());
+    _ctrl.forward();
   }
 
   @override

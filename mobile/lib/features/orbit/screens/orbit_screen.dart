@@ -117,7 +117,9 @@ class OrbitScreen extends StatefulWidget {
         );
       }
     } on Exception catch (e) {
-      debugPrint('[OrbitScreen] Prefetch error: $e');
+      if (kDebugMode) {
+        debugPrint('[OrbitScreen] Prefetch error: $e');
+      }
     }
     return null;
   }
@@ -205,7 +207,7 @@ class _OrbitScreenState extends State<OrbitScreen>
         ..stop()
         ..value = 0.5;
     } else {
-      unawaited(_pulseController.repeat(reverse: true));
+      _pulseController.repeat(reverse: true);
     }
   }
 
@@ -246,7 +248,9 @@ class _OrbitScreenState extends State<OrbitScreen>
         await _initData();
       }
     } on Exception catch (e) {
-      debugPrint('[OrbitScreen] Prefetch apply error: $e');
+      if (kDebugMode) {
+        debugPrint('[OrbitScreen] Prefetch apply error: $e');
+      }
       if (mounted) await _initData();
     } finally {
       if (mounted) setState(() => _isReloading = false);
@@ -307,7 +311,9 @@ class _OrbitScreenState extends State<OrbitScreen>
         }
       }
     } on Exception catch (e) {
-      debugPrint('[OrbitScreen] Error loading profile status: $e');
+      if (kDebugMode) {
+        debugPrint('[OrbitScreen] Error loading profile status: $e');
+      }
     }
   }
 
@@ -323,7 +329,9 @@ class _OrbitScreenState extends State<OrbitScreen>
         return response.statusCode == 200;
       }
     } on Exception catch (e) {
-      debugPrint('[OrbitScreen] Error saving dating details: $e');
+      if (kDebugMode) {
+        debugPrint('[OrbitScreen] Error saving dating details: $e');
+      }
     }
     return false;
   }
@@ -859,9 +867,11 @@ class _OrbitScreenState extends State<OrbitScreen>
     final size = _canvasSize;
     final x = (screenWidth - size) / 2;
     final y = (screenHeight - size) / 2;
-    debugPrint(
-      'Center Viewport: screenWidth=$screenWidth, screenHeight=$screenHeight, x=$x, y=$y',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        'Center Viewport: screenWidth=$screenWidth, screenHeight=$screenHeight, x=$x, y=$y',
+      );
+    }
 
     _transformationController.value = Matrix4.translationValues(x, y, 0);
     _isCentered = true;
@@ -1091,7 +1101,9 @@ class _OrbitScreenState extends State<OrbitScreen>
         _precacheNodeImages(newlyMappedNodes);
       }
     } on Exception catch (e) {
-      debugPrint('[OrbitScreen] Error fetching viewport nodes: $e');
+      if (kDebugMode) {
+        debugPrint('[OrbitScreen] Error fetching viewport nodes: $e');
+      }
     } finally {
       if (mounted) {
         setState(() {

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:nexus/core/config/filter_options.dart';
@@ -52,14 +50,12 @@ class AffinityInterestsSection extends StatelessWidget {
             allowCustom: false,
             isSaving: isSavingInterests,
             onTapEdit: () {
-              unawaited(
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (context) => InterestsOverlay(
-                      initialSelected: flatSubInterests,
-                      onSave: onInterestsSaved,
-                    ),
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (context) => InterestsOverlay(
+                    initialSelected: flatSubInterests,
+                    onSave: onInterestsSaved,
                   ),
                 ),
               );
