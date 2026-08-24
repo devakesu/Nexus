@@ -27,7 +27,10 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
-from app.db.chat import reopen_conversations_for_reactivation
+from app.db.chat import (
+    delete_conversation_chat_media,
+    reopen_conversations_for_reactivation,
+)
 from app.db.client import (
     DatabaseAccessError,
     normalize_uuid,
@@ -551,14 +554,7 @@ def _delete_user_media_objects(user_id: str) -> None:
             conv_id = str(row.get("id") or "").strip()
             if conv_id:
                 try:
-                    c_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conv_id)
-                    c_paths = [
-                        f"{conv_id}/{obj['name']}"
-                        for obj in (c_objects or [])
-                        if obj.get("name")
-                    ]
-                    if c_paths:
-                        supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(c_paths)
+                    delete_conversation_chat_media(conv_id)
                 except Exception:
                     logger.exception(
                         "Failed to remove chat_media objects for conversation %s during purge",

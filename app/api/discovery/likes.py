@@ -688,6 +688,8 @@ async def record_match_action(
                 payload.reason or "other",
                 payload.reason_detail,
                 payload.tab,
+                payload.conversation_id,
+                payload.evidence,
             )
             await invalidate_block_cache(user_id, payload.target_id)
         elif payload.action == "block":

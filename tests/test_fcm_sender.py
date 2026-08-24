@@ -1,4 +1,3 @@
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -90,11 +89,9 @@ async def test_send_like_notification_deactivated_actor_skipped(
 @patch("app.services.fcm_sender._is_firebase_initialized")
 @patch("app.services.fcm_sender.get_cached_active_block_ids")
 @patch("app.services.fcm_sender._fetch_user_fcm_tokens")
-@patch("app.services.fcm_sender._fetch_profile_details")
 @patch("app.services.fcm_sender._send_to_tokens")
 async def test_send_chat_notification_not_blocked(
     mock_send: MagicMock,
-    mock_fetch_details: MagicMock,
     mock_fetch_tokens: MagicMock,
     mock_get_blocks: AsyncMock,
     mock_firebase_init: MagicMock,
@@ -102,7 +99,6 @@ async def test_send_chat_notification_not_blocked(
     mock_firebase_init.return_value = True
     mock_get_blocks.return_value = set()  # No blocks
     mock_fetch_tokens.return_value = ["token1"]
-    mock_fetch_details.return_value = ("Sender", "pic_url")
 
     await send_chat_message_notification(
         sender_id="sender-id",
@@ -116,23 +112,27 @@ async def test_send_chat_notification_not_blocked(
 
     mock_get_blocks.assert_called_once_with("recipient-id")
     mock_fetch_tokens.assert_called_once_with("recipient-id")
-    mock_fetch_details.assert_called_once_with("sender-id")
     mock_send.assert_called_once()
     data = mock_send.call_args[0][3]
     assert data["ciphertext"] == "secret"
     assert data["ciphertext_metadata"] == "{}"
     assert data["message_id"] == "msg-id"
+    assert data["actor_id"] == "sender-id"
+    assert data["conversation_id"] == "convo-id"
+    # Verify sensitive plaintext metadata is omitted from push payload
+    assert "name" not in data
+    assert "profile_pic" not in data
+    assert "tab" not in data
+    assert "msg_type" not in data
 
 
 @pytest.mark.anyio
 @patch("app.services.fcm_sender._is_firebase_initialized")
 @patch("app.services.fcm_sender.get_cached_active_block_ids")
 @patch("app.services.fcm_sender._fetch_user_fcm_tokens")
-@patch("app.services.fcm_sender._fetch_profile_details")
 @patch("app.services.fcm_sender._send_to_tokens")
 async def test_send_chat_notification_large_ciphertext_capped(
     mock_send: MagicMock,
-    mock_fetch_details: MagicMock,
     mock_fetch_tokens: MagicMock,
     mock_get_blocks: AsyncMock,
     mock_firebase_init: MagicMock,
@@ -140,7 +140,6 @@ async def test_send_chat_notification_large_ciphertext_capped(
     mock_firebase_init.return_value = True
     mock_get_blocks.return_value = set()
     mock_fetch_tokens.return_value = ["token1"]
-    mock_fetch_details.return_value = ("Sender", "pic_url")
 
     large_ciphertext = "A" * 4000
     await send_chat_message_notification(
@@ -159,18 +158,18 @@ async def test_send_chat_notification_large_ciphertext_capped(
     assert "ciphertext_metadata" not in data
     assert data["message_id"] == "msg-large-id"
     assert data["type"] == "chat_message"
-
+    assert "name" not in data
+    assert "profile_pic" not in data
+    assert "tab" not in data
 
 
 @pytest.mark.anyio
 @patch("app.services.fcm_sender._is_firebase_initialized")
 @patch("app.services.fcm_sender.get_cached_active_block_ids")
 @patch("app.services.fcm_sender._fetch_user_fcm_tokens")
-@patch("app.services.fcm_sender._fetch_profile_details")
 @patch("app.services.fcm_sender._send_to_tokens")
 async def test_send_chat_notification_blocked(
     mock_send: MagicMock,
-    mock_fetch_details: MagicMock,
     mock_fetch_tokens: MagicMock,
     mock_get_blocks: AsyncMock,
     mock_firebase_init: MagicMock,
@@ -190,8 +189,47 @@ async def test_send_chat_notification_blocked(
 
     mock_get_blocks.assert_called_once_with("recipient-id")
     mock_fetch_tokens.assert_not_called()
-    mock_fetch_details.assert_not_called()
     mock_send.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized")
+@patch("app.services.fcm_sender.get_cached_active_block_ids")
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens")
+@patch("app.db.chat.fetch_conversation_participants")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_chat_event_reminder_notification_no_plaintext_location(
+    mock_send: MagicMock,
+    mock_fetch_convo: MagicMock,
+    mock_fetch_tokens: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_firebase_init: MagicMock,
+) -> None:
+    from app.services.fcm_sender import send_chat_event_reminder_notification
+
+    mock_firebase_init.return_value = True
+    mock_fetch_convo.return_value = {"user_a_id": "u1", "user_b_id": "u2", "closed_at": None}
+    mock_get_blocks.return_value = set()
+    mock_fetch_tokens.return_value = ["token1"]
+
+    await send_chat_event_reminder_notification(
+        user_a_id="u1",
+        user_b_id="u2",
+        conversation_id="conv-123",
+        tab="Dating",
+        location_label="Starbucks on 5th Ave",
+    )
+
+    mock_send.assert_called()
+    # Check args: tokens, title, body, data, notification_type
+    for call in mock_send.call_args_list:
+        body = call[0][2]
+        data = call[0][3]
+        assert "Starbucks on 5th Ave" not in body
+        assert "Starbucks on 5th Ave" not in str(data)
+        assert "Dating" not in str(data)
+        assert data["type"] == "chat_event_reminder"
+        assert data["conversation_id"] == "conv-123"
 
 
 @pytest.mark.anyio
@@ -249,36 +287,6 @@ async def test_fetch_profile_name_decrypts_ciphertext(
     assert name == "Alex"
     mock_decrypt.assert_called_once_with("encrypted_hex_123")
 
-
-@patch("app.services.fcm_sender._sign_media_paths")
-@patch("app.services.fcm_sender.supabase_client")
-@patch("app.services.fcm_sender.decrypt_pii")
-def test_fetch_profile_details_returns_signed_url(
-    mock_decrypt: MagicMock,
-    mock_supabase: MagicMock,
-    mock_sign_paths: MagicMock,
-) -> None:
-    user_id = "11111111-1111-1111-1111-111111111111"
-    raw_path = f"{user_id}/avatar_123.jpg"
-    signed_url = f"https://storage.example.com/user_media/{user_id}/avatar_123.jpg?token=abc"
-
-    mock_exec = MagicMock()
-    mock_exec.execute.return_value.data = [
-        {"name": "enc_name", "profile_pic": "enc_pic_path"},
-    ]
-    mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value = mock_exec
-    def _mock_decrypt(val: Any) -> str:
-        return "Alex" if val == "enc_name" else raw_path
-
-    mock_decrypt.side_effect = _mock_decrypt
-    mock_sign_paths.return_value = {raw_path: signed_url}
-
-    from app.services.fcm_sender import _fetch_profile_details
-    name, pic_path = _fetch_profile_details(user_id)
-
-    assert name == "Alex"
-    assert pic_path == signed_url  # Short-lived signed URL for cross-layer push recipient access
-    mock_sign_paths.assert_called_once_with([raw_path])
 
 
 @pytest.mark.anyio
@@ -347,6 +355,52 @@ def test_meetup_safety_reminder_nouns():
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("Friends", "meetup") == "meetup"
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("Professional", "meetup") == "meeting"
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("UnknownTab", "meetup") == "meetup"
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized", return_value=True)
+@patch("app.services.fcm_sender.get_cached_active_block_ids", return_value=set())
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens", return_value=["token-123"])
+@patch("app.services.fcm_sender.redis_client")
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_fcm_sender_per_recipient_throttling(
+    mock_send: MagicMock,
+    mock_redis: MagicMock,
+    _mock_tokens: MagicMock,
+    _mock_blocks: MagicMock,
+    _mock_init: MagicMock,
+) -> None:
+    # First message: lock acquired (True)
+    # Second message: lock rejected within cooldown (False/None)
+    mock_redis.set = AsyncMock(side_effect=[True, None])
+    mock_send.return_value = 1
+
+    # First call: push dispatched
+    await send_chat_message_notification(
+        sender_id="sender-1",
+        recipient_id="recipient-1",
+        conversation_id="convo-1",
+        tab="Dating",
+        message_id="msg-1",
+        ciphertext="secret-1",
+        ciphertext_metadata="{}",
+    )
+    assert mock_send.call_count == 1
+    mock_redis.set.assert_called_with("chat:push_cooldown:recipient-1:convo-1", "1", ex=3, nx=True)
+
+    # Second call (immediate subsequent message): push suppressed by cooldown
+    await send_chat_message_notification(
+        sender_id="sender-1",
+        recipient_id="recipient-1",
+        conversation_id="convo-1",
+        tab="Dating",
+        message_id="msg-2",
+        ciphertext="secret-2",
+        ciphertext_metadata="{}",
+    )
+    # Call count remains 1
+    assert mock_send.call_count == 1
+
 
 
 

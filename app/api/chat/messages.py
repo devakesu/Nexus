@@ -1,12 +1,18 @@
 """Encrypted message dispatch and read receipt management endpoints."""
 
 import asyncio
+import hashlib
 import logging
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 
-from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.api.dependencies import (
+    get_active_user_id,
+    verify_app_check_token,
+    verify_app_check_with_replay_protection,
+)
 from app.core.config import settings
+from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.db.chat import (
@@ -37,7 +43,7 @@ async def send_message(
     request: Request,
     conversation_id: str = Path(...),
     payload: SendMessageRequest = Body(...),
-    _device: None = Depends(verify_app_check_token),
+    _device: None = Depends(verify_app_check_with_replay_protection),
     user_id: str = Depends(get_active_user_id),
 ) -> SendMessageResponse:
     """Sends an end-to-end encrypted message in an active conversation and triggers push notifications."""
@@ -75,6 +81,40 @@ async def send_message(
                 status_code=403,
                 detail="Not a participant of this conversation.",
             )
+
+        # Replay & Deduplication Protection:
+        # Check both client_message_id idempotency and ciphertext hash
+        ct_hash = hashlib.sha256(payload.ciphertext.encode()).hexdigest()
+        hash_key = f"chat:msg_hash:{conversation_id}:{ct_hash}"
+
+        try:
+            if payload.client_message_id:
+                client_id_key = f"chat:msg_idempotency:{conversation_id}:{payload.client_message_id}"
+                id_acquired = await redis_client.set(client_id_key, "1", ex=86400, nx=True)
+                if not id_acquired:
+                    logger.warning(
+                        "Duplicate client_message_id detected in chat",
+                        extra={"conversation_id": conversation_id, "client_message_id": payload.client_message_id},
+                    )
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Duplicate message submission.",
+                    )
+
+            hash_acquired = await redis_client.set(hash_key, "1", ex=86400, nx=True)
+            if not hash_acquired:
+                logger.warning(
+                    "Duplicate ciphertext replay detected in chat",
+                    extra={"conversation_id": conversation_id},
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail="Duplicate message submission.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            logger.debug("Redis error checking message replay protection, proceeding without check")
 
         row = await asyncio.to_thread(
             insert_message,

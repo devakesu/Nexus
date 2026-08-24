@@ -324,4 +324,186 @@ def test_send_message_request_metadata_rejects_nested_or_non_primitive() -> None
     assert "exceeds 500 characters" in str(exc_info.value)
 
 
+def test_delete_conversation_chat_media_nested_uploader_folders():
+    from app.db.chat import delete_conversation_chat_media
+    from app.db.client import supabase_client
+
+    conv_id = "conv-1111-2222"
+    user_a = "user-aaaa-1111"
+    user_b = "user-bbbb-2222"
+
+    mock_storage = MagicMock()
+    mock_chat_bucket = MagicMock()
+
+    def _list_mock(path: str) -> list[dict[str, Any]]:
+        empty_meta: dict[str, Any] = {}
+        if path == conv_id:
+            return [{"name": user_a, "id": None, "metadata": None}, {"name": user_b, "id": None, "metadata": None}]
+        if path == f"{conv_id}/{user_a}":
+            return [{"name": "voice1.enc", "id": "1", "metadata": empty_meta}]
+        if path == f"{conv_id}/{user_b}":
+            return [{"name": "photo1.enc", "id": "2", "metadata": empty_meta}, {"name": "photo2.enc", "id": "3", "metadata": empty_meta}]
+        empty_res: list[dict[str, Any]] = []
+        return empty_res
+
+    mock_chat_bucket.list.side_effect = _list_mock
+    mock_chat_bucket.remove.return_value = None
+    mock_storage.from_.return_value = mock_chat_bucket
+
+    with patch.object(type(supabase_client), "storage", new=mock_storage):
+        delete_conversation_chat_media(conv_id)
+
+    mock_chat_bucket.remove.assert_called_once()
+    removed_paths = set(mock_chat_bucket.remove.call_args[0][0])
+    assert removed_paths == {
+        f"{conv_id}/{user_a}/voice1.enc",
+        f"{conv_id}/{user_b}/photo1.enc",
+        f"{conv_id}/{user_b}/photo2.enc",
+    }
+
+
+def test_delete_conversation_chat_media_flat_legacy_files():
+    from app.db.chat import delete_conversation_chat_media
+    from app.db.client import supabase_client
+
+    conv_id = "conv-legacy-123"
+
+    mock_storage = MagicMock()
+    mock_chat_bucket = MagicMock()
+    mock_chat_bucket.list.return_value = [{"name": "audio.enc", "id": "1", "metadata": {}}]
+    mock_chat_bucket.remove.return_value = None
+    mock_storage.from_.return_value = mock_chat_bucket
+
+    with patch.object(type(supabase_client), "storage", new=mock_storage):
+        delete_conversation_chat_media(conv_id)
+
+    mock_chat_bucket.remove.assert_called_once_with([f"{conv_id}/audio.enc"])
+
+
+def test_delete_conversation_chat_media_empty_or_no_objects():
+    from app.db.chat import delete_conversation_chat_media
+    from app.db.client import supabase_client
+
+    mock_storage = MagicMock()
+    mock_chat_bucket = MagicMock()
+    mock_chat_bucket.list.return_value = []
+    mock_storage.from_.return_value = mock_chat_bucket
+
+    with patch.object(type(supabase_client), "storage", new=mock_storage):
+        delete_conversation_chat_media("")
+        mock_chat_bucket.list.assert_not_called()
+
+        delete_conversation_chat_media("conv-empty")
+        mock_chat_bucket.list.assert_called_once_with("conv-empty")
+        mock_chat_bucket.remove.assert_not_called()
+
+
+def test_storage_migration_chat_media_owner_isolation():
+    from pathlib import Path
+    migration_path = Path("/nexus/supabase/migrations/20260816000000_initial_schema.sql")
+    content = migration_path.read_text(encoding="utf-8")
+
+    assert 'CREATE POLICY "chat_media_insert_participant"' in content
+    insert_policy = content.split('CREATE POLICY "chat_media_insert_participant"')[1].split(";")[0]
+    assert "(storage.foldername(name))[2] = (SELECT auth.uid())::text" in insert_policy
+
+    assert 'CREATE POLICY "chat_media_delete_participant"' in content
+    delete_policy = content.split('CREATE POLICY "chat_media_delete_participant"')[1].split(";")[0]
+    assert "(storage.foldername(name))[2] = (SELECT auth.uid())::text" in delete_policy
+
+    assert 'CREATE POLICY "chat_media_select_participant"' in content
+    select_policy = content.split('CREATE POLICY "chat_media_select_participant"')[1].split(";")[0]
+    assert "c.id::text = (storage.foldername(name))[1]" in select_policy
+
+
+@pytest.mark.anyio
+@patch("app.api.chat.messages.redis_client")
+@patch("app.api.chat.messages.fetch_conversation_participants")
+@patch("app.api.chat.messages.get_cached_active_block_ids")
+async def test_send_message_duplicate_client_message_id_rejection(
+    mock_get_blocks: AsyncMock,
+    mock_fetch_convo: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": None,
+        "tab": "Dating",
+    }
+    mock_get_blocks.return_value = set()
+    # First redis set for client_message_id returns None (duplicate key exists)
+    mock_redis.set = AsyncMock(return_value=None)
+
+    payload = SendMessageRequest(
+        client_message_id="11111111-2222-3333-4444-555555555555",
+        message_type="text",
+        ciphertext="c2VjcmV0",
+        ciphertext_metadata={},
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await send_message(
+            request=request,
+            conversation_id="convo-123",
+            payload=payload,
+            user_id="user-a",
+        )
+    assert exc_info.value.status_code == 409
+    assert "Duplicate message submission" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.chat.messages.redis_client")
+@patch("app.api.chat.messages.fetch_conversation_participants")
+@patch("app.api.chat.messages.get_cached_active_block_ids")
+async def test_send_message_duplicate_ciphertext_rejection(
+    mock_get_blocks: AsyncMock,
+    mock_fetch_convo: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": None,
+        "tab": "Dating",
+    }
+    mock_get_blocks.return_value = set()
+    # client_message_id acquired (True), but ciphertext hash duplicate (None)
+    mock_redis.set = AsyncMock(side_effect=[True, None])
+
+    payload = SendMessageRequest(
+        client_message_id="11111111-2222-3333-4444-555555555555",
+        message_type="text",
+        ciphertext="c2VjcmV0",
+        ciphertext_metadata={},
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await send_message(
+            request=request,
+            conversation_id="convo-123",
+            payload=payload,
+            user_id="user-a",
+        )
+    assert exc_info.value.status_code == 409
+    assert "Duplicate message submission" in exc_info.value.detail
+
+
+
+
 

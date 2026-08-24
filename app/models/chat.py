@@ -141,11 +141,28 @@ class SendMessageRequest(BaseModel):
 
     message_type: Literal["text", "image", "voice", "event", "location"] = "text"
     ciphertext: str = Field(..., min_length=1, max_length=200_000)
+    client_message_id: str | None = Field(
+        default=None,
+        description="Optional client-generated UUID for idempotency and replay protection.",
+    )
     ciphertext_metadata: dict[str, Any] = Field(
         default_factory=dict,
         max_length=20,
         description="Bounded Signal protocol metadata (string/int/bool values only).",
     )
+
+    @field_validator("client_message_id")
+    @classmethod
+    def validate_client_message_id(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        import uuid
+
+        try:
+            uuid.UUID(v)
+        except ValueError as e:
+            raise ValueError("client_message_id must be a valid UUID") from e
+        return v
 
     @field_validator("ciphertext_metadata")
     @classmethod

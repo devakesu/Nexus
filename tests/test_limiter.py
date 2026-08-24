@@ -60,3 +60,17 @@ def test_get_user_or_ip_fallback_to_ip_anonymous():
 
     key = get_user_or_ip(request)
     assert key == "203.0.113.42"
+
+
+def test_limiter_redis_storage_backend():
+    """Verify SlowAPI Limiter is configured with Redis storage backend using settings.redis_url."""
+    from typing import Any, cast
+    from app.core.config import settings
+    from app.core.infra.limiter import limiter
+
+    limiter_any = cast(Any, limiter)
+    assert limiter_any._storage_uri == settings.redis_url
+    storage_repr = repr(limiter_any._storage).lower()
+    assert "redis" in storage_repr or "redis" in str(limiter_any._storage_uri).lower()
+
+

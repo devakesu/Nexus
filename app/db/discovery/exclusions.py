@@ -370,6 +370,8 @@ def record_user_report(
     reason: str,
     reason_detail: str | None = None,
     tab: DiscoveryTab | None = None,
+    conversation_id: str | None = None,
+    evidence: list[dict[str, Any]] | None = None,
 ) -> None:
     """
     Insert a user report row and ensure a mutual block exists.
@@ -386,6 +388,14 @@ def record_user_report(
             report_payload["reason_detail"] = reason_detail.strip()
         if tab is not None:
             report_payload["tab"] = tab
+
+        metadata: dict[str, Any] = {}
+        if conversation_id:
+            metadata["conversation_id"] = conversation_id
+        if evidence:
+            metadata["chat_evidence"] = evidence
+        if metadata:
+            report_payload["metadata"] = metadata
 
         res = (
             supabase_client.table("user_reports")

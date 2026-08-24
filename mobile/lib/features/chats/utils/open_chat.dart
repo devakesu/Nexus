@@ -119,8 +119,10 @@ Future<bool> recordMatchAction({
   required String targetId,
   required String action,
   required String tab,
+  String? conversationId,
   String? reason,
   String? reasonDetail,
+  List<Map<String, dynamic>>? evidence,
 }) async {
   final session = Supabase.instance.client.auth.currentSession;
   if (session == null) return false;
@@ -131,8 +133,10 @@ Future<bool> recordMatchAction({
       'action': action,
       'tab': tab,
     };
+    if (conversationId != null) body['conversation_id'] = conversationId;
     if (reason != null) body['reason'] = reason;
     if (reasonDetail != null) body['reason_detail'] = reasonDetail;
+    if (evidence != null && evidence.isNotEmpty) body['evidence'] = evidence;
     final response = await dio.post<void>(
       '${AppConfig.current.backendUrl}/api/v1/matches/action',
       data: body,

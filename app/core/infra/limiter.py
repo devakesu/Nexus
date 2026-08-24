@@ -41,6 +41,9 @@ def get_user_or_ip(request: Request) -> str:
 limiter = Limiter(
     key_func=get_user_or_ip,
     enabled=settings.enable_rate_limiting,
+    storage_uri=settings.redis_url,  # type: ignore[call-arg]
 )
+
+
 
 

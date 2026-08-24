@@ -459,11 +459,28 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     await showProfileReportDialog(
       context,
       themeColor: theme.primary,
-      onConfirmed: (reason, detail) => _runMatchAction(
-        action: 'report',
-        reason: reason,
-        reasonDetail: detail,
-      ),
+      onConfirmed: (reason, detail) {
+        final recentMessages = _currentMessages.reversed.take(5).toList();
+        final evidence = recentMessages
+            .map(
+              (m) => {
+                'message_id': m.id,
+                'sender_id': m.senderId,
+                'message_type': m.messageType,
+                'content': m.plaintext ?? '',
+                'created_at': m.createdAt.toIso8601String(),
+                'is_mine': m.isMine,
+              },
+            )
+            .toList();
+
+        return _runMatchAction(
+          action: 'report',
+          reason: reason,
+          reasonDetail: detail,
+          evidence: evidence,
+        );
+      },
     );
   }
 
@@ -471,13 +488,16 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
     required String action,
     String? reason,
     String? reasonDetail,
+    List<Map<String, dynamic>>? evidence,
   }) async {
     final success = await recordMatchAction(
       targetId: widget.matchedUserId,
       action: action,
       tab: widget.tab,
+      conversationId: widget.conversationId,
       reason: reason,
       reasonDetail: reasonDetail,
+      evidence: evidence,
     );
     if (!mounted) return;
     if (success) {

@@ -2896,6 +2896,7 @@ DROP POLICY IF EXISTS "chat_media_insert_participant" ON storage.objects;
 CREATE POLICY "chat_media_insert_participant" ON storage.objects FOR INSERT TO authenticated
     WITH CHECK (
         bucket_id = 'chat_media'
+        AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
         AND EXISTS (
             SELECT 1 FROM public.chat_conversations c
             WHERE c.id::text = (storage.foldername(name))[1]
@@ -2908,6 +2909,7 @@ DROP POLICY IF EXISTS "chat_media_delete_participant" ON storage.objects;
 CREATE POLICY "chat_media_delete_participant" ON storage.objects FOR DELETE TO authenticated
     USING (
         bucket_id = 'chat_media'
+        AND (storage.foldername(name))[2] = (SELECT auth.uid())::text
         AND EXISTS (
             SELECT 1 FROM public.chat_conversations c
             WHERE c.id::text = (storage.foldername(name))[1]

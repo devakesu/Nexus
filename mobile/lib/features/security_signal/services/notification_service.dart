@@ -145,10 +145,17 @@ class NotificationService {
       if (token == null) return;
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return;
+
+      final prefs = await SecurePreferences.getInstance();
+      final deviceId = await prefs.getString('persistent_device_id');
+
       final dio = createDio();
       await dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/devices/unregister',
-        data: {'fcm_token': token},
+        data: {
+          'fcm_token': token,
+          if (deviceId != null && deviceId.isNotEmpty) 'device_id': deviceId,
+        },
         options: Options(
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         ),
@@ -224,12 +231,21 @@ class NotificationService {
     try {
       final session = Supabase.instance.client.auth.currentSession;
       if (session == null) return;
+
+      final prefs = await SecurePreferences.getInstance();
+      var deviceId = await prefs.getString('persistent_device_id');
+      if (deviceId == null || deviceId.isEmpty) {
+        deviceId = const Uuid().v4();
+        await prefs.setString('persistent_device_id', deviceId);
+      }
+
       final dio = createDio();
       await dio.post<void>(
         '${AppConfig.current.backendUrl}/api/v1/devices/register',
         data: {
           'fcm_token': token,
           'platform': Platform.isIOS ? 'ios' : 'android',
+          'device_id': deviceId,
         },
         options: Options(
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
@@ -324,6 +340,15 @@ class NotificationService {
     final data = message.data;
     final type = data['type'] as String?;
 
+    if (type == 'replenish_prekeys') {
+      try {
+        await SignalKeyService.instance.replenishOneTimePrekeysIfNeeded();
+      } on Object catch (e) {
+        if (kDebugMode) debugPrint('[FCM] Replenish prekeys push failed: $e');
+      }
+      return;
+    }
+
     if (type != 'chat_message') {
       final n = message.notification;
       if (n != null && isForeground) {
@@ -338,19 +363,33 @@ class NotificationService {
     }
 
     final senderId = data['actor_id'] as String?;
-    final senderName = data['name'] as String? ?? 'Someone';
     final conversationId = data['conversation_id'] as String?;
-    final profilePic = data['profile_pic'] as String?;
     if (senderId == null || conversationId == null) return;
 
+    final resolved = await _resolveSenderDetails(
+      senderId,
+      conversationId,
+      fallbackName: data['name'] as String?,
+      fallbackPic: data['profile_pic'] as String?,
+      fallbackTab: data['tab'] as String?,
+    );
+    final senderName = resolved.name;
+    final profilePic = resolved.profilePic;
+    final tab = resolved.tab;
+
     final plaintext = await _decryptMessage(data) ?? 'New message';
+
+    final notificationData = Map<String, dynamic>.from(data);
+    notificationData['name'] = senderName;
+    if (profilePic != null) notificationData['profile_pic'] = profilePic;
+    notificationData['tab'] = tab;
 
     if (isForeground) {
       _showInAppToast(
         title: senderName,
         body: plaintext,
         type: 'chat_message',
-        data: data,
+        data: notificationData,
         profilePic: profilePic,
       );
       return;
@@ -584,6 +623,78 @@ class NotificationService {
       if (kDebugMode) debugPrint('[FCM] Decryption failed: $e');
       return null;
     }
+  }
+
+  static Future<({String name, String? profilePic, String tab})>
+  _resolveSenderDetails(
+    String senderId,
+    String conversationId, {
+    String? fallbackName,
+    String? fallbackPic,
+    String? fallbackTab,
+  }) async {
+    var name = fallbackName ?? 'Someone';
+    var profilePic = fallbackPic;
+    var tab = fallbackTab ?? 'Dating';
+
+    // 1. Try local cache in SecurePreferences
+    try {
+      final prefs = await SecurePreferences.getInstance();
+      final cachedJson = await prefs.getString('cached_peer_$senderId');
+      if (cachedJson != null) {
+        final map = json.decode(cachedJson) as Map<String, dynamic>;
+        if (map['name'] is String && (map['name'] as String).isNotEmpty) {
+          name = map['name'] as String;
+        }
+        if (map['profile_pic'] is String &&
+            (map['profile_pic'] as String).isNotEmpty) {
+          profilePic = map['profile_pic'] as String;
+        }
+        if (map['tab'] is String && (map['tab'] as String).isNotEmpty) {
+          tab = map['tab'] as String;
+        }
+      }
+    } on Object catch (_) {}
+
+    // 2. If name is default or profile pic missing, try Supabase if available
+    if (name == 'Someone' || profilePic == null) {
+      try {
+        final client = Supabase.instance.client;
+        final profileRes = await client
+            .from('profiles')
+            .select('name, profile_pic')
+            .eq('id', senderId)
+            .maybeSingle();
+        if (profileRes != null) {
+          final n = profileRes['name'] as String?;
+          final p = profileRes['profile_pic'] as String?;
+          if (n != null && n.isNotEmpty) name = n;
+          if (p != null && p.isNotEmpty) profilePic = p;
+        }
+
+        final convRes = await client
+            .from('chat_conversations')
+            .select('tab')
+            .eq('id', conversationId)
+            .maybeSingle();
+        if (convRes != null) {
+          final t = convRes['tab'] as String?;
+          if (t != null && t.isNotEmpty) tab = t;
+        }
+
+        final prefs = await SecurePreferences.getInstance();
+        await prefs.setString(
+          'cached_peer_$senderId',
+          json.encode({
+            'name': name,
+            'profile_pic': profilePic,
+            'tab': tab,
+          }),
+        );
+      } on Object catch (_) {}
+    }
+
+    return (name: name, profilePic: profilePic, tab: tab);
   }
 
   static Future<String?> _downloadProfilePic(String? imagePath) async {

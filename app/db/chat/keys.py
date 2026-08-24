@@ -74,6 +74,11 @@ def upsert_identity_key(
         ).execute()
         # Invalidate old one-time prekeys associated with any previous device identity
         supabase_client.table("chat_one_time_prekeys").delete().eq("user_id", user_id).execute()
+        # Deactivate previous device push tokens since Signal Protocol v1 is single-device per user
+        try:
+            supabase_client.table("user_devices").update({"is_active": False}).eq("user_id", user_id).execute()
+        except Exception:
+            logger.warning("Failed to deactivate prior device tokens on identity key upload", extra={"user_id": user_id}, exc_info=True)
     except APIError as e:
         if e.code == "23503":
             raise ProfileNotFoundError(f"Profile not found for user {user_id}") from e

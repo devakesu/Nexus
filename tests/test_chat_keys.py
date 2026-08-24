@@ -196,3 +196,174 @@ async def test_upload_signed_prekey_invalid_signature(
     assert exc.value.detail == "Signed prekey signature invalid"
 
 
+@pytest.mark.anyio
+@patch("app.api.chat.keys.has_active_match")
+@patch("app.api.chat.keys.fetch_key_bundle")
+@patch("app.api.chat.keys.redis_client")
+@patch("app.api.chat.keys.count_unused_one_time_prekeys")
+async def test_key_bundle_rate_limiting_per_peer(
+    mock_count_unused: MagicMock,
+    mock_redis: MagicMock,
+    mock_fetch_key_bundle: MagicMock,
+    mock_has_active_match: MagicMock,
+) -> None:
+    from unittest.mock import AsyncMock
+    mock_has_active_match.return_value = True
+    mock_count_unused.return_value = 50  # healthy pool
+
+    bundle_data = {
+        "identity_public_key": b"\x05.AqK9s \x0c\xd2&\xe7",
+        "registration_id": 12345,
+        "signed_prekey_id": 1,
+        "signed_prekey_public": b"\x05\x1b\xbd\nU\xaf\xa1",
+        "signed_prekey_signature": b"m#:\x9f\x8f\xa3\xa8\x07",
+        "one_time_prekey_id": 99,
+        "one_time_prekey_public": b"\x05\xfb\xd1\x1c\xd1\x0b",
+        "one_time_prekey_used": True,
+    }
+    mock_fetch_key_bundle.return_value = bundle_data
+
+    # First call: cache miss
+    cached_store: dict[str, str] = {}
+    async def mock_get(key: str):
+        return cached_store.get(key)
+    async def mock_set(key: str, val: str, ex: int | None = None):
+        cached_store[key] = val
+        return True
+
+    mock_redis.get = AsyncMock(side_effect=mock_get)
+    mock_redis.set = AsyncMock(side_effect=mock_set)
+
+    mock_request = Request(
+        scope={
+            "type": "http",
+            "client": ("127.0.0.1", 1234),
+            "headers": [],
+            "path": "/api/v1/chat/keys/bundle/target-user-id",
+        },
+    )
+
+    # 1st request -> fetches from DB and populates cache
+    res1 = await get_key_bundle(
+        request=mock_request,
+        target_user_id="target-user-id",
+        _device=None,
+        user_id="caller-user-id",
+    )
+    assert res1.one_time_prekey_id == 99
+    assert mock_fetch_key_bundle.call_count == 1
+
+    # 2nd request from same caller -> served from Redis cache without hitting DB
+    res2 = await get_key_bundle(
+        request=mock_request,
+        target_user_id="target-user-id",
+        _device=None,
+        user_id="caller-user-id",
+    )
+    assert res2.one_time_prekey_id == 99
+    assert res2.signed_prekey_id == res1.signed_prekey_id
+    assert mock_fetch_key_bundle.call_count == 1  # Still 1, did not consume another OTPK!
+
+
+@pytest.mark.anyio
+@patch("app.api.chat.keys.has_active_match")
+@patch("app.api.chat.keys.fetch_key_bundle")
+@patch("app.api.chat.keys.redis_client")
+@patch("app.api.chat.keys.count_unused_one_time_prekeys")
+@patch("app.api.chat.keys.send_prekey_replenishment_notification")
+async def test_prekey_exhaustion_low_pool_alert(
+    mock_send_push: MagicMock,
+    mock_count_unused: MagicMock,
+    mock_redis: MagicMock,
+    mock_fetch_key_bundle: MagicMock,
+    mock_has_active_match: MagicMock,
+) -> None:
+    from unittest.mock import AsyncMock
+    mock_has_active_match.return_value = True
+    mock_count_unused.return_value = 5  # Low pool (< 15)
+
+    mock_fetch_key_bundle.return_value = {
+        "identity_public_key": b"\x05.AqK9s \x0c\xd2&\xe7",
+        "registration_id": 12345,
+        "signed_prekey_id": 1,
+        "signed_prekey_public": b"\x05\x1b\xbd\nU\xaf\xa1",
+        "signed_prekey_signature": b"m#:\x9f\x8f\xa3\xa8\x07",
+        "one_time_prekey_id": 10,
+        "one_time_prekey_public": b"\x05\xfb\xd1\x1c\xd1\x0b",
+        "one_time_prekey_used": True,
+    }
+
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock(return_value=True)
+
+    mock_request = Request(
+        scope={
+            "type": "http",
+            "client": ("127.0.0.1", 1234),
+            "headers": [],
+            "path": "/api/v1/chat/keys/bundle/target-user-id",
+        },
+    )
+
+    await get_key_bundle(
+        request=mock_request,
+        target_user_id="target-user-id",
+        _device=None,
+        user_id="caller-user-id",
+    )
+
+    # Allow spawned task to execute
+    import asyncio
+    await asyncio.sleep(0.01)
+    mock_send_push.assert_called_once_with("target-user-id")
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender._is_firebase_initialized", return_value=True)
+@patch("app.services.fcm_sender._fetch_user_fcm_tokens", return_value=["token-123"])
+@patch("app.services.fcm_sender._send_to_tokens")
+async def test_send_prekey_replenishment_notification(
+    mock_send: MagicMock,
+    _mock_tokens: MagicMock,
+    _mock_init: MagicMock,
+) -> None:
+    from app.services.fcm_sender import send_prekey_replenishment_notification
+    mock_send.return_value = 1
+
+    await send_prekey_replenishment_notification("target-user-id")
+
+    mock_send.assert_called_once_with(
+        ["token-123"],
+        None,
+        None,
+        {"type": "replenish_prekeys"},
+        "chat_messages",
+    )
+
+
+@patch("app.db.chat.keys.supabase_client.table")
+def test_upsert_identity_key_deactivates_prior_user_devices(mock_table: MagicMock) -> None:
+    from app.db.chat.keys import upsert_identity_key
+
+    builder = MagicMock()
+    builder.upsert.return_value = builder
+    builder.delete.return_value = builder
+    builder.update.return_value = builder
+    builder.eq.return_value = builder
+    builder.execute.return_value = MagicMock(data=[])
+    mock_table.return_value = builder
+
+    upsert_identity_key(
+        user_id="user-xyz-123",
+        identity_public_key=b"\x05" + b"\x02" * 32,
+        registration_id=9999,
+    )
+
+    # Verify user_devices update was executed to deactivate prior tokens
+    mock_table.assert_any_call("user_devices")
+    builder.update.assert_called_with({"is_active": False})
+    builder.eq.assert_any_call("user_id", "user-xyz-123")
+
+
+
+

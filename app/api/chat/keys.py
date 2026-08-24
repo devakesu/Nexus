@@ -15,6 +15,7 @@ from app.api.dependencies import (
     verify_app_check_with_replay_protection,
 )
 from app.core.config import settings
+from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.security.crypto import verify_signed_prekey_signature
 from app.db.chat import (
@@ -36,6 +37,7 @@ from app.models import (
     UploadOneTimePrekeysRequest,
     UploadSignedPrekeyRequest,
 )
+from app.services.fcm_sender import send_prekey_replenishment_notification
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -248,6 +250,17 @@ async def get_key_bundle(
                 detail="You can only fetch key bundles for an active match.",
             )
 
+        cache_key = f"chat:key_bundle:{user_id}:{target_user_id}"
+        try:
+            cached_bundle = await redis_client.get(cache_key)
+            if cached_bundle:
+                return KeyBundleResponse.model_validate_json(cached_bundle)
+        except Exception:
+            logger.warning(
+                "Failed to retrieve cached key bundle",
+                extra={"user_id": user_id, "target_user_id": target_user_id},
+            )
+
         bundle = await asyncio.to_thread(fetch_key_bundle, target_user_id)
         if bundle is None:
             raise HTTPException(
@@ -256,7 +269,7 @@ async def get_key_bundle(
             )
 
         import base64
-        return KeyBundleResponse(
+        res = KeyBundleResponse(
             user_id=target_user_id,
             identity_public_key=base64.b64encode(bundle["identity_public_key"]),
             registration_id=bundle["registration_id"],
@@ -271,6 +284,30 @@ async def get_key_bundle(
             ),
             one_time_prekey_used=bundle["one_time_prekey_used"],
         )
+
+        try:
+            await redis_client.set(cache_key, res.model_dump_json(), ex=86400)
+        except Exception:
+            logger.warning(
+                "Failed to cache key bundle in Redis",
+                extra={"user_id": user_id, "target_user_id": target_user_id},
+            )
+
+        try:
+            remaining_count = await asyncio.to_thread(count_unused_one_time_prekeys, target_user_id)
+            if remaining_count < 15:
+                push_sent_key = f"chat:prekey_push_sent:{target_user_id}"
+                already_sent = await redis_client.get(push_sent_key)
+                if not already_sent:
+                    await redis_client.set(push_sent_key, "1", ex=1800)
+                    asyncio.create_task(send_prekey_replenishment_notification(target_user_id))
+        except Exception:
+            logger.exception(
+                "Failed to check prekey count / trigger replenishment push",
+                extra={"target_user_id": target_user_id},
+            )
+
+        return res
     except DatabaseAccessError as err:
         logger.exception(
             "Failed to fetch key bundle",

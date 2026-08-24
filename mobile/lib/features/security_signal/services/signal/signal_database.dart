@@ -79,7 +79,7 @@ class LocalMessages extends Table {
 
 /// Local disk cache of decrypted chat attachment bytes, keyed by the
 /// attachment's storage path (stable and globally unique per attachment -
-/// see `MediaPointer.storagePath` / `_sendMedia`'s `'$conversationId/$uuid.enc'`
+/// see `MediaPointer.storagePath` / `_sendMedia`'s `'$conversationId/$userId/$uuid.enc'`
 /// construction). Same at-rest protection as `LocalMessages.plaintextEnc`:
 /// vault-encrypted via `LocalKeyVault`, not just OS file sandboxing. Exists
 /// purely to avoid re-downloading from Storage and re-running `MediaCrypto`

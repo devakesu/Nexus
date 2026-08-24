@@ -483,6 +483,8 @@ async def handle_discovery_action(
                 reason=payload.reason or "other",
                 reason_detail=payload.reason_detail,
                 tab=payload.tab,
+                conversation_id=payload.conversation_id,
+                evidence=payload.evidence,
             )
             await invalidate_block_cache(user_id, payload.target_id)
             await asyncio.to_thread(

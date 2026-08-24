@@ -5,6 +5,7 @@ dispatching, and stale token cleanup.
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime
 from typing import Any, cast
@@ -13,10 +14,10 @@ import firebase_admin
 import firebase_admin.messaging as _fcm_module
 import sentry_sdk
 
+from app.core.infra.cache import redis_client
 from app.core.security.crypto import decrypt_pii
 from app.db.client import supabase_client
 from app.db.discovery import get_cached_active_block_ids
-from app.db.profiles.media import _sign_media_paths
 
 logger = logging.getLogger(__name__)
 
@@ -145,60 +146,6 @@ def _deactivate_fcm_token(token: str) -> None:
         if fails >= 3:
             sentry_sdk.capture_exception(exc)
 
-
-def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
-    """Retrieve decrypted display name and raw avatar storage path for notification payloads.
-
-    Sends the raw storage path (not the time-limited signed URL) in FCM data payloads so
-    client applications can generate fresh signed URLs when processing notifications.
-
-    Args:
-        user_id: Unique UUID string identifier of the target user.
-
-    Returns:
-        tuple[str | None, str | None]: Tuple of (display_name, raw_avatar_storage_path).
-    """
-    try:
-        res = (
-            supabase_client.table("profiles")
-            .select("name, profile_pic")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        rows = cast(list[dict[str, Any]], res.data or [])
-        if not rows:
-            return None, None
-
-        raw_name = rows[0].get("name")
-        raw_pic = rows[0].get("profile_pic")
-
-        name: str | None = None
-        if raw_name:
-            try:
-                name = decrypt_pii(str(raw_name))
-            except Exception:  # noqa: BLE001
-                name = str(raw_name)
-
-        pic_path: str | None = None
-        if raw_pic:
-            try:
-                pic_path = decrypt_pii(str(raw_pic))
-            except Exception:  # noqa: BLE001
-                pic_path = str(raw_pic)
-
-        if pic_path:
-            signed_map = _sign_media_paths([pic_path])
-            pic_path = signed_map.get(pic_path, pic_path)
-
-        return name, pic_path
-    except Exception as err:
-        sentry_sdk.capture_exception(err)
-        logger.exception(
-            "Failed to fetch profile details",
-            extra={"user_id": user_id},
-        )
-    return None, None
 
 
 def _send_to_tokens(
@@ -383,15 +330,22 @@ async def send_chat_message_notification(
             )
             return
 
-        import json
-
-        tokens, (sender_name, profile_pic) = await asyncio.gather(
-            asyncio.to_thread(_fetch_user_fcm_tokens, recipient_id),
-            asyncio.to_thread(_fetch_profile_details, sender_id),
-        )
+        tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, recipient_id)
         if not tokens:
             return
-        name = sender_name or "Someone"
+
+        # Rate damping / throttling: at most 1 push notification per recipient per conversation every 3s
+        push_cooldown_key = f"chat:push_cooldown:{recipient_id}:{conversation_id}"
+        try:
+            acquired = await redis_client.set(push_cooldown_key, "1", ex=3, nx=True)
+            if not acquired:
+                logger.info(
+                    "Skipping chat push notification: throttled by per-recipient cooldown",
+                    extra={"recipient_id": recipient_id, "conversation_id": conversation_id},
+                )
+                return
+        except Exception:
+            logger.debug("Redis error checking push cooldown, proceeding without throttle")
 
         meta_str = (
             json.dumps(ciphertext_metadata)
@@ -414,11 +368,7 @@ async def send_chat_message_notification(
             "type": "chat_message",
             "actor_id": sender_id,
             "conversation_id": conversation_id,
-            "tab": tab,
-            "name": name,
-            "profile_pic": profile_pic or "",
             "message_id": message_id,
-            "msg_type": message_type,
             "created_at": created_at_str,
         }
         if include_inline_ciphertext:
@@ -445,12 +395,11 @@ async def send_chat_event_reminder_notification(
     user_b_id: str,
     conversation_id: str,
     tab: str,
-    location_label: str | None,
+    location_label: str | None = None,
 ) -> bool:
     """Reminds both participants about an upcoming plan.
 
-    Note: The human-readable location_label (if provided by the creator) is used in the
-    notification body for utility. Exact GPS coordinates (lat/lng) are never included in push payloads.
+    Note: The human-readable location_label and tab are omitted from push payloads to prevent metadata leakage.
     Returns True if at least one notification was successfully delivered, False otherwise.
     """
     if not _is_firebase_initialized():
@@ -473,15 +422,10 @@ async def send_chat_event_reminder_notification(
             asyncio.to_thread(_fetch_user_fcm_tokens, user_a_id),
             asyncio.to_thread(_fetch_user_fcm_tokens, user_b_id),
         )
-        body = (
-            f"Your plan at {location_label} is coming up soon"
-            if location_label
-            else "Your plan is coming up soon"
-        )
+        body = "You have an upcoming plan starting soon."
         data = {
             "type": "chat_event_reminder",
             "conversation_id": conversation_id,
-            "tab": tab,
         }
 
         success_count = 0
@@ -577,18 +521,15 @@ async def send_meetup_safety_reminder_notification(
         tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
         if not tokens:
             return
-        noun = _SAFETY_REMINDER_NOUN_BY_TAB.get(tab, "meetup")
         await asyncio.to_thread(
             _send_to_tokens,
             tokens,
             "Meetup Safety turns on soon",
-            f"Your {noun} starts in about 30 minutes - open the chat to "
-            "start your check-in.",
+            "Your meetup starts in about 30 minutes - open the chat to start your check-in.",
             {
                 "type": "meetup_safety_reminder",
                 "conversation_id": conversation_id,
                 "peer_id": peer_id,
-                "tab": tab,
             },
             "meetup_safety_reminder",
         )
@@ -597,3 +538,29 @@ async def send_meetup_safety_reminder_notification(
             "Failed to send meetup safety reminder notification",
             extra={"user_id": user_id, "conversation_id": conversation_id},
         )
+
+
+async def send_prekey_replenishment_notification(user_id: str) -> None:
+    """Dispatches a silent high-priority data push to trigger immediate OTPK replenishment."""
+    if not _is_firebase_initialized():
+        return
+    try:
+        tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
+        if not tokens:
+            return
+        await asyncio.to_thread(
+            _send_to_tokens,
+            tokens,
+            None,
+            None,
+            {
+                "type": "replenish_prekeys",
+            },
+            "chat_messages",
+        )
+    except Exception:
+        logger.exception(
+            "Failed to send prekey replenishment push notification",
+            extra={"user_id": user_id},
+        )
+

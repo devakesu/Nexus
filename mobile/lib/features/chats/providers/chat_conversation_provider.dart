@@ -1002,10 +1002,15 @@ class ChatConversationController extends _$ChatConversationController {
       return false;
     }
 
+    final myUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (myUserId == null) {
+      return false;
+    }
+
     String? uploadedStoragePath;
     try {
       final encrypted = await MediaCrypto.instance.encrypt(bytes);
-      final storagePath = '$conversationId/${const Uuid().v4()}.enc';
+      final storagePath = '$conversationId/$myUserId/${const Uuid().v4()}.enc';
 
       await Supabase.instance.client.storage
           .from('chat_media')
@@ -1100,9 +1105,11 @@ class ChatConversationController extends _$ChatConversationController {
       final token = Supabase.instance.client.auth.currentSession?.accessToken;
       if (token == null) throw Exception('Not signed in');
 
+      final clientMessageId = const Uuid().v4();
       final response = await _dio.post<Map<String, dynamic>>(
         '${AppConfig.current.backendUrl}/api/v1/chats/$conversationId/messages',
         data: {
+          'client_message_id': clientMessageId,
           'message_type': messageType,
           'ciphertext': envelope.ciphertextBase64,
           'ciphertext_metadata': {

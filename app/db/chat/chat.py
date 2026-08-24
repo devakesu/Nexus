@@ -196,11 +196,25 @@ def delete_conversation_chat_media(conversation_id: str) -> None:
         return
     try:
         objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conversation_id)
-        paths = [
-            f"{conversation_id}/{obj['name']}"
-            for obj in (objects or [])
-            if obj.get("name")
-        ]
+        paths: list[str] = []
+        for obj in (objects or []):
+            name = obj.get("name")
+            if not name:
+                continue
+            # If name is a subdirectory (e.g. uploader_id), list objects inside it
+            if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
+                try:
+                    sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
+                        f"{conversation_id}/{name}"
+                    )
+                    for sub in (sub_objects or []):
+                        sub_name = sub.get("name")
+                        if sub_name:
+                            paths.append(f"{conversation_id}/{name}/{sub_name}")
+                except Exception:
+                    paths.append(f"{conversation_id}/{name}")
+            else:
+                paths.append(f"{conversation_id}/{name}")
         if paths:
             supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(paths)
     except Exception:

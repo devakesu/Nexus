@@ -202,6 +202,8 @@ async def test_discovery_action_report_skips_session_check(
         reason="other",
         reason_detail="Harassment",
         tab=None,
+        conversation_id=None,
+        evidence=None,
     )
     mock_invalidate.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",

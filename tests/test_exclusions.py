@@ -251,6 +251,65 @@ def test_record_user_report_upserts_auto_block(mock_supabase: MagicMock) -> None
     )
 
 
+def test_record_user_report_with_chat_evidence(mock_supabase: MagicMock) -> None:
+    from app.db.discovery.exclusions import record_user_report
+
+    reporter_id = "11111111-1111-1111-1111-111111111111"
+    target_id = "22222222-2222-2222-2222-222222222222"
+    convo_id = "33333333-3333-3333-3333-333333333333"
+    evidence = [
+        {
+            "message_id": "msg-1",
+            "sender_id": target_id,
+            "message_type": "text",
+            "content": "offensive message",
+            "created_at": "2026-08-24T12:00:00Z",
+            "is_mine": False,
+        }
+    ]
+
+    mock_reports_table = MagicMock()
+    mock_reports_table.insert.return_value = mock_reports_table
+    mock_reports_table.select.return_value = mock_reports_table
+    mock_reports_table.execute.return_value = MagicMock(data=[{"id": "report-uuid-456"}])
+
+    mock_actions_table = MagicMock()
+    mock_actions_table.upsert.return_value = mock_actions_table
+    mock_actions_table.execute.return_value = MagicMock(data=[])
+
+    def table_router(name: str) -> Any:
+        if name == "user_reports":
+            return mock_reports_table
+        if name == "profile_discovery_actions":
+            return mock_actions_table
+        return MagicMock()
+
+    mock_supabase.table.side_effect = table_router
+
+    record_user_report(
+        reporter_id=reporter_id,
+        target_id=target_id,
+        reason="harassment",
+        reason_detail="Severe harassment in chat",
+        tab="Dating",
+        conversation_id=convo_id,
+        evidence=evidence,
+    )
+
+    mock_reports_table.insert.assert_called_once_with({
+        "reporter_id": reporter_id,
+        "target_id": target_id,
+        "reason": "harassment",
+        "reason_detail": "Severe harassment in chat",
+        "tab": "Dating",
+        "metadata": {
+            "conversation_id": convo_id,
+            "chat_evidence": evidence,
+        },
+    })
+
+
+
 @pytest.mark.anyio
 @patch("app.db.discovery.exclusions.redis_client")
 @patch("app.db.sessions.auth_sessions.invalidate_viewer_discovery_sessions")

@@ -573,6 +573,78 @@ async def test_record_match_action_block_passes_none_tab(
 
 
 @pytest.mark.anyio
+@patch("app.api.discovery.likes.fetch_conversation_participants")
+@patch("app.api.discovery.likes.set_match_unmatched")
+@patch("app.api.discovery.likes.close_conversation_for_match_action")
+@patch("app.api.discovery.likes.record_user_report")
+@patch("app.api.discovery.likes.invalidate_block_cache")
+async def test_record_match_action_report_with_evidence_bundle(
+    mock_invalidate_cache: AsyncMock,
+    mock_record_report: MagicMock,
+    mock_close_convo: MagicMock,
+    mock_set_unmatched: MagicMock,
+    mock_fetch_convo: MagicMock,
+) -> None:
+    from app.api.discovery.likes import record_match_action
+    from app.models import MatchActionRequest
+
+    mock_fetch_convo.return_value = {
+        "user_a_id": "22222222-2222-2222-2222-222222222222",
+        "user_b_id": "11111111-1111-1111-1111-111111111111",
+        "closed_at": None,
+    }
+
+    evidence = [
+        {
+            "message_id": "msg-123",
+            "sender_id": "11111111-1111-1111-1111-111111111111",
+            "message_type": "text",
+            "content": "abusive message content",
+            "created_at": "2026-08-24T12:00:00Z",
+            "is_mine": False,
+        }
+    ]
+
+    payload = MatchActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="report",
+        tab="Dating",
+        conversation_id="33333333-3333-3333-3333-333333333333",
+        reason="harassment",
+        reason_detail="Abusive messages sent in chat",
+        evidence=evidence,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await record_match_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+
+    assert res.success is True
+    mock_record_report.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "harassment",
+        "Abusive messages sent in chat",
+        "Dating",
+        "33333333-3333-3333-3333-333333333333",
+        evidence,
+    )
+    mock_invalidate_cache.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+@pytest.mark.anyio
 @patch("app.api.discovery.likes.get_cached_active_block_ids", return_value=set())
 @patch("app.api.discovery.likes._find_peer_like", return_value={"tab": "Dating"})
 @patch("app.api.discovery.likes.fetch_peer_profile_by_id")

@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -247,6 +247,10 @@ class DiscoveryActionRequest(BaseModel):
         default=None,
         max_length=500,
         description="Free-text elaboration; required when reason is other.",
+    )
+    evidence: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Optional structured report evidence (e.g. client-decrypted message transcripts/franking).",
     )
 
     @model_validator(mode="after")
@@ -719,6 +723,10 @@ class MatchActionRequest(BaseModel):
         default=None,
         max_length=500,
         description="Free-text elaboration; required when reason is other.",
+    )
+    evidence: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Optional structured report evidence (e.g. client-decrypted message transcripts/franking).",
     )
 
     @model_validator(mode="after")
