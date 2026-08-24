@@ -1,3 +1,4 @@
+from io import BytesIO
 from typing import Any
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
@@ -295,11 +296,17 @@ async def test_create_and_get_error_session_flow(mock_redis: MagicMock) -> None:
     assert res_get["platform"] == "android"
 
 
+def _create_valid_png_bytes() -> bytes:
+    from PIL import Image
+    buf = BytesIO()
+    img = Image.new("RGB", (2, 2), color=(255, 0, 0))
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 @pytest.mark.anyio
 @patch("app.api.feedback.supabase_client")
 async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> None:
-    from io import BytesIO
-
     from fastapi import UploadFile
 
     from app.api.feedback.contact import upload_contact_attachment
@@ -310,7 +317,7 @@ async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> No
     mock_storage.upload.return_value = {"Key": "feedback_attachments/web_contact/sess123/abc.png"}
     mock_supabase.storage.from_.return_value = mock_storage
 
-    file = UploadFile(filename="test.png", file=BytesIO(b"fake image data"))
+    file = UploadFile(filename="test.png", file=BytesIO(_create_valid_png_bytes()))
     scope: dict[str, Any] = {
         "type": "http",
         "headers": [],
@@ -337,8 +344,6 @@ async def test_upload_contact_attachment_success(mock_supabase: MagicMock) -> No
 @pytest.mark.anyio
 @patch("app.api.feedback.supabase_client")
 async def test_upload_contact_attachment_max_limit_exceeded(mock_supabase: MagicMock) -> None:
-    from io import BytesIO
-
     from fastapi import UploadFile
 
     from app.api.feedback.contact import upload_contact_attachment
@@ -348,7 +353,7 @@ async def test_upload_contact_attachment_max_limit_exceeded(mock_supabase: Magic
     mock_storage.list.return_value = [{"name": f"file{i}.png"} for i in range(5)]
     mock_supabase.storage.from_.return_value = mock_storage
 
-    file = UploadFile(filename="overflow.png", file=BytesIO(b"fake image data"))
+    file = UploadFile(filename="overflow.png", file=BytesIO(_create_valid_png_bytes()))
     scope: dict[str, Any] = {
         "type": "http",
         "headers": [],
@@ -368,6 +373,206 @@ async def test_upload_contact_attachment_max_limit_exceeded(mock_supabase: Magic
 
     assert exc_info.value.status_code == 400
     assert "Maximum attachment limit of 5 files reached" in exc_info.value.detail
+    mock_storage.upload.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_rejects_fake_image_magic_bytes(
+    mock_supabase: MagicMock,
+) -> None:
+    from fastapi import UploadFile
+
+    from app.api.feedback.contact import upload_contact_attachment
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = []
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    # Fake PHP/executable script disguised as .jpg
+    fake_file = UploadFile(
+        filename="exploit.jpg",
+        file=BytesIO(b"<?php echo 'malicious code'; ?>"),
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await upload_contact_attachment(
+            request=request,
+            file=fake_file,
+            session_id="sess123",
+            turnstile_token=None,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "File signature does not match permitted image formats" in exc_info.value.detail
+    mock_storage.upload.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_rejects_corrupted_image_header(
+    mock_supabase: MagicMock,
+) -> None:
+    from fastapi import UploadFile
+
+    from app.api.feedback.contact import upload_contact_attachment
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = []
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    # PNG magic bytes followed by garbage payload
+    corrupted_file = UploadFile(
+        filename="corrupted.png",
+        file=BytesIO(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x00randomjunknotavalidpng"),
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await upload_contact_attachment(
+            request=request,
+            file=corrupted_file,
+            session_id="sess123",
+            turnstile_token=None,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Corrupted or invalid image file" in exc_info.value.detail
+    mock_storage.upload.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_strips_exif_gps_metadata(
+    mock_supabase: MagicMock,
+) -> None:
+    from PIL import Image
+    from fastapi import UploadFile
+
+    from app.api.feedback.contact import upload_contact_attachment
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = []
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    # Create JPEG image with GPS EXIF metadata
+    img = Image.new("RGB", (10, 10), color=(100, 150, 200))
+    exif = img.getexif()
+    gps_ifd = exif.get_ifd(0x8825)
+    gps_ifd[1] = "N"
+    gps_ifd[3] = "W"
+    exif[0x8825] = gps_ifd
+    exif[0x010F] = "CameraModel123"
+
+    raw_buf = BytesIO()
+    img.save(raw_buf, format="JPEG", exif=exif)
+    raw_bytes = raw_buf.getvalue()
+
+    # Verify raw_bytes indeed has GPS EXIF metadata
+    with Image.open(BytesIO(raw_bytes)) as raw_img:
+        assert 0x8825 in raw_img.getexif()
+
+    file = UploadFile(
+        filename="photo_with_gps.jpg",
+        file=BytesIO(raw_bytes),
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    res = await upload_contact_attachment(
+        request=request,
+        file=file,
+        session_id="sess123",
+        turnstile_token=None,
+    )
+
+    assert "storage_path" in res
+    mock_storage.upload.assert_called_once()
+
+    # Inspect the uploaded file payload passed to storage
+    upload_kwargs = mock_storage.upload.call_args[1]
+    uploaded_bytes = upload_kwargs["file"]
+    with Image.open(BytesIO(uploaded_bytes)) as stored_img:
+        stored_exif = stored_img.getexif()
+        assert 0x8825 not in stored_exif
+
+
+@pytest.mark.anyio
+async def test_read_bounded_upload_file_aborts_on_large_payload() -> None:
+    from fastapi import UploadFile
+
+    from app.api.feedback.contact import _read_bounded_upload_file
+
+    mock_file = AsyncMock(spec=UploadFile)
+    chunk_64k = b"A" * (64 * 1024)
+    mock_file.read.side_effect = [chunk_64k] * 85  # ~5.4MB
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _read_bounded_upload_file(mock_file, max_size=5 * 1024 * 1024)
+
+    assert exc_info.value.status_code == 400
+    assert "File size exceeds maximum limit of 5MB" in exc_info.value.detail
+    assert mock_file.read.call_count <= 82
+
+
+@pytest.mark.anyio
+@patch("app.api.feedback.supabase_client")
+async def test_upload_contact_attachment_rejects_oversized_stream(
+    mock_supabase: MagicMock,
+) -> None:
+    from fastapi import UploadFile
+
+    from app.api.feedback.contact import upload_contact_attachment
+
+    mock_storage = MagicMock()
+    mock_storage.list.return_value = []
+    mock_supabase.storage.from_.return_value = mock_storage
+
+    mock_file = AsyncMock(spec=UploadFile)
+    mock_file.filename = "large_image.png"
+    chunk_64k = b"A" * (64 * 1024)
+    mock_file.read.side_effect = [chunk_64k] * 90  # ~5.7MB
+
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/api/v1/contact/upload",
+        "client": ("127.0.0.1", 12345),
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await upload_contact_attachment(
+            request=request,
+            file=mock_file,
+            session_id="sess123",
+            turnstile_token=None,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "File size exceeds maximum limit of 5MB" in exc_info.value.detail
     mock_storage.upload.assert_not_called()
 
 

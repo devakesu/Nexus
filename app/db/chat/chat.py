@@ -187,6 +187,29 @@ def get_or_create_conversation(user_id: str, match_id: str) -> dict[str, Any]:
         raise DatabaseAccessError("Failed to create conversation") from e
 
 
+_CHAT_MEDIA_BUCKET = "chat_media"
+
+
+def delete_conversation_chat_media(conversation_id: str) -> None:
+    """Purges all encrypted media blobs associated with a conversation from chat_media bucket."""
+    if not conversation_id:
+        return
+    try:
+        objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conversation_id)
+        paths = [
+            f"{conversation_id}/{obj['name']}"
+            for obj in (objects or [])
+            if obj.get("name")
+        ]
+        if paths:
+            supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(paths)
+    except Exception:
+        logger.exception(
+            "Failed to remove chat_media objects for conversation %s",
+            conversation_id,
+        )
+
+
 def close_conversation_for_match_action(
     user_id: str,
     target_id: str,
@@ -209,10 +232,16 @@ def close_conversation_for_match_action(
                 f"and(user_a_id.eq.{target_id},user_b_id.eq.{user_id})",
             )
             .is_("closed_at", "null")
+            .select("id")
         )
         if tab is not None:
             q = q.eq("tab", tab)
-        q.execute()
+        res = q.execute()
+        closed_rows = cast(list[dict[str, Any]], res.data or [])
+        for row in closed_rows:
+            conv_id = str(row.get("id") or "").strip()
+            if conv_id:
+                delete_conversation_chat_media(conv_id)
     except APIError as e:
         logger.exception(
             "Failed to close conversation",

@@ -2,6 +2,7 @@
 
 import asyncio
 import hmac
+import io
 import logging
 import secrets
 import string
@@ -20,6 +21,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from PIL import Image
 from postgrest.exceptions import APIError
 from redis.exceptions import RedisError
 
@@ -38,6 +40,24 @@ logger = logging.getLogger(__name__)
 _CONTACT_OTP_MAX_ATTEMPTS = 5
 _CONTACT_OTP_TTL_SECONDS = 600
 _CONTACT_MAX_ATTACHMENTS = 5
+_MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+_UPLOAD_CHUNK_SIZE = 64 * 1024  # 64 KB
+
+
+async def _read_bounded_upload_file(
+    file: UploadFile,
+    max_size: int = _MAX_ATTACHMENT_SIZE_BYTES,
+) -> bytes:
+    """Reads an uploaded file in bounded chunks to prevent unbounded memory allocation and DoS."""
+    buffer = bytearray()
+    while chunk := await file.read(_UPLOAD_CHUNK_SIZE):
+        buffer.extend(chunk)
+        if len(buffer) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File size exceeds maximum limit of {max_size // (1024 * 1024)}MB.",
+            )
+    return bytes(buffer)
 
 
 async def verify_turnstile_token(
@@ -69,6 +89,43 @@ def _validate_uploaded_image(file: UploadFile, content: bytes) -> str:
     if not file.filename:
         raise HTTPException(status_code=400, detail="Invalid file uploaded.")
 
+    if len(content) < 12:
+        raise HTTPException(status_code=400, detail="Invalid file payload.")
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File size exceeds maximum limit of 5MB.",
+        )
+
+    # 1. Magic byte check
+    is_png = content.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = content.startswith(b"\xff\xd8\xff")
+    is_webp = content.startswith(b"RIFF") and len(content) >= 12 and content[8:12] == b"WEBP"
+
+    if not (is_png or is_jpeg or is_webp):
+        raise HTTPException(
+            status_code=400,
+            detail="File signature does not match permitted image formats (PNG, JPG, WEBP).",
+        )
+
+    # 2. PIL decode verification
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            img.verify()
+            if img.format not in ("PNG", "JPEG", "WEBP"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Unsupported image format.",
+                )
+    except HTTPException:
+        raise
+    except Exception as err:
+        raise HTTPException(
+            status_code=400,
+            detail="Corrupted or invalid image file.",
+        ) from err
+
     allowed_exts = {".png", ".jpg", ".jpeg", ".webp"}
     filename: str = file.filename
     ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
@@ -77,13 +134,22 @@ def _validate_uploaded_image(file: UploadFile, content: bytes) -> str:
             status_code=400,
             detail="Only image files (PNG, JPG, WEBP) are allowed.",
         )
-
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail="File size exceeds maximum limit of 5MB.",
-        )
     return ext
+
+
+def _strip_exif_metadata(content: bytes, ext: str) -> bytes:
+    """Strips EXIF, GPS, and other embedded metadata by re-encoding the image cleanly."""
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            format_name = "PNG" if ext == ".png" else "WEBP" if ext == ".webp" else "JPEG"
+            buf = io.BytesIO()
+            if format_name == "JPEG" and img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(buf, format=format_name)
+            return buf.getvalue()
+    except Exception as err:  # noqa: BLE001
+        logger.warning("Failed to strip EXIF metadata, using original sanitized bytes: %s", err)
+        return content
 
 
 def _list_storage_attachments(path: str) -> list[dict[str, Any]]:
@@ -124,8 +190,9 @@ async def upload_contact_attachment(
             detail="Security verification failed. Please refresh and try again.",
         )
 
-    content = await file.read()
+    content = await _read_bounded_upload_file(file, _MAX_ATTACHMENT_SIZE_BYTES)
     ext = _validate_uploaded_image(file, content)
+    content = _strip_exif_metadata(content, ext)
 
     clean_session = "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48]
     if not clean_session:

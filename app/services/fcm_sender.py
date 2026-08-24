@@ -16,6 +16,7 @@ import sentry_sdk
 from app.core.security.crypto import decrypt_pii
 from app.db.client import supabase_client
 from app.db.discovery import get_cached_active_block_ids
+from app.db.profiles.media import _sign_media_paths
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +186,10 @@ def _fetch_profile_details(user_id: str) -> tuple[str | None, str | None]:
                 pic_path = decrypt_pii(str(raw_pic))
             except Exception:  # noqa: BLE001
                 pic_path = str(raw_pic)
+
+        if pic_path:
+            signed_map = _sign_media_paths([pic_path])
+            pic_path = signed_map.get(pic_path, pic_path)
 
         return name, pic_path
     except Exception as err:

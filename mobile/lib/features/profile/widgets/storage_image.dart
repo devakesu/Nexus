@@ -101,6 +101,9 @@ class StorageImage extends StatelessWidget {
       );
     }
 
+    final cacheW = width != null ? (width! * 2.5).toInt() : null;
+    final cacheH = height != null ? (height! * 2.5).toInt() : null;
+
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       // Other users' photos: the user_media bucket's SELECT policy is
       // owner-only, so these arrive as a ready-to-use, already-authorized
@@ -114,6 +117,10 @@ class StorageImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        memCacheWidth: cacheW,
+        memCacheHeight: cacheH,
+        maxWidthDiskCache: cacheW != null ? cacheW * 2 : null,
+        maxHeightDiskCache: cacheH != null ? cacheH * 2 : null,
         fadeInDuration: const Duration(milliseconds: 150),
         fadeOutDuration: Duration.zero,
         placeholder: _buildPlaceholder,
@@ -145,6 +152,10 @@ class StorageImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
+      memCacheWidth: cacheW,
+      memCacheHeight: cacheH,
+      maxWidthDiskCache: cacheW != null ? cacheW * 2 : null,
+      maxHeightDiskCache: cacheH != null ? cacheH * 2 : null,
       fadeInDuration: const Duration(milliseconds: 150),
       fadeOutDuration: Duration.zero,
       placeholder: _buildPlaceholder,

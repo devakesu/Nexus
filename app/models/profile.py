@@ -118,6 +118,15 @@ class ProfileImagesAndTagsUpdate(BaseModel):
                 "Validation Error: Profile picture path must be "
                 "less than 500 characters.",
             )
+        if (
+            ".." in stripped
+            or "\\" in stripped
+            or stripped.startswith("/")
+            or "\x00" in stripped
+        ):
+            raise ValueError(
+                "Validation Error: Profile picture path contains invalid characters or traversal sequences.",
+            )
         return stripped
 
     @field_validator("normal_pics")
@@ -142,6 +151,15 @@ class ProfileImagesAndTagsUpdate(BaseModel):
                 raise ValueError(
                     "Validation Error: Gallery image path must be "
                     "less than 500 characters.",
+                )
+            if (
+                ".." in v
+                or "\\" in v
+                or v.startswith("/")
+                or "\x00" in v
+            ):
+                raise ValueError(
+                    "Validation Error: Gallery image path contains invalid characters or traversal sequences.",
                 )
         return cleaned_list
 
@@ -453,6 +471,51 @@ class ProfileDetailsUpdate(BaseModel):
                 if pet not in PETS_CHOICES:
                     raise ValueError(f"Invalid pet: {pet}")
         return v
+
+    @field_validator("profile_pic")
+    @classmethod
+    def validate_profile_pic(cls, v: str | None) -> str | None:
+        """Validates that profile picture path contains no traversal or forbidden characters."""
+        if v is None:
+            return v
+        cleaned = v.strip()
+        if not cleaned:
+            return ""
+        if len(cleaned) > 500:
+            raise ValueError("Profile picture path must be less than 500 characters.")
+        if (
+            ".." in cleaned
+            or "\\" in cleaned
+            or cleaned.startswith("/")
+            or "\x00" in cleaned
+        ):
+            raise ValueError(
+                "Profile picture path contains invalid characters or traversal sequences.",
+            )
+        return cleaned
+
+    @field_validator("normal_pics")
+    @classmethod
+    def validate_normal_pics(cls, v: list[str] | None) -> list[str] | None:
+        """Validates that normal pics paths contain no traversal or forbidden characters."""
+        if v is None:
+            return v
+        cleaned_list = [pic.strip() for pic in v if pic and pic.strip()]
+        if len(cleaned_list) > 4:
+            raise ValueError("A maximum of 4 gallery images can be registered.")
+        for pic in cleaned_list:
+            if len(pic) > 500:
+                raise ValueError("Gallery image path must be less than 500 characters.")
+            if (
+                ".." in pic
+                or "\\" in pic
+                or pic.startswith("/")
+                or "\x00" in pic
+            ):
+                raise ValueError(
+                    "Gallery image path contains invalid characters or traversal sequences.",
+                )
+        return cleaned_list
 
     role_at: str | None = Field(default=None, max_length=150)
     profile_pic: str | None = Field(default=None, max_length=255)

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -157,10 +158,28 @@ class _FeedbackPageState extends State<FeedbackPage> {
     final picked = await ImagePicker().pickImage(
       source: source,
       imageQuality: 85,
+      requestFullMetadata: false,
     );
     if (picked == null || !mounted) return;
 
-    final file = File(picked.path);
+    var file = File(picked.path);
+    try {
+      final rawBytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(rawBytes);
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData != null) {
+        final sanitizedDir = Directory.systemTemp;
+        final sanitizedPath =
+            '${sanitizedDir.path}/clean_fb_${const Uuid().v4()}.png';
+        final sanitizedFile = File(sanitizedPath);
+        await sanitizedFile.writeAsBytes(byteData.buffer.asUint8List());
+        file = sanitizedFile;
+      }
+    } on Object catch (_) {}
+
     final size = await file.length();
     if (size > _maxAttachmentBytes) {
       if (mounted) {

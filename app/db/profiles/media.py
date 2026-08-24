@@ -16,9 +16,18 @@ _MEDIA_BUCKET = "user_media"
 _MEDIA_URL_TTL_SECONDS = 3600
 
 
+def _is_safe_media_path(path: str) -> bool:
+    """Verifies that a storage path does not contain traversal, backslashes, leading slash, or null bytes."""
+    if not path:
+        return False
+    if ".." in path or "\\" in path or path.startswith("/") or "\x00" in path:
+        return False
+    return True
+
+
 def _sign_media_paths(paths: Sequence[str]) -> dict[str, str]:
     """Batch-exchanges user_media storage paths for short-lived signed URLs."""
-    unique_paths = list(dict.fromkeys(p for p in paths if p))
+    unique_paths = list(dict.fromkeys(p for p in paths if p and _is_safe_media_path(p)))
     if not unique_paths:
         return {}
     try:
@@ -31,26 +40,43 @@ def _sign_media_paths(paths: Sequence[str]) -> dict[str, str]:
         return {}
     result: dict[str, str] = {}
     for item in signed:
-        path = item["path"]
-        signed_url = item["signedURL"]
+        item_dict = cast(dict[str, Any], item)
+        path = item_dict.get("path")
+        signed_url = item_dict.get("signedURL") or item_dict.get("signedUrl")
         if path and signed_url:
-            result[path] = signed_url
+            result[str(path)] = str(signed_url)
     return result
 
 
 def sign_profile_media(row: dict[str, Any]) -> dict[str, Any]:
     """Replaces profile_pic/normal_pics storage paths in a decrypted profile row with signed URLs."""
+    user_id = str(row.get("id") or row.get("user_id") or "").strip()
+    expected_prefix = f"{user_id}/" if user_id else None
+
     pic = row.get("profile_pic")
+    if pic:
+        if not _is_safe_media_path(pic) or (expected_prefix and not pic.startswith(expected_prefix)):
+            logger.warning("Unsafe or foreign profile_pic ignored for user %s: %s", user_id, pic)
+            pic = None
+            row["profile_pic"] = None
+
     raw_normal_pics = row.get("normal_pics")
     normal_pics_list = (
         cast(list[Any], raw_normal_pics) if isinstance(raw_normal_pics, list) else []
     )
-    normal_pics: list[str] = [p for p in normal_pics_list if isinstance(p, str) and p]
+    normal_pics: list[str] = []
+    for p in normal_pics_list:
+        if isinstance(p, str) and p:
+            if not _is_safe_media_path(p) or (expected_prefix and not p.startswith(expected_prefix)):
+                logger.warning("Unsafe or foreign normal_pic ignored for user %s: %s", user_id, p)
+                continue
+            normal_pics.append(p)
+
     all_paths = cast(list[str], [pic, *normal_pics]) if pic else normal_pics
     signed = _sign_media_paths(all_paths)
     if pic:
         row["profile_pic"] = signed.get(pic)
-    if normal_pics:
+    if raw_normal_pics is not None:
         row["normal_pics"] = [signed[p] for p in normal_pics if p in signed]
     return row
 
@@ -60,12 +86,28 @@ def sign_profile_media_bulk(
     pic_field: str = "profile_pic",
 ) -> None:
     """Batch signed-URL equivalent of sign_profile_media for a list of rows."""
-    paths = [row[pic_field] for row in rows if row.get(pic_field)]
-    signed = _sign_media_paths(paths)
+    valid_paths: list[str] = []
+    for row in rows:
+        pic = row.get(pic_field)
+        if not pic or not isinstance(pic, str):
+            continue
+        user_id = str(row.get("id") or row.get("user_id") or "").strip()
+        expected_prefix = f"{user_id}/" if user_id else None
+        if not _is_safe_media_path(pic) or (expected_prefix and not pic.startswith(expected_prefix)):
+            logger.warning("Unsafe or foreign %s ignored for user %s: %s", pic_field, user_id, pic)
+            continue
+        valid_paths.append(pic)
+
+    signed = _sign_media_paths(valid_paths)
     for row in rows:
         pic = row.get(pic_field)
         if pic:
-            row[pic_field] = signed.get(pic)
+            user_id = str(row.get("id") or row.get("user_id") or "").strip()
+            expected_prefix = f"{user_id}/" if user_id else None
+            if not _is_safe_media_path(pic) or (expected_prefix and not pic.startswith(expected_prefix)):
+                row[pic_field] = None
+            else:
+                row[pic_field] = signed.get(pic)
 
 
 async def update_profile_images_and_metadata(
@@ -74,6 +116,11 @@ async def update_profile_images_and_metadata(
     vibe_tags: list[str],
 ) -> None:
     """Encrypts and saves ordered images and vibe tags into database."""
+    own_prefix = f"{user_id}/"
+    for img in images:
+        if img and (not img.startswith(own_prefix) or not _is_safe_media_path(img)):
+            raise ValueError(f"Invalid media path for user {user_id}: {img}")
+
     profile_pic = images[0] if images else ""
     normal_pics = [pic for pic in images[1:] if pic] if len(images) > 1 else []
 

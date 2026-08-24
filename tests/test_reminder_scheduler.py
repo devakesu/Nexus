@@ -1160,6 +1160,7 @@ def test_delete_user_media_objects_cleans_feedback_attachments():
     mock_storage = MagicMock()
     mock_media_bucket = MagicMock()
     mock_feedback_bucket = MagicMock()
+    mock_chat_bucket = MagicMock()
 
     mock_media_bucket.list.return_value = [{"name": "pic1.jpg"}]
     mock_media_bucket.remove.return_value = None
@@ -1167,25 +1168,80 @@ def test_delete_user_media_objects_cleans_feedback_attachments():
     mock_feedback_bucket.list.return_value = [{"name": "att1.png"}]
     mock_feedback_bucket.remove.return_value = None
 
+    mock_chat_bucket.list.return_value = [{"name": "attachment1.enc"}]
+    mock_chat_bucket.remove.return_value = None
+
     def _from_side_effect(bucket_name: str) -> Any:
         if bucket_name == "user_media":
             return mock_media_bucket
         if bucket_name == "feedback_attachments":
             return mock_feedback_bucket
+        if bucket_name == "chat_media":
+            return mock_chat_bucket
         return MagicMock()
 
     mock_storage.from_.side_effect = _from_side_effect
 
     from app.db.client import supabase_client
-    user_id = "user-test-uuid"
-    with patch.object(type(supabase_client), "storage", new=mock_storage):
+    user_id = "11111111-1111-1111-1111-111111111111"
+    conv_id = "22222222-2222-2222-2222-222222222222"
+
+    mock_table = MagicMock()
+    mock_select = MagicMock()
+    mock_or = MagicMock()
+    mock_execute = MagicMock(data=[{"id": conv_id}])
+
+    mock_table.select.return_value = mock_select
+    mock_select.or_.return_value = mock_or
+    mock_or.execute.return_value = mock_execute
+
+    with patch.object(type(supabase_client), "storage", new=mock_storage), \
+         patch.object(supabase_client, "table", return_value=mock_table):
         _delete_user_media_objects(user_id)
 
     mock_media_bucket.list.assert_called_once_with(user_id)
-    mock_media_bucket.remove.assert_called_once_with(["user-test-uuid/pic1.jpg"])
+    mock_media_bucket.remove.assert_called_once_with([f"{user_id}/pic1.jpg"])
 
-    mock_feedback_bucket.list.assert_called_once_with(f"app_contact/{user_id}")
-    mock_feedback_bucket.remove.assert_called_once_with([f"app_contact/{user_id}/att1.png"])
+    mock_feedback_bucket.list.assert_called_once_with(user_id)
+    mock_feedback_bucket.remove.assert_called_once_with([f"{user_id}/att1.png"])
+
+    mock_chat_bucket.list.assert_called_once_with(conv_id)
+    mock_chat_bucket.remove.assert_called_once_with([f"{conv_id}/attachment1.enc"])
+
+
+def test_close_conversation_for_match_action_deletes_chat_media():
+    from app.db.chat import close_conversation_for_match_action
+
+    user_a = "11111111-1111-1111-1111-111111111111"
+    user_b = "22222222-2222-2222-2222-222222222222"
+    conv_id = "33333333-3333-3333-3333-333333333333"
+
+    mock_storage = MagicMock()
+    mock_chat_bucket = MagicMock()
+    mock_chat_bucket.list.return_value = [{"name": "audio.enc"}]
+    mock_chat_bucket.remove.return_value = None
+    mock_storage.from_.return_value = mock_chat_bucket
+
+    mock_table = MagicMock()
+    mock_update = MagicMock()
+    mock_or = MagicMock()
+    mock_is = MagicMock()
+    mock_select = MagicMock()
+    mock_execute = MagicMock(data=[{"id": conv_id}])
+
+    mock_table.update.return_value = mock_update
+    mock_update.or_.return_value = mock_or
+    mock_or.is_.return_value = mock_is
+    mock_is.select.return_value = mock_select
+    mock_select.execute.return_value = mock_execute
+
+    from app.db.client import supabase_client
+    with patch.object(type(supabase_client), "storage", new=mock_storage), \
+         patch.object(supabase_client, "table", return_value=mock_table):
+        close_conversation_for_match_action(user_a, user_b, reason="unmatch")
+
+    mock_chat_bucket.list.assert_called_once_with(conv_id)
+    mock_chat_bucket.remove.assert_called_once_with([f"{conv_id}/audio.enc"])
 
 
 @patch("app.db.users.account_deletion.reopen_conversations_for_reactivation")

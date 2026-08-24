@@ -27,6 +27,13 @@ async def update_profile_media_and_tags(
 ):
     """Update user's profile image paths and AI vibe tags."""
     _ = request
+    own_prefix = f"{user_id}/"
+    for pic in [payload.profile_pic, *payload.normal_pics]:
+        if not pic.startswith(own_prefix) or ".." in pic or "\\" in pic or "\x00" in pic:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Media paths must reference only your own uploaded assets.",
+            )
     try:
         await update_profile_images_and_metadata(
             user_id=user_id,

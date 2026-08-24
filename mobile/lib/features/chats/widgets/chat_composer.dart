@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
@@ -311,11 +312,24 @@ class _ChatComposerState extends State<ChatComposer> {
     final picked = await ImagePicker().pickImage(
       source: source,
       imageQuality: 82,
+      requestFullMetadata: false,
     );
     if (picked == null) return;
 
-    final bytes = await picked.readAsBytes();
-    await widget.onSendImage(bytes, picked.mimeType ?? 'image/jpeg');
+    var bytes = await picked.readAsBytes();
+    var mimeType = picked.mimeType ?? 'image/jpeg';
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData != null) {
+        bytes = byteData.buffer.asUint8List();
+        mimeType = 'image/png';
+      }
+    } on Object catch (_) {}
+    await widget.onSendImage(bytes, mimeType);
   }
 
   Future<void> _startRecording() async {

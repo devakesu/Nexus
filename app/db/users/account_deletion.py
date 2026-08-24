@@ -103,6 +103,7 @@ _NO_RETENTION_TABLES = (
 
 _MEDIA_BUCKET = "user_media"
 _FEEDBACK_BUCKET = "feedback_attachments"
+_CHAT_MEDIA_BUCKET = "chat_media"
 
 # safety_alerts/safety_evidence are deliberately NOT purged here - they're
 # on a separate, longer legal-hold timer anchored to purged_at (set below),
@@ -525,16 +526,49 @@ def _delete_user_media_objects(user_id: str) -> None:
             "Failed to remove user_media objects for purge", extra={"user_id": user_id},
         )
 
-    # 2. Clean feedback_attachments bucket (app_contact/{user_id}/*)
+    # 2. Clean feedback_attachments bucket ({user_id}/*)
     try:
-        fb_prefix = f"app_contact/{user_id}"
-        fb_objects = supabase_client.storage.from_(_FEEDBACK_BUCKET).list(fb_prefix)
-        fb_paths = [f"{fb_prefix}/{obj['name']}" for obj in fb_objects if obj.get("name")]
+        fb_objects = supabase_client.storage.from_(_FEEDBACK_BUCKET).list(user_id)
+        fb_paths = [f"{user_id}/{obj['name']}" for obj in fb_objects if obj.get("name")]
         if fb_paths:
             supabase_client.storage.from_(_FEEDBACK_BUCKET).remove(fb_paths)
     except Exception:
         logger.exception(
             "Failed to remove feedback_attachments objects for purge", extra={"user_id": user_id},
+        )
+
+    # 3. Clean chat_media bucket ({conversation_id}/*) for user's conversations
+    try:
+        # nosec: user_id validated via normalize_uuid
+        conv_res = (
+            supabase_client.table("chat_conversations")
+            .select("id")
+            .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+            .execute()
+        )
+        conv_rows = cast(list[dict[str, Any]], conv_res.data or [])
+        for row in conv_rows:
+            conv_id = str(row.get("id") or "").strip()
+            if conv_id:
+                try:
+                    c_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conv_id)
+                    c_paths = [
+                        f"{conv_id}/{obj['name']}"
+                        for obj in (c_objects or [])
+                        if obj.get("name")
+                    ]
+                    if c_paths:
+                        supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(c_paths)
+                except Exception:
+                    logger.exception(
+                        "Failed to remove chat_media objects for conversation %s during purge",
+                        conv_id,
+                        extra={"user_id": user_id},
+                    )
+    except Exception:
+        logger.exception(
+            "Failed to fetch conversations for chat_media purge",
+            extra={"user_id": user_id},
         )
 
 

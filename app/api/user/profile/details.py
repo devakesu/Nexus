@@ -393,9 +393,35 @@ def update_profile_details(  # noqa: C901
         if val is not None:
             update_data[field] = encrypt_to_hex(val)
 
+    own_prefix = f"{user_id}/"
     if payload.profile_pic is not None:
-        update_data["profile_pic"] = encrypt_to_hex(payload.profile_pic)
+        cleaned_pic = payload.profile_pic.strip()
+        if cleaned_pic:
+            if (
+                not cleaned_pic.startswith(own_prefix)
+                or ".." in cleaned_pic
+                or "\\" in cleaned_pic
+                or "\x00" in cleaned_pic
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Media paths must reference only your own uploaded assets.",
+                )
+            update_data["profile_pic"] = encrypt_to_hex(cleaned_pic)
+        else:
+            update_data["profile_pic"] = None
     if payload.normal_pics is not None:
+        for pic in payload.normal_pics:
+            if (
+                not pic.startswith(own_prefix)
+                or ".." in pic
+                or "\\" in pic
+                or "\x00" in pic
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Media paths must reference only your own uploaded assets.",
+                )
         update_data["normal_pics"] = encrypt_to_hex(json.dumps(payload.normal_pics))
 
     if payload.drinking is not None:

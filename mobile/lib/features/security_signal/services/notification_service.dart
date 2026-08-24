@@ -122,6 +122,8 @@ class NotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen(
       (message) => _handleNotificationTap(message.data),
     );
+
+    unawaited(cleanStaleNotificationAvatars());
   }
 
   /// Returns the current system permission status without requesting anything.
@@ -583,22 +585,11 @@ class NotificationService {
         };
       }
 
-      final dio = Dio();
       final tempDir = Directory.systemTemp;
-      // Best-effort cleanup of any stale notification avatar files
-      try {
-        if (tempDir.existsSync()) {
-          final entities = tempDir.listSync();
-          for (final e in entities) {
-            if (e.path.contains('notification_avatar_')) {
-              try {
-                e.deleteSync();
-              } on Object catch (_) {}
-            }
-          }
-        }
-      } on Object catch (_) {}
+      // Proactively clean up any stale notification avatar files older than 12h
+      await cleanStaleNotificationAvatars(maxAge: const Duration(hours: 12));
 
+      final dio = Dio();
       final uniqueId = const Uuid().v4();
       final filePath = '${tempDir.path}/notification_avatar_$uniqueId.jpg';
       try {
@@ -615,6 +606,36 @@ class NotificationService {
       if (kDebugMode) debugPrint('[FCM] Failed to download profile pic: $e');
       return null;
     }
+  }
+
+  /// Cleans up stale temporary notification avatar files from Directory.systemTemp.
+  /// Prunes avatar files older than [maxAge] (defaults to 24 hours).
+  static Future<int> cleanStaleNotificationAvatars({
+    Duration maxAge = const Duration(hours: 24),
+  }) async {
+    var deletedCount = 0;
+    try {
+      final tempDir = Directory.systemTemp;
+      if (!tempDir.existsSync()) return 0;
+      final now = DateTime.now();
+      final entities = tempDir.listSync();
+      for (final e in entities) {
+        if (e is File && e.path.contains('notification_avatar_')) {
+          try {
+            final stat = e.statSync();
+            if (now.difference(stat.modified) >= maxAge) {
+              e.deleteSync();
+              deletedCount++;
+            }
+          } on Object catch (_) {}
+        }
+      }
+    } on Object catch (e) {
+      if (kDebugMode) {
+        debugPrint('[FCM] Error cleaning stale notification avatars: $e');
+      }
+    }
+    return deletedCount;
   }
 
   static Future<void> clearNotificationsForConversation(

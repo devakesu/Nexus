@@ -208,28 +208,35 @@ async def test_fetch_profile_name_decrypts_ciphertext(
     mock_decrypt.assert_called_once_with("encrypted_hex_123")
 
 
-@pytest.mark.anyio
+@patch("app.services.fcm_sender._sign_media_paths")
 @patch("app.services.fcm_sender.supabase_client")
 @patch("app.services.fcm_sender.decrypt_pii")
-async def test_fetch_profile_details_returns_raw_storage_path(
+def test_fetch_profile_details_returns_signed_url(
     mock_decrypt: MagicMock,
     mock_supabase: MagicMock,
+    mock_sign_paths: MagicMock,
 ) -> None:
+    user_id = "11111111-1111-1111-1111-111111111111"
+    raw_path = f"{user_id}/avatar_123.jpg"
+    signed_url = f"https://storage.example.com/user_media/{user_id}/avatar_123.jpg?token=abc"
+
     mock_exec = MagicMock()
     mock_exec.execute.return_value.data = [
         {"name": "enc_name", "profile_pic": "enc_pic_path"},
     ]
     mock_supabase.table.return_value.select.return_value.eq.return_value.limit.return_value = mock_exec
     def _mock_decrypt(val: Any) -> str:
-        return "Alex" if val == "enc_name" else "user_123/avatar.jpg"
+        return "Alex" if val == "enc_name" else raw_path
 
     mock_decrypt.side_effect = _mock_decrypt
+    mock_sign_paths.return_value = {raw_path: signed_url}
 
     from app.services.fcm_sender import _fetch_profile_details
-    name, pic_path = _fetch_profile_details("user-id")
+    name, pic_path = _fetch_profile_details(user_id)
 
     assert name == "Alex"
-    assert pic_path == "user_123/avatar.jpg"  # Raw storage path, not short-lived signed URL
+    assert pic_path == signed_url  # Short-lived signed URL for cross-layer push recipient access
+    mock_sign_paths.assert_called_once_with([raw_path])
 
 
 @pytest.mark.anyio
@@ -298,6 +305,7 @@ def test_meetup_safety_reminder_nouns():
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("Friends", "meetup") == "meetup"
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("Professional", "meetup") == "meeting"
     assert _SAFETY_REMINDER_NOUN_BY_TAB.get("UnknownTab", "meetup") == "meetup"
+
 
 
 
