@@ -494,6 +494,7 @@ def test_invalidate_user_status_cache_synchronous_deletion():
 
 
 
+@patch("app.db.users.account_deletion._chunked_pre_purge_child_records")
 @patch("app.db.users.account_deletion._fetch_accounts_due_for_long_tail_purge")
 @patch("app.db.users.account_deletion._archive_account_history")
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.delete_user")
@@ -503,6 +504,7 @@ def test_hard_purge_long_tail_accounts_batches_and_sleeps(
     mock_delete: MagicMock,
     mock_archive: MagicMock,
     mock_fetch: MagicMock,
+    mock_pre_purge: MagicMock,
 ):
     from app.db.users.account_deletion import hard_purge_long_tail_accounts
 
@@ -513,10 +515,12 @@ def test_hard_purge_long_tail_accounts_batches_and_sleeps(
     hard_purge_long_tail_accounts()
 
     assert mock_delete.call_count == 75
+    assert mock_pre_purge.call_count == 75
     assert mock_sleep.call_count == 1  # Sleep called once between the 2 batches
     mock_sleep.assert_any_call(1.0)
 
 
+@patch("app.db.users.account_deletion._chunked_pre_purge_child_records")
 @patch("app.db.users.account_deletion._fetch_accounts_due_for_long_tail_purge")
 @patch("app.db.users.account_deletion._archive_account_history")
 @patch("app.db.users.account_deletion.supabase_client.auth.admin.delete_user")
@@ -526,6 +530,7 @@ def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
     mock_delete: MagicMock,
     mock_archive: MagicMock,
     _mock_fetch: MagicMock,
+    mock_pre_purge: MagicMock,
 ):
     from app.db.users.account_deletion import hard_purge_long_tail_accounts
 
@@ -541,6 +546,39 @@ def test_hard_purge_long_tail_accounts_aborts_on_archive_failure(
     # delete_user should only be called for user-ok, skipping user-fail
     assert mock_delete.call_count == 1
     mock_delete.assert_called_once_with("user-ok")
+    assert mock_pre_purge.call_count == 1
+    mock_pre_purge.assert_called_once_with("user-ok")
+
+
+def test_chunked_pre_purge_child_records_executes_chunks() -> None:
+    from app.db.users.account_deletion import _chunked_pre_purge_child_records
+
+    mock_table = MagicMock()
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.delete.return_value = mock_builder
+    mock_builder.in_.return_value = mock_builder
+
+    # First call returns 2 IDs, next call returns empty (terminates loop)
+    mock_builder.execute.side_effect = [
+        MagicMock(data=[{"id": "id-1"}, {"id": "id-2"}]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+        MagicMock(data=[]),
+    ]
+    mock_table.return_value = mock_builder
+
+    with patch("app.db.users.account_deletion.supabase_client.table", mock_table):
+        _chunked_pre_purge_child_records("00000000-0000-0000-0000-000000000001")
+
+    assert mock_table.call_count >= 7
 
 
 def test_archive_account_history_tracks_failures():

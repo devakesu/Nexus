@@ -113,62 +113,69 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
 
   Future<void> _closeTicket() async {
     final reasonController = TextEditingController();
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Close this ticket?',
-          style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Let us know why you're closing it - resolved, no longer relevant, etc.",
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: AppColors.inkMuted,
+    String? reason;
+    try {
+      reason = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Close this ticket?',
+            style: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Let us know why you're closing it - resolved, no longer relevant, etc.",
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.inkMuted,
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Reason for closing',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              autofocus: true,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Reason for closing',
-                border: OutlineInputBorder(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.ink,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.length < 3) return;
+                Navigator.of(ctx).pop(value);
+              },
+              child: const Text('Close Ticket'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.ink,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () {
-              final value = reasonController.text.trim();
-              if (value.length < 3) return;
-              Navigator.of(ctx).pop(value);
-            },
-            child: const Text('Close Ticket'),
-          ),
-        ],
-      ),
-    );
+      );
+    } finally {
+      reasonController.dispose();
+    }
     if (reason == null || !mounted) return;
 
     setState(() => _closing = true);

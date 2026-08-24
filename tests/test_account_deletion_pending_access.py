@@ -198,3 +198,58 @@ async def test_concurrent_deletion_request_does_not_evict_otp_key_for_in_flight_
         assert res.scheduled_purge_at is not None
         mock_delete.assert_not_called()
 
+
+def test_delete_user_media_objects_batches_storage_removals() -> None:
+    from app.db.users.account_deletion import _delete_user_media_objects
+
+    mock_storage_from = MagicMock()
+    mock_bucket = MagicMock()
+    mock_bucket.list.return_value = [{"name": "pic1.jpg"}, {"name": "pic2.jpg"}]
+    mock_bucket.remove.return_value = MagicMock()
+    mock_storage_from.return_value = mock_bucket
+
+    mock_table = MagicMock()
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[{"id": "00000000-0000-0000-0000-000000000010"}, {"id": "00000000-0000-0000-0000-000000000020"}],
+    )
+    mock_table.return_value = mock_builder
+
+    with patch("app.db.users.account_deletion.supabase_client.storage.from_", mock_storage_from), \
+         patch("app.db.users.account_deletion.supabase_client.table", mock_table), \
+         patch("app.db.users.account_deletion.batch_delete_conversations_chat_media") as mock_batch_media:
+
+        _delete_user_media_objects("00000000-0000-0000-0000-000000000001")
+
+        # user_media and feedback_attachments both remove in single calls
+        assert mock_bucket.remove.call_count == 2
+        mock_batch_media.assert_called_once_with([
+            "00000000-0000-0000-0000-000000000010",
+            "00000000-0000-0000-0000-000000000020",
+        ])
+
+
+def test_batch_delete_conversations_chat_media() -> None:
+    from app.db.chat.chat import batch_delete_conversations_chat_media
+
+    mock_storage_from = MagicMock()
+    mock_bucket = MagicMock()
+    mock_bucket.list.side_effect = [
+        [{"name": "file1.enc"}, {"name": "file2.enc"}],
+        [{"name": "file3.enc"}],
+    ]
+    mock_bucket.remove.return_value = MagicMock()
+    mock_storage_from.return_value = mock_bucket
+
+    with patch("app.db.chat.chat.supabase_client.storage.from_", mock_storage_from):
+        batch_delete_conversations_chat_media(["conv-1", "conv-2"])
+
+        mock_bucket.remove.assert_called_once_with([
+            "conv-1/file1.enc",
+            "conv-1/file2.enc",
+            "conv-2/file3.enc",
+        ])
+
+

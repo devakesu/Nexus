@@ -9,6 +9,9 @@ from app.db.profiles.crud import (
     is_active_profile,
 )
 from app.db.profiles.encryption import (
+    TAB_SCORING_FIELDS,
+    decrypt_profile_field,
+    decrypt_profile_fields,
     decrypt_profile_record,
     decrypt_profile_rows,
     sanitize_decrypted_profile,
@@ -20,7 +23,10 @@ from app.db.profiles.media import (
 )
 
 __all__ = [
+    "TAB_SCORING_FIELDS",
     "_build_candidate_query",
+    "decrypt_profile_field",
+    "decrypt_profile_fields",
     "decrypt_profile_record",
     "decrypt_profile_rows",
     "fetch_music_affinities",

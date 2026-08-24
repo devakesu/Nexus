@@ -5,6 +5,7 @@ managing read receipts, checking block states, and persisting encrypted message 
 """
 
 import contextlib
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ from typing import Any, cast
 from postgrest.exceptions import APIError
 
 from app.core.config import DiscoveryTab
+from app.core.infra.cache import sync_redis_client
 from app.core.security.crypto import decrypt_pii, encrypt_to_hex
 from app.db.client import (
     DatabaseAccessError,
@@ -194,34 +196,54 @@ def delete_conversation_chat_media(conversation_id: str) -> None:
     """Purges all encrypted media blobs associated with a conversation from chat_media bucket."""
     if not conversation_id:
         return
-    try:
-        objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conversation_id)
-        paths: list[str] = []
-        for obj in (objects or []):
-            name = obj.get("name")
-            if not name:
-                continue
-            # If name is a subdirectory (e.g. uploader_id), list objects inside it
-            if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
-                try:
-                    sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
-                        f"{conversation_id}/{name}"
-                    )
-                    for sub in (sub_objects or []):
-                        sub_name = sub.get("name")
-                        if sub_name:
-                            paths.append(f"{conversation_id}/{name}/{sub_name}")
-                except Exception:
-                    paths.append(f"{conversation_id}/{name}")
-            else:
-                paths.append(f"{conversation_id}/{name}")
-        if paths:
-            supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(paths)
-    except Exception:
-        logger.exception(
-            "Failed to remove chat_media objects for conversation %s",
-            conversation_id,
-        )
+    batch_delete_conversations_chat_media([conversation_id])
+
+
+def batch_delete_conversations_chat_media(conversation_ids: list[str]) -> None:
+    """Purges encrypted media blobs for multiple conversations in batched storage remove calls."""
+    if not conversation_ids:
+        return
+    all_paths: list[str] = []
+    for conv_id in conversation_ids:
+        if not conv_id:
+            continue
+        try:
+            objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conv_id)
+            for obj in (objects or []):
+                name = obj.get("name")
+                if not name:
+                    continue
+                # If name is a subdirectory (e.g. uploader_id), list objects inside it
+                if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
+                    try:
+                        sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
+                            f"{conv_id}/{name}"
+                        )
+                        for sub in (sub_objects or []):
+                            sub_name = sub.get("name")
+                            if sub_name:
+                                all_paths.append(f"{conv_id}/{name}/{sub_name}")
+                    except Exception:
+                        all_paths.append(f"{conv_id}/{name}")
+                else:
+                    all_paths.append(f"{conv_id}/{name}")
+        except Exception:
+            logger.exception(
+                "Failed to list chat_media objects for conversation %s",
+                conv_id,
+            )
+
+    if all_paths:
+        chunk_size = 100
+        for i in range(0, len(all_paths), chunk_size):
+            chunk = all_paths[i : i + chunk_size]
+            try:
+                supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(chunk)
+            except Exception:
+                logger.exception(
+                    "Failed to batch remove chat_media objects chunk of size %s",
+                    len(chunk),
+                )
 
 
 def close_conversation_for_match_action(
@@ -448,11 +470,12 @@ def insert_message(
 def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
     """Executes fetch user share flags operation.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user.
+    Args:
+        user_id: Unique UUID string of the authenticated user.
 
-        Returns:
-            dict[str, bool]: Response payload or result."""
+    Returns:
+        dict[str, bool]: Response payload or result.
+    """
     try:
         res = (
             supabase_client.table("profiles")
@@ -473,37 +496,107 @@ def fetch_user_share_flags(user_id: str) -> dict[str, bool]:
         raise DatabaseAccessError("Failed to fetch share flags") from e
 
 
-def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
-    """Executes upsert presence heartbeat operation.
+def batch_fetch_user_share_flags(user_ids: list[str]) -> dict[str, dict[str, bool]]:
+    """Fetch share flags for multiple user IDs in a single database query.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user.
-            is_online: Input is online parameter."""
+    Args:
+        user_ids: List of user UUID strings.
+
+    Returns:
+        dict[str, dict[str, bool]]: Map of user ID to share flags.
+    """
+    if not user_ids:
+        return {}
+    target_uuids = [normalize_uuid(uid) for uid in user_ids]
+    try:
+        res = (
+            supabase_client.table("profiles")
+            .select("id, share_active_status, share_read_receipts")
+            .in_("id", target_uuids)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], res.data or [])
+        flags_map: dict[str, dict[str, bool]] = {}
+        for r in rows:
+            uid = str(r.get("id") or "")
+            if uid:
+                flags_map[uid] = {
+                    "share_active_status": bool(r.get("share_active_status", True)),
+                    "share_read_receipts": bool(r.get("share_read_receipts", True)),
+                }
+        for uid in user_ids:
+            if uid not in flags_map:
+                flags_map[uid] = {
+                    "share_active_status": True,
+                    "share_read_receipts": True,
+                }
+        return flags_map
+    except APIError as e:
+        logger.exception("Failed to batch fetch share flags")
+        raise DatabaseAccessError("Failed to batch fetch share flags") from e
+
+
+def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
+    """Executes upsert presence heartbeat operation into Redis with 90s TTL.
+
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+        is_online: Input is online parameter.
+    """
     now = utcnow()
     try:
-        supabase_client.table("chat_presence").upsert(
+        data = json.dumps(
             {
                 "user_id": user_id,
                 "last_active_at": now.isoformat(),
                 "is_online": is_online,
             },
-            on_conflict="user_id",
-        ).execute()
-    except APIError as e:
-        logger.exception(
-            "Failed to upsert presence heartbeat", extra={"user_id": user_id},
         )
-        raise DatabaseAccessError("Failed to upsert presence heartbeat") from e
+        sync_redis_client.set(f"presence:{user_id}", data, ex=90)
+    except Exception as e:
+        logger.warning(
+            "Failed to set presence in Redis: %s; falling back to DB",
+            e,
+            extra={"user_id": user_id},
+        )
+        try:
+            supabase_client.table("chat_presence").upsert(
+                {
+                    "user_id": user_id,
+                    "last_active_at": now.isoformat(),
+                    "is_online": is_online,
+                },
+                on_conflict="user_id",
+            ).execute()
+        except APIError as db_err:
+            logger.exception(
+                "Failed to upsert presence heartbeat", extra={"user_id": user_id},
+            )
+            raise DatabaseAccessError("Failed to upsert presence heartbeat") from db_err
 
 
 def fetch_presence(user_id: str) -> dict[str, Any] | None:
-    """Executes fetch presence operation.
+    """Executes fetch presence operation, reading from Redis cache first.
 
-        Args:
-            user_id: Unique UUID string of the authenticated user.
+    Args:
+        user_id: Unique UUID string of the authenticated user.
 
-        Returns:
-            dict[str, Any] | None: Response payload or result."""
+    Returns:
+        dict[str, Any] | None: Response payload or result.
+    """
+    try:
+        raw = sync_redis_client.get(f"presence:{user_id}")
+        if raw:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return cast(dict[str, Any], data)
+    except Exception as e:
+        logger.warning(
+            "Failed to fetch presence from Redis: %s",
+            e,
+            extra={"user_id": user_id},
+        )
+
     try:
         res = (
             supabase_client.table("chat_presence")
@@ -516,6 +609,37 @@ def fetch_presence(user_id: str) -> dict[str, Any] | None:
     except APIError as e:
         logger.exception("Failed to fetch presence", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to fetch presence") from e
+
+
+def batch_fetch_presence_from_db(user_ids: list[str]) -> dict[str, dict[str, Any] | None]:
+    """Fetch presence records from PostgreSQL for multiple user IDs in a single query.
+
+    Args:
+        user_ids: List of user UUID strings.
+
+    Returns:
+        dict[str, dict[str, Any] | None]: Map of user ID to presence record dict or None.
+    """
+    if not user_ids:
+        return {}
+    uuids = [normalize_uuid(uid) for uid in user_ids]
+    try:
+        res = (
+            supabase_client.table("chat_presence")
+            .select("user_id, last_active_at, is_online")
+            .in_("user_id", uuids)
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], res.data or [])
+        result: dict[str, dict[str, Any] | None] = {uid: None for uid in user_ids}
+        for r in rows:
+            uid = str(r.get("user_id") or "")
+            if uid:
+                result[uid] = r
+        return result
+    except APIError as e:
+        logger.exception("Failed to batch fetch presence from DB")
+        raise DatabaseAccessError("Failed to batch fetch presence from DB") from e
 
 
 def mark_messages_read(conversation_id: str, reader_id: str) -> int:

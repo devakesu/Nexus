@@ -122,6 +122,10 @@ class SignalDatabase extends _$SignalDatabase {
   // undecryptable history" state. Only ever add tables here going forward.
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA auto_vacuum = INCREMENTAL;');
+      await customStatement('PRAGMA journal_mode = WAL;');
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.createTable(cachedMedia);
@@ -129,11 +133,22 @@ class SignalDatabase extends _$SignalDatabase {
     },
   );
 
+  /// Reclaims free pages from the SQLite database file to shrink disk usage.
+  Future<void> vacuumIncremental([int pages = 50]) async {
+    await customStatement('PRAGMA incremental_vacuum($pages);');
+  }
+
+  /// Runs a full VACUUM to defragment the SQLite database file.
+  Future<void> vacuumFull() async {
+    await customStatement('VACUUM;');
+  }
+
   Future<void> clearAllData() async {
     await transaction(() async {
       for (final table in allTables) {
         await delete(table).go();
       }
     });
+    await vacuumFull();
   }
 }

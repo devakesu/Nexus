@@ -12,7 +12,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// actually mounting (e.g. warming the cache for upcoming Orbit candidates).
 /// Returns null for local file paths (already instant, nothing to prefetch)
 /// or empty/invalid input.
-ImageProvider? resolveStorageImageProvider(String? imagePath) {
+ImageProvider? resolveStorageImageProvider(
+  String? imagePath, {
+  int? maxHeight,
+  int? maxWidth,
+}) {
   if (imagePath == null || imagePath.isEmpty) return null;
   if (imagePath.startsWith('/') || imagePath.contains('/data/user/')) {
     return null;
@@ -22,6 +26,8 @@ ImageProvider? resolveStorageImageProvider(String? imagePath) {
     return CachedNetworkImageProvider(
       imagePath,
       cacheKey: Uri.tryParse(imagePath)?.path ?? imagePath,
+      maxHeight: maxHeight,
+      maxWidth: maxWidth,
     );
   }
 
@@ -39,6 +45,8 @@ ImageProvider? resolveStorageImageProvider(String? imagePath) {
   return CachedNetworkImageProvider(
     authenticatedUrl,
     cacheKey: imagePath,
+    maxHeight: maxHeight,
+    maxWidth: maxWidth,
     headers: {
       'apikey': apikey,
       if (token != null) 'Authorization': 'Bearer $token',
@@ -91,18 +99,24 @@ class StorageImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 2.5;
+    final targetW = width != null ? (width! * dpr).round() : null;
+    final targetH = height != null ? (height! * dpr).round() : null;
+    // Cap memory decoding dimension so unbounded full-screen images default to 1080px width max
+    final cacheW = targetW ?? (targetH == null ? 1080 : null);
+    final cacheH = targetH;
+
     if (imagePath.startsWith('/') || imagePath.contains('/data/user/')) {
       return Image.file(
         File(imagePath),
         width: width,
         height: height,
         fit: fit,
+        cacheWidth: cacheW,
+        cacheHeight: cacheH,
         errorBuilder: (_, e, s) => _buildError(),
       );
     }
-
-    final cacheW = width != null ? (width! * 2.5).toInt() : null;
-    final cacheH = height != null ? (height! * 2.5).toInt() : null;
 
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       // Other users' photos: the user_media bucket's SELECT policy is
@@ -119,8 +133,8 @@ class StorageImage extends StatelessWidget {
         fit: fit,
         memCacheWidth: cacheW,
         memCacheHeight: cacheH,
-        maxWidthDiskCache: cacheW != null ? cacheW * 2 : null,
-        maxHeightDiskCache: cacheH != null ? cacheH * 2 : null,
+        maxWidthDiskCache: cacheW != null ? cacheW * 2 : 1920,
+        maxHeightDiskCache: cacheH != null ? cacheH * 2 : 1920,
         fadeInDuration: const Duration(milliseconds: 150),
         fadeOutDuration: Duration.zero,
         placeholder: _buildPlaceholder,
@@ -154,8 +168,8 @@ class StorageImage extends StatelessWidget {
       fit: fit,
       memCacheWidth: cacheW,
       memCacheHeight: cacheH,
-      maxWidthDiskCache: cacheW != null ? cacheW * 2 : null,
-      maxHeightDiskCache: cacheH != null ? cacheH * 2 : null,
+      maxWidthDiskCache: cacheW != null ? cacheW * 2 : 1920,
+      maxHeightDiskCache: cacheH != null ? cacheH * 2 : 1920,
       fadeInDuration: const Duration(milliseconds: 150),
       fadeOutDuration: Duration.zero,
       placeholder: _buildPlaceholder,

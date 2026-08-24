@@ -217,6 +217,41 @@ def has_active_match(user_a: str, user_b: str) -> bool:
         raise DatabaseAccessError("Failed to check active match") from e
 
 
+def fetch_active_matches_for_targets(user_id: str, target_ids: list[str]) -> set[str]:
+    """Return the subset of target_ids that share an active, un-ended match with user_id."""
+    if not target_ids:
+        return set()
+    user_id = normalize_uuid(user_id)
+    target_uuids = [normalize_uuid(tid) for tid in target_ids]
+    try:
+        res = (
+            supabase_client.table("matches")
+            .select("liker_id, liked_back_id")
+            .or_(
+                f"and(liker_id.eq.{user_id},liked_back_id.in.({','.join(target_uuids)})),"
+                f"and(liker_id.in.({','.join(target_uuids)}),liked_back_id.eq.{user_id})",
+            )
+            .is_("unmatched_at", "null")
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], res.data or [])
+        matched_target_ids: set[str] = set()
+        for r in rows:
+            liker = str(r.get("liker_id") or "")
+            liked_back = str(r.get("liked_back_id") or "")
+            if liker == user_id and liked_back:
+                matched_target_ids.add(liked_back)
+            elif liked_back == user_id and liker:
+                matched_target_ids.add(liker)
+        return matched_target_ids
+    except APIError as e:
+        logger.exception(
+            "Failed to check active matches for targets",
+            extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to check active matches for targets") from e
+
+
 def fetch_key_bundle(user_id: str) -> dict[str, Any] | None:
     """
     Fetch a user's X3DH bundle: identity key, current signed prekey, and one
@@ -285,6 +320,69 @@ def fetch_key_bundle(user_id: str) -> dict[str, Any] | None:
     except APIError as e:
         logger.exception("Failed to fetch key bundle", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to fetch key bundle") from e
+
+
+def fetch_x3dh_key_bundle_unified(
+    requester_id: str,
+    target_user_id: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """
+    Fetches X3DH key bundle in a single atomic database RPC call.
+    Returns (bundle_dict, error_code).
+    error_code can be 'NOT_MATCHED', 'IDENTITY_NOT_FOUND', 'SIGNED_PREKEY_NOT_FOUND', or None.
+    If the unified RPC is not yet available, gracefully falls back to sequential lookups.
+    """
+    try:
+        req_uuid = normalize_uuid(requester_id)
+        target_uuid = normalize_uuid(target_user_id)
+    except ValueError:
+        req_uuid = requester_id
+        target_uuid = target_user_id
+    try:
+        rpc_res = supabase_client.rpc(
+            "get_x3dh_key_bundle",
+            {"p_requester_id": req_uuid, "p_target_id": target_uuid},
+        ).execute()
+        if isinstance(rpc_res.data, dict):
+            data = cast(dict[str, Any], rpc_res.data)
+            if "error" in data:
+                return None, str(data["error"])
+            return {
+                "identity_public_key": _from_bytea(str(data["identity_public_key"])),
+                "registration_id": int(str(data["registration_id"])),
+                "signed_prekey_id": int(str(data["signed_prekey_id"])),
+                "signed_prekey_public": _from_bytea(str(data["signed_prekey_public"])),
+                "signed_prekey_signature": _from_bytea(str(data["signed_prekey_signature"])),
+                "one_time_prekey_id": (
+                    int(str(data["one_time_prekey_id"]))
+                    if data.get("one_time_prekey_id") is not None
+                    else None
+                ),
+                "one_time_prekey_public": (
+                    _from_bytea(str(data["one_time_prekey_public"]))
+                    if data.get("one_time_prekey_public") is not None
+                    else None
+                ),
+                "one_time_prekey_used": bool(data.get("one_time_prekey_used")),
+            }, None
+    except APIError as e:
+        logger.warning(
+            "get_x3dh_key_bundle RPC not available or failed, falling back to sequential fetch",
+            extra={"error": str(e), "user_id": requester_id, "target_user_id": target_user_id},
+        )
+    except Exception as e:
+        logger.warning(
+            "get_x3dh_key_bundle RPC encountered exception, falling back",
+            extra={"error": str(e), "user_id": requester_id, "target_user_id": target_user_id},
+        )
+
+    # Fallback path
+    if not has_active_match(req_uuid, target_uuid):
+        return None, "NOT_MATCHED"
+    bundle = fetch_key_bundle(target_uuid)
+    if bundle is None:
+        return None, "IDENTITY_NOT_FOUND"
+    return bundle, None
 
 
 def mark_session_established(user_id: str, conversation_id: str) -> None:

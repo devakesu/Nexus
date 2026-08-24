@@ -118,7 +118,16 @@ class _CheckInAlertScreenState extends State<CheckInAlertScreen> {
         return null;
       }
       if (!await Geolocator.isLocationServiceEnabled()) return null;
-      return await Geolocator.getCurrentPosition();
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+      } on Object {
+        return await Geolocator.getLastKnownPosition();
+      }
     } on Exception {
       return null;
     }

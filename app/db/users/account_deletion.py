@@ -28,7 +28,7 @@ from postgrest.exceptions import APIError
 from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
 from app.db.chat import (
-    delete_conversation_chat_media,
+    batch_delete_conversations_chat_media,
     reopen_conversations_for_reactivation,
 )
 from app.db.client import (
@@ -518,53 +518,59 @@ def _delete_user_media_objects(user_id: str) -> None:
     Args:
         user_id: Unique UUID string of the authenticated user.
     """
+    valid_user_id = normalize_uuid(user_id)
     # 1. Clean user_media bucket ({user_id}/*)
     try:
-        objects = supabase_client.storage.from_(_MEDIA_BUCKET).list(user_id)
-        paths = [f"{user_id}/{obj['name']}" for obj in objects if obj.get("name")]
+        objects = supabase_client.storage.from_(_MEDIA_BUCKET).list(valid_user_id)
+        paths = [
+            f"{valid_user_id}/{obj['name']}"
+            for obj in (objects or [])
+            if obj.get("name")
+        ]
         if paths:
             supabase_client.storage.from_(_MEDIA_BUCKET).remove(paths)
     except Exception:
         logger.exception(
-            "Failed to remove user_media objects for purge", extra={"user_id": user_id},
+            "Failed to remove user_media objects for purge", extra={"user_id": valid_user_id},
         )
 
     # 2. Clean feedback_attachments bucket ({user_id}/*)
     try:
-        fb_objects = supabase_client.storage.from_(_FEEDBACK_BUCKET).list(user_id)
-        fb_paths = [f"{user_id}/{obj['name']}" for obj in fb_objects if obj.get("name")]
+        fb_objects = supabase_client.storage.from_(_FEEDBACK_BUCKET).list(valid_user_id)
+        fb_paths = [
+            f"{valid_user_id}/{obj['name']}"
+            for obj in (fb_objects or [])
+            if obj.get("name")
+        ]
         if fb_paths:
             supabase_client.storage.from_(_FEEDBACK_BUCKET).remove(fb_paths)
     except Exception:
         logger.exception(
-            "Failed to remove feedback_attachments objects for purge", extra={"user_id": user_id},
+            "Failed to remove feedback_attachments objects for purge",
+            extra={"user_id": valid_user_id},
         )
 
     # 3. Clean chat_media bucket ({conversation_id}/*) for user's conversations
     try:
-        # nosec: user_id validated via normalize_uuid
+        # nosec: valid_user_id validated via normalize_uuid
         conv_res = (
             supabase_client.table("chat_conversations")
             .select("id")
-            .or_(f"user_a_id.eq.{user_id},user_b_id.eq.{user_id}")
+            .or_(f"user_a_id.eq.{valid_user_id},user_b_id.eq.{valid_user_id}")
             .execute()
         )
         conv_rows = cast(list[dict[str, Any]], conv_res.data or [])
-        for row in conv_rows:
-            conv_id = str(row.get("id") or "").strip()
-            if conv_id:
-                try:
-                    delete_conversation_chat_media(conv_id)
-                except Exception:
-                    logger.exception(
-                        "Failed to remove chat_media objects for conversation %s during purge",
-                        conv_id,
-                        extra={"user_id": user_id},
-                    )
+        conv_ids = [
+            str(row.get("id") or "").strip()
+            for row in conv_rows
+            if str(row.get("id") or "").strip()
+        ]
+        if conv_ids:
+            batch_delete_conversations_chat_media(conv_ids)
     except Exception:
         logger.exception(
             "Failed to fetch conversations for chat_media purge",
-            extra={"user_id": user_id},
+            extra={"user_id": valid_user_id},
         )
 
 
@@ -781,13 +787,100 @@ def _fetch_accounts_due_for_long_tail_purge() -> list[str]:
     ]
 
 
+def _chunked_delete_by_field(
+    table: str, field: str, value: str, chunk_size: int = 500,
+) -> None:
+    """Delete records matching field = value in chunks to avoid single-transaction cascade lock contention."""
+    while True:
+        try:
+            res = (
+                supabase_client.table(table)
+                .select("id")
+                .eq(field, value)
+                .limit(chunk_size)
+                .execute()
+            )
+            ids = [
+                str(r["id"])
+                for r in (res.data or [])
+                if isinstance(r, dict) and r.get("id")
+            ]
+            if not ids:
+                break
+            supabase_client.table(table).delete().in_("id", ids).execute()
+            if len(ids) < chunk_size:
+                break
+        except Exception:
+            logger.exception(
+                "Failed during chunked deletion of %s by %s",
+                table,
+                field,
+                extra={"value": value},
+            )
+            break
+
+
+def _chunked_delete_by_or_filter(
+    table: str, filter_str: str, user_id: str, chunk_size: int = 500,
+) -> None:
+    """Delete records matching an OR filter in chunks to avoid lock contention."""
+    while True:
+        try:
+            res = (
+                supabase_client.table(table)
+                .select("id")
+                .or_(filter_str)
+                .limit(chunk_size)
+                .execute()
+            )
+            ids = [
+                str(r["id"])
+                for r in (res.data or [])
+                if isinstance(r, dict) and r.get("id")
+            ]
+            if not ids:
+                break
+            supabase_client.table(table).delete().in_("id", ids).execute()
+            if len(ids) < chunk_size:
+                break
+        except Exception:
+            logger.exception(
+                "Failed during chunked deletion of %s with filter %s",
+                table,
+                filter_str,
+                extra={"user_id": user_id},
+            )
+            break
+
+
+def _chunked_pre_purge_child_records(user_id: str) -> None:
+    """Pre-delete high-volume child records in chunks to prevent large cascading delete lock contention."""
+    valid_user_id = normalize_uuid(user_id)
+    _chunked_delete_by_field("chat_messages", "sender_id", valid_user_id)
+    _chunked_delete_by_field("discovery_session_items", "candidate_id", valid_user_id)
+    _chunked_delete_by_field("discovery_sessions", "viewer_id", valid_user_id)
+    _chunked_delete_by_or_filter(
+        "profile_discovery_actions",
+        f"actor_id.eq.{valid_user_id},target_id.eq.{valid_user_id}",
+        valid_user_id,
+    )
+    _chunked_delete_by_or_filter(
+        "matches",
+        f"liker_id.eq.{valid_user_id},liked_back_id.eq.{valid_user_id}",
+        valid_user_id,
+    )
+    _chunked_delete_by_or_filter(
+        "chat_conversations",
+        f"user_a_id.eq.{valid_user_id},user_b_id.eq.{valid_user_id}",
+        valid_user_id,
+    )
+    _chunked_delete_by_field("user_devices", "user_id", valid_user_id)
+
+
 def hard_purge_long_tail_accounts() -> None:
     """Tier-2 purge job body. Archives non-identifying report/moderation/
-    feedback essentials, then deletes the auth.users row for good via the
-    same admin.delete_user precedent already used at
-    app/api/user.py:143 - this cascades away the anonymized profiles/users
-    shell and everything still hanging off it (old matches,
-    chat_conversations, chat_messages, user_reports, etc).
+    feedback essentials, pre-deletes heavy child relations in chunks to prevent
+    lock contention, and then deletes the auth.users row for good via admin.delete_user.
     Processes accounts in batches of 50 with a 1-second sleep between batches.
     """
     accounts = _fetch_accounts_due_for_long_tail_purge()
@@ -806,6 +899,7 @@ def hard_purge_long_tail_accounts() -> None:
                     )
                     continue
 
+                _chunked_pre_purge_child_records(user_id)
                 supabase_client.auth.admin.delete_user(user_id)
             except Exception:
                 logger.exception(

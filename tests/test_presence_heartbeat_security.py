@@ -116,3 +116,79 @@ async def test_get_authenticated_user_id_throttles_at_capacity() -> None:
         _background_tasks.update(original_tasks)
         _local_presence_last_seen.clear()
 
+
+@patch("app.db.chat.chat.supabase_client.table")
+@patch("app.db.chat.chat.sync_redis_client")
+def test_upsert_presence_heartbeat_stores_in_redis_without_db(
+    mock_redis: MagicMock,
+    mock_table: MagicMock,
+) -> None:
+    import json
+    from app.db.chat import upsert_presence_heartbeat
+
+    user_id = "user-heartbeat-123"
+    upsert_presence_heartbeat(user_id, is_online=True)
+
+    mock_redis.set.assert_called_once()
+    args, kwargs = mock_redis.set.call_args
+    assert args[0] == f"presence:{user_id}"
+    payload = json.loads(args[1])
+    assert payload["user_id"] == user_id
+    assert payload["is_online"] is True
+    assert "last_active_at" in payload
+    assert kwargs.get("ex") == 90
+    mock_table.assert_not_called()
+
+
+@patch("app.db.chat.chat.supabase_client.table")
+@patch("app.db.chat.chat.sync_redis_client")
+def test_fetch_presence_reads_from_redis_without_db(
+    mock_redis: MagicMock,
+    mock_table: MagicMock,
+) -> None:
+    import json
+    from app.db.chat import fetch_presence
+
+    user_id = "user-presence-456"
+    cached_data = {
+        "user_id": user_id,
+        "last_active_at": "2026-08-24T18:00:00+00:00",
+        "is_online": True,
+    }
+    mock_redis.get.return_value = json.dumps(cached_data)
+
+    res = fetch_presence(user_id)
+
+    mock_redis.get.assert_called_once_with(f"presence:{user_id}")
+    assert res == cached_data
+    mock_table.assert_not_called()
+
+
+@patch("app.db.chat.chat.supabase_client.table")
+@patch("app.db.chat.chat.sync_redis_client")
+def test_fetch_presence_falls_back_to_db_on_cache_miss(
+    mock_redis: MagicMock,
+    mock_table: MagicMock,
+) -> None:
+    from app.db.chat import fetch_presence
+
+    user_id = "user-presence-789"
+    mock_redis.get.return_value = None
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.maybe_single.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data={"last_active_at": "2026-08-24T17:00:00+00:00", "is_online": False},
+    )
+    mock_table.return_value = mock_builder
+
+    res = fetch_presence(user_id)
+
+    mock_redis.get.assert_called_once_with(f"presence:{user_id}")
+    mock_table.assert_called_once_with("chat_presence")
+    assert res is not None
+    assert res["is_online"] is False
+
+

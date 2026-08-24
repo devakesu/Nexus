@@ -144,26 +144,48 @@ def disconnect(user_id: str) -> None:
         raise DatabaseAccessError("Failed to disconnect Spotify") from e
 
 
+_MAX_STORED_TRACKS_PER_PLAYLIST = 25
+
+
 def replace_playlists(user_id: str, playlists: list[dict[str, Any]]) -> None:
     """Upsert the given playlists and prune ones no longer present.
 
     Each playlist dict: {spotify_playlist_id, name, is_collaborative,
     track_count, tracks: list[dict]}. Playlists the user deleted or left
     since the last sync are removed from spotify_playlists entirely.
+    To prevent multi-megabyte DB payload bloat, track arrays are trimmed
+    to essential display preview fields and bounded item counts.
     """
     now_iso = utcnow().isoformat()
-    rows = [
-        {
-            "user_id": user_id,
-            "spotify_playlist_id": p["spotify_playlist_id"],
-            "name": encrypt_to_hex(p["name"]),
-            "is_collaborative": bool(p.get("is_collaborative", False)),
-            "track_count": int(p.get("track_count", 0)),
-            "tracks": encrypt_to_hex(json.dumps(p.get("tracks", []))),
-            "synced_at": now_iso,
-        }
-        for p in playlists
-    ]
+    rows: list[dict[str, Any]] = []
+    for p in playlists:
+        raw_tracks = p.get("tracks")
+        track_list: list[Any] = cast(list[Any], raw_tracks) if isinstance(raw_tracks, list) else []
+        trimmed_tracks: list[dict[str, Any]] = []
+        for t in track_list[:_MAX_STORED_TRACKS_PER_PLAYLIST]:
+            if isinstance(t, dict):
+                t_dict = cast(dict[str, Any], t)
+                raw_art = t_dict.get("artists")
+                art_items: list[Any] = cast(list[Any], raw_art) if isinstance(raw_art, list) else []
+                art_list: list[str] = [str(a) for a in art_items if isinstance(a, str)]
+                trimmed_tracks.append(
+                    {
+                        "spotify_track_id": t_dict.get("spotify_track_id"),
+                        "name": str(t_dict.get("name") or ""),
+                        "artists": art_list,
+                    },
+                )
+        rows.append(
+            {
+                "user_id": user_id,
+                "spotify_playlist_id": p["spotify_playlist_id"],
+                "name": encrypt_to_hex(p["name"]),
+                "is_collaborative": bool(p.get("is_collaborative", False)),
+                "track_count": int(p.get("track_count", 0)),
+                "tracks": encrypt_to_hex(json.dumps(trimmed_tracks)),
+                "synced_at": now_iso,
+            },
+        )
 
     try:
         if rows:

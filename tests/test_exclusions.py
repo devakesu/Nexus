@@ -386,4 +386,73 @@ def test_fetch_stage_1_candidates_filters_large_exclusion_set(mock_supabase: Mag
         assert not any(c["id"] == leaked_candidate_id for c in candidates)
 
 
+def test_fetch_stage_1_candidates_lazy_decryption(mock_supabase: MagicMock) -> None:
+    """Verify that Stage 1 discovery decrypts minimally and lazily without full PII loops."""
+    from app.core.security.crypto import encrypt_pii
+    from app.db.profiles.crud import fetch_stage_1_candidates
+    from app.models import DiscoveryFilters
+
+    viewer_id = "00000000-0000-0000-0000-000000000001"
+    viewer_data = {
+        "id": viewer_id,
+        "search_bucket": "M",
+        "dating_target_buckets": ["F"],
+        "app_variant": "nexus",
+    }
+
+    # Encrypt some fields
+    cand_matching_id = "cand-matching-1"
+    cand_failing_id = "cand-failing-2"
+
+    raw_bio_token = encrypt_pii("Very long bio text")
+    raw_languages_matching = encrypt_pii('["English", "Spanish"]')
+    raw_languages_failing = encrypt_pii('["French"]')
+    raw_interests_matching = encrypt_pii('{"Music": 5, "Tech": 4}')
+
+    mock_candidates_data = [
+        {
+            "id": cand_failing_id,
+            "search_bucket": "F",
+            "dating_target_buckets": ["M"],
+            "age": 25,
+            "bio": raw_bio_token,
+            "languages": raw_languages_failing,
+            "interests": raw_interests_matching,
+        },
+        {
+            "id": cand_matching_id,
+            "search_bucket": "F",
+            "dating_target_buckets": ["M"],
+            "age": 26,
+            "bio": raw_bio_token,
+            "languages": raw_languages_matching,
+            "interests": raw_interests_matching,
+        },
+    ]
+
+    with (
+        patch("app.db.profiles.crud._fetch_and_decrypt_viewer", return_value=viewer_data),
+        patch("app.db.profiles.crud.fetch_active_discovery_excluded_ids", return_value=set()),
+        patch("app.db.profiles.crud._execute_and_filter_candidates", return_value=mock_candidates_data),
+        patch("app.db.profiles.crud._enrich_candidates_with_vectors"),
+    ):
+        filters = DiscoveryFilters(languages=["English"])
+        viewer, candidates = fetch_stage_1_candidates(
+            viewer_id=viewer_id,
+            active_tab="Dating",
+            filters=filters,
+        )
+
+        assert viewer is not None
+        assert len(candidates) == 1
+        matched = candidates[0]
+        assert matched["id"] == cand_matching_id
+        # Languages and scoring fields (interests) are decrypted
+        assert matched["languages"] == ["English", "Spanish"]
+        assert matched["interests"] == {"Music": 5, "Tech": 4}
+        # Non-scoring field 'bio' was NOT decrypted during Stage 1 candidate generation
+        assert matched["bio"] == raw_bio_token
+
+
+
 

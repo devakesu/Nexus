@@ -471,7 +471,7 @@ class DiscoveryViewportResponse(BaseModel):
     """Discoveryviewportresponse class representation."""
     session_id: str
     expires_at: datetime
-    total_nodes: int
+    total_nodes: int = 0
     nodes: list[OrbitNodeOut]
 
 

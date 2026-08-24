@@ -1,5 +1,6 @@
 """Discovery spatial viewport querying, distance filtering, and count calculations."""
 
+import asyncio
 import logging
 import math
 from typing import Any, cast
@@ -106,27 +107,17 @@ def _fetch_total_session_items_count(session_id: str, viewer_id: str) -> int:
         raise DatabaseAccessError("Unexpected spatial session count failure") from e
 
 
-async def fetch_spatial_viewport(
+def _query_spatial_viewport(
     session_id: str,
     viewer_id: str,
-    center_x: float,
-    center_y: float,
-    radius: float,
-) -> tuple[list[dict[str, Any]], int]:
-    """Fetch session items within a circular viewport using bounding box pre-filter."""
-    if not (math.isfinite(center_x) and math.isfinite(center_y) and math.isfinite(radius)):
-        raise ValueError("Spatial viewport parameters (center_x, center_y, radius) must be finite floats.")
-
-    # Clamp spatial parameters to valid canvas bounds and positive viewport radius span
-    center_x = max(-5000.0, min(center_x, 5000.0))
-    center_y = max(-5000.0, min(center_y, 5000.0))
-    radius = max(0.001, min(radius, 1000.0))
-
-    x_min, x_max = center_x - radius, center_x + radius
-    y_min, y_max = center_y - radius, center_y + radius
-
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+) -> Any:
+    """Synchronous helper to execute spatial viewport PostgREST query."""
     try:
-        res = (
+        return (
             supabase_client.table("discovery_session_items")
             .select(
                 """
@@ -160,9 +151,10 @@ async def fetch_spatial_viewport(
             extra={
                 "session_id": session_id,
                 "viewer_id": viewer_id,
-                "center_x": center_x,
-                "center_y": center_y,
-                "radius": radius,
+                "x_min": x_min,
+                "x_max": x_max,
+                "y_min": y_min,
+                "y_max": y_max,
             },
         )
         raise DatabaseAccessError("Failed to fetch spatial viewport") from e
@@ -172,12 +164,44 @@ async def fetch_spatial_viewport(
             extra={
                 "session_id": session_id,
                 "viewer_id": viewer_id,
-                "center_x": center_x,
-                "center_y": center_y,
-                "radius": radius,
+                "x_min": x_min,
+                "x_max": x_max,
+                "y_min": y_min,
+                "y_max": y_max,
             },
         )
         raise DatabaseAccessError("Unexpected spatial viewport fetch failure") from e
+
+
+async def fetch_spatial_viewport(
+    session_id: str,
+    viewer_id: str,
+    center_x: float,
+    center_y: float,
+    radius: float,
+    include_total_count: bool = False,
+) -> tuple[list[dict[str, Any]], int]:
+    """Fetch session items within a circular viewport using bounding box pre-filter."""
+    if not (math.isfinite(center_x) and math.isfinite(center_y) and math.isfinite(radius)):
+        raise ValueError("Spatial viewport parameters (center_x, center_y, radius) must be finite floats.")
+
+    # Clamp spatial parameters to valid canvas bounds and positive viewport radius span
+    center_x = max(-5000.0, min(center_x, 5000.0))
+    center_y = max(-5000.0, min(center_y, 5000.0))
+    radius = max(0.001, min(radius, 1000.0))
+
+    x_min, x_max = center_x - radius, center_x + radius
+    y_min, y_max = center_y - radius, center_y + radius
+
+    res = await asyncio.to_thread(
+        _query_spatial_viewport,
+        session_id,
+        viewer_id,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+    )
 
     rows = cast(list[Any], res.data or [])
     result = await _filter_and_sort_viewport_items(
@@ -187,6 +211,8 @@ async def fetch_spatial_viewport(
         center_y=center_y,
         radius=radius,
     )
-    total_count = _fetch_total_session_items_count(session_id, viewer_id)
+    total_count = 0
+    if include_total_count:
+        total_count = await asyncio.to_thread(_fetch_total_session_items_count, session_id, viewer_id)
 
     return result, total_count

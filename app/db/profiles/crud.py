@@ -1,7 +1,6 @@
 """Profile retrieval, stage 1 candidate search queries, and peer profile lookup methods."""
 
 import logging
-from collections.abc import Sequence
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -11,9 +10,15 @@ from app.core.config import DiscoveryTab
 from app.core.security.crypto import DecryptFailedError, compute_blind_index
 from app.db.client import DatabaseAccessError, ProfileDecodeError, normalize_uuid, supabase_client
 from app.db.discovery import fetch_active_discovery_excluded_ids
-from app.db.profiles.encryption import decrypt_profile_record
+from app.db.profiles.encryption import (
+    TAB_SCORING_FIELDS,
+    decrypt_profile_field,
+    decrypt_profile_fields,
+    decrypt_profile_record,
+)
 from app.db.profiles.media import sign_profile_media
 from app.models import DiscoveryFilters
+from Nexus_Engine.utils import expand_target_buckets
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +69,7 @@ def _get_target_bucket_column(active_tab: DiscoveryTab) -> str:
         return "professional_target_buckets"
     raise ValueError(f"Unsupported active_tab: {active_tab}")
 
-
-def _expand_target_buckets(buckets: Sequence[Any] | None) -> list[str]:
-    """Expand target buckets."""
-    if not buckets:
-        return []
-    str_buckets = [str(b) for b in buckets]
-    if "Open" in str_buckets:
-        return ["M", "F", "NB"]
-    return str_buckets
+_expand_target_buckets = expand_target_buckets
 
 
 def _attach_empty_embeddings(record: dict[str, Any]) -> None:
@@ -252,7 +249,7 @@ def _filter_candidate_matches(
 
         if any(bucket in candidate_targets for bucket in viewer_search_expanded):
             _unpack_chat_presence(cand_dict)
-            candidates_to_enrich.append(decrypt_profile_record(cand_dict))
+            candidates_to_enrich.append(cand_dict)
     return candidates_to_enrich
 
 
@@ -263,20 +260,25 @@ def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
 
 def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     """Check basic field overlap against filters."""
-    if filters.languages and not _list_overlap(
-        c.get("languages") or [],
-        filters.languages,
-    ):
-        return False
+    if filters.languages:
+        decrypt_profile_field(c, "languages")
+        if not _list_overlap(c.get("languages") or [], filters.languages):
+            return False
     if filters.sub_interests:
-        sub_raw = cast(dict[str, list[str]], c.get("sub_interests") or {})
-        flat: list[str] = [v for vs in sub_raw.values() for v in vs]
+        decrypt_profile_field(c, "sub_interests")
+        sub_raw = c.get("sub_interests")
+        if isinstance(sub_raw, dict):
+            sub_dict = cast(dict[str, list[str]], sub_raw)
+            flat: list[str] = [v for vs in sub_dict.values() for v in vs]
+        else:
+            flat = []
         if not _list_overlap(flat, filters.sub_interests):
             return False
-    return not (
-        filters.role_type
-        and not _list_overlap(c.get("role_type") or [], filters.role_type)
-    )
+    if filters.role_type:
+        decrypt_profile_field(c, "role_type")
+        if not _list_overlap(c.get("role_type") or [], filters.role_type):
+            return False
+    return True
 
 
 def _check_candidate_match(
@@ -288,22 +290,20 @@ def _check_candidate_match(
     if not _check_basic_overlap(c, filters):
         return False
 
-    if filters.looking_for and not _list_overlap(
-        c.get("looking_for") or [],
-        filters.looking_for,
-    ):
-        return False
-    if filters.causes_supported and not _list_overlap(
-        c.get("causes_supported") or [],
-        filters.causes_supported,
-    ):
-        return False
-    if filters.tech_skills and not _list_overlap(
-        c.get("tech_skills") or [],
-        filters.tech_skills,
-    ):
-        return False
+    if filters.looking_for:
+        decrypt_profile_field(c, "looking_for")
+        if not _list_overlap(c.get("looking_for") or [], filters.looking_for):
+            return False
+    if filters.causes_supported:
+        decrypt_profile_field(c, "causes_supported")
+        if not _list_overlap(c.get("causes_supported") or [], filters.causes_supported):
+            return False
+    if filters.tech_skills:
+        decrypt_profile_field(c, "tech_skills")
+        if not _list_overlap(c.get("tech_skills") or [], filters.tech_skills):
+            return False
     if filters.partner_values and "partner_values" in dealbreakers:
+        decrypt_profile_field(c, "partner_values")
         pv_raw: Any = c.get("partner_values") or []
         if isinstance(pv_raw, str):
             pv_list: list[str] = [
@@ -510,6 +510,10 @@ def fetch_stage_1_candidates(
         )
         _attach_empty_embeddings(viewer)
         return viewer, []
+
+    scoring_fields = TAB_SCORING_FIELDS.get(active_tab, frozenset())
+    for c in candidates_to_enrich:
+        decrypt_profile_fields(c, scoring_fields)
 
     candidate_map = {c["id"]: c for c in candidates_to_enrich if "id" in c}
     _enrich_candidates_with_vectors(viewer, list(candidate_map.values()), viewer_id)

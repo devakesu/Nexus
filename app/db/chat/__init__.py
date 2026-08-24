@@ -1,6 +1,9 @@
 """Database chat conversation, messaging, and E2EE key persistence package."""
 
 from app.db.chat.chat import (
+    batch_delete_conversations_chat_media,
+    batch_fetch_presence_from_db,
+    batch_fetch_user_share_flags,
     close_conversation_for_match_action,
     create_event_with_message,
     decrypt_event_row,
@@ -26,8 +29,10 @@ from app.db.chat.chat import (
 from app.db.chat.keys import (
     bulk_insert_one_time_prekeys,
     count_unused_one_time_prekeys,
+    fetch_active_matches_for_targets,
     fetch_identity_key,
     fetch_key_bundle,
+    fetch_x3dh_key_bundle_unified,
     has_active_match,
     mark_session_established,
     upsert_identity_key,
@@ -38,11 +43,15 @@ __all__ = [
     # keys
     "bulk_insert_one_time_prekeys",
     # chat
+    "batch_delete_conversations_chat_media",
+    "batch_fetch_presence_from_db",
+    "batch_fetch_user_share_flags",
     "close_conversation_for_match_action",
     "count_unused_one_time_prekeys",
     "create_event_with_message",
     "decrypt_event_row",
     "delete_conversation_chat_media",
+    "fetch_active_matches_for_targets",
     "fetch_conversation_for_match",
     "fetch_conversation_participants",
     "fetch_conversations_for_user",
@@ -54,6 +63,7 @@ __all__ = [
     "fetch_presence",
     "fetch_started_match_ids",
     "fetch_user_share_flags",
+    "fetch_x3dh_key_bundle_unified",
     "get_or_create_conversation",
     "has_active_match",
     "insert_message",

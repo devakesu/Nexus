@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -16,6 +17,7 @@ import 'package:nexus/features/security_signal/services/signal/session_manager.d
 import 'package:nexus/features/security_signal/services/signal/signal_database.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_key_service.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_store.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -1448,6 +1450,18 @@ class ChatConversationController extends _$ChatConversationController {
     return true;
   }
 
+  Future<File> _getMediaCacheFile(String storagePath) async {
+    final tempDir = await getTemporaryDirectory();
+    final cacheDir = Directory('${tempDir.path}/chat_media_cache');
+    if (!cacheDir.existsSync()) {
+      cacheDir.createSync(recursive: true);
+    }
+    final safeFileName = base64Url
+        .encode(utf8.encode(storagePath))
+        .replaceAll('=', '');
+    return File('${cacheDir.path}/$safeFileName.enc');
+  }
+
   /// Fetches and decrypts an attachment's bytes given its pointer -
   /// called lazily by the image/voice bubbles when they're rendered,
   /// rather than eagerly for the whole message list. Checks the on-device
@@ -1455,14 +1469,40 @@ class ChatConversationController extends _$ChatConversationController {
   /// off-screen and back) doesn't re-download from Storage or re-run
   /// MediaCrypto decryption every time.
   Future<Uint8List> fetchMediaBytes(MediaPointer pointer) async {
+    // 1. Check disk cache in temporary directory
+    try {
+      final cacheFile = await _getMediaCacheFile(pointer.storagePath);
+      if (cacheFile.existsSync()) {
+        final encrypted = await cacheFile.readAsBytes();
+        return await LocalKeyVault.instance.decryptBytes(encrypted);
+      }
+    } on Object catch (_) {
+      // Fallback to legacy database or network download
+    }
+
+    // 2. Check legacy database cache and migrate to file cache if present
     final cached =
         await (_db.select(_db.cachedMedia)
               ..where((t) => t.storagePath.equals(pointer.storagePath)))
             .getSingleOrNull();
-    if (cached != null) {
-      return LocalKeyVault.instance.decryptBytes(
+    if (cached != null && cached.plaintextEnc.isNotEmpty) {
+      final decrypted = await LocalKeyVault.instance.decryptBytes(
         Uint8List.fromList(cached.plaintextEnc),
       );
+      unawaited(() async {
+        try {
+          final cacheFile = await _getMediaCacheFile(pointer.storagePath);
+          final encrypted = await LocalKeyVault.instance.encryptBytes(
+            decrypted,
+          );
+          await cacheFile.writeAsBytes(encrypted, flush: true);
+          await (_db.update(_db.cachedMedia)
+                ..where((t) => t.storagePath.equals(pointer.storagePath)))
+              .write(CachedMediaCompanion(plaintextEnc: Value(Uint8List(0))));
+          await _db.vacuumIncremental();
+        } on Object catch (_) {}
+      }());
+      return decrypted;
     }
 
     final ciphertext = await Supabase.instance.client.storage
@@ -1476,37 +1516,52 @@ class ChatConversationController extends _$ChatConversationController {
     return plaintext;
   }
 
-  /// Vault-encrypts [plaintext] before writing it to disk - matches
-  /// `LocalMessages.plaintextEnc`'s at-rest protection exactly, so cached
-  /// media is never left decrypted on disk. Then prunes anything beyond
-  /// the most recently cached [_maxCachedMediaItems] so the cache doesn't
-  /// grow unbounded over a long chat history with lots of attachments.
+  /// Vault-encrypts [plaintext] before writing it to disk as an encrypted
+  /// file in the temporary cache directory. The SQLite database only keeps
+  /// lightweight LRU metadata (without storing multi-MB blobs) and reclaims
+  /// freed pages via incremental vacuum.
   Future<void> _cacheMedia(
     String storagePath,
     Uint8List plaintext,
     String mimeType,
   ) async {
-    final encrypted = await LocalKeyVault.instance.encryptBytes(plaintext);
-    await _db
-        .into(_db.cachedMedia)
-        .insertOnConflictUpdate(
-          CachedMediaCompanion.insert(
-            storagePath: storagePath,
-            plaintextEnc: encrypted,
-            mimeType: mimeType,
-            cachedAt: DateTime.now(),
-          ),
-        );
+    try {
+      final encrypted = await LocalKeyVault.instance.encryptBytes(plaintext);
+      final cacheFile = await _getMediaCacheFile(storagePath);
+      await cacheFile.writeAsBytes(encrypted, flush: true);
 
-    final staleRows =
-        await (_db.select(_db.cachedMedia)
-              ..orderBy([(t) => OrderingTerm.desc(t.cachedAt)])
-              ..limit(1 << 30, offset: _maxCachedMediaItems))
-            .get();
-    for (final row in staleRows) {
-      await (_db.delete(
-        _db.cachedMedia,
-      )..where((t) => t.storagePath.equals(row.storagePath))).go();
+      await _db
+          .into(_db.cachedMedia)
+          .insertOnConflictUpdate(
+            CachedMediaCompanion.insert(
+              storagePath: storagePath,
+              plaintextEnc: Uint8List(0),
+              mimeType: mimeType,
+              cachedAt: DateTime.now(),
+            ),
+          );
+
+      final staleRows =
+          await (_db.select(_db.cachedMedia)
+                ..orderBy([(t) => OrderingTerm.desc(t.cachedAt)])
+                ..limit(1 << 30, offset: _maxCachedMediaItems))
+              .get();
+      if (staleRows.isNotEmpty) {
+        for (final row in staleRows) {
+          try {
+            final file = await _getMediaCacheFile(row.storagePath);
+            if (file.existsSync()) {
+              file.deleteSync();
+            }
+          } on Object catch (_) {}
+          await (_db.delete(
+            _db.cachedMedia,
+          )..where((t) => t.storagePath.equals(row.storagePath))).go();
+        }
+        await _db.vacuumIncremental();
+      }
+    } on Object catch (_) {
+      // Non-fatal if caching or pruning fails
     }
   }
 }

@@ -34,12 +34,20 @@ class PeerPresence extends _$PeerPresence {
       _timer?.cancel();
     });
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
+
+    // Use cached presence from BatchPresence if already available
+    final cached = ref.read(batchPresenceProvider)[peerUserId];
+    if (cached != null) {
+      unawaited(refresh());
+      return cached;
+    }
     return _fetch();
   }
 
   Future<void> refresh() async {
     final info = await _fetch();
     state = AsyncData(info);
+    ref.read(batchPresenceProvider.notifier).updateSingle(peerUserId, info);
   }
 
   Future<PresenceInfo> _fetch() async {
@@ -53,12 +61,14 @@ class PeerPresence extends _$PeerPresence {
       );
       final data = response.data;
       final rawLastActive = data?['last_active_at'] as String?;
-      return PresenceInfo(
+      final info = PresenceInfo(
         isOnline: data?['is_online'] as bool?,
         lastActiveAt: rawLastActive != null
             ? DateTime.parse(rawLastActive)
             : null,
       );
+      ref.read(batchPresenceProvider.notifier).updateSingle(peerUserId, info);
+      return info;
     } on Exception {
       return const PresenceInfo(isOnline: null, lastActiveAt: null);
     }
@@ -100,6 +110,10 @@ class BatchPresence extends _$BatchPresence {
   Map<String, PresenceInfo> build() {
     _dio = createDio();
     return const {};
+  }
+
+  void updateSingle(String userId, PresenceInfo info) {
+    state = {...state, userId: info};
   }
 
   Future<void> fetch(List<String> userIds) async {

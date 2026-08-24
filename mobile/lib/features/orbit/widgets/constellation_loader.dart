@@ -19,14 +19,8 @@ class ConstellationLoader extends StatefulWidget {
 }
 
 class _ConstellationLoaderState extends State<ConstellationLoader>
-    with TickerProviderStateMixin {
-  late final AnimationController _ring1; // 3 dots CW  3.2 s
-  late final AnimationController _ring2; // 2 dots CCW 5.8 s
-  late final AnimationController _ring3; // 1 dot  CW  9.0 s
-  late final AnimationController _sweep; // radar sweep 4.0 s
-  late final AnimationController _pulse; // center glow  2.0 s
-  late final AnimationController _twinkle; // bg stars  1.4 s
-  late final AnimationController _dots; // ellipsis   0.9 s
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _masterController;
 
   // Null until the first didChangeDependencies pass resolves the platform's
   // reduced-motion preference; see _applyMotionPreference.
@@ -35,33 +29,9 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
   @override
   void initState() {
     super.initState();
-    _ring1 = AnimationController(
+    _masterController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
-    );
-    _ring2 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 5800),
-    );
-    _ring3 = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 9000),
-    );
-    _sweep = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4000),
-    );
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-    _twinkle = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-    _dots = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(seconds: 60),
     );
   }
 
@@ -72,47 +42,17 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
     if (reduceMotion == _reduceMotion) return;
     _reduceMotion = reduceMotion;
     if (reduceMotion) {
-      _ring1
-        ..stop()
-        ..value = 0;
-      _ring2
-        ..stop()
-        ..value = 0;
-      _ring3
-        ..stop()
-        ..value = 0;
-      _sweep
-        ..stop()
-        ..value = 0;
-      _pulse
-        ..stop()
-        ..value = 0.5;
-      _twinkle
-        ..stop()
-        ..value = 0.5;
-      _dots
+      _masterController
         ..stop()
         ..value = 0;
     } else {
-      _ring1.repeat();
-      _ring2.repeat();
-      _ring3.repeat();
-      _sweep.repeat();
-      _pulse.repeat(reverse: true);
-      _twinkle.repeat(reverse: true);
-      _dots.repeat();
+      _masterController.repeat();
     }
   }
 
   @override
   void dispose() {
-    _ring1.dispose();
-    _ring2.dispose();
-    _ring3.dispose();
-    _sweep.dispose();
-    _pulse.dispose();
-    _twinkle.dispose();
-    _dots.dispose();
+    _masterController.dispose();
     super.dispose();
   }
 
@@ -126,49 +66,54 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
           width: 210,
           height: 210,
           child: AnimatedBuilder(
-            animation: Listenable.merge([
-              _ring1,
-              _ring2,
-              _ring3,
-              _sweep,
-              _pulse,
-              _twinkle,
-            ]),
-            builder: (context, _) => CustomPaint(
-              painter: _ConstellationPainter(
-                themeColor: widget.themeColor,
-                ring1Angle: _ring1.value * 2 * math.pi,
-                ring2Angle: -_ring2.value * 2 * math.pi,
-                ring3Angle: _ring3.value * 2 * math.pi,
-                sweepAngle: _sweep.value * 2 * math.pi,
-                pulseValue: _pulse.value,
-                twinkleValue: _twinkle.value,
-              ),
-              child: Center(
-                child: () {
-                  final icon = Icon(
-                    Icons.auto_awesome_rounded,
-                    color: widget.themeColor,
-                    size: 26,
-                  );
-                  if (reduceMotion) return icon;
-                  return icon
-                      .animate(onPlay: (c) => c.repeat(reverse: true))
-                      .scale(
-                        begin: const Offset(0.88, 0.88),
-                        end: const Offset(1.16, 1.16),
-                        duration: 2.seconds,
-                        curve: Curves.easeInOut,
-                      );
-                }(),
-              ),
-            ),
+            animation: _masterController,
+            builder: (context, _) {
+              final elapsedMs = _masterController.value * 60000.0;
+              final ring1Angle = (elapsedMs / 3200.0) * 2 * math.pi;
+              final ring2Angle = -(elapsedMs / 5800.0) * 2 * math.pi;
+              final ring3Angle = (elapsedMs / 9000.0) * 2 * math.pi;
+              final sweepAngle = (elapsedMs / 4000.0) * 2 * math.pi;
+              final pulseValue =
+                  math.sin((elapsedMs / 2000.0) * 2 * math.pi) * 0.5 + 0.5;
+              final twinkleValue =
+                  math.sin((elapsedMs / 1400.0) * 2 * math.pi) * 0.5 + 0.5;
+
+              return CustomPaint(
+                painter: _ConstellationPainter(
+                  themeColor: widget.themeColor,
+                  ring1Angle: ring1Angle,
+                  ring2Angle: ring2Angle,
+                  ring3Angle: ring3Angle,
+                  sweepAngle: sweepAngle,
+                  pulseValue: pulseValue,
+                  twinkleValue: twinkleValue,
+                ),
+                child: Center(
+                  child: () {
+                    final icon = Icon(
+                      Icons.auto_awesome_rounded,
+                      color: widget.themeColor,
+                      size: 26,
+                    );
+                    if (reduceMotion) return icon;
+                    return icon
+                        .animate(onPlay: (c) => c.repeat(reverse: true))
+                        .scale(
+                          begin: const Offset(0.88, 0.88),
+                          end: const Offset(1.16, 1.16),
+                          duration: 2.seconds,
+                          curve: Curves.easeInOut,
+                        );
+                  }(),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 28),
         _AligningText(
           themeColor: widget.themeColor,
-          dotsController: _dots,
+          masterController: _masterController,
           label: widget.label,
           reduceMotion: reduceMotion,
         ),
@@ -182,13 +127,13 @@ class _ConstellationLoaderState extends State<ConstellationLoader>
 class _AligningText extends StatelessWidget {
   const _AligningText({
     required this.themeColor,
-    required this.dotsController,
+    required this.masterController,
     required this.label,
     required this.reduceMotion,
   });
 
   final Color themeColor;
-  final AnimationController dotsController;
+  final AnimationController masterController;
   final String label;
   final bool reduceMotion;
 
@@ -235,9 +180,11 @@ class _AligningText extends StatelessWidget {
     }
 
     return AnimatedBuilder(
-      animation: dotsController,
+      animation: masterController,
       builder: (context, _) {
-        final dotCount = (dotsController.value * 3).floor() + 1;
+        final elapsedMs = masterController.value * 60000.0;
+        final dotsProgress = (elapsedMs / 900.0) % 1.0;
+        final dotCount = (dotsProgress * 3).floor() + 1;
         final dots = '•' * dotCount + ' ' * (3 - dotCount);
         return Row(
           mainAxisSize: MainAxisSize.min,

@@ -59,13 +59,11 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   Timer? _heartbeatTimer;
   double _lastViewInsetsBottom = 0;
 
-  final Map<String, GlobalKey> _messageKeys = {};
   final _floatingDateNotifier = ValueNotifier<DateTime?>(null);
   final _floatingDateOpacityNotifier = ValueNotifier<double>(0);
   Timer? _floatingDateTimer;
   Timer? _floatingDateThrottle;
   List<ChatMessageView> _currentMessages = [];
-  Map<String, ChatMessageView> _messagesById = {};
 
   @override
   void initState() {
@@ -161,47 +159,24 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
   void _updateFloatingDate() {
     if (!_scrollController.hasClients || _currentMessages.isEmpty) return;
 
-    final viewportBox = context.findRenderObject() as RenderBox?;
-    if (viewportBox == null) return;
-
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    final viewportTop =
-        viewportBox.localToGlobal(Offset.zero).dy +
-        kToolbarHeight +
-        statusBarHeight;
-
-    ChatMessageView? topMessage;
-    var minDistance = double.infinity;
-
-    for (final entry in _messageKeys.entries) {
-      final key = entry.value;
-      final elementContext = key.currentContext;
-      if (elementContext == null) continue;
-
-      final box = elementContext.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) continue;
-
-      final position = box.localToGlobal(Offset.zero);
-      final itemTop = position.dy;
-      final itemBottom = position.dy + box.size.height;
-
-      if (itemTop <= viewportTop + 8 && itemBottom >= viewportTop - 8) {
-        topMessage = _findMessageById(entry.key);
-        break;
-      } else if (itemTop > viewportTop &&
-          (itemTop - viewportTop) < minDistance) {
-        minDistance = itemTop - viewportTop;
-        topMessage = _findMessageById(entry.key);
-      }
-    }
-
-    if (topMessage != null) {
-      _floatingDateNotifier.value = topMessage.createdAt;
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    if (maxScroll <= 0) {
+      _floatingDateNotifier.value = _currentMessages.first.createdAt;
       _showFloatingDateChip();
+      return;
     }
-  }
 
-  ChatMessageView? _findMessageById(String id) => _messagesById[id];
+    final scrollOffset = position.pixels.clamp(0.0, maxScroll);
+    final progress = (scrollOffset / maxScroll).clamp(0.0, 1.0);
+    final index = (progress * (_currentMessages.length - 1))
+        .clamp(0, _currentMessages.length - 1)
+        .floor();
+
+    final topMessage = _currentMessages[index];
+    _floatingDateNotifier.value = topMessage.createdAt;
+    _showFloatingDateChip();
+  }
 
   void _showFloatingDateChip() {
     _floatingDateOpacityNotifier.value = 1.0;
@@ -569,8 +544,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                 }
               }
               _currentMessages = uniqueMessages;
-              _messagesById = {for (final m in uniqueMessages) m.id: m};
-              _messageKeys.removeWhere((key, _) => !seenIds.contains(key));
 
               WidgetsBinding.instance.addPostFrameCallback(
                 (_) => _scrollToBottom(),
@@ -625,10 +598,6 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                                       ? i - 1
                                       : i;
                                   final message = uniqueMessages[messageIndex];
-                                  final key = _messageKeys.putIfAbsent(
-                                    message.id,
-                                    GlobalKey.new,
-                                  );
                                   final bubble = MessageBubble(
                                     message: message,
                                     themeColor: theme.primary,
@@ -644,8 +613,8 @@ class _ChatConversationPageState extends ConsumerState<ChatConversationPage>
                                         uniqueMessages[messageIndex - 1]
                                             .createdAt,
                                       );
-                                  return Container(
-                                    key: key,
+                                  return KeyedSubtree(
+                                    key: ValueKey(message.id),
                                     child: showDateHeader
                                         ? Column(
                                             crossAxisAlignment:

@@ -31,8 +31,8 @@ supabase_client: Client = create_client(
             http2=False,
             timeout=httpx.Timeout(30.0, read=20.0, connect=10.0),
             limits=httpx.Limits(
-                max_connections=100,
-                max_keepalive_connections=50,
+                max_connections=150,
+                max_keepalive_connections=100,
                 keepalive_expiry=30.0,
             ),
         ),

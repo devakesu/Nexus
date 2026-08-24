@@ -45,421 +45,21 @@ class TagChipsEditor extends StatelessWidget {
   final List<String> exclusiveOptions;
 
   void _openMultiSelectSheet(BuildContext context) {
-    final localSelected = List<String>.from(currentValues);
-    final localPresets = List<String>.from(presets);
-
-    // Combine presets and any custom selected values that are not in presets
-    for (final val in localSelected) {
-      if (!localPresets.contains(val)) {
-        localPresets.add(val);
-      }
-    }
-
-    final textController = TextEditingController();
-    final searchController = TextEditingController();
-
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         barrierColor: Colors.black.withValues(alpha: 0.8),
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setModalState) {
-              final showSearch = localPresets.length > 10;
-              final filteredPresets = showSearch
-                  ? localPresets.where((option) {
-                      return option.toLowerCase().contains(
-                        searchController.text.toLowerCase(),
-                      );
-                    }).toList()
-                  : localPresets;
-
-              return Container(
-                padding: EdgeInsets.only(
-                  top: 12,
-                  left: 20,
-                  right: 20,
-                  bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28),
-                  ),
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 38,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 18),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Select $label',
-                            style: const TextStyle(
-                              color: AppColors.ink,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Done',
-                              style: TextStyle(
-                                color: AppColors.pulsarPink,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      if (showSearch) ...[
-                        Container(
-                          height: 44,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                LucideIcons.search,
-                                color: Colors.black38,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: searchController,
-                                  style: const TextStyle(
-                                    color: AppColors.ink,
-                                    fontSize: 13,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Search presets...',
-                                    hintStyle: TextStyle(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.25,
-                                      ),
-                                      fontSize: 13,
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  onChanged: (val) {
-                                    setModalState(() {});
-                                  },
-                                ),
-                              ),
-                              if (searchController.text.isNotEmpty)
-                                Semantics(
-                                  button: true,
-                                  label: 'Clear search',
-                                  excludeSemantics: true,
-                                  onTap: () {
-                                    searchController.clear();
-                                    setModalState(() {});
-                                  },
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () {
-                                      searchController.clear();
-                                      setModalState(() {});
-                                    },
-                                    child: const SizedBox(
-                                      width: 44,
-                                      height: 44,
-                                      child: Center(
-                                        child: Icon(
-                                          LucideIcons.xCircle,
-                                          color: Colors.black38,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight:
-                              MediaQuery.of(context).size.height *
-                              (MediaQuery.of(context).viewInsets.bottom > 0
-                                  ? 0.22
-                                  : 0.4),
-                        ),
-                        child: ShaderMask(
-                          shaderCallback: (bounds) {
-                            return const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.white, Colors.transparent],
-                              stops: [0.90, 1.0],
-                            ).createShader(bounds);
-                          },
-                          blendMode: BlendMode.dstIn,
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 20),
-                            itemCount: filteredPresets.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final option = filteredPresets[index];
-                              final isSelected = localSelected.contains(option);
-                              final tagIcon = getTagIcon(
-                                option,
-                                iconSize: 14,
-                                iconColor: isSelected
-                                    ? AppColors.pulsarPink
-                                    : Colors.black38,
-                              );
-
-                              void handleTap() {
-                                setModalState(() {
-                                  if (isSelected) {
-                                    localSelected.remove(option);
-                                  } else if (exclusiveOptions.contains(
-                                    option,
-                                  )) {
-                                    localSelected
-                                      ..clear()
-                                      ..add(option);
-                                  } else {
-                                    localSelected
-                                      ..removeWhere(
-                                        exclusiveOptions.contains,
-                                      )
-                                      ..add(option);
-                                  }
-                                });
-                                onChanged(localSelected);
-                                if (!isSelected &&
-                                    exclusiveOptions.contains(option)) {
-                                  Navigator.pop(context);
-                                }
-                              }
-
-                              return Semantics(
-                                selected: isSelected,
-                                button: true,
-                                label: option,
-                                excludeSemantics: true,
-                                onTap: handleTap,
-                                child: GestureDetector(
-                                  onTap: handleTap,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? AppColors.pulsarPink.withValues(
-                                              alpha: 0.08,
-                                            )
-                                          : const Color(0xFFF9FAFB),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? AppColors.pulsarPink.withValues(
-                                                alpha: 0.45,
-                                              )
-                                            : Colors.black.withValues(
-                                                alpha: 0.05,
-                                              ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        if (isSelected) ...[
-                                          Container(
-                                            width: 3,
-                                            height: 14,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.pulsarPink,
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    1.5,
-                                                  ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                        ],
-                                        if (tagIcon != null) ...[
-                                          tagIcon,
-                                          const SizedBox(width: 12),
-                                        ] else ...[
-                                          Icon(
-                                            LucideIcons.sparkles,
-                                            size: 14,
-                                            color: isSelected
-                                                ? AppColors.pulsarPink
-                                                : Colors.black38,
-                                          ),
-                                          const SizedBox(width: 12),
-                                        ],
-                                        Expanded(
-                                          child: Text(
-                                            option,
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? AppColors.ink
-                                                  : const Color(0xFF475569),
-                                              fontSize: 14,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.bold
-                                                  : FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          const Icon(
-                                            LucideIcons.checkCircle,
-                                            color: AppColors.pulsarPink,
-                                            size: 16,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      if (allowCustom) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          height: 46,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3F4F6),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: textController,
-                                  style: const TextStyle(
-                                    color: AppColors.ink,
-                                    fontSize: 13,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: hintText,
-                                    hintStyle: TextStyle(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.25,
-                                      ),
-                                      fontSize: 13,
-                                    ),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  onSubmitted: (val) {
-                                    final trimmed = val.trim();
-                                    if (trimmed.isNotEmpty &&
-                                        !localPresets.contains(trimmed)) {
-                                      setModalState(() {
-                                        localPresets.add(trimmed);
-                                        localSelected.add(trimmed);
-                                      });
-                                      onChanged(localSelected);
-                                      textController.clear();
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Semantics(
-                                button: true,
-                                label: 'Add tag',
-                                excludeSemantics: true,
-                                onTap: () {
-                                  final trimmed = textController.text.trim();
-                                  if (trimmed.isNotEmpty &&
-                                      !localPresets.contains(trimmed)) {
-                                    setModalState(() {
-                                      localPresets.add(trimmed);
-                                      localSelected.add(trimmed);
-                                    });
-                                    onChanged(localSelected);
-                                    textController.clear();
-                                  }
-                                },
-                                child: GestureDetector(
-                                  onTap: () {
-                                    final trimmed = textController.text.trim();
-                                    if (trimmed.isNotEmpty &&
-                                        !localPresets.contains(trimmed)) {
-                                      setModalState(() {
-                                        localPresets.add(trimmed);
-                                        localSelected.add(trimmed);
-                                      });
-                                      onChanged(localSelected);
-                                      textController.clear();
-                                    }
-                                  },
-                                  child: const Icon(
-                                    LucideIcons.plusCircle,
-                                    color: AppColors.pulsarPink,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+        builder: (context) => _TagMultiSelectSheetContent(
+          label: label,
+          currentValues: currentValues,
+          presets: presets,
+          onChanged: onChanged,
+          allowCustom: allowCustom,
+          hintText: hintText,
+          exclusiveOptions: exclusiveOptions,
+        ),
       ).then((_) {
         FocusManager.instance.primaryFocus?.unfocus();
       }),
@@ -679,6 +279,441 @@ class TagChipsEditor extends StatelessWidget {
           ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+class _TagMultiSelectSheetContent extends StatefulWidget {
+  const _TagMultiSelectSheetContent({
+    required this.label,
+    required this.currentValues,
+    required this.presets,
+    required this.onChanged,
+    required this.allowCustom,
+    required this.hintText,
+    required this.exclusiveOptions,
+  });
+
+  final String label;
+  final List<String> currentValues;
+  final List<String> presets;
+  final ValueChanged<List<String>> onChanged;
+  final bool allowCustom;
+  final String hintText;
+  final List<String> exclusiveOptions;
+
+  @override
+  State<_TagMultiSelectSheetContent> createState() =>
+      _TagMultiSelectSheetContentState();
+}
+
+class _TagMultiSelectSheetContentState
+    extends State<_TagMultiSelectSheetContent> {
+  late final TextEditingController _textController;
+  late final TextEditingController _searchController;
+  late final List<String> _localSelected;
+  late final List<String> _localPresets;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController();
+    _searchController = TextEditingController();
+    _localSelected = List<String>.from(widget.currentValues);
+    _localPresets = List<String>.from(widget.presets);
+
+    for (final val in _localSelected) {
+      if (!_localPresets.contains(val)) {
+        _localPresets.add(val);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showSearch = _localPresets.length > 10;
+    final filteredPresets = showSearch
+        ? _localPresets.where((option) {
+            return option.toLowerCase().contains(
+              _searchController.text.toLowerCase(),
+            );
+          }).toList()
+        : _localPresets;
+
+    return Container(
+      padding: EdgeInsets.only(
+        top: 12,
+        left: 20,
+        right: 20,
+        bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+        border: Border.all(
+          color: Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Select ${widget.label}',
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      color: AppColors.pulsarPink,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (showSearch) ...[
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.search,
+                      color: Colors.black45,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 13,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search presets...',
+                          hintStyle: TextStyle(
+                            color: Colors.black.withValues(
+                              alpha: 0.25,
+                            ),
+                            fontSize: 13,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (val) {
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                    if (_searchController.text.isNotEmpty)
+                      Semantics(
+                        button: true,
+                        label: 'Clear search',
+                        excludeSemantics: true,
+                        onTap: () {
+                          setState(() {
+                            _searchController.clear();
+                          });
+                        },
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            setState(() {
+                              _searchController.clear();
+                            });
+                          },
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Icon(
+                                LucideIcons.xCircle,
+                                color: Colors.black38,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    MediaQuery.of(context).size.height *
+                    (MediaQuery.of(context).viewInsets.bottom > 0 ? 0.22 : 0.4),
+              ),
+              child: ShaderMask(
+                shaderCallback: (bounds) {
+                  return const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.white, Colors.transparent],
+                    stops: [0.90, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 20),
+                  itemCount: filteredPresets.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final option = filteredPresets[index];
+                    final isSelected = _localSelected.contains(option);
+
+                    void handleTap() {
+                      setState(() {
+                        if (isSelected) {
+                          _localSelected.remove(option);
+                        } else if (widget.exclusiveOptions.contains(
+                          option,
+                        )) {
+                          _localSelected
+                            ..clear()
+                            ..add(option);
+                        } else {
+                          _localSelected
+                            ..removeWhere(
+                              widget.exclusiveOptions.contains,
+                            )
+                            ..add(option);
+                        }
+                      });
+                      widget.onChanged(_localSelected);
+                      if (!isSelected &&
+                          widget.exclusiveOptions.contains(option)) {
+                        Navigator.pop(context);
+                      }
+                    }
+
+                    return Semantics(
+                      selected: isSelected,
+                      button: true,
+                      label: option,
+                      excludeSemantics: true,
+                      onTap: handleTap,
+                      child: GestureDetector(
+                        onTap: handleTap,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.pulsarPink.withValues(
+                                    alpha: 0.08,
+                                  )
+                                : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.pulsarPink.withValues(
+                                      alpha: 0.45,
+                                    )
+                                  : Colors.black.withValues(
+                                      alpha: 0.05,
+                                    ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              if (isSelected) ...[
+                                Container(
+                                  width: 3,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.pulsarPink,
+                                    borderRadius: BorderRadius.circular(
+                                      1.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
+                              Icon(
+                                LucideIcons.sparkles,
+                                size: 14,
+                                color: isSelected
+                                    ? AppColors.pulsarPink
+                                    : Colors.black38,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? AppColors.ink
+                                        : const Color(0xFF475569),
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  LucideIcons.checkCircle,
+                                  color: AppColors.pulsarPink,
+                                  size: 16,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            if (widget.allowCustom) ...[
+              const SizedBox(height: 16),
+              Container(
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 13,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: widget.hintText,
+                          hintStyle: TextStyle(
+                            color: Colors.black.withValues(
+                              alpha: 0.25,
+                            ),
+                            fontSize: 13,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onSubmitted: (val) {
+                          final trimmed = val.trim();
+                          if (trimmed.isNotEmpty &&
+                              !_localPresets.contains(trimmed)) {
+                            setState(() {
+                              _localPresets.add(trimmed);
+                              _localSelected.add(trimmed);
+                            });
+                            widget.onChanged(_localSelected);
+                            _textController.clear();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Semantics(
+                      button: true,
+                      label: 'Add tag',
+                      excludeSemantics: true,
+                      onTap: () {
+                        final trimmed = _textController.text.trim();
+                        if (trimmed.isNotEmpty &&
+                            !_localPresets.contains(trimmed)) {
+                          setState(() {
+                            _localPresets.add(trimmed);
+                            _localSelected.add(trimmed);
+                          });
+                          widget.onChanged(_localSelected);
+                          _textController.clear();
+                        }
+                      },
+                      child: GestureDetector(
+                        onTap: () {
+                          final trimmed = _textController.text.trim();
+                          if (trimmed.isNotEmpty &&
+                              !_localPresets.contains(trimmed)) {
+                            setState(() {
+                              _localPresets.add(trimmed);
+                              _localSelected.add(trimmed);
+                            });
+                            widget.onChanged(_localSelected);
+                            _textController.clear();
+                          }
+                        },
+                        child: const Icon(
+                          LucideIcons.plusCircle,
+                          color: AppColors.pulsarPink,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

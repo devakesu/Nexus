@@ -27,6 +27,7 @@ Future<void> main() async {
   if (!kDebugMode) {
     debugPrint = (message, {wrapWidth}) {};
   }
+  GoogleFonts.config.allowRuntimeFetching = false;
   SentryWidgetsFlutterBinding.ensureInitialized();
   SecurityService.initialize();
   await SecurityService.checkDebugger();

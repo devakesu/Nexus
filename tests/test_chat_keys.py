@@ -8,8 +8,8 @@ from app.models import KeyBundleResponse
 
 
 @pytest.mark.anyio
-@patch("app.api.chat.keys.has_active_match")
-@patch("app.api.chat.keys.fetch_key_bundle")
+@patch("app.db.chat.keys.has_active_match")
+@patch("app.db.chat.keys.fetch_key_bundle")
 async def test_get_key_bundle_success(
     mock_fetch_key_bundle: MagicMock,
     mock_has_active_match: MagicMock,
@@ -31,19 +31,19 @@ async def test_get_key_bundle_success(
             "type": "http",
             "client": ("127.0.0.1", 1234),
             "headers": [],
-            "path": "/api/v1/chat/keys/bundle/target-user-id",
+            "path": "/api/v1/chat/keys/bundle/22222222-2222-2222-2222-222222222222",
         },
     )
 
     res = await get_key_bundle(
         request=mock_request,
-        target_user_id="target-user-id",
+        target_user_id="22222222-2222-2222-2222-222222222222",
         _device=None,
-        user_id="current-user-id",
+        user_id="11111111-1111-1111-1111-111111111111",
     )
 
     assert isinstance(res, KeyBundleResponse)
-    assert res.user_id == "target-user-id"
+    assert res.user_id == "22222222-2222-2222-2222-222222222222"
     assert res.identity_public_key == b"\x05.AqK9s \x0c\xd2&\xe7"
     assert res.signed_prekey_public == b"\x05\x1b\xbd\nU\xaf\xa1"
     assert res.signed_prekey_signature == b"m#:\x9f\x8f\xa3\xa8\x07"
@@ -197,8 +197,8 @@ async def test_upload_signed_prekey_invalid_signature(
 
 
 @pytest.mark.anyio
-@patch("app.api.chat.keys.has_active_match")
-@patch("app.api.chat.keys.fetch_key_bundle")
+@patch("app.db.chat.keys.has_active_match")
+@patch("app.db.chat.keys.fetch_key_bundle")
 @patch("app.api.chat.keys.redis_client")
 @patch("app.api.chat.keys.count_unused_one_time_prekeys")
 async def test_key_bundle_rate_limiting_per_peer(
@@ -239,16 +239,16 @@ async def test_key_bundle_rate_limiting_per_peer(
             "type": "http",
             "client": ("127.0.0.1", 1234),
             "headers": [],
-            "path": "/api/v1/chat/keys/bundle/target-user-id",
+            "path": "/api/v1/chat/keys/bundle/22222222-2222-2222-2222-222222222222",
         },
     )
 
     # 1st request -> fetches from DB and populates cache
     res1 = await get_key_bundle(
         request=mock_request,
-        target_user_id="target-user-id",
+        target_user_id="22222222-2222-2222-2222-222222222222",
         _device=None,
-        user_id="caller-user-id",
+        user_id="11111111-1111-1111-1111-111111111111",
     )
     assert res1.one_time_prekey_id == 99
     assert mock_fetch_key_bundle.call_count == 1
@@ -256,9 +256,9 @@ async def test_key_bundle_rate_limiting_per_peer(
     # 2nd request from same caller -> served from Redis cache without hitting DB
     res2 = await get_key_bundle(
         request=mock_request,
-        target_user_id="target-user-id",
+        target_user_id="22222222-2222-2222-2222-222222222222",
         _device=None,
-        user_id="caller-user-id",
+        user_id="11111111-1111-1111-1111-111111111111",
     )
     assert res2.one_time_prekey_id == 99
     assert res2.signed_prekey_id == res1.signed_prekey_id
@@ -266,8 +266,8 @@ async def test_key_bundle_rate_limiting_per_peer(
 
 
 @pytest.mark.anyio
-@patch("app.api.chat.keys.has_active_match")
-@patch("app.api.chat.keys.fetch_key_bundle")
+@patch("app.db.chat.keys.has_active_match")
+@patch("app.db.chat.keys.fetch_key_bundle")
 @patch("app.api.chat.keys.redis_client")
 @patch("app.api.chat.keys.count_unused_one_time_prekeys")
 @patch("app.api.chat.keys.send_prekey_replenishment_notification")
@@ -301,21 +301,21 @@ async def test_prekey_exhaustion_low_pool_alert(
             "type": "http",
             "client": ("127.0.0.1", 1234),
             "headers": [],
-            "path": "/api/v1/chat/keys/bundle/target-user-id",
+            "path": "/api/v1/chat/keys/bundle/22222222-2222-2222-2222-222222222222",
         },
     )
 
     await get_key_bundle(
         request=mock_request,
-        target_user_id="target-user-id",
+        target_user_id="22222222-2222-2222-2222-222222222222",
         _device=None,
-        user_id="caller-user-id",
+        user_id="11111111-1111-1111-1111-111111111111",
     )
 
     # Allow spawned task to execute
     import asyncio
     await asyncio.sleep(0.01)
-    mock_send_push.assert_called_once_with("target-user-id")
+    mock_send_push.assert_called_once_with("22222222-2222-2222-2222-222222222222")
 
 
 @pytest.mark.anyio
@@ -363,6 +363,47 @@ def test_upsert_identity_key_deactivates_prior_user_devices(mock_table: MagicMoc
     mock_table.assert_any_call("user_devices")
     builder.update.assert_called_with({"is_active": False})
     builder.eq.assert_any_call("user_id", "user-xyz-123")
+
+
+@patch("app.db.chat.keys.supabase_client.rpc")
+def test_fetch_x3dh_key_bundle_unified_rpc(mock_rpc: MagicMock) -> None:
+    from app.db.chat.keys import fetch_x3dh_key_bundle_unified
+
+    mock_rpc_builder = MagicMock()
+    mock_rpc_builder.execute.return_value = MagicMock(
+        data={
+            "identity_public_key": "\\x052e41714b3973200cd226e7",
+            "registration_id": 12345,
+            "signed_prekey_id": 1,
+            "signed_prekey_public": "\\x051bbd0a55afa1",
+            "signed_prekey_signature": "\\x6d233a9f8fa3a807",
+            "one_time_prekey_id": 99,
+            "one_time_prekey_public": "\\x05fbd11cd10b",
+            "one_time_prekey_used": True,
+        }
+    )
+    mock_rpc.return_value = mock_rpc_builder
+
+    bundle, error_code = fetch_x3dh_key_bundle_unified(
+        "11111111-1111-1111-1111-111111111111",
+        "22222222-2222-2222-2222-222222222222",
+    )
+
+    assert error_code is None
+    assert bundle is not None
+    assert bundle["registration_id"] == 12345
+    assert bundle["signed_prekey_id"] == 1
+    assert bundle["one_time_prekey_id"] == 99
+    assert bundle["one_time_prekey_used"] is True
+    # Single RPC call dispatched with normalized UUIDs
+    mock_rpc.assert_called_once_with(
+        "get_x3dh_key_bundle",
+        {
+            "p_requester_id": "11111111-1111-1111-1111-111111111111",
+            "p_target_id": "22222222-2222-2222-2222-222222222222",
+        },
+    )
+
 
 
 

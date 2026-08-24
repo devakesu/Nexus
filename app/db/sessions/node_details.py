@@ -1,5 +1,6 @@
 """Discovery node detail fetching, payload construction, and privacy boundaries."""
 
+import asyncio
 import logging
 from typing import Any, cast
 
@@ -26,6 +27,7 @@ def _build_node_detail_payload(
     session_id: str,
     viewer_id: str,
     candidate_id: str,
+    connection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build hydrated orbit node detail payload with media signatures."""
     try:
@@ -46,9 +48,10 @@ def _build_node_detail_payload(
     grade_val = row.get("music_match_grade")
     music_match_grade = int(grade_val) if grade_val is not None else None
 
-    from app.db.spotify import get_connection
+    if connection is None:
+        from app.db.spotify import get_connection
 
-    connection = get_connection(viewer_id)
+        connection = get_connection(viewer_id)
     viewer_spotify_connected = (
         connection is not None and not connection.get("disconnected_at")
     )
@@ -136,14 +139,14 @@ async def _validate_discovery_node_data(
     return cast(DiscoveryTab, session_tab_raw), profile, cid
 
 
-async def fetch_discovery_node_detail(
+def _query_discovery_node_detail(
     session_id: str,
     viewer_id: str,
     candidate_id: str,
-) -> tuple[DiscoveryTab, dict[str, Any]] | None:
-    """Return (session_tab, hydrated_profile_payload) for a clicked discovery node."""
+) -> Any:
+    """Synchronous helper to execute discovery node detail PostgREST query."""
     try:
-        res = (
+        return (
             supabase_client.table("discovery_session_items")
             .select(
                 """
@@ -226,6 +229,20 @@ async def fetch_discovery_node_detail(
         )
         raise DatabaseAccessError("Unexpected discovery node detail failure") from e
 
+
+async def fetch_discovery_node_detail(
+    session_id: str,
+    viewer_id: str,
+    candidate_id: str,
+) -> tuple[DiscoveryTab, dict[str, Any]] | None:
+    """Return (session_tab, hydrated_profile_payload) for a clicked discovery node."""
+    res = await asyncio.to_thread(
+        _query_discovery_node_detail,
+        session_id=session_id,
+        viewer_id=viewer_id,
+        candidate_id=candidate_id,
+    )
+
     rows = cast(list[Any], res.data or [])
     row_raw = rows[0] if rows else None
     if not isinstance(row_raw, dict):
@@ -238,6 +255,10 @@ async def fetch_discovery_node_detail(
 
     session_tab, profile, cid = validated
 
+    from app.db.spotify import get_connection
+
+    connection = await asyncio.to_thread(get_connection, viewer_id)
+
     payload = _build_node_detail_payload(
         row=row,
         profile=profile,
@@ -245,6 +266,7 @@ async def fetch_discovery_node_detail(
         session_id=session_id,
         viewer_id=viewer_id,
         candidate_id=candidate_id,
+        connection=connection,
     )
 
     return session_tab, payload

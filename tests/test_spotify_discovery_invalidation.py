@@ -422,6 +422,67 @@ async def test_get_connection_selects_disconnected_at(mock_table: MagicMock) -> 
     assert "disconnected_at" in select_cols
 
 
+def test_replace_playlists_trims_bloated_tracks() -> None:
+    import json
+    from app.db.spotify import replace_playlists
+    from app.db.profiles.encryption import decrypt_pii
+
+    mock_table = MagicMock()
+    mock_builder = MagicMock()
+    mock_builder.upsert.return_value = mock_builder
+    mock_builder.delete.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.not_ = MagicMock()
+    mock_builder.not_.in_.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+    mock_table.return_value = mock_builder
+
+    # Generate a playlist with 100 tracks and bloated internal metadata
+    bloated_tracks = [
+        {
+            "spotify_track_id": f"track-{i}",
+            "name": f"Track Name {i}",
+            "artists": [f"Artist {i}", "Featured Artist"],
+            "artist_ids": [f"artist-id-{i}", "featured-artist-id"],
+            "album_internal": "Huge Album Metadata Blob" * 50,
+            "popularity": 85,
+        }
+        for i in range(100)
+    ]
+    playlist = {
+        "spotify_playlist_id": "playlist-123",
+        "name": "My Heavy Playlist",
+        "is_collaborative": False,
+        "track_count": 100,
+        "tracks": bloated_tracks,
+    }
+
+    with patch("app.db.spotify.supabase_client.table", mock_table):
+        replace_playlists("user-123", [playlist])
+
+    mock_builder.upsert.assert_called_once()
+    upsert_rows = mock_builder.upsert.call_args[0][0]
+    assert len(upsert_rows) == 1
+    row = upsert_rows[0]
+    assert row["user_id"] == "user-123"
+    assert row["spotify_playlist_id"] == "playlist-123"
+
+    # Decrypt and check stored tracks
+    decrypted_tracks_json = decrypt_pii(row["tracks"])
+    stored_tracks = json.loads(decrypted_tracks_json)
+    # Bounded to 25 items max
+    assert len(stored_tracks) == 25
+    # Internal bloat fields stripped
+    first_track = stored_tracks[0]
+    assert "artist_ids" not in first_track
+    assert "album_internal" not in first_track
+    assert "popularity" not in first_track
+    assert first_track["spotify_track_id"] == "track-0"
+    assert first_track["name"] == "Track Name 0"
+    assert first_track["artists"] == ["Artist 0", "Featured Artist"]
+
+
+
 
 
 

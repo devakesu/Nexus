@@ -289,40 +289,77 @@ Future<void> showNameChangeSheet(
     isValid: (val) =>
         val.length >= 4 && validateDisplayNameClientSide(val).error == null,
     inputBuilder: (context, pending, onChanged) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Your display name is visible to others across Nexus. '
-            'You get 2 name changes per rolling 365-day window, and your registration name counts as the first. '
-            'Names must be at least 4 characters and cannot contain numbers, titles (e.g. Dr.), or inappropriate language. '
-            'Need an exception sooner? File a ticket in Settings → Help & Support.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black.withValues(alpha: 0.6),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Enter new display name',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            controller: TextEditingController(text: pending)
-              ..selection = TextSelection.collapsed(offset: pending.length),
-            onChanged: onChanged,
-          ),
-        ],
+      return _NameChangeInput(
+        initialValue: pending,
+        onChanged: onChanged,
       );
     },
     confirmDescriptionBuilder: (val) =>
         'Are you sure you want to change your display name to "$val"?',
     onConfirmed: onConfirmed,
   );
+}
+
+class _NameChangeInput extends StatefulWidget {
+  const _NameChangeInput({
+    required this.initialValue,
+    required this.onChanged,
+  });
+
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_NameChangeInput> createState() => _NameChangeInputState();
+}
+
+class _NameChangeInputState extends State<_NameChangeInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue)
+      ..selection = TextSelection.collapsed(offset: widget.initialValue.length);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your display name is visible to others across Nexus. '
+          'You get 2 name changes per rolling 365-day window, and your registration name counts as the first. '
+          'Names must be at least 4 characters and cannot contain numbers, titles (e.g. Dr.), or inappropriate language. '
+          'Need an exception sooner? File a ticket in Settings → Help & Support.',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.black.withValues(alpha: 0.6),
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Enter new display name',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          controller: _controller,
+          onChanged: widget.onChanged,
+        ),
+      ],
+    );
+  }
 }
 
 /// Backward compatible helper for changing age

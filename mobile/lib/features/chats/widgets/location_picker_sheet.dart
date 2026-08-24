@@ -54,8 +54,18 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       }
       if (!await Geolocator.isLocationServiceEnabled()) return;
 
-      final position = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+      } on Object {
+        position = await Geolocator.getLastKnownPosition();
+      }
+      if (position == null || !mounted) return;
       final latLng = LatLng(position.latitude, position.longitude);
       setState(() => _selected = latLng);
       unawaited(

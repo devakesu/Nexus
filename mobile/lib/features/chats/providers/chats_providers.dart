@@ -117,23 +117,37 @@ class ChatConversations extends _$ChatConversations {
   }
 
   void _ensureRealtimeSub(String tab) {
-    if (_channel == null) {
-      _channel = Supabase.instance.client.channel('chats-realtime:$tab');
-      _channel!
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'chat_messages',
-            callback: (_) => _debouncedRefresh(),
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'chat_conversations',
-            callback: (_) => _debouncedRefresh(),
-          )
-          .subscribe();
-    }
+    if (_channel != null) return;
+    final myUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (myUserId == null) return;
+
+    _channel = Supabase.instance.client.channel(
+      'chats-realtime:$tab:$myUserId',
+    );
+    _channel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_a_id',
+            value: myUserId,
+          ),
+          callback: (_) => _debouncedRefresh(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_b_id',
+            value: myUserId,
+          ),
+          callback: (_) => _debouncedRefresh(),
+        )
+        .subscribe();
   }
 
   Future<List<ChatConversationSummary>> _fetchAndCache(String tab) async {

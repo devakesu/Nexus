@@ -142,6 +142,86 @@ $$;
 
 ALTER FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") OWNER TO "postgres";
 
+CREATE OR REPLACE FUNCTION "public"."get_x3dh_key_bundle"("p_requester_id" "uuid", "p_target_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+    v_has_match BOOLEAN;
+    v_identity_public_key BYTEA;
+    v_registration_id INTEGER;
+    v_signed_prekey_id INTEGER;
+    v_signed_prekey_public BYTEA;
+    v_signed_prekey_signature BYTEA;
+    v_one_time_prekey_id INTEGER := NULL;
+    v_one_time_prekey_public BYTEA := NULL;
+    v_claimed_otp_id UUID;
+BEGIN
+    -- 1. Verify active match
+    SELECT EXISTS (
+        SELECT 1 FROM public.matches m
+        WHERE ((m.liker_id = p_requester_id AND m.liked_back_id = p_target_id)
+            OR (m.liker_id = p_target_id AND m.liked_back_id = p_requester_id))
+          AND m.unmatched_at IS NULL
+    ) INTO v_has_match;
+
+    IF NOT v_has_match THEN
+        RETURN jsonb_build_object('error', 'NOT_MATCHED');
+    END IF;
+
+    -- 2. Fetch identity key
+    SELECT ik.identity_public_key, ik.registration_id
+    INTO v_identity_public_key, v_registration_id
+    FROM public.chat_identity_keys ik
+    WHERE ik.user_id = p_target_id;
+
+    IF v_identity_public_key IS NULL THEN
+        RETURN jsonb_build_object('error', 'IDENTITY_NOT_FOUND');
+    END IF;
+
+    -- 3. Fetch latest active signed prekey
+    SELECT spk.key_id, spk.public_key, spk.signature
+    INTO v_signed_prekey_id, v_signed_prekey_public, v_signed_prekey_signature
+    FROM public.chat_signed_prekeys spk
+    WHERE spk.user_id = p_target_id AND spk.rotated_at IS NULL
+    ORDER BY spk.created_at DESC
+    LIMIT 1;
+
+    IF v_signed_prekey_id IS NULL THEN
+        RETURN jsonb_build_object('error', 'SIGNED_PREKEY_NOT_FOUND');
+    END IF;
+
+    -- 4. Atomically claim one-time prekey
+    SELECT c.id INTO v_claimed_otp_id
+    FROM public.chat_one_time_prekeys c
+    WHERE c.user_id = p_target_id AND c.used_at IS NULL
+    ORDER BY c.key_id
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1;
+
+    IF v_claimed_otp_id IS NOT NULL THEN
+        UPDATE public.chat_one_time_prekeys c
+        SET used_at = timezone('utc'::text, now())
+        WHERE c.id = v_claimed_otp_id
+        RETURNING c.key_id, c.public_key
+        INTO v_one_time_prekey_id, v_one_time_prekey_public;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'identity_public_key', encode(v_identity_public_key, 'hex'),
+        'registration_id', v_registration_id,
+        'signed_prekey_id', v_signed_prekey_id,
+        'signed_prekey_public', encode(v_signed_prekey_public, 'hex'),
+        'signed_prekey_signature', encode(v_signed_prekey_signature, 'hex'),
+        'one_time_prekey_id', v_one_time_prekey_id,
+        'one_time_prekey_public', CASE WHEN v_one_time_prekey_public IS NOT NULL THEN encode(v_one_time_prekey_public, 'hex') ELSE NULL END,
+        'one_time_prekey_used', v_one_time_prekey_public IS NOT NULL
+    );
+END;
+$$;
+
+ALTER FUNCTION "public"."get_x3dh_key_bundle"("p_requester_id" "uuid", "p_target_id" "uuid") OWNER TO "postgres";
+
 CREATE OR REPLACE FUNCTION "public"."create_discovery_session_with_items"("p_viewer_id" "uuid", "p_tab" "text", "p_filters" "jsonb", "p_expires_at" timestamp with time zone, "p_viewer_spotify_connected" boolean, "p_items" "jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -2396,6 +2476,9 @@ GRANT ALL ON FUNCTION "public"."check_match_precondition"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") TO "service_role";
+
+REVOKE ALL ON FUNCTION "public"."get_x3dh_key_bundle"("p_requester_id" "uuid", "p_target_id" "uuid") FROM PUBLIC, "anon", "authenticated";
+GRANT ALL ON FUNCTION "public"."get_x3dh_key_bundle"("p_requester_id" "uuid", "p_target_id" "uuid") TO "service_role";
 
 GRANT ALL ON FUNCTION "public"."cosine_distance"("public"."halfvec", "public"."halfvec") TO "postgres";
 GRANT ALL ON FUNCTION "public"."cosine_distance"("public"."halfvec", "public"."halfvec") TO "anon";

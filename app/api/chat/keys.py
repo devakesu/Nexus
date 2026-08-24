@@ -22,8 +22,7 @@ from app.db.chat import (
     bulk_insert_one_time_prekeys,
     count_unused_one_time_prekeys,
     fetch_identity_key,
-    fetch_key_bundle,
-    has_active_match,
+    fetch_x3dh_key_bundle_unified,
     mark_session_established,
     upsert_identity_key,
     upsert_signed_prekey,
@@ -244,12 +243,6 @@ async def get_key_bundle(
             HTTPException: 404 if peer key bundle is unavailable."""
     _ = request
     try:
-        if not await asyncio.to_thread(has_active_match, user_id, target_user_id):
-            raise HTTPException(
-                status_code=403,
-                detail="You can only fetch key bundles for an active match.",
-            )
-
         cache_key = f"chat:key_bundle:{user_id}:{target_user_id}"
         try:
             cached_bundle = await redis_client.get(cache_key)
@@ -261,7 +254,14 @@ async def get_key_bundle(
                 extra={"user_id": user_id, "target_user_id": target_user_id},
             )
 
-        bundle = await asyncio.to_thread(fetch_key_bundle, target_user_id)
+        bundle, error_code = await asyncio.to_thread(
+            fetch_x3dh_key_bundle_unified, user_id, target_user_id,
+        )
+        if error_code == "NOT_MATCHED":
+            raise HTTPException(
+                status_code=403,
+                detail="You can only fetch key bundles for an active match.",
+            )
         if bundle is None:
             raise HTTPException(
                 status_code=404,

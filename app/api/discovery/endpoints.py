@@ -119,6 +119,7 @@ async def get_discovery_orbit(
             center_x=0.0,
             center_y=0.0,
             radius=1000.0,
+            include_total_count=True,
         )
 
         return OrbitDiscoverResponse(

@@ -13,15 +13,48 @@ class CelestialBackgroundPainter extends CustomPainter {
   final Color themeColor;
   final double pulseValue;
 
+  // Cached shaders to prevent continuous allocations on every animation frame
+  static Size? _cachedNebulaSize;
+  static Color? _cachedNebulaColor;
+  static Shader? _cachedNebulaShader;
+
+  static final Shader _cachedMeteor1Shader = const LinearGradient(
+    colors: [
+      Color(0xA6FFFFFF), // Colors.white.withValues(alpha: 0.65)
+      Colors.transparent,
+    ],
+  ).createShader(const Rect.fromLTWH(0, -2, 200, 4));
+
+  static final Shader _cachedMeteor2Shader = const LinearGradient(
+    colors: [
+      Color(0x80FFFFFF), // Colors.white.withValues(alpha: 0.5)
+      Colors.transparent,
+    ],
+  ).createShader(const Rect.fromLTWH(0, -2, 200, 4));
+
+  static final Paint _meteor1Paint = Paint()
+    ..shader = _cachedMeteor1Shader
+    ..strokeWidth = 1.6
+    ..strokeCap = StrokeCap.round;
+
+  static final Paint _meteor2Paint = Paint()
+    ..shader = _cachedMeteor2Shader
+    ..strokeWidth = 1.4
+    ..strokeCap = StrokeCap.round;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()..isAntiAlias = true;
     final glow = AppColors.tint(themeColor, 0.3);
 
-    // 0. Ambient Nebula Glow
-    final nebulaPaint = Paint()
-      ..shader =
+    // 0. Ambient Nebula Glow (Cached Shader)
+    if (_cachedNebulaShader == null ||
+        _cachedNebulaSize != size ||
+        _cachedNebulaColor != themeColor) {
+      _cachedNebulaSize = size;
+      _cachedNebulaColor = themeColor;
+      _cachedNebulaShader =
           RadialGradient(
             colors: [
               themeColor.withValues(alpha: 0.04),
@@ -31,6 +64,8 @@ class CelestialBackgroundPainter extends CustomPainter {
           ).createShader(
             Rect.fromCircle(center: center, radius: size.shortestSide * 0.8),
           );
+    }
+    final nebulaPaint = Paint()..shader = _cachedNebulaShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), nebulaPaint);
 
     // 1. Draw Starfield (Deterministic based on coordinates)
@@ -57,34 +92,23 @@ class CelestialBackgroundPainter extends CustomPainter {
       }
     }
 
-    // 1.5. Draw Shooting Stars (Meteors)
+    // 1.5. Draw Shooting Stars (Meteors using cached unit shaders)
     final meteor1Progress = (pulseValue * 2.2) % 3.0;
     if (meteor1Progress < 1.0) {
       final startPos = Offset(size.width * 0.15, size.height * 0.2);
       final endPos = Offset(size.width * 0.8, size.height * 0.6);
       final currentPos = Offset.lerp(startPos, endPos, meteor1Progress)!;
+      final tailPos = Offset.lerp(currentPos, startPos, 0.12)!;
+      final diff = tailPos - currentPos;
+      final length = diff.distance;
+      final angle = math.atan2(diff.dy, diff.dx);
 
-      final meteorPaint = Paint()
-        ..shader =
-            LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.65),
-                Colors.transparent,
-              ],
-            ).createShader(
-              Rect.fromPoints(
-                currentPos,
-                Offset.lerp(currentPos, startPos, 0.12)!,
-              ),
-            )
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(
-        currentPos,
-        Offset.lerp(currentPos, startPos, 0.12)!,
-        meteorPaint,
-      );
+      canvas
+        ..save()
+        ..translate(currentPos.dx, currentPos.dy)
+        ..rotate(angle)
+        ..drawLine(Offset.zero, Offset(length, 0), _meteor1Paint)
+        ..restore();
     }
 
     final meteor2Progress = ((pulseValue + 0.4) * 2.2) % 3.0;
@@ -92,25 +116,17 @@ class CelestialBackgroundPainter extends CustomPainter {
       final startPos = Offset(size.width * 0.85, size.height * 0.15);
       final endPos = Offset(size.width * 0.35, size.height * 0.7);
       final currentPos = Offset.lerp(startPos, endPos, meteor2Progress)!;
+      final tailPos = Offset.lerp(currentPos, startPos, 0.15)!;
+      final diff = tailPos - currentPos;
+      final length = diff.distance;
+      final angle = math.atan2(diff.dy, diff.dx);
 
-      final meteorPaint = Paint()
-        ..shader =
-            LinearGradient(
-              colors: [Colors.white.withValues(alpha: 0.5), Colors.transparent],
-            ).createShader(
-              Rect.fromPoints(
-                currentPos,
-                Offset.lerp(currentPos, startPos, 0.15)!,
-              ),
-            )
-        ..strokeWidth = 1.4
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(
-        currentPos,
-        Offset.lerp(currentPos, startPos, 0.15)!,
-        meteorPaint,
-      );
+      canvas
+        ..save()
+        ..translate(currentPos.dx, currentPos.dy)
+        ..rotate(angle)
+        ..drawLine(Offset.zero, Offset(length, 0), _meteor2Paint)
+        ..restore();
     }
 
     // 2. High-Tech Grid Coordinate Rings & Crosshairs
