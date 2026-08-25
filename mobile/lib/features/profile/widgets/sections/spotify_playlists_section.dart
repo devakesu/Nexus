@@ -158,6 +158,15 @@ class _PlaylistList extends StatelessWidget {
   }
 }
 
+String _formatRelativeTime(DateTime time) {
+  final diff = DateTime.now().toUtc().difference(time.toUtc());
+  if (diff.inSeconds < 60) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  return '${(diff.inDays / 7).floor()}w ago';
+}
+
 class _PlaylistTile extends StatelessWidget {
   const _PlaylistTile({required this.playlist});
 
@@ -222,6 +231,14 @@ class _PlaylistTile extends StatelessWidget {
               children: [
                 Text(
                   '${playlist.trackCount} track${playlist.trackCount == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '· ${playlist.syncedAt != null ? _formatRelativeTime(playlist.syncedAt!) : "Syncing..."}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.4),
                     fontSize: 11,

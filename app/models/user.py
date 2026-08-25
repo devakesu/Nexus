@@ -2,11 +2,14 @@
 
 import re
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+
+
+_TERMS_VERSION_REGEX = re.compile(r"^\d+(\.\d+)*$")
 
 
 def _validate_terms_version(value: str) -> str:
@@ -18,10 +21,8 @@ def _validate_terms_version(value: str) -> str:
         Returns:
             str: Response payload or result."""
     cleaned = value.strip()
-    try:
-        float(cleaned)
-    except ValueError as err:
-        raise ValueError("accepted_terms_version must be a numeric string.") from err
+    if not _TERMS_VERSION_REGEX.match(cleaned):
+        raise ValueError("accepted_terms_version must be a numeric string.")
 
     if cleaned != settings.current_terms_version.strip():
         raise ValueError("You must accept the current terms version.")
@@ -241,20 +242,18 @@ class ImportResponse(BaseModel):
 
 
 class ConsentUpdateRequest(BaseModel):
-    """Records one or more of the three itemized consents (see
-    20260802000000_terms_consent_expansion.sql). general_accepted is the
-    only mandatory one - it must be true for the request to succeed, but a
-    false submission is still logged to terms_consent_log (as a decline)
-    before the 400 is raised, so decline events are auditable too.
+    """Records one or more of the itemized consents (see
+    20260802000000_terms_consent_expansion.sql). general_accepted and
+    community_guidelines_accepted are mandatory for continued access,
+    and are logged to terms_consent_log.
     special_category_accepted and safety_data_accepted are both optional
     and independently togglable, same shape: None means "leave this
-    category unchanged" rather than "decline it" - e.g. a general-consent
-    submission shouldn't silently revoke a previously-granted special-
-    category or safety consent.
+    category unchanged" rather than "decline it".
     """
 
     terms_version: str
     general_accepted: bool
+    community_guidelines_accepted: bool = True
     special_category_accepted: bool | None = None
     safety_data_accepted: bool | None = None
 
@@ -475,3 +474,14 @@ class DataExportOtpVerifyResponse(BaseModel):
 class DataExportRequestRequest(BaseModel):
     """Dataexportrequestrequest class representation."""
     email: str | None = Field(default=None, max_length=255)
+
+
+class AttestationResponse(BaseModel):
+    """Live hardware and App Check attestation telemetry response DTO."""
+
+    verified: bool
+    appCheck: bool
+    appId: str | None = None
+    timestamp: str
+    details: dict[str, Any] = Field(default_factory=dict)
+

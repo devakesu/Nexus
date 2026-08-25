@@ -1332,7 +1332,7 @@ CREATE TABLE IF NOT EXISTS "public"."terms_consent_log" (
     "granted" boolean NOT NULL,
     "terms_version" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
-    CONSTRAINT "terms_consent_log_category_check" CHECK (("category" = ANY (ARRAY['general'::"text", 'special_category'::"text", 'safety_data'::"text"])))
+    CONSTRAINT "terms_consent_log_category_check" CHECK (("category" = ANY (ARRAY['general'::"text", 'special_category'::"text", 'safety_data'::"text", 'community_guidelines'::"text"])))
 );
 
 ALTER TABLE ONLY "public"."terms_consent_log" FORCE ROW LEVEL SECURITY;

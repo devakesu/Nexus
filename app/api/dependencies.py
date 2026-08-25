@@ -549,6 +549,46 @@ def verify_app_check_token(
         ) from err
 
 
+def verify_and_get_app_check_claims(
+    x_firebase_appcheck: str | None = Header(None),
+) -> dict[str, Any] | None:
+    """Verifies Firebase App Check token if present/enforced and returns claims dictionary.
+
+    Args:
+        x_firebase_appcheck: Optional X-Firebase-AppCheck header value.
+
+    Returns:
+        dict[str, Any] | None: Decoded App Check claims dictionary if token provided,
+            or None if token omitted and enforce_app_check is False.
+
+    Raises:
+        HTTPException: 401 Unauthorized if token is missing when enforce_app_check is True.
+        HTTPException: 403 Forbidden if token verification fails.
+    """
+    if not x_firebase_appcheck:
+        if settings.enforce_app_check:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=(
+                    "Access Denied: Missing device attestation credentials. "
+                    "Request must originate from an authorized device."
+                ),
+            )
+        return None
+
+    try:
+        claims = app_check.verify_token(x_firebase_appcheck)
+        return claims
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Access Denied: Cryptographic device attestation integrity "
+                "check failed. Execution blocked."
+            ),
+        ) from err
+
+
 async def _verify_app_check_with_replay_impl(
     x_firebase_appcheck: str | None,
     strict: bool = False,

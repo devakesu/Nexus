@@ -153,27 +153,51 @@ class DiscoveryRequest(BaseModel):
     )
 
 
-class DiscoveryActionRequest(BaseModel):
-    """
-    Request payload for applying a discovery action to a target profile.
-    """
+ReportReason = Literal[
+    "scam",
+    "bot",
+    "harassment",
+    "inappropriate",
+    "spam",
+    "underage",
+    "other",
+]
 
-    # Candidate profile receiving the action.
+
+class BaseActionRequest(BaseModel):
+    """Standardized action and moderation envelope shared across discovery and match contexts."""
+
     target_id: str = Field(
         ...,
+        min_length=1,
         description="Profile id of the candidate the action applies to.",
+    )
+    tab: DiscoveryTab | None = Field(
+        default=None,
+        description="Discovery tab context when action is scoped to a specific surface.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="Optional conversation id if the action is linked to a chat.",
+    )
+    reason: ReportReason | None = Field(
+        default=None,
+        description="Reason code; required when action is report.",
+    )
+    reason_detail: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Free-text elaboration; required when reason is other.",
+    )
+    evidence: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Optional structured report evidence (e.g. client-decrypted transcripts/franking).",
     )
 
     @field_validator("target_id")
     @classmethod
     def validate_target_id_uuid(cls, v: str) -> str:
-        """Executes validate target id uuid operation.
-
-            Args:
-                v: Input v parameter.
-
-            Returns:
-                str: Response payload or result."""
+        """Validates that target_id is a valid UUID."""
         import uuid
 
         try:
@@ -181,53 +205,6 @@ class DiscoveryActionRequest(BaseModel):
         except ValueError as e:
             raise ValueError("target_id must be a valid UUID") from e
         return v
-
-    # Supported actions, including reversal operations.
-    action: Literal[
-        "pass",
-        "hide",
-        "like",
-        "superlike",
-        "block",
-        "report",
-        "unpass",
-        "unhide",
-        "unblock",
-    ] = Field(
-        ...,
-        description="Discovery action or reversal action to apply.",
-    )
-
-    # Tab is required for tab-scoped actions and forbidden for block/report/unblock.
-    tab: DiscoveryTab | None = Field(
-        default=None,
-        description=(
-            "Required for tab-scoped actions; must be omitted for block/report/unblock."
-        ),
-    )
-
-    # Report-specific fields - only valid when action == "report".
-    reason: (
-        Literal[
-            "scam",
-            "bot",
-            "harassment",
-            "inappropriate",
-            "spam",
-            "underage",
-            "other",
-        ]
-        | None
-    ) = Field(
-        default=None,
-        description="Reason code; required when action is report.",
-    )
-
-    # Optional conversation id if the action is linked to a chat conversation.
-    conversation_id: str | None = Field(
-        default=None,
-        description="Optional conversation id if the discovery action is performed in context of a chat.",
-    )
 
     @field_validator("conversation_id")
     @classmethod
@@ -243,14 +220,40 @@ class DiscoveryActionRequest(BaseModel):
             raise ValueError("conversation_id must be a valid UUID") from e
         return v
 
-    reason_detail: str | None = Field(
-        default=None,
-        max_length=500,
-        description="Free-text elaboration; required when reason is other.",
-    )
-    evidence: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Optional structured report evidence (e.g. client-decrypted message transcripts/franking).",
+    def validate_report_invariants(self, action: str) -> None:
+        """Validates reporting requirements if action is 'report'."""
+        if action == "report":
+            if self.reason is None:
+                raise ValueError("reason is required for report")
+            if self.reason == "other":
+                detail = self.reason_detail or ""
+                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
+                if len(alpha_chars) < 5:
+                    raise ValueError(
+                        "reason_detail must contain at least 5 alphabetic "
+                        "characters when reason is other",
+                    )
+
+
+class DiscoveryActionRequest(BaseActionRequest):
+    """
+    Request payload for applying a discovery action to a target profile.
+    """
+
+    # Supported actions, including reversal operations.
+    action: Literal[
+        "pass",
+        "hide",
+        "like",
+        "superlike",
+        "block",
+        "report",
+        "unpass",
+        "unhide",
+        "unblock",
+    ] = Field(
+        ...,
+        description="Discovery action or reversal action to apply.",
     )
 
     @model_validator(mode="after")
@@ -269,27 +272,10 @@ class DiscoveryActionRequest(BaseModel):
             "unhide",
         }
 
-        # Global actions must not include tab context.
-        tab_forbidden_actions = {"block", "unblock"}
-
         if self.action in tab_required_actions and self.tab is None:
             raise ValueError("tab is required for this action")
 
-        if self.action in tab_forbidden_actions and self.tab is not None:
-            raise ValueError("tab must be omitted for block/unblock")
-
-        if self.action == "report":
-            if self.reason is None:
-                raise ValueError("reason is required for report")
-            if self.reason == "other":
-                detail = self.reason_detail or ""
-                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
-                if len(alpha_chars) < 5:
-                    raise ValueError(
-                        "reason_detail must contain at least 5 alphabetic "
-                        "characters when reason is other",
-                    )
-
+        self.validate_report_invariants(self.action)
         return self
 
 
@@ -551,71 +537,11 @@ class PeerProfileRequest(BaseModel):
         return v
 
 
-class LikeActionRequest(BaseModel):
+class LikeActionRequest(BaseActionRequest):
     """Record an action from the likes inbox (no session required)."""
 
-    target_id: str = Field(..., min_length=1)
-
-    @field_validator("target_id")
-    @classmethod
-    def validate_target_id_uuid(cls, v: str) -> str:
-        """Executes validate target id uuid operation.
-
-            Args:
-                v: Input v parameter.
-
-            Returns:
-                str: Response payload or result."""
-        import uuid
-
-        try:
-            uuid.UUID(v)
-        except ValueError as e:
-            raise ValueError("target_id must be a valid UUID") from e
-        return v
-
-    # Optional conversation id if the action is linked to a chat conversation.
-    conversation_id: str | None = Field(
-        default=None,
-        description="Optional conversation id if the action is performed in context of a chat.",
-    )
-
-    @field_validator("conversation_id")
-    @classmethod
-    def validate_conversation_id_uuid(cls, v: str | None) -> str | None:
-        """Validates that conversation_id is a valid UUID if provided."""
-        if v is None:
-            return None
-        import uuid
-
-        try:
-            uuid.UUID(v)
-        except ValueError as e:
-            raise ValueError("conversation_id must be a valid UUID") from e
-        return v
-
     action: Literal["like", "superlike", "pass", "hide", "block", "report"]
-    tab: DiscoveryTab
-    reason: (
-        Literal[
-            "scam",
-            "bot",
-            "harassment",
-            "inappropriate",
-            "spam",
-            "underage",
-            "other",
-        ]
-        | None
-    ) = Field(
-        default=None,
-        description="Reason code; required when action is report.",
-    )
-    reason_detail: str | None = Field(
-        default=None,
-        max_length=500,
-        description="Free-text elaboration; required when reason is other.",
-    )
+    tab: DiscoveryTab | None = None
 
     @model_validator(mode="after")
     def validate_report_fields(self) -> "LikeActionRequest":
@@ -623,17 +549,9 @@ class LikeActionRequest(BaseModel):
 
             Returns:
                 'LikeActionRequest': Response payload or result."""
-        if self.action == "report":
-            if self.reason is None:
-                raise ValueError("reason is required for report")
-            if self.reason == "other":
-                detail = self.reason_detail or ""
-                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
-                if len(alpha_chars) < 5:
-                    raise ValueError(
-                        "reason_detail must contain at least 5 alphabetic "
-                        "characters when reason is other",
-                    )
+        if self.action not in ("block", "report") and self.tab is None:
+            raise ValueError("tab is required for this action")
+        self.validate_report_invariants(self.action)
         return self
 
 
@@ -659,93 +577,20 @@ class MatchesListResponse(BaseModel):
     matches: list[MatchItem]
 
 
-class MatchActionRequest(BaseModel):
+class MatchActionRequest(BaseActionRequest):
     """Record an action on an active match (unmatch, block, or report)."""
 
-    target_id: str = Field(..., min_length=1)
-
-    @field_validator("target_id")
-    @classmethod
-    def validate_target_id_uuid(cls, v: str) -> str:
-        """Executes validate target id uuid operation.
-
-            Args:
-                v: Input v parameter.
-
-            Returns:
-                str: Response payload or result."""
-        import uuid
-
-        try:
-            uuid.UUID(v)
-        except ValueError as e:
-            raise ValueError("target_id must be a valid UUID") from e
-        return v
-
-    # Optional conversation id if the action is linked to a chat conversation.
-    conversation_id: str | None = Field(
-        default=None,
-        description="Optional conversation id if the match action is performed in context of a chat.",
-    )
-
-    @field_validator("conversation_id")
-    @classmethod
-    def validate_conversation_id_uuid(cls, v: str | None) -> str | None:
-        """Validates that conversation_id is a valid UUID if provided."""
-        if v is None:
-            return None
-        import uuid
-
-        try:
-            uuid.UUID(v)
-        except ValueError as e:
-            raise ValueError("conversation_id must be a valid UUID") from e
-        return v
-
     action: Literal["unmatch", "block", "report"]
-    tab: DiscoveryTab
-    reason: (
-        Literal[
-            "scam",
-            "bot",
-            "harassment",
-            "inappropriate",
-            "spam",
-            "underage",
-            "other",
-        ]
-        | None
-    ) = Field(
-        default=None,
-        description="Reason code; required when action is report.",
-    )
-    reason_detail: str | None = Field(
-        default=None,
-        max_length=500,
-        description="Free-text elaboration; required when reason is other.",
-    )
-    evidence: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Optional structured report evidence (e.g. client-decrypted message transcripts/franking).",
-    )
 
     @model_validator(mode="after")
-    def validate_report_fields(self) -> "MatchActionRequest":
-        """Executes validate report fields operation.
+    def validate_action_fields(self) -> "MatchActionRequest":
+        """Executes validate action fields operation.
 
             Returns:
                 'MatchActionRequest': Response payload or result."""
-        if self.action == "report":
-            if self.reason is None:
-                raise ValueError("reason is required for report")
-            if self.reason == "other":
-                detail = self.reason_detail or ""
-                alpha_chars = re.sub(r"[^a-zA-Z]", "", detail)
-                if len(alpha_chars) < 5:
-                    raise ValueError(
-                        "reason_detail must contain at least 5 alphabetic "
-                        "characters when reason is other",
-                    )
+        if self.action == "unmatch" and self.tab is None:
+            raise ValueError("tab is required for unmatch")
+        self.validate_report_invariants(self.action)
         return self
 
 

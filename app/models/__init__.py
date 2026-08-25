@@ -41,6 +41,7 @@ from app.models.chat import (
     UploadSignedPrekeyRequest,
 )
 from app.models.discovery import (
+    BaseActionRequest,
     DiscoveryActionRequest,
     DiscoveryActionResponse,
     DiscoveryFilters,
@@ -127,6 +128,7 @@ from app.models.user import (
     AccountPhoneOtpRequestResponse,
     AccountPhoneOtpVerifyRequest,
     AccountPhoneOtpVerifyResponse,
+    AttestationResponse,
     AuthBootstrapResponse,
     BaseOnboardingRequest,
     CompleteOnboardingResponse,
@@ -165,10 +167,12 @@ __all__ = [
     "AccountPhoneOtpRequestResponse",
     "AccountPhoneOtpVerifyRequest",
     "AccountPhoneOtpVerifyResponse",
+    "AttestationResponse",
     "AuthBootstrapResponse",
     "BaseOnboardingRequest",
     "BatchPresenceRequest",
     # chat
+    "BaseActionRequest",
     "ChatCandidateItem",
     "ChatCandidatesResponse",
     "ChatConversationItem",

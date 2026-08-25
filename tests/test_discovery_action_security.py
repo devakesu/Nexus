@@ -538,3 +538,68 @@ async def test_discovery_action_mismatched_conversation_target_returns_400(
     assert exc_info.value.status_code == 400
     assert "Target user is not a participant" in exc_info.value.detail
 
+
+def test_match_action_request_tab_consistency():
+    from pydantic import ValidationError
+    from app.models import MatchActionRequest
+
+    # Block works without tab
+    req_block_no_tab = MatchActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+    )
+    assert req_block_no_tab.action == "block"
+    assert req_block_no_tab.tab is None
+
+    # Block works with tab
+    req_block_with_tab = MatchActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        tab="Dating",
+    )
+    assert req_block_with_tab.tab == "Dating"
+
+    # Report works without tab
+    req_report_no_tab = MatchActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="report",
+        reason="harassment",
+    )
+    assert req_report_no_tab.tab is None
+
+    # Unmatch requires tab
+    req_unmatch = MatchActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="unmatch",
+        tab="Dating",
+    )
+    assert req_unmatch.tab == "Dating"
+
+    with pytest.raises(ValidationError) as exc_info:
+        MatchActionRequest(
+            target_id="22222222-2222-2222-2222-222222222222",
+            action="unmatch",
+            tab=None,
+        )
+    assert "tab is required for unmatch" in str(exc_info.value)
+
+
+def test_discovery_action_request_block_accepts_optional_tab():
+    # Block works without tab
+    req1 = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+    )
+    assert req1.action == "block"
+    assert req1.tab is None
+
+    # Block also accepts tab if provided by client without throwing 422
+    req2 = DiscoveryActionRequest(
+        target_id="22222222-2222-2222-2222-222222222222",
+        action="block",
+        tab="Dating",
+    )
+    assert req2.action == "block"
+    assert req2.tab == "Dating"
+
+

@@ -1,0 +1,1320 @@
+{
+  "version": "1.0.0",
+  "genders": [
+    "Man",
+    "Woman",
+    "Cisgender Man",
+    "Cisgender Woman",
+    "Transgender Man",
+    "Transgender Woman",
+    "Transgender",
+    "Non-binary",
+    "Genderqueer",
+    "Genderfluid",
+    "Agender",
+    "Gender Non-Conforming",
+    "Androgynous",
+    "Neutrois",
+    "Maverique",
+    "Bigender",
+    "Trigender",
+    "Multigender",
+    "Pangender",
+    "Demiboy",
+    "Demigirl",
+    "Demi-non-binary",
+    "Two-Spirit",
+    "Third Gender",
+    "Intersex",
+    "Xenogender",
+    "Queer",
+    "Questioning",
+    "Prefer not to say"
+  ],
+  "sexualities": [
+    "Straight / Heterosexual",
+    "Gay",
+    "Lesbian",
+    "Bisexual",
+    "Pansexual",
+    "Omnisexual",
+    "Polysexual",
+    "Asexual",
+    "Graysexual",
+    "Demisexual",
+    "Cupiosexual",
+    "Lithosexual",
+    "Aromantic",
+    "Aroace",
+    "Greyromantic",
+    "Demiromantic",
+    "Sapphic",
+    "Achillean",
+    "Queer",
+    "Fluid",
+    "Skoliosexual",
+    "Questioning",
+    "Prefer not to say"
+  ],
+  "pronouns": [
+    "he/him",
+    "she/her",
+    "they/them",
+    "he/they",
+    "she/they",
+    "he/she",
+    "he/she/they",
+    "xe/xem",
+    "ze/zir",
+    "ze/hir",
+    "ey/em",
+    "fae/faer",
+    "per/per",
+    "e/em",
+    "ve/ver",
+    "it/its",
+    "any/all",
+    "Use my name",
+    "Prefer not to say"
+  ],
+  "languages": [
+    "English",
+    "Mandarin Chinese",
+    "Hindi",
+    "Spanish",
+    "French",
+    "Arabic",
+    "Bengali",
+    "Portuguese",
+    "Russian",
+    "Urdu",
+    "Indonesian / Malay",
+    "German",
+    "Japanese",
+    "Telugu",
+    "Marathi",
+    "Tamil",
+    "Cantonese",
+    "Korean",
+    "Vietnamese",
+    "Turkish",
+    "Italian",
+    "Punjabi",
+    "Gujarati",
+    "Persian / Farsi",
+    "Polish",
+    "Ukrainian",
+    "Kannada",
+    "Malayalam",
+    "Burmese",
+    "Thai",
+    "Sinhala",
+    "Nepali",
+    "Tagalog / Filipino",
+    "Javanese",
+    "Sundanese",
+    "Wu Chinese",
+    "Swahili",
+    "Hausa",
+    "Yoruba",
+    "Igbo",
+    "Amharic",
+    "Oromo",
+    "Tigrinya",
+    "Somali",
+    "Zulu",
+    "Xhosa",
+    "Shona",
+    "Kinyarwanda",
+    "Lingala",
+    "Fula",
+    "Wolof",
+    "Twi / Akan",
+    "Nyanja / Chewa",
+    "Sotho",
+    "Tswana",
+    "Afrikaans",
+    "Pashto",
+    "Dari",
+    "Sindhi",
+    "Maithili",
+    "Assamese",
+    "Khmer",
+    "Lao",
+    "Uzbek",
+    "Kazakh",
+    "Kyrgyz",
+    "Turkmen",
+    "Tajik",
+    "Azerbaijani",
+    "Georgian",
+    "Armenian",
+    "Kurdish",
+    "Mongolian",
+    "Tibetan",
+    "Uyghur",
+    "Dutch",
+    "Greek",
+    "Swedish",
+    "Norwegian",
+    "Danish",
+    "Finnish",
+    "Hungarian",
+    "Romanian",
+    "Czech",
+    "Slovak",
+    "Bulgarian",
+    "Serbian",
+    "Croatian",
+    "Bosnian",
+    "Slovenian",
+    "Macedonian",
+    "Albanian",
+    "Lithuanian",
+    "Latvian",
+    "Estonian",
+    "Belarusian",
+    "Catalan",
+    "Galician",
+    "Basque",
+    "Welsh",
+    "Irish",
+    "Scottish Gaelic",
+    "Icelandic",
+    "Maltese",
+    "Luxembourgish",
+    "Hebrew",
+    "Malagasy",
+    "Fijian",
+    "Māori",
+    "Hawaiian",
+    "Samoan",
+    "Tongan",
+    "American Sign Language (ASL)",
+    "British Sign Language (BSL)",
+    "International Sign",
+    "Esperanto",
+    "Latin",
+    "Other"
+  ],
+  "drinking": [
+    "Never",
+    "Occasionally",
+    "Socially",
+    "Regularly"
+  ],
+  "smoking": [
+    "Never",
+    "Occasionally",
+    "Socially",
+    "Regularly"
+  ],
+  "children_plans": [
+    "Want kids",
+    "Don't want kids",
+    "Undecided",
+    "Not specified"
+  ],
+  "religious_beliefs": [
+    "Atheist",
+    "Agnostic",
+    "Secular Humanist",
+    "Deist",
+    "Pantheist",
+    "Spiritual but not religious",
+    "New Age",
+    "Pagan / Wiccan",
+    "Christian",
+    "Catholic",
+    "Protestant",
+    "Orthodox Christian",
+    "Muslim (Sunni)",
+    "Muslim (Shia)",
+    "Jewish",
+    "Jewish (Orthodox)",
+    "Hindu",
+    "Buddhist",
+    "Sikh",
+    "Jain",
+    "Taoist",
+    "Shinto",
+    "Confucianist",
+    "Bahá'í",
+    "Zoroastrian",
+    "Rastafari",
+    "Druze",
+    "Yazidi",
+    "Unitarian Universalist",
+    "Indigenous / Traditional",
+    "Animist",
+    "Other",
+    "Prefer not to say"
+  ],
+  "causes_supported": [
+    "Climate Action",
+    "Renewable Energy",
+    "Biodiversity & Wildlife",
+    "Ocean Conservation",
+    "Deforestation & Reforestation",
+    "Clean Air",
+    "Clean Water & Sanitation",
+    "Zero Waste & Recycling",
+    "Sustainable Agriculture",
+    "Animal Protection",
+    "Veganism & Animal Rights",
+    "Human Rights",
+    "Gender Equality",
+    "LGBTQ+ Rights",
+    "Racial Justice",
+    "Indigenous Rights",
+    "Disability Rights",
+    "Children's Rights",
+    "Elder Care",
+    "Refugee & Migrant Rights",
+    "Anti-Trafficking",
+    "Prison Reform",
+    "Voting Rights & Democracy",
+    "Mental Health Advocacy",
+    "Global Health",
+    "Reproductive Rights",
+    "Substance Abuse & Recovery",
+    "Nutrition & Food Security",
+    "Rare Disease Research",
+    "Education Access",
+    "Digital Literacy",
+    "Economic Development",
+    "Poverty Alleviation",
+    "Fair Trade",
+    "Entrepreneurship & Small Business",
+    "Financial Inclusion",
+    "Scientific Research",
+    "Tech Ethics",
+    "AI Safety",
+    "Open Source & Open Knowledge",
+    "Space Exploration",
+    "Arts & Culture Preservation",
+    "Community Development",
+    "Volunteerism",
+    "Religious Freedom",
+    "Free Speech & Press Freedom",
+    "Disaster Relief",
+    "Hunger & Food Banks",
+    "Homelessness",
+    "Peace & Conflict Resolution",
+    "Nuclear Disarmament"
+  ],
+  "pets": [
+    "Dog",
+    "Cat",
+    "Rabbit",
+    "Ferret",
+    "Hamster",
+    "Guinea Pig",
+    "Gerbil",
+    "Mouse",
+    "Rat",
+    "Chinchilla",
+    "Hedgehog",
+    "Sugar Glider",
+    "Degu",
+    "Prairie Dog",
+    "Parrot",
+    "Budgie / Parakeet",
+    "Cockatiel",
+    "Cockatoo",
+    "Lovebird",
+    "Finch / Canary",
+    "Macaw",
+    "Pigeon / Dove",
+    "Chicken / Poultry",
+    "Gecko",
+    "Bearded Dragon",
+    "Tortoise / Turtle",
+    "Snake",
+    "Iguana",
+    "Chameleon",
+    "Monitor Lizard",
+    "Frog / Toad",
+    "Axolotl",
+    "Salamander",
+    "Fish (Freshwater)",
+    "Fish (Marine / Reef)",
+    "Shrimp / Crayfish",
+    "Crab",
+    "Tarantula",
+    "Scorpion",
+    "Stick Insect",
+    "Snail",
+    "Horse / Pony",
+    "Goat",
+    "Sheep",
+    "Pig (Micro)",
+    "Alpaca / Llama",
+    "No Pets"
+  ],
+  "partner_values": [
+    "Authenticity",
+    "Empathy",
+    "Ambition",
+    "Loyalty",
+    "Honesty",
+    "Kindness",
+    "Growth Mindset",
+    "Creativity",
+    "Emotional Maturity",
+    "Humor & Wit",
+    "Respect",
+    "Adventure",
+    "Communication",
+    "Curiosity",
+    "Compassion",
+    "Family-oriented",
+    "Financial Stability",
+    "Independence",
+    "Open-mindedness",
+    "Self-awareness",
+    "Trustworthiness"
+  ],
+  "tech_skills": [
+    "AI/ML",
+    "Web Dev",
+    "Mobile Dev",
+    "Backend",
+    "Cloud/DevOps",
+    "Data Science",
+    "Cybersecurity",
+    "Blockchain",
+    "Game Dev",
+    "UI/UX",
+    "Embedded Systems",
+    "Open Source"
+  ],
+  "sub_interests": [
+    "Photography",
+    "Hiking",
+    "Gaming",
+    "Cooking",
+    "Reading",
+    "Fitness",
+    "Travel",
+    "Music",
+    "Art",
+    "Dance",
+    "Theatre",
+    "Yoga",
+    "Cycling",
+    "Swimming",
+    "Running",
+    "Football",
+    "Cricket",
+    "Chess",
+    "Coding",
+    "Startups",
+    "Finance",
+    "Writing",
+    "Podcasting",
+    "Films",
+    "Anime",
+    "Fashion",
+    "Sustainability",
+    "Volunteering"
+  ],
+  "dating_for_options": [
+    {
+      "code": "short",
+      "label": "Short-term"
+    },
+    {
+      "code": "long",
+      "label": "Long-term"
+    },
+    {
+      "code": "casual",
+      "label": "Casual Dating"
+    },
+    {
+      "code": "fling",
+      "label": "Fling"
+    },
+    {
+      "code": "hookups",
+      "label": "Hookups"
+    },
+    {
+      "code": "fwb",
+      "label": "Friends w/ Benefits"
+    },
+    {
+      "code": "monogamous",
+      "label": "Monogamous"
+    },
+    {
+      "code": "polyamorous",
+      "label": "Polyamorous"
+    },
+    {
+      "code": "open_rel",
+      "label": "Open Relationship"
+    },
+    {
+      "code": "marriage",
+      "label": "Marriage-minded"
+    },
+    {
+      "code": "platonic",
+      "label": "Platonic"
+    },
+    {
+      "code": "unsure",
+      "label": "Figuring it out"
+    }
+  ],
+  "looking_for_options": [
+    {
+      "code": "networking",
+      "label": "Networking"
+    },
+    {
+      "code": "mentorship",
+      "label": "Mentorship"
+    },
+    {
+      "code": "cofounder",
+      "label": "Co-founder"
+    },
+    {
+      "code": "freelance",
+      "label": "Freelance"
+    },
+    {
+      "code": "internship",
+      "label": "Internship"
+    },
+    {
+      "code": "long",
+      "label": "Long-term role"
+    },
+    {
+      "code": "short",
+      "label": "Short-term project"
+    }
+  ],
+  "search_buckets": [
+    {
+      "code": "M",
+      "label": "Men"
+    },
+    {
+      "code": "F",
+      "label": "Women"
+    },
+    {
+      "code": "NB",
+      "label": "Non-binary"
+    }
+  ],
+  "interests_categories": [
+    {
+      "name": "Tech & Science",
+      "icon": "cpu",
+      "parents": [
+        {
+          "name": "Coding",
+          "sub_interests": [
+            "AI & Machine Learning",
+            "Blockchain & Web3",
+            "Cloud & DevOps",
+            "Cybersecurity",
+            "Embedded Systems",
+            "Flutter & Dart",
+            "Game Development",
+            "JavaScript & TypeScript",
+            "Mobile Apps",
+            "Open Source Contribution",
+            "Python",
+            "Rust",
+            "Web Development"
+          ]
+        },
+        {
+          "name": "Science & Discovery",
+          "sub_interests": [
+            "Archaeology & History",
+            "Astrophysics & Space",
+            "Chemistry",
+            "Citizen Science",
+            "Climate Science",
+            "Genetics & Biotech",
+            "Marine Biology",
+            "Mathematics",
+            "Neuroscience",
+            "Psychology",
+            "Quantum Physics"
+          ]
+        },
+        {
+          "name": "Gadgets & Hardware",
+          "sub_interests": [
+            "3D Printing",
+            "Amateur Radio (Ham)",
+            "Augmented Reality (AR)",
+            "Drones & Quadcopters",
+            "IoT & Smart Home",
+            "Mechanical Keyboards",
+            "PC Building",
+            "Robotics",
+            "Virtual Reality (VR)"
+          ]
+        },
+        {
+          "name": "Math & Logic",
+          "sub_interests": [
+            "Algorithms",
+            "Chess & Strategy Games",
+            "Cryptography",
+            "Data Analysis",
+            "Game Theory",
+            "Mathematical Puzzles"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Entertainment & Media",
+      "icon": "film",
+      "parents": [
+        {
+          "name": "TV & Series",
+          "sub_interests": [
+            "Anime & Manga",
+            "Documentaries",
+            "Historical Drama",
+            "Horror Shows",
+            "K-Dramas",
+            "Mini-Series & Limited",
+            "Reality TV",
+            "Sci-Fi & Fantasy",
+            "Sitcoms & Comedy",
+            "Soap Operas",
+            "Talk Shows",
+            "Telenovelas",
+            "True Crime"
+          ]
+        },
+        {
+          "name": "Movies & Cinema",
+          "sub_interests": [
+            "Action & Adventure",
+            "Animation & Pixar",
+            "Bollywood",
+            "Classic Films",
+            "Documentaries",
+            "Foreign Language Films",
+            "Hollywood Blockbusters",
+            "Horror",
+            "Indie & Art House",
+            "Martial Arts Films",
+            "Psychological Thrillers",
+            "Rom-Coms"
+          ]
+        },
+        {
+          "name": "Gaming",
+          "sub_interests": [
+            "Card Games (TCG)",
+            "Competitive Esports",
+            "Cozy & Casual Games",
+            "FPS (First-Person)",
+            "Fighting Games",
+            "Horror Games",
+            "MMORPGs",
+            "Mobile Gaming",
+            "Modern Board Games",
+            "Puzzle Games",
+            "RPGs (Role-Playing)",
+            "RTS (Strategy)",
+            "Retro & Arcade",
+            "Simulation & Sandbox",
+            "Sports Games",
+            "Tabletop & D&D"
+          ]
+        },
+        {
+          "name": "Music",
+          "sub_interests": [
+            "Afrobeats & Afropop",
+            "Ambient & Drone",
+            "Classical & Opera",
+            "Country & Bluegrass",
+            "EDM & House",
+            "Gospel & Worship",
+            "Hip Hop & Rap",
+            "Indie & Folk",
+            "Jazz & Blues",
+            "K-Pop",
+            "Latin & Reggaeton",
+            "Live Concerts & Festivals",
+            "Lo-Fi & Chillbeats",
+            "Metal & Heavy",
+            "Music Production",
+            "Pop",
+            "Punk & Hardcore",
+            "R&B & Soul",
+            "Reggae & Dancehall",
+            "Rock & Alternative",
+            "Synthwave & Retrowave",
+            "Techno & Industrial",
+            "Vinyl Records"
+          ]
+        },
+        {
+          "name": "Comedy & Memes",
+          "sub_interests": [
+            "Improv",
+            "Internet Humour",
+            "Meme Culture",
+            "Podcasts (Comedy)",
+            "Satire",
+            "Sketch Comedy",
+            "Stand-Up Comedy"
+          ]
+        },
+        {
+          "name": "Podcasts & Audio",
+          "sub_interests": [
+            "Audiobooks",
+            "Interview Shows",
+            "News & Current Affairs",
+            "Science Podcasts",
+            "Self-Improvement Podcasts",
+            "Storytelling & Fiction",
+            "True Crime Podcasts"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sports & Outdoors",
+      "icon": "activity",
+      "parents": [
+        {
+          "name": "Fitness & Training",
+          "sub_interests": [
+            "Calisthenics",
+            "CrossFit",
+            "Cycling & Spinning",
+            "Dance Fitness",
+            "Gymnastics",
+            "HIIT & Cardio",
+            "Personal Training",
+            "Pilates",
+            "Powerlifting",
+            "Running & Marathons",
+            "Triathlons",
+            "Weightlifting",
+            "Yoga"
+          ]
+        },
+        {
+          "name": "Martial Arts & Combat",
+          "sub_interests": [
+            "Boxing",
+            "Brazilian Jiu-Jitsu (BJJ)",
+            "Capoeira",
+            "Judo",
+            "Karate",
+            "Kickboxing",
+            "Krav Maga",
+            "Kung Fu",
+            "MMA",
+            "Muay Thai",
+            "Taekwondo",
+            "Wrestling"
+          ]
+        },
+        {
+          "name": "Team Sports",
+          "sub_interests": [
+            "American Football",
+            "Baseball",
+            "Basketball",
+            "Cricket",
+            "Football (Soccer)",
+            "Handball",
+            "Ice Hockey",
+            "Lacrosse",
+            "Netball",
+            "Rugby",
+            "Ultimate Frisbee",
+            "Volleyball",
+            "Water Polo"
+          ]
+        },
+        {
+          "name": "Individual Sports",
+          "sub_interests": [
+            "Archery",
+            "Badminton",
+            "Billiards & Pool",
+            "Cycling (MTB)",
+            "Cycling (Road)",
+            "Equestrian",
+            "Fencing",
+            "Golf",
+            "Parkour",
+            "Skateboarding",
+            "Table Tennis",
+            "Tennis",
+            "Track & Field"
+          ]
+        },
+        {
+          "name": "Water & Winter Sports",
+          "sub_interests": [
+            "Freediving",
+            "Ice Skating",
+            "Kayaking & Paddle",
+            "Kitesurfing",
+            "Open Water Swimming",
+            "Sailing",
+            "Scuba Diving",
+            "Skiing",
+            "Snorkelling",
+            "Snowboarding",
+            "Surfing & Bodyboarding",
+            "Swimming"
+          ]
+        },
+        {
+          "name": "Outdoor Adventure",
+          "sub_interests": [
+            "Backpacking",
+            "Bouldering",
+            "Camping & Bushcraft",
+            "Caving & Spelunking",
+            "Foraging",
+            "Geocaching",
+            "Hiking & Trekking",
+            "Hunting & Fishing",
+            "Mountaineering",
+            "Paragliding",
+            "Rock Climbing",
+            "Skydiving",
+            "Trail Running"
+          ]
+        },
+        {
+          "name": "Watching Sports",
+          "sub_interests": [
+            "Basketball Watching",
+            "Cricket Watching",
+            "Fantasy Leagues",
+            "Football Watching",
+            "Formula 1",
+            "MMA & UFC",
+            "Olympic Sports",
+            "Tennis Watching"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Creative & Arts",
+      "icon": "palette",
+      "parents": [
+        {
+          "name": "Visual Arts",
+          "sub_interests": [
+            "Calligraphy",
+            "Collage & Mixed Media",
+            "Digital Illustration",
+            "Oil & Acrylics",
+            "Origami & Papercraft",
+            "Pottery & Ceramics",
+            "Printmaking",
+            "Sculpture",
+            "Sketching & Charcoal",
+            "Street Art & Graffiti",
+            "Watercolor Painting"
+          ]
+        },
+        {
+          "name": "Design & Styling",
+          "sub_interests": [
+            "3D Modeling",
+            "Architecture",
+            "Fashion Design",
+            "Graphic Design",
+            "Interior Design",
+            "Jewellery Making",
+            "Logo Design",
+            "Typesetting",
+            "UI/UX Design"
+          ]
+        },
+        {
+          "name": "Photography & Video",
+          "sub_interests": [
+            "Drone Videography",
+            "Film & Analog",
+            "Landscape & Nature",
+            "Portrait & Studio",
+            "Street & Documentary",
+            "Video Editing",
+            "Wedding & Events",
+            "YouTube & Content Creation"
+          ]
+        },
+        {
+          "name": "Performing Arts",
+          "sub_interests": [
+            "Acting & Theater",
+            "Ballet",
+            "Ballroom & Latin Dance",
+            "Choir",
+            "Circus Arts",
+            "Contemporary Dance",
+            "Hip Hop Dance",
+            "Magic & Illusion",
+            "Musical Instruments",
+            "Musical Theater",
+            "Salsa & Bachata",
+            "Singing & Vocals",
+            "Stand-Up & Improv",
+            "Traditional Dance"
+          ]
+        },
+        {
+          "name": "Writing & Literature",
+          "sub_interests": [
+            "Blogging & Journalism",
+            "Creative Fiction",
+            "Fantasy & Sci-Fi Writing",
+            "Game Writing",
+            "Journaling",
+            "Poetry & Prose",
+            "Screenwriting",
+            "Technical Writing"
+          ]
+        },
+        {
+          "name": "Crafts & DIY",
+          "sub_interests": [
+            "Candle & Soap Making",
+            "Home Renovation & DIY",
+            "Knitting & Crocheting",
+            "Leatherworking",
+            "Lego & Sets",
+            "Macramé",
+            "Model Building",
+            "RC Vehicles",
+            "Resin Art",
+            "Sewing & Embroidery",
+            "Woodworking & Carpentry"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Books & Literature",
+      "icon": "bookOpen",
+      "parents": [
+        {
+          "name": "Fiction",
+          "sub_interests": [
+            "Fantasy",
+            "Graphic Novels & Comics",
+            "Historical Fiction",
+            "Horror",
+            "Literary Fiction",
+            "Magical Realism",
+            "Manga",
+            "Romance",
+            "Science Fiction",
+            "Thriller & Mystery"
+          ]
+        },
+        {
+          "name": "Non-Fiction",
+          "sub_interests": [
+            "Biographies & Memoirs",
+            "Business & Economics",
+            "Essays & Criticism",
+            "History",
+            "Philosophy",
+            "Political Theory",
+            "Psychology",
+            "Science & Nature",
+            "Self-Help",
+            "Spirituality & Religion",
+            "Travel Writing",
+            "True Crime Books"
+          ]
+        },
+        {
+          "name": "Reading Habits",
+          "sub_interests": [
+            "Audiobooks",
+            "Book Clubs",
+            "Rare & Antique Books",
+            "Reading Challenges",
+            "Second-Hand Books",
+            "eBooks"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Food & Drink",
+      "icon": "utensils",
+      "parents": [
+        {
+          "name": "Cooking & Culinary",
+          "sub_interests": [
+            "BBQ & Grilling",
+            "Baking & Pastry",
+            "Fermentation & Pickling",
+            "Fine Dining",
+            "Indian Cooking",
+            "Italian Cooking",
+            "Meal Prep & Nutrition",
+            "Middle Eastern Cuisine",
+            "Sourdough Bread",
+            "Street Food",
+            "Sushi & Japanese Cuisine",
+            "Vegan & Vegetarian Cooking",
+            "World Cuisines"
+          ]
+        },
+        {
+          "name": "Beverages",
+          "sub_interests": [
+            "Craft Beer & Brewing",
+            "Kombucha & Fermented Drinks",
+            "Loose Leaf Tea",
+            "Matcha & Green Tea",
+            "Mixology & Cocktails",
+            "Natural Wine",
+            "Non-Alcoholic Cocktails",
+            "Specialty Coffee",
+            "Whisky & Spirits",
+            "Wine Tasting"
+          ]
+        },
+        {
+          "name": "Food Culture",
+          "sub_interests": [
+            "Farmers Markets",
+            "Food Blogging",
+            "Food Festivals",
+            "Food Photography",
+            "Restaurant Hopping"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Travel & Lifestyle",
+      "icon": "compass",
+      "parents": [
+        {
+          "name": "Travel Style",
+          "sub_interests": [
+            "Backpacking",
+            "Budget Travel",
+            "Cruise Travel",
+            "Digital Nomad Lifestyle",
+            "Family Travel",
+            "Luxury Travel",
+            "Road Trips",
+            "Solo Travel",
+            "Van Life & Overlanding",
+            "Workcation & Remote Work"
+          ]
+        },
+        {
+          "name": "Destinations",
+          "sub_interests": [
+            "Africa",
+            "Arctic & Antarctic",
+            "East Asia",
+            "Europe",
+            "Latin America",
+            "Middle East",
+            "North America",
+            "Oceania & Pacific",
+            "South Asia",
+            "Southeast Asia"
+          ]
+        },
+        {
+          "name": "Travel Interests",
+          "sub_interests": [
+            "Beach & Island Hopping",
+            "City Breaks",
+            "Cultural Immersion",
+            "Festival Travel",
+            "Food Tourism",
+            "Historical Sites & Ruins",
+            "Language Immersion",
+            "National Parks",
+            "Voluntourism",
+            "Wildlife Safaris"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lifestyle & Wellness",
+      "icon": "sparkles",
+      "parents": [
+        {
+          "name": "Mind & Wellbeing",
+          "sub_interests": [
+            "Breathwork",
+            "Cold Plunge & Ice Baths",
+            "Digital Detox",
+            "Meditation",
+            "Mindfulness",
+            "Philosophy",
+            "Self-Improvement",
+            "Sleep Optimisation",
+            "Therapy & Inner Work"
+          ]
+        },
+        {
+          "name": "Nature & Gardening",
+          "sub_interests": [
+            "Aquascaping",
+            "Beekeeping",
+            "Bonsai",
+            "Foraging & Herbalism",
+            "Houseplants",
+            "Permaculture",
+            "Vegetable Gardening"
+          ]
+        },
+        {
+          "name": "Fashion & Style",
+          "sub_interests": [
+            "Cosplay",
+            "Cottagecore",
+            "Gothic & Alternative",
+            "Haul Culture",
+            "Luxury & Designer",
+            "Sneaker Culture",
+            "Streetwear",
+            "Sustainable Fashion",
+            "Vintage & Thrifting"
+          ]
+        },
+        {
+          "name": "Collecting & Hobbies",
+          "sub_interests": [
+            "Antiques & Vintage",
+            "Art Collecting",
+            "Book Collecting",
+            "Coins & Currency",
+            "Figurines & Statues",
+            "Sports Memorabilia",
+            "Stamps",
+            "Trading Cards",
+            "Vinyl Records",
+            "Watch Collecting"
+          ]
+        },
+        {
+          "name": "Pets & Animals",
+          "sub_interests": [
+            "Animal Rescue & Fostering",
+            "Aquariums",
+            "Bird Watching",
+            "Cat Care",
+            "Dog Training",
+            "Exotic Pets",
+            "Wildlife Photography"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Career & Finance",
+      "icon": "briefcase",
+      "parents": [
+        {
+          "name": "Investing",
+          "sub_interests": [
+            "Angel Investing",
+            "Commodities",
+            "Cryptocurrency",
+            "Index Funds & ETFs",
+            "NFTs & Web3",
+            "Options & Derivatives",
+            "Real Estate Investing",
+            "Stock Market"
+          ]
+        },
+        {
+          "name": "Business & Entrepreneurship",
+          "sub_interests": [
+            "Content Creation & Monetisation",
+            "E-commerce",
+            "Freelancing",
+            "Marketing & Growth",
+            "Product Management",
+            "Side Hustles",
+            "Startups",
+            "Venture Capital"
+          ]
+        },
+        {
+          "name": "Personal Finance",
+          "sub_interests": [
+            "Budgeting",
+            "FIRE Movement",
+            "Financial Independence",
+            "Frugal Living",
+            "Passive Income"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Social & Activism",
+      "icon": "heartHandshake",
+      "parents": [
+        {
+          "name": "Community & Volunteering",
+          "sub_interests": [
+            "Charity & Fundraising",
+            "Community Organising",
+            "Mentorship",
+            "Mutual Aid",
+            "Non-Profit Work",
+            "Volunteering"
+          ]
+        },
+        {
+          "name": "Activism & Advocacy",
+          "sub_interests": [
+            "Animal Rights",
+            "Anti-War & Peace",
+            "Digital Rights",
+            "Disability Rights",
+            "Environmental Activism",
+            "Gender Equality",
+            "LGBTQ+ Advocacy",
+            "Racial Justice"
+          ]
+        },
+        {
+          "name": "Politics & Society",
+          "sub_interests": [
+            "Current Events",
+            "Debate & Discourse",
+            "Geopolitics",
+            "Journalism & Media Literacy",
+            "Local Politics",
+            "Political Science"
+          ]
+        },
+        {
+          "name": "Language & Culture",
+          "sub_interests": [
+            "Anthropology",
+            "Cultural Exchange",
+            "Language Learning",
+            "Linguistics",
+            "Pen Pals & Letter Writing"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Spirituality & Esoteric",
+      "icon": "moonStar",
+      "parents": [
+        {
+          "name": "Spiritual Practices",
+          "sub_interests": [
+            "Buddhism",
+            "Druidry & Paganism",
+            "Hinduism & Vedanta",
+            "Kabbalah",
+            "Meditation & Prayer",
+            "Shamanism",
+            "Sufism",
+            "Yoga Philosophy"
+          ]
+        },
+        {
+          "name": "Mystical & Esoteric",
+          "sub_interests": [
+            "Astrology",
+            "Crystal Healing",
+            "Human Design",
+            "Manifestation",
+            "Numerology",
+            "Reiki & Energy Healing",
+            "Tarot & Oracle",
+            "Witchcraft"
+          ]
+        },
+        {
+          "name": "Paranormal & Unexplained",
+          "sub_interests": [
+            "Conspiracy Theories",
+            "Cryptids",
+            "Ghosts & Hauntings",
+            "Near-Death Experiences",
+            "UFOs & Extraterrestrial"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cars & Motors",
+      "icon": "car",
+      "parents": [
+        {
+          "name": "Cars",
+          "sub_interests": [
+            "American Muscle",
+            "Autocross & Track Days",
+            "Car Culture & Shows",
+            "Car Modification & Tuning",
+            "Classic & Vintage Cars",
+            "Electric Vehicles",
+            "European Sports Cars",
+            "Formula 1",
+            "JDM (Japanese Domestic Market)",
+            "Off-Road & 4x4",
+            "Rally & Motorsport"
+          ]
+        },
+        {
+          "name": "Motorcycles & Bikes",
+          "sub_interests": [
+            "BMX",
+            "Custom & Chopper Builds",
+            "Cycling (Road)",
+            "Dirt Bikes & Motocross",
+            "E-Bikes",
+            "Motorcycles & Touring",
+            "Mountain Biking",
+            "Superbikes"
+          ]
+        },
+        {
+          "name": "Aviation & Marine",
+          "sub_interests": [
+            "Aviation & Flying",
+            "Boating & Yachting",
+            "Model Aircraft",
+            "Sailing"
+          ]
+        }
+      ]
+    }
+  ]
+}

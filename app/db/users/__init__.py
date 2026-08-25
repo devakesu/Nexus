@@ -30,6 +30,7 @@ from app.db.users.auth import (
     upsert_public_user,
 )
 from app.db.users.consent import (
+    update_community_guidelines_consent,
     update_safety_data_consent,
     update_special_category_consent,
     update_user_terms,
@@ -67,6 +68,7 @@ __all__ = [
     "set_user_suspension",
     "set_verified_mobile",
     # consent
+    "update_community_guidelines_consent",
     "update_safety_data_consent",
     "update_special_category_consent",
     "update_user_terms",

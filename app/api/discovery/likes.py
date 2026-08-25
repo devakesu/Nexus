@@ -491,6 +491,7 @@ async def record_like_back_action(  # noqa: C901
             if matched:
                 try:
                     # payload.target_id is the original liker; user_id liked back
+                    assert payload.tab is not None
                     match_id = await asyncio.to_thread(
                         record_match,
                         payload.target_id,
@@ -682,6 +683,7 @@ async def record_match_action(
             )
             await invalidate_block_cache(user_id, payload.target_id)
         else:  # unmatch
+            assert payload.tab is not None
             await asyncio.to_thread(
                 record_mutual_pass,
                 user_id,

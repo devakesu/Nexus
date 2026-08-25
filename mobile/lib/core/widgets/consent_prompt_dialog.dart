@@ -23,6 +23,7 @@ Future<bool> grantSafetyDataConsent(BuildContext context) async {
       data: {
         'terms_version': ConsentCacheManager.currentTermsVersion,
         'general_accepted': true,
+        'community_guidelines_accepted': true,
         'special_category_accepted': true,
         'safety_data_accepted': true,
       },
@@ -57,6 +58,7 @@ Future<bool> grantSpecialCategoryConsent(BuildContext context) async {
       data: {
         'terms_version': ConsentCacheManager.currentTermsVersion,
         'general_accepted': true,
+        'community_guidelines_accepted': true,
         'special_category_accepted': true,
       },
       options: Options(

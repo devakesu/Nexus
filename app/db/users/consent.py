@@ -257,7 +257,7 @@ def _log_consent_event(
                 "terms_version": terms_version,
             },
         ).execute()
-    except APIError:
+    except Exception:
         logger.exception(
             "Failed to write terms_consent_log row",
             extra={"user_id": user_id, "category": category, "granted": granted},
@@ -289,6 +289,24 @@ def update_user_terms(
     )
     _log_consent_event(user_id, "general", True, cleaned_version)
     return result
+
+
+def update_community_guidelines_consent(
+    user_id: str,
+    terms_version: str,
+    granted: bool = True,
+) -> None:
+    """Executes update community guidelines consent audit logging operation.
+
+    Args:
+        user_id: Unique UUID string of the authenticated user.
+        terms_version: Input terms version parameter.
+        granted: Input granted parameter.
+    """
+    cleaned_version = terms_version.strip()
+    _validate_terms_versions(cleaned_version)
+    _log_consent_event(user_id, "community_guidelines", granted, cleaned_version)
+
 
 
 def _verify_general_terms_accepted(user_id: str) -> None:

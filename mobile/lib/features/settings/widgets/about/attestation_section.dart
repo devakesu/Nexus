@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -44,34 +43,16 @@ class ApiService {
           data: e.response!.data,
         );
       }
-      return const AttestationResponse(
-        statusCode: 200,
+      return AttestationResponse(
+        statusCode: 503,
         data: {
-          'verified': true,
-          'appCheck': true,
-          'appId': '1:10892348:android:nexus',
-          'details': {
-            'provider': kDebugMode ? 'debug' : 'Play Integrity',
-            'issuer': kDebugMode
-                ? 'Firebase App Check (debug)'
-                : 'Google Play Integrity',
-          },
+          'error': e.message ?? 'Network error contacting attestation server',
         },
       );
-    } on Object catch (_) {
-      return const AttestationResponse(
-        statusCode: 200,
-        data: {
-          'verified': true,
-          'appCheck': true,
-          'appId': '1:10892348:android:nexus',
-          'details': {
-            'provider': kDebugMode ? 'debug' : 'Play Integrity',
-            'issuer': kDebugMode
-                ? 'Firebase App Check (debug)'
-                : 'Google Play Integrity',
-          },
-        },
+    } on Object catch (e) {
+      return AttestationResponse(
+        statusCode: 500,
+        data: {'error': e.toString()},
       );
     }
   }

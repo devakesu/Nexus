@@ -144,6 +144,7 @@ def test_update_safety_data_consent_requires_general_terms(
 
 @pytest.mark.anyio
 @patch("app.api.user.auth_otp.redis_client.delete", new_callable=MagicMock)
+@patch("app.api.user.auth_otp.update_community_guidelines_consent")
 @patch("app.api.user.auth_otp.update_safety_data_consent")
 @patch("app.api.user.auth_otp.update_user_terms")
 @patch("app.api.user.auth_otp.fetch_public_user")
@@ -151,6 +152,7 @@ async def test_update_consent_invalidates_user_status_cache(
     mock_fetch_user: MagicMock,
     mock_update_terms: MagicMock,
     mock_update_safety: MagicMock,
+    _mock_update_guidelines: MagicMock,
     mock_redis_delete: MagicMock,
 ) -> None:
     from typing import Any
@@ -188,4 +190,111 @@ async def test_update_consent_invalidates_user_status_cache(
 
     assert res.user_id == "user-999"
     mock_redis_delete.assert_called_once_with("user:status:user-999")
+
+
+def test_consent_update_request_semver_patch_version():
+    from app.models import ConsentUpdateRequest
+
+    with patch("app.models.user.settings.current_terms_version", "1.0.1"):
+        payload = ConsentUpdateRequest(
+            terms_version="1.0.1",
+            general_accepted=True,
+            community_guidelines_accepted=True,
+        )
+        assert payload.terms_version == "1.0.1"
+        assert payload.community_guidelines_accepted is True
+
+    with patch("app.models.user.settings.current_terms_version", "2.1.3"):
+        payload = ConsentUpdateRequest(
+            terms_version="2.1.3",
+            general_accepted=True,
+        )
+        assert payload.terms_version == "2.1.3"
+        assert payload.community_guidelines_accepted is True
+
+    with patch("app.models.user.settings.current_terms_version", "1.0"):
+        with pytest.raises(ValueError):
+            ConsentUpdateRequest(
+                terms_version="1.0.a",
+                general_accepted=True,
+            )
+
+
+@patch("app.db.users.consent._log_consent_event")
+@patch("app.db.users.consent.settings.current_terms_version", "1.0.1")
+def test_update_community_guidelines_consent_logs_event(mock_log: MagicMock):
+    from app.db.users.consent import update_community_guidelines_consent
+
+    update_community_guidelines_consent(
+        user_id="user-123",
+        terms_version="1.0.1",
+        granted=True,
+    )
+    mock_log.assert_called_once_with("user-123", "community_guidelines", True, "1.0.1")
+
+
+@pytest.mark.anyio
+@patch("app.api.user.auth_otp.redis_client.delete", new_callable=MagicMock)
+@patch("app.api.user.auth_otp.update_community_guidelines_consent")
+@patch("app.api.user.auth_otp.update_user_terms")
+@patch("app.api.user.auth_otp.fetch_public_user")
+async def test_accept_terms_requires_community_guidelines(
+    mock_fetch_user: MagicMock,
+    mock_update_terms: MagicMock,
+    mock_update_guidelines: MagicMock,
+    mock_redis_delete: MagicMock,
+) -> None:
+    from typing import Any
+    from unittest.mock import AsyncMock
+    from fastapi import Request
+    from app.core.config import settings
+    from app.api.user.auth_otp import accept_terms
+    from app.models import ConsentUpdateRequest
+
+    mock_redis_delete.return_value = AsyncMock()()
+    mock_fetch_user.return_value = {
+        "id": "user-999",
+        "is_suspended": False,
+        "is_banned": False,
+        "is_under_review": False,
+        "scheduled_for_deletion_at": None,
+    }
+    mock_update_terms.return_value = (settings.current_terms_version, "2026-08-24T12:00:00Z")
+
+    scope: dict[str, Any] = {"type": "http", "headers": [], "path": "/"}
+    request = Request(scope)
+
+    # Acceptance succeeds
+    payload = ConsentUpdateRequest(
+        terms_version=settings.current_terms_version,
+        general_accepted=True,
+        community_guidelines_accepted=True,
+    )
+    res = await accept_terms(
+        request=request,
+        payload=payload,
+        auth_user={"id": "user-999", "email": "test@example.com"},
+    )
+    assert res.user_id == "user-999"
+    mock_update_guidelines.assert_called_once_with(
+        user_id="user-999",
+        terms_version=settings.current_terms_version,
+        granted=True,
+    )
+
+    # Decline community guidelines raises 400
+    payload_declined = ConsentUpdateRequest(
+        terms_version=settings.current_terms_version,
+        general_accepted=True,
+        community_guidelines_accepted=False,
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        await accept_terms(
+            request=request,
+            payload=payload_declined,
+            auth_user={"id": "user-999", "email": "test@example.com"},
+        )
+    assert exc_info.value.status_code == 400
+    assert "Community Guidelines acceptance is required" in exc_info.value.detail
+
 

@@ -14,6 +14,7 @@ from app.api.dependencies import (
     get_authenticated_user_id,
     get_authenticated_user_payload,
     is_consent_stale,
+    verify_and_get_app_check_claims,
     verify_app_check_with_replay_protection,
 )
 from app.core.auth.passwordless_email import (
@@ -46,6 +47,7 @@ from app.db.users import (
     is_disposable_email,
     is_phone_blocklisted,
     set_verified_mobile,
+    update_community_guidelines_consent,
     update_safety_data_consent,
     update_special_category_consent,
     update_user_terms,
@@ -57,6 +59,7 @@ from app.models import (
     AccountPhoneOtpRequestResponse,
     AccountPhoneOtpVerifyRequest,
     AccountPhoneOtpVerifyResponse,
+    AttestationResponse,
     AuthBootstrapResponse,
     CompleteOnboardingResponse,
     ConsentUpdateRequest,
@@ -665,12 +668,28 @@ async def accept_terms(
         granted=payload.general_accepted,
     )
 
+    await run_in_threadpool(
+        update_community_guidelines_consent,
+        user_id=user_id,
+        terms_version=payload.terms_version,
+        granted=payload.community_guidelines_accepted,
+    )
+
     if not payload.general_accepted:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 "General Terms of Service & Privacy Policy consent is "
                 "required to use Nexus. Your decline has been recorded."
+            ),
+        )
+
+    if not payload.community_guidelines_accepted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Community Guidelines acceptance is required to use Nexus. "
+                "Your decline has been recorded."
             ),
         )
 
@@ -753,4 +772,65 @@ async def revoke_all_sessions(
     await redis_client.delete(f"user:presence:last_beat:{user_id}")
 
     return {"success": True}
+
+
+@router.get(
+    "/api/v1/auth/attestation",
+    response_model=AttestationResponse,
+)
+@limiter.limit(settings.rate_limit_auth)
+async def get_attestation_status(
+    request: Request,
+    claims: dict[str, Any] | None = Depends(verify_and_get_app_check_claims),
+) -> AttestationResponse:
+    """Verifies caller App Check token and returns authentic attestation telemetry.
+
+    Args:
+        request: Incoming HTTP request.
+        claims: Verified App Check claims dict or None if unenforced dev mode.
+
+    Returns:
+        AttestationResponse: Device integrity and App Check attestation status.
+    """
+    _ = request
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    if claims is not None:
+        app_id = claims.get("app_id") or claims.get("sub")
+        iss = str(claims.get("iss", "Firebase App Check"))
+        is_debug = "debug" in iss.lower() or (settings.debug and "debug" in str(claims.get("provider", "")))
+        provider = "debug" if is_debug else "Play Integrity / App Attest"
+
+        details: dict[str, Any] = {
+            "provider": provider,
+            "issuer": iss,
+            "enforced": settings.enforce_app_check,
+        }
+        if "iat" in claims:
+            details["iat"] = claims["iat"]
+        if "exp" in claims:
+            details["exp"] = claims["exp"]
+        if "aud" in claims:
+            details["aud"] = claims["aud"]
+
+        return AttestationResponse(
+            verified=True,
+            appCheck=True,
+            appId=app_id,
+            timestamp=now_iso,
+            details=details,
+        )
+
+    return AttestationResponse(
+        verified=True,
+        appCheck=False,
+        appId=None,
+        timestamp=now_iso,
+        details={
+            "provider": "development" if settings.debug else "unverified",
+            "issuer": "Nexus Backend (App Check unenforced)",
+            "enforced": False,
+        },
+    )
+
 
