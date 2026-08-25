@@ -1,6 +1,10 @@
 name: Tests
 
 on:
+  workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
   push:
     branches: [main, "release/*"]
   pull_request:
@@ -106,6 +110,17 @@ jobs:
 
           echo "Calculated Mobile Code Coverage: ${COVERAGE}%"
 
+          # Enforce coverage threshold (e.g. minimum 80.0%)
+          MIN_COVERAGE="80.0"
+          IS_BELOW=$(awk -v cov="$COVERAGE" -v min="$MIN_COVERAGE" 'BEGIN { if (cov + 0 < min + 0) print 1; else print 0 }')
+
+          if [ "$IS_BELOW" -eq 1 ]; then
+            echo "::error::Mobile code coverage (${COVERAGE}%) is below minimum threshold (${MIN_COVERAGE}%)."
+            exit 1
+          fi
+
+          echo "✓ Mobile code coverage (${COVERAGE}%) meets threshold (>= ${MIN_COVERAGE}%)."
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
         with:
@@ -113,3 +128,54 @@ jobs:
           flags: mobile
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+
+  database-migration-audit:
+    name: Database Migration Audit & Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        with:
+          version: 2.109.1
+
+      - name: Validate Migration SQL Syntax & Safety
+        run: |
+          set -euo pipefail
+          echo "=== Auditing Database Migrations for Safety & Compatibility on PR/Branch ==="
+
+          MIGRATIONS_DIR="supabase/migrations"
+          if [ ! -d "$MIGRATIONS_DIR" ] || [ -z "$(ls -A "$MIGRATIONS_DIR"/*.sql 2>/dev/null)" ]; then
+            echo "No SQL migrations found. Skipping."
+            exit 0
+          fi
+
+          for file in "$MIGRATIONS_DIR"/*.sql; do
+            [ -f "$file" ] || continue
+            echo "Checking $file..."
+
+            # Audit dangerous destructive operations (DROP TABLE/COLUMN/SCHEMA/DATABASE)
+            if grep -iE '^\s*DROP\s+(TABLE|COLUMN|SCHEMA|DATABASE)\s+' "$file" 2>/dev/null; then
+              echo "::warning file=$file::Destructive DROP statement detected in migration. Ensure expand-contract backward compatibility is maintained."
+            fi
+
+            # Audit data wiping operations (TRUNCATE or unbounded DELETE FROM without WHERE clause)
+            if grep -iE '^\s*TRUNCATE\s+' "$file" 2>/dev/null; then
+              echo "::warning file=$file::TRUNCATE statement detected in migration. Ensure data destruction is intentional and safe."
+            fi
+
+            if grep -iE '^\s*DELETE\s+FROM\s+[^;]+;\s*$' "$file" 2>/dev/null | grep -iv 'WHERE' 2>/dev/null; then
+              echo "::warning file=$file::Unbounded DELETE FROM statement detected without WHERE clause."
+            fi
+
+            # Audit table locks without concurrent index creation
+            if grep -iE '^\s*CREATE\s+INDEX\s+' "$file" 2>/dev/null && ! grep -iE 'CREATE\s+INDEX\s+CONCURRENTLY' "$file" 2>/dev/null; then
+              echo "::warning file=$file::CREATE INDEX found without CONCURRENTLY. Large tables may experience exclusive lock timeouts."
+            fi
+          done
+
+          echo "✓ Migration safety audit passed"

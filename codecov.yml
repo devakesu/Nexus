@@ -3,4 +3,4 @@ coverage:
     patch:
       default:
         target: auto
-        informational: true
+        informational: false

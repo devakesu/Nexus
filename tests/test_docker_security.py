@@ -1,5 +1,6 @@
 import fnmatch
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -253,6 +254,93 @@ def test_release_workflow_passes_safe_build_args():
     assert "ENGINE_COMMIT_SHA=" in build_args
 
 
+def test_release_workflow_requires_tests_gate():
+    release_path = Path(".github/workflows/release.yml")
+    content = release_path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(content)
+
+    jobs = workflow.get("jobs", {})
+    assert "test" in jobs, "release.yml must define a 'test' job"
+    test_job = jobs["test"]
+    assert "./.github/workflows/tests.yml" in str(test_job.get("uses", "")), (
+        "release.yml 'test' job must invoke ./.github/workflows/tests.yml"
+    )
+
+    backend_job = jobs.get("build-and-release", {})
+    mobile_job = jobs.get("build-release-mobile", {})
+
+    backend_needs = backend_job.get("needs", [])
+    if isinstance(backend_needs, str):
+        backend_needs = [backend_needs]
+    assert "test" in backend_needs, "build-and-release job in release.yml must depend on 'test'"
+
+    mobile_needs = mobile_job.get("needs", [])
+    if isinstance(mobile_needs, str):
+        mobile_needs = [mobile_needs]
+    assert "test" in mobile_needs, "build-release-mobile job in release.yml must depend on 'test'"
+
+    tests_path = Path(".github/workflows/tests.yml")
+    assert tests_path.exists(), "tests.yml must exist"
+    tests_workflow = cast(dict[Any, Any], yaml.safe_load(tests_path.read_text(encoding="utf-8")))
+    raw_triggers = cast(dict[str, Any], tests_workflow.get("on") or tests_workflow.get(True) or {})
+    assert "workflow_call" in raw_triggers, "tests.yml must support workflow_call trigger"
+
+
+def test_tests_workflow_enforces_mobile_coverage_threshold():
+    tests_path = Path(".github/workflows/tests.yml")
+    content = tests_path.read_text(encoding="utf-8")
+    assert "Enforce minimum code coverage threshold" in content
+    assert "MIN_COVERAGE=" in content
+    assert "exit 1" in content
+    assert "below minimum threshold" in content
+
+
+def test_tests_workflow_includes_database_migration_audit():
+    tests_path = Path(".github/workflows/tests.yml")
+    content = tests_path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(content)
+    jobs = workflow.get("jobs", {})
+    assert "database-migration-audit" in jobs, "tests.yml must define database-migration-audit job"
+    assert "pull_request" in (workflow.get("on") or workflow.get(True) or {}), "tests.yml must trigger on pull_request"
+
+
+def test_build_guard_enforces_commit_signature():
+    guard_path = Path(".github/workflows/build-guard.yml")
+    assert guard_path.exists(), "build-guard.yml must exist"
+    content = guard_path.read_text(encoding="utf-8")
+    assert "git log -1 --format='%G?'" in content, "build-guard.yml must check commit signature status format"
+    assert "exit 1" in content, "build-guard.yml must exit 1 when signature is invalid or absent"
+    assert "SIG_STATUS" in content
+
+
+def test_deploy_workflow_includes_dry_run_and_migration_safety():
+    deploy_path = Path(".github/workflows/deploy.yml")
+    assert deploy_path.exists(), "deploy.yml must exist"
+    content = deploy_path.read_text(encoding="utf-8")
+    assert "supabase db push --dry-run" in content, "deploy.yml must execute dry-run migration validation"
+    assert "supabase db push" in content, "deploy.yml must execute supabase db push"
+    assert "Dry-Run Database Migrations" in content, "deploy.yml must contain Dry-Run step"
+
+
+def test_deploy_workflow_enforces_production_environment_and_health_gate():
+    deploy_path = Path(".github/workflows/deploy.yml")
+    assert deploy_path.exists(), "deploy.yml must exist"
+    content = deploy_path.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(content)
+
+    jobs = workflow.get("jobs", {})
+    supabase_job = jobs.get("deploy-supabase", {})
+    prod_job = jobs.get("deploy-prod", {})
+
+    assert supabase_job.get("environment", {}).get("name") == "production"
+    assert prod_job.get("environment", {}).get("name") == "production"
+
+    assert 'VERSION="latest"' not in content, "deploy.yml must not hardcode mutable latest tag"
+    assert "Verify Backend Health Gate" in content, "deploy.yml must include post-deploy health check step"
+    assert "/health" in content, "deploy.yml must probe /health endpoint"
+    assert "exit 1" in content, "deploy.yml must fail on unhealthy probe"
+
+
 def test_entrypoint_supports_commit_sha_and_cache():
     entrypoint_path = Path("entrypoint.sh")
     assert entrypoint_path.exists(), "entrypoint.sh must exist"
@@ -295,6 +383,13 @@ def test_entrypoint_and_dockerfile_do_not_echo_secrets():
     assert 'exec infisical run' in dockerfile_content
     assert 'echo' not in dockerfile_content.split('CMD')[1]
 
+
+def test_dockerfile_verifies_infisical_checksum():
+    dockerfile_content = Path("Dockerfile").read_text(encoding="utf-8")
+    assert "sha256sum -c" in dockerfile_content, "Dockerfile must verify binary checksums with sha256sum -c"
+    assert "64a47155083c7b8042de64e67eee5629bf894903c102f7239f69c7ed93fdbfc5" in dockerfile_content, (
+        "Dockerfile must contain verified SHA256 checksum for Infisical CLI"
+    )
 
 
 def test_fetch_build_time_vars_validates_public_variables():

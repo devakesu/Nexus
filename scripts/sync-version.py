@@ -5,19 +5,22 @@ Synchronizes semantic version numbers across pubspec.yaml and Android
 local.properties based on release branch names.
 """
 
-import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+# Add script directory to path if run standalone
+sys.path.insert(0, str(Path(__file__).parent.resolve()))
+
+from version_utils import (  # noqa: E402
+    RELEASE_BRANCH_PATTERN,
+    VERSION_PATTERN,
+    parse_version,
+    read_pubspec_version,
+)
+
 PUBSPEC_PATH = Path("mobile/pubspec.yaml")
-
-# Regular expression to match semantic versions (X.Y.Z)
-VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:\+(\d+))?$")
-
-# Patterns for release branch names (e.g., release/1.2.3, v1.2.3, 1.2.3)
-RELEASE_BRANCH_PATTERN = re.compile(r"^(?:release/|v)?(\d+\.\d+\.\d+)$")
 
 
 def get_current_branch() -> str | None:
@@ -38,41 +41,6 @@ def get_current_branch() -> str | None:
     except subprocess.SubprocessError:
         return None
 
-
-def parse_version(version_str: str) -> tuple[tuple[int, int, int], int] | None:
-    """Parses a semantic version string into major/minor/patch tuple and build number.
-
-    Args:
-        version_str: Raw version string (e.g. '1.2.3+4').
-
-    Returns:
-        tuple[tuple[int, int, int], int] | None:
-            Version tuple and build number, or None.
-    """
-    match = VERSION_PATTERN.match(version_str)
-    if not match:
-        return None
-    major, minor, patch, build = match.groups()
-    build_num = int(build) if build else 1
-    return (int(major), int(minor), int(patch)), build_num
-
-
-def read_pubspec_version() -> tuple[str | None, str]:
-    """Reads current version string from mobile/pubspec.yaml.
-
-    Returns:
-        tuple[str | None, str]: Extracted version string and entire pubspec content.
-    """
-    if not PUBSPEC_PATH.exists():
-        print(f"Error: {PUBSPEC_PATH} not found.")
-        sys.exit(1)
-
-    content = PUBSPEC_PATH.read_text()
-    for line in content.splitlines():
-        if line.startswith("version:"):
-            version_str = line.split(":", 1)[1].strip()
-            return version_str, content
-    return None, content
 
 
 LOCAL_PROPERTIES_PATH = Path("mobile/android/local.properties")

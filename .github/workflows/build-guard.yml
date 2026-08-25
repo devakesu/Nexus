@@ -29,4 +29,11 @@ jobs:
 
       - name: Verify commit is signed
         run: |
+          set -euo pipefail
           git log -1 --show-signature
+          SIG_STATUS=$(git log -1 --format='%G?')
+          if [ "$SIG_STATUS" != "G" ] && [ "$SIG_STATUS" != "U" ]; then
+            echo "::error::Commit HEAD is not signed with a valid GPG key (Status: '$SIG_STATUS')."
+            exit 1
+          fi
+          echo "✓ Commit signature verified successfully (Status: '$SIG_STATUS')."

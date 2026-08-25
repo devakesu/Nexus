@@ -18,15 +18,39 @@ env:
 permissions: {}
 
 jobs:
+  # Unit tests & static analysis gate
+  test:
+    name: Run Test Suite
+    uses: ./.github/workflows/tests.yml
+    secrets: inherit
+
   # Initial repository check guard
   guard:
     name: Build Guard
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+          APP_VERSION="${VERSION}"
+          if [[ "${APP_VERSION}" != v* ]]; then
+            VERSION_TAG="v${APP_VERSION}"
+          else
+            VERSION_TAG="${APP_VERSION}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
@@ -40,7 +64,7 @@ jobs:
   # Build, sign, and push Docker images
   build-and-release:
     name: Build & Release Backend
-    needs: guard
+    needs: [guard, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,20 +74,12 @@ jobs:
     outputs:
       image_digest: ${{ steps.build-push.outputs.digest }}
       platforms: ${{ steps.prep.outputs.platforms }}
-      app_version: ${{ steps.version.outputs.app_version }}
-      version: ${{ steps.version.outputs.version }}
+      app_version: ${{ needs.guard.outputs.app_version }}
+      version: ${{ needs.guard.outputs.version }}
+      version_tag: ${{ needs.guard.outputs.version_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Extract App Version
-        id: version
-        run: |
-          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
-          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
@@ -137,7 +153,7 @@ jobs:
           context: .
           push: true
           build-args: |
-            APP_VERSION=${{ steps.version.outputs.app_version }}
+            APP_VERSION=${{ needs.guard.outputs.app_version }}
             APP_COMMIT_SHA=${{ github.sha }}
             BUILD_TIMESTAMP=${{ steps.prep.outputs.created }}
             GITHUB_RUN_ID=${{ github.run_id }}
@@ -166,7 +182,7 @@ jobs:
             SUPABASE_URL=${{ env.SUPABASE_URL }}
             ENGINE_COMMIT_SHA=${{ steps.prep.outputs.engine_commit_sha }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ steps.version.outputs.app_version }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:${{ needs.guard.outputs.app_version }}
             ghcr.io/${{ github.repository_owner }}/${{ steps.prep.outputs.image_name }}:latest
           platforms: ${{ steps.prep.outputs.platforms }}
           cache-from: type=gha
@@ -175,7 +191,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.created=${{ steps.prep.outputs.created }}
-            org.opencontainers.image.version=${{ steps.version.outputs.app_version }}
+            org.opencontainers.image.version=${{ needs.guard.outputs.app_version }}
 
       # Attest build provenance
       - name: Attest Build Provenance
@@ -265,7 +281,7 @@ jobs:
             -a "repo=${{ github.repository }}" \
             -a "workflow=${{ github.workflow }}" \
             -a "ref=${{ github.ref }}" \
-            -a "version=${{ steps.version.outputs.app_version }}" \
+            -a "version=${{ needs.guard.outputs.app_version }}" \
             "${IMAGE_URI}"
 
       - name: Verify image signature
@@ -307,7 +323,7 @@ jobs:
   # Build mobile Flutter application for nexus and nexus_mec flavors
   build-release-mobile:
     name: Build & Release Mobile APKs & AABs
-    needs: guard
+    needs: [guard, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -317,15 +333,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Extract App Version
-        id: version
-        run: |
-          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
-          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
 
       - name: Set up Java
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
@@ -373,42 +380,35 @@ jobs:
             chmod 600 key.properties nexus-release.jks
             echo "✓ Configured dynamic signing keystore from Infisical /ci"
           else
-            echo "Using checked-in keys"
+            echo "❌ ANDROID_KEYSTORE_BASE64 is empty in Infisical /ci."
+            exit 1
           fi
 
       - name: Prepare google-services.json
-        working-directory: mobile/android
+        working-directory: mobile
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
           set -euo pipefail
           if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            mkdir -p app
-            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
-            echo "✓ Recreated app/google-services.json"
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+            echo "✓ Recreated android/app/google-services.json from secret"
+          elif [ -f android/app/google-services.json ]; then
+            echo "✓ Using checked-in android/app/google-services.json"
           else
-            echo "Using checked-in google-services.json"
+            echo "❌ google-services.json missing and GOOGLE_SERVICES_JSON_BASE64 not configured"
+            exit 1
           fi
 
-      - name: Build Mobile Flavors
+      - name: Build and Sign Flutter Mobile Flavors
         env:
-          BUILD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_S3_PRIVATE_BUCKET: ${{ secrets.AWS_S3_PRIVATE_BUCKET }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.guard.outputs.app_version }}
         run: |
           set -euo pipefail
-
-          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-          BACKEND_URL="${BACKEND_URL:-https://$APP_DOMAIN}"
-          BUILD_TIME="${BUILD_TIMESTAMP:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
-
-          # Write mapsApiKey to local.properties
-          echo "mapsApiKey=$GOOGLE_PLACES_API_KEY" > mobile/android/local.properties
-
-          mkdir -p mobile/release-assets
-          mkdir -p mobile/play-console-assets
+          BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          mkdir -p mobile/release-assets mobile/play-console-assets
 
           for FLAVOR in nexus nexus_mec; do
             echo "=== Building Flavor: ${FLAVOR} ==="
@@ -421,7 +421,7 @@ jobs:
               --obfuscate \
               --split-debug-info=build/debug-info \
               --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
-              --build-name="${{ steps.version.outputs.version }}" \
+              --build-name="${{ needs.guard.outputs.version }}" \
               --build-number="${{ github.run_number }}" \
               --dart-define=APP_VERSION="$APP_VERSION" \
               --dart-define=APP_COMMIT_SHA=${{ github.sha }} \
@@ -460,7 +460,7 @@ jobs:
               --obfuscate \
               --split-debug-info=build/debug-info \
               --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json \
-              --build-name="${{ steps.version.outputs.version }}" \
+              --build-name="${{ needs.guard.outputs.version }}" \
               --build-number="${{ github.run_number }}" \
               --dart-define=APP_VERSION="$APP_VERSION" \
               --dart-define=APP_COMMIT_SHA=${{ github.sha }} \
@@ -506,7 +506,7 @@ jobs:
             uses_apk_prov=$(gh attestation verify mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk --owner ${{ github.repository_owner }} 2>/dev/null || true)
             
             # Generate SBOM & provenance checksums
-            cp mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk mobile/release-assets/${RELEASE_FLAVOR}-android-v${{ steps.version.outputs.version }}.apk
+            cp mobile/build/app/outputs/flutter-apk/app-${FLAVOR}-release.apk mobile/release-assets/${RELEASE_FLAVOR}-android-v${{ needs.guard.outputs.version }}.apk
             cp mobile/build/app/outputs/bundle/${FLAVOR}Release/app-${FLAVOR}-release.aab mobile/play-console-assets/${RELEASE_FLAVOR}-app-release.aab
           done
 
@@ -514,8 +514,8 @@ jobs:
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:
           subject-path: |
-            mobile/release-assets/nexus-android-v${{ steps.version.outputs.version }}.apk
-            mobile/release-assets/nexus-mec-android-v${{ steps.version.outputs.version }}.apk
+            mobile/release-assets/nexus-android-v${{ needs.guard.outputs.version }}.apk
+            mobile/release-assets/nexus-mec-android-v${{ needs.guard.outputs.version }}.apk
 
       - name: Attest AABs
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
@@ -532,8 +532,8 @@ jobs:
           {
             echo "# Mobile Release Checksums"
             echo ""
-            sha256sum nexus-android-v${{ steps.version.outputs.version }}.apk
-            sha256sum nexus-mec-android-v${{ steps.version.outputs.version }}.apk
+            sha256sum nexus-android-v${{ needs.guard.outputs.version }}.apk
+            sha256sum nexus-mec-android-v${{ needs.guard.outputs.version }}.apk
             sha256sum nexus-sbom.json
             sha256sum nexus-mec-sbom.json
             echo ""
@@ -543,14 +543,14 @@ jobs:
       - name: Upload Nexus APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: nexus-android-v${{ steps.version.outputs.version }}.apk
-          path: mobile/release-assets/nexus-android-v${{ steps.version.outputs.version }}.apk
+          name: nexus-android-v${{ needs.guard.outputs.version }}.apk
+          path: mobile/release-assets/nexus-android-v${{ needs.guard.outputs.version }}.apk
 
       - name: Upload Nexus MEC APK artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: nexus-mec-android-v${{ steps.version.outputs.version }}.apk
-          path: mobile/release-assets/nexus-mec-android-v${{ steps.version.outputs.version }}.apk
+          name: nexus-mec-android-v${{ needs.guard.outputs.version }}.apk
+          path: mobile/release-assets/nexus-mec-android-v${{ needs.guard.outputs.version }}.apk
 
       - name: Upload mobile security metadata artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -576,8 +576,8 @@ jobs:
             exit 0
           fi
 
-          echo "Uploading private internal release assets to s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ steps.version.outputs.version }}/"
-          aws s3 cp . "s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ steps.version.outputs.version }}/" --recursive
+          echo "Uploading private internal release assets to s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ needs.guard.outputs.version }}/"
+          aws s3 cp . "s3://${AWS_S3_PRIVATE_BUCKET}/releases/v${{ needs.guard.outputs.version }}/" --recursive
           echo "✓ Internal artifacts securely archived to private S3 bucket"
 
   # Create GitHub Release with artifacts
@@ -594,20 +594,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Extract version
-        id: version
-        run: |
-          VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
-          APP_VERSION="${VERSION}"
-          if [[ "${APP_VERSION}" != v* ]]; then
-            VERSION_TAG="v${APP_VERSION}"
-          else
-            VERSION_TAG="${APP_VERSION}"
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
-          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
-
       - name: Download web artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -617,13 +603,13 @@ jobs:
       - name: Download Nexus APK artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: nexus-android-v${{ steps.version.outputs.version }}.apk
+          name: nexus-android-v${{ needs.build-and-release.outputs.version }}.apk
           path: ./artifacts/mobile
 
       - name: Download Nexus MEC APK artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: nexus-mec-android-v${{ steps.version.outputs.version }}.apk
+          name: nexus-mec-android-v${{ needs.build-and-release.outputs.version }}.apk
           path: ./artifacts/mobile
 
       - name: Download mobile metadata artifacts
@@ -642,7 +628,7 @@ jobs:
       - name: Calculate previous version for changelog
         id: prev_version
         env:
-          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+          VERSION_TAG: ${{ needs.build-and-release.outputs.version_tag }}
         run: |
           PREV_TAG=$(git tag -l 'v*.*.*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "^${VERSION_TAG}$" | head -n1 || echo "")
           if [ -z "$PREV_TAG" ]; then
@@ -655,9 +641,9 @@ jobs:
       - name: Generate verification instructions
         env:
           PLATFORMS: ${{ needs.build-and-release.outputs.platforms }}
-          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+          VERSION_TAG: ${{ needs.build-and-release.outputs.version_tag }}
           DIGEST: ${{ needs.build-and-release.outputs.image_digest }}
-          VERSION: ${{ steps.version.outputs.app_version }}
+          VERSION: ${{ needs.build-and-release.outputs.app_version }}
           REPOSITORY: ${{ github.repository }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
@@ -713,7 +699,7 @@ jobs:
       - name: Create GitHub Release
         env:
           DIGEST: ${{ needs.build-and-release.outputs.image_digest }}
-          VERSION_TAG: ${{ steps.version.outputs.version_tag }}
+          VERSION_TAG: ${{ needs.build-and-release.outputs.version_tag }}
           REPOSITORY: ${{ github.repository }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
           SERVER_URL: ${{ github.server_url }}
@@ -753,8 +739,8 @@ jobs:
             ./artifacts/web/checksums.txt \
             ./artifacts/VERIFY.md \
             ./artifacts/web/provenance.intoto.jsonl \
-            ./artifacts/mobile/nexus-android-v${{ steps.version.outputs.version }}.apk \
-            ./artifacts/mobile/nexus-mec-android-v${{ steps.version.outputs.version }}.apk \
+            ./artifacts/mobile/nexus-android-v${{ needs.build-and-release.outputs.version }}.apk \
+            ./artifacts/mobile/nexus-mec-android-v${{ needs.build-and-release.outputs.version }}.apk \
             ./artifacts/mobile/nexus-sbom.json \
             ./artifacts/mobile/nexus-mec-sbom.json \
             ./artifacts/mobile/mobile-checksums.txt \

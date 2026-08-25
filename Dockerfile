@@ -71,7 +71,10 @@ ENV APP_VERSION=$APP_VERSION \
 COPY requirements.txt .
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget tar ca-certificates build-essential && \
     pip install --no-cache-dir --require-hashes -r requirements.txt && \
-    wget -qO- https://github.com/Infisical/cli/releases/download/v0.43.84/cli_0.43.84_linux_amd64.tar.gz | tar -xz -C /usr/local/bin infisical && \
+    wget -qO /tmp/infisical.tar.gz https://github.com/Infisical/cli/releases/download/v0.43.84/cli_0.43.84_linux_amd64.tar.gz && \
+    echo "64a47155083c7b8042de64e67eee5629bf894903c102f7239f69c7ed93fdbfc5  /tmp/infisical.tar.gz" | sha256sum -c - && \
+    tar -xz -C /usr/local/bin -f /tmp/infisical.tar.gz infisical && \
+    rm -f /tmp/infisical.tar.gz && \
     apt-get purge -y --auto-remove build-essential && \
     rm -rf /var/lib/apt/lists/*
 

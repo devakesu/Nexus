@@ -2,6 +2,12 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Release version tag or Docker image tag to deploy (e.g. v1.0.8 or 1.0.8). Leave blank to auto-detect from pubspec.yaml"
+        required: false
+        default: ""
+        type: string
 
 permissions: {}
 
@@ -15,6 +21,8 @@ jobs:
   deploy-supabase:
     name: Deploy Supabase
     runs-on: ubuntu-latest
+    environment:
+      name: production
     permissions:
       contents: read
 
@@ -33,28 +41,94 @@ jobs:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
+      - name: Validate Migration SQL Syntax & Safety
+        run: |
+          set -euo pipefail
+          echo "=== Auditing Local Migrations for Safety & Compatibility ==="
+          for file in supabase/migrations/*.sql; do
+            [ -f "$file" ] || continue
+            echo "Checking $file..."
+
+            # Audit dangerous destructive operations (DROP TABLE/COLUMN/SCHEMA/DATABASE)
+            if grep -iE '^\s*DROP\s+(TABLE|COLUMN|SCHEMA|DATABASE)\s+' "$file" 2>/dev/null; then
+              echo "::warning file=$file::Destructive DROP statement detected in migration. Ensure expand-contract backward compatibility is maintained."
+            fi
+
+            # Audit data wiping operations (TRUNCATE or unbounded DELETE FROM without WHERE clause)
+            if grep -iE '^\s*TRUNCATE\s+' "$file" 2>/dev/null; then
+              echo "::warning file=$file::TRUNCATE statement detected in migration. Ensure data destruction is intentional and safe."
+            fi
+
+            if grep -iE '^\s*DELETE\s+FROM\s+[^;]+;\s*$' "$file" 2>/dev/null | grep -iv 'WHERE' 2>/dev/null; then
+              echo "::warning file=$file::Unbounded DELETE FROM statement detected without WHERE clause."
+            fi
+
+            # Audit table locks without concurrent index creation
+            if grep -iE '^\s*CREATE\s+INDEX\s+' "$file" 2>/dev/null && ! grep -iE 'CREATE\s+INDEX\s+CONCURRENTLY' "$file" 2>/dev/null; then
+              echo "::warning file=$file::CREATE INDEX found without CONCURRENTLY. Large tables may experience exclusive lock timeouts."
+            fi
+          done
+          echo "✓ Migration safety audit completed"
+
+      - name: Dry-Run Database Migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          echo "=== Executing Migration Dry-Run (Validation Only) ==="
+          supabase db push --dry-run
+          echo "✓ Migration dry-run validation passed without errors"
+
       - name: Deploy Database Changes (Migrations)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-        run: supabase db push
+        run: |
+          set -euo pipefail
+          echo "=== Applying Database Migrations to Remote Project ==="
+          supabase db push
+          echo "✓ Database migrations applied successfully"
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Job 2: Deploy to Production (Coolify Trigger)
+  # Job 2: Deploy to Production (Coolify Trigger & Health Verification)
   # ────────────────────────────────────────────────────────────────────────────
   deploy-prod:
     name: Deploy Production
     needs: deploy-supabase
     runs-on: ubuntu-latest
-    permissions: {}
+    environment:
+      name: production
+      url: https://${{ vars.APP_DOMAIN || secrets.APP_DOMAIN || 'api.nexus.dev' }}
+    permissions:
+      contents: read
 
     steps:
-      - name: Trigger Coolify deployment
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Resolve Deployment Version
+        id: resolve-version
+        run: |
+          set -euo pipefail
+          INPUT_TAG="${{ github.event.inputs.version_tag }}"
+          if [ -n "$INPUT_TAG" ]; then
+            DEPLOY_VERSION="$INPUT_TAG"
+          else
+            VERSION=$(grep '^version: ' mobile/pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+            DEPLOY_VERSION="v${VERSION}"
+          fi
+          echo "deploy_version=${DEPLOY_VERSION}" >> $GITHUB_OUTPUT
+          echo "Resolved deployment version tag: ${DEPLOY_VERSION}"
+
+      - name: Trigger Coolify Deployment & Await Completion
         env:
           COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
           COOLIFY_APP_ID: ${{ secrets.COOLIFY_APP_ID }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          DEPLOY_VERSION: ${{ steps.resolve-version.outputs.deploy_version }}
         run: |
           set -euo pipefail
 
@@ -67,12 +141,79 @@ jobs:
           [ -n "$COOLIFY_BASE_URL" ] && echo "::add-mask::$COOLIFY_BASE_URL"
           [ -n "$COOLIFY_APP_ID" ] && echo "::add-mask::$COOLIFY_APP_ID"
 
-          VERSION="latest"
-          echo "Deploying version ${VERSION} to Coolify"
-          echo "Note: Ensure Coolify is configured to pull the versioned tag (e.g., ${VERSION})"
+          echo "=== Triggering Coolify Deployment (Version: ${DEPLOY_VERSION}) ==="
+          
+          # Trigger Coolify deployment with tag and UUID
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID&tag=$DEPLOY_VERSION" || \
+            curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID")
 
-          curl --fail-with-body --silent --show-error \
-            "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$COOLIFY_APP_ID" \
-            -H "Authorization: Bearer $COOLIFY_API_TOKEN"
+          echo "Coolify response: $RESPONSE"
 
-          echo "✓ Deployment triggered successfully"
+          DEPLOYMENT_UUID=$(echo "$RESPONSE" | jq -r '.deployments[0].deployment_uuid // empty' 2>/dev/null || echo "")
+          
+          if [ -n "$DEPLOYMENT_UUID" ] && [ "$DEPLOYMENT_UUID" != "null" ]; then
+            echo "Coolify Deployment UUID: ${DEPLOYMENT_UUID}"
+            echo "Polling deployment status..."
+            MAX_POLL=30
+            POLL_INTERVAL=5
+            for (( i=1; i<=MAX_POLL; i++ )); do
+              STATUS_RESP=$(curl --silent \
+                -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+                "$COOLIFY_BASE_URL/api/v1/deployments/${DEPLOYMENT_UUID}" 2>/dev/null || echo "")
+              STATUS=$(echo "$STATUS_RESP" | jq -r '.status // empty' 2>/dev/null || echo "")
+              echo "Poll $i/$MAX_POLL - Status: ${STATUS:-in_progress}"
+              if [ "$STATUS" = "finished" ] || [ "$STATUS" = "success" ]; then
+                echo "✓ Coolify deployment succeeded"
+                break
+              elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+                echo "::error::Coolify deployment failed with status: $STATUS"
+                exit 1
+              fi
+              sleep $POLL_INTERVAL
+            done
+          else
+            echo "✓ Coolify deployment trigger accepted"
+          fi
+
+      - name: Verify Backend Health Gate
+        env:
+          APP_DOMAIN: ${{ vars.APP_DOMAIN || secrets.APP_DOMAIN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_DOMAIN:-}" ]; then
+            echo "::notice::APP_DOMAIN not configured in environment; skipping live HTTP probe."
+            exit 0
+          fi
+
+          HEALTH_URL="https://${APP_DOMAIN}/health"
+          echo "=== Verifying Backend Health Gate (${HEALTH_URL}) ==="
+          
+          MAX_RETRIES=20
+          RETRY_DELAY=5
+          HEALTHY=0
+
+          for (( i=1; i<=MAX_RETRIES; i++ )); do
+            echo "Health probe attempt $i of $MAX_RETRIES..."
+            HTTP_STATUS=$(curl -s -o /tmp/health_resp.json -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "✓ Backend health endpoint returned HTTP 200"
+              cat /tmp/health_resp.json
+              echo ""
+              HEALTHY=1
+              break
+            else
+              echo "Received HTTP $HTTP_STATUS (attempt $i/$MAX_RETRIES). Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+
+          if [ "$HEALTHY" -ne 1 ]; then
+            echo "::error::Backend health check failed after $MAX_RETRIES attempts at $HEALTH_URL"
+            exit 1
+          fi
+          echo "✓ Production deployment verified healthy"
