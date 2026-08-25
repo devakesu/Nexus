@@ -586,6 +586,143 @@ def test_fetch_music_affinities_missing_or_invalid(mock_supabase: MagicMock) -> 
     assert genres == {}
 
 
+def test_upsert_profile_variant_encrypts_name() -> None:
+    from app.core.security.crypto import decrypt_pii
+    from app.db.users.profile import upsert_profile_variant
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+    mock_upsert_exec = MagicMock()
+    mock_upsert_exec.data = [{"id": "user-123", "name": "dummy"}]
+    mock_builder.upsert.return_value.execute.return_value = mock_upsert_exec
+    mock_builder.insert.return_value.execute.return_value = MagicMock()
+
+    with patch("app.db.users.profile.supabase_client.table", return_value=mock_builder):
+        _, created = upsert_profile_variant(
+            user_id="user-123",
+            name="Jane Doe",
+            campus_branch="Computer Science",
+            campus_year=3,
+            age=21,
+            campus_name="Model Engineering College",
+            demographic_bucket="F",
+        )
+
+    assert created is True
+    upsert_call_args = mock_builder.upsert.call_args[0][0]
+    raw_name = upsert_call_args["name"]
+    assert raw_name.startswith("\\x")
+    assert decrypt_pii(raw_name) == "Jane Doe"
+
+
+def test_update_profile_details_encrypts_new_name_for_apply_name_change() -> None:
+    from app.core.security.crypto import decrypt_pii, encrypt_to_hex
+    from app.models import ProfileDetailsUpdate
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+        "name": encrypt_to_hex("Old Name"),
+        "age": 22,
+    }
+    mock_builder.select.return_value.eq.return_value.gte.return_value.execute.return_value.data = []
+
+    mock_rpc_exec = MagicMock()
+    mock_rpc = MagicMock(return_value=mock_rpc_exec)
+
+    with patch("app.api.user.profile.details.user_module.supabase_client.table", return_value=mock_builder), \
+         patch("app.api.user.profile.details.user_module.supabase_client.rpc", mock_rpc):
+        payload = ProfileDetailsUpdate(name="New Name")
+        res = update_profile_details(
+            request=MagicMock(),
+            background_tasks=MagicMock(),
+            payload=payload,
+            user_id="user-123",
+            _device=None,
+        )
+
+    assert res == {"status": "success", "detail": "Profile details synchronized."}
+    mock_rpc.assert_called_once()
+    rpc_name = mock_rpc.call_args[0][0]
+    rpc_args = mock_rpc.call_args[0][1]
+    assert rpc_name == "apply_name_change"
+    assert rpc_args["p_user_id"] == "user-123"
+    assert rpc_args["p_new_name"].startswith("\\x")
+    assert decrypt_pii(rpc_args["p_new_name"]) == "New Name"
+
+
+def test_decrypt_profile_record_decrypts_name() -> None:
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.profiles import decrypt_profile_record
+
+    raw_record = {
+        "id": "u-1",
+        "name": encrypt_to_hex("Alice Smith"),
+        "bio": encrypt_to_hex("Hello world"),
+        "age": 24,
+    }
+    decrypted = decrypt_profile_record(raw_record)
+    assert decrypted["name"] == "Alice Smith"
+    assert decrypted["bio"] == "Hello world"
+    assert decrypted["age"] == 24
+
+
+def test_decrypt_profile_rows_decrypts_name_and_pic() -> None:
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.profiles import decrypt_profile_rows
+
+    rows = [
+        {
+            "id": "u-1",
+            "name": encrypt_to_hex("Bob Ross"),
+            "profile_pic": encrypt_to_hex("u-1/avatar.jpg"),
+        },
+        {
+            "id": "u-2",
+            "name": encrypt_to_hex("Carol Danvers"),
+            "profile_pic": None,
+        },
+    ]
+
+    with patch("app.db.profiles.encryption.sign_profile_media_bulk"):
+        profile_map = decrypt_profile_rows(rows)
+
+    assert profile_map["u-1"]["name"] == "Bob Ross"
+    assert profile_map["u-1"]["profile_pic"] == "u-1/avatar.jpg"
+    assert profile_map["u-2"]["name"] == "Carol Danvers"
+    assert profile_map["u-2"]["profile_pic"] is None
+
+
+def test_validate_tab_activation_flags_decryption_failures() -> None:
+    from app.api.user.profile.helpers import _validate_common_activation, calculate_activation_statuses
+    from app.models.profile import ProfileDetailsUpdate
+
+    corrupted_profile = {
+        "id": "u-1",
+        "name": "Jane",
+        "age": 22,
+        "bio": "__DECRYPTION_FAILED__",
+        "sub_interests": {"__DECRYPTION_FAILED__": True},
+        "profile_pic": "u-1/pic.jpg",
+        "normal_pics": ["u-1/p1.jpg"],
+        "dating_target_buckets": ["M"],
+        "dating_for": ["dating_short_term"],
+        "drinking": "Never",
+        "smoking": "Never",
+        "partner_values": ["Honesty"],
+    }
+    payload = ProfileDetailsUpdate()
+    missing: list[str] = []
+    _validate_common_activation(corrupted_profile, payload, missing)
+    assert "bio" in missing
+    assert "interests" in missing
+
+    statuses = calculate_activation_statuses(corrupted_profile, payload)
+    assert statuses["is_dating_active"] is False
+    assert statuses["is_friends_active"] is False
+    assert statuses["is_professional_active"] is False
+
+
+
 
 
 

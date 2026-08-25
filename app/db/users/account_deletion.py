@@ -27,6 +27,7 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
+from app.core.security.crypto import encrypt_to_hex
 from app.db.chat import (
     batch_delete_conversations_chat_media,
     reopen_conversations_for_reactivation,
@@ -442,7 +443,7 @@ def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
     user_id = normalize_uuid(user_id)
     profile_payload: dict[str, Any] = {col: None for col in _PROFILE_PII_COLUMNS}
     profile_payload.update({col: None for col in _PROFILE_BLIND_INDEX_COLUMNS})
-    profile_payload["name"] = _ANONYMIZED_NAME
+    profile_payload["name"] = encrypt_to_hex(_ANONYMIZED_NAME)
     profile_payload["is_deactivated"] = True
     profile_payload["deactivated_at"] = now.isoformat()
 

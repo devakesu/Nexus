@@ -659,7 +659,7 @@ def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
 
     fresh_time = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
     stale_time = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
-    enc_loc = encrypt_to_hex(json.dumps({"lat": 40.7128, "lng": -74.0060}))
+    enc_loc = encrypt_to_hex(json.dumps({"lat": 40.7128, "lng": -74.0060}), category="media_escrow")
 
     mock_rows = [
         {"id": "a-fresh", "alert_type": "sos", "current_location": enc_loc, "created_at": fresh_time},
@@ -692,8 +692,8 @@ def test_sync_safety_contacts_atomic_rpc_and_opt_out_enforcement() -> None:
     user_id = "00000000-0000-0000-0000-000000000001"
     phone_blocked = "+15551112222"
     phone_new = "+15553334444"
-    blind_index_blocked = compute_blind_index(normalize_phone(phone_blocked))
-    blind_index_new = compute_blind_index(normalize_phone(phone_new))
+    blind_index_blocked = compute_blind_index(normalize_phone(phone_blocked), domain="safety_contact_phone")
+    blind_index_new = compute_blind_index(normalize_phone(phone_new), domain="safety_contact_phone")
 
     contacts = [
         {"name": "Blocked Contact", "phone": phone_blocked},

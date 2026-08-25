@@ -1,4 +1,10 @@
-"""Database audio and location evidence registration and portal lookup routines."""
+"""Database audio and location evidence registration and portal lookup routines.
+
+Memory Lifetime & Key Material (F-10):
+Evidence AES media encryption keys transit backend memory during registration and contact portal lookup.
+Callers managing transient media key bytes should utilize mutable `bytearray` structures and invoke
+`zero_sensitive_buffer()` when processing raw cryptographic key material.
+"""
 
 import contextlib
 import logging
@@ -32,7 +38,7 @@ def register_safety_evidence(
         "user_id": user_id,
         "alert_id": alert_id,
         "storage_path": storage_path,
-        "media_key_base64": encrypt_to_hex(media_key_base64),
+        "media_key_base64": encrypt_to_hex(media_key_base64, category="media_escrow"),
         "content_type": content_type,
     }
     if duration_seconds is not None:
@@ -74,7 +80,7 @@ def fetch_evidence_for_alert_ids(alert_ids: list[str]) -> list[dict[str, Any]]:
             key = row.get("media_key_base64")
             if key:
                 with contextlib.suppress(Exception):
-                    row["media_key_base64"] = decrypt_pii(key)
+                    row["media_key_base64"] = decrypt_pii(key, category="media_escrow")
         return rows
     except APIError as e:
         logger.exception(

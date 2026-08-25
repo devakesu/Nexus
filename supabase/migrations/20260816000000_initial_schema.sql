@@ -62,7 +62,7 @@ $$;
 
 ALTER FUNCTION "public"."apply_age_change"("p_user_id" "uuid", "p_new_age" integer, "p_min_interval_days" integer, "p_max_changes" integer) OWNER TO "postgres";
 
-CREATE OR REPLACE FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "text", "p_min_interval_days" integer DEFAULT 365, "p_max_changes" integer DEFAULT 2) RETURNS timestamp with time zone
+CREATE OR REPLACE FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "bytea", "p_min_interval_days" integer DEFAULT 365, "p_max_changes" integer DEFAULT 2) RETURNS timestamp with time zone
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
     AS $$
@@ -91,7 +91,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "text", "p_min_interval_days" integer, "p_max_changes" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "bytea", "p_min_interval_days" integer, "p_max_changes" integer) OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."check_match_precondition"() RETURNS "trigger"
     LANGUAGE "plpgsql"
@@ -993,17 +993,21 @@ CREATE TABLE IF NOT EXISTS "public"."feedback_reports" (
     CONSTRAINT "feedback_reports_device_info_object_check" CHECK (("jsonb_typeof"("device_info") = 'object'::"text")),
     CONSTRAINT "feedback_reports_github_url_format_check" CHECK ((("github_issue_url" IS NULL) OR ("github_issue_url" ~~ 'https://github.com/%'::"text"))),
     CONSTRAINT "feedback_reports_github_url_scope_check" CHECK ((("github_issue_url" IS NULL) OR ("query_type" = 'bug_report'::"text"))),
-    CONSTRAINT "feedback_reports_message_length_check" CHECK ((("char_length"(TRIM(BOTH FROM "message")) >= 10) AND ("char_length"(TRIM(BOTH FROM "message")) <= 5000))),
+    CONSTRAINT "feedback_reports_message_length_check" CHECK ((("char_length"(TRIM(BOTH FROM "message")) >= 10) AND ("char_length"(TRIM(BOTH FROM "message")) <= 25000))),
     CONSTRAINT "feedback_reports_metadata_object_check" CHECK (("jsonb_typeof"("metadata") = 'object'::"text")),
     CONSTRAINT "feedback_reports_platform_check" CHECK ((("platform" IS NULL) OR ("platform" = ANY (ARRAY['android'::"text", 'ios'::"text"])))),
     CONSTRAINT "feedback_reports_query_type_check" CHECK (("query_type" = ANY (ARRAY['help'::"text", 'feedback'::"text", 'bug_report'::"text", 'suspended'::"text", 'security'::"text", 'legal_grievance'::"text", 'other'::"text"]))),
     CONSTRAINT "feedback_reports_status_check" CHECK (("status" = ANY (ARRAY['open'::"text", 'in_progress'::"text", 'resolved'::"text", 'closed'::"text"]))),
-    CONSTRAINT "feedback_reports_subject_length_check" CHECK ((("char_length"(TRIM(BOTH FROM "subject")) >= 3) AND ("char_length"(TRIM(BOTH FROM "subject")) <= 150)))
+    CONSTRAINT "feedback_reports_subject_length_check" CHECK ((("char_length"(TRIM(BOTH FROM "subject")) >= 3) AND ("char_length"(TRIM(BOTH FROM "subject")) <= 2000)))
 );
 
 ALTER TABLE "public"."feedback_reports" OWNER TO "postgres";
 
 COMMENT ON TABLE "public"."feedback_reports" IS 'User-submitted Help, Feedback & Bug Report tickets. Status changes are logged to feedback_report_status_history via trigger.';
+
+COMMENT ON COLUMN "public"."feedback_reports"."subject" IS 'Encrypted ticket subject stored as ciphertext (TEXT / Fernet hex). Encrypted via encrypt_to_hex(category="contact") in backend and decrypted via decrypt_pii().';
+
+COMMENT ON COLUMN "public"."feedback_reports"."message" IS 'Encrypted ticket body stored as ciphertext (TEXT / Fernet hex). Encrypted via encrypt_to_hex(category="contact") in backend and decrypted via decrypt_pii().';
 
 COMMENT ON COLUMN "public"."feedback_reports"."query_type" IS 'Ticket category: help, feedback, bug_report, suspended, security, legal_grievance, or other.';
 
@@ -1120,7 +1124,7 @@ COMMENT ON TABLE "public"."profile_pseudonym_map" IS 'Private identity bridge ma
 
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL,
-    "name" "text" NOT NULL,
+    "name" "bytea" NOT NULL,
     "age" integer NOT NULL,
     "search_bucket" "text" DEFAULT 'NB'::"text" NOT NULL,
     "pronouns" "bytea",
@@ -1188,7 +1192,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     CONSTRAINT "profiles_age_check" CHECK ((("age" >= 18) AND ("age" <= 80))),
     CONSTRAINT "profiles_dating_target_buckets_check" CHECK ("public"."validate_array_values"("dating_target_buckets", ARRAY['M'::"text", 'F'::"text", 'NB'::"text", 'Open'::"text"])),
     CONSTRAINT "profiles_friends_target_buckets_check" CHECK ("public"."validate_array_values"("friends_target_buckets", ARRAY['M'::"text", 'F'::"text", 'NB'::"text", 'Open'::"text"])),
-    CONSTRAINT "profiles_name_check" CHECK ((("char_length"("name") >= 2) AND ("char_length"("name") <= 100))),
+    CONSTRAINT "profiles_name_check" CHECK (("octet_length"("name") > 0)),
     CONSTRAINT "profiles_professional_target_buckets_check" CHECK ("public"."validate_array_values"("professional_target_buckets", ARRAY['M'::"text", 'F'::"text", 'NB'::"text", 'Open'::"text"])),
     CONSTRAINT "profiles_year_check" CHECK ((("campus_year" >= 1) AND ("campus_year" <= 5)))
 );
@@ -1245,11 +1249,15 @@ COMMENT ON COLUMN "public"."profiles"."current_place" IS 'Encrypted Current Plac
 
 COMMENT ON COLUMN "public"."profiles"."pronouns" IS 'Encrypted pronouns of the user profile.';
 
-COMMENT ON COLUMN "public"."profiles"."bio" IS 'Encrypted user bio/self-description, max 1000 characters.';
+COMMENT ON COLUMN "public"."profiles"."name" IS 'Encrypted display name stored as ciphertext (BYTEA). Fernet encrypted via encrypt_to_hex() in backend and decrypted via decrypt_pii().';
 
-COMMENT ON COLUMN "public"."profiles"."search_bucket" IS 'Allowed inbound discovery category (single value) used to route this profile.';
+COMMENT ON COLUMN "public"."profiles"."age" IS 'Deliberately stored as plaintext integer (range 18-80) to support indexed range and filtering queries in discovery matching without expensive decryption loops.';
 
-COMMENT ON COLUMN "public"."profiles"."dating_for" IS 'Predefined terms indicating what the user is dating for (e.g. short, long, fling, hookups).';
+COMMENT ON COLUMN "public"."profiles"."campus_year" IS 'Deliberately stored as plaintext integer (range 1-5) to support indexed cohort/year filtering in discovery matching without decryption.';
+
+COMMENT ON COLUMN "public"."profiles"."search_bucket" IS 'Deliberately stored as plaintext categorical string (''M'', ''F'', ''NB'') to support fast indexed demographic routing and target bucket partitioning in discovery matching.';
+
+COMMENT ON COLUMN "public"."profiles"."dating_for" IS 'Deliberately stored as plaintext text[] backed by PostgreSQL GIN index (idx_profiles_dating_for) to support high-performance set-overlap filtering in discovery stage 1 candidate search queries without requiring client-side decryption loops over millions of profile rows (F-13 documented trade-off).';
 
 COMMENT ON COLUMN "public"."profiles"."children_plans_blind_index" IS 'HMAC-SHA256 of decrypted children_plans value for equality filtering without decryption.';
 
@@ -2558,8 +2566,8 @@ GRANT ALL ON FUNCTION "public"."vector"("public"."vector", integer, boolean) TO 
 REVOKE ALL ON FUNCTION "public"."apply_age_change"("p_user_id" "uuid", "p_new_age" integer, "p_min_interval_days" integer, "p_max_changes" integer) FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_age_change"("p_user_id" "uuid", "p_new_age" integer, "p_min_interval_days" integer, "p_max_changes" integer) TO "service_role";
 
-REVOKE ALL ON FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "text", "p_min_interval_days" integer, "p_max_changes" integer) FROM PUBLIC, "anon", "authenticated";
-GRANT ALL ON FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "text", "p_min_interval_days" integer, "p_max_changes" integer) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "bytea", "p_min_interval_days" integer, "p_max_changes" integer) FROM PUBLIC, "anon", "authenticated";
+GRANT ALL ON FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "bytea", "p_min_interval_days" integer, "p_max_changes" integer) TO "service_role";
 
 GRANT ALL ON FUNCTION "public"."binary_quantize"("public"."halfvec") TO "postgres";
 GRANT ALL ON FUNCTION "public"."binary_quantize"("public"."halfvec") TO "anon";

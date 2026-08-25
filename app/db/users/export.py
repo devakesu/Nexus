@@ -403,6 +403,13 @@ def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
         user_id,
     )
     for ticket in tickets:
+        for field in ("subject", "message"):
+            val = ticket.get(field)
+            if val and isinstance(val, (str, bytes, memoryview)):
+                try:
+                    ticket[field] = decrypt_pii(val, category="contact")
+                except DecryptFailedError:
+                    pass
         report_id = str(ticket.get("id") or "")
         if not report_id:
             continue

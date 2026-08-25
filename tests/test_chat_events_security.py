@@ -288,10 +288,10 @@ def test_create_event_with_message_encrypts_location_and_time_at_rest() -> None:
         assert inserted_payload["event_time"] != event_time.isoformat()
 
         # Verify they can be decrypted with decrypt_pii
-        assert float(decrypt_pii(inserted_payload["location_lat"])) == lat
-        assert float(decrypt_pii(inserted_payload["location_lng"])) == lng
-        assert decrypt_pii(inserted_payload["location_label"]) == label
-        assert decrypt_pii(inserted_payload["event_time"]) == event_time.isoformat()
+        assert float(decrypt_pii(inserted_payload["location_lat"], category="chat")) == lat
+        assert float(decrypt_pii(inserted_payload["location_lng"], category="chat")) == lng
+        assert decrypt_pii(inserted_payload["location_label"], category="chat") == label
+        assert decrypt_pii(inserted_payload["event_time"], category="chat") == event_time.isoformat()
 
         # Verify returned result is properly decrypted
         assert result["event"]["location_lat"] == lat
@@ -306,10 +306,10 @@ def test_decrypt_event_row_handles_encrypted_and_empty_fields() -> None:
 
     encrypted_row = {
         "id": "evt-456",
-        "event_time": encrypt_to_hex("2026-08-25T19:00:00+00:00"),
-        "location_lat": encrypt_to_hex("40.7128"),
-        "location_lng": encrypt_to_hex("-74.0060"),
-        "location_label": encrypt_to_hex("Empire State Building"),
+        "event_time": encrypt_to_hex("2026-08-25T19:00:00+00:00", category="chat"),
+        "location_lat": encrypt_to_hex("40.7128", category="chat"),
+        "location_lng": encrypt_to_hex("-74.0060", category="chat"),
+        "location_label": encrypt_to_hex("Empire State Building", category="chat"),
     }
 
     decrypted = decrypt_event_row(dict(encrypted_row))

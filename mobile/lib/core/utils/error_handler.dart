@@ -50,7 +50,7 @@ class ErrorHandler {
 
     // 2. Sanitize authorization/bearer tokens and keys
     final tokenRegex = RegExp(
-      r'(bearer|auth|token|authorization|key|password|secret|jwt|access_token|refresh_token)[=\s:]+([A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*|[A-Za-z0-9-_.+/=]{8,})',
+      r'(bearer|auth|token|authorization|key|password|secret|jwt|access_token|refresh_token|media_key|media_key_base64|mediakey|aes_key|blind_index|otp_hash|otp_code|private_key|prekey|signed_prekey|registration_lock|encryption_key)[=\s:]+([A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*|[A-Za-z0-9-_.+/=]{8,})',
       caseSensitive: false,
     );
     sanitized = sanitized.replaceAllMapped(tokenRegex, (match) {
@@ -60,7 +60,7 @@ class ErrorHandler {
 
     // 3. Sanitize typical JSON fields or raw query parameters with passwords/secrets
     final fieldRegex = RegExp(
-      r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
+      r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token"|"media_key"|"media_key_base64"|"mediakey"|"aes_key"|"blind_index"|"otp_hash"|"otp_code"|"private_key"|"prekey"|"signed_prekey"|"registration_lock"|"encryption_key"|"[a-z0-9-_]*key"|"[a-z0-9-_]*index")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
       caseSensitive: false,
     );
     sanitized = sanitized.replaceAllMapped(fieldRegex, (match) {
@@ -81,7 +81,7 @@ class ErrorHandler {
   /// Checks whether a key indicates sensitive authentication or security data.
   static bool isSensitiveKey(String key) {
     final sensitiveKeyRegex = RegExp(
-      '(bearer|auth|token|authorization|password|secret|jwt|access_token|refresh_token|credential|cookie|session|media_key|private_key)',
+      '(bearer|auth|token|authorization|password|secret|jwt|access_token|refresh_token|credential|cookie|session|media_key|media_key_base64|mediakey|aes_key|blind_index|otp_hash|otp_code|private_key|prekey|signed_prekey|registration_lock|encryption_key)',
       caseSensitive: false,
     );
     return sensitiveKeyRegex.hasMatch(key.trim());

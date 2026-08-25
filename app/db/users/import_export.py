@@ -281,14 +281,18 @@ def execute_import(
         if value is not None:
             if isinstance(value, str) and value.startswith("\\x"):
                 try:
-                    decrypted = decrypt_pii(value)
-                    copy_payload[field] = encrypt_to_hex(decrypted) if decrypted else None
-                except DecryptFailedError:
-                    logger.warning(
-                        "Failed to re-encrypt imported field during flavor import; copying raw ciphertext",
+                    decrypted = decrypt_pii(value, category="profile")
+                    copy_payload[field] = encrypt_to_hex(decrypted, category="profile") if decrypted else None
+                except DecryptFailedError as err:
+                    logger.error(
+                        "Cannot import corrupted or undecryptable field '%s' during flavor import",
+                        field,
                         extra={"field": field, "source_id": source.get("id")},
                     )
-                    copy_payload[field] = value
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Source profile contains corrupted or undecryptable data in field '{field}'. Import aborted.",
+                    ) from err
             else:
                 copy_payload[field] = value
             copied_fields.append(field)

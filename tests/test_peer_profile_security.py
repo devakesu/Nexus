@@ -95,3 +95,35 @@ async def test_verify_peer_access_with_match(
     mock_find_like.assert_called_once_with(target_uuid, viewer_uuid)
     mock_find_match.assert_called_once_with(target_uuid, viewer_uuid)
 
+
+def test_fetch_peer_profile_by_id_sanitizes_sentinels() -> None:
+    """Verify that fetch_peer_profile_by_id sanitizes any __DECRYPTION_FAILED__ sentinels."""
+    from unittest.mock import MagicMock
+    from app.db.profiles.crud import fetch_peer_profile_by_id
+
+    mock_row = {
+        "id": "target-123",
+        "name": "\\xdeadbeef",  # Corrupted ciphertext
+        "bio": "\\xdeadbeef",
+        "normal_pics": "\\xdeadbeef",
+        "interests": "\\xdeadbeef",
+        "is_deactivated": False,
+    }
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[mock_row])
+
+    with patch("app.db.profiles.crud.supabase_client.table", return_value=mock_builder):
+        res = fetch_peer_profile_by_id("target-123")
+
+    assert res is not None
+    # Sentinels must be stripped to safe empty values, NOT "__DECRYPTION_FAILED__"
+    assert res["name"] == ""
+    assert res["bio"] == ""
+    assert res["normal_pics"] == []
+    assert res["interests"] == {}
+    assert "__DECRYPTION_FAILED__" not in str(res)
+

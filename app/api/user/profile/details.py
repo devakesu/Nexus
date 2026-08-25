@@ -367,6 +367,7 @@ def update_profile_details(  # noqa: C901
         update_data["campus_branch"] = encrypt_to_hex(payload.campus_branch.strip())
         update_data["campus_branch_blind_index"] = compute_blind_index(
             payload.campus_branch,
+            domain="campus_branch",
         )
     if "campus_year" in payload.model_fields_set:
         update_data["campus_year"] = payload.campus_year
@@ -434,16 +435,24 @@ def update_profile_details(  # noqa: C901
         update_data["normal_pics"] = encrypt_to_hex(json.dumps(payload.normal_pics))
 
     if payload.drinking is not None:
-        update_data["drinking_blind_index"] = compute_blind_index(payload.drinking)
+        update_data["drinking_blind_index"] = compute_blind_index(
+            payload.drinking,
+            domain="drinking",
+        )
     if payload.smoking is not None:
-        update_data["smoking_blind_index"] = compute_blind_index(payload.smoking)
+        update_data["smoking_blind_index"] = compute_blind_index(
+            payload.smoking,
+            domain="smoking",
+        )
     if payload.children_plans is not None:
         update_data["children_plans_blind_index"] = compute_blind_index(
             payload.children_plans,
+            domain="children_plans",
         )
     if payload.religious_beliefs is not None:
         update_data["religious_beliefs_blind_index"] = compute_blind_index(
             payload.religious_beliefs,
+            domain="religious_beliefs",
         )
 
     array_fields = [
@@ -499,19 +508,24 @@ def update_profile_details(  # noqa: C901
                 else profile.get("bio")
             )
             if final_bio == "__DECRYPTION_FAILED__":
-                pass
-            else:
-                if (
-                    not isinstance(final_bio, str)
-                    or sum(c.isalpha() for c in final_bio) < 3
-                ):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=(
-                            "Bio is required when orbits are active and "
-                            "must contain at least three alphabetic characters."
-                        ),
-                    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Your bio could not be decrypted. Please update your bio "
+                        "before continuing with active orbits."
+                    ),
+                )
+            if (
+                not isinstance(final_bio, str)
+                or sum(c.isalpha() for c in final_bio) < 3
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Bio is required when orbits are active and "
+                        "must contain at least three alphabetic characters."
+                    ),
+                )
 
     if payload.is_dating_active is not None:
         if payload.is_dating_active:
@@ -620,7 +634,7 @@ def update_profile_details(  # noqa: C901
                     "apply_name_change",
                     {
                         "p_user_id": user_id,
-                        "p_new_name": new_name,
+                        "p_new_name": encrypt_to_hex(new_name),
                         "p_min_interval_days": _NAME_CHANGE_WINDOW_DAYS,
                         "p_max_changes": _NAME_CHANGE_MAX_PER_WINDOW,
                     },

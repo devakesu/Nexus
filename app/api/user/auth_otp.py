@@ -540,7 +540,7 @@ async def request_login_by_phone(
     if current_attempts == 1:
         await redis_client.expire(phone_limit_key, _LOGIN_BY_PHONE_PHONE_WINDOW_SECONDS)
 
-    blind_index = compute_blind_index(phone_norm)
+    blind_index = compute_blind_index(phone_norm, domain="mobile")
     if await run_in_threadpool(is_phone_blocklisted, blind_index):
         await dummy_email_send_delay()
         return LoginByPhoneRequestResponse(sent=True)
@@ -572,7 +572,7 @@ async def verify_login_by_phone(
     _ = request
     phone_norm = normalize_phone(payload.phone)
 
-    blind_index = compute_blind_index(phone_norm)
+    blind_index = compute_blind_index(phone_norm, domain="mobile")
     if await run_in_threadpool(is_phone_blocklisted, blind_index):
         raise HTTPException(status_code=400, detail="Invalid or expired code.")
 

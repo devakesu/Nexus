@@ -145,10 +145,10 @@ def _validate_common_activation(
 
     sub_count = (
         sum(len(v) for v in cast(dict[str, list[str]], val_sub_interests).values())
-        if isinstance(val_sub_interests, dict)
+        if isinstance(val_sub_interests, dict) and val_sub_interests != {"__DECRYPTION_FAILED__": True}
         else 0
     )
-    if val_sub_interests != {"__DECRYPTION_FAILED__": True} and sub_count < 2:
+    if sub_count < 2 or val_sub_interests == {"__DECRYPTION_FAILED__": True}:
         missing.append("interests")
     if (
         not isinstance(val_profile_pic, str)
@@ -163,11 +163,12 @@ def _validate_common_activation(
         or any(p == "__DECRYPTION_FAILED__" for p in cast(list[object], val_normal_pics))
     ):
         missing.append("normal_pics")
-    if val_bio == "__DECRYPTION_FAILED__":
-        pass
-    else:
-        if not isinstance(val_bio, str) or sum(c.isalpha() for c in val_bio) < 3:
-            missing.append("bio")
+    if (
+        val_bio == "__DECRYPTION_FAILED__"
+        or not isinstance(val_bio, str)
+        or sum(c.isalpha() for c in val_bio) < 3
+    ):
+        missing.append("bio")
 
 
 def _validate_dating_activation(

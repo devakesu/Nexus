@@ -1,4 +1,10 @@
-"""Profile field PII encryption, decryption, and payload sanitization routines."""
+"""Profile field PII encryption, decryption, and payload sanitization routines.
+
+Memory Lifetime Considerations (F-10):
+Decrypted profile PII (e.g. bio, name, pronouns, religious beliefs, sexual orientation) is represented
+as immutable Python strings and dictionaries during the HTTP request lifecycle. In CPython,
+immutable string objects remain resident in heap memory until garbage collected.
+"""
 
 import json
 import logging
@@ -139,6 +145,11 @@ def _parse_encrypted_scalar(row: dict[str, Any], field: str) -> None:
     try:
         row[field] = decrypt_pii(raw)
     except DecryptFailedError:
+        logger.error(
+            "Failed to decrypt profile scalar field '%s' due to key rotation or corrupted ciphertext",
+            field,
+            extra={"field": field, "user_id": row.get("id")},
+        )
         row[field] = "__DECRYPTION_FAILED__"
 
 
@@ -154,6 +165,11 @@ def _parse_encrypted_list(row: dict[str, Any], field: str) -> None:
     try:
         decrypted = decrypt_pii(raw)
     except DecryptFailedError:
+        logger.error(
+            "Failed to decrypt profile list field '%s' due to key rotation or corrupted ciphertext",
+            field,
+            extra={"field": field, "user_id": row.get("id")},
+        )
         row[field] = ["__DECRYPTION_FAILED__"]
         return
 
@@ -184,6 +200,11 @@ def _parse_encrypted_dict(row: dict[str, Any], field: str) -> None:
     try:
         decrypted = decrypt_pii(raw)
     except DecryptFailedError:
+        logger.error(
+            "Failed to decrypt profile dict field '%s' due to key rotation or corrupted ciphertext",
+            field,
+            extra={"field": field, "user_id": row.get("id")},
+        )
         row[field] = {"__DECRYPTION_FAILED__": True}
         return
 
@@ -244,7 +265,7 @@ def sanitize_decrypted_profile(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
-    """Decrypt profile_pic on a list of raw profile rows, keyed by profile id."""
+    """Decrypt profile_pic and name on a list of raw profile rows, keyed by profile id."""
     profile_map: dict[str, dict[str, Any]] = {}
     for p in profiles_data:
         if not isinstance(p, dict):
@@ -257,6 +278,12 @@ def decrypt_profile_rows(profiles_data: list[Any]) -> dict[str, dict[str, Any]]:
                 p_dict["profile_pic"] = decrypt_pii(raw_pic)
             except DecryptFailedError:
                 p_dict["profile_pic"] = None
+        raw_name = p_dict.get("name")
+        if raw_name:
+            try:
+                p_dict["name"] = decrypt_pii(raw_name)
+            except DecryptFailedError:
+                p_dict["name"] = None
         profile_map[pid] = p_dict
     sign_profile_media_bulk(list(profile_map.values()))
     return profile_map

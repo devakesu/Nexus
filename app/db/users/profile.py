@@ -66,14 +66,19 @@ def upsert_profile_variant(  # noqa: C901
     existing = fetch_profile(user_id)
     profile_created = existing is None
 
+    encrypted_name = encrypt_to_hex(name.strip())
     encrypted_branch = encrypt_to_hex(campus_branch.strip()) if campus_branch else None
-    branch_blind = compute_blind_index(campus_branch) if campus_branch else None
+    branch_blind = (
+        compute_blind_index(campus_branch, domain="campus_branch")
+        if campus_branch
+        else None
+    )
     encrypted_campus_name = encrypt_to_hex(campus_name.strip()) if campus_name else None
     now_iso = datetime.now(timezone.utc).isoformat()
 
     upsert_payload: dict[str, Any] = {
         "id": user_id,
-        "name": name.strip(),
+        "name": encrypted_name,
         "campus_branch": encrypted_branch,
         "campus_branch_blind_index": branch_blind,
         "campus_year": campus_year,

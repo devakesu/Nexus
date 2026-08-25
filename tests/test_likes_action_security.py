@@ -717,6 +717,7 @@ async def test_get_likes_inbox_filters_blocked_users(
     mock_get_blocks: AsyncMock,
     mock_fetch_likes: MagicMock,
 ) -> None:
+    from app.core.security.crypto import encrypt_to_hex
     from app.api.discovery.likes import get_likes_inbox
 
     viewer_id = "viewer-uuid-123"
@@ -745,7 +746,7 @@ async def test_get_likes_inbox_filters_blocked_users(
     mock_profile_exec.execute.return_value.data = [
         {
             "id": liker_1,
-            "name": "Liker One",
+            "name": encrypt_to_hex("Liker One"),
             "age": 24,
             "profile_pic": "https://example.com/pic1.jpg",
             "is_deactivated": False,

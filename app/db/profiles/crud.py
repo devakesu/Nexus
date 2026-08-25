@@ -15,6 +15,7 @@ from app.db.profiles.encryption import (
     decrypt_profile_field,
     decrypt_profile_fields,
     decrypt_profile_record,
+    sanitize_decrypted_profile,
 )
 from app.db.profiles.media import sign_profile_media
 from app.models import DiscoveryFilters
@@ -138,7 +139,8 @@ def _apply_blind_index_filters(query: Any, filters: DiscoveryFilters) -> Any:
     ]
     for values, column in blind_fields:
         if values:
-            query = query.in_(column, [compute_blind_index(v) for v in values])
+            domain = column.removesuffix("_blind_index")
+            query = query.in_(column, [compute_blind_index(v, domain=domain) for v in values])
     return query
 
 
@@ -558,7 +560,7 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
             images = row["ordered_images"]
             if isinstance(images, list) and images:
                 row["profile_pic"] = images[0]
-        return sign_profile_media(decrypt_profile_record(row))
+        return sign_profile_media(sanitize_decrypted_profile(decrypt_profile_record(row)))
     except APIError as e:
         logger.exception(
             "Failed to fetch peer profile",

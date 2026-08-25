@@ -38,7 +38,7 @@ def _decrypt_session_row(row: dict[str, Any]) -> dict[str, Any]:
     raw_label = row.get("label")
     if raw_label:
         try:
-            row["label"] = decrypt_pii(raw_label)
+            row["label"] = decrypt_pii(raw_label, category="media_escrow")
         except Exception:
             pass
 
@@ -47,7 +47,7 @@ def _decrypt_session_row(row: dict[str, Any]) -> dict[str, Any]:
         if raw_event_context:
             if isinstance(raw_event_context, (str, bytes, memoryview)):
                 try:
-                    decrypted = decrypt_pii(raw_event_context)
+                    decrypted = decrypt_pii(raw_event_context, category="media_escrow")
                     if decrypted:
                         row["event_context"] = json.loads(decrypted)
                     else:
@@ -76,9 +76,9 @@ def start_safety_session(
     Raises EscalationInProgressError if there is an active session currently escalating.
     """
     user_id = normalize_uuid(user_id)
-    encrypted_label = encrypt_to_hex(label) if label else None
+    encrypted_label = encrypt_to_hex(label, category="media_escrow") if label else None
     encrypted_event_context = (
-        encrypt_to_hex(json.dumps(event_context))
+        encrypt_to_hex(json.dumps(event_context), category="media_escrow")
         if event_context
         else None
     )

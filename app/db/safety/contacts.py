@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def _phone_blind_index(phone: str) -> str:
     """Computes HMAC blind index for a phone number."""
-    return compute_blind_index(normalize_phone(phone))
+    return compute_blind_index(normalize_phone(phone), domain="safety_contact_phone")
 
 
 def sync_safety_contacts(
@@ -38,8 +38,8 @@ def sync_safety_contacts(
         blind_index = _phone_blind_index(phone)
         by_blind_index[blind_index] = c
         contacts_payload.append({
-            "name": encrypt_to_hex(c.get("name")),
-            "phone": encrypt_to_hex(c.get("phone")),
+            "name": encrypt_to_hex(c.get("name"), category="contact"),
+            "phone": encrypt_to_hex(c.get("phone"), category="contact"),
             "phone_blind_index": blind_index,
         })
 
@@ -102,8 +102,8 @@ def fetch_safety_contacts(user_id: str) -> list[dict[str, Any]]:
         )
         data = cast(list[dict[str, Any]], res.data or [])
         for row in data:
-            row["name"] = decrypt_pii(row.get("name"))
-            row["phone"] = decrypt_pii(row.get("phone"))
+            row["name"] = decrypt_pii(row.get("name"), category="contact")
+            row["phone"] = decrypt_pii(row.get("phone"), category="contact")
         return data
     except APIError as e:
         logger.exception(
@@ -124,8 +124,8 @@ def fetch_safety_contacts_with_id(user_id: str) -> list[dict[str, Any]]:
         )
         data = cast(list[dict[str, Any]], res.data or [])
         for row in data:
-            row["name"] = decrypt_pii(row.get("name"))
-            row["phone"] = decrypt_pii(row.get("phone"))
+            row["name"] = decrypt_pii(row.get("name"), category="contact")
+            row["phone"] = decrypt_pii(row.get("phone"), category="contact")
         return data
     except APIError as e:
         logger.exception(
@@ -153,8 +153,8 @@ def fetch_safety_contact_by_id(contact_id: str) -> dict[str, Any] | None:
             "Failed to fetch safety contact by id", extra={"contact_id": contact_id},
         )
         raise DatabaseAccessError("Failed to fetch safety contact") from e
-    row["name"] = decrypt_pii(row.get("name"))
-    row["phone"] = decrypt_pii(row.get("phone"))
+    row["name"] = decrypt_pii(row.get("name"), category="contact")
+    row["phone"] = decrypt_pii(row.get("phone"), category="contact")
     return row
 
 

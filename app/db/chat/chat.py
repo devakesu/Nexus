@@ -676,7 +676,7 @@ def _decrypt_float_field(val: Any) -> float | None:
         return None
     from app.core.security.crypto import DecryptFailedError
     try:
-        return float(decrypt_pii(val))
+        return float(decrypt_pii(val, category="chat"))
     except DecryptFailedError:
         with contextlib.suppress(ValueError, TypeError):
             return float(val)
@@ -694,7 +694,7 @@ def _decrypt_str_field(val: Any) -> str | None:
         return None
     from app.core.security.crypto import DecryptFailedError
     with contextlib.suppress(DecryptFailedError):
-        return decrypt_pii(val)
+        return decrypt_pii(val, category="chat")
     return str(val)
 
 
@@ -714,7 +714,7 @@ def decrypt_event_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
     event_time_raw = row.get("event_time")
     if event_time_raw:
         try:
-            decrypted = decrypt_pii(event_time_raw)
+            decrypted = decrypt_pii(event_time_raw, category="chat")
             row["event_time"] = parse_utc_datetime(decrypted)
         except DecryptFailedError:
             with contextlib.suppress(Exception):
@@ -758,19 +758,19 @@ def create_event_with_message(
                     "conversation_id": conversation_id,
                     "message_id": message_id,
                     "created_by": sender_id,
-                    "event_time": encrypt_to_hex(event_time.isoformat()),
+                    "event_time": encrypt_to_hex(event_time.isoformat(), category="chat"),
                     "location_lat": (
-                        encrypt_to_hex(str(location_lat))
+                        encrypt_to_hex(str(location_lat), category="chat")
                         if location_lat is not None
                         else None
                     ),
                     "location_lng": (
-                        encrypt_to_hex(str(location_lng))
+                        encrypt_to_hex(str(location_lng), category="chat")
                         if location_lng is not None
                         else None
                     ),
                     "location_label": (
-                        encrypt_to_hex(location_label)
+                        encrypt_to_hex(location_label, category="chat")
                         if location_label is not None
                         else None
                     ),

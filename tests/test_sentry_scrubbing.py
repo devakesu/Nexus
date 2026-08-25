@@ -29,6 +29,19 @@ def test_scrub_string_redacts_emails_and_secrets() -> None:
     assert "[REDACTED_SENSITIVE]" in scrubbed
 
 
+def test_scrub_string_redacts_media_keys() -> None:
+    text1 = "Upload evidence with media_key=dGVzdC1rZXktYmFzZTY0"
+    text2 = 'JSON payload: {"media_key_base64": "dGVzdC1rZXktYmFzZTY0"}'
+    text3 = "media_key_base64: dGVzdC1rZXktYmFzZTY0"
+
+    assert "[REDACTED_SENSITIVE]" in _scrub_string(text1)
+    assert "[REDACTED_SENSITIVE]" in _scrub_string(text2)
+    assert "[REDACTED_SENSITIVE]" in _scrub_string(text3)
+    assert "dGVzdC1rZXktYmFzZTY0" not in _scrub_string(text1)
+    assert "dGVzdC1rZXktYmFzZTY0" not in _scrub_string(text2)
+    assert "dGVzdC1rZXktYmFzZTY0" not in _scrub_string(text3)
+
+
 def test_scrub_event_deep_scrubbing() -> None:
     raw_event: dict[str, Any] = {
         "message": "Failed SMS dispatch to +14155552671",
@@ -74,7 +87,7 @@ def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
                 "media_key_base64": "dGVzdC1rZXktYmFzZTY0",
                 "safe_field": "visible_data",
             },
-            "auth_payload": {
+            "user_payload": {
                 "password": "mysecretpassword123",
                 "jwt": "eyJhbGciOi...",
                 "authorization": "Bearer token123",
@@ -94,10 +107,63 @@ def test_scrub_event_redacts_sensitive_dictionary_keys() -> None:
     assert extra["response"]["session_id"] == "[REDACTED_SENSITIVE]"
     assert extra["response"]["media_key_base64"] == "[REDACTED_SENSITIVE]"
     assert extra["response"]["safe_field"] == "visible_data"
-    assert extra["auth_payload"]["password"] == "[REDACTED_SENSITIVE]"
-    assert extra["auth_payload"]["jwt"] == "[REDACTED_SENSITIVE]"
-    assert extra["auth_payload"]["authorization"] == "[REDACTED_SENSITIVE]"
-    assert extra["auth_payload"]["media_key"] == "[REDACTED_SENSITIVE]"
+    assert extra["user_payload"]["password"] == "[REDACTED_SENSITIVE]"
+    assert extra["user_payload"]["jwt"] == "[REDACTED_SENSITIVE]"
+    assert extra["user_payload"]["authorization"] == "[REDACTED_SENSITIVE]"
+    assert extra["user_payload"]["media_key"] == "[REDACTED_SENSITIVE]"
+
+
+def test_scrub_event_f05_media_key_and_blind_index_coverage() -> None:
+    # 1. Direct extra media_key_base64
+    event1 = cast(Event, {"extra": {"media_key_base64": "abc123"}})
+    scrubbed1 = cast(dict[str, Any], scrub_event(event1, {}))
+    assert scrubbed1 is not None
+    assert scrubbed1["extra"]["media_key_base64"] == "[REDACTED_SENSITIVE]"
+
+    # 2. Request body data with media_key_base64
+    event2 = cast(Event, {"request": {"data": {"media_key_base64": "k"}}})
+    scrubbed2 = cast(dict[str, Any], scrub_event(event2, {}))
+    assert scrubbed2 is not None
+    assert scrubbed2["request"]["data"]["media_key_base64"] == "[REDACTED_SENSITIVE]"
+
+    # 3. blind_index, otp_hash, aes_key in extras and stack frame vars
+    event3 = cast(
+        Event,
+        {
+            "extra": {
+                "blind_index": "hmac_secret_hex",
+                "otp_hash": "argon2_or_sha256_hash",
+                "aes_key": "aes_gcm_secret",
+            },
+            "exception": {
+                "values": [
+                    {
+                        "stacktrace": {
+                            "frames": [
+                                {
+                                    "vars": {
+                                        "blind_index": "5f4dcc3b5aa765d61d8327deb882cf99",
+                                        "media_key": "aes_secret_key",
+                                        "otp_hash": "otp_salt_hash",
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            },
+        },
+    )
+    scrubbed3 = cast(dict[str, Any], scrub_event(event3, {}))
+    assert scrubbed3 is not None
+    assert scrubbed3["extra"]["blind_index"] == "[REDACTED_SENSITIVE]"
+    assert scrubbed3["extra"]["otp_hash"] == "[REDACTED_SENSITIVE]"
+    assert scrubbed3["extra"]["aes_key"] == "[REDACTED_SENSITIVE]"
+
+    vars_scrubbed = scrubbed3["exception"]["values"][0]["stacktrace"]["frames"][0]["vars"]
+    assert vars_scrubbed["blind_index"] == "[REDACTED_SENSITIVE]"
+    assert vars_scrubbed["media_key"] == "[REDACTED_SENSITIVE]"
+    assert vars_scrubbed["otp_hash"] == "[REDACTED_SENSITIVE]"
 
 
 def test_scrub_event_scrubs_stack_frame_local_vars() -> None:

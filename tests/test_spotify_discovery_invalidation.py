@@ -468,7 +468,7 @@ def test_replace_playlists_trims_bloated_tracks() -> None:
     assert row["spotify_playlist_id"] == "playlist-123"
 
     # Decrypt and check stored tracks
-    decrypted_tracks_json = decrypt_pii(row["tracks"])
+    decrypted_tracks_json = decrypt_pii(row["tracks"], category="oauth")
     stored_tracks = json.loads(decrypted_tracks_json)
     # Bounded to 25 items max
     assert len(stored_tracks) == 25
@@ -504,3 +504,30 @@ async def test_revoke_refresh_token_logs_exception_class_without_exc_info(
     args, kwargs = mock_logger.warning.call_args
     assert "Failed to revoke Spotify token at provider: ConnectTimeout" in (args[0] % args[1:])
     assert kwargs.get("exc_info") is not True
+
+
+def test_mark_sync_result_sanitizes_spotify_user_ids_and_tokens() -> None:
+    from app.db.spotify import _sanitize_sync_error, mark_sync_result
+
+    raw_err = "Failed to fetch playlist for spotify:user:alice_smith_123456789 with bearer 1234567890abcdef and contact test@example.com"
+    sanitized = _sanitize_sync_error(raw_err)
+    assert sanitized is not None
+    assert "spotify:user:[REDACTED]" in sanitized
+    assert "alice_smith_123456789" not in sanitized
+    assert "bearer [REDACTED]" in sanitized
+    assert "[EMAIL_REDACTED]" in sanitized
+
+    # Verify mark_sync_result stores sanitized error
+    with patch("app.db.spotify.supabase_client.table") as mock_table:
+        mock_builder = MagicMock()
+        mock_builder.update.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_table.return_value = mock_builder
+
+        mark_sync_result("user-1", "failed", error=raw_err)
+
+        mock_table.assert_called_once_with("spotify_connections")
+        mock_builder.update.assert_called_once()
+        update_arg = mock_builder.update.call_args[0][0]
+        assert "spotify:user:[REDACTED]" in update_arg["last_sync_error"]
+        assert "alice_smith" not in update_arg["last_sync_error"]

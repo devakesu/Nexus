@@ -50,9 +50,13 @@ def main() -> None:
             update: dict[str, Any] = {}
 
             if cp := profile.get("children_plans"):
-                update["children_plans_blind_index"] = compute_blind_index(cp)
+                update["children_plans_blind_index"] = compute_blind_index(
+                    cp, domain="children_plans",
+                )
             if rb := profile.get("religious_beliefs"):
-                update["religious_beliefs_blind_index"] = compute_blind_index(rb)
+                update["religious_beliefs_blind_index"] = compute_blind_index(
+                    rb, domain="religious_beliefs",
+                )
 
             if update:
                 supabase_client.table("profiles").update(update).eq(

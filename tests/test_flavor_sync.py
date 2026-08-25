@@ -270,8 +270,49 @@ def test_execute_import_reencrypts_encrypted_fields() -> None:
         assert "lifestyle" in copied
         assert "search_bucket" in copied
 
-        mock_decrypt.assert_called_once_with("\\x6f6c64636970686572")
-        mock_encrypt.assert_called_once_with("Active gym goer")
+        mock_decrypt.assert_called_once_with("\\x6f6c64636970686572", category="profile")
+        mock_encrypt.assert_called_once_with("Active gym goer", category="profile")
+
+
+def test_execute_import_undecryptable_field_fails_409() -> None:
+    from app.core.security.crypto import DecryptFailedError
+    from app.db.users.import_export import execute_import
+
+    source_profile = {
+        "id": "flavor-user-10",
+        "app_variant": "nexus_mec",
+        "campus_branch": "CSE",
+        "lifestyle": "\\xdeadbeef",
+        "import_sync_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+    }
+    target_profile = {
+        "id": "main-user-10",
+        "app_variant": "nexus",
+        "campus_branch": "CSE",
+    }
+    source_user_row = {
+        "id": "flavor-user-10",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+        "deletion_requested_at": None,
+    }
+
+    with patch(
+        "app.db.users.import_export._fetch_import_profiles",
+        return_value=(source_profile, target_profile),
+    ), patch(
+        "app.db.users.import_export.fetch_public_user",
+        return_value=source_user_row,
+    ), patch(
+        "app.db.users.import_export.decrypt_pii",
+        side_effect=DecryptFailedError("Corrupted or wrong rotation key"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            execute_import(target_user_id="main-user-10", sync_code="XYZ789")
+
+        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+        assert "corrupted or undecryptable data in field 'lifestyle'" in exc_info.value.detail
 
 
 def test_execute_import_concurrent_claim_fails_409() -> None:

@@ -62,7 +62,15 @@ class _PendingSegment {
       final ciphertext = base64Decode(encryptedMediaKeyBase64!);
       final decrypted = await LocalKeyVault.instance.decryptBytes(ciphertext);
       return utf8.decode(decrypted);
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        level: ErrorLevel.warning,
+        showUi: false,
+        customMessage:
+            'LocalKeyVault decryption failed for pending media key; attempting fallback (F-15)',
+      );
       // Fallback for legacy unencrypted key
       return encryptedMediaKeyBase64;
     }
@@ -75,7 +83,14 @@ class _PendingSegment {
         Uint8List.fromList(utf8.encode(rawKeyBase64)),
       );
       return base64Encode(encryptedBytes);
-    } on Object catch (_) {
+    } on Object catch (e, stackTrace) {
+      ErrorHandler.handleError(
+        e,
+        stackTrace: stackTrace,
+        showUi: false,
+        customMessage:
+            'LocalKeyVault Keystore/Keychain encryption failed for pending media key (F-15)',
+      );
       return rawKeyBase64;
     }
   }

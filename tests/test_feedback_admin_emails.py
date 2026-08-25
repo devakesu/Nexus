@@ -396,3 +396,97 @@ def test_close_ticket_db_sets_reviewed_by_none() -> None:
         assert "reviewed_at" in update_args
 
 
+def test_record_feedback_submission_encrypts_subject_and_message() -> None:
+    from app.core.security.crypto import decrypt_pii
+    from app.db.feedback.feedback import record_feedback_submission
+
+    mock_builder = MagicMock()
+    mock_builder.insert.return_value = mock_builder
+    mock_builder.select.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[{"id": "fb-1", "status": "open", "created_at": "2026-08-25T00:00:00Z"}])
+
+    with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_builder):
+        res = record_feedback_submission(
+            user_id="user-1",
+            query_type="bug_report",
+            subject="Cannot upload photos",
+            message="Every time I select a photo it fails with error code 500.",
+        )
+        assert res["id"] == "fb-1"
+
+        inserted_payload = mock_builder.insert.call_args[0][0]
+        assert inserted_payload["subject"] != "Cannot upload photos"
+        assert inserted_payload["message"] != "Every time I select a photo it fails with error code 500."
+        assert decrypt_pii(inserted_payload["subject"], category="contact") == "Cannot upload photos"
+        assert decrypt_pii(inserted_payload["message"], category="contact") == "Every time I select a photo it fails with error code 500."
+
+
+def test_fetch_user_tickets_and_report_decrypts_subject_and_message() -> None:
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.feedback.feedback import fetch_ticket_report, fetch_user_tickets
+
+    enc_sub = encrypt_to_hex("My App Feedback", category="contact")
+    enc_msg = encrypt_to_hex("The interface is smooth and intuitive.", category="contact")
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.order.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(
+        data=[{"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "status": "open", "created_at": "2026-08-25T00:00:00Z"}]
+    )
+
+    with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_builder):
+        tickets = fetch_user_tickets(user_id="user-2")
+        assert len(tickets) == 1
+        assert tickets[0]["subject"] == "My App Feedback"
+
+    mock_detail_builder = MagicMock()
+    mock_detail_builder.select.return_value = mock_detail_builder
+    mock_detail_builder.eq.return_value = mock_detail_builder
+    mock_detail_builder.maybe_single.return_value = mock_detail_builder
+    mock_detail_builder.execute.return_value = MagicMock(
+        data={"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "message": enc_msg, "status": "open"}
+    )
+
+    with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_detail_builder):
+        detail = fetch_ticket_report(user_id="user-2", report_id="fb-2")
+        assert detail is not None
+        assert detail["subject"] == "My App Feedback"
+        assert detail["message"] == "The interface is smooth and intuitive."
+
+
+def test_export_feedback_section_decrypts_subject_and_message() -> None:
+    from app.core.security.crypto import encrypt_to_hex
+    from app.db.users.export import _build_feedback_section
+
+    enc_sub = encrypt_to_hex("Exported Ticket Subject", category="contact")
+    enc_msg = encrypt_to_hex("Exported Ticket Message Content", category="contact")
+
+    mock_rows = [
+        {
+            "id": "fb-3",
+            "query_type": "help",
+            "subject": enc_sub,
+            "message": enc_msg,
+            "status": "resolved",
+            "created_at": "2026-08-25T00:00:00Z",
+            "updated_at": "2026-08-25T01:00:00Z",
+        }
+    ]
+
+    with patch("app.db.users.export._safe_select", return_value=mock_rows), patch(
+        "app.db.users.export.supabase_client.table"
+    ) as mock_table:
+        mock_builder = MagicMock()
+        mock_builder.select.return_value = mock_builder
+        mock_builder.eq.return_value = mock_builder
+        mock_builder.execute.return_value = MagicMock(data=[])
+        mock_table.return_value = mock_builder
+
+        exported = _build_feedback_section(user_id="user-3")
+        assert len(exported) == 1
+        assert exported[0]["subject"] == "Exported Ticket Subject"
+        assert exported[0]["message"] == "Exported Ticket Message Content"
+
+

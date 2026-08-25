@@ -11,6 +11,7 @@ peer-facing profile view.
 
 import json
 import logging
+import re
 from typing import Any, cast
 
 from postgrest.exceptions import APIError
@@ -57,7 +58,7 @@ def get_decrypted_refresh_token(user_id: str) -> str | None:
     if not raw:
         return None
     try:
-        return decrypt_pii(raw)
+        return decrypt_pii(raw, category="oauth")
     except DecryptFailedError:
         logger.exception(
             "Failed to decrypt spotify refresh token",
@@ -78,7 +79,7 @@ def upsert_connection(
             {
                 "user_id": user_id,
                 "spotify_user_id": spotify_user_id,
-                "refresh_token": encrypt_to_hex(refresh_token_plain) if refresh_token_plain else None,
+                "refresh_token": encrypt_to_hex(refresh_token_plain, category="oauth") if refresh_token_plain else None,
                 "granted_scopes": scopes,
                 "disconnected_at": None,
             },
@@ -92,18 +93,37 @@ def upsert_connection(
         raise DatabaseAccessError("Failed to save Spotify connection") from e
 
 
+_SPOTIFY_USER_URI_RE = re.compile(r"spotify:user:[a-zA-Z0-9_\-]+", re.IGNORECASE)
+_BEARER_TOKEN_RE = re.compile(r"(bearer\s+)[a-zA-Z0-9_\-\.]+", re.IGNORECASE)
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+
+
+def _sanitize_sync_error(error: str | None) -> str | None:
+    """Sanitizes and bounds sync error messages before persistence (F-11).
+
+    Strips Spotify user IDs, authorization tokens, emails, and truncates to 255 chars.
+    """
+    if not error:
+        return None
+    sanitized = _SPOTIFY_USER_URI_RE.sub("spotify:user:[REDACTED]", error)
+    sanitized = _BEARER_TOKEN_RE.sub(r"\1[REDACTED]", sanitized)
+    sanitized = _EMAIL_RE.sub("[EMAIL_REDACTED]", sanitized)
+    return sanitized.strip()[:255]
+
+
 def mark_sync_result(user_id: str, status: str, error: str | None = None) -> None:
     """Record the outcome of the most recent sync attempt on the connection row.
 
     Best-effort: a failure here shouldn't fail the sync itself, since the
     actual artist/playlist data may already have been persisted successfully.
     """
+    sanitized_error = _sanitize_sync_error(error)
     try:
         supabase_client.table("spotify_connections").update(
             {
                 "last_synced_at": utcnow().isoformat(),
                 "last_sync_status": status,
-                "last_sync_error": error,
+                "last_sync_error": sanitized_error,
             },
         ).eq("user_id", user_id).execute()
     except APIError:
@@ -179,10 +199,10 @@ def replace_playlists(user_id: str, playlists: list[dict[str, Any]]) -> None:
             {
                 "user_id": user_id,
                 "spotify_playlist_id": p["spotify_playlist_id"],
-                "name": encrypt_to_hex(p["name"]),
+                "name": encrypt_to_hex(p["name"], category="oauth"),
                 "is_collaborative": bool(p.get("is_collaborative", False)),
                 "track_count": int(p.get("track_count", 0)),
-                "tracks": encrypt_to_hex(json.dumps(trimmed_tracks)),
+                "tracks": encrypt_to_hex(json.dumps(trimmed_tracks), category="oauth"),
                 "synced_at": now_iso,
             },
         )
@@ -246,13 +266,13 @@ def fetch_playlists_for_owner(user_id: str) -> list[dict[str, Any]]:
         row_dict = cast(dict[str, Any], row)
 
         try:
-            row_dict["name"] = decrypt_pii(row_dict.get("name"))
+            row_dict["name"] = decrypt_pii(row_dict.get("name"), category="oauth")
         except DecryptFailedError:
             row_dict["name"] = ""
 
         raw_tracks = row_dict.get("tracks")
         try:
-            decrypted_tracks = decrypt_pii(raw_tracks) if raw_tracks else ""
+            decrypted_tracks = decrypt_pii(raw_tracks, category="oauth") if raw_tracks else ""
             row_dict["tracks"] = (
                 json.loads(decrypted_tracks) if decrypted_tracks else []
             )

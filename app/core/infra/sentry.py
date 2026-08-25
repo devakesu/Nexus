@@ -17,26 +17,49 @@ _PHONE_RE = re.compile(
 )
 _SECRET_RE = re.compile(
     r"(bearer|auth|token|authorization|key|password|secret|jwt|"
-    r"access_token|refresh_token)[=\s:]+"
+    r"access_token|refresh_token|media_key|media_key_base64|mediakey|"
+    r"aes_key|blind_index|otp_hash|otp_code|private_key|prekey|signed_prekey|"
+    r"registration_lock|encryption_key)[=\s:]+"
     r"([A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*|"
     r"[A-Za-z0-9\-_.+/=]{8,})",
     re.IGNORECASE,
 )
 _JSON_FIELD_RE = re.compile(
     r'("password"|"secret"|"token"|"key"|"jwt"|"access_token"|"refresh_token"|'
-    r'"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
+    r'"(?:sb-)?access[-_]token"|"(?:sb-)?refresh[-_]token"|"[a-z0-9-_]*token"|'
+    r'"media_key"|"media_key_base64"|"mediakey"|"aes_key"|"blind_index"|"otp_hash"|'
+    r'"otp_code"|"private_key"|"prekey"|"signed_prekey"|"registration_lock"|'
+    r'"encryption_key"|"[a-z0-9-_]*key"|"[a-z0-9-_]*index")\s*[:=]\s*("[^"]+"|[^\s,}]+)',
     re.IGNORECASE,
 )
 _SENSITIVE_KEY_RE = re.compile(
     r"(bearer|auth|token|authorization|password|secret|jwt|"
-    r"access_token|refresh_token|credential|cookie|session|media_key|private_key)",
+    r"access_token|refresh_token|credential|cookie|session|"
+    r"media_key|media_key_base64|mediakey|aes_key|blind_index|otp_hash|otp_code|"
+    r"private_key|prekey|signed_prekey|registration_lock|encryption_key)",
     re.IGNORECASE,
 )
+_EXACT_SENSITIVE_KEYS = frozenset({
+    "media_key_base64",
+    "media_key",
+    "mediakeybase64",
+    "mediakey",
+    "blind_index",
+    "otp_hash",
+    "otp_code",
+    "aes_key",
+    "access_token",
+    "refresh_token",
+    "private_key",
+})
 
 
 def _is_sensitive_key(key: str) -> bool:
     """Checks whether a dictionary key name indicates sensitive authentication data."""
-    return bool(_SENSITIVE_KEY_RE.search(key.strip()))
+    cleaned = key.strip().lower()
+    if cleaned in _EXACT_SENSITIVE_KEYS:
+        return True
+    return bool(_SENSITIVE_KEY_RE.search(cleaned))
 
 
 def _redact_email(match: re.Match[str]) -> str:
@@ -178,10 +201,7 @@ def scrub_event(event: Event, hint: Hint) -> Event | None:  # noqa: C901
 
     extra = event.get("extra")
     if isinstance(extra, dict):
-        scrubbed_extra: dict[str, Any] = {}
-        for key, value in extra.items():
-            scrubbed_extra[key] = _scrub_object(value)
-        event["extra"] = scrubbed_extra
+        event["extra"] = _scrub_object(extra)
 
     breadcrumbs = event.get("breadcrumbs")
     if isinstance(breadcrumbs, (dict, list)):

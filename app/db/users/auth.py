@@ -173,7 +173,7 @@ def _decrypt_mobile(row: dict[str, Any]) -> dict[str, Any]:
         row["mobile"] = None
         return row
     try:
-        row["mobile"] = decrypt_pii(raw) or None
+        row["mobile"] = decrypt_pii(raw, category="contact") or None
     except DecryptFailedError:
         logger.error(
             "Failed to decrypt mobile for user due to key rotation or corrupted ciphertext",
@@ -240,7 +240,7 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
     """
     from app.db.users import is_phone_blocklisted
 
-    blind_index = compute_blind_index(phone)
+    blind_index = compute_blind_index(phone, domain="mobile")
     if is_phone_blocklisted(blind_index):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -254,7 +254,7 @@ def set_verified_mobile(user_id: str, phone: str) -> None:
     try:
         supabase_client.table("users").update(
             {
-                "mobile": encrypt_to_hex(phone),
+                "mobile": encrypt_to_hex(phone, category="contact"),
                 "mobile_verified_at": now,
                 "mobile_blind_index": blind_index,
             },
@@ -319,7 +319,7 @@ def find_user_id_by_phone(phone: str) -> str | None:
         result = (
             supabase_client.table("users")
             .select("id")
-            .eq("mobile_blind_index", compute_blind_index(phone))
+            .eq("mobile_blind_index", compute_blind_index(phone, domain="mobile"))
             .limit(1)
             .execute()
         )

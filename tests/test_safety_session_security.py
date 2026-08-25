@@ -531,7 +531,7 @@ def test_register_safety_evidence_encrypts_media_key() -> None:
     # Verify the stored key is encrypted hex, and decrypts back to original key
     stored_key = insert_payload["media_key_base64"]
     assert stored_key.startswith("\\x")
-    assert decrypt_pii(stored_key) == "dGVzdC1rZXktYmFzZTY0"
+    assert decrypt_pii(stored_key, category="media_escrow") == "dGVzdC1rZXktYmFzZTY0"
 
 
 def test_fetch_evidence_decrypts_media_key() -> None:
@@ -539,7 +539,7 @@ def test_fetch_evidence_decrypts_media_key() -> None:
     from app.db.safety.evidence import fetch_evidence_for_alert_ids
 
     raw_key = "YWVzLWdjbS1zZWNyZXQta2V5"
-    encrypted_key = encrypt_to_hex(raw_key)
+    encrypted_key = encrypt_to_hex(raw_key, category="media_escrow")
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder

@@ -157,7 +157,8 @@ def test_anonymize_profile_and_user_sets_is_deactivated_true() -> None:
     profile_payload = calls[0][0][0]
     assert profile_payload["is_deactivated"] is True
     assert profile_payload["deactivated_at"] == now.isoformat()
-    assert profile_payload["name"] == "Deleted User"
+    from app.core.security.crypto import decrypt_pii
+    assert decrypt_pii(profile_payload["name"]) == "Deleted User"
 
     user_payload = calls[1][0][0]
     assert user_payload["is_active"] is False

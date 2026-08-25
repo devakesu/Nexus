@@ -64,7 +64,7 @@ def record_safety_alert(
     """Records emergency safety alert with encrypted location snapshot."""
     payload: dict[str, Any] = {"user_id": user_id, "alert_type": alert_type}
     if current_location is not None:
-        payload["current_location"] = encrypt_to_hex(json.dumps(current_location))
+        payload["current_location"] = encrypt_to_hex(json.dumps(current_location), category="media_escrow")
     if session_id is not None:
         payload["session_id"] = session_id
 
@@ -92,14 +92,14 @@ def fetch_safety_alert(alert_id: str) -> dict[str, Any] | None:
     try:
         res = (
             supabase_client.table("safety_alerts")
-            .select("id, user_id")
+            .select(_ALERT_INSERT_COLS)
             .eq("id", alert_id)
             .maybe_single()
             .execute()
         )
-        if res and res.data:
-            return cast(dict[str, Any], res.data)
-        return None
+        if not res or not res.data:
+            return None
+        return cast(dict[str, Any], res.data)
     except APIError as e:
         logger.exception("Failed to fetch safety alert", extra={"alert_id": alert_id})
         raise DatabaseAccessError("Failed to fetch safety alert") from e
@@ -183,7 +183,7 @@ def fetch_alerts_for_session(
                             is_stale = True
                 if not is_stale:
                     with contextlib.suppress(Exception):
-                        dec = decrypt_pii(loc)
+                        dec = decrypt_pii(loc, category="media_escrow")
                         a["current_location"] = json.loads(dec) if dec else None
                 else:
                     a["current_location"] = None

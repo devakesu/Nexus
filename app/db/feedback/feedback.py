@@ -9,6 +9,7 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
+from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
 from app.db.client import DatabaseAccessError, supabase_client, utcnow
 
 logger = logging.getLogger(__name__)
@@ -61,8 +62,8 @@ def _build_feedback_payload(
     payload: dict[str, Any] = {
         "user_id": user_id,
         "query_type": query_type,
-        "subject": subject.strip(),
-        "message": message.strip(),
+        "subject": encrypt_to_hex(subject.strip(), category="contact"),
+        "message": encrypt_to_hex(message.strip(), category="contact"),
     }
     optional_fields: dict[str, Any] = {
         "github_issue_url": github_issue_url.strip() if github_issue_url else None,
@@ -166,6 +167,13 @@ def fetch_user_tickets(
             .execute()
         )
         rows = cast(list[dict[str, Any]], res.data or [])
+        for row in rows:
+            raw_sub = row.get("subject")
+            if raw_sub and isinstance(raw_sub, (str, bytes, memoryview)):
+                try:
+                    row["subject"] = decrypt_pii(raw_sub, category="contact")
+                except DecryptFailedError:
+                    pass
     except APIError as e:
         logger.exception("Failed to fetch user tickets", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to fetch tickets") from e
@@ -187,7 +195,15 @@ def fetch_ticket_report(user_id: str, report_id: str) -> dict[str, Any] | None:
             .execute()
         )
         if res and res.data:
-            return cast(dict[str, Any], res.data)
+            ticket = cast(dict[str, Any], res.data)
+            for field in ("subject", "message"):
+                val = ticket.get(field)
+                if val and isinstance(val, (str, bytes, memoryview)):
+                    try:
+                        ticket[field] = decrypt_pii(val, category="contact")
+                    except DecryptFailedError:
+                        pass
+            return ticket
         return None
     except APIError as e:
         logger.exception(
