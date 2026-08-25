@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.db.chat import (
+    ConversationClosedError,
     create_event_with_message,
     fetch_conversation_participants,
     fetch_event,
@@ -142,6 +143,15 @@ async def create_chat_event(
             safety_enabled=bool(event_row.get("safety_enabled") or False),
             safety_interval_seconds=event_row.get("safety_interval_seconds"),
         )
+    except ConversationClosedError as err:
+        logger.warning(
+            "Event rejected because conversation is closed",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="This conversation is closed.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure creating event",

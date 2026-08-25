@@ -417,17 +417,23 @@ async def request_account_phone_otp(
 
     resend_key = _otp_redis_key(user_id, "resend")
     phone_resend_key = f"account_phone_otp:resend_phone:{phone_norm}"
-    if await redis_client.exists(resend_key) or await redis_client.exists(phone_resend_key):
+    user_cooldown = await redis_client.set(
+        resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+    if not user_cooldown:
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
         )
-    await redis_client.set(
-        resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
-    )
-    await redis_client.set(
+
+    phone_cooldown = await redis_client.set(
         phone_resend_key, "1", ex=_ACCOUNT_PHONE_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
     )
+    if not phone_cooldown:
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait a bit before requesting another code.",
+        )
 
     code = generate_otp_code()
     await redis_client.setex(
@@ -512,7 +518,19 @@ async def request_login_by_phone(
     ip_resend_key = _login_by_phone_ip_resend_key(client_ip)
     phone_ip_resend_key = _login_by_phone_resend_key(client_ip, phone_norm)
 
-    if await redis_client.exists(ip_resend_key) or await redis_client.exists(phone_ip_resend_key):
+    ip_cooldown = await redis_client.set(
+        ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+    if not ip_cooldown:
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait a bit before requesting another code.",
+        )
+
+    phone_ip_cooldown = await redis_client.set(
+        phone_ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
+    )
+    if not phone_ip_cooldown:
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
@@ -526,14 +544,6 @@ async def request_login_by_phone(
             status_code=429,
             detail="Too many login attempts for this phone number. Please try again later.",
         )
-
-    # Set Tier 1 cooldowns (60s)
-    await redis_client.set(
-        ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
-    )
-    await redis_client.set(
-        phone_ip_resend_key, "1", ex=_LOGIN_BY_PHONE_RESEND_COOLDOWN_SECONDS, nx=True,
-    )
 
     # Increment Tier 2 attempt counter with 30-minute expiration window
     current_attempts = await redis_client.incr(phone_limit_key)

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -414,3 +415,75 @@ async def test_import_from_flavor_hashes_sync_code_in_redis_key() -> None:
 
         assert res.success is True
         mock_redis.get.assert_any_call(f"import:code_attempts:{expected_hash}")
+
+
+def test_execute_import_target_write_failure_restores_sync_code() -> None:
+    from postgrest.exceptions import APIError
+    from app.db.users.import_export import execute_import
+
+    expiry_iso = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    source_profile = {
+        "id": "flavor-user-rollback",
+        "app_variant": "nexus_mec",
+        "campus_branch": "CSE",
+        "import_sync_code": "ROLL99",
+        "import_sync_expires_at": expiry_iso,
+    }
+    target_profile = {
+        "id": "main-user-rollback",
+        "app_variant": "nexus",
+        "campus_branch": "CSE",
+        "has_imported_data": False,
+    }
+    source_user_row = {
+        "id": "flavor-user-rollback",
+        "app_variant": "nexus_mec",
+        "is_active": True,
+        "is_suspended": False,
+        "deletion_requested_at": None,
+    }
+
+    # Calls sequence:
+    # 1. Nullify source sync code -> success (data=[{"id": "flavor-user-rollback"}])
+    # 2. Update target profile -> raises APIError (DB connection dropped / disk full)
+    # 3. Rollback restore source sync code -> success
+    calls: list[dict[str, Any]] = []
+
+    mock_table = MagicMock()
+
+    def _mock_update(payload: dict[str, Any]) -> Any:
+        calls.append(payload)
+        mock_query = MagicMock()
+        mock_query.eq.return_value = mock_query
+        mock_query.is_.return_value = mock_query
+        if "has_imported_data" in payload:
+            mock_query.execute.side_effect = APIError({"message": "DB disk full", "code": "57P01"})
+        else:
+            mock_query.execute.return_value = MagicMock(data=[{"id": "flavor-user-rollback"}])
+        return mock_query
+
+    mock_table.update.side_effect = _mock_update
+
+    with patch(
+        "app.db.users.import_export._fetch_import_profiles",
+        return_value=(source_profile, target_profile),
+    ), patch(
+        "app.db.users.import_export.fetch_public_user",
+        return_value=source_user_row,
+    ), patch(
+        "app.db.users.import_export.supabase_client.table",
+        return_value=mock_table,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            execute_import(target_user_id="main-user-rollback", sync_code="ROLL99")
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "Export code was preserved" in exc_info.value.detail
+
+        # Verify rollback update was executed restoring import_sync_code and import_sync_expires_at
+        assert len(calls) == 3
+        assert calls[0]["import_sync_code"] is None  # Step 3 nullify
+        assert calls[1]["has_imported_data"] is True  # Step 4 target write
+        assert calls[2]["import_sync_code"] == "ROLL99"  # Rollback restore
+        assert calls[2]["import_sync_expires_at"] == expiry_iso
+

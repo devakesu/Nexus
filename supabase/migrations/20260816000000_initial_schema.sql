@@ -114,6 +114,24 @@ $$;
 
 ALTER FUNCTION "public"."check_match_precondition"() OWNER TO "postgres";
 
+CREATE OR REPLACE FUNCTION "public"."check_chat_message_insert_precondition"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM public.chat_conversations
+        WHERE id = NEW.conversation_id
+          AND closed_at IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'Cannot insert message into closed conversation' USING ERRCODE = 'P0001';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+ALTER FUNCTION "public"."check_chat_message_insert_precondition"() OWNER TO "postgres";
+
 CREATE OR REPLACE FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") RETURNS TABLE("key_id" integer, "public_key" "bytea")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -1985,6 +2003,8 @@ COMMENT ON TRIGGER "trigger_handle_deactivation" ON "public"."profiles" IS 'Appl
 
 CREATE OR REPLACE TRIGGER "trigger_matches_precondition" BEFORE INSERT ON "public"."matches" FOR EACH ROW EXECUTE FUNCTION "public"."check_match_precondition"();
 
+CREATE OR REPLACE TRIGGER "trigger_chat_messages_precondition" BEFORE INSERT ON "public"."chat_messages" FOR EACH ROW EXECUTE FUNCTION "public"."check_chat_message_insert_precondition"();
+
 CREATE OR REPLACE TRIGGER "trigger_update_profile_discovery_actions_timestamp" BEFORE UPDATE ON "public"."profile_discovery_actions" FOR EACH ROW EXECUTE FUNCTION "public"."handle_update_timestamp"();
 
 COMMENT ON TRIGGER "trigger_update_profile_discovery_actions_timestamp" ON "public"."profile_discovery_actions" IS 'Applies handle_update_timestamp before every discovery action update.';
@@ -2561,6 +2581,9 @@ GRANT ALL ON FUNCTION "public"."binary_quantize"("public"."vector") TO "service_
 
 REVOKE ALL ON FUNCTION "public"."check_match_precondition"() FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."check_match_precondition"() TO "service_role";
+
+REVOKE ALL ON FUNCTION "public"."check_chat_message_insert_precondition"() FROM PUBLIC, "anon", "authenticated";
+GRANT ALL ON FUNCTION "public"."check_chat_message_insert_precondition"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") TO "service_role";

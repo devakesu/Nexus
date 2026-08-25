@@ -16,6 +16,7 @@ from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.db.chat import (
+    ConversationClosedError,
     fetch_conversation_participants,
     fetch_user_share_flags,
     insert_message,
@@ -144,6 +145,15 @@ async def send_message(
             message_id=str(row.get("id") or ""),
             created_at=row["created_at"],
         )
+    except ConversationClosedError as err:
+        logger.warning(
+            "Message rejected because conversation is closed",
+            extra={"user_id": user_id, "conversation_id": conversation_id},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="This conversation is closed.",
+        ) from err
     except DatabaseAccessError as err:
         logger.exception(
             "Database failure sending message",

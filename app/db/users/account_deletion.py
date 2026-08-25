@@ -23,6 +23,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, cast
 
+import sentry_sdk
 from postgrest.exceptions import APIError
 
 from app.core.config import settings
@@ -338,7 +339,8 @@ def request_deletion(
         supabase_client.table("user_devices").update(
             {"is_active": False},
         ).eq("user_id", user_id).execute()
-    except APIError:
+    except APIError as e:
+        sentry_sdk.capture_exception(e)
         logger.exception(
             "Failed to deactivate devices for deletion", extra={"user_id": user_id},
         )
@@ -347,7 +349,8 @@ def request_deletion(
         supabase_client.table("safety_sessions").update(
             {"status": "ended"},
         ).eq("user_id", user_id).eq("status", "active").execute()
-    except APIError:
+    except APIError as e:
+        sentry_sdk.capture_exception(e)
         logger.exception(
             "Failed to end active safety sessions on deletion request",
             extra={"user_id": user_id},
@@ -357,13 +360,21 @@ def request_deletion(
         supabase_client.table("discovery_session_items").delete().eq(
             "candidate_id", user_id,
         ).execute()
-    except APIError:
+    except APIError as e:
+        sentry_sdk.capture_exception(e)
         logger.exception(
             "Failed to delete discovery_session_items on deletion request",
             extra={"user_id": user_id},
         )
 
-    _close_all_conversations(user_id)
+    try:
+        _close_all_conversations(user_id)
+    except DatabaseAccessError as e:
+        sentry_sdk.capture_exception(e)
+        logger.exception(
+            "Failed to bulk close conversations during account deletion request",
+            extra={"user_id": user_id},
+        )
 
     if access_token:
         try:

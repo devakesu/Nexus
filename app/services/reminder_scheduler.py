@@ -301,6 +301,32 @@ async def _dispatch_escalation_sms_and_record(
     idempotency_key: str,
     expected_count: int | None = None,
 ) -> None:
+    try:
+        updated = await asyncio.to_thread(
+            record_safety_escalation_sent,
+            session_id,
+            escalation_number,
+            expected_count,
+        )
+        if not updated:
+            logger.info(
+                "Safety escalation DB update touched 0 rows; already recorded concurrently by another worker",
+                extra={
+                    "session_id_masked": _mask_id(session_id),
+                    "escalation_number": escalation_number,
+                },
+            )
+            return
+    except DatabaseAccessError as err:
+        sentry_sdk.capture_exception(err)
+        logger.exception(
+            "Failed to record safety escalation",
+            extra={"session_id_masked": _mask_id(session_id)},
+        )
+        with contextlib.suppress(Exception):
+            await redis_client.delete(idempotency_key)
+        return
+
     notified = False
     profile = None
     user_id = session.get("user_id")
@@ -349,31 +375,6 @@ async def _dispatch_escalation_sms_and_record(
             "Failed to reach any trusted contact for an overdue safety session",
             extra={"session_id_masked": _mask_id(session_id)},
         )
-        with contextlib.suppress(Exception):
-            await redis_client.delete(idempotency_key)
-        return
-
-    try:
-        updated = await asyncio.to_thread(
-            record_safety_escalation_sent,
-            session_id,
-            escalation_number,
-            expected_count,
-        )
-        if not updated:
-            logger.info(
-                "Safety escalation DB update touched 0 rows; already recorded concurrently by another worker",
-                extra={
-                    "session_id_masked": _mask_id(session_id),
-                    "escalation_number": escalation_number,
-                },
-            )
-    except DatabaseAccessError as err:
-        sentry_sdk.capture_exception(err)
-        logger.exception(
-            "Failed to record safety escalation",
-            extra={"session_id_masked": _mask_id(session_id)},
-        )
 
 
 async def _escalate_safety_session(session: dict[str, Any]) -> None:
@@ -412,14 +413,6 @@ async def _escalate_safety_session(session: dict[str, Any]) -> None:
             session_id,
             escalation_number,
         )
-        # Self-healing: Reconcile DB escalation count if previous write failed
-        with contextlib.suppress(Exception):
-            await asyncio.to_thread(
-                record_safety_escalation_sent,
-                session_id,
-                escalation_number,
-                escalations_sent,
-            )
         return
 
     await _dispatch_escalation_sms_and_record(

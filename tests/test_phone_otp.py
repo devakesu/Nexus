@@ -199,7 +199,9 @@ async def test_request_account_phone_otp_multi_account_phone_cooldown():
         return key in redis_store
 
     async def mock_set(key: str, val: str, *args: Any, **kwargs: Any) -> bool:
-        _ = args, kwargs
+        _ = args
+        if kwargs.get("nx") and key in redis_store:
+            return False
         redis_store[key] = val
         return True
 
@@ -233,6 +235,62 @@ async def test_request_account_phone_otp_multi_account_phone_cooldown():
             )
         assert exc_info.value.status_code == 429
         assert "Please wait a bit before requesting another code" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+async def test_verify_and_consume_hashed_otp_decrements_attempts_on_redis_get_error():
+    """Verify that if Redis GET raises during hashed OTP verification, the attempts counter is decremented."""
+    from unittest.mock import AsyncMock, MagicMock
+    from app.core.infra.otp import verify_and_consume_hashed_otp
+
+    mock_redis = MagicMock()
+    mock_redis.incr = AsyncMock(return_value=1)
+    mock_redis.expire = AsyncMock(return_value=True)
+    mock_redis.get = AsyncMock(side_effect=ConnectionError("Redis connection lost"))
+    mock_redis.decr = AsyncMock(return_value=0)
+
+    with pytest.raises(ConnectionError):
+        await verify_and_consume_hashed_otp(
+            otp_key="otp:hashed:test",
+            attempts_key="attempts:hashed:test",
+            user_identifier="user-1",
+            phone_norm="+14155552671",
+            submitted_code="123456",
+            max_attempts=5,
+            ttl_seconds=600,
+            client=mock_redis,
+        )
+
+    mock_redis.incr.assert_called_once_with("attempts:hashed:test")
+    mock_redis.get.assert_called_once_with("otp:hashed:test")
+    mock_redis.decr.assert_called_once_with("attempts:hashed:test")
+
+
+@pytest.mark.anyio
+async def test_verify_and_consume_raw_otp_decrements_attempts_on_redis_get_error():
+    """Verify that if Redis GET raises during raw OTP verification, the attempts counter is decremented."""
+    from unittest.mock import AsyncMock, MagicMock
+    from app.core.infra.otp import verify_and_consume_raw_otp
+
+    mock_redis = MagicMock()
+    mock_redis.incr = AsyncMock(return_value=2)
+    mock_redis.get = AsyncMock(side_effect=TimeoutError("Redis timeout"))
+    mock_redis.decr = AsyncMock(return_value=1)
+
+    with pytest.raises(TimeoutError):
+        await verify_and_consume_raw_otp(
+            otp_key="otp:raw:test",
+            attempts_key="attempts:raw:test",
+            submitted_code="123456",
+            max_attempts=5,
+            ttl_seconds=600,
+            client=mock_redis,
+        )
+
+    mock_redis.incr.assert_called_once_with("attempts:raw:test")
+    mock_redis.get.assert_called_once_with("otp:raw:test")
+    mock_redis.decr.assert_called_once_with("attempts:raw:test")
+
 
 
 

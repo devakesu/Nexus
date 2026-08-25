@@ -259,3 +259,42 @@ def test_batch_delete_conversations_chat_media() -> None:
         ])
 
 
+def test_request_deletion_secondary_cleanup_failure_captured_in_sentry() -> None:
+    from postgrest.exceptions import APIError
+    from app.db.users.account_deletion import request_deletion
+
+    user_id = "00000000-0000-0000-0000-000000000099"
+
+    mock_table = MagicMock()
+    mock_builder = MagicMock()
+    mock_builder.update.return_value = mock_builder
+    mock_builder.delete.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.is_.return_value = mock_builder
+    mock_builder.or_.return_value = mock_builder
+
+    call_count = [0]
+
+    def _execute_side_effect() -> Any:
+        # First 2 writes (users, profiles) succeed, 3rd write (user_devices) raises APIError
+        if call_count[0] >= 2:
+            raise APIError({"message": "Device update failed", "code": "500"})
+        call_count[0] += 1
+        return MagicMock(data=[])
+
+    mock_builder.execute.side_effect = _execute_side_effect
+    mock_table.return_value = mock_builder
+
+    mock_sentry = MagicMock()
+
+    with patch("app.db.users.account_deletion.supabase_client.table", mock_table), \
+         patch("app.db.users.account_deletion.sentry_sdk.capture_exception", mock_sentry), \
+         patch("app.db.users.account_deletion.invalidate_user_status_cache"):
+
+        purge_at = request_deletion(user_id, flagged_reason_code="USER_REQUEST")
+        assert purge_at is not None
+        # Sentry alerted on the secondary cleanup failures
+        assert mock_sentry.call_count >= 1
+
+
+

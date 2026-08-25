@@ -17,6 +17,7 @@ from app.core.config import DiscoveryTab
 from app.core.infra.cache import sync_redis_client
 from app.core.security.crypto import decrypt_pii, encrypt_to_hex
 from app.db.client import (
+    ConversationClosedError,
     DatabaseAccessError,
     normalize_uuid,
     parse_utc_datetime,
@@ -498,6 +499,13 @@ def insert_message(
             raise DatabaseAccessError("Message insert returned no row")
         return cast(dict[str, Any], rows[0])
     except APIError as e:
+        err_msg = (getattr(e, "message", None) or str(e)).lower()
+        if "closed conversation" in err_msg or "p0001" in err_msg:
+            logger.warning(
+                "Attempted to insert message into closed conversation",
+                extra={"conversation_id": conversation_id, "sender_id": sender_id},
+            )
+            raise ConversationClosedError("This conversation is closed.") from e
         logger.exception(
             "Failed to insert message",
             extra={"conversation_id": conversation_id, "sender_id": sender_id},

@@ -52,6 +52,10 @@ class DatabaseAccessError(Exception):
     """Raised when a database query operation fails unexpectedly."""
 
 
+class ConversationClosedError(DatabaseAccessError):
+    """Raised when a message or event cannot be added because the conversation is closed."""
+
+
 def utcnow() -> datetime:
     """Returns the current timezone-aware UTC datetime.
 

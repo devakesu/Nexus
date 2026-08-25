@@ -504,6 +504,95 @@ async def test_send_message_duplicate_ciphertext_rejection(
     assert "Duplicate message submission" in exc_info.value.detail
 
 
+@pytest.mark.anyio
+@patch("app.api.chat.messages.fetch_conversation_participants")
+@patch("app.api.chat.messages.get_cached_active_block_ids")
+@patch("app.api.chat.messages.insert_message")
+@patch("app.api.chat.messages.send_chat_message_notification")
+async def test_send_message_race_closed_conversation_at_insert(
+    mock_notify: MagicMock,
+    mock_insert: MagicMock,
+    mock_get_blocks: AsyncMock,
+    mock_fetch_convo: MagicMock,
+) -> None:
+    from app.db.chat import ConversationClosedError
+
+    # Conversation initially appeared open at pre-check
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": None,
+        "tab": "Dating",
+    }
+    mock_get_blocks.return_value = set()
+    # Concurrently closed (e.g. block/unmatch) -> insert_message fails with ConversationClosedError
+    mock_insert.side_effect = ConversationClosedError("This conversation is closed.")
+
+    payload = SendMessageRequest(
+        message_type="text",
+        ciphertext="c2VjcmV0",
+        ciphertext_metadata={},
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await send_message(
+            request=request,
+            conversation_id="convo-123",
+            payload=payload,
+            user_id="user-a",
+        )
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc_info.value.detail == "This conversation is closed."
+    mock_notify.assert_not_called()
+
+
+def test_insert_message_catches_db_trigger_closed_conversation() -> None:
+    from postgrest.exceptions import APIError
+    from app.db.chat.chat import insert_message
+    from app.db.client import ConversationClosedError, supabase_client
+
+    mock_table = MagicMock()
+    mock_insert = MagicMock()
+    mock_insert.execute.side_effect = APIError({
+        "message": "Cannot insert message into closed conversation",
+        "code": "P0001",
+    })
+    mock_table.insert.return_value = mock_insert
+
+    with patch.object(supabase_client, "table", return_value=mock_table):
+        with pytest.raises(ConversationClosedError) as exc_info:
+            insert_message(
+                conversation_id="c0000000-0000-0000-0000-000000000001",
+                sender_id="u0000000-0000-0000-0000-000000000001",
+                message_type="text",
+                ciphertext="c2VjcmV0",
+                ciphertext_metadata={},
+            )
+        assert "closed" in str(exc_info.value).lower()
+
+
+def test_migration_schema_chat_message_insert_trigger_and_permissions() -> None:
+    from pathlib import Path
+    migration_path = Path("/nexus/supabase/migrations/20260816000000_initial_schema.sql")
+    content = migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE OR REPLACE FUNCTION \"public\".\"check_chat_message_insert_precondition\"()" in content
+    assert "Cannot insert message into closed conversation" in content
+    assert "CREATE OR REPLACE TRIGGER \"trigger_chat_messages_precondition\"" in content
+    assert "BEFORE INSERT ON \"public\".\"chat_messages\"" in content
+    assert "REVOKE ALL ON FUNCTION \"public\".\"check_chat_message_insert_precondition\"()" in content
+    assert "GRANT ALL ON FUNCTION \"public\".\"check_chat_message_insert_precondition\"() TO \"service_role\"" in content
+
+
+
 
 
 

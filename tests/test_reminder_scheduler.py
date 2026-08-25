@@ -282,7 +282,7 @@ async def test_escalate_safety_session_idempotency_duplicate(
 
     mock_set.assert_called_once_with("safety:escalation:sent:session-123:2", "1", ex=86400, nx=True)
     mock_send_sms.assert_not_called()
-    mock_record.assert_called_once_with("session-123", 2, 1)
+    mock_record.assert_not_called()
 
 
 @pytest.mark.anyio
@@ -305,18 +305,17 @@ async def test_escalate_safety_session_idempotency_failed_sms(
         "label": "Test User",
     }
     mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
+    mock_record.return_value = True
     mock_send_sms.return_value = MagicMock(success=False)
 
     mock_set = AsyncMock(return_value=True)
-    mock_delete = AsyncMock()
 
-    with patch("app.services.reminder_scheduler.redis_client.set", mock_set), \
-         patch("app.services.reminder_scheduler.redis_client.delete", mock_delete):
+    with patch("app.services.reminder_scheduler.redis_client.set", mock_set):
         await _escalate_safety_session(session)
 
+    # DB record is written FIRST before SMS attempt
+    mock_record.assert_called_once_with("session-123", 2, 1)
     mock_send_sms.assert_called_once()
-    mock_delete.assert_called_once_with("safety:escalation:sent:session-123:2")
-    mock_record.assert_not_called()
 
     # Verify sentry_sdk.capture_message received extra kwarg with session_id
     mock_capture_message.assert_called_once()
@@ -326,6 +325,70 @@ async def test_escalate_safety_session_idempotency_failed_sms(
     assert "extra" in kwargs
     assert kwargs["extra"].get("session_id") == "session-123"
     assert "extras" not in kwargs
+
+
+@pytest.mark.anyio
+@patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
+@patch("app.services.reminder_scheduler.send_sms")
+@patch("app.services.reminder_scheduler.record_safety_escalation_sent")
+async def test_escalate_safety_session_cas_mismatch_skips_sms(
+    mock_record: AsyncMock,
+    mock_send_sms: AsyncMock,
+    mock_fetch_contacts: AsyncMock,
+):
+    from app.services.reminder_scheduler import _escalate_safety_session
+
+    session = {
+        "id": "session-123",
+        "escalations_sent": 1,
+        "user_id": "user-456",
+        "label": "Test User",
+    }
+    mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
+    # CAS update touched 0 rows because another replica already escalated
+    mock_record.return_value = False
+
+    mock_set = AsyncMock(return_value=True)
+
+    with patch("app.services.reminder_scheduler.redis_client.set", mock_set):
+        await _escalate_safety_session(session)
+
+    mock_record.assert_called_once_with("session-123", 2, 1)
+    mock_send_sms.assert_not_called()
+
+
+@pytest.mark.anyio
+@patch("app.services.reminder_scheduler.fetch_safety_contacts_with_id")
+@patch("app.services.reminder_scheduler.send_sms")
+@patch("app.services.reminder_scheduler.record_safety_escalation_sent")
+async def test_escalate_safety_session_db_error_skips_sms_and_cleans_redis(
+    mock_record: AsyncMock,
+    mock_send_sms: AsyncMock,
+    mock_fetch_contacts: AsyncMock,
+):
+    from app.db.client import DatabaseAccessError
+    from app.services.reminder_scheduler import _escalate_safety_session
+
+    session = {
+        "id": "session-123",
+        "escalations_sent": 1,
+        "user_id": "user-456",
+        "label": "Test User",
+    }
+    mock_fetch_contacts.return_value = [{"id": "contact-1", "phone": "+1234567890"}]
+    mock_record.side_effect = DatabaseAccessError("DB write failed")
+
+    mock_set = AsyncMock(return_value=True)
+    mock_delete = AsyncMock()
+
+    with patch("app.services.reminder_scheduler.redis_client.set", mock_set), \
+         patch("app.services.reminder_scheduler.redis_client.delete", mock_delete):
+        await _escalate_safety_session(session)
+
+    mock_record.assert_called_once_with("session-123", 2, 1)
+    mock_send_sms.assert_not_called()
+    mock_delete.assert_called_once_with("safety:escalation:sent:session-123:2")
+
 
 
 def test_fetch_accounts_due_for_purge_applies_limit():

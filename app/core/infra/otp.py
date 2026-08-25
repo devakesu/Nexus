@@ -1,5 +1,6 @@
 from typing import Any
 import asyncio
+import contextlib
 import secrets
 
 from fastapi import HTTPException, status
@@ -113,7 +114,13 @@ async def verify_and_consume_hashed_otp(
         client=r,
     )
 
-    stored_hash = await r.get(otp_key)
+    try:
+        stored_hash = await r.get(otp_key)
+    except Exception:
+        with contextlib.suppress(Exception):
+            await r.decr(attempts_key)
+        raise
+
     if not stored_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -174,7 +181,13 @@ async def verify_and_consume_raw_otp(
         client=r,
     )
 
-    stored_otp = await r.get(otp_key)
+    try:
+        stored_otp = await r.get(otp_key)
+    except Exception:
+        with contextlib.suppress(Exception):
+            await r.decr(attempts_key)
+        raise
+
     if not stored_otp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -337,9 +337,23 @@ def execute_import(
             "Failed to apply import payload",
             extra={"target_user_id": target_user_id, "source_id": source.get("id")},
         )
+        # Compensating rollback: Restore the source profile's sync code and expiration so the user can retry
+        try:
+            supabase_client.table("profiles").update(
+                {
+                    "import_sync_code": sync_code,
+                    "import_sync_expires_at": source.get("import_sync_expires_at"),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            ).eq("id", source.get("id")).is_("import_sync_code", "null").execute()
+        except Exception:
+            logger.exception(
+                "Failed to restore source import_sync_code during rollback",
+                extra={"source_id": source.get("id")},
+            )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Failed to apply imported data.",
+            detail="Failed to apply imported data. Export code was preserved, please try again.",
         ) from e
 
     logger.info(

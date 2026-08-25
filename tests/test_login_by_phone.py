@@ -89,16 +89,20 @@ async def test_login_by_phone_tier1_rejects_same_ip_during_cooldown():
         _login_by_phone_ip_resend_key("198.51.100.1"): "1",
     }
 
-    async def mock_exists(key: str) -> bool:
-        return key in redis_store
-
     async def mock_get(key: str) -> str | None:
         return redis_store.get(key)
+
+    async def mock_set(key: str, val: str, *args: Any, **kwargs: Any) -> bool:
+        _ = args
+        if kwargs.get("nx") and key in redis_store:
+            return False
+        redis_store[key] = val
+        return True
 
     req = _build_request("198.51.100.1")
     payload = LoginByPhoneRequestRequest(phone="+14155552671")
 
-    with patch("app.api.user.auth_otp.redis_client.exists", side_effect=mock_exists), \
+    with patch("app.api.user.auth_otp.redis_client.set", side_effect=mock_set), \
          patch("app.api.user.auth_otp.redis_client.get", side_effect=mock_get), \
          pytest.raises(HTTPException) as exc_info:
         await request_login_by_phone(req, payload, _device=None)
@@ -149,7 +153,7 @@ async def test_login_by_phone_tier2_caps_attempts_across_multiple_ips_at_limit()
 
     # 4th request from a brand new IP is blocked by Tier 2 phone cap
     req_4 = _build_request("198.51.100.99")
-    with patch("app.api.user.auth_otp.redis_client.exists", side_effect=mock_exists), \
+    with patch("app.api.user.auth_otp.redis_client.set", side_effect=mock_set), \
          patch("app.api.user.auth_otp.redis_client.get", side_effect=mock_get), \
          pytest.raises(HTTPException) as exc_info:
         await request_login_by_phone(req_4, payload, _device=None)

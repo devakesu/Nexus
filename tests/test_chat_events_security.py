@@ -333,3 +333,49 @@ def test_decrypt_event_row_handles_encrypted_and_empty_fields() -> None:
     assert decrypted_empty["location_lng"] is None
     assert decrypted_empty["location_label"] is None
 
+
+@pytest.mark.anyio
+@patch("app.api.chat.events.fetch_conversation_participants")
+@patch("app.api.chat.events.create_event_with_message")
+@patch("app.api.chat.events.send_chat_message_notification")
+async def test_create_chat_event_race_closed_conversation_at_insert(
+    mock_notify: MagicMock,
+    mock_create_event: MagicMock,
+    mock_fetch_convo: MagicMock,
+) -> None:
+    from app.db.chat import ConversationClosedError
+
+    mock_fetch_convo.return_value = {
+        "user_a_id": "user-a",
+        "user_b_id": "user-b",
+        "closed_at": None,
+        "tab": "Dating",
+    }
+    mock_create_event.side_effect = ConversationClosedError("This conversation is closed.")
+
+    payload = CreateEventRequest(
+        event_time=datetime.now(timezone.utc),
+        ciphertext="c2VjcmV0",
+        safety_enabled=False,
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await create_chat_event(
+            request=request,
+            conversation_id="convo-1",
+            payload=payload,
+            user_id="user-a",
+        )
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "This conversation is closed."
+    mock_notify.assert_not_called()
+
+

@@ -1,6 +1,7 @@
 """Database chat conversation, messaging, and E2EE key persistence package."""
 
 from app.db.chat.chat import (
+    ConversationClosedError,
     batch_delete_conversations_chat_media,
     batch_fetch_presence_from_db,
     batch_fetch_user_share_flags,
@@ -41,6 +42,7 @@ from app.db.chat.keys import (
 )
 
 __all__ = [
+    "ConversationClosedError",
     "batch_delete_conversations_chat_media",
     "batch_fetch_presence_from_db",
     "batch_fetch_user_share_flags",
