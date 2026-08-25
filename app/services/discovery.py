@@ -11,6 +11,7 @@ from typing import Any, cast
 from fastapi import HTTPException
 
 from app.core.config import DiscoveryTab
+from app.core.infra.cache import sync_redis_client
 from app.db.client import parse_utc_datetime, utcnow
 from app.db.discovery import fetch_expired_pass_candidates
 from app.db.profiles import fetch_stage_1_candidates
@@ -90,6 +91,33 @@ def create_new_discovery_session(
     Returns:
         tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
     """
+    try:
+        mutation_count_raw = sync_redis_client.get(f"user:profile_mutations:{user_id}")
+        if mutation_count_raw:
+            mutation_count = int(mutation_count_raw)
+            if mutation_count >= 3:
+                session_probe_key = f"user:session_probe_count:{user_id}"
+                session_count = sync_redis_client.incr(session_probe_key)
+                if session_count == 1:
+                    sync_redis_client.expire(session_probe_key, 600)
+                if session_count > 5:
+                    logger.warning(
+                        "Systematic discovery probing detected",
+                        extra={
+                            "user_id": user_id,
+                            "mutation_count": mutation_count,
+                            "session_count": session_count,
+                        },
+                    )
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Session creation rate limit exceeded due to frequent profile updates. Please wait before creating a new session.",
+                    )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
     viewer, candidate_pool = fetch_stage_1_candidates(
         viewer_id=user_id,
         active_tab=active_tab,

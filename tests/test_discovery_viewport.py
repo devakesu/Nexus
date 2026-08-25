@@ -66,7 +66,7 @@ async def test_discovery_viewport_passes_tab_to_session_validation(
     assert response.total_nodes == 10
     assert len(response.nodes) == 1
     assert response.nodes[0].name == "Alice"
-    assert response.nodes[0].score == 90.0
+    assert response.nodes[0].score == 0.0
 
     mock_get_or_validate_session.assert_called_once_with(
         session_id,
@@ -262,6 +262,8 @@ def test_create_discovery_session_derives_spotify_connected_without_extra_db_que
     params = kwargs.get("params") or (args[1] if len(args) > 1 else None)
     assert params is not None
     assert params.get("p_viewer_spotify_connected") is True
+    assert params.get("p_items")[0]["score"] == 90.0
+    assert params.get("p_items")[0]["music_match_grade"] == 10
 
 
 def test_coarsen_total_nodes() -> None:
@@ -293,6 +295,91 @@ def test_quantize_score() -> None:
     assert quantize_score(0.96) == 1.0
     assert quantize_score(85.5) == 90.0
     assert quantize_score(72.0) == 70.0
+
+
+def test_quantize_score_session_noise_deterministic_within_session() -> None:
+    from app.db.discovery.orbit import quantize_score
+
+    session_id = "11111111-2222-3333-4444-555555555555"
+    candidate_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+    score1 = quantize_score(0.65, session_id=session_id, candidate_id=candidate_id)
+    score2 = quantize_score(0.65, session_id=session_id, candidate_id=candidate_id)
+    assert score1 == score2
+    assert 0.1 <= score1 <= 1.0
+
+    score_pct1 = quantize_score(75.0, session_id=session_id, candidate_id=candidate_id)
+    score_pct2 = quantize_score(75.0, session_id=session_id, candidate_id=candidate_id)
+    assert score_pct1 == score_pct2
+    assert 10.0 <= score_pct1 <= 100.0
+
+
+def test_quantize_score_temporal_noise_varies_across_sessions() -> None:
+    from app.db.discovery.orbit import quantize_score
+
+    candidate_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    scores: set[float] = set()
+    for i in range(10):
+        session_id = f"session-id-variant-{i}"
+        scores.add(quantize_score(0.6, session_id=session_id, candidate_id=candidate_id))
+
+    # Across 10 distinct session IDs, noise perturbation should produce multiple tier shifts (0.5, 0.6, 0.7)
+    assert len(scores) > 1
+    for s in scores:
+        assert 0.1 <= s <= 1.0
+
+
+def test_quantize_score_zero_stays_zero() -> None:
+    from app.db.discovery.orbit import quantize_score
+
+    assert quantize_score(0.0, session_id="sess-1", candidate_id="cand-1") == 0.0
+    assert quantize_score(-5.0, session_id="sess-1", candidate_id="cand-1") == 0.0
+
+
+def test_node_to_out_omits_score() -> None:
+    from app.api.discovery.endpoints import _node_to_out
+
+    node = {"id": "cand-123", "name": "Alice", "score": 80.0, "x": 10.0, "y": 20.0, "orbit_tier": 1}
+    out = _node_to_out(node, session_id="sess-alpha")
+    assert out.score == 0.0
+    assert out.id == "cand-123"
+    assert out.orbit_tier == 1
+
+
+def test_node_detail_applies_session_noise() -> None:
+    from app.db.discovery.orbit import build_tab_aware_orbit_node_detail
+
+    payload = {
+        "id": "cand-456",
+        "name": "Bob",
+        "score": 0.8,
+        "session_id": "sess-beta",
+        "music_match_grade": 8,
+    }
+    detail = build_tab_aware_orbit_node_detail("Dating", payload)
+    assert 0.1 <= detail.score <= 1.0
+    assert detail.id == "cand-456"
+    assert detail.music_match_grade == 7
+
+
+def test_quantize_music_match_grade_tiers() -> None:
+    from app.db.discovery.orbit import quantize_music_match_grade
+
+    assert quantize_music_match_grade(None) is None
+    assert quantize_music_match_grade("invalid") is None
+    assert quantize_music_match_grade(0) == 0
+    assert quantize_music_match_grade(1) == 0
+    assert quantize_music_match_grade(2) == 0
+    assert quantize_music_match_grade(3) == 3
+    assert quantize_music_match_grade(4) == 3
+    assert quantize_music_match_grade(5) == 3
+    assert quantize_music_match_grade(6) == 7
+    assert quantize_music_match_grade(7) == 7
+    assert quantize_music_match_grade(8) == 7
+    assert quantize_music_match_grade(9) == 10
+    assert quantize_music_match_grade(10) == 10
+
+
 
 
 

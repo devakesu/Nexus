@@ -43,6 +43,7 @@ BLOCKED_DOTENV_KEYS: set[str] = {
     "rate_limit_data_export",
     "rate_limit_data_export_otp",
     "rate_limit_discover",
+    "rate_limit_node_detail",
     "rate_limit_feedback",
     "rate_limit_health",
     "rate_limit_login_by_phone",
@@ -198,6 +199,7 @@ class Settings(BaseSettings):
     enable_rate_limiting: bool = True
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
+    rate_limit_node_detail: str = "30/minute"
     rate_limit_chat: str = "60/minute"
     rate_limit_read_receipts: str = "120/minute"
     rate_limit_auth: str = "5/minute"
@@ -535,16 +537,17 @@ HARD_DEALBREAKERS: dict[DiscoveryTab, list[str]] = {
 }
 
 # Orientation-specific feature weight adjustments used by the ranking engine.
+# Moderated to preserve orientation relevance while preventing outlier scoring fingerprints.
 ORIENTATION_WEIGHT_MODIFIERS: dict[str, dict[str, float]] = {
     "Asexual": {
-        "ai_vibe_tags": 0.3,
-        "drinking": 0.5,
-        "smoking": 0.5,
-        "interests": 1.5,
-        "causes_supported": 1.3,
+        "ai_vibe_tags": 0.6,
+        "drinking": 0.7,
+        "smoking": 0.7,
+        "interests": 1.35,
+        "causes_supported": 1.25,
     },
     "Demisexual": {
-        "ai_vibe_tags": 0.5,
+        "ai_vibe_tags": 0.7,
         "artist_affinity": 0.8,
         "interests": 1.3,
         "value_dimensions": 1.2,

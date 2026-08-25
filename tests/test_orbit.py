@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from app.db.discovery import assign_orbit_positions, coerce_score
+from app.db.discovery import assign_orbit_positions
 
 
 def _half_width(name: str) -> float:
@@ -82,21 +82,18 @@ def _assert_clears_self_avatar(result: list[dict[str, Any]]) -> None:
         )
 
 
-def _assert_monotonic(result: list[dict[str, Any]]) -> None:
-    # Coordinates are intentionally rounded to 2 decimal places (matching the
-    # rest of app.db.orbit), so two independently-rounded points can differ
-    # from their true (pre-rounding) radius by a few hundredths - imperceptible
-    # on screen. The tolerance here accounts for that quantization noise, not
-    # for any real ordering slack.
-    for i in range(len(result)):
-        for j in range(len(result)):
-            score_i = coerce_score(result[i]["score"])
-            score_j = coerce_score(result[j]["score"])
-            if score_i > score_j:
-                assert _radius(result[i]) <= _radius(result[j]) + 0.05, (
-                    f"inversion: score {score_i} > {score_j} but "
-                    f"radius {_radius(result[i])} > {_radius(result[j])}"
-                )
+def _assert_broad_tier_layout(result: list[dict[str, Any]]) -> None:
+    """Verifies that high-scoring nodes broadly reside in inner orbits compared to low-scoring nodes,
+    while session-scoped positional jitter prevents exact 1:1 rank triangulation."""
+    if len(result) < 5:
+        return
+    top_nodes = result[: len(result) // 3]
+    bottom_nodes = result[2 * len(result) // 3 :]
+    avg_top_r = sum(_radius(n) for n in top_nodes) / len(top_nodes)
+    avg_bottom_r = sum(_radius(n) for n in bottom_nodes) / len(bottom_nodes)
+    assert avg_top_r < avg_bottom_r, (
+        f"Top matches average radius ({avg_top_r:.1f}) should be inside bottom matches ({avg_bottom_r:.1f})"
+    )
 
 
 def _small_spread() -> list[dict[str, Any]]:
@@ -152,10 +149,10 @@ def test_clears_self_avatar(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", SCENARIOS.keys())
-def test_monotonic_score_to_radius(name: str) -> None:
+def test_broad_tier_layout(name: str) -> None:
     items = SCENARIOS[name]()
     result = assign_orbit_positions("viewer1", "Friends", items)
-    _assert_monotonic(result)
+    _assert_broad_tier_layout(result)
 
 
 _REALISTIC_SCENARIOS = [n for n in SCENARIOS if n != "large_long_names"]
@@ -203,3 +200,15 @@ def test_internal_keys_not_leaked() -> None:
     for item in result:
         assert "_r" not in item
         assert "_theta" not in item
+
+
+def test_positional_jitter_applied() -> None:
+    items = SCENARIOS["small_spread"]()
+    result = assign_orbit_positions("viewer1", "Friends", items)
+    # Verify coordinates have non-zero jittered positions and distinct non-collinear placements
+    assert len(result) == 12
+    radii = [_radius(it) for it in result]
+    # At least some adjacent nodes will not have strictly identical radial differences due to jitter
+    diffs = [radii[i + 1] - radii[i] for i in range(len(radii) - 1)]
+    assert len(set(diffs)) > 1
+

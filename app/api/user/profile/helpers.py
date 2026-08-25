@@ -22,6 +22,23 @@ _VALUE_DIMENSION_TRIGGER_FIELDS = frozenset(
     },
 )
 
+_SCORING_MUTATION_FIELDS = frozenset(
+    {
+        "religious_beliefs",
+        "children_plans",
+        "drinking",
+        "smoking",
+        "lifestyle",
+        "partner_values",
+        "display_sexuality",
+        "dating_for",
+        "looking_for",
+        "bio",
+        "interests",
+        "sub_interests",
+    },
+)
+
 _AGE_CHANGE_WINDOW_DAYS = 365
 _AGE_CHANGE_MAX_PER_WINDOW = 2
 _NAME_CHANGE_WINDOW_DAYS = 365

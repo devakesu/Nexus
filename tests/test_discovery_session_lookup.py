@@ -177,6 +177,25 @@ def test_get_or_validate_session_mismatched_tab_raises_404(mock_get_session: Mag
     with pytest.raises(HTTPException) as exc_info:
         get_or_validate_session("sess-123", "user-456", "Friends")
     assert exc_info.value.status_code == 404
-    assert "Discovery session not found" in exc_info.value.detail
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_probing_rate_limit(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    # User has mutated sensitive profile fields 4 times
+    mock_redis.get.return_value = "4"
+    # User tries to create 6th session after mutations
+    mock_redis.incr.return_value = 6
+
+    filters = DiscoveryFilters()
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("user-probe-123", "Dating", filters)
+
+    assert exc_info.value.status_code == 429
+    assert "rate limit exceeded" in exc_info.value.detail.lower()
 
 

@@ -95,6 +95,12 @@ final _kHideableFields = <_FieldDescriptor>[
     subtitle: 'Hide the causes you support from other profiles.',
     icon: LucideIcons.handHeart,
   ),
+  const _FieldDescriptor(
+    key: 'children_plans',
+    label: 'Children Plans',
+    subtitle: 'Hide your family and children plans from other profiles.',
+    icon: LucideIcons.baby,
+  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -597,6 +603,17 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     }
   }
 
+  void _showDerivedSignalsSheet() {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => _DerivedSignalsSheet(dio: _dio),
+      ),
+    );
+  }
+
   Widget _buildConsentTile({
     required IconData icon,
     required Color iconColor,
@@ -801,6 +818,24 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
                       onActionTap: _safetyDataGranted
                           ? _withdrawSafetyDataConsent
                           : null,
+                    ),
+                  ],
+                ),
+                _Section(
+                  title: 'Algorithmic Transparency',
+                  children: [
+                    _buildConsentTile(
+                      icon: LucideIcons.sparkles,
+                      iconColor: AppColors.modeSettings,
+                      iconBgColor: AppColors.modeSettings.withValues(
+                        alpha: 0.1,
+                      ),
+                      title: 'Derived Signals & Match Weights',
+                      subtitle:
+                          'View all AI-derived tags, affinity signals, embeddings, and active scoring modifiers on your profile.',
+                      actionLabel: 'View Signals',
+                      onActionTap: _showDerivedSignalsSheet,
+                      isFirst: true,
                     ),
                   ],
                 ),
@@ -1211,6 +1246,422 @@ class _ToggleTile extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DerivedSignalsSheet extends StatefulWidget {
+  const _DerivedSignalsSheet({required this.dio});
+
+  final Dio dio;
+
+  @override
+  State<_DerivedSignalsSheet> createState() => _DerivedSignalsSheetState();
+}
+
+class _DerivedSignalsSheetState extends State<_DerivedSignalsSheet> {
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic>? _signals;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_fetchSignals());
+  }
+
+  Future<void> _fetchSignals() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final config = AppConfig.current;
+      final resp = await widget.dio.get<Map<String, dynamic>>(
+        '${config.backendUrl}/api/v1/profile/derived-signals',
+      );
+      if (mounted) {
+        setState(() {
+          _signals = resp.data;
+          _loading = false;
+        });
+      }
+    } on Exception catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load derived signals.';
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.modeSettings.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    LucideIcons.sparkles,
+                    color: AppColors.modeSettings,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Algorithmic Transparency',
+                        style: GoogleFonts.manrope(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      Text(
+                        'GDPR Subject Access Request Signals',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.inkMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.x, size: 20),
+                  color: AppColors.inkMuted,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40),
+                      child: NexusOrbitLoader(size: 48, lightMode: true),
+                    ),
+                  )
+                : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _error!,
+                            style: GoogleFonts.inter(
+                              color: AppColors.error,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _fetchSignals,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    final signals = _signals ?? {};
+    final vibeTags = (signals['ai_vibe_tags'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+    final artistAffinity =
+        signals['artist_affinity'] as Map<String, dynamic>? ?? {};
+    final genreAffinity =
+        signals['genre_affinity'] as Map<String, dynamic>? ?? {};
+    final embeddingSignals =
+        signals['embedding_signals'] as Map<String, dynamic>? ?? {};
+    final orientationProfile =
+        signals['orientation_weight_profile']?.toString() ?? 'Default';
+    final activeWeights =
+        signals['active_scoring_weights'] as Map<String, dynamic>? ?? {};
+    final notice = signals['transparency_notice']?.toString() ?? '';
+
+    final bioEmbed = embeddingSignals['bio_embedding'] as Map<String, dynamic>?;
+    final careerEmbed =
+        embeddingSignals['career_embedding'] as Map<String, dynamic>?;
+    final identityEmbed =
+        embeddingSignals['identity_embedding'] as Map<String, dynamic>?;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      children: [
+        // AI Vibe Tags
+        _buildSectionCard(
+          title: 'AI Vibe Tags',
+          icon: LucideIcons.tag,
+          child: vibeTags.isEmpty
+              ? Text(
+                  'No vibe tags derived yet.',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.inkMuted,
+                  ),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: vibeTags.map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3E8FF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE9D5FF)),
+                      ),
+                      child: Text(
+                        tag,
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF7E22CE),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+        const SizedBox(height: 16),
+
+        // Embeddings Status
+        _buildSectionCard(
+          title: 'Vector Embeddings (LLM)',
+          icon: LucideIcons.cpu,
+          child: Column(
+            children: [
+              _buildSignalRow(
+                'Bio Embedding',
+                bioEmbed?['generated'] == true
+                    ? 'Active (${bioEmbed?['dimension']}D)'
+                    : 'Not Generated',
+              ),
+              _buildSignalRow(
+                'Career Embedding',
+                careerEmbed?['generated'] == true
+                    ? 'Active (${careerEmbed?['dimension']}D)'
+                    : 'Not Generated',
+              ),
+              _buildSignalRow(
+                'Identity Embedding',
+                identityEmbed?['generated'] == true
+                    ? 'Active (${identityEmbed?['dimension']}D)'
+                    : 'Not Generated',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Music Affinity
+        if (artistAffinity.isNotEmpty || genreAffinity.isNotEmpty) ...[
+          _buildSectionCard(
+            title: 'Music Match Fingerprints',
+            icon: LucideIcons.music,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (artistAffinity.isNotEmpty) ...[
+                  Text(
+                    'Artist Affinity Weights:',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...artistAffinity.entries
+                      .take(5)
+                      .map(
+                        (e) => _buildSignalRow(
+                          e.key,
+                          '${((e.value as num) * 100).toStringAsFixed(0)}%',
+                        ),
+                      ),
+                  const SizedBox(height: 8),
+                ],
+                if (genreAffinity.isNotEmpty) ...[
+                  Text(
+                    'Genre Affinity Weights:',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ...genreAffinity.entries
+                      .take(5)
+                      .map(
+                        (e) => _buildSignalRow(
+                          e.key,
+                          '${((e.value as num) * 100).toStringAsFixed(0)}%',
+                        ),
+                      ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Orientation Scoring Profile
+        _buildSectionCard(
+          title: 'Scoring Profile & Topology',
+          icon: LucideIcons.sliders,
+          child: Column(
+            children: [
+              _buildSignalRow('Orientation Weight Profile', orientationProfile),
+              _buildSignalRow(
+                'Active Scoring Tabs',
+                activeWeights.keys.join(', '),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // GDPR Notice
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                LucideIcons.shieldCheck,
+                color: AppColors.primaryTeal,
+                size: 16,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  notice,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    color: const Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: AppColors.modeSettings),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.manrope(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              color: AppColors.ink,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

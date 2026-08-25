@@ -21,6 +21,9 @@ class LifestyleResonanceSection extends StatelessWidget {
     required this.onDrinkingSaved,
     required this.onSmokingSaved,
     required this.onReligiousBeliefsSaved,
+    this.childrenPlans = '',
+    this.onChildrenPlansSaved,
+    this.onClearChildrenPlans,
     this.onClearDrinking,
     this.onClearSmoking,
     this.onClearReligiousBeliefs,
@@ -29,8 +32,10 @@ class LifestyleResonanceSection extends StatelessWidget {
     this.isSavingSmoking = false,
     this.isSavingReligiousBeliefs = false,
     this.isSavingPets = false,
+    this.isSavingChildrenPlans = false,
     this.religiousBeliefsVisibilityToggle,
     this.petsVisibilityToggle,
+    this.childrenPlansVisibilityToggle,
     super.key,
   });
 
@@ -38,18 +43,22 @@ class LifestyleResonanceSection extends StatelessWidget {
   final String drinking;
   final String smoking;
   final String religiousBeliefs;
+  final String childrenPlans;
   final List<String> pets;
   final bool isSavingLifestyle;
   final bool isSavingDrinking;
   final bool isSavingSmoking;
   final bool isSavingReligiousBeliefs;
   final bool isSavingPets;
+  final bool isSavingChildrenPlans;
   final Widget? religiousBeliefsVisibilityToggle;
   final Widget? petsVisibilityToggle;
+  final Widget? childrenPlansVisibilityToggle;
 
   final ValueChanged<String> onLifestyleChanged;
   final ValueChanged<String> onLifestyleSubmitted;
   final ValueChanged<List<String>> onPetsChanged;
+  final ValueChanged<String>? onChildrenPlansSaved;
 
   final void Function({
     required String title,
@@ -65,6 +74,7 @@ class LifestyleResonanceSection extends StatelessWidget {
   final VoidCallback? onClearDrinking;
   final VoidCallback? onClearSmoking;
   final VoidCallback? onClearReligiousBeliefs;
+  final VoidCallback? onClearChildrenPlans;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +176,28 @@ class LifestyleResonanceSection extends StatelessWidget {
             onClear: onClearReligiousBeliefs,
             isSaving: isSavingReligiousBeliefs,
             visibilityToggle: religiousBeliefsVisibilityToggle,
+          ),
+          const SizedBox(height: 16),
+
+          // Children Plans
+          SelectorTile(
+            label: 'CHILDREN PLANS',
+            value: childrenPlans,
+            icon: LucideIcons.baby,
+            iconColor: const Color(0xFF007AFF),
+            onTap: () {
+              if (onChildrenPlansSaved != null) {
+                openBottomSelectionSheet(
+                  title: 'Children Plans',
+                  options: FilterOptions.childrenPlans,
+                  currentValue: childrenPlans,
+                  onSelected: onChildrenPlansSaved!,
+                );
+              }
+            },
+            onClear: onClearChildrenPlans,
+            isSaving: isSavingChildrenPlans,
+            visibilityToggle: childrenPlansVisibilityToggle,
           ),
           const SizedBox(height: 16),
 

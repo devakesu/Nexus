@@ -1,6 +1,6 @@
 """ProfileModel and profile update request/response Pydantic models."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -605,6 +605,7 @@ ALLOWED_HIDDEN_FIELDS: frozenset[str] = frozenset(
         "top_artists",
         "causes_supported",
         "hometown",
+        "children_plans",
     },
 )
 
@@ -715,3 +716,17 @@ class ModerationSubjectsRequest(BaseModel):
             raise ValueError("target_ids cannot contain more than 50 items.")
         from app.db.client import normalize_uuid
         return list(dict.fromkeys(normalize_uuid(tid) for tid in v))
+
+
+class ProfileDerivedSignalsResponse(BaseModel):
+    """Transparency model detailing derived algorithmic signals, embeddings, and scoring profiles for GDPR compliance."""
+    user_id: str
+    ai_vibe_tags: list[str] = Field(default_factory=list)
+    artist_affinity: dict[str, float] = Field(default_factory=dict)
+    genre_affinity: dict[str, float] = Field(default_factory=dict)
+    embedding_signals: dict[str, Any] = Field(default_factory=dict)
+    orientation_weight_profile: str
+    active_scoring_weights: dict[str, dict[str, float]] = Field(default_factory=dict)
+    hidden_profile_fields: list[str] = Field(default_factory=list)
+    transparency_notice: str
+

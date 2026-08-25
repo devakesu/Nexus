@@ -27,6 +27,8 @@ from app.db.discovery.orbit import (
     build_tab_aware_orbit_node_detail,
     coerce_float,
     coerce_score,
+    quantize_music_match_grade,
+    quantize_score,
 )
 
 __all__ = [
@@ -35,6 +37,8 @@ __all__ = [
     "build_tab_aware_orbit_node_detail",
     "coerce_float",
     "coerce_score",
+    "quantize_music_match_grade",
+    "quantize_score",
     # exclusions
     "fetch_active_block_ids",
     "fetch_active_discovery_excluded_ids",

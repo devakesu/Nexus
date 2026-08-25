@@ -9,7 +9,12 @@ from postgrest.exceptions import APIError
 from app.core.config import DiscoveryTab
 from app.core.security.crypto import DecryptFailedError
 from app.db.client import DatabaseAccessError, ProfileDecodeError, supabase_client
-from app.db.discovery import coerce_float, coerce_score, get_cached_active_block_ids
+from app.db.discovery import (
+    coerce_float,
+    coerce_score,
+    get_cached_active_block_ids,
+    quantize_music_match_grade,
+)
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,
@@ -46,7 +51,7 @@ def _build_node_detail_payload(
         raise
 
     grade_val = row.get("music_match_grade")
-    music_match_grade = int(grade_val) if grade_val is not None else None
+    music_match_grade = quantize_music_match_grade(grade_val)
 
     if connection is None:
         from app.db.spotify import get_connection
@@ -92,6 +97,7 @@ def _build_node_detail_payload(
         "pets": hydrated_profile.get("pets") or [],
         "hidden_profile_fields": hydrated_profile.get("hidden_profile_fields") or [],
         "score": coerce_score(row.get("score")),
+        "session_id": session_id,
         "x": coerce_float(row.get("x")),
         "y": coerce_float(row.get("y")),
         "orbit_tier": int(coerce_float(row.get("orbit_tier"), 3.0)),

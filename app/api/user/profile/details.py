@@ -22,14 +22,16 @@ from app.api.dependencies import (
     get_active_user_id,
     verify_app_check_token,
     verify_app_check_with_replay_protection,
+    verify_app_check_with_strict_replay_protection
 )
-from app.core.config import settings
+from app.core.config import ORIENTATION_WEIGHT_MODIFIERS, TAB_MASKS, settings
 from app.core.infra.limiter import limiter
 from app.api.user.profile.helpers import (
     _AGE_CHANGE_MAX_PER_WINDOW,
     _AGE_CHANGE_WINDOW_DAYS,
     _NAME_CHANGE_MAX_PER_WINDOW,
     _NAME_CHANGE_WINDOW_DAYS,
+    _SCORING_MUTATION_FIELDS,
     _VALUE_DIMENSION_TRIGGER_FIELDS,
     _assert_no_decryption_failures,
     _build_ordered_images,
@@ -40,12 +42,14 @@ from app.api.user.profile.helpers import (
     _validate_friends_activation,
     _validate_professional_activation,
 )
+from app.core.infra.cache import sync_redis_client
 from app.core.security.crypto import compute_blind_index, encrypt_to_hex
 from app.core.utils.moderation import NameModerationError, validate_display_name
 from app.db.client import supabase_client
 from app.db.profiles import decrypt_profile_record
 from app.db.users import fetch_public_user
 from app.models import (
+    ProfileDerivedSignalsResponse,
     ProfileDetailsResponse,
     ProfileDetailsUpdate,
     ProfileUpdateResponse,
@@ -693,6 +697,14 @@ def update_profile_details(  # noqa: C901
         if payload.model_fields_set & _VALUE_DIMENSION_TRIGGER_FIELDS:
             background_tasks.add_task(recompile_value_dimensions, user_id)
 
+        if payload.model_fields_set & _SCORING_MUTATION_FIELDS:
+            try:
+                cooldown_key = f"user:profile_mutations:{user_id}"
+                sync_redis_client.incr(cooldown_key)
+                sync_redis_client.expire(cooldown_key, 600)
+            except Exception:
+                pass
+
         return {"status": "success", "detail": "Profile details synchronized."}
     except HTTPException:
         raise
@@ -702,3 +714,113 @@ def update_profile_details(  # noqa: C901
             status_code=500,
             detail="Internal server error.",
         ) from e
+
+
+@router.get(
+    "/api/v1/profile/derived-signals",
+    response_model=ProfileDerivedSignalsResponse,
+    summary="Transparency Subject Access Request for derived profile signals and algorithmic weights",
+)
+@limiter.limit(settings.rate_limit_discover)
+def get_profile_derived_signals(
+    request: Request,
+    _device: None = Depends(verify_app_check_with_strict_replay_protection),
+    user_id: str = Depends(get_active_user_id),
+) -> ProfileDerivedSignalsResponse:
+    """Returns all derived algorithmic signals, embeddings metadata, and active scoring modifiers for GDPR transparency."""
+    _ = request
+    try:
+        select_cols = (
+            "id, display_sexuality, ai_vibe_tags, artist_affinity, "
+            "genre_affinity, bio_embedding, career_embedding, identity_embedding"
+        )
+        res = (
+            supabase_client.table("profiles")
+            .select(select_cols)
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        data = getattr(res, "data", None)
+        if data is None or not isinstance(data, dict):
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        profile = decrypt_profile_record(cast(dict[str, Any], data))
+
+        # Query hidden fields from privacy_settings
+        privacy_res = (
+            supabase_client.table("privacy_settings")
+            .select("hidden_fields")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        privacy_data = getattr(privacy_res, "data", None)
+        hidden_fields: list[str] = []
+        if isinstance(privacy_data, dict):
+            raw_hidden = cast(dict[str, Any], privacy_data).get("hidden_fields")
+            if isinstance(raw_hidden, list):
+                hidden_fields = [str(cast(object, x)) for x in cast(list[Any], raw_hidden) if x is not None]
+
+        sexuality = profile.get("display_sexuality") or "Not Specified"
+        orientation_mods = ORIENTATION_WEIGHT_MODIFIERS.get(sexuality, {})
+
+        active_weights: dict[str, dict[str, float]] = {}
+        for tab, mask in TAB_MASKS.items():
+            tab_dict: dict[str, float] = {}
+            for field, base_w in mask.items():
+                mod_val = orientation_mods.get(field, 1.0) if tab == "Dating" else 1.0
+                tab_dict[field] = round(base_w * mod_val, 2)
+            active_weights[tab] = tab_dict
+
+        embedding_signals: dict[str, Any] = {
+            "bio_embedding": {
+                "generated": bool(profile.get("bio_embedding")),
+                "dimension": (
+                    len(profile.get("bio_embedding") or [])
+                    if isinstance(profile.get("bio_embedding"), list)
+                    else None
+                ),
+            },
+            "career_embedding": {
+                "generated": bool(profile.get("career_embedding")),
+                "dimension": (
+                    len(profile.get("career_embedding") or [])
+                    if isinstance(profile.get("career_embedding"), list)
+                    else None
+                ),
+            },
+            "identity_embedding": {
+                "generated": bool(profile.get("identity_embedding")),
+                "dimension": (
+                    len(profile.get("identity_embedding") or [])
+                    if isinstance(profile.get("identity_embedding"), list)
+                    else None
+                ),
+            },
+        }
+
+        return ProfileDerivedSignalsResponse(
+            user_id=user_id,
+            ai_vibe_tags=profile.get("ai_vibe_tags") or [],
+            artist_affinity=profile.get("artist_affinity") or {},
+            genre_affinity=profile.get("genre_affinity") or {},
+            embedding_signals=embedding_signals,
+            orientation_weight_profile=sexuality,
+            active_scoring_weights=active_weights,
+            hidden_profile_fields=hidden_fields,
+            transparency_notice=(
+                "This Subject Access Request (SAR) transparency report details the algorithmic and "
+                "AI-derived signals computed from your profile and connected services to match and "
+                "rank connections in Nexus in accordance with GDPR principles."
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to retrieve derived signals")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error.",
+        ) from e
+

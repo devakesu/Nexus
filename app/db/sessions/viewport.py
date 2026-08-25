@@ -9,7 +9,12 @@ from postgrest.exceptions import APIError
 from postgrest.types import CountMethod
 
 from app.db.client import DatabaseAccessError, supabase_client
-from app.db.discovery import coerce_float, coerce_score, get_cached_active_block_ids
+from app.db.discovery import (
+    coerce_float,
+    coerce_score,
+    get_cached_active_block_ids,
+    quantize_score,
+)
 from app.db.profiles import decrypt_profile_rows
 
 logger = logging.getLogger(__name__)
@@ -63,7 +68,7 @@ async def _filter_and_sort_viewport_items(
             "id": item["cid"],
             "name": profile_map.get(item["cid"], {}).get("name"),
             "profile_pic": profile_map.get(item["cid"], {}).get("profile_pic"),
-            "score": coerce_score(item["row"].get("score")),
+            "score": quantize_score(coerce_score(item["row"].get("score")), candidate_id=item["cid"]),
             "orbit_tier": int(coerce_float(item["row"].get("orbit_tier"), 3.0)),
             "x": item["x"],
             "y": item["y"],

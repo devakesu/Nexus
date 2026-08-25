@@ -66,14 +66,57 @@ def coerce_score(value: Any) -> float:
     return coerce_float(value, 0.0)
 
 
-def quantize_score(score: float) -> float:
+def quantize_score(
+    score: float,
+    session_id: str | None = None,
+    candidate_id: str | None = None,
+) -> float:
     """Quantize raw compatibility scores to coarse tiers (e.g. 0.2, 0.4, 0.6, 0.8, 1.0)
-    to prevent profile attribute extraction and engine reverse-engineering attacks."""
+    with session-seeded temporal noise to prevent profile attribute extraction and engine
+    reverse-engineering attacks."""
     if score <= 0.0:
         return 0.0
     if score <= 1.0:
-        return round(round(score * 5.0) / 5.0, 2)
-    return round(round(score / 10.0) * 10.0, 1)
+        base = round(round(score * 5.0) / 5.0, 2)
+        if not session_id:
+            return base
+        seed_str = f"{session_id}:{candidate_id or ''}:score_noise"
+        h = int(hashlib.sha256(seed_str.encode("utf-8")).hexdigest()[:8], 16)
+        shift = ((h % 3) - 1) * 0.1
+        noisy = round(base + shift, 2)
+        return max(0.1, min(1.0, noisy))
+
+    base_pct = round(round(score / 10.0) * 10.0, 1)
+    if not session_id:
+        return base_pct
+    seed_str = f"{session_id}:{candidate_id or ''}:score_noise"
+    h = int(hashlib.sha256(seed_str.encode("utf-8")).hexdigest()[:8], 16)
+    shift_pct = float((h % 3) - 1) * 10.0
+    noisy_pct = round(base_pct + shift_pct, 1)
+    return max(10.0, min(100.0, noisy_pct))
+
+
+def quantize_music_match_grade(grade: Any) -> int | None:
+    """Quantize raw music match grade to 4 broad coarse tiers:
+    - None / Unset: None
+    - 0-2 (No Match): 0
+    - 3-5 (Partial Match): 3
+    - 6-8 (Good Match): 7
+    - 9-10 (Excellent Match): 10
+    """
+    if grade is None:
+        return None
+    try:
+        val = int(grade)
+    except (ValueError, TypeError):
+        return None
+    if val <= 2:
+        return 0
+    if val <= 5:
+        return 3
+    if val <= 8:
+        return 7
+    return 10
 
 
 def coerce_float(value: Any, default: float = 0.0) -> float:
@@ -187,17 +230,24 @@ def build_tab_aware_orbit_node_detail(
     p = _apply_field_visibility(payload, hidden_fields or set())
 
     grade_val = p.get("music_match_grade")
-    music_match_grade = int(grade_val) if grade_val is not None else None
+    music_match_grade = quantize_music_match_grade(grade_val)
+
+    cid = str(p.get("id") or "")
+    session_id = str(p.get("session_id") or "") if p.get("session_id") else None
 
     base: dict[str, Any] = {
-        "id": str(p.get("id") or ""),
+        "id": cid,
         "name": p.get("name"),
         "age": p.get("age"),
         "campus_branch": p.get("campus_branch"),
         "campus_year": p.get("campus_year"),
         "campus_name": p.get("campus_name"),
         "role_at": p.get("role_at"),
-        "score": quantize_score(coerce_score(p.get("score"))),
+        "score": quantize_score(
+            coerce_score(p.get("score")),
+            session_id=session_id,
+            candidate_id=cid,
+        ),
         "x": coerce_float(p.get("x")),
         "y": coerce_float(p.get("y")),
         "orbit_tier": int(coerce_float(p.get("orbit_tier"), 3.0)),
@@ -451,12 +501,14 @@ def assign_orbit_positions(
     base_angle = rng.uniform(0.0, 2.0 * math.pi)
     positioned_items: list[dict[str, Any]] = []
     for rank, item in enumerate(ordered):
-        # Phyllotaxis spiral: radius grows as sqrt(rank) (even areal density,
-        # compact), golden-angle step spreads consecutive ranks evenly around
-        # the full 360 degrees so there's never a clustered "spine" or an empty
-        # wedge.
-        radius = _INNERMOST_RADIUS + _SUNFLOWER_SCALE * math.sqrt(float(rank))
-        angle = base_angle + rank * _GOLDEN_ANGLE
+        # Phyllotaxis spiral with session-scoped coordinate jitter:
+        # Radius grows as sqrt(rank) with a randomized noise term to break exact
+        # monotone rank triangulation while preserving general tier proximity.
+        base_radius = _INNERMOST_RADIUS + _SUNFLOWER_SCALE * math.sqrt(float(rank))
+        radius_jitter = rng.uniform(-15.0, 15.0)
+        radius = max(_INNERMOST_RADIUS, base_radius + radius_jitter)
+        angle_jitter = rng.uniform(-0.10, 0.10)
+        angle = base_angle + rank * _GOLDEN_ANGLE + angle_jitter
         profile_raw = item.get("profile")
         profile: dict[str, Any] = (
             cast(dict[str, Any], profile_raw)

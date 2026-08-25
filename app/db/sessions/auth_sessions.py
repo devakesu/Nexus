@@ -13,7 +13,13 @@ from app.db.client import (
     supabase_client,
     utcnow,
 )
-from app.db.discovery import assign_orbit_positions, coerce_float, coerce_score
+from app.db.discovery import (
+    assign_orbit_positions,
+    coerce_float,
+    coerce_score,
+    quantize_music_match_grade,
+    quantize_score,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,13 +91,13 @@ def create_discovery_session(
             continue
 
         grade_raw = item.get("music_match_grade")
-        music_match_grade = int(grade_raw) if grade_raw is not None else None
+        music_match_grade = quantize_music_match_grade(grade_raw)
 
         items_payload.append(
             {
                 "position": position,
                 "candidate_id": str(candidate_id),
-                "score": coerce_score(item.get("score")),
+                "score": quantize_score(coerce_score(item.get("score")), candidate_id=str(candidate_id)),
                 "x": coerce_float(item.get("_x")),
                 "y": coerce_float(item.get("_y")),
                 "orbit_tier": int(coerce_float(item.get("_orbit_tier"), 3.0)),

@@ -197,6 +197,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
         return 'currentPlace';
       case 'religious_beliefs':
         return 'religiousBeliefs';
+      case 'children_plans':
+        return 'childrenPlans';
       case 'causes_supported':
         return 'causesSupported';
       case 'top_artists':
@@ -216,6 +218,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _currentPlace = '';
 
   String _religiousBeliefs = '';
+  String _childrenPlans = '';
   String _lifestyle = '';
   String _drinking = '';
   String _smoking = '';
@@ -239,8 +242,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
   String _savedBio = '';
   String _savedHometown = '';
   String _savedCurrentPlace = '';
-
   String _savedReligiousBeliefs = '';
+  String _savedChildrenPlans = '';
   String _savedLifestyle = '';
   String _savedDrinking = '';
   String _savedSmoking = '';
@@ -818,6 +821,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     _religiousBeliefs = cleanSingle(data['religious_beliefs']);
     _savedReligiousBeliefs = _religiousBeliefs;
 
+    _childrenPlans = cleanSingle(data['children_plans']);
+    _savedChildrenPlans = _childrenPlans;
+
     _lifestyle = data['lifestyle']?.toString() ?? '';
     _savedLifestyle = _lifestyle;
 
@@ -1033,6 +1039,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     String? hometown,
     String? currentPlace,
     String? religiousBeliefs,
+    String? childrenPlans,
     String? lifestyle,
     String? drinking,
     String? smoking,
@@ -1073,6 +1080,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
     }
     if (religiousBeliefs != null &&
         religiousBeliefs != _savedReligiousBeliefs) {
+      hasChanges = true;
+    }
+    if (childrenPlans != null && childrenPlans != _savedChildrenPlans) {
       hasChanges = true;
     }
     if (lifestyle != null && lifestyle != _savedLifestyle) hasChanges = true;
@@ -1144,6 +1154,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
       incomingPayload['religious_beliefs'] = religiousBeliefs.isEmpty
           ? 'Prefer not to say'
           : religiousBeliefs;
+    }
+    if (childrenPlans != null) {
+      incomingPayload['children_plans'] = childrenPlans.isEmpty
+          ? null
+          : childrenPlans;
     }
     if (lifestyle != null) incomingPayload['lifestyle'] = lifestyle;
     if (drinking != null) {
@@ -1273,6 +1288,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                     ? ''
                     : beliefs;
                 _savedReligiousBeliefs = _religiousBeliefs;
+              }
+              if (currentPayload.containsKey('children_plans')) {
+                final cp = currentPayload['children_plans'];
+                _childrenPlans = cp == null ? '' : cp as String;
+                _savedChildrenPlans = _childrenPlans;
               }
               if (currentPayload.containsKey('lifestyle')) {
                 _lifestyle = currentPayload['lifestyle'] as String;
@@ -2505,6 +2525,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         drinking: _drinking,
                         smoking: _smoking,
                         religiousBeliefs: _religiousBeliefs,
+                        childrenPlans: _childrenPlans,
                         pets: _pets,
                         isSavingLifestyle: _savingFields.contains('lifestyle'),
                         isSavingDrinking: _savingFields.contains('drinking'),
@@ -2512,9 +2533,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         isSavingReligiousBeliefs: _savingFields.contains(
                           'religiousBeliefs',
                         ),
+                        isSavingChildrenPlans: _savingFields.contains(
+                          'childrenPlans',
+                        ),
                         isSavingPets: _savingFields.contains('pets'),
                         religiousBeliefsVisibilityToggle:
                             _buildVisibilityToggle('religious_beliefs'),
+                        childrenPlansVisibilityToggle: _buildVisibilityToggle(
+                          'children_plans',
+                        ),
                         petsVisibilityToggle: _buildVisibilityToggle('pets'),
                         onLifestyleChanged: (val) =>
                             setState(() => _lifestyle = val),
@@ -2538,6 +2565,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab>
                         ),
                         onClearReligiousBeliefs: () => unawaited(
                           _saveProfileChanges(religiousBeliefs: ''),
+                        ),
+                        onChildrenPlansSaved: (val) {
+                          setState(() => _childrenPlans = val);
+                          unawaited(_saveProfileChanges(childrenPlans: val));
+                        },
+                        onClearChildrenPlans: () => unawaited(
+                          _saveProfileChanges(childrenPlans: ''),
                         ),
                       ),
                     ),
