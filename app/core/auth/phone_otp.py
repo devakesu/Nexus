@@ -12,7 +12,7 @@ import phonenumbers
 from phonenumbers import NumberParseException, PhoneNumberFormat
 
 from app.core.infra.otp import generate_otp_code
-from app.core.security.crypto import get_hmac_signing_key
+from app.core.security.crypto import get_hmac_signing_key, get_hmac_verify_keys
 
 __all__ = [
     "generate_otp_code",
@@ -94,7 +94,7 @@ def verify_otp_hash(
     code: str,
     expected_hash: str,
 ) -> bool:
-    """Verifies an OTP code against an expected HMAC-SHA256 digest using constant-time comparison.
+    """Verifies an OTP code against an expected HMAC-SHA256 digest using constant-time comparison across all verify keys.
 
     Args:
         user_id: User identifier string.
@@ -105,7 +105,12 @@ def verify_otp_hash(
     Returns:
         bool: True if code matches digest, False otherwise.
     """
-    return hmac.compare_digest(hash_otp(user_id, phone_norm, code), expected_hash)
+    message = f"{_OTP_DOMAIN_LABEL}:{user_id}:{phone_norm}:{code}".encode()
+    for key in get_hmac_verify_keys():
+        candidate_hash = hmac.new(key, message, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate_hash, expected_hash):
+            return True
+    return False
 
 
 def mask_phone(phone: str | None) -> str | None:

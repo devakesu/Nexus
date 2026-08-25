@@ -22,30 +22,10 @@ class DiscoveryFilters(BaseModel):
         default=None,
         description="Array of target campus academic years.",
     )
-    drinking: list[str] | None = Field(
-        default=None,
-        description="Target drinking lifestyle profiles.",
-    )
-    smoking: list[str] | None = Field(
-        default=None,
-        description="Target smoking lifestyle profiles.",
-    )
+    # DB-level blind index filters
     campus_branches: list[str] | None = Field(
         default=None,
-        description="Target engineering branch categories.",
-    )
-    # DB-level blind index filters (new columns)
-    children_plans: list[str] | None = Field(
-        default=None,
-        description=(
-            "Acceptable children-plans values (multi-select; IN on HMAC blind index)."
-        ),
-    )
-    religious_beliefs: list[str] | None = Field(
-        default=None,
-        description=(
-            "Acceptable religious-belief values (multi-select; IN on HMAC blind index)."
-        ),
+        description="Target engineering branch categories (IN on campus_branch_blind_index).",
     )
 
     # DB-level unencrypted filters
@@ -60,7 +40,27 @@ class DiscoveryFilters(BaseModel):
         description="Restrict candidates to specific search_bucket values (M/F/NB).",
     )
 
-    # Post-fetch in-memory filters (encrypted fields - no blind indexes)
+    # Post-fetch in-memory filters (encrypted fields - no blind indexes to prevent frequency analysis leakage)
+    drinking: list[str] | None = Field(
+        default=None,
+        description="Target drinking lifestyle profiles (in-memory post-fetch filter).",
+    )
+    smoking: list[str] | None = Field(
+        default=None,
+        description="Target smoking lifestyle profiles (in-memory post-fetch filter).",
+    )
+    children_plans: list[str] | None = Field(
+        default=None,
+        description=(
+            "Acceptable children-plans values (multi-select; in-memory post-fetch filter)."
+        ),
+    )
+    religious_beliefs: list[str] | None = Field(
+        default=None,
+        description=(
+            "Acceptable religious-belief values (multi-select; in-memory post-fetch filter)."
+        ),
+    )
     languages: list[str] | None = Field(
         default=None,
         description="Candidate must speak at least one of these languages.",

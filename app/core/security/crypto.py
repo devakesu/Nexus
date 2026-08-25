@@ -149,13 +149,31 @@ def decrypt_pii(
         raise DecryptFailedError("Decryption failed") from e
 
 
+def reset_cipher_suites() -> None:
+    """Clears the cached MultiFernet cipher suites.
+
+    Useful when encryption keys in settings are changed dynamically (e.g. during testing
+    or runtime configuration reloads).
+    """
+    _category_cipher_suites.clear()
+
+
+def _get_blind_index_keys() -> list[bytes]:
+    """Returns all configured blind index keys (first = active write key)."""
+    raw = settings.blind_index_key.strip() if settings.blind_index_key else ""
+    keys = [k.strip().encode("utf-8") for k in raw.split(",") if k.strip()]
+    if not keys:
+        raise RuntimeError("BLIND_INDEX_KEY must be configured for blind indexing.")
+    return keys
+
+
 def compute_blind_index(value: str | None, domain: str = "general") -> str:
     """Computes a deterministic HMAC-SHA256 blind index for exact match database lookups.
 
     Values are lowercased and stripped before hashing for case-insensitive matching.
-    Includes a domain-separation label (e.g., 'mobile', 'safety_contact_phone', 'campus_branch',
-    'drinking', 'smoking', 'children_plans', 'religious_beliefs') to prevent cross-table
-    correlation and rainbow table attacks across different fields.
+    Includes a domain-separation label (e.g., 'mobile', 'safety_contact_phone', 'campus_branch')
+    to prevent cross-table correlation and rainbow table attacks across different fields.
+    Always uses the primary (first) key in BLIND_INDEX_KEY.
 
     Args:
         value: Input string to generate blind index for.
@@ -167,10 +185,47 @@ def compute_blind_index(value: str | None, domain: str = "general") -> str:
     if value is None or value == "":
         return ""
 
+    keys = _get_blind_index_keys()
     normalized = value.strip().lower()
     msg = f"{domain}:{normalized}"
     return hmac.new(
-        settings.blind_index_key.encode("utf-8"),
+        keys[0],
+        msg.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def compute_blind_index_with_key(
+    value: str | None,
+    domain: str = "general",
+    key: bytes | str | None = None,
+) -> str:
+    """Computes a deterministic blind index using a specified HMAC key.
+
+    Useful during key rotation and migration to compute digests under specific keys.
+
+    Args:
+        value: Input string to generate blind index for.
+        domain: Field-specific domain separation label.
+        key: Specific HMAC key (bytes or str). If None, uses primary blind index key.
+
+    Returns:
+        str: Hex-encoded HMAC-SHA256 digest string, or empty string if input is empty/None.
+    """
+    if value is None or value == "":
+        return ""
+
+    if key is None:
+        key_bytes = _get_blind_index_keys()[0]
+    elif isinstance(key, str):
+        key_bytes = key.strip().encode("utf-8")
+    else:
+        key_bytes = key
+
+    normalized = value.strip().lower()
+    msg = f"{domain}:{normalized}"
+    return hmac.new(
+        key_bytes,
         msg.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
@@ -190,18 +245,34 @@ def encrypt_to_hex(value: str | None, category: str = "profile") -> str | None:
     return f"\\x{enc.hex()}" if enc else None
 
 
-def get_hmac_signing_key() -> bytes:
-    """Returns the dedicated HMAC signing key for token and OTP signatures.
-
-    Enforces cryptographic domain separation (NIST SP 800-57): strictly requires
-    `hmac_signing_key` and forbids fallback to `blind_index_key`.
-    """
-    key = settings.hmac_signing_key.strip() if settings.hmac_signing_key else ""
-    if not key:
+def _get_hmac_keys() -> list[bytes]:
+    """Returns all configured HMAC signing keys parsed from comma-separated settings.hmac_signing_key."""
+    raw = settings.hmac_signing_key.strip() if settings.hmac_signing_key else ""
+    keys = [k.strip().encode("utf-8") for k in raw.split(",") if k.strip()]
+    if not keys:
         raise RuntimeError(
             "HMAC_SIGNING_KEY must be configured for signing and verifying tokens.",
         )
-    return key.encode("utf-8")
+    return keys
+
+
+def get_hmac_signing_key() -> bytes:
+    """Returns the primary dedicated HMAC signing key for token and OTP signatures.
+
+    Enforces cryptographic domain separation (NIST SP 800-57): strictly requires
+    `hmac_signing_key` and forbids fallback to `blind_index_key`. Always returns
+    the first key in the comma-separated key list.
+    """
+    return _get_hmac_keys()[0]
+
+
+def get_hmac_verify_keys() -> list[bytes]:
+    """Returns all configured HMAC signing keys for token and OTP signature verification.
+
+    Allows a graceful rotation window where tokens signed with previous keys
+    remain valid during transition.
+    """
+    return _get_hmac_keys()
 
 
 def verify_signed_prekey_signature(

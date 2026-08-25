@@ -45,6 +45,10 @@ _POST_FETCH_FIELDS: frozenset[str] = frozenset(
         "causes_supported",
         "tech_skills",
         "partner_values",
+        "drinking",
+        "smoking",
+        "children_plans",
+        "religious_beliefs",
     },
 )
 
@@ -131,11 +135,7 @@ def _fetch_and_decrypt_viewer(
 def _apply_blind_index_filters(query: Any, filters: DiscoveryFilters) -> Any:
     """Apply blind index filter constraints."""
     blind_fields: list[tuple[list[str] | None, str]] = [
-        (filters.drinking, "drinking_blind_index"),
-        (filters.smoking, "smoking_blind_index"),
         (filters.campus_branches, "campus_branch_blind_index"),
-        (filters.children_plans, "children_plans_blind_index"),
-        (filters.religious_beliefs, "religious_beliefs_blind_index"),
     ]
     for values, column in blind_fields:
         if values:
@@ -260,6 +260,31 @@ def _list_overlap(cand_list: list[str], allowed: list[str]) -> bool:
     return bool(set(cand_list) & set(allowed))
 
 
+_LOW_CARDINALITY_SCALAR_FIELDS: tuple[str, ...] = (
+    "drinking",
+    "smoking",
+    "children_plans",
+    "religious_beliefs",
+)
+
+
+def _check_lifestyle_filters(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
+    """In-memory equality filter for low-cardinality scalar lifestyle fields.
+
+    Each field is decrypted lazily only when the corresponding filter is active.
+    Case-insensitive: filter values are compared against the lowercased decrypted plaintext.
+    """
+    for field in _LOW_CARDINALITY_SCALAR_FIELDS:
+        allowed: list[str] | None = getattr(filters, field, None)
+        if allowed:
+            decrypt_profile_field(c, field)
+            val = c.get(field)
+            val_norm = val.strip().lower() if isinstance(val, str) else ""
+            if not val_norm or val_norm not in {v.strip().lower() for v in allowed}:
+                return False
+    return True
+
+
 def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     """Check basic field overlap against filters."""
     if filters.languages:
@@ -289,6 +314,8 @@ def _check_candidate_match(
     dealbreakers: set[str],
 ) -> bool:
     """Check candidate match against post-fetch filter criteria."""
+    if not _check_lifestyle_filters(c, filters):
+        return False
     if not _check_basic_overlap(c, filters):
         return False
 

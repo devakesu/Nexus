@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.core.auth.phone_otp import normalize_phone as normalize_phone
 from app.core.infra.otp import generate_otp_code as generate_otp_code
-from app.core.security.crypto import get_hmac_signing_key
+from app.core.security.crypto import get_hmac_signing_key, get_hmac_verify_keys
 
 _OTP_LENGTH = 6
 _OTP_DOMAIN_LABEL = "safety_portal_otp"  # domain-separation label
@@ -20,13 +20,23 @@ _ACCESS_TOKEN_TTL_SECONDS = 30 * 60
 
 
 def _get_signing_key() -> bytes:
-    """Returns the dedicated HMAC signing key for safety portal operations.
+    """Returns the dedicated primary HMAC signing key for safety portal operations.
 
     Enforces cryptographic domain separation (NIST SP 800-57): strictly uses
     `hmac_signing_key` and never falls back to `blind_index_key`.
     """
     try:
         return get_hmac_signing_key()
+    except RuntimeError as err:
+        raise RuntimeError(
+            "HMAC_SIGNING_KEY must be configured for portal authentication.",
+        ) from err
+
+
+def _get_verify_keys() -> list[bytes]:
+    """Returns all configured HMAC signing keys for safety portal token verification."""
+    try:
+        return get_hmac_verify_keys()
     except RuntimeError as err:
         raise RuntimeError(
             "HMAC_SIGNING_KEY must be configured for portal authentication.",
@@ -55,7 +65,7 @@ def verify_otp_hash(
     code: str,
     expected_hash: str,
 ) -> bool:
-    """Verifies a safety portal OTP code against an expected HMAC digest.
+    """Verifies a safety portal OTP code against an expected HMAC digest across all verification keys.
 
     Args:
         session_id: Safety session identifier.
@@ -66,11 +76,16 @@ def verify_otp_hash(
     Returns:
         bool: True if code matches digest, False otherwise.
     """
-    return hmac.compare_digest(hash_otp(session_id, phone_norm, code), expected_hash)
+    message = f"{_OTP_DOMAIN_LABEL}:{session_id}:{phone_norm}:{code}".encode()
+    for key in _get_verify_keys():
+        candidate_hash = hmac.new(key, message, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate_hash, expected_hash):
+            return True
+    return False
 
 
 def _sign_access_payload(payload: str) -> str:
-    """Signs an access token payload using HMAC-SHA256.
+    """Signs an access token payload using HMAC-SHA256 with the primary signing key.
 
     Args:
         payload: Access token payload string.
@@ -119,7 +134,7 @@ def make_portal_access_token(session_id: str, phone_norm: str) -> str:
 
 
 def verify_portal_access_token(session_id: str, token: str) -> str | None:
-    """Verifies and decodes a safety portal access token.
+    """Verifies and decodes a safety portal access token across all verification keys.
 
     Args:
         session_id: Active safety session identifier.
@@ -139,8 +154,18 @@ def verify_portal_access_token(session_id: str, token: str) -> str | None:
 
     if token_session_id != session_id:
         return None
-    if not hmac.compare_digest(_sign_access_payload(payload), signature):
+
+    message = f"{_ACCESS_DOMAIN_LABEL}:{payload}".encode()
+    valid_sig = False
+    for key in _get_verify_keys():
+        candidate_sig = hmac.new(key, message, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate_sig, signature):
+            valid_sig = True
+            break
+
+    if not valid_sig:
         return None
+
     if datetime.now(timezone.utc).timestamp() >= expires_at:
         return None
     return phone_id

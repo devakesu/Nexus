@@ -16,7 +16,7 @@ import httpx
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.core.security.crypto import get_hmac_signing_key
+from app.core.security.crypto import get_hmac_signing_key, get_hmac_verify_keys
 
 logger = logging.getLogger(__name__)
 
@@ -381,7 +381,7 @@ def make_escalation_cancel_token(
 
 
 def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
-    """Verifies a submitted cancellation token against expected HMAC and expiration.
+    """Verifies a submitted cancellation token against expected HMAC and expiration across all verify keys.
 
     Args:
         session_id: Safety session identifier.
@@ -412,7 +412,15 @@ def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
     if token_session_id != session_id:
         return None
 
-    if not hmac.compare_digest(_sign_escalation_cancel_payload(payload), signature):
+    message = f"{_ESCALATION_LABEL_DOMAIN}:{payload}".encode()
+    valid_sig = False
+    for key in get_hmac_verify_keys():
+        candidate_sig = hmac.new(key, message, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate_sig, signature):
+            valid_sig = True
+            break
+
+    if not valid_sig:
         return None
 
     if datetime.now(timezone.utc).timestamp() >= expires_at:
@@ -456,7 +464,7 @@ def make_contact_portal_token(
 
 
 def verify_contact_portal_token(token: str) -> str | None:
-    """Verifies a contact portal token against expected HMAC and expiration.
+    """Verifies a contact portal token against expected HMAC and expiration across all verify keys.
 
     Args:
         token: Submitted token string.
@@ -479,7 +487,15 @@ def verify_contact_portal_token(token: str) -> str | None:
     except (ValueError, UnicodeDecodeError):
         return None
 
-    if not hmac.compare_digest(_sign_contact_portal_payload(payload), signature):
+    message = f"{_CONTACT_PORTAL_LABEL_DOMAIN}:{payload}".encode()
+    valid_sig = False
+    for key in get_hmac_verify_keys():
+        candidate_sig = hmac.new(key, message, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(candidate_sig, signature):
+            valid_sig = True
+            break
+
+    if not valid_sig:
         return None
 
     if datetime.now(timezone.utc).timestamp() >= expires_at:

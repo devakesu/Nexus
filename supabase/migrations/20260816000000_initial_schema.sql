@@ -1167,10 +1167,6 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "artist_affinity" "bytea",
     "genre_affinity" "bytea",
     "campus_branch_blind_index" "text",
-    "smoking_blind_index" "text",
-    "drinking_blind_index" "text",
-    "children_plans_blind_index" "bytea",
-    "religious_beliefs_blind_index" "bytea",
     "hidden_profile_fields" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
     "share_active_status" boolean DEFAULT true NOT NULL,
     "share_read_receipts" boolean DEFAULT true NOT NULL,
@@ -1217,10 +1213,6 @@ COMMENT ON COLUMN "public"."profiles"."value_dimensions" IS 'Encrypted structure
 
 COMMENT ON COLUMN "public"."profiles"."campus_branch_blind_index" IS 'HMAC-SHA256 deterministic blind hash for encrypted campus branch queries.';
 
-COMMENT ON COLUMN "public"."profiles"."smoking_blind_index" IS 'HMAC-SHA256 deterministic blind hash for encrypted smoking lookups.';
-
-COMMENT ON COLUMN "public"."profiles"."drinking_blind_index" IS 'HMAC-SHA256 deterministic blind hash for encrypted drinking lookups.';
-
 COMMENT ON COLUMN "public"."profiles"."is_friends_active" IS 'Server-maintained flag: profile is active in Friends discovery.';
 
 COMMENT ON COLUMN "public"."profiles"."is_professional_active" IS 'Server-maintained flag: profile is active in Professional discovery.';
@@ -1258,10 +1250,6 @@ COMMENT ON COLUMN "public"."profiles"."campus_year" IS 'Deliberately stored as p
 COMMENT ON COLUMN "public"."profiles"."search_bucket" IS 'Deliberately stored as plaintext categorical string (''M'', ''F'', ''NB'') to support fast indexed demographic routing and target bucket partitioning in discovery matching.';
 
 COMMENT ON COLUMN "public"."profiles"."dating_for" IS 'Deliberately stored as plaintext text[] backed by PostgreSQL GIN index (idx_profiles_dating_for) to support high-performance set-overlap filtering in discovery stage 1 candidate search queries without requiring client-side decryption loops over millions of profile rows (F-13 documented trade-off).';
-
-COMMENT ON COLUMN "public"."profiles"."children_plans_blind_index" IS 'HMAC-SHA256 of decrypted children_plans value for equality filtering without decryption.';
-
-COMMENT ON COLUMN "public"."profiles"."religious_beliefs_blind_index" IS 'HMAC-SHA256 of decrypted religious_beliefs value for equality filtering without decryption.';
 
 COMMENT ON COLUMN "public"."profiles"."role_type" IS 'Encrypted JSON array of predefined role-type tags (e.g. Founder, Engineer). Filtered post-fetch via list-overlap; no blind index needed.';
 
@@ -1635,7 +1623,7 @@ COMMENT ON COLUMN "public"."users"."mobile" IS 'Encrypted mobile number, verifie
 
 COMMENT ON COLUMN "public"."users"."mobile_verified_at" IS 'UTC timestamp the mobile number was last verified via the account phone OTP flow. NULL if never verified.';
 
-COMMENT ON COLUMN "public"."users"."mobile_blind_index" IS 'Deterministic HMAC-SHA256 (compute_blind_index) of the verified mobile number, for exact-match lookup only - the encrypted mobile column itself cannot be queried by equality. Backend/service_role-only, written only by set_verified_mobile().';
+COMMENT ON COLUMN "public"."users"."mobile_blind_index" IS 'Deterministic HMAC-SHA256 (compute_blind_index, domain=mobile) of the verified mobile number. Used for exact-match lookup only (login-by-phone, duplicate-phone prevention). Backend/service_role only — no anon or authenticated RLS SELECT policy exists on this column. Residual risk (F-08): a party with direct DB read access can enumerate whether a given phone number is registered by computing HMAC(phone) and doing an index lookup. Mitigated by: (1) service-role key access is a critical breach boundary, (2) no client-facing RLS SELECT policy, (3) API callers respond identically for registered and unregistered numbers.';
 
 COMMENT ON COLUMN "public"."users"."deletion_requested_at" IS 'Set when the user completes the delete-account confirmation flow (OTP + typed DELETE). NULL means no pending deletion. Backend/service_role-only.';
 
@@ -1873,15 +1861,11 @@ CREATE INDEX "idx_profiles_campus_branch_blind" ON "public"."profiles" USING "bt
 
 CREATE INDEX "idx_profiles_campus_year" ON "public"."profiles" USING "btree" ("campus_year");
 
-CREATE INDEX "idx_profiles_children_plans_bi" ON "public"."profiles" USING "btree" ("children_plans_blind_index");
-
 CREATE INDEX "idx_profiles_dating_eligibility" ON "public"."profiles" USING "btree" ("id") WHERE (("is_dating_active" = true) AND ("is_deactivated" = false));
 
 CREATE INDEX "idx_profiles_dating_for" ON "public"."profiles" USING "gin" ("dating_for");
 
 CREATE INDEX "idx_profiles_dating_target_buckets" ON "public"."profiles" USING "gin" ("dating_target_buckets");
-
-CREATE INDEX "idx_profiles_drinking_blind" ON "public"."profiles" USING "btree" ("drinking_blind_index");
 
 CREATE INDEX "idx_profiles_friends_eligibility" ON "public"."profiles" USING "btree" ("id") WHERE (("is_friends_active" = true) AND ("is_deactivated" = false));
 
@@ -1893,11 +1877,7 @@ CREATE INDEX "idx_profiles_professional_eligibility" ON "public"."profiles" USIN
 
 CREATE INDEX "idx_profiles_professional_target_buckets" ON "public"."profiles" USING "gin" ("professional_target_buckets");
 
-CREATE INDEX "idx_profiles_religious_beliefs_bi" ON "public"."profiles" USING "btree" ("religious_beliefs_blind_index");
-
 CREATE INDEX "idx_profiles_search_bucket" ON "public"."profiles" USING "btree" ("search_bucket");
-
-CREATE INDEX "idx_profiles_smoking_blind" ON "public"."profiles" USING "btree" ("smoking_blind_index");
 
 CREATE INDEX "idx_safety_alerts_user_created" ON "public"."safety_alerts" USING "btree" ("user_id", "created_at" DESC);
 

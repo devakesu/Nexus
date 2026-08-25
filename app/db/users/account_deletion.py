@@ -79,10 +79,6 @@ _PROFILE_PII_COLUMNS = (
 )
 _PROFILE_BLIND_INDEX_COLUMNS = (
     "campus_branch_blind_index",
-    "smoking_blind_index",
-    "drinking_blind_index",
-    "children_plans_blind_index",
-    "religious_beliefs_blind_index",
 )
 _ANONYMIZED_NAME = "Deleted User"
 

@@ -434,27 +434,6 @@ def update_profile_details(  # noqa: C901
                 )
         update_data["normal_pics"] = encrypt_to_hex(json.dumps(payload.normal_pics))
 
-    if payload.drinking is not None:
-        update_data["drinking_blind_index"] = compute_blind_index(
-            payload.drinking,
-            domain="drinking",
-        )
-    if payload.smoking is not None:
-        update_data["smoking_blind_index"] = compute_blind_index(
-            payload.smoking,
-            domain="smoking",
-        )
-    if payload.children_plans is not None:
-        update_data["children_plans_blind_index"] = compute_blind_index(
-            payload.children_plans,
-            domain="children_plans",
-        )
-    if payload.religious_beliefs is not None:
-        update_data["religious_beliefs_blind_index"] = compute_blind_index(
-            payload.religious_beliefs,
-            domain="religious_beliefs",
-        )
-
     array_fields = [
         "looking_for",
         "activities",

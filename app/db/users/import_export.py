@@ -58,10 +58,6 @@ _IMPORTABLE_FIELDS = [
     "friends_target_buckets",
     "professional_target_buckets",
     "campus_branch_blind_index",
-    "smoking_blind_index",
-    "drinking_blind_index",
-    "children_plans_blind_index",
-    "religious_beliefs_blind_index",
 ]
 
 

@@ -64,16 +64,21 @@ def test_blind_index_domain_separation() -> None:
     assert safety_bi != general_bi
 
 
-def test_blind_index_fields_differ_for_same_value() -> None:
-    """Low cardinality values (e.g. 'yes', 'no') must not produce identical digests across fields."""
-    value = "yes"
-    drinking_bi = compute_blind_index(value, domain="drinking")
-    smoking_bi = compute_blind_index(value, domain="smoking")
-    children_bi = compute_blind_index(value, domain="children_plans")
-    religious_bi = compute_blind_index(value, domain="religious_beliefs")
+def test_blind_index_domain_separation_active_fields() -> None:
+    """Active blind index domains (campus_branch, mobile, safety_contact_phone) must remain distinct (F-03).
 
-    digests = {drinking_bi, smoking_bi, children_bi, religious_bi}
-    assert len(digests) == 4, "Each field domain must produce a unique blind index"
+    NOTE: drinking, smoking, children_plans, religious_beliefs blind indexes were
+    removed in F-08 (Option A) in favor of in-memory post-fetch filtering to prevent
+    frequency-analysis leakage.
+    """
+    value = "engineering"
+    campus_bi = compute_blind_index(value, domain="campus_branch")
+    mobile_bi = compute_blind_index(value, domain="mobile")
+    safety_bi = compute_blind_index(value, domain="safety_contact_phone")
+    general_bi = compute_blind_index(value, domain="general")
+
+    digests = {campus_bi, mobile_bi, safety_bi, general_bi}
+    assert len(digests) == 4, "Each active domain must produce a unique blind index"
 
 
 def test_blind_index_normalization() -> None:
