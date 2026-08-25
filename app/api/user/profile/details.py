@@ -15,6 +15,7 @@ from fastapi import (
     status,
 )
 from postgrest.exceptions import APIError
+from redis.exceptions import RedisError
 
 import app.api.user as user_module
 from app.api.dependencies import (
@@ -22,10 +23,8 @@ from app.api.dependencies import (
     get_active_user_id,
     verify_app_check_token,
     verify_app_check_with_replay_protection,
-    verify_app_check_with_strict_replay_protection
+    verify_app_check_with_strict_replay_protection,
 )
-from app.core.config import ORIENTATION_WEIGHT_MODIFIERS, TAB_MASKS, settings
-from app.core.infra.limiter import limiter
 from app.api.user.profile.helpers import (
     _AGE_CHANGE_MAX_PER_WINDOW,
     _AGE_CHANGE_WINDOW_DAYS,
@@ -42,7 +41,9 @@ from app.api.user.profile.helpers import (
     _validate_friends_activation,
     _validate_professional_activation,
 )
+from app.core.config import ORIENTATION_WEIGHT_MODIFIERS, TAB_MASKS, settings
 from app.core.infra.cache import sync_redis_client
+from app.core.infra.limiter import limiter
 from app.core.security.crypto import compute_blind_index, encrypt_to_hex
 from app.core.utils.moderation import NameModerationError, validate_display_name
 from app.db.client import supabase_client
@@ -263,6 +264,7 @@ def update_profile_details(  # noqa: C901
         if not profile_data or not isinstance(profile_data, dict):
             raise HTTPException(status_code=404, detail="Profile not found. Complete onboarding first.")
         profile = user_module.decrypt_profile_record(cast(dict[str, Any], profile_data))
+        _assert_no_decryption_failures(profile)
 
     if "campus_year" in payload.model_fields_set or payload.campus_name is not None:
         existing_campus_name = profile.get("campus_name") if profile else None
@@ -416,6 +418,8 @@ def update_profile_details(  # noqa: C901
                 or ".." in cleaned_pic
                 or "\\" in cleaned_pic
                 or "\x00" in cleaned_pic
+                or "%" in cleaned_pic
+                or cleaned_pic.startswith("/")
             ):
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -431,6 +435,8 @@ def update_profile_details(  # noqa: C901
                 or ".." in pic
                 or "\\" in pic
                 or "\x00" in pic
+                or "%" in pic
+                or pic.startswith("/")
             ):
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -702,8 +708,11 @@ def update_profile_details(  # noqa: C901
                 cooldown_key = f"user:profile_mutations:{user_id}"
                 sync_redis_client.incr(cooldown_key)
                 sync_redis_client.expire(cooldown_key, 600)
-            except Exception:
-                pass
+            except RedisError:
+                logger.warning(
+                    "Redis failure setting profile mutation cooldown for user %s",
+                    user_id,
+                )
 
         return {"status": "success", "detail": "Profile details synchronized."}
     except HTTPException:
@@ -746,6 +755,7 @@ def get_profile_derived_signals(
             raise HTTPException(status_code=404, detail="Profile not found")
 
         profile = decrypt_profile_record(cast(dict[str, Any], data))
+        _assert_no_decryption_failures(profile)
 
         # Query hidden fields from privacy_settings
         privacy_res = (

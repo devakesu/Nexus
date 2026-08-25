@@ -199,6 +199,44 @@ def delete_conversation_chat_media(conversation_id: str) -> None:
     batch_delete_conversations_chat_media([conversation_id])
 
 
+def _collect_user_conv_media_paths(conv_id: str, valid_user_id: str) -> list[str]:
+    """List object paths for a specific user under a conversation prefix."""
+    user_prefix = f"{conv_id}/{valid_user_id}"
+    try:
+        objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(user_prefix)
+        return [f"{user_prefix}/{obj['name']}" for obj in (objects or []) if obj.get("name")]
+    except Exception:
+        logger.exception(
+            "Failed to list user chat_media objects for conversation %s and user %s",
+            conv_id,
+            valid_user_id,
+        )
+        return []
+
+
+def delete_user_chat_media(user_id: str, conversation_ids: list[str]) -> None:
+    """Purges only the encrypted media blobs uploaded by user_id across the given conversations ({conversation_id}/{user_id}/*)."""
+    if not user_id or not conversation_ids:
+        return
+    valid_user_id = normalize_uuid(user_id)
+    all_paths: list[str] = []
+    for conv_id in conversation_ids:
+        if conv_id:
+            all_paths.extend(_collect_user_conv_media_paths(conv_id, valid_user_id))
+
+    if all_paths:
+        chunk_size = 100
+        for i in range(0, len(all_paths), chunk_size):
+            chunk = all_paths[i : i + chunk_size]
+            try:
+                supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).remove(chunk)
+            except Exception:
+                logger.exception(
+                    "Failed to batch remove user chat_media objects chunk of size %s",
+                    len(chunk),
+                )
+
+
 def batch_delete_conversations_chat_media(conversation_ids: list[str]) -> None:
     """Purges encrypted media blobs for multiple conversations in batched storage remove calls."""
     if not conversation_ids:
@@ -217,7 +255,7 @@ def batch_delete_conversations_chat_media(conversation_ids: list[str]) -> None:
                 if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
                     try:
                         sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
-                            f"{conv_id}/{name}"
+                            f"{conv_id}/{name}",
                         )
                         for sub in (sub_objects or []):
                             sub_name = sub.get("name")

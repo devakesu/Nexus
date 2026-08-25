@@ -48,9 +48,18 @@ def test_generate_nexus_intent_embeddings_sanitizes_and_caps_bio(mock_get_model:
     # Verify bio was capped at 500 characters
     assert "A" * 500 in bio_call_arg
     assert "A" * 501 not in bio_call_arg
-    # Verify structured fields were included in context
+    # Verify structured non-sensitive fields were included in context
     assert "Lifestyle & Day Structure: Active gym goer" in bio_call_arg
     assert "Intent/Values Checklist: Honesty, Ambition" in bio_call_arg
+
+    # Verify special-category / sensitive fields are strictly EXCLUDED from all embedding contexts
+    all_contexts = [bio_call_arg, career_call_arg, identity_call_arg]
+    for ctx in all_contexts:
+        assert "Spiritual" not in ctx
+        assert "Someday" not in ctx
+        assert "religious_beliefs" not in ctx
+        assert "children_plans" not in ctx
+        assert "display_sexuality" not in ctx
 
     # Verify context length caps
     assert len(bio_call_arg) <= 1024

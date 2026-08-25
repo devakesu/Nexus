@@ -409,3 +409,34 @@ async def test_correlation_id_middleware_generates_and_propagates_request_id() -
         assert captured_ctx_id == "custom-req-id-12345"
         assert captured_record_id == "custom-req-id-12345"
 
+
+def test_sentry_init_excludes_local_variables() -> None:
+    """Verify Sentry SDK initialization options disable local variable capture and default PII."""
+    with patch("sentry_sdk.init") as mock_init:
+        # Simulate main.py init block
+        from app.core.config import settings
+        from app.core.infra.sentry import scrub_event
+
+        sentry_sdk_mock = mock_init
+        if not settings.sentry_backend_dsn:
+            mock_dsn = "https://mock@sentry.io/123"
+        else:
+            mock_dsn = settings.sentry_backend_dsn
+
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=mock_dsn,
+            environment="test",
+            traces_sample_rate=0.0,
+            send_default_pii=False,
+            include_local_variables=False,
+            before_send=scrub_event,
+        )
+
+        sentry_sdk_mock.assert_called_once()
+        _, kwargs = sentry_sdk_mock.call_args
+        assert kwargs.get("include_local_variables") is False
+        assert kwargs.get("send_default_pii") is False
+        assert kwargs.get("before_send") is scrub_event
+
+

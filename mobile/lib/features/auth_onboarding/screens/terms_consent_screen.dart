@@ -212,7 +212,8 @@ class _TermsConsentPageState extends State<TermsConsentPage> {
             title: 'Sexual orientation & religious belief data',
             description:
                 'Optional - these fields are always skippable in your '
-                'profile. GDPR treats this as sensitive data, so we ask '
+                'profile. Used for profile display and optional discovery '
+                'filter matching. GDPR/DPDP treats this as sensitive data, so we ask '
                 'separately: if you leave this off, you can still use '
                 "Nexus fully, you just won't be able to fill in sexual "
                 'orientation or religious belief on your profile until you '

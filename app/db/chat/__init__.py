@@ -8,6 +8,7 @@ from app.db.chat.chat import (
     create_event_with_message,
     decrypt_event_row,
     delete_conversation_chat_media,
+    delete_user_chat_media,
     fetch_conversation_for_match,
     fetch_conversation_participants,
     fetch_conversations_for_user,
@@ -40,17 +41,16 @@ from app.db.chat.keys import (
 )
 
 __all__ = [
-    # keys
-    "bulk_insert_one_time_prekeys",
-    # chat
     "batch_delete_conversations_chat_media",
     "batch_fetch_presence_from_db",
     "batch_fetch_user_share_flags",
+    "bulk_insert_one_time_prekeys",
     "close_conversation_for_match_action",
     "count_unused_one_time_prekeys",
     "create_event_with_message",
     "decrypt_event_row",
     "delete_conversation_chat_media",
+    "delete_user_chat_media",
     "fetch_active_matches_for_targets",
     "fetch_conversation_for_match",
     "fetch_conversation_participants",

@@ -566,6 +566,37 @@ def test_fetch_evidence_decrypts_media_key() -> None:
     assert rows[0]["media_key_base64"] == raw_key
 
 
+def test_fetch_evidence_caller_isolation_assertion() -> None:
+    """Assert that fetch_evidence_for_alert_ids is strictly called only by the portal endpoint.
+
+    Ensures media_key_base64 is never exposed to admin APIs, user export, or staff tooling.
+    """
+    import os
+
+    allowed_modules = {
+        "app/db/safety/evidence.py",
+        "app/db/safety/__init__.py",
+        "app/api/safety/portal/endpoints.py",
+    }
+
+    app_dir = "/nexus/app"
+    violating_files: list[str] = []
+
+    for root, _, files in os.walk(app_dir):
+        for f in files:
+            if f.endswith(".py"):
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(full_path, "/nexus")
+                if rel_path in allowed_modules:
+                    continue
+                with open(full_path, encoding="utf-8") as source_file:
+                    content = source_file.read()
+                if "fetch_evidence_for_alert_ids" in content:
+                    violating_files.append(rel_path)
+
+    assert not violating_files, f"Unauthorized callers of fetch_evidence_for_alert_ids detected: {violating_files}"
+
+
 @pytest.mark.anyio
 @patch("app.api.safety.endpoints.end_safety_session")
 async def test_end_session_succeeds(mock_end: MagicMock) -> None:

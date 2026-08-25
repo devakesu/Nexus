@@ -439,6 +439,8 @@ async def register_evidence(
         or "\\" in normalized_path
         or "\x00" in normalized_path
         or normalized_path.startswith("/")
+        or "%" in payload.storage_path
+        or "%" in normalized_path
     ):
         raise HTTPException(
             status_code=422,

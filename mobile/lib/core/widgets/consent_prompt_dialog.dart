@@ -118,8 +118,8 @@ class _GenericConsentPromptCardState extends State<GenericConsentPromptCard> {
             '• Camera & microphone - only when you start a Digital Witness recording; never accessed passively\n\n'
             'Under GDPR, processing this data requires your explicit consent. '
             'This is entirely optional - Nexus works fully without it, and you can withdraw consent at any time from Privacy Settings.'
-      : 'Displaying orientation and religious beliefs on your profile requires processing under special category protection.\n\n'
-            'Under GDPR, this requires your explicit consent. This is entirely optional - Nexus works fully without it, '
+      : 'Displaying orientation and religious beliefs on your profile and using them for optional matchmaking discovery filtering requires processing under special category protection.\n\n'
+            'Under GDPR/DPDP, this requires your explicit consent. This is entirely optional - Nexus works fully without it, '
             'and you can withdraw consent at any time from Privacy Settings.';
 
   Future<void> _handleAccept() async {

@@ -12,11 +12,11 @@ import time
 from typing import Any, cast
 
 import jwt
+import sentry_sdk
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import app_check
 from redis.exceptions import RedisError
-import sentry_sdk
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -438,13 +438,18 @@ def is_consent_stale(
     current_version: str | None = None,
 ) -> bool:
     """True if a consent category has never been granted, or was granted
-    under an older terms version than what's currently required.
+    under an older terms version than what's currently required. Uses strict
+    semver segment comparison so '1.1' correctly evaluates as older than '1.10'.
     """
     if not stored_version:
         return True
     req_version = (current_version or settings.current_terms_version).strip()
     try:
-        return float(str(stored_version)) < float(req_version)
+        from app.db.users.consent import _parse_version_tuple
+
+        return _parse_version_tuple(str(stored_version)) < _parse_version_tuple(
+            req_version,
+        )
     except ValueError:
         return True
 
@@ -577,8 +582,7 @@ def verify_and_get_app_check_claims(
         return None
 
     try:
-        claims = app_check.verify_token(x_firebase_appcheck)
-        return claims
+        return app_check.verify_token(x_firebase_appcheck)
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -587,6 +591,43 @@ def verify_and_get_app_check_claims(
                 "check failed. Execution blocked."
             ),
         ) from err
+
+
+async def _consume_app_check_token(
+    raw_token: str, exp: int, strict: bool = False,
+) -> None:
+    now = int(time.time())
+    ttl = max(int(exp) - now, 1)
+
+    # SHA-256 hash of token to avoid storing raw credential in Redis
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    redis_key = f"appcheck:consumed:{token_hash}"
+
+    try:
+        # Atomic NX+EX: sets key ONLY if it does not already exist, with TTL
+        was_set = await redis_client.set(redis_key, "1", ex=ttl, nx=True)
+    except Exception as err:
+        if strict:
+            logger.exception(
+                "[REPLAY] Redis unavailable during App Check consume check on critical route; failing closed.",
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service temporarily unavailable. Replay protection service offline.",
+            ) from err
+        logger.exception(
+            "[REPLAY] Redis unavailable during App Check consume check; failing open for safety availability.",
+        )
+        return
+
+    if not was_set:
+        logger.warning("[REPLAY] App Check token replay attempt detected and blocked.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Access Denied: App Check token already consumed. Obtain a fresh token."
+            ),
+        )
 
 
 async def _verify_app_check_with_replay_impl(
@@ -620,38 +661,7 @@ async def _verify_app_check_with_replay_impl(
             detail="Access Denied: App Check token missing expiry claim.",
         )
 
-    now = int(time.time())
-    ttl = max(int(exp) - now, 1)
-
-    # SHA-256 hash of token to avoid storing raw credential in Redis
-    token_hash = hashlib.sha256(x_firebase_appcheck.encode("utf-8")).hexdigest()
-    redis_key = f"appcheck:consumed:{token_hash}"
-
-    try:
-        # Atomic NX+EX: sets key ONLY if it does not already exist, with TTL
-        was_set = await redis_client.set(redis_key, "1", ex=ttl, nx=True)
-    except Exception as err:
-        if strict:
-            logger.exception(
-                "[REPLAY] Redis unavailable during App Check consume check on critical route; failing closed.",
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service temporarily unavailable. Replay protection service offline.",
-            ) from err
-        logger.exception(
-            "[REPLAY] Redis unavailable during App Check consume check; failing open for safety availability.",
-        )
-        return
-
-    if not was_set:
-        logger.warning("[REPLAY] App Check token replay attempt detected and blocked.")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Access Denied: App Check token already consumed. Obtain a fresh token."
-            ),
-        )
+    await _consume_app_check_token(x_firebase_appcheck, int(exp), strict=strict)
 
 
 async def verify_app_check_with_replay_protection(

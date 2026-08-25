@@ -75,24 +75,28 @@ async def assemble_ticket_detail(
 _assemble_ticket_detail = assemble_ticket_detail
 
 
+def _is_valid_attachment_path(path: str, own_prefix: str) -> bool:
+    """Verify that an attachment path is within own prefix and has no traversal or percent encoding."""
+    if not path or not path.startswith(own_prefix):
+        return False
+    if ".." in path or "\\" in path or "\x00" in path or "%" in path or path.startswith("/"):
+        return False
+    parts = path.split("/")
+    return len(parts) == 2 and bool(parts[1])
+
+
 async def _verify_user_storage_files(user_id: str, attachment_paths: list[str]) -> None:
     if not attachment_paths:
         return
     own_prefix = f"{user_id}/"
     filenames: list[str] = []
     for path in attachment_paths:
-        if not path.startswith(own_prefix) or ".." in path or "\\" in path:
+        if not _is_valid_attachment_path(path, own_prefix):
             raise HTTPException(
                 status_code=422,
                 detail="attachment_paths may only reference your own uploads.",
             )
-        parts = path.split("/")
-        if len(parts) != 2 or not parts[1]:
-            raise HTTPException(
-                status_code=422,
-                detail="attachment_paths may only reference your own uploads.",
-            )
-        filenames.append(parts[1])
+        filenames.append(path.split("/")[1])
 
     try:
         objects = await asyncio.to_thread(

@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.core.infra.cache import invalidate_user_status_cache
 from app.core.security.crypto import encrypt_to_hex
 from app.db.chat import (
-    batch_delete_conversations_chat_media,
+    delete_user_chat_media,
     reopen_conversations_for_reactivation,
 )
 from app.db.client import (
@@ -45,6 +45,14 @@ logger = logging.getLogger(__name__)
 # excludes structural/preference columns that are NOT NULL, CHECK-constrained,
 # or not meaningfully identifying on their own (age, campus_year,
 # search_bucket, the three *_target_buckets arrays, dating_for, role_type).
+#
+# Compliance & Architectural Note (GDPR Recital 26 / DPDP §2(k)):
+# `age` is intentionally stored unencrypted in plaintext to support high-throughput
+# database-level B-tree indexed range queries (.gte("age", min).lte("age", max))
+# during Stage 1 discovery candidate filtering. Retaining coarse demographic `age`
+# without direct identifying PII (name, profile_pic, bio, campus branch) during
+# Tier-1 anonymization preserves aggregate statistical telemetry without
+# individual re-identification risk.
 _PROFILE_PII_COLUMNS = (
     "campus_branch",
     "campus_name",
@@ -87,6 +95,14 @@ _ANONYMIZED_NAME = "Deleted User"
 # All share a `user_id` column (some FK profiles(id), some FK users(id), but
 # both ids are the same UUID, since profiles/users are 1:1 siblings keyed
 # off auth.users(id) - see app/db/client.py's authorization-model comment).
+#
+# Retention Schedule Note (F-13 / terms_consent_log):
+# `terms_consent_log` is an append-only audit trail containing pseudonymous
+# consent events (category, granted, terms_version, created_at) without direct
+# PII. It is retained between Tier 1 and Tier 2 as proof of consent under
+# GDPR/DPDP legal compliance standards, and is automatically cascade-purged at
+# Tier-2 when auth.users / public.users is deleted via `terms_consent_log_user_id_fkey`
+# ON DELETE CASCADE.
 _NO_RETENTION_TABLES = (
     "chat_identity_keys",
     "chat_signed_prekeys",
@@ -193,7 +209,7 @@ def is_phone_blocklisted(blind_index: str) -> bool:
     try:
         res = (
             supabase_client.table("deleted_account_blocklist")
-            .select("id")
+            .select("id, cooldown_expires_at")
             .eq("phone_blind_index", blind_index)
             .gt("cooldown_expires_at", utcnow().isoformat())
             .limit(1)
@@ -202,7 +218,25 @@ def is_phone_blocklisted(blind_index: str) -> bool:
     except APIError as e:
         logger.exception("Failed to check phone blocklist")
         raise DatabaseAccessError("Failed to check phone blocklist") from e
-    return bool(res.data)
+
+    rows = cast(list[Any], getattr(res, "data", None) or [])
+    if rows and isinstance(rows[0], dict):
+        first_row = cast(dict[str, Any], rows[0])
+        cooldown_expires_at = first_row.get("cooldown_expires_at")
+        masked_blind_index = (
+            f"{blind_index[:6]}...{blind_index[-6:]}"
+            if len(blind_index) >= 12
+            else "***"
+        )
+        logger.warning(
+            "Phone registration/claim blocked by deleted account blocklist hit",
+            extra={
+                "masked_phone_hash": masked_blind_index,
+                "cooldown_expires_at": cooldown_expires_at,
+            },
+        )
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -465,19 +499,53 @@ def _anonymize_profile_and_user(user_id: str, now: datetime) -> None:
         raise DatabaseAccessError("Failed to anonymize profile and user") from e
 
 
-def _delete_no_retention_rows(user_id: str) -> None:
-    """Delete no retention rows.
+def _purge_vector_profiles_for_user(valid_user_id: str) -> None:
+    """Defense-in-depth: Explicitly purge vector_profiles keyed by pseudonym_id."""
+    try:
+        pseudo_res = (
+            supabase_client.table("profile_pseudonym_map")
+            .select("pseudonym_id")
+            .eq("user_id", valid_user_id)
+            .execute()
+        )
+        pseudo_rows = cast(list[dict[str, Any]], pseudo_res.data or [])
+        for p_row in pseudo_rows:
+            p_id = str(p_row.get("pseudonym_id") or "").strip()
+            if p_id:
+                supabase_client.table("vector_profiles").delete().eq(
+                    "pseudonym_id", p_id,
+                ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to explicitly purge vector_profiles for user",
+            extra={"user_id": valid_user_id},
+        )
 
-        Args:
-            user_id: Unique UUID string of the authenticated user."""
-    valid_user_id = normalize_uuid(user_id)
-    for table in _NO_RETENTION_TABLES:
-        try:
-            supabase_client.table(table).delete().eq("user_id", valid_user_id).execute()
-        except APIError:
-            logger.exception(
-                "Failed to purge %s row(s) for user", table, extra={"user_id": valid_user_id},
-            )
+
+def _purge_discovery_for_user(valid_user_id: str) -> None:
+    """Explicitly purges viewer discovery session items, sessions, and actions."""
+    try:
+        sess_res = (
+            supabase_client.table("discovery_sessions")
+            .select("id")
+            .eq("viewer_id", valid_user_id)
+            .execute()
+        )
+        sess_rows = cast(list[dict[str, Any]], sess_res.data or [])
+        sess_ids = [
+            str(r.get("id") or "").strip()
+            for r in sess_rows
+            if str(r.get("id") or "").strip()
+        ]
+        if sess_ids:
+            supabase_client.table("discovery_session_items").delete().in_(
+                "session_id", sess_ids,
+            ).execute()
+    except APIError:
+        logger.exception(
+            "Failed to explicitly purge viewer discovery_session_items for user",
+            extra={"user_id": valid_user_id},
+        )
 
     try:
         supabase_client.table("discovery_sessions").delete().eq(
@@ -506,6 +574,25 @@ def _delete_no_retention_rows(user_id: str) -> None:
             "Failed to purge profile_discovery_actions for user",
             extra={"user_id": valid_user_id},
         )
+
+
+def _delete_no_retention_rows(user_id: str) -> None:
+    """Delete no retention rows.
+
+        Args:
+            user_id: Unique UUID string of the authenticated user."""
+    valid_user_id = normalize_uuid(user_id)
+    _purge_vector_profiles_for_user(valid_user_id)
+
+    for table in _NO_RETENTION_TABLES:
+        try:
+            supabase_client.table(table).delete().eq("user_id", valid_user_id).execute()
+        except APIError:
+            logger.exception(
+                "Failed to purge %s row(s) for user", table, extra={"user_id": valid_user_id},
+            )
+
+    _purge_discovery_for_user(valid_user_id)
 
 
 
@@ -547,7 +634,7 @@ def _delete_user_media_objects(user_id: str) -> None:
             extra={"user_id": valid_user_id},
         )
 
-    # 3. Clean chat_media bucket ({conversation_id}/*) for user's conversations
+    # 3. Clean chat_media bucket ({conversation_id}/{user_id}/*) for deleting user
     try:
         # nosec: valid_user_id validated via normalize_uuid
         conv_res = (
@@ -563,10 +650,10 @@ def _delete_user_media_objects(user_id: str) -> None:
             if str(row.get("id") or "").strip()
         ]
         if conv_ids:
-            batch_delete_conversations_chat_media(conv_ids)
+            delete_user_chat_media(valid_user_id, conv_ids)
     except Exception:
         logger.exception(
-            "Failed to fetch conversations for chat_media purge",
+            "Failed to fetch conversations for user chat_media purge",
             extra={"user_id": valid_user_id},
         )
 
@@ -598,6 +685,54 @@ def _ban_and_scrub_auth_user(user_id: str) -> None:
         )
 
 
+def _purge_single_due_account(row: dict[str, Any], now: datetime) -> None:
+    """Purges a single account due for Tier-1 anonymization and cleanup."""
+    user_id = str(row.get("id") or "")
+    if not user_id:
+        return
+    try:
+        blind_index = row.get("mobile_blind_index")
+        reason_code = row.get("deletion_flagged_reason_code")
+        # Re-evaluate deletion flag reason dynamically at purge time to capture any bans or abuse
+        # reports filed during the 30-day grace period
+        try:
+            fresh_reason = compute_deletion_flag_reason(user_id)
+            if fresh_reason is not None:
+                reason_code = fresh_reason
+        except Exception:
+            logger.warning(
+                "Could not dynamically re-evaluate deletion flag reason for user %s; using frozen code",
+                user_id,
+            )
+
+        _permanently_unmatch_all(user_id)
+        _anonymize_profile_and_user(user_id, now)
+
+        if reason_code and blind_index:
+            supabase_client.table("deleted_account_blocklist").upsert(
+                {
+                    "phone_blind_index": blind_index,
+                    "cooldown_expires_at": (
+                        now
+                        + timedelta(
+                            days=settings.account_deletion_blocklist_cooldown_days,
+                        )
+                    ).isoformat(),
+                    "reason_code": reason_code,
+                },
+                on_conflict="phone_blind_index",
+            ).execute()
+
+        _delete_no_retention_rows(user_id)
+        _delete_user_media_objects(user_id)
+        _ban_and_scrub_auth_user(user_id)
+    except Exception:
+        logger.exception(
+            "Failed to purge account; will retry next run",
+            extra={"user_id": user_id},
+        )
+
+
 def purge_due_accounts() -> None:
     """Tier-1 purge job body, run daily by the scheduler. Per-account
     failures are logged and skipped rather than aborting the whole batch.
@@ -609,39 +744,7 @@ def purge_due_accounts() -> None:
     for i in range(0, len(accounts), batch_size):
         batch = accounts[i:i + batch_size]
         for row in batch:
-            user_id = str(row.get("id") or "")
-            if not user_id:
-                continue
-            try:
-                blind_index = row.get("mobile_blind_index")
-                reason_code = row.get("deletion_flagged_reason_code")
-
-                _permanently_unmatch_all(user_id)
-                _anonymize_profile_and_user(user_id, now)
-
-                if reason_code and blind_index:
-                    supabase_client.table("deleted_account_blocklist").upsert(
-                        {
-                            "phone_blind_index": blind_index,
-                            "cooldown_expires_at": (
-                                now
-                                + timedelta(
-                                    days=settings.account_deletion_blocklist_cooldown_days,
-                                )
-                            ).isoformat(),
-                            "reason_code": reason_code,
-                        },
-                        on_conflict="phone_blind_index",
-                    ).execute()
-
-                _delete_no_retention_rows(user_id)
-                _delete_user_media_objects(user_id)
-                _ban_and_scrub_auth_user(user_id)
-            except Exception:
-                logger.exception(
-                    "Failed to purge account; will retry next run",
-                    extra={"user_id": user_id},
-                )
+            _purge_single_due_account(row, now)
         if i + batch_size < len(accounts):
             time.sleep(1.0)
 

@@ -236,6 +236,72 @@ async def test_remove_trusted_contact_stale_phone_rejected(
     mock_remove.assert_not_called()
 
 
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+async def test_remove_trusted_contact_rate_limited(
+    mock_verify_token: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    phone_id = hash_phone_identifier("+14155552671")
+    mock_verify_token.return_value = phone_id
+    mock_redis.incr = AsyncMock(return_value=6)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await remove_trusted_contact(
+            request=MagicMock(),
+            contact_id="contact-123",
+            authorization="Bearer session-valid",
+        )
+
+    assert exc_info.value.status_code == 429
+    assert "Too many removal requests" in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+@patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
+@patch("app.api.safety.portal.endpoints.remove_safety_contact_self_service")
+@patch("app.api.safety.portal.endpoints.verify_portal_access_token")
+@patch("app.api.safety.portal.endpoints.fetch_public_user")
+@patch("app.api.safety.portal.endpoints.fetch_contact_facing_profile_summary")
+@patch("app.api.safety.portal.endpoints.get_user_email_by_id")
+@patch("app.api.safety.portal.endpoints.send_sms")
+@patch("app.api.safety.portal.endpoints.send_trusted_contact_removed_email")
+async def test_remove_trusted_contact_redis_failure_fallback(
+    _mock_send_email: MagicMock,
+    _mock_send_sms: MagicMock,
+    mock_email: MagicMock,
+    mock_profile: MagicMock,
+    mock_user: MagicMock,
+    mock_verify_token: MagicMock,
+    mock_remove: MagicMock,
+    mock_fetch_contact: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.core.security.portal_auth import hash_phone_identifier
+
+    phone_id = hash_phone_identifier("+14155552671")
+    mock_verify_token.return_value = phone_id
+    mock_redis.incr = AsyncMock(side_effect=Exception("Redis connection error"))
+    mock_fetch_contact.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456", "phone": "+14155552671"}
+    mock_remove.return_value = {"id": "contact-123", "name": "Alice", "user_id": "user-456"}
+    mock_user.return_value = {"mobile": "+1987654321"}
+    mock_profile.return_value = {"name": "Bob"}
+    mock_email.return_value = "bob@example.com"
+
+    res = await remove_trusted_contact(
+        request=MagicMock(),
+        contact_id="contact-123",
+        authorization="Bearer session-valid",
+    )
+
+    assert res.removed is True
+
+
+
 
 @pytest.mark.anyio
 @patch("app.api.safety.portal.endpoints.redis_client")

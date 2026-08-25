@@ -72,6 +72,7 @@ if settings.sentry_backend_dsn:
         environment=settings.sentry_environment,
         traces_sample_rate=settings.sentry_traces_sample_rate,
         send_default_pii=False,
+        include_local_variables=False,
         before_send=scrub_event,
     )
 

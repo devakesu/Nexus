@@ -1,6 +1,7 @@
 """FastAPI endpoints and business logic for the trusted contact and safety portals."""
 
 import asyncio
+import hashlib
 import hmac
 import logging
 import secrets
@@ -557,6 +558,27 @@ async def _notify_user_of_contact_self_removal(
     await asyncio.gather(*notify_tasks, return_exceptions=True)
 
 
+async def _enforce_contact_remove_rate_limit(token: str) -> None:
+    """Enforces 5 removal requests per token per hour."""
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    throttle_key = f"rate_limit:safety_contact_remove:{token_hash}"
+    try:
+        req_count = await redis_client.incr(throttle_key)
+        if req_count == 1:
+            await redis_client.expire(throttle_key, 3600)
+        elif req_count > 5:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many removal requests for this token. Please try again later.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning(
+            "Redis failure checking contact removal token throttle; proceeding with request",
+        )
+
+
 @router.post(
     "/api/v1/safety/contact/{contact_id}/remove",
     response_model=SafetyContactPortalRemoveResponse,
@@ -582,6 +604,8 @@ async def remove_trusted_contact(
             status_code=401,
             detail="Invalid or expired portal session. Please verify again.",
         )
+
+    await _enforce_contact_remove_rate_limit(token)
 
     try:
         contact = await asyncio.to_thread(fetch_safety_contact_by_id, contact_id)

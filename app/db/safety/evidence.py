@@ -63,8 +63,18 @@ def register_safety_evidence(
         raise DatabaseAccessError("Failed to register safety evidence") from e
 
 
+# PRIVILEGED: High-sensitivity key escrow retrieval.
+# This function decrypts and returns raw `media_key_base64` encryption keys.
+# Valid Callers:
+#   - `app.api.safety.portal.endpoints.portal_session_view` (trusted contact emergency access)
+# Restricted Callers:
+#   - MUST NEVER be imported or invoked by admin APIs, data export routines, staff tooling, or generic user endpoints.
 def fetch_evidence_for_alert_ids(alert_ids: list[str]) -> list[dict[str, Any]]:
-    """Fetch decrypted safety evidence records for given alert IDs."""
+    """Fetch decrypted safety evidence records for given alert IDs.
+
+    PRIVILEGED: Decrypts and exposes `media_key_base64` keys from key escrow.
+    Authorized exclusively for trusted contact emergency portal sessions.
+    """
     if not alert_ids:
         return []
     try:

@@ -1308,8 +1308,8 @@ def test_delete_user_media_objects_cleans_feedback_attachments():
     mock_feedback_bucket.list.assert_called_once_with(user_id)
     mock_feedback_bucket.remove.assert_called_once_with([f"{user_id}/att1.png"])
 
-    mock_chat_bucket.list.assert_called_once_with(conv_id)
-    mock_chat_bucket.remove.assert_called_once_with([f"{conv_id}/attachment1.enc"])
+    mock_chat_bucket.list.assert_called_once_with(f"{conv_id}/{user_id}")
+    mock_chat_bucket.remove.assert_called_once_with([f"{conv_id}/{user_id}/attachment1.enc"])
 
 
 def test_close_conversation_for_match_action_deletes_chat_media():

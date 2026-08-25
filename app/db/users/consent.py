@@ -247,6 +247,13 @@ def _log_consent_event(
     *and* decline. A logging failure must not block the consent
     accept/decline itself from taking effect, so this only logs, never
     raises.
+
+    Retention Lifecycle (F-13):
+    Rows are pseudonymous audit records (containing only category, granted,
+    terms_version, created_at). They are retained between Tier 1 and Tier 2
+    for legal compliance proof of consent, and are automatically deleted
+    upon Tier-2 purge via `terms_consent_log_user_id_fkey` ON DELETE CASCADE
+    referencing `public.users(id)`.
     """
     try:
         supabase_client.table("terms_consent_log").insert(

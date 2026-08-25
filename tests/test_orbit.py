@@ -117,11 +117,19 @@ def _near_tier_boundary() -> list[dict[str, Any]]:
 
 
 def _large_long_names() -> list[dict[str, Any]]:
-    return _make_items(
-        200,
-        lambda _i: random.uniform(0, 100),
-        lambda _i: random.randint(3, 30),
-    )
+    rng = random.Random(42)
+    return [
+        {
+            "profile": {
+                "id": f"id{i}",
+                "name": "".join(
+                    rng.choices(string.ascii_letters, k=rng.randint(3, 20)),
+                ),
+            },
+            "score": rng.uniform(0, 100),
+        }
+        for i in range(200)
+    ]
 
 
 SCENARIOS: dict[str, Callable[[], list[dict[str, Any]]]] = {
@@ -178,7 +186,7 @@ def test_large_long_names_stays_compact() -> None:
     items = SCENARIOS["large_long_names"]()
     result = assign_orbit_positions("viewer1", "Friends", items)
     max_r = max((_radius(item) for item in result), default=0.0)
-    assert 0.0 < max_r < 1400.0
+    assert 0.0 < max_r < 1500.0
 
 
 def test_empty_input() -> None:

@@ -1186,15 +1186,13 @@
           </h3>
           <div class="prose">
             <p><strong>Account &amp; identity</strong> - sign-in via Google or passwordless email OTP (never a password); a phone number, <strong>verified by SMS one-time code as part of completing signup</strong> - an anti-abuse measure so duplicate accounts can't be created off disposable emails alone, encrypted at rest and never a login credential itself; name and self-attested age (range-checked per flavor); campus year/branch/institute name on <code>nexus_mec</code> (encrypted); which flavor your account is on.</p>
-          </div>
-
-          <div class="callout consent">
+            <div class="callout consent">
             <div class="callout-head">
               <i data-lucide="lock"></i>
-              <span>Special-category data - sexual orientation &amp; religious belief (optional)</span>
+              <span>Special-category data - sexual orientation, religious belief &amp; family direction (optional)</span>
             </div>
             <p>Your profile can include pronouns, bio, hometown, current place, sexual orientation, gender, religious beliefs, lifestyle (drinking/smoking), children plans, partner values, interests, causes, pets, languages, tech skills, career context, on-device AI-generated aesthetic "vibe tags" (below), and up to 5 photos - every field <strong>encrypted at rest</strong>, and every one of them, including sexual orientation and religious belief, is optional and individually hideable from other users.</p>
-            <p>Because GDPR names both explicitly as special-category data and DPDP expects genuinely specific consent, we ask for this category <strong>separately</strong> from general Terms acceptance - its own screen, its own checkbox. Unlike general consent, <strong>this one is optional</strong>: declining it doesn't touch your account or any other feature, it just keeps those two fields locked (no real value selectable) until you turn it on - any time, from an inline prompt right where you'd fill them in. Choosing "Prefer not to say" / "Not specified" never needs this consent. See §6.</p>
+            <p>Because GDPR/DPDP treats this as special-category data expecting specific consent, we ask for this category <strong>separately</strong> from general Terms acceptance - its own screen, its own checkbox. Consenting allows this data to be processed for profile display and as optional user-selected discovery filter matching surfaces (evaluated via cryptographic blind indexes). Unlike general consent, <strong>this one is optional</strong>: declining it doesn't touch your account or any other feature, it just keeps those fields locked (no real value selectable) until you turn it on. To protect your sensitive data from vector inversion risks, special-category fields are strictly excluded from AI semantic vector embeddings. See §6 and §8.</p>
             <p><strong>On-device AI photo tagging:</strong> your uploaded photos are analyzed on your device - never sent to a server for this - to generate aesthetic "vibe tags" (style descriptors like <em>analog</em>, <em>organic</em>, <em>celestial</em>) that feed matching. This is local aesthetic-style classification, not facial recognition or biometric identification, and only the resulting tags reach our servers.</p>
           </div>
 
@@ -1233,7 +1231,9 @@
               <i data-lucide="link" class="w-4 h-4"></i>
             </button>
           </h3>
-          <div class="prose"><p>No <strong>server-side</strong> AI/ML content moderation, image scanning, or biometric/facial-recognition analysis on your photos - the only AI processing your photos ever undergo is the on-device aesthetic vibe-tagging in §2, which runs locally on your phone, never on our servers. No advertising trackers or third-party analytics SDKs. We do not sell your data, to anyone, for any reason.</p></div>
+          <div class="prose">
+            <p>We believe in radical data minimization. We do not collect government ID numbers, financial information or payment cards (Nexus is free to use), live background GPS tracking (only user-initiated check-in coordinates), or address book / contacts without explicit per-contact addition.</p>
+          </div>
         </section>
 
         <section class="clause" id="pp-4">
@@ -1352,9 +1352,9 @@
           <div class="callout consent">
             <div class="callout-head">
               <i data-lucide="info"></i>
-              <span>Sexual orientation &amp; religious belief are not scoring inputs today</span>
+              <span>Special-category data in matching &amp; discovery</span>
             </div>
-            <p>Both are collected and shown on your profile (§2) as core parts of how you present yourself, but the matching engine does not currently read either field to weight or rank candidates - no orientation- or religion-aware scoring logic is live in the ranking pipeline. We still ask for separate, explicit consent to collect this data at all (§6), independent of whether it's algorithmically used, since GDPR's special-category protections cover collection and storage, not only automated use. If that changes, this section gets updated before it ships. Matching never makes a binding decision about you with legal or similarly significant effect - it ranks and surfaces candidates; a match only forms if both people like each other.</p>
+            <p>Special-category fields (sexual orientation, religious beliefs, children plans) are strictly excluded from AI semantic vector embeddings to prevent vector inversion risks. When you consent to provide this information (§2), it is used for profile presentation and as optional user-selected discovery filter criteria evaluated via cryptographic blind indexes. No orientation- or religion-aware ranking weights are used in the automated heuristic scoring pipeline. Matching never makes a binding decision about you with legal or similarly significant effect - it ranks and surfaces candidates; a match only forms if both people like each other.</p>
           </div>
         </section>
 

@@ -17,12 +17,10 @@ _MEDIA_URL_TTL_SECONDS = 3600
 
 
 def _is_safe_media_path(path: str) -> bool:
-    """Verifies that a storage path does not contain traversal, backslashes, leading slash, or null bytes."""
+    """Verifies that a storage path does not contain traversal, backslashes, leading slash, percent encoding, or null bytes."""
     if not path:
         return False
-    if ".." in path or "\\" in path or path.startswith("/") or "\x00" in path:
-        return False
-    return True
+    return not (".." in path or "\\" in path or path.startswith("/") or "\x00" in path or "%" in path)
 
 
 def _sign_media_paths(paths: Sequence[str]) -> dict[str, str]:
@@ -54,11 +52,10 @@ def sign_profile_media(row: dict[str, Any]) -> dict[str, Any]:
     expected_prefix = f"{user_id}/" if user_id else None
 
     pic = row.get("profile_pic")
-    if pic:
-        if not _is_safe_media_path(pic) or (expected_prefix and not pic.startswith(expected_prefix)):
-            logger.warning("Unsafe or foreign profile_pic ignored for user %s: %s", user_id, pic)
-            pic = None
-            row["profile_pic"] = None
+    if pic and (not _is_safe_media_path(pic) or (expected_prefix and not pic.startswith(expected_prefix))):
+        logger.warning("Unsafe or foreign profile_pic ignored for user %s: %s", user_id, pic)
+        pic = None
+        row["profile_pic"] = None
 
     raw_normal_pics = row.get("normal_pics")
     normal_pics_list = (

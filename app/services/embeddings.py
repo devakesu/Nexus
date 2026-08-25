@@ -5,10 +5,15 @@ Accepts a single plaintext bio string alongside the full decrypted profile
 dictionary and partitions the data into three unpolluted text contexts
 before encoding them with the local sentence-transformer model.
 
+Special-category fields (religious_beliefs, children_plans, display_sexuality)
+are deliberately excluded from embedding contexts to protect sensitive PII
+from vector inversion risks. Matchmaking on these fields is handled via
+cryptographic blind-index filters instead.
+
 Track mapping
 ─────────────
   bio_embedding
-      bio + lifestyle + partner_values + religious_beliefs + children_plans
+      bio + lifestyle + partner_values
   career_embedding
       campus_branch + campus_year + role + tech_skills + sub_interests
       + looking_for
@@ -85,8 +90,6 @@ def generate_nexus_intent_embeddings(
         partner_values = partner_values_raw.strip()
     else:
         partner_values = ", ".join(str(v) for v in partner_values_raw).strip()
-    religious_beliefs: str = (profile.get("religious_beliefs") or "").strip()
-    children_plans: str = (profile.get("children_plans") or "").strip()
 
     campus_branch: str = (profile.get("campus_branch") or "B.Tech.").strip()
     campus_year: int | str = profile.get("campus_year") or 1
@@ -119,9 +122,7 @@ def generate_nexus_intent_embeddings(
     bio_text_context = (
         f"[BIO SPACE] Era: {sanitized_bio} | "
         f"Lifestyle & Day Structure: {lifestyle} | "
-        f"Intent/Values Checklist: {partner_values} | "
-        f"Belief Structure: {religious_beliefs} | "
-        f"Family Direction: {children_plans}"
+        f"Intent/Values Checklist: {partner_values}"
     )[:1024]
 
     # Track B - Technical / Professional focus
@@ -133,7 +134,7 @@ def generate_nexus_intent_embeddings(
         f"Granular Coding Dimensions: {', '.join(sub_interests_flat)}"
     )[:1024]
 
-    # Track C - Cultural identity & aesthetic alignment (shadow telemetry)
+    # Track C - Cultural identity & interest alignment
     identity_text_context = (
         f"[IDENTITY SPACE] Presentation Silhouette: {display_gender} ({pronouns}) | "
         f"Social Causes Supported: {', '.join(causes_supported)} | "

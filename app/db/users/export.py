@@ -12,14 +12,16 @@ Deliberately excluded (see the compliance plan for the reasoning behind
 each): chat_messages.ciphertext/ciphertext_metadata (Signal-Protocol
 content - no server-side plaintext exists, ever); safety_evidence's raw
 media_key_base64 (a signed URL to the still-encrypted file is included
-instead); spotify_connections.refresh_token (a live OAuth credential, not
+with a 1-hour TTL instead); spotify_connections.refresh_token (a live OAuth credential, not
 "data about you"); user_reports filed *against* the user have reporter_id
 stripped (protects the reporter from retaliation) but action_type/
 reason_code/outcome are kept; user_moderation_actions drops private_notes
-and created_by (staff-internal); blind-index hash columns and the
-matching-engine-only artist_affinity field are never included anywhere.
+and created_by (staff-internal); blind-index hash columns and machine-internal
+vector embeddings (bio_embedding, career_embedding, identity_embedding) are never included.
+Derived signals (artist_affinity, genre_affinity) are included with explanatory disclosure.
 """
 
+import contextlib
 import json
 import logging
 import uuid
@@ -39,15 +41,16 @@ logger = logging.getLogger(__name__)
 
 _MEDIA_BUCKET = "user_media"
 _SAFETY_EVIDENCE_BUCKET = "safety_evidence"
-_EXPORT_SIGNED_URL_TTL_SECONDS = 24 * 60 * 60  # 24h - longer than the app's
-# usual 1h profile-photo TTL, since an export may sit unopened for a while.
+_EXPORT_SIGNED_URL_TTL_SECONDS = 24 * 60 * 60  # 24h for general user media (photos)
+_SAFETY_EVIDENCE_SIGNED_URL_TTL_SECONDS = 60 * 60  # 1h short TTL for sensitive emergency safety recordings
 
 _PROFILE_SELECT = (
     "id, created_at, updated_at, name, age, campus_year, campus_branch, "
     "campus_name, display_gender, display_sexuality, pronouns, bio, "
     "hometown, current_place, partner_values, children_plans, "
     "religious_beliefs, lifestyle, drinking, smoking, role_at, role_type, "
-    "looking_for, activities, causes_supported, top_artists, tech_skills, "
+    "looking_for, activities, causes_supported, top_artists, artist_affinity, "
+    "genre_affinity, music_taste_synced_at, tech_skills, "
     "languages, ai_vibe_tags, pets, interests, sub_interests, "
     "value_dimensions, profile_pic, normal_pics, search_bucket, "
     "dating_target_buckets, friends_target_buckets, "
@@ -91,12 +94,15 @@ def _safe_select(
         return []
 
 
-def _sign_urls(bucket: str, paths: list[str]) -> dict[str, str]:
+def _sign_urls(
+    bucket: str, paths: list[str], ttl_seconds: int = _EXPORT_SIGNED_URL_TTL_SECONDS,
+) -> dict[str, str]:
     """Executes sign urls operation.
 
         Args:
             bucket: Input bucket parameter.
             paths: Input paths parameter.
+            ttl_seconds: Expiration TTL in seconds for generated signed URLs.
 
         Returns:
             dict[str, str]: Response payload or result."""
@@ -105,7 +111,7 @@ def _sign_urls(bucket: str, paths: list[str]) -> dict[str, str]:
         return {}
     try:
         signed = supabase_client.storage.from_(bucket).create_signed_urls(
-            unique_paths, _EXPORT_SIGNED_URL_TTL_SECONDS,
+            unique_paths, ttl_seconds,
         )
     except Exception:
         logger.exception("Failed to sign export URLs", extra={"bucket": bucket})
@@ -151,6 +157,13 @@ def _build_profile_section(user_id: str) -> dict[str, Any]:
             "Failed to decrypt profile for data export", extra={"user_id": user_id},
         )
         return {}
+
+    if decrypted.get("artist_affinity") or decrypted.get("genre_affinity"):
+        decrypted["derived_signals_note"] = (
+            "artist_affinity and genre_affinity are algorithmic signals derived "
+            "from your connected Spotify listening history (top artists and playlists) "
+            "to calculate musical compatibility scores."
+        )
 
     profile_pic = cast("str | None", decrypted.get("profile_pic"))
     normal_pics = cast("list[Any] | None", decrypted.get("normal_pics"))
@@ -237,6 +250,42 @@ def _build_matches_and_discovery(user_id: str) -> dict[str, Any]:
     return {"matches": matches, "discovery_actions": discovery_actions}
 
 
+def _fetch_and_decrypt_chat_events(
+    conversation_ids: list[str], user_id: str,
+) -> list[dict[str, Any]]:
+    """Fetch and decrypt chat events, decorating with location sensitivity notes."""
+    events: list[dict[str, Any]] = []
+    try:
+        event_res = (
+            supabase_client.table("chat_events")
+            .select(
+                "id, conversation_id, created_by, event_time, location_lat, "
+                "location_lng, location_label, status, created_at",
+            )
+            .in_("conversation_id", conversation_ids)
+            .execute()
+        )
+        for row in cast(list[Any], event_res.data or []):
+            if not isinstance(row, dict):
+                continue
+            decrypted_event = decrypt_event_row(cast(dict[str, Any], row))
+            if decrypted_event is not None:
+                if (
+                    decrypted_event.get("location_lat") is not None
+                    or decrypted_event.get("location_lng") is not None
+                    or decrypted_event.get("location_label") is not None
+                ):
+                    decrypted_event["location_sensitivity_note"] = (
+                        "Precise scheduled meeting location coordinates mutually shared by participants."
+                    )
+                events.append(decrypted_event)
+    except APIError:
+        logger.exception(
+            "Failed to fetch events for data export", extra={"user_id": user_id},
+        )
+    return events
+
+
 def _build_chat_section(user_id: str) -> dict[str, Any]:
     """Build chat section.
 
@@ -295,26 +344,7 @@ def _build_chat_section(user_id: str) -> dict[str, Any]:
                 "Failed to fetch messages for data export", extra={"user_id": user_id},
             )
 
-        try:
-            event_res = (
-                supabase_client.table("chat_events")
-                .select(
-                    "id, conversation_id, created_by, event_time, location_lat, "
-                    "location_lng, location_label, status, created_at",
-                )
-                .in_("conversation_id", conversation_ids)
-                .execute()
-            )
-            for row in cast(list[Any], event_res.data or []):
-                if not isinstance(row, dict):
-                    continue
-                decrypted_event = decrypt_event_row(cast(dict[str, Any], row))
-                if decrypted_event is not None:
-                    events.append(decrypted_event)
-        except APIError:
-            logger.exception(
-                "Failed to fetch events for data export", extra={"user_id": user_id},
-            )
+        events = _fetch_and_decrypt_chat_events(conversation_ids, user_id)
 
     presence = _safe_select(
         "chat_presence", "last_active_at, is_online, updated_at", user_id,
@@ -406,10 +436,8 @@ def _build_feedback_section(user_id: str) -> list[dict[str, Any]]:
         for field in ("subject", "message"):
             val = ticket.get(field)
             if val and isinstance(val, (str, bytes, memoryview)):
-                try:
+                with contextlib.suppress(DecryptFailedError):
                     ticket[field] = decrypt_pii(val, category="contact")
-                except DecryptFailedError:
-                    pass
         report_id = str(ticket.get("id") or "")
         if not report_id:
             continue
@@ -466,6 +494,10 @@ def _build_safety_alerts(user_id: str) -> list[dict[str, Any]]:
                         row_dict["current_location"] = json.loads(dec)
                     except (json.JSONDecodeError, ValueError):
                         row_dict["current_location"] = dec
+                    row_dict["location_sensitivity_note"] = (
+                        "Historical emergency/alert location data from safety check-in. "
+                        "Contains precise GPS coordinates recorded at the timestamp shown."
+                    )
                 except DecryptFailedError:
                     row_dict["current_location"] = None
             alerts.append(row_dict)
@@ -503,6 +535,7 @@ def _build_safety_evidence(user_id: str) -> list[dict[str, Any]]:
         signed = _sign_urls(
             _SAFETY_EVIDENCE_BUCKET,
             [str(r["storage_path"]) for r in raw_evidence if r.get("storage_path")],
+            ttl_seconds=_SAFETY_EVIDENCE_SIGNED_URL_TTL_SECONDS,
         )
         for row in raw_evidence:
             path = cast("str | None", row.pop("storage_path", None))

@@ -1,8 +1,15 @@
-"""Sentry `before_send` scrub hook - see app/main.py's sentry_sdk.init() call.
+"""Sentry `before_send` scrub hook and logging filters - see app/main.py's sentry_sdk.init() call.
 
-Redacts email-shaped substrings (except support@) and secret/token-shaped substrings from
+Redacts email-shaped substrings (except support@), phone numbers, and secret/token-shaped substrings from
 exception values, the top-level message, and extras, mirroring mobile error handler's
 sanitize implementation so both platforms apply identical redaction policies before Sentry ingestion.
+
+Operational Logging Architecture & Privacy Policy (Audit 9.1):
+- Structured log fields across the codebase use pseudonymous UUIDs (`extra={"user_id": user_id}`) for distributed
+  trace correlation, debugging, and audit accountability under data processing agreements (DPA) with logging providers.
+- Direct PII (email addresses, plaintext names, phone numbers, auth tokens, session secrets, and cryptographic keys)
+  is strictly prohibited and automatically redacted in both standard Python logging (`SensitiveDataFilter`)
+  and Sentry error captures (`scrub_event`).
 """
 
 import logging
@@ -245,6 +252,15 @@ _STANDARD_LOGRECORD_ATTRS = {
 }
 
 
+def _scrub_record_custom_attrs(record: logging.LogRecord) -> None:
+    for key, val in list(record.__dict__.items()):
+        if key not in _STANDARD_LOGRECORD_ATTRS:
+            if _is_sensitive_key(key):
+                record.__dict__[key] = "[REDACTED_SENSITIVE]"
+            else:
+                record.__dict__[key] = _scrub_object(val)
+
+
 class SensitiveDataFilter(logging.Filter):
     """Logging filter that scrubs sensitive emails, phone numbers, and secrets from log records."""
 
@@ -264,12 +280,7 @@ class SensitiveDataFilter(logging.Filter):
         if isinstance(record.stack_info, str):
             record.stack_info = _scrub_string(record.stack_info)
 
-        for key, val in list(record.__dict__.items()):
-            if key not in _STANDARD_LOGRECORD_ATTRS:
-                if _is_sensitive_key(key):
-                    record.__dict__[key] = "[REDACTED_SENSITIVE]"
-                else:
-                    record.__dict__[key] = _scrub_object(val)
+        _scrub_record_custom_attrs(record)
 
         return True
 
@@ -281,7 +292,7 @@ class SensitiveDataFormatter(logging.Formatter):
         formatted = super().format(record)
         return _scrub_string(formatted)
 
-    def formatException(self, ei: Any) -> str:
+    def formatException(self, ei: Any) -> str:  # noqa: N802
         exc_text = super().formatException(ei)
         return _scrub_string(exc_text)
 

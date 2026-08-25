@@ -29,7 +29,14 @@ async def update_profile_media_and_tags(
     _ = request
     own_prefix = f"{user_id}/"
     for pic in [payload.profile_pic, *payload.normal_pics]:
-        if not pic.startswith(own_prefix) or ".." in pic or "\\" in pic or "\x00" in pic:
+        if (
+            not pic.startswith(own_prefix)
+            or ".." in pic
+            or "\\" in pic
+            or "\x00" in pic
+            or "%" in pic
+            or pic.startswith("/")
+        ):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Media paths must reference only your own uploaded assets.",
