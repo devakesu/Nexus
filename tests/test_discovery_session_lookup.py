@@ -199,3 +199,173 @@ def test_create_new_discovery_session_probing_rate_limit(
     assert "rate limit exceeded" in exc_info.value.detail.lower()
 
 
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_distinct_filter_rate_limit(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    # No mutation probing
+    mock_redis.get.return_value = None
+    # User has tried >15 distinct filter queries
+    mock_redis.scard.return_value = 16
+
+    filters = DiscoveryFilters(religious_beliefs=["Atheist"])
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("user-probe-filters", "Dating", filters)
+
+    assert exc_info.value.status_code == 429
+    assert "filter search rate limit exceeded" in exc_info.value.detail.lower()
+
+
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_rejects_incomplete_profile(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    mock_redis.get.return_value = None
+    mock_redis.scard.return_value = 0
+
+    # Viewer has is_dating_active=False
+    incomplete_viewer = {
+        "id": "viewer-incomplete",
+        "name": "Bob",
+        "is_dating_active": False,
+    }
+    mock_fetch_candidates.return_value = (incomplete_viewer, [])
+
+    filters = DiscoveryFilters()
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("viewer-incomplete", "Dating", filters)
+
+    assert exc_info.value.status_code == 403
+    assert "Profile incomplete for Dating tab" in exc_info.value.detail
+
+
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_hourly_rate_limit(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    # Hourly rate limit exceeded (21 > 20)
+    mock_redis.incr.return_value = 21
+
+    filters = DiscoveryFilters()
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("user-heavy-creator", "Dating", filters)
+
+    assert exc_info.value.status_code == 429
+    assert "hourly discovery session creation limit exceeded" in exc_info.value.detail.lower()
+
+
+@patch("app.db.sessions.auth_sessions.prune_excess_viewer_discovery_sessions")
+@patch("app.db.sessions.auth_sessions.supabase_client.rpc")
+def test_create_discovery_session_deduplicates_candidate_items(
+    mock_rpc: MagicMock,
+    mock_prune: MagicMock,
+) -> None:
+    from app.db.sessions.auth_sessions import create_discovery_session
+
+    mock_builder = MagicMock()
+    mock_builder.execute.return_value = MagicMock(data="new-session-id-123")
+    mock_rpc.return_value = mock_builder
+
+    ranked_items = [
+        {"profile": {"id": "cand-1"}, "score": 80.0},
+        {"profile": {"id": "cand-2"}, "score": 75.0},
+        # Duplicate of cand-1
+        {"profile": {"id": "cand-1"}, "score": 90.0},
+        {"profile": {"id": "cand-3"}, "score": 70.0},
+    ]
+
+    session_id, _ = create_discovery_session(
+        viewer_id="viewer-123",
+        active_tab="Dating",
+        filters={},
+        ranked_items=ranked_items,
+    )
+
+    assert session_id == "new-session-id-123"
+    mock_rpc.assert_called_once()
+    call_args = mock_rpc.call_args[0]
+    payload = call_args[1]
+    items = payload["p_items"]
+
+    assert len(items) == 3
+    assert [it["candidate_id"] for it in items] == ["cand-1", "cand-2", "cand-3"]
+    assert [it["position"] for it in items] == [0, 1, 2]
+
+
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_rejects_underage_viewer(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    mock_redis.get.return_value = None
+    mock_redis.scard.return_value = 0
+
+    underage_viewer = {
+        "id": "viewer-underage",
+        "name": "Underage User",
+        "age": 17,
+        "is_dating_active": True,
+    }
+    mock_fetch_candidates.return_value = (underage_viewer, [])
+
+    filters = DiscoveryFilters()
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("viewer-underage", "Dating", filters)
+
+    assert exc_info.value.status_code == 403
+    assert "underage accounts (age < 18)" in exc_info.value.detail.lower()
+
+
+@patch("app.services.discovery.sync_redis_client")
+@patch("app.services.discovery.fetch_stage_1_candidates")
+def test_create_new_discovery_session_rejects_disjoint_search_bucket_filter(
+    mock_fetch_candidates: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.models import DiscoveryFilters
+    from app.services.discovery import create_new_discovery_session
+
+    mock_redis.get.return_value = None
+    mock_redis.scard.return_value = 0
+
+    viewer_dating_f = {
+        "id": "viewer-seeking-f",
+        "name": "Alice",
+        "age": 22,
+        "is_dating_active": True,
+        "dating_target_buckets": ["F"],
+    }
+    mock_fetch_candidates.return_value = (viewer_dating_f, [])
+
+    # Filter requests "M" which does not intersect with viewer's ["F"] target buckets
+    filters = DiscoveryFilters(search_bucket_filter=["M"])
+    with pytest.raises(HTTPException) as exc_info:
+        create_new_discovery_session("viewer-seeking-f", "Dating", filters)
+
+    assert exc_info.value.status_code == 400
+    assert "search_bucket_filter does not intersect" in exc_info.value.detail.lower()
+
+
+
+
+
+

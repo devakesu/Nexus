@@ -19,7 +19,7 @@ from app.core.infra.tasks import safe_create_task
 from app.core.security.crypto import DecryptFailedError
 from app.db.chat import (
     close_conversation_for_match_action,
-    fetch_conversation_participants,
+    fetch_conversation_participants as fetch_conversation_participants,
 )
 from app.db.client import (
     DatabaseAccessError,
@@ -78,37 +78,7 @@ def _parse_matched_at(raw_ts: Any) -> datetime:
     return parse_utc_datetime(raw_ts)
 
 
-async def _validate_conversation_membership(
-    user_id: str,
-    target_id: str,
-    conversation_id: str | None,
-) -> None:
-    """Validates that both user_id and target_id are participants of the conversation."""
-    if not conversation_id:
-        return
-
-    conv = await asyncio.to_thread(fetch_conversation_participants, conversation_id)
-    if not conv:
-        raise HTTPException(
-            status_code=404,
-            detail="Referenced conversation not found.",
-        )
-    user_a = str(conv.get("user_a_id") or "").lower()
-    user_b = str(conv.get("user_b_id") or "").lower()
-    actor = str(user_id).lower()
-    target = str(target_id).lower()
-
-    participants = {user_a, user_b}
-    if actor not in participants:
-        raise HTTPException(
-            status_code=403,
-            detail="Actor is not a participant in the referenced conversation.",
-        )
-    if target not in participants or actor == target:
-        raise HTTPException(
-            status_code=400,
-            detail="Target user is not a participant in the referenced conversation.",
-        )
+from app.api.discovery._shared import _validate_conversation_membership
 
 
 @router.get("/api/v1/likes", response_model=LikesListResponse)
@@ -395,9 +365,6 @@ async def get_peer_profile(
         raise
 
 
-_LIKES_PASS_EXPIRY_DAYS = 14  # 2 weeks (same as orbit pass)
-
-
 @router.post("/api/v1/likes/action", response_model=LikeActionResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def record_like_back_action(  # noqa: C901
@@ -423,7 +390,7 @@ async def record_like_back_action(  # noqa: C901
 
         # 1. Claim & revoke incoming like first to prevent race conditions or duplicate matches
         claimed_like = False
-        if payload.action in ("like", "superlike", "pass", "block"):
+        if payload.action in ("like", "superlike", "pass", "hide", "block"):
             claimed_like = await asyncio.to_thread(revoke_incoming_like, user_id, payload.target_id)
             if not claimed_like:
                 raise HTTPException(
@@ -459,7 +426,7 @@ async def record_like_back_action(  # noqa: C901
                 )
             else:
                 tab = None if payload.action == "block" else payload.tab
-                expires = _LIKES_PASS_EXPIRY_DAYS if payload.action == "pass" else None
+                expires = settings.pass_expiry_days if payload.action == "pass" else None
                 await asyncio.to_thread(
                     record_discovery_action,
                     user_id,
@@ -483,7 +450,7 @@ async def record_like_back_action(  # noqa: C901
                         None,
                         "block",
                     )
-                if payload.action in ("pass", "block"):
+                if payload.action in ("pass", "hide", "block"):
                     unrevoke_needed = False
 
             matched = payload.action in ("like", "superlike")

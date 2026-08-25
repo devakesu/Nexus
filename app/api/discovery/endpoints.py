@@ -45,8 +45,11 @@ router = APIRouter()
 
 
 def _coarsen_total_nodes(count: int) -> int:
-    """Buckets total_nodes to coarse intervals to prevent differential pool size inference and block detection."""
-    if count <= 0:
+    """Buckets total_nodes to coarse intervals to prevent differential pool size inference and block detection.
+
+    Suppresses exposure (returns 0) when pool count <= 5 to prevent differential harvesting of sensitive attributes.
+    """
+    if count <= 5:
         return 0
     if count <= 10:
         return 10
@@ -325,49 +328,15 @@ async def get_discovery_viewport(
         ) from err
 
 
+from app.api.discovery._shared import _validate_conversation_membership
+
 _ALLOWED_REVERSAL_ACTIONS: frozenset[str] = frozenset({"unpass", "unhide", "unblock"})
-
-
-async def _validate_conversation_membership(
-    user_id: str,
-    target_id: str,
-    conversation_id: str | None,
-) -> None:
-    """Validates that both user_id and target_id are participants of the conversation."""
-    if not conversation_id:
-        return
-
-    from app.db.chat import fetch_conversation_participants
-
-    conv = await asyncio.to_thread(
-        fetch_conversation_participants, conversation_id,
-    )
-    if not conv:
-        raise HTTPException(
-            status_code=404,
-            detail="Referenced conversation not found.",
-        )
-    user_a = str(conv.get("user_a_id") or "").lower()
-    user_b = str(conv.get("user_b_id") or "").lower()
-    actor = str(user_id).lower()
-    target = str(target_id).lower()
-
-    participants = {user_a, user_b}
-    if actor not in participants:
-        raise HTTPException(
-            status_code=403,
-            detail="Actor is not a participant in the referenced conversation.",
-        )
-    if target not in participants or actor == target:
-        raise HTTPException(
-            status_code=400,
-            detail="Target user is not a participant in the referenced conversation.",
-        )
 
 
 async def _validate_forward_session(
     user_id: str,
     target_id: str,
+    tab: str | None = None,
 ) -> None:
     """Validates that forward discovery actions occur within an active discovery session."""
     from datetime import timedelta
@@ -379,11 +348,19 @@ async def _validate_forward_session(
         get_candidate_session_details,
         user_id,
         target_id,
+        tab,
     )
     if session_details is None:
         raise HTTPException(
             status_code=400,
             detail="Target user is not in any active discovery session.",
+        )
+
+    session_tab = session_details.get("tab")
+    if tab and session_tab and session_tab != tab:
+        raise HTTPException(
+            status_code=400,
+            detail="Target user is not in an active discovery session for this tab.",
         )
 
     # 5-minute grace window: allow actions if expires_at + 5 minutes > now
@@ -442,7 +419,7 @@ async def _validate_discovery_action(
                 ),
             )
     elif payload.action not in ("block", "report"):
-        await _validate_forward_session(user_id, payload.target_id)
+        await _validate_forward_session(user_id, payload.target_id, payload.tab)
     elif not payload.conversation_id:
         from app.db.profiles import is_active_profile
 

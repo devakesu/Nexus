@@ -776,6 +776,84 @@ async def test_get_likes_inbox_filters_blocked_users(
     mock_get_blocks.assert_called_once_with(viewer_id)
 
 
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.revoke_incoming_like")
+async def test_record_like_back_action_hide_requires_incoming_like(
+    mock_revoke_like: MagicMock,
+) -> None:
+    mock_revoke_like.return_value = False
+
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="hide",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await record_like_back_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "No active incoming like found" in exc_info.value.detail
+    mock_revoke_like.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.likes.record_discovery_action")
+@patch("app.api.discovery.likes.revoke_incoming_like")
+async def test_record_like_back_action_hide_succeeds_with_incoming_like(
+    mock_revoke_like: MagicMock,
+    mock_record_action: MagicMock,
+) -> None:
+    mock_revoke_like.return_value = True
+
+    payload = LikeActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="hide",
+        tab="Dating",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await record_like_back_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+
+    assert res.matched is False
+    mock_revoke_like.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+    )
+    mock_record_action.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "hide",
+        "Dating",
+        None,
+    )
+
+
+
 
 
 

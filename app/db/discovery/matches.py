@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.config import DiscoveryTab
+from app.core.config import DiscoveryTab, settings
 from app.db.client import (
     DatabaseAccessError,
     normalize_uuid,
@@ -19,8 +19,6 @@ from app.db.client import (
 from app.db.discovery import record_discovery_action
 
 logger = logging.getLogger(__name__)
-
-_UNMATCH_PASS_DAYS = 14  # 2 weeks - both users are hidden from each other's orbit
 
 
 def record_match(
@@ -205,7 +203,12 @@ def set_match_unmatched(
         raise DatabaseAccessError("Failed to set match unmatched") from e
 
 
-def record_mutual_pass(user_a: str, user_b: str, tab: DiscoveryTab, days: int) -> None:
+def record_mutual_pass(
+    user_a: str,
+    user_b: str,
+    tab: DiscoveryTab,
+    days: int = settings.pass_expiry_days,
+) -> None:
     """Record a pass in both directions so neither user appears in the other's orbit."""
     record_discovery_action(user_a, user_b, "pass", tab, days)
     record_discovery_action(user_b, user_a, "pass", tab, days)

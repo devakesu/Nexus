@@ -220,3 +220,110 @@ def test_positional_jitter_applied() -> None:
     diffs = [radii[i + 1] - radii[i] for i in range(len(radii) - 1)]
     assert len(set(diffs)) > 1
 
+
+def test_session_id_decorrelates_orbit_seed() -> None:
+    items = SCENARIOS["small_spread"]()
+    result_sess1 = assign_orbit_positions("viewer1", "Friends", items, session_id="session-aaa")
+    result_sess2 = assign_orbit_positions("viewer1", "Friends", items, session_id="session-bbb")
+    coords1 = [(i["_x"], i["_y"]) for i in result_sess1]
+    coords2 = [(i["_x"], i["_y"]) for i in result_sess2]
+    # Different session IDs produce decorrelated rotation seeds
+    assert coords1 != coords2
+
+
+def test_orbit_quantized_rank_radius() -> None:
+    items = SCENARIOS["small_spread"]()
+    result = assign_orbit_positions("viewer1", "Friends", items)
+    assert len(result) == 12
+    # Radius values are bounded and well-distributed
+    for item in result:
+        r = math.hypot(item["_x"], item["_y"])
+        assert 100.0 <= r <= 1500.0
+
+
+def test_apply_field_visibility_dict_list_and_scalar_types() -> None:
+    from app.db.discovery.orbit import _apply_field_visibility, build_tab_aware_orbit_node_detail
+
+    payload: dict[str, Any] = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "Alex",
+        "age": 24,
+        "bio": "Secret Bio",
+        "drinking": "Socially",
+        "interests": {"Gaming": 3, "Music": 2},
+        "sub_interests": {"Gaming": ["RPG"]},
+        "value_dimensions": {"honesty": 0.9},
+        "artist_affinity": {"Radiohead": 0.8},
+        "genre_affinity": {"Rock": 0.7},
+        "activities": ["Running", "Reading"],
+        "looking_for": ["Friendship"],
+        "tech_skills": ["Python"],
+        "partner_values": ["Kindness"],
+        "dating_for": ["Long-term"],
+        "normal_pics": ["pic1.jpg"],
+        "pets": ["Dog"],
+        "top_artists": ["Radiohead"],
+        "causes_supported": ["Climate"],
+        "languages": ["English"],
+        "ai_vibe_tags": ["chill"],
+    }
+
+    hidden_fields = {
+        "bio",
+        "drinking",
+        "interests",
+        "sub_interests",
+        "value_dimensions",
+        "artist_affinity",
+        "genre_affinity",
+        "activities",
+        "looking_for",
+        "tech_skills",
+        "partner_values",
+        "dating_for",
+        "normal_pics",
+        "pets",
+        "top_artists",
+        "causes_supported",
+        "languages",
+        "ai_vibe_tags",
+    }
+
+    sanitized = _apply_field_visibility(payload, hidden_fields)
+
+    # Assert dict types are {}
+    assert sanitized["interests"] == {}
+    assert sanitized["sub_interests"] == {}
+    assert sanitized["value_dimensions"] == {}
+    assert sanitized["artist_affinity"] == {}
+    assert sanitized["genre_affinity"] == {}
+
+    # Assert list types are []
+    assert sanitized["activities"] == []
+    assert sanitized["looking_for"] == []
+    assert sanitized["tech_skills"] == []
+    assert sanitized["partner_values"] == []
+    assert sanitized["dating_for"] == []
+    assert sanitized["normal_pics"] == []
+    assert sanitized["pets"] == []
+    assert sanitized["top_artists"] == []
+    assert sanitized["causes_supported"] == []
+    assert sanitized["languages"] == []
+    assert sanitized["ai_vibe_tags"] == []
+
+    # Assert scalar types are None
+    assert sanitized["bio"] is None
+    assert sanitized["drinking"] is None
+
+    # Test build_tab_aware_orbit_node_detail builds response model without error
+    out = build_tab_aware_orbit_node_detail("Dating", payload, hidden_fields=hidden_fields)
+    from app.models import OrbitNodeDetailDatingOut
+    assert isinstance(out, OrbitNodeDetailDatingOut)
+    assert out.interests == {}
+    assert out.sub_interests == {}
+    assert out.normal_pics == []
+    assert out.top_artists == []
+    assert out.bio is None
+    assert out.drinking is None
+
+

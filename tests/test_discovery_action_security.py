@@ -40,6 +40,7 @@ async def test_discovery_action_like_requires_session_failure(
     mock_get_details.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
+        "Dating",
     )
 
 
@@ -56,6 +57,7 @@ async def test_discovery_action_like_session_expired(
     expired_time = utcnow() - timedelta(minutes=6)
     mock_get_details.return_value = {
         "session_id": "session-123",
+        "tab": "Dating",
         "expires_at": expired_time,
     }
 
@@ -86,6 +88,7 @@ async def test_discovery_action_like_session_expired(
     mock_get_details.assert_called_once_with(
         "22222222-2222-2222-2222-222222222222",
         "11111111-1111-1111-1111-111111111111",
+        "Dating",
     )
 
 
@@ -601,5 +604,141 @@ def test_discovery_action_request_block_accepts_optional_tab():
     )
     assert req2.action == "block"
     assert req2.tab == "Dating"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("action", ["like", "superlike", "pass", "hide"])
+@patch("app.db.sessions.get_candidate_session_details")
+async def test_discovery_action_forward_mismatched_session_tab_returns_400(
+    mock_get_details: MagicMock,
+    action: str,
+) -> None:
+    from datetime import timedelta
+    from app.db.client import utcnow
+
+    # Active session exists for "Dating"
+    valid_time = utcnow() + timedelta(minutes=10)
+    mock_get_details.return_value = {
+        "session_id": "session-123",
+        "tab": "Dating",
+        "expires_at": valid_time,
+    }
+
+    # Action submitted with tab="Friends" (cross-tab injection attack)
+    payload = DiscoveryActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action=action,  # type: ignore[arg-type]
+        tab="Friends",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await handle_discovery_action(
+            request=request,
+            payload=payload,
+            user_id="22222222-2222-2222-2222-222222222222",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "not in an active discovery session for this tab" in exc_info.value.detail
+    mock_get_details.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Friends",
+    )
+
+
+@pytest.mark.anyio
+@patch("app.api.discovery.endpoints.send_like_notification")
+@patch("app.api.discovery.endpoints.record_discovery_action")
+@patch("app.db.sessions.get_candidate_session_details")
+async def test_discovery_action_forward_matching_session_tab_succeeds(
+    mock_get_details: MagicMock,
+    mock_record: MagicMock,
+    mock_notify: MagicMock,
+) -> None:
+    from datetime import timedelta
+    from app.db.client import utcnow
+
+    valid_time = utcnow() + timedelta(minutes=10)
+    mock_get_details.return_value = {
+        "session_id": "session-123",
+        "tab": "Friends",
+        "expires_at": valid_time,
+    }
+
+    payload = DiscoveryActionRequest(
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="like",
+        tab="Friends",
+    )
+    scope: dict[str, Any] = {
+        "type": "http",
+        "headers": [],
+        "query_string": b"",
+        "path": "/",
+    }
+    request = Request(scope)
+
+    res = await handle_discovery_action(
+        request=request,
+        payload=payload,
+        user_id="22222222-2222-2222-2222-222222222222",
+    )
+    assert res.success is True
+    mock_get_details.assert_called_once_with(
+        "22222222-2222-2222-2222-222222222222",
+        "11111111-1111-1111-1111-111111111111",
+        "Friends",
+    )
+    mock_record.assert_called_once_with(
+        actor_id="22222222-2222-2222-2222-222222222222",
+        target_id="11111111-1111-1111-1111-111111111111",
+        action="like",
+        tab="Friends",
+    )
+
+
+def test_get_candidate_session_details_unit() -> None:
+    from app.db.sessions.auth_sessions import get_candidate_session_details
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+
+    mock_builder.execute.return_value = MagicMock(
+        data=[
+            {
+                "session_id": "sess-abc",
+                "discovery_sessions": {
+                    "viewer_id": "user-1",
+                    "tab": "Friends",
+                    "expires_at": "2026-08-25T17:00:00Z",
+                },
+            },
+        ],
+    )
+
+    with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_builder):
+        details = get_candidate_session_details("user-1", "cand-2", tab="Friends")
+
+    assert details is not None
+    assert details["session_id"] == "sess-abc"
+    assert details["tab"] == "Friends"
+    assert details["expires_at"] is not None
+    mock_builder.select.assert_called_once_with(
+        "session_id, discovery_sessions!inner(viewer_id, tab, expires_at)",
+    )
+    # Check that eq was called with tab
+    eq_calls = mock_builder.eq.call_args_list
+    assert any(c[0] == ("discovery_sessions.tab", "Friends") for c in eq_calls)
+
 
 

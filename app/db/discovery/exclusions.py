@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from postgrest.exceptions import APIError
 
-from app.core.config import DiscoveryTab
+from app.core.config import DiscoveryTab, settings
 from app.core.infra.cache import get_block_ids_cache_ttl, redis_client
 from app.db.client import (
     DatabaseAccessError,
@@ -18,8 +18,6 @@ from app.db.client import (
 )
 
 logger = logging.getLogger(__name__)
-
-_PASS_EXPIRY_DAYS = 14
 
 
 def _block_ids_cache_key(viewer_id: str) -> str:
@@ -346,7 +344,7 @@ def record_discovery_action(
                 payload["tab"] = tab
 
             if base_action == "pass":
-                days = expires_days if expires_days is not None else _PASS_EXPIRY_DAYS
+                days = expires_days if expires_days is not None else settings.pass_expiry_days
                 payload["expires_at"] = (now + timedelta(days=days)).isoformat()
 
             supabase_client.table("profile_discovery_actions").insert(payload).execute()
@@ -508,13 +506,10 @@ async def invalidate_block_cache(viewer_id: str, target_id: str) -> None:
     except Exception:
         logger.exception("Failed to invalidate block cache")
 
-    try:
-        from app.db.sessions.auth_sessions import invalidate_viewer_discovery_sessions
+    from app.db.sessions.auth_sessions import invalidate_viewer_discovery_sessions
 
-        await asyncio.to_thread(invalidate_viewer_discovery_sessions, viewer_id)
-        await asyncio.to_thread(invalidate_viewer_discovery_sessions, target_id)
-    except Exception:
-        logger.exception("Failed to invalidate discovery sessions on block")
+    await asyncio.to_thread(invalidate_viewer_discovery_sessions, viewer_id)
+    await asyncio.to_thread(invalidate_viewer_discovery_sessions, target_id)
 
 
 def fetch_likes_for_user(

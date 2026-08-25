@@ -89,10 +89,11 @@ def _fetch_and_decrypt_viewer(
     active_tab: DiscoveryTab,
 ) -> dict[str, Any] | None:
     """Fetch and decrypt viewer profile."""
+    completion_flag_column = _get_completion_flag_column(active_tab)
     try:
         viewer_res = (
             supabase_client.table("profiles")
-            .select(f"{_PROFILE_SELECT_COLUMNS}, users!inner(app_variant)")
+            .select(f"{_PROFILE_SELECT_COLUMNS}, {completion_flag_column}, users!inner(app_variant)")
             .eq("id", viewer_id)
             .limit(1)
             .execute()
@@ -516,7 +517,11 @@ def fetch_stage_1_candidates(
         if getattr(filters, f, None)
         and (f != "partner_values" or "partner_values" in dealbreakers)
     )
-    effective_limit = min(candidate_limit + active_post_fetch * 50, 400)
+    overflow_exclusions = max(0, len(excluded_ids) - 1000)
+    effective_limit = min(
+        candidate_limit + active_post_fetch * 50 + min(overflow_exclusions, 400),
+        800,
+    )
 
     candidates_to_enrich = _execute_and_filter_candidates(
         query=query,
@@ -572,10 +577,14 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
                 "top_artists, tech_skills, role_type, languages, ai_vibe_tags, "
                 "pets, normal_pics, partner_values, interests, sub_interests, "
                 "value_dimensions, created_at, updated_at, "
-                "is_deactivated",
+                "is_deactivated, "
+                "users!inner(is_active, is_suspended, moderation_status)",
             )
             .eq("id", target_id)
             .eq("is_deactivated", False)
+            .eq("users.is_active", True)
+            .eq("users.is_suspended", False)
+            .neq("users.moderation_status", "banned")
             .limit(1)
             .execute()
         )
@@ -583,6 +592,7 @@ def fetch_peer_profile_by_id(target_id: str) -> dict[str, Any] | None:
         if not rows:
             return None
         row = cast(dict[str, Any], rows[0])
+        row.pop("users", None)
         if not row.get("profile_pic") and row.get("ordered_images"):
             images = row["ordered_images"]
             if isinstance(images, list) and images:

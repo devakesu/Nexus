@@ -393,11 +393,16 @@ def test_spotify_disconnect_clears_affinity_signals() -> None:
         disconnect("user-123")
 
         # Verify profiles update explicitly nullifies artist_affinity, genre_affinity, top_artists
-        mock_builder.update.assert_called_once_with({
+        mock_builder.update.assert_any_call({
             "artist_affinity": None,
             "genre_affinity": None,
             "top_artists": None,
             "music_taste_synced_at": None,
+        })
+        # Verify discovery_session_items update resets candidate_spotify_connected and music_match_grade
+        mock_builder.update.assert_any_call({
+            "candidate_spotify_connected": False,
+            "music_match_grade": None,
         })
 
 
@@ -531,3 +536,94 @@ def test_mark_sync_result_sanitizes_spotify_user_ids_and_tokens() -> None:
         update_arg = mock_builder.update.call_args[0][0]
         assert "spotify:user:[REDACTED]" in update_arg["last_sync_error"]
         assert "alice_smith" not in update_arg["last_sync_error"]
+
+
+def test_retrieval_candidate_spotify_connected_not_leaked_from_stale_affinity() -> None:
+    from Nexus_Engine.retrieval import discover_orbit
+
+    viewer: dict[str, Any] = {
+        "id": "viewer-1",
+        "identity_embedding": [1.0, 0.0],
+        "activities": ["Music"],
+        "artist_affinity": {"Radiohead": 1.0},
+        "genre_affinity": {"Rock": 1.0},
+        "viewer_spotify_connected": True,
+    }
+
+    # Cand 1: Has stale artist affinity but disconnected/no active connection
+    cand_stale: dict[str, Any] = {
+        "id": "cand-stale",
+        "identity_embedding": [1.0, 0.0],
+        "activities": ["Music"],
+        "artist_affinity": {"Radiohead": 1.0},
+        "genre_affinity": {"Rock": 1.0},
+        "spotify_connected": False,
+    }
+
+    # Cand 2: Actively connected
+    cand_active: dict[str, Any] = {
+        "id": "cand-active",
+        "identity_embedding": [1.0, 0.0],
+        "activities": ["Music"],
+        "artist_affinity": {"Radiohead": 1.0},
+        "genre_affinity": {"Rock": 1.0},
+        "spotify_connected": True,
+    }
+
+    orbit = discover_orbit(viewer, "Friends", [cand_stale, cand_active])
+    by_id = {item["profile"]["id"]: item for item in orbit}
+
+    assert by_id["cand-stale"]["candidate_spotify_connected"] is False
+    assert by_id["cand-active"]["candidate_spotify_connected"] is True
+
+
+@pytest.mark.anyio
+@patch("app.db.spotify.get_connection")
+async def test_node_details_candidate_spotify_connected_checks_live_connection(
+    mock_get_conn: MagicMock,
+) -> None:
+    from app.db.sessions.node_details import _build_node_detail_payload
+
+    row = {
+        "score": 0.8,
+        "x": 10.0,
+        "y": 20.0,
+        "orbit_tier": 2,
+        "music_match_grade": 8,
+        "candidate_spotify_connected": True,  # stale session item value
+    }
+    raw_profile = {
+        "id": "cand-123",
+        "name": "Bob",
+        "age": 22,
+    }
+
+    def _identity(data: dict[str, Any]) -> dict[str, Any]:
+        return data
+
+    def _get_conn_side_effect(uid: str) -> dict[str, Any] | None:
+        if uid == "viewer-1":
+            return {"user_id": "viewer-1", "disconnected_at": None}
+        return {"user_id": "cand-123", "disconnected_at": "2026-08-20T00:00:00Z"}
+
+    mock_get_conn.side_effect = _get_conn_side_effect
+
+    with patch("app.db.sessions.node_details.decrypt_profile_record", side_effect=_identity), \
+         patch("app.db.sessions.node_details.sanitize_decrypted_profile", side_effect=_identity), \
+         patch("app.db.sessions.node_details.sign_profile_media", side_effect=_identity):
+        payload = _build_node_detail_payload(
+            row=row,
+            profile=raw_profile,
+            cid="cand-123",
+            session_id="sess-1",
+            viewer_id="viewer-1",
+            candidate_id="cand-123",
+            connection=None,
+        )
+
+    assert payload["viewer_spotify_connected"] is True
+    # Candidate disconnected -> candidate_spotify_connected MUST be False
+    assert payload["candidate_spotify_connected"] is False
+    # Grade should be wiped since one party is disconnected
+    assert payload["music_match_grade"] is None
+

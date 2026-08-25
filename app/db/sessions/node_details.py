@@ -60,7 +60,14 @@ def _build_node_detail_payload(
     viewer_spotify_connected = (
         connection is not None and not connection.get("disconnected_at")
     )
-    candidate_spotify_connected = bool(row.get("candidate_spotify_connected", False))
+    from app.db.spotify import get_connection as get_spotify_conn
+
+    candidate_conn = get_spotify_conn(cid)
+    candidate_spotify_connected = (
+        candidate_conn is not None and not candidate_conn.get("disconnected_at")
+    )
+    if not (viewer_spotify_connected and candidate_spotify_connected):
+        music_match_grade = None
 
     payload: dict[str, Any] = {
         "id": str(hydrated_profile.get("id") or cid),

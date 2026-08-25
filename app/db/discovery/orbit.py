@@ -196,16 +196,40 @@ def _apply_field_visibility(
 ) -> dict[str, Any]:
     """Return a copy of payload with hidden fields replaced by defaults.
 
-    Scalar string fields become None; list fields become [].
+    Scalar string/numeric fields become None; list fields become []; dict fields become {}.
     This is applied before building any response model so scoring logic
     (which reads from the original dict) is never affected.
     """
     if not hidden:
         return payload
-    list_fields = {"pets", "top_artists", "causes_supported"}
+    dict_fields = {
+        "interests",
+        "sub_interests",
+        "value_dimensions",
+        "artist_affinity",
+        "genre_affinity",
+    }
+    list_fields = {
+        "pets",
+        "top_artists",
+        "causes_supported",
+        "languages",
+        "ai_vibe_tags",
+        "partner_values",
+        "dating_for",
+        "normal_pics",
+        "activities",
+        "looking_for",
+        "tech_skills",
+    }
     result = dict(payload)
     for field in hidden:
-        result[field] = [] if field in list_fields else None
+        if field in dict_fields:
+            result[field] = {}
+        elif field in list_fields:
+            result[field] = []
+        else:
+            result[field] = None
     return result
 
 
@@ -470,18 +494,21 @@ def assign_orbit_positions(
     viewer_id: str,
     active_tab: DiscoveryTab,
     ranked_items: list[dict[str, Any]],
+    session_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Executes assign orbit positions operation.
 
         Args:
             viewer_id: Input viewer id parameter.
-            active_tab: Active discovery tab category ('Dating', 'BFF', or 'Networking').
+            active_tab: Active discovery tab category ('Dating', 'Friends', or 'Professional').
             ranked_items: Input ranked items parameter.
+            session_id: Optional session UUID string to decorrelate rotation seeds across sessions.
 
         Returns:
             list[dict[str, Any]]: Response payload or result."""
     candidate_ids = _extract_candidate_ids(ranked_items)
-    seed_input = f"{viewer_id}:{active_tab}:{'|'.join(sorted(candidate_ids))}"
+    session_part = f":{session_id}" if session_id else ""
+    seed_input = f"{viewer_id}:{active_tab}{session_part}:{'|'.join(sorted(candidate_ids))}"
     seed_value = int(hashlib.sha256(seed_input.encode("utf-8")).hexdigest()[:16], 16)
     rng = DeterministicRNG(seed_value)
 
@@ -494,17 +521,23 @@ def assign_orbit_positions(
     # should, and a higher score is always at least as close as a lower one.
     ordered = sorted(
         ranked_items,
-        key=lambda x: coerce_score(x.get("score")),
-        reverse=True,
+        key=lambda x: (
+            -coerce_score(x.get("score")),
+            str(
+                x.get("profile", {}).get("id")
+                if isinstance(x.get("profile"), dict)
+                else "",
+            ),
+        ),
     )
 
     base_angle = rng.uniform(0.0, 2.0 * math.pi)
     positioned_items: list[dict[str, Any]] = []
     for rank, item in enumerate(ordered):
-        # Phyllotaxis spiral with session-scoped coordinate jitter:
-        # Radius grows as sqrt(rank) with a randomized noise term to break exact
-        # monotone rank triangulation while preserving general tier proximity.
-        base_radius = _INNERMOST_RADIUS + _SUNFLOWER_SCALE * math.sqrt(float(rank))
+        # Phyllotaxis spiral with quantized rank bins and session-scoped coordinate jitter:
+        # Quantizing rank prevents adversary from solving exact candidate rank triangulation from (x, y) coordinates.
+        quantized_rank = max(0.0, float(round(rank / 10) * 10))
+        base_radius = _INNERMOST_RADIUS + _SUNFLOWER_SCALE * math.sqrt(quantized_rank)
         radius_jitter = rng.uniform(-15.0, 15.0)
         radius = max(_INNERMOST_RADIUS, base_radius + radius_jitter)
         angle_jitter = rng.uniform(-0.10, 0.10)

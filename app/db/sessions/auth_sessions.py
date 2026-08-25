@@ -81,7 +81,9 @@ def create_discovery_session(
     )
 
     items_payload: list[dict[str, Any]] = []
-    for position, item in enumerate(positioned_items):
+    seen_candidates: set[str] = set()
+    position = 0
+    for item in positioned_items:
         profile_raw = item.get("profile")
         profile = (
             cast(dict[str, Any], profile_raw) if isinstance(profile_raw, dict) else {}
@@ -89,6 +91,10 @@ def create_discovery_session(
         candidate_id = profile.get("id")
         if not candidate_id:
             continue
+        cid_str = str(candidate_id)
+        if cid_str in seen_candidates:
+            continue
+        seen_candidates.add(cid_str)
 
         grade_raw = item.get("music_match_grade")
         music_match_grade = quantize_music_match_grade(grade_raw)
@@ -96,8 +102,8 @@ def create_discovery_session(
         items_payload.append(
             {
                 "position": position,
-                "candidate_id": str(candidate_id),
-                "score": quantize_score(coerce_score(item.get("score")), candidate_id=str(candidate_id)),
+                "candidate_id": cid_str,
+                "score": quantize_score(coerce_score(item.get("score")), candidate_id=cid_str),
                 "x": coerce_float(item.get("_x")),
                 "y": coerce_float(item.get("_y")),
                 "orbit_tier": int(coerce_float(item.get("_orbit_tier"), 3.0)),
@@ -107,6 +113,7 @@ def create_discovery_session(
                 ),
             },
         )
+        position += 1
 
     try:
         res = supabase_client.rpc(
@@ -312,30 +319,36 @@ def is_candidate_in_active_session(viewer_id: str, candidate_id: str) -> bool:
         return False
 
 
-def get_candidate_session_details(viewer_id: str, candidate_id: str) -> dict[str, Any] | None:
+def get_candidate_session_details(
+    viewer_id: str,
+    candidate_id: str,
+    tab: str | None = None,
+) -> dict[str, Any] | None:
     """Retrieves session details for a candidate associated with the viewer."""
     try:
-        res = (
+        query = (
             supabase_client.table("discovery_session_items")
-            .select("session_id, discovery_sessions!inner(viewer_id, expires_at)")
+            .select("session_id, discovery_sessions!inner(viewer_id, tab, expires_at)")
             .eq("candidate_id", candidate_id)
             .eq("discovery_sessions.viewer_id", viewer_id)
-            .limit(1)
-            .execute()
         )
+        if tab is not None:
+            query = query.eq("discovery_sessions.tab", tab)
+        res = query.limit(1).execute()
         if res.data:
             item = cast(dict[str, Any], res.data[0])
             ds = cast(dict[str, Any], item.get("discovery_sessions") or {})
             expires_at_val = ds.get("expires_at")
             return {
                 "session_id": str(item.get("session_id") or ""),
+                "tab": ds.get("tab"),
                 "expires_at": parse_utc_datetime(str(expires_at_val)) if expires_at_val else None,
             }
         return None
     except Exception:
         logger.exception(
             "Error fetching session details for candidate",
-            extra={"viewer_id": viewer_id, "candidate_id": candidate_id},
+            extra={"viewer_id": viewer_id, "candidate_id": candidate_id, "tab": tab},
         )
         return None
 

@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from fastapi import HTTPException
 
-from app.core.config import DiscoveryTab
+from app.core.config import DiscoveryTab, settings
 from app.core.infra.cache import sync_redis_client
 from app.db.client import parse_utc_datetime, utcnow
 from app.db.discovery import fetch_expired_pass_candidates
@@ -44,33 +44,35 @@ def get_or_validate_session(
     Raises:
         HTTPException: 404 if session not found, 410 if session expired.
     """
-    session = get_discovery_session(
-        session_id=session_id,
-        viewer_id=user_id,
-        active_tab=active_tab,
-    )
-
+    session = get_discovery_session(session_id, user_id, active_tab)
     if not session or session.get("tab") != active_tab:
-        raise HTTPException(status_code=404, detail="Discovery session not found.")
+        raise HTTPException(
+            status_code=404,
+            detail="Discovery session not found or access denied.",
+        )
 
     expires_at_raw = session.get("expires_at")
-    if not isinstance(expires_at_raw, (str, datetime)):
+    if not expires_at_raw:
         raise HTTPException(
             status_code=410,
-            detail="Discovery session expired. Please refresh.",
+            detail="Discovery session expired.",
         )
+
     try:
-        expires_at = parse_utc_datetime(expires_at_raw)
-    except (ValueError, TypeError):
+        if isinstance(expires_at_raw, datetime):
+            expires_at = expires_at_raw
+        else:
+            expires_at = parse_utc_datetime(str(expires_at_raw))
+    except Exception as err:
         raise HTTPException(
             status_code=410,
-            detail="Discovery session expired. Please refresh.",
-        ) from None
+            detail="Discovery session expired.",
+        ) from err
 
     if expires_at <= utcnow():
         raise HTTPException(
             status_code=410,
-            detail="Discovery session expired. Please refresh.",
+            detail="Discovery session expired.",
         )
 
     return session_id, expires_at
@@ -92,6 +94,25 @@ def create_new_discovery_session(
         tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
     """
     try:
+        # Hourly discovery session creation rate limit
+        hourly_session_key = f"user:session_creations_hourly:{user_id}"
+        try:
+            creation_count = int(sync_redis_client.incr(hourly_session_key))
+            if creation_count == 1:
+                sync_redis_client.expire(hourly_session_key, 3600)
+            max_hourly_sessions = getattr(settings, "rate_limit_session_creation_hourly", 20)
+            if creation_count > max_hourly_sessions:
+                logger.warning(
+                    "Hourly discovery session creation rate limit exceeded",
+                    extra={"user_id": user_id, "creation_count": creation_count},
+                )
+                raise HTTPException(
+                    status_code=429,
+                    detail="Hourly discovery session creation limit exceeded. Please reuse existing sessions or try again later.",
+                )
+        except (ValueError, TypeError):
+            pass
+
         mutation_count_raw = sync_redis_client.get(f"user:profile_mutations:{user_id}")
         if mutation_count_raw:
             mutation_count = int(mutation_count_raw)
@@ -113,6 +134,32 @@ def create_new_discovery_session(
                         status_code=429,
                         detail="Session creation rate limit exceeded due to frequent profile updates. Please wait before creating a new session.",
                     )
+
+        if filters:
+            filter_dict = filters.model_dump(exclude_none=True) if hasattr(filters, "model_dump") else {}
+            if filter_dict:
+                import hashlib
+                import json
+
+                filter_hash = hashlib.sha256(
+                    json.dumps(filter_dict, sort_keys=True).encode("utf-8"),
+                ).hexdigest()[:16]
+                filter_set_key = f"user:discovery_filter_hashes:{user_id}"
+                sync_redis_client.sadd(filter_set_key, filter_hash)
+                sync_redis_client.expire(filter_set_key, 600)
+                try:
+                    scard_val = int(sync_redis_client.scard(filter_set_key))
+                    if scard_val > 15:
+                        logger.warning(
+                            "High distinct filter combination probing detected",
+                            extra={"user_id": user_id, "distinct_count": scard_val},
+                        )
+                        raise HTTPException(
+                            status_code=429,
+                            detail="Discovery filter search rate limit exceeded. Please slow down your filter changes.",
+                        )
+                except (ValueError, TypeError):
+                    pass
     except HTTPException:
         raise
     except Exception:
@@ -130,6 +177,52 @@ def create_new_discovery_session(
             status_code=404,
             detail="Target user profile unpopulated.",
         )
+
+    completion_flag_map = {
+        "Dating": "is_dating_active",
+        "Friends": "is_friends_active",
+        "Professional": "is_professional_active",
+    }
+    completion_flag = completion_flag_map.get(active_tab)
+    if completion_flag and viewer.get(completion_flag) is False:
+        logger.warning(
+            "Viewer profile incomplete for discovery tab",
+            extra={"user_id": user_id, "active_tab": active_tab, "flag": completion_flag},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=f"Profile incomplete for {active_tab} tab. Please complete your profile to access discovery.",
+        )
+
+    viewer_age = viewer.get("age")
+    if viewer_age is not None and isinstance(viewer_age, int) and viewer_age < 18:
+        logger.warning(
+            "Underage viewer attempted discovery session creation",
+            extra={"user_id": user_id, "age": viewer_age},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Underage accounts (age < 18) are not permitted to access discovery.",
+        )
+
+    if filters and filters.search_bucket_filter:
+        from Nexus_Engine.utils import expand_target_buckets
+
+        target_bucket_col = {
+            "Dating": "dating_target_buckets",
+            "Friends": "friends_target_buckets",
+            "Professional": "professional_target_buckets",
+        }.get(active_tab, "dating_target_buckets")
+        viewer_targets_raw = viewer.get(target_bucket_col)
+        if isinstance(viewer_targets_raw, list) and viewer_targets_raw:
+            raw_list = cast(list[Any], viewer_targets_raw)
+            viewer_targets = expand_target_buckets([str(x) for x in raw_list])
+            filter_buckets = expand_target_buckets([str(x) for x in filters.search_bucket_filter])
+            if not any(b in viewer_targets for b in filter_buckets):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Requested search_bucket_filter does not intersect with viewer's configured target buckets.",
+                )
 
     ranked_orbit: list[dict[str, Any]] = engine.discover_orbit(
         viewer,

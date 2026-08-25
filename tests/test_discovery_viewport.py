@@ -63,7 +63,7 @@ async def test_discovery_viewport_passes_tab_to_session_validation(
 
     assert isinstance(response, DiscoveryViewportResponse)
     assert response.session_id == session_id
-    assert response.total_nodes == 10
+    assert response.total_nodes == 0  # Coarsened to 0 for pool <= 5
     assert len(response.nodes) == 1
     assert response.nodes[0].name == "Alice"
     assert response.nodes[0].score == 0.0
@@ -271,7 +271,8 @@ def test_coarsen_total_nodes() -> None:
 
     assert _coarsen_total_nodes(0) == 0
     assert _coarsen_total_nodes(-5) == 0
-    assert _coarsen_total_nodes(1) == 10
+    assert _coarsen_total_nodes(1) == 0
+    assert _coarsen_total_nodes(5) == 0
     assert _coarsen_total_nodes(7) == 10
     assert _coarsen_total_nodes(10) == 10
     assert _coarsen_total_nodes(11) == 25

@@ -108,11 +108,13 @@ def test_fetch_peer_profile_by_id_sanitizes_sentinels() -> None:
         "normal_pics": "\\xdeadbeef",
         "interests": "\\xdeadbeef",
         "is_deactivated": False,
+        "users": {"is_active": True, "is_suspended": False, "moderation_status": "clean"},
     }
 
     mock_builder = MagicMock()
     mock_builder.select.return_value = mock_builder
     mock_builder.eq.return_value = mock_builder
+    mock_builder.neq.return_value = mock_builder
     mock_builder.limit.return_value = mock_builder
     mock_builder.execute.return_value = MagicMock(data=[mock_row])
 
@@ -126,4 +128,33 @@ def test_fetch_peer_profile_by_id_sanitizes_sentinels() -> None:
     assert res["normal_pics"] == []
     assert res["interests"] == {}
     assert "__DECRYPTION_FAILED__" not in str(res)
+
+
+def test_fetch_peer_profile_by_id_filters_inactive_suspended_banned() -> None:
+    """Verify fetch_peer_profile_by_id queries users!inner with is_active, is_suspended, and moderation_status."""
+    from unittest.mock import MagicMock
+    from app.db.profiles.crud import fetch_peer_profile_by_id
+
+    mock_builder = MagicMock()
+    mock_builder.select.return_value = mock_builder
+    mock_builder.eq.return_value = mock_builder
+    mock_builder.neq.return_value = mock_builder
+    mock_builder.limit.return_value = mock_builder
+    mock_builder.execute.return_value = MagicMock(data=[])
+
+    with patch("app.db.profiles.crud.supabase_client.table", return_value=mock_builder) as mock_table:
+        res = fetch_peer_profile_by_id("banned-user-123")
+
+    assert res is None
+    mock_table.assert_called_once_with("profiles")
+    mock_builder.select.assert_called_once()
+    select_arg = mock_builder.select.call_args[0][0]
+    assert "users!inner(is_active, is_suspended, moderation_status)" in select_arg
+
+    mock_builder.eq.assert_any_call("id", "banned-user-123")
+    mock_builder.eq.assert_any_call("is_deactivated", False)
+    mock_builder.eq.assert_any_call("users.is_active", True)
+    mock_builder.eq.assert_any_call("users.is_suspended", False)
+    mock_builder.neq.assert_any_call("users.moderation_status", "banned")
+
 

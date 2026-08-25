@@ -159,6 +159,12 @@ def disconnect(user_id: str) -> None:
                 "music_taste_synced_at": None,
             },
         ).eq("id", user_id).execute()
+        supabase_client.table("discovery_session_items").update(
+            {
+                "candidate_spotify_connected": False,
+                "music_match_grade": None,
+            },
+        ).eq("candidate_id", user_id).execute()
     except APIError as e:
         logger.exception("Failed to disconnect spotify", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to disconnect Spotify") from e

@@ -199,6 +199,8 @@ class Settings(BaseSettings):
     enable_rate_limiting: bool = True
     rate_limit_health: str = "15/minute"
     rate_limit_discover: str = "10/minute"
+    rate_limit_session_creation_hourly: int = 20
+    pass_expiry_days: int = 14
     rate_limit_node_detail: str = "30/minute"
     rate_limit_chat: str = "60/minute"
     rate_limit_read_receipts: str = "120/minute"

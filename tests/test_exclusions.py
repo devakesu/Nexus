@@ -482,3 +482,101 @@ def test_fetch_stage_1_candidates_emits_debug_logs_not_info(mock_supabase: Magic
 
         mock_logger.info.assert_not_called()
         assert mock_logger.debug.call_count >= 1
+
+
+@pytest.mark.anyio
+@patch("app.db.discovery.exclusions.redis_client")
+@patch("app.db.sessions.auth_sessions.invalidate_viewer_discovery_sessions")
+async def test_invalidate_block_cache_propagates_database_access_error(
+    mock_invalidate: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.db.client import DatabaseAccessError
+    from app.db.discovery.exclusions import invalidate_block_cache
+
+    mock_redis.delete = AsyncMock()
+    mock_invalidate.side_effect = DatabaseAccessError("DB failure during session invalidation")
+
+    with pytest.raises(DatabaseAccessError) as exc_info:
+        await invalidate_block_cache("user-1", "user-2")
+
+    assert "DB failure during session invalidation" in str(exc_info.value)
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-1")
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-2")
+
+
+@pytest.mark.anyio
+@patch("app.db.discovery.exclusions.redis_client")
+@patch("app.db.sessions.auth_sessions.invalidate_viewer_discovery_sessions")
+async def test_invalidate_block_cache_success(
+    mock_invalidate: MagicMock,
+    mock_redis: MagicMock,
+) -> None:
+    from app.db.discovery.exclusions import invalidate_block_cache
+
+    mock_redis.delete = AsyncMock()
+    await invalidate_block_cache("user-1", "user-2")
+
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-1")
+    mock_redis.delete.assert_any_call("discovery:block_ids:user-2")
+    assert mock_invalidate.call_count == 2
+    mock_invalidate.assert_any_call("user-1")
+    mock_invalidate.assert_any_call("user-2")
+
+
+def test_fetch_stage_1_candidates_scales_limit_for_large_exclusion_set() -> None:
+    from app.db.profiles.crud import fetch_stage_1_candidates
+    from app.models import DiscoveryFilters
+
+    viewer_data = {
+        "id": "viewer-123",
+        "app_variant": "nexus",
+        "interests": "{}",
+    }
+
+    # Generate 1200 exclusion IDs
+    large_exclusions = {f"excluded-user-{i}" for i in range(1200)}
+
+    captured_limit: list[int] = []
+
+    def mock_execute_and_filter(
+        query: Any,
+        viewer: dict[str, Any],
+        active_tab: Any,
+        candidate_limit: int,
+    ) -> list[dict[str, Any]]:
+        captured_limit.append(candidate_limit)
+        # Return 50 candidates, including some in excluded list
+        return [
+            {"id": f"excluded-user-{i}", "name": f"User {i}"}
+            for i in range(1005, 1025)
+        ] + [
+            {"id": f"fresh-user-{i}", "name": f"Fresh {i}"}
+            for i in range(10)
+        ]
+
+    with (
+        patch("app.db.profiles.crud._fetch_and_decrypt_viewer", return_value=viewer_data),
+        patch("app.db.profiles.crud.fetch_active_discovery_excluded_ids", return_value=large_exclusions),
+        patch("app.db.profiles.crud._execute_and_filter_candidates", side_effect=mock_execute_and_filter),
+        patch("app.db.profiles.crud._attach_empty_embeddings"),
+        patch("app.db.profiles.crud._enrich_candidates_with_vectors"),
+        patch("app.db.profiles.crud.decrypt_profile_fields"),
+    ):
+        filters = DiscoveryFilters()
+        _, candidates = fetch_stage_1_candidates(
+            viewer_id="viewer-123",
+            active_tab="Dating",
+            filters=filters,
+            candidate_limit=200,
+        )
+
+        # Base 200 + overflow (1200 - 1000 = 200) -> 400
+        assert captured_limit == [400]
+        # In-memory filtering stripped all excluded candidates
+        for c in candidates:
+            assert not c["id"].startswith("excluded-user-")
+            assert c["id"].startswith("fresh-user-")
+        assert len(candidates) == 10
+
+
