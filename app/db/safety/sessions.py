@@ -10,7 +10,13 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.security.crypto import decrypt_pii, encrypt_to_hex
-from app.db.client import DatabaseAccessError, normalize_uuid, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    normalize_uuid,
+    parse_utc_datetime,
+    supabase_client,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,63 +71,52 @@ def start_safety_session(
     battery_percent: int | None,
     connection_type: str | None,
 ) -> dict[str, Any]:
-    """Ends any stale active session for this user and starts a new one.
+    """Ends any stale active session for this user and starts a new one atomically via RPC.
 
     Raises EscalationInProgressError if there is an active session currently escalating.
     """
+    user_id = normalize_uuid(user_id)
+    encrypted_label = encrypt_to_hex(label) if label else None
+    encrypted_event_context = (
+        encrypt_to_hex(json.dumps(event_context))
+        if event_context
+        else None
+    )
+
     try:
-        active_res = (
-            supabase_client.table("safety_sessions")
-            .select("id, escalations_sent")
-            .eq("user_id", user_id)
-            .eq("status", "active")
-            .execute()
-        )
-        active_sessions = cast(list[dict[str, Any]], active_res.data or [])
-        for session in active_sessions:
-            if int(session.get("escalations_sent") or 0) > 0:
-                raise EscalationInProgressError(
-                    "Cannot start session: escalation already in progress",
-                )
-
-        supabase_client.table("safety_sessions").update({"status": "ended"}).eq(
-            "user_id",
-            user_id,
-        ).eq("status", "active").execute()
-
-        encrypted_label = encrypt_to_hex(label) if label else None
-        encrypted_event_context = (
-            encrypt_to_hex(json.dumps(event_context))
-            if event_context
-            else None
-        )
-
-        payload: dict[str, Any] = {
-            "user_id": user_id,
-            "label": encrypted_label,
-            "interval_seconds": interval_seconds,
-            "next_checkin_at": next_checkin_at,
-            "event_context": encrypted_event_context,
-            "last_heartbeat_at": utcnow().isoformat(),
-            "battery_percent": battery_percent,
-            "connection_type": connection_type,
-        }
-        res = (
-            supabase_client.table("safety_sessions")
-            .insert(payload)
-            .select(_SESSION_COLS)
-            .execute()
-        )
-        rows = cast(list[Any], res.data or [])
-        if not rows or not isinstance(rows[0], dict):
-            raise DatabaseAccessError("Safety session insert returned no row")
-        return _decrypt_session_row(cast(dict[str, Any], rows[0]))
+        res = supabase_client.rpc(
+            "start_safety_session",
+            {
+                "p_user_id": user_id,
+                "p_label": encrypted_label,
+                "p_interval_seconds": interval_seconds,
+                "p_next_checkin_at": next_checkin_at,
+                "p_event_context": encrypted_event_context,
+                "p_battery_percent": battery_percent,
+                "p_connection_type": connection_type,
+            },
+        ).execute()
     except APIError as e:
+        error_msg = str(e)
+        if "escalation already in progress" in error_msg:
+            raise EscalationInProgressError(
+                "Cannot start session: escalation already in progress",
+            ) from e
         logger.exception(
             "Failed to start safety session",
             extra={"user_id": user_id},
         )
         raise DatabaseAccessError("Failed to start safety session") from e
+
+    data = res.data if res else None
+    if isinstance(data, list) and len(data) > 0:
+        row = data[0]
+    elif isinstance(data, dict):
+        row = data
+    else:
+        raise DatabaseAccessError("Safety session insert returned no row")
+
+    return _decrypt_session_row(cast(dict[str, Any], row))
 
 
 def heartbeat_safety_session(
@@ -131,33 +126,76 @@ def heartbeat_safety_session(
     battery_percent: int | None,
     connection_type: str | None,
 ) -> dict[str, Any] | None:
-    """Updates next check-in time and resets escalations_sent count to 0."""
+    """Updates next check-in time and conditionally resets escalations_sent.
+
+    Only resets escalations_sent to 0 and clears escalation state if next_checkin_at is
+    strictly newer than last_escalated_at (or if no escalation has occurred), and does not
+    regress next_checkin_at if a stale/buffered heartbeat is received.
+    """
+    user_id = normalize_uuid(user_id)
+    session_id = normalize_uuid(session_id)
     try:
+        session_res = (
+            supabase_client.table("safety_sessions")
+            .select("id, next_checkin_at, escalations_sent, last_escalated_at")
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .execute()
+        )
+        rows = cast(list[dict[str, Any]], session_res.data or [])
+        if not rows:
+            return None
+        current_session = rows[0]
+
+        curr_next_checkin = current_session.get("next_checkin_at")
+        last_escalated_at = current_session.get("last_escalated_at")
+        escalations_sent = int(current_session.get("escalations_sent") or 0)
+
+        new_dt = parse_utc_datetime(next_checkin_at)
+
+        # Check if next_checkin_at regresses against current next_checkin_at
+        is_stale_deadline = False
+        if curr_next_checkin:
+            curr_dt = parse_utc_datetime(curr_next_checkin)
+            if new_dt <= curr_dt:
+                is_stale_deadline = True
+
+        # Check if next_checkin_at is newer than last_escalated_at
+        should_reset_escalation = True
+        if escalations_sent > 0 and last_escalated_at:
+            last_esc_dt = parse_utc_datetime(last_escalated_at)
+            if new_dt <= last_esc_dt:
+                should_reset_escalation = False
+
+        update_payload: dict[str, Any] = {
+            "last_heartbeat_at": utcnow().isoformat(),
+            "battery_percent": battery_percent,
+            "connection_type": connection_type,
+        }
+        if not is_stale_deadline:
+            update_payload["next_checkin_at"] = next_checkin_at
+
+        if should_reset_escalation and not is_stale_deadline:
+            update_payload["escalations_sent"] = 0
+            update_payload["last_escalated_at"] = None
+            update_payload["escalation_cancelled_at"] = None
+            update_payload["escalation_cancel_reason"] = None
+            update_payload["escalation_cancel_note"] = None
+
         res = (
             supabase_client.table("safety_sessions")
-            .update(
-                {
-                    "next_checkin_at": next_checkin_at,
-                    "last_heartbeat_at": utcnow().isoformat(),
-                    "battery_percent": battery_percent,
-                    "connection_type": connection_type,
-                    "escalations_sent": 0,
-                    "last_escalated_at": None,
-                    "escalation_cancelled_at": None,
-                    "escalation_cancel_reason": None,
-                    "escalation_cancel_note": None,
-                },
-            )
+            .update(update_payload)
             .eq("id", session_id)
             .eq("user_id", user_id)
             .eq("status", "active")
             .select(_SESSION_COLS)
             .execute()
         )
-        rows = cast(list[Any], res.data or [])
-        if not rows or not isinstance(rows[0], dict):
+        updated_rows = cast(list[Any], res.data or [])
+        if not updated_rows or not isinstance(updated_rows[0], dict):
             return None
-        return _decrypt_session_row(cast(dict[str, Any], rows[0]))
+        return _decrypt_session_row(cast(dict[str, Any], updated_rows[0]))
     except APIError as e:
         logger.exception(
             "Failed to heartbeat safety session",

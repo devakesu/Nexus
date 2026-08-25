@@ -685,6 +685,13 @@ async def _handle_cancel_escalation(
                 status_code=404,
             )
 
+        # If session is already ended or cancelled, acknowledge it gracefully
+        if session.get("status") == "ended":
+            return HTMLResponse(
+                _escalation_page("This check-in has already ended. Further alerts are stopped."),
+                status_code=200,
+            )
+
         # Pause the current burst only, if it is already cancelled, acknowledge it
         if session.get("escalation_cancelled_at") is not None:
             return HTMLResponse(

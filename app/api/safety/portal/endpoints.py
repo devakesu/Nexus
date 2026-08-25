@@ -114,12 +114,14 @@ async def request_portal_otp(
     phone_norm = normalize_phone(payload.phone)
 
     resend_key = _resend_key(session_id, phone_norm)
-    if await redis_client.exists(resend_key):
+    acquired = await redis_client.set(
+        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True
+    )
+    if not acquired:
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
         )
-    await redis_client.set(resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True)
 
     try:
         session = await asyncio.to_thread(fetch_safety_session, session_id)
@@ -365,12 +367,14 @@ async def request_contact_portal_otp(
     phone_norm = normalize_phone(payload.phone)
 
     resend_key = _contact_resend_key(contact_id, phone_norm)
-    if await redis_client.exists(resend_key):
+    acquired = await redis_client.set(
+        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True
+    )
+    if not acquired:
         raise HTTPException(
             status_code=429,
             detail="Please wait a bit before requesting another code.",
         )
-    await redis_client.set(resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True)
 
     try:
         contact = await asyncio.to_thread(fetch_safety_contact_by_id, contact_id)

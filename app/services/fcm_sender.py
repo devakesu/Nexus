@@ -154,6 +154,7 @@ def _send_to_tokens(
     body: str | None,
     data: dict[str, str],
     channel_id: str,
+    is_safety_critical: bool = False,
 ) -> int:
     """Send to tokens.
 
@@ -163,6 +164,7 @@ def _send_to_tokens(
             body: Input body parameter.
             data: Input data parameter.
             channel_id: Input channel id parameter.
+            is_safety_critical: Flag indicating whether this notification is safety-critical.
 
         Returns:
             int: Number of successfully sent tokens."""
@@ -197,11 +199,24 @@ def _send_to_tokens(
         for i, resp in enumerate(response.responses):
             if not resp.success:
                 exc = resp.exception
+                token_suffix = tokens[i][-8:] if len(tokens[i]) >= 8 else tokens[i]
                 logger.warning(
-                    "FCM delivery failed for token index %d: %s",
+                    "FCM delivery failed for token index %d (...%s): %s",
                     i,
+                    token_suffix,
                     str(exc),
                 )
+                if is_safety_critical:
+                    sentry_sdk.capture_message(
+                        f"CRITICAL: FCM delivery failed for safety notification (channel: {channel_id}): {exc}",
+                        level="error",
+                    )
+                    logger.error(
+                        "FCM delivery failed for safety-critical notification on channel %s (...%s): %s",
+                        channel_id,
+                        token_suffix,
+                        str(exc),
+                    )
                 if exc:
                     exc_str = str(exc)
                     if (
@@ -504,8 +519,10 @@ async def send_trusted_contact_removed_notification(
                 "type": "safety_contact_removed",
             },
             "safety_contact_removed",
+            is_safety_critical=True,
         )
-    except Exception:
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
         logger.exception(
             "Failed to send trusted contact removed notification",
             extra={"user_id": user_id},
@@ -549,8 +566,10 @@ async def send_meetup_safety_reminder_notification(
                 "peer_id": peer_id,
             },
             "meetup_safety_reminder",
+            is_safety_critical=True,
         )
-    except Exception:
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
         logger.exception(
             "Failed to send meetup safety reminder notification",
             extra={"user_id": user_id, "conversation_id": conversation_id},

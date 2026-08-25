@@ -553,6 +553,106 @@ $$;
 
 ALTER FUNCTION "public"."sync_safety_contacts"("p_user_id" "uuid", "p_contacts" "jsonb") OWNER TO "postgres";
 
+CREATE OR REPLACE FUNCTION "public"."start_safety_session"(
+    "p_user_id" "uuid",
+    "p_label" "text",
+    "p_interval_seconds" integer,
+    "p_next_checkin_at" timestamp with time zone,
+    "p_event_context" "text",
+    "p_battery_percent" smallint,
+    "p_connection_type" "text"
+) RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+    v_active_escalating BOOLEAN;
+    v_row RECORD;
+    v_now TIMESTAMPTZ := timezone('utc'::text, now());
+BEGIN
+    -- Advisory transaction lock per user to serialize concurrent safety session operations
+    PERFORM pg_advisory_xact_lock(hashtext('safety_sessions_' || p_user_id::text));
+
+    -- Check if any active session is currently escalating
+    SELECT EXISTS (
+        SELECT 1 FROM public.safety_sessions
+        WHERE user_id = p_user_id
+          AND status = 'active'
+          AND (escalations_sent > 0 OR last_escalated_at IS NOT NULL)
+    ) INTO v_active_escalating;
+
+    IF v_active_escalating THEN
+        RAISE EXCEPTION 'Cannot start session: escalation already in progress'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    -- End all existing active sessions for this user
+    UPDATE public.safety_sessions
+    SET status = 'ended',
+        updated_at = v_now
+    WHERE user_id = p_user_id
+      AND status = 'active';
+
+    -- Insert new active session
+    INSERT INTO public.safety_sessions (
+        user_id,
+        status,
+        label,
+        interval_seconds,
+        next_checkin_at,
+        event_context,
+        last_heartbeat_at,
+        battery_percent,
+        connection_type,
+        escalations_sent,
+        created_at,
+        updated_at
+    ) VALUES (
+        p_user_id,
+        'active',
+        CASE WHEN p_label IS NOT NULL THEN p_label::bytea ELSE NULL END,
+        p_interval_seconds,
+        p_next_checkin_at,
+        CASE WHEN p_event_context IS NOT NULL THEN p_event_context::bytea ELSE NULL END,
+        v_now,
+        p_battery_percent,
+        p_connection_type,
+        0,
+        v_now,
+        v_now
+    )
+    RETURNING
+        id,
+        user_id,
+        label,
+        interval_seconds,
+        next_checkin_at,
+        event_context,
+        status,
+        battery_percent,
+        connection_type,
+        escalations_sent,
+        last_escalated_at
+    INTO v_row;
+
+    RETURN jsonb_build_object(
+        'id', v_row.id,
+        'user_id', v_row.user_id,
+        'label', CASE WHEN v_row.label IS NOT NULL THEN '\x' || encode(v_row.label, 'hex') ELSE NULL END,
+        'interval_seconds', v_row.interval_seconds,
+        'next_checkin_at', v_row.next_checkin_at,
+        'event_context', CASE WHEN v_row.event_context IS NOT NULL THEN '\x' || encode(v_row.event_context, 'hex') ELSE NULL END,
+        'status', v_row.status,
+        'battery_percent', v_row.battery_percent,
+        'connection_type', v_row.connection_type,
+        'escalations_sent', v_row.escalations_sent,
+        'last_escalated_at', v_row.last_escalated_at
+    );
+END;
+$$;
+
+ALTER FUNCTION "public"."start_safety_session"("p_user_id" "uuid", "p_label" "text", "p_interval_seconds" integer, "p_next_checkin_at" timestamp with time zone, "p_event_context" "text", "p_battery_percent" smallint, "p_connection_type" "text") OWNER TO "postgres";
+
 CREATE OR REPLACE FUNCTION "public"."touch_conversation_last_message"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -2779,6 +2879,9 @@ GRANT ALL ON FUNCTION "public"."subvector"("public"."vector", integer, integer) 
 
 REVOKE ALL ON FUNCTION "public"."sync_safety_contacts"("p_user_id" "uuid", "p_contacts" "jsonb") FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."sync_safety_contacts"("p_user_id" "uuid", "p_contacts" "jsonb") TO "service_role";
+
+REVOKE ALL ON FUNCTION "public"."start_safety_session"("p_user_id" "uuid", "p_label" "text", "p_interval_seconds" integer, "p_next_checkin_at" timestamp with time zone, "p_event_context" "text", "p_battery_percent" smallint, "p_connection_type" "text") FROM PUBLIC, "anon", "authenticated";
+GRANT ALL ON FUNCTION "public"."start_safety_session"("p_user_id" "uuid", "p_label" "text", "p_interval_seconds" integer, "p_next_checkin_at" timestamp with time zone, "p_event_context" "text", "p_battery_percent" smallint, "p_connection_type" "text") TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."touch_conversation_last_message"() FROM PUBLIC, "anon", "authenticated";
 GRANT ALL ON FUNCTION "public"."touch_conversation_last_message"() TO "service_role";

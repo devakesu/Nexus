@@ -58,15 +58,17 @@ async def test_request_contact_portal_otp_success(
 
 
 @pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.verify_contact_portal_token", return_value="contact-123")
 @patch("app.api.safety.portal.endpoints.redis_client")
 @patch("app.api.safety.portal.endpoints.fetch_safety_contact_by_id")
 async def test_request_contact_portal_otp_cooldown(
     mock_fetch: MagicMock,
     mock_redis: MagicMock,
+    _mock_verify_token: MagicMock,
 ):
-    mock_redis.exists = AsyncMock(return_value=True)
+    mock_redis.set = AsyncMock(return_value=None)
 
-    payload = SafetyContactPortalOtpRequestRequest(phone="+14155552671")
+    payload = SafetyContactPortalOtpRequestRequest(phone="+15551112233")
     with pytest.raises(HTTPException) as exc_info:
         await request_contact_portal_otp(
             request=MagicMock(),
@@ -365,6 +367,44 @@ async def test_request_contact_portal_otp_unmatched_stores_sentinel_no_sms(
     call_args = mock_redis.setex.call_args[0]
     assert call_args[0] == "safety_contact_portal:otp:contact-123:+15550000000"
     assert call_args[2].startswith("sentinel:")
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+async def test_request_portal_otp_cooldown_active_returns_429(
+    mock_redis: MagicMock,
+):
+    mock_redis.set = AsyncMock(return_value=None)  # Key already exists, NX rejected
+
+    payload = SafetyPortalOtpRequestRequest(phone="+15551112233")
+    with pytest.raises(HTTPException) as exc_info:
+        await request_portal_otp(
+            request=MagicMock(),
+            session_id="session-123",
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 429
+    assert "Please wait a bit before requesting another code." in exc_info.value.detail
+
+
+@pytest.mark.anyio
+@patch("app.api.safety.portal.endpoints.redis_client")
+async def test_request_contact_portal_otp_cooldown_active_returns_429(
+    mock_redis: MagicMock,
+):
+    mock_redis.set = AsyncMock(return_value=None)  # Key already exists, NX rejected
+
+    payload = SafetyContactPortalOtpRequestRequest(phone="+15551112233")
+    with pytest.raises(HTTPException) as exc_info:
+        await request_contact_portal_otp(
+            request=MagicMock(),
+            contact_id="contact-123",
+            payload=payload,
+        )
+
+    assert exc_info.value.status_code == 429
+    assert "Please wait a bit before requesting another code." in exc_info.value.detail
 
 
 @pytest.mark.anyio

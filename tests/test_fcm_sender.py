@@ -528,6 +528,74 @@ async def test_fcm_sender_per_recipient_throttling(
     assert mock_send.call_count == 1
 
 
+@pytest.mark.anyio
+@patch("app.services.fcm_sender.sentry_sdk.capture_message")
+@patch("app.services.fcm_sender._fcm")
+async def test_send_to_tokens_safety_critical_captures_sentry(
+    mock_fcm: MagicMock,
+    mock_capture: MagicMock,
+) -> None:
+    from app.services.fcm_sender import _send_to_tokens
+
+    failed_response = MagicMock()
+    failed_response.success = False
+    failed_response.exception = Exception("FCM internal error")
+
+    mock_multicast_resp = MagicMock()
+    mock_multicast_resp.failure_count = 1
+    mock_multicast_resp.responses = [failed_response]
+    mock_multicast_resp.success_count = 0
+    mock_fcm.send_each_for_multicast.return_value = mock_multicast_resp
+
+    count = _send_to_tokens(
+        tokens=["token-abc-12345678"],
+        title="Safety Alert",
+        body="Check-in overdue",
+        data={"type": "meetup_safety_reminder"},
+        channel_id="meetup_safety_reminder",
+        is_safety_critical=True,
+    )
+
+    assert count == 0
+    assert mock_capture.call_count == 1
+    args, kwargs = mock_capture.call_args
+    assert "CRITICAL: FCM delivery failed for safety notification" in args[0]
+    assert kwargs.get("level") == "error"
+
+
+@pytest.mark.anyio
+@patch("app.services.fcm_sender.sentry_sdk.capture_message")
+@patch("app.services.fcm_sender._fcm")
+async def test_send_to_tokens_non_safety_critical_does_not_capture_sentry(
+    mock_fcm: MagicMock,
+    mock_capture: MagicMock,
+) -> None:
+    from app.services.fcm_sender import _send_to_tokens
+
+    failed_response = MagicMock()
+    failed_response.success = False
+    failed_response.exception = Exception("FCM internal error")
+
+    mock_multicast_resp = MagicMock()
+    mock_multicast_resp.failure_count = 1
+    mock_multicast_resp.responses = [failed_response]
+    mock_multicast_resp.success_count = 0
+    mock_fcm.send_each_for_multicast.return_value = mock_multicast_resp
+
+    count = _send_to_tokens(
+        tokens=["token-abc-12345678"],
+        title="Like Alert",
+        body="Someone liked you",
+        data={"type": "like"},
+        channel_id="likes_like",
+        is_safety_critical=False,
+    )
+
+    assert count == 0
+    assert mock_capture.call_count == 0
+
+
+
 
 
 

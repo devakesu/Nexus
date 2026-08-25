@@ -657,14 +657,26 @@ async def _verify_app_check_with_replay_impl(
 async def verify_app_check_with_replay_protection(
     x_firebase_appcheck: str | None = Header(None),
 ) -> None:
-    """App Check verifier with one-time token consumption (fails open on Redis outage for standard routes)."""
+    """App Check verifier with one-time token consumption (fails open on Redis outage for standard routes).
+
+    Runbook / Operational Trade-off:
+    - Cryptographic device attestation (`app_check.verify_token`) remains strictly enforced at all times.
+    - During a Redis outage, one-time consumption tracking is bypassed (fails open) to prioritize availability
+      of standard user, key sync, and chat workflows. Replay exposure is strictly bounded by the App Check token's short TTL.
+    - For non-idempotent safety-critical operations, use `verify_app_check_with_strict_replay_protection`.
+    """
     await _verify_app_check_with_replay_impl(x_firebase_appcheck, strict=False)
 
 
 async def verify_app_check_with_strict_replay_protection(
     x_firebase_appcheck: str | None = Header(None),
 ) -> None:
-    """App Check verifier with one-time token consumption (fails closed with 503 on Redis outage for critical routes)."""
+    """App Check verifier with one-time token consumption (fails closed with 503 on Redis outage for critical routes).
+
+    Runbook / Operational Trade-off:
+    - Enforced on non-idempotent or irreversible operations (such as panic alert triggers and critical safety dispatches).
+    - If Redis is unreachable, this verifier fails closed with HTTP 503 to ensure strict one-time replay prevention.
+    """
     await _verify_app_check_with_replay_impl(x_firebase_appcheck, strict=True)
 
 

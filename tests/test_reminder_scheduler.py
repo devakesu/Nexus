@@ -634,21 +634,12 @@ def test_make_and_verify_escalation_cancel_token():
 def test_start_safety_session_no_escalation():
     from app.db.safety.sessions import start_safety_session
 
-    mock_builder = MagicMock()
-    mock_builder.select.return_value = mock_builder
-    mock_builder.eq.return_value = mock_builder
-    mock_builder.insert.return_value = mock_builder
-    mock_builder.update.return_value = mock_builder
-    # Return empty active session list or session with escalations_sent = 0
-    mock_builder.execute.side_effect = [
-        MagicMock(data=[]), # select active sessions
-        MagicMock(data=[]), # update status ended
-        MagicMock(data=[{"id": "new-session"}]), # insert new session
-    ]
+    mock_rpc = MagicMock()
+    mock_rpc.execute.return_value = MagicMock(data={"id": "00000000-0000-0000-0000-000000000001", "user_id": "00000000-0000-0000-0000-000000000123"})
 
-    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder):
+    with patch("app.db.safety.sessions.supabase_client.rpc", return_value=mock_rpc):
         res = start_safety_session(
-            user_id="user-123",
+            user_id="00000000-0000-0000-0000-000000000123",
             label="meetup",
             interval_seconds=1800,
             next_checkin_at="2026-08-12T20:00:00Z",
@@ -657,29 +648,28 @@ def test_start_safety_session_no_escalation():
             connection_type="cellular",
         )
 
-    assert res["id"] == "new-session"
+    assert res["id"] == "00000000-0000-0000-0000-000000000001"
+    mock_rpc.execute.assert_called_once()
 
 
 def test_start_safety_session_with_active_escalation():
+    from postgrest.exceptions import APIError
     from app.db.safety.sessions import EscalationInProgressError, start_safety_session
 
-    mock_builder = MagicMock()
-    mock_builder.select.return_value = mock_builder
-    mock_builder.eq.return_value = mock_builder
-    # Return active session with escalations_sent > 0
-    mock_builder.execute.return_value = MagicMock(data=[{"id": "session-1", "escalations_sent": 1}])
+    mock_rpc = MagicMock()
+    mock_rpc.execute.side_effect = APIError({"message": "Cannot start session: escalation already in progress"})
 
-    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_builder), \
+    with patch("app.db.safety.sessions.supabase_client.rpc", return_value=mock_rpc), \
          pytest.raises(EscalationInProgressError, match="Cannot start session: escalation already in progress"):
         start_safety_session(
-                user_id="user-123",
-                label="meetup",
-                interval_seconds=1800,
-                next_checkin_at="2026-08-12T20:00:00Z",
-                event_context=None,
-                battery_percent=90,
-                connection_type="cellular",
-            )
+            user_id="00000000-0000-0000-0000-000000000123",
+            label="meetup",
+            interval_seconds=1800,
+            next_checkin_at="2026-08-12T20:00:00Z",
+            event_context=None,
+            battery_percent=90,
+            connection_type="cellular",
+        )
 
 
 @pytest.mark.anyio

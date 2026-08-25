@@ -1077,33 +1077,30 @@ def test_start_and_fetch_safety_session_encrypts_label_and_event_context() -> No
     inserted_payload: dict[str, Any] = {}
 
     with patch("app.db.safety.sessions.supabase_client") as mock_supabase:
+        def rpc_fn(fn_name: str, params: dict[str, Any]) -> MagicMock:
+            if fn_name == "start_safety_session":
+                inserted_payload["label"] = params.get("p_label")
+                inserted_payload["event_context"] = params.get("p_event_context")
+                m_exec = MagicMock()
+                m_exec.execute.return_value = MagicMock(data={
+                    "id": session_id,
+                    "user_id": user_id,
+                    "label": params.get("p_label"),
+                    "interval_seconds": params.get("p_interval_seconds"),
+                    "next_checkin_at": params.get("p_next_checkin_at"),
+                    "event_context": params.get("p_event_context"),
+                    "status": "active",
+                    "battery_percent": params.get("p_battery_percent"),
+                    "connection_type": params.get("p_connection_type"),
+                    "escalations_sent": 0,
+                    "last_escalated_at": None,
+                })
+                return m_exec
+            return MagicMock()
+
         def table_fn(t_name: str) -> MagicMock:
             if t_name == "safety_sessions":
                 m = MagicMock()
-                # Mock select for active check
-                m.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-                # Mock update for ending previous sessions
-                m.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-                # Mock insert
-                def insert_fn(payload: dict[str, Any]) -> MagicMock:
-                    inserted_payload.update(payload)
-                    m_exec = MagicMock()
-                    # Return row with encrypted fields as DB would store
-                    m_exec.select.return_value.execute.return_value = MagicMock(data=[{
-                        "id": session_id,
-                        "user_id": user_id,
-                        "label": payload["label"],
-                        "interval_seconds": 300,
-                        "next_checkin_at": "2026-08-24T18:00:00Z",
-                        "event_context": payload["event_context"],
-                        "status": "active",
-                        "battery_percent": 90,
-                        "connection_type": "wifi",
-                        "escalations_sent": 0,
-                        "last_escalated_at": None,
-                    }])
-                    return m_exec
-                m.insert = insert_fn
                 # Mock select for fetch_safety_session
                 m.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(data={
                     "id": session_id,
@@ -1121,6 +1118,7 @@ def test_start_and_fetch_safety_session_encrypts_label_and_event_context() -> No
                 return m
             return MagicMock()
 
+        mock_supabase.rpc.side_effect = rpc_fn
         mock_supabase.table.side_effect = table_fn
 
         # 1. Test start_safety_session encrypts fields in database payload
@@ -1207,13 +1205,110 @@ async def test_check_cached_sos_alert_redis_and_db_miss() -> None:
 
 def test_checkin_session_rate_limit_uses_dedicated_heartbeat_quota() -> None:
     """Verify checkin_session is decoupled from generic safety limits and uses dedicated 120/hour quota."""
-    from app.core.config import settings
     from app.api.safety.endpoints import checkin_session
+    from app.core.config import settings
 
     assert settings.rate_limit_safety_heartbeat == "120/hour"
     # checkin_session is decorated with SlowAPI limiter
     # Verify limiter attached to checkin_session has the expected rate limit attribute
     assert hasattr(checkin_session, "_rate_limiting") or hasattr(checkin_session, "__wrapped__") or callable(checkin_session)
+
+
+def test_heartbeat_safety_session_resets_escalation_when_fresh() -> None:
+    """A fresh checkin after escalation occurred resets escalations_sent to 0."""
+    from unittest.mock import MagicMock, patch
+    from app.db.safety.sessions import heartbeat_safety_session
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session_id = "00000000-0000-0000-0000-000000000002"
+
+    mock_table = MagicMock()
+    # Mock select
+    mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[{
+        "id": session_id,
+        "next_checkin_at": "2026-08-25T11:00:00Z",
+        "escalations_sent": 1,
+        "last_escalated_at": "2026-08-25T11:05:00Z",
+    }])
+
+    update_payload: dict[str, Any] = {}
+    def mock_update(payload: dict[str, Any]) -> MagicMock:
+        update_payload.update(payload)
+        m = MagicMock()
+        m.eq.return_value.eq.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(data=[{
+            "id": session_id,
+            "user_id": user_id,
+            "next_checkin_at": payload.get("next_checkin_at"),
+            "escalations_sent": payload.get("escalations_sent", 1),
+            "last_escalated_at": payload.get("last_escalated_at"),
+        }])
+        return m
+
+    mock_table.update = mock_update
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
+        # Fresh heartbeat deadline at 12:00:00 > last_escalated_at (11:05:00)
+        res = heartbeat_safety_session(
+            user_id=user_id,
+            session_id=session_id,
+            next_checkin_at="2026-08-25T12:00:00Z",
+            battery_percent=85,
+            connection_type="wifi",
+        )
+
+    assert res is not None
+    assert update_payload.get("escalations_sent") == 0
+    assert update_payload.get("last_escalated_at") is None
+    assert update_payload.get("next_checkin_at") == "2026-08-25T12:00:00Z"
+
+
+def test_heartbeat_safety_session_retains_escalation_when_stale() -> None:
+    """A stale buffered heartbeat with deadline <= last_escalated_at does NOT reset escalations_sent."""
+    from unittest.mock import MagicMock, patch
+    from app.db.safety.sessions import heartbeat_safety_session
+
+    user_id = "00000000-0000-0000-0000-000000000001"
+    session_id = "00000000-0000-0000-0000-000000000002"
+
+    mock_table = MagicMock()
+    # Mock select: existing session has escalated at 11:05:00
+    mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[{
+        "id": session_id,
+        "next_checkin_at": "2026-08-25T11:00:00Z",
+        "escalations_sent": 1,
+        "last_escalated_at": "2026-08-25T11:05:00Z",
+    }])
+
+    update_payload: dict[str, Any] = {}
+    def mock_update(payload: dict[str, Any]) -> MagicMock:
+        update_payload.update(payload)
+        m = MagicMock()
+        m.eq.return_value.eq.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(data=[{
+            "id": session_id,
+            "user_id": user_id,
+            "next_checkin_at": "2026-08-25T11:00:00Z",
+            "escalations_sent": 1,
+            "last_escalated_at": "2026-08-25T11:05:00Z",
+        }])
+        return m
+
+    mock_table.update = mock_update
+
+    with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
+        # Stale heartbeat with next_checkin_at at 11:04:00 <= last_escalated_at (11:05:00)
+        res = heartbeat_safety_session(
+            user_id=user_id,
+            session_id=session_id,
+            next_checkin_at="2026-08-25T11:04:00Z",
+            battery_percent=50,
+            connection_type="cellular",
+        )
+
+    assert res is not None
+    # escalations_sent and last_escalated_at must NOT be reset in the update payload
+    assert "escalations_sent" not in update_payload
+    assert "last_escalated_at" not in update_payload
+
 
 
 

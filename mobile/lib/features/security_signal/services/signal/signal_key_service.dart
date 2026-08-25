@@ -209,66 +209,89 @@ class SignalKeyService {
     final confirmedId = int.tryParse(confirmedIdRaw ?? '');
     final isLatestConfirmed = latest != null && confirmedId == latest.id;
 
-    // Rotate the signed prekey periodically (weekly/7 days) to enforce
-    // forward secrecy and prevent stale keys - or immediately, regardless of
-    // age, if the latest local key was never confirmed uploaded. A brand
-    // new key_id is minted below rather than retrying the unconfirmed one,
-    // since the backend enforces UNIQUE(user_id, key_id) with a plain
-    // INSERT (no ON CONFLICT) - resending the same key_id after an
-    // ambiguous failure (upload actually landed, response just got lost)
-    // would 503 instead of silently succeeding.
-    var needsRotation = true;
+    // If the latest local signed prekey is recent (< 7 days) and already
+    // confirmed uploaded to the server, nothing to do.
     if (latest != null && isLatestConfirmed) {
       final age =
           DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
       if (age < const Duration(days: 7).inMilliseconds) {
-        needsRotation = false;
-      }
-    }
-
-    if (!needsRotation) {
-      if (existing.length > 1 && latest != null) {
-        for (final key in existing) {
-          if (key.id != latest.id) {
-            await store.removeSignedPreKey(key.id);
+        if (existing.length > 1) {
+          for (final key in existing) {
+            if (key.id != latest.id) {
+              await store.removeSignedPreKey(key.id);
+            }
           }
         }
+        return;
       }
-      return;
     }
 
-    final keyId =
-        int.tryParse(
-          await _secureStorage.read(key: _prefsNextSignedPreKeyId) ?? '',
-        ) ??
-        1;
-    final identityKeyPair = await store.getIdentityKeyPair();
-    final signedPreKey = generateSignedPreKey(identityKeyPair, keyId);
-    await store.storeSignedPreKey(keyId, signedPreKey);
-    await _secureStorage.write(
-      key: _prefsNextSignedPreKeyId,
-      value: '${keyId + 1}',
-    );
+    final int targetKeyId;
+    final SignedPreKeyRecord targetSignedPreKey;
+
+    // Retry path: If a recent unconfirmed key already exists in SQLite,
+    // retry uploading it idempotently instead of creating a brand-new keyId on each transient network failure.
+    // Backend `upsert_signed_prekey` handles ON CONFLICT (user_id, key_id) idempotently.
+    if (latest != null && !isLatestConfirmed) {
+      final age =
+          DateTime.now().millisecondsSinceEpoch - latest.timestamp.toInt();
+      if (age < const Duration(days: 7).inMilliseconds) {
+        targetKeyId = latest.id;
+        targetSignedPreKey = latest;
+      } else {
+        // Unconfirmed key is too old; mint a new one
+        final keyId =
+            int.tryParse(
+              await _secureStorage.read(key: _prefsNextSignedPreKeyId) ?? '',
+            ) ??
+            1;
+        final identityKeyPair = await store.getIdentityKeyPair();
+        final signedPreKey = generateSignedPreKey(identityKeyPair, keyId);
+        await store.storeSignedPreKey(keyId, signedPreKey);
+        await _secureStorage.write(
+          key: _prefsNextSignedPreKeyId,
+          value: '${keyId + 1}',
+        );
+        targetKeyId = keyId;
+        targetSignedPreKey = signedPreKey;
+      }
+    } else {
+      // Normal rotation or initial creation
+      final keyId =
+          int.tryParse(
+            await _secureStorage.read(key: _prefsNextSignedPreKeyId) ?? '',
+          ) ??
+          1;
+      final identityKeyPair = await store.getIdentityKeyPair();
+      final signedPreKey = generateSignedPreKey(identityKeyPair, keyId);
+      await store.storeSignedPreKey(keyId, signedPreKey);
+      await _secureStorage.write(
+        key: _prefsNextSignedPreKeyId,
+        value: '${keyId + 1}',
+      );
+      targetKeyId = keyId;
+      targetSignedPreKey = signedPreKey;
+    }
 
     await NetworkUtils.requireAccessToken();
-    final publicKey = signedPreKey.getKeyPair().publicKey;
+    final publicKey = targetSignedPreKey.getKeyPair().publicKey;
     await _dio.put<void>(
       '${AppConfig.current.backendUrl}/api/v1/chat/keys/signed-prekey',
       data: {
-        'key_id': keyId,
+        'key_id': targetKeyId,
         'public_key': base64Encode(publicKey.serialize()),
-        'signature': base64Encode(signedPreKey.signature),
+        'signature': base64Encode(targetSignedPreKey.signature),
       },
     );
     await _secureStorage.write(
       key: _prefsSignedPreKeyConfirmedKeyId,
-      value: '$keyId',
+      value: '$targetKeyId',
     );
 
     // Clean up old signed prekeys so they don't accumulate in SQLite
     final remainingKeys = await store.loadSignedPreKeys();
     for (final key in remainingKeys) {
-      if (key.id != keyId) {
+      if (key.id != targetKeyId) {
         await store.removeSignedPreKey(key.id);
       }
     }
