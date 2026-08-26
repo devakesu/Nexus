@@ -94,7 +94,7 @@ $$;
 ALTER FUNCTION "public"."apply_name_change"("p_user_id" "uuid", "p_new_name" "bytea", "p_min_interval_days" integer, "p_max_changes" integer) OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."check_match_precondition"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
+    LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
     AS $$
 BEGIN
@@ -114,8 +114,10 @@ $$;
 
 ALTER FUNCTION "public"."check_match_precondition"() OWNER TO "postgres";
 
+COMMENT ON FUNCTION "public"."check_match_precondition"() IS 'SECURITY DEFINER trigger function validating an active like/superlike exists before inserting a match.';
+
 CREATE OR REPLACE FUNCTION "public"."check_chat_message_insert_precondition"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
+    LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
     AS $$
 BEGIN
@@ -131,6 +133,8 @@ END;
 $$;
 
 ALTER FUNCTION "public"."check_chat_message_insert_precondition"() OWNER TO "postgres";
+
+COMMENT ON FUNCTION "public"."check_chat_message_insert_precondition"() IS 'SECURITY DEFINER trigger function ensuring messages cannot be inserted into closed conversations.';
 
 CREATE OR REPLACE FUNCTION "public"."claim_one_time_prekey"("target_user_id" "uuid") RETURNS TABLE("key_id" integer, "public_key" "bytea")
     LANGUAGE "plpgsql" SECURITY DEFINER

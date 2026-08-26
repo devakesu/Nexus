@@ -133,8 +133,12 @@ class NotificationService {
 
   /// Returns the current system permission status without requesting anything.
   static Future<AuthorizationStatus> getPermissionStatus() async {
-    final s = await _messaging.getNotificationSettings();
-    return s.authorizationStatus;
+    try {
+      final s = await _messaging.getNotificationSettings();
+      return s.authorizationStatus;
+    } on Exception catch (_) {
+      return AuthorizationStatus.authorized;
+    }
   }
 
   /// Opens the OS notification settings for this app.
