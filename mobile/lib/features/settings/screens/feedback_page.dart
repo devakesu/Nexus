@@ -301,7 +301,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
       await _rollbackUploadedAttachments();
       if (mounted) {
         setState(() => _submitting = false);
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail'];
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic> ? data['detail'] : data;
         final message = detail is String
             ? detail
             : 'Failed to submit. Please try again.';

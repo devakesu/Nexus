@@ -20,10 +20,19 @@ void main() {
     late DriftSignalProtocolStore store;
     late IdentityKeyPair identityKeyPair;
 
-    setUp(() {
-      identityKeyPair = generateIdentityKeyPair();
+    setUp(() async {
       db = SignalDatabase.instance;
+      try {
+        await db.clearAllData();
+      } on Object catch (_) {}
+      identityKeyPair = generateIdentityKeyPair();
       store = DriftSignalProtocolStore(db, identityKeyPair, 1234);
+    });
+
+    tearDown(() async {
+      try {
+        await db.clearAllData();
+      } on Object catch (_) {}
     });
 
     test('stores multiple signed prekeys and prunes older keys', () async {

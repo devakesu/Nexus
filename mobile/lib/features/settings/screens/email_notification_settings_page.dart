@@ -122,8 +122,10 @@ class _EmailNotificationSettingsPageState
       }
     } on DioException catch (e) {
       if (mounted) {
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-            ?.toString();
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic>
+            ? data['detail']?.toString()
+            : data?.toString();
         setState(
           () =>
               _error = detail ?? 'Failed to load email notification settings.',
@@ -155,8 +157,10 @@ class _EmailNotificationSettingsPageState
     } on DioException catch (e) {
       if (mounted) {
         setState(() => _prefs[key] = previous);
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-            ?.toString();
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic>
+            ? data['detail']?.toString()
+            : data?.toString();
         NexusToast.show(
           context,
           detail ?? 'Failed to save setting.',

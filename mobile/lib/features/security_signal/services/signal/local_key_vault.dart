@@ -51,6 +51,9 @@ class LocalKeyVault {
   }
 
   Future<Uint8List> decryptBytes(Uint8List ciphertext) async {
+    if (ciphertext.length < _nonceLength + _macLength) {
+      return Uint8List(0);
+    }
     final key = await _getOrCreateKey();
     final box = SecretBox.fromConcatenation(
       ciphertext,

@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:nexus/core/utils/network_utils.dart';
+
+Map<String, dynamic>? globalMockProfileOverride;
 
 const kFullMockProfile = <String, dynamic>{
   'name': 'Alex Rivera',
@@ -76,6 +79,36 @@ const kFullMockHub = <String, dynamic>{
   ],
 };
 
+final kFullMockTicketDetail = <String, dynamic>{
+  'id': 'tk_123',
+  'query_type': 'feedback',
+  'subject': 'App Feedback',
+  'message': 'Everything is working smoothly!',
+  'github_issue_url': null,
+  'attachment_paths': <String>[],
+  'app_version': '1.0.8',
+  'platform': 'iOS',
+  'status': 'open',
+  'created_at': '2026-08-27T12:00:00.000Z',
+  'updated_at': '2026-08-27T12:00:00.000Z',
+  'status_history': <Map<String, dynamic>>[
+    {
+      'status': 'open',
+      'created_at': '2026-08-27T12:00:00.000Z',
+      'note': 'Ticket submitted',
+    },
+  ],
+  'comments': <Map<String, dynamic>>[
+    {
+      'id': 'c_1',
+      'author_id': 'staff_1',
+      'body': 'Thanks for submitting!',
+      'created_at': '2026-08-27T12:30:00.000Z',
+      'is_own': false,
+    },
+  ],
+};
+
 void setupGlobalMockNetwork() {
   final dio = createDio();
   dio.interceptors.removeWhere((i) => i is _MockNetworkInterceptor);
@@ -86,9 +119,12 @@ class _MockNetworkInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.extra['bypass_mock'] == true ||
-        !createDio().httpClientAdapter.runtimeType.toString().contains(
-          'IOHttpClientAdapter',
-        )) {
+        options.headers['bypass_mock'] == true) {
+      return handler.next(options);
+    }
+
+    final adapter = createDio().httpClientAdapter;
+    if (adapter is! IOHttpClientAdapter) {
       return handler.next(options);
     }
 
@@ -100,7 +136,39 @@ class _MockNetworkInterceptor extends Interceptor {
         Response(
           requestOptions: options,
           statusCode: 200,
-          data: kFullMockProfile,
+          data: globalMockProfileOverride ?? kFullMockProfile,
+        ),
+      );
+    }
+
+    if (path.contains('/api/v1/profile/email-notification-settings') ||
+        path.endsWith('/email-notification-settings')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'email_notify_matches': true,
+            'email_notify_messages': true,
+            'email_notify_digest': true,
+            'email_notify_product_updates': true,
+            'email_notify_promotions': true,
+          },
+        ),
+      );
+    }
+
+    if (path.contains('/api/v1/profile/privacy-settings') ||
+        path.endsWith('/privacy-settings')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'hidden_fields': <String>[],
+            'share_active_status': true,
+            'share_read_receipts': true,
+          },
         ),
       );
     }
@@ -145,6 +213,81 @@ class _MockNetworkInterceptor extends Interceptor {
           requestOptions: options,
           statusCode: 200,
           data: kFullMockHub,
+        ),
+      );
+    }
+
+    if (path.contains('/record-match-action') ||
+        path.contains('/match/action')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'status': 'success', 'match_id': 'm1'},
+        ),
+      );
+    }
+
+    if (path.contains('/api/v1/feedback/mine')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: [
+            {
+              'id': 'tk_123',
+              'query_type': 'feedback',
+              'subject': 'App Feedback',
+              'message': 'Everything is working smoothly!',
+              'status': 'open',
+              'created_at': '2026-08-27T12:00:00.000Z',
+              'updated_at': '2026-08-27T12:00:00.000Z',
+            },
+          ],
+        ),
+      );
+    }
+
+    if (path.contains('/comments') && path.contains('/feedback/')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'status': 'success', 'comment_id': 'c_1'},
+        ),
+      );
+    }
+
+    if (path.contains('/close') && path.contains('/feedback/')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'status': 'success'},
+        ),
+      );
+    }
+
+    if (path.contains('/submit') && path.contains('/feedback')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'report_id': 'tk_123',
+            'ticket_id': 'tk_123',
+          },
+        ),
+      );
+    }
+
+    if (path.contains('/feedback') || path.contains('/tickets')) {
+      return handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: kFullMockTicketDetail,
         ),
       );
     }

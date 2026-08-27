@@ -197,8 +197,10 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       }
     } on DioException catch (e) {
       if (mounted && !silent) {
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-            ?.toString();
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic>
+            ? data['detail']?.toString()
+            : data?.toString();
         setState(() => _error = detail ?? 'Failed to load privacy settings.');
       }
     } on Exception catch (_) {
@@ -233,8 +235,10 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       // Roll back.
       if (mounted) {
         setState(() => _visibility[key] = !visible);
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-            ?.toString();
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic>
+            ? data['detail']?.toString()
+            : data?.toString();
         NexusToast.show(
           context,
           detail ?? 'Failed to save setting.',
@@ -290,8 +294,10 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     } on DioException catch (e) {
       if (mounted) {
         setState(() => apply(value: previous));
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-            ?.toString();
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic>
+            ? data['detail']?.toString()
+            : data?.toString();
         NexusToast.show(
           context,
           detail ?? 'Failed to save setting.',

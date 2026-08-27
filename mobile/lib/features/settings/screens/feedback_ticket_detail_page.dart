@@ -64,7 +64,8 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail'];
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic> ? data['detail'] : data;
         setState(
           () => _error = detail is String ? detail : 'Failed to load ticket.',
         );
@@ -91,7 +92,8 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       await _load();
     } on DioException catch (e) {
       if (mounted) {
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail'];
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic> ? data['detail'] : data;
         NexusToast.show(
           context,
           detail is String ? detail : 'Failed to send comment.',
@@ -192,7 +194,8 @@ class _FeedbackTicketDetailPageState extends State<FeedbackTicketDetailPage> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        final detail = (e.response?.data as Map<String, dynamic>?)?['detail'];
+        final data = e.response?.data;
+        final detail = data is Map<String, dynamic> ? data['detail'] : data;
         NexusToast.show(
           context,
           detail is String ? detail : 'Failed to close ticket.',

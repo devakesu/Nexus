@@ -123,8 +123,17 @@ class SignalDatabase extends _$SignalDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (details) async {
-      await customStatement('PRAGMA auto_vacuum = INCREMENTAL;');
-      await customStatement('PRAGMA journal_mode = WAL;');
+      try {
+        await customStatement('PRAGMA busy_timeout = 10000;');
+      } on Object catch (_) {}
+      try {
+        if (details.wasCreated) {
+          await customStatement('PRAGMA auto_vacuum = INCREMENTAL;');
+        }
+      } on Object catch (_) {}
+      try {
+        await customStatement('PRAGMA journal_mode = WAL;');
+      } on Object catch (_) {}
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -135,12 +144,16 @@ class SignalDatabase extends _$SignalDatabase {
 
   /// Reclaims free pages from the SQLite database file to shrink disk usage.
   Future<void> vacuumIncremental([int pages = 50]) async {
-    await customStatement('PRAGMA incremental_vacuum($pages);');
+    try {
+      await customStatement('PRAGMA incremental_vacuum($pages);');
+    } on Object catch (_) {}
   }
 
   /// Runs a full VACUUM to defragment the SQLite database file.
   Future<void> vacuumFull() async {
-    await customStatement('VACUUM;');
+    try {
+      await customStatement('VACUUM;');
+    } on Object catch (_) {}
   }
 
   Future<void> clearAllData() async {
@@ -149,6 +162,8 @@ class SignalDatabase extends _$SignalDatabase {
         await delete(table).go();
       }
     });
-    await vacuumFull();
+    try {
+      await vacuumFull();
+    } on Object catch (_) {}
   }
 }

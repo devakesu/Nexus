@@ -618,8 +618,10 @@ class MeetupSafetySession extends ChangeNotifier {
     _dueTimer?.cancel();
     _dueTimer = null;
     await _persist();
-    await _plugin.cancel(id: _kOngoingNotificationId);
-    await _plugin.cancel(id: _kDueNotificationId);
+    try {
+      await _plugin.cancel(id: _kOngoingNotificationId);
+      await _plugin.cancel(id: _kDueNotificationId);
+    } on Object catch (_) {}
     notifyListeners();
     unawaited(_mirrorEnd());
   }

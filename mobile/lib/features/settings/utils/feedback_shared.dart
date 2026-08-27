@@ -241,11 +241,16 @@ class FeedbackStatusHistoryEntry {
   });
 
   factory FeedbackStatusHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final statusStr = json['status']?.toString() ?? 'open';
+    final createdAtStr = json['created_at']?.toString();
+    final createdAt = createdAtStr != null
+        ? DateTime.tryParse(createdAtStr) ?? DateTime.now()
+        : DateTime.now();
     return FeedbackStatusHistoryEntry(
-      status: feedbackStatusFromApiValue(json['status'] as String),
+      status: feedbackStatusFromApiValue(statusStr),
       note: json['note'] as String?,
       changedBy: json['changed_by'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: createdAt,
     );
   }
 
@@ -265,11 +270,15 @@ class FeedbackCommentEntry {
   });
 
   factory FeedbackCommentEntry.fromJson(Map<String, dynamic> json) {
+    final createdAtStr = json['created_at']?.toString();
+    final createdAt = createdAtStr != null
+        ? DateTime.tryParse(createdAtStr) ?? DateTime.now()
+        : DateTime.now();
     return FeedbackCommentEntry(
-      id: json['id'] as String,
-      authorId: json['author_id'] as String,
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id']?.toString() ?? '',
+      authorId: json['author_id']?.toString() ?? '',
+      body: json['body']?.toString() ?? '',
+      createdAt: createdAt,
       isOwn: json['is_own'] as bool? ?? false,
     );
   }
@@ -299,28 +308,38 @@ class FeedbackTicketDetail {
   });
 
   factory FeedbackTicketDetail.fromJson(Map<String, dynamic> json) {
+    final queryTypeStr = json['query_type']?.toString() ?? 'feedback';
+    final statusStr = json['status']?.toString() ?? 'open';
+    final createdAtStr = json['created_at']?.toString();
+    final updatedAtStr = json['updated_at']?.toString();
+    final createdAt = createdAtStr != null
+        ? DateTime.tryParse(createdAtStr) ?? DateTime.now()
+        : DateTime.now();
+    final updatedAt = updatedAtStr != null
+        ? DateTime.tryParse(updatedAtStr) ?? DateTime.now()
+        : DateTime.now();
+
     return FeedbackTicketDetail(
-      id: json['id'] as String,
-      queryType: feedbackQueryTypeFromApiValue(json['query_type'] as String),
-      subject: json['subject'] as String,
-      message: json['message'] as String,
+      id: json['id']?.toString() ?? '',
+      queryType: feedbackQueryTypeFromApiValue(queryTypeStr),
+      subject: json['subject']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
       githubIssueUrl: json['github_issue_url'] as String?,
       attachmentPaths: (json['attachment_paths'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
       appVersion: json['app_version'] as String?,
       platform: json['platform'] as String?,
-      status: feedbackStatusFromApiValue(json['status'] as String),
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      status: feedbackStatusFromApiValue(statusStr),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
       statusHistory: (json['status_history'] as List<dynamic>? ?? [])
-          .map(
-            (e) =>
-                FeedbackStatusHistoryEntry.fromJson(e as Map<String, dynamic>),
-          )
+          .whereType<Map<String, dynamic>>()
+          .map(FeedbackStatusHistoryEntry.fromJson)
           .toList(),
       comments: (json['comments'] as List<dynamic>? ?? [])
-          .map((e) => FeedbackCommentEntry.fromJson(e as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map(FeedbackCommentEntry.fromJson)
           .toList(),
     );
   }
