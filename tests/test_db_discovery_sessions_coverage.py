@@ -89,7 +89,7 @@ async def test_discovery_exclusions_and_blocks():
 
     # 2. fetch_active_block_ids
     mock_table.select.return_value.eq.return_value.is_.return_value.or_.return_value.execute.return_value = MagicMock(
-        data=[{"actor_id": USER_1, "target_id": USER_2}, {"actor_id": USER_3, "target_id": USER_1}]
+        data=[{"actor_id": USER_1, "target_id": USER_2}, {"actor_id": USER_3, "target_id": USER_1}],
     )
     with patch("app.db.discovery.exclusions.supabase_client.table", return_value=mock_table):
         b_ids = fetch_active_block_ids(USER_1)
@@ -102,10 +102,10 @@ async def test_discovery_exclusions_and_blocks():
             {"actor_id": USER_1, "target_id": USER_2, "action": "block", "tab": "Dating"},
             {"actor_id": USER_1, "target_id": USER_3, "action": "like", "tab": "Dating"},
             {"actor_id": USER_1, "target_id": "other_4", "action": "pass", "tab": "Dating", "expires_at": (now + timedelta(days=5)).isoformat()},
-        ]
+        ],
     )
     mock_table.select.return_value.or_.return_value.eq.return_value.is_.return_value.execute.return_value = MagicMock(
-        data=[{"liker_id": USER_1, "liked_back_id": "matched_user"}]
+        data=[{"liker_id": USER_1, "liked_back_id": "matched_user"}],
     )
     with patch("app.db.discovery.exclusions.supabase_client.table", return_value=mock_table):
         excluded = fetch_active_discovery_excluded_ids(USER_1, "Dating")
@@ -116,7 +116,7 @@ async def test_discovery_exclusions_and_blocks():
 
     # 4. has_active_discovery_action & record_discovery_action
     mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.is_.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": "act1"}]
+        data=[{"id": "act1"}],
     )
     with patch("app.db.discovery.exclusions.supabase_client.table", return_value=mock_table):
         assert has_active_discovery_action(USER_1, USER_2, "like", "Dating") is True
@@ -139,14 +139,14 @@ async def test_discovery_exclusions_and_blocks():
 
     # 6. fetch_expired_pass_candidates & fetch_likes_for_user & mark_likes_seen
     mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.is_.return_value.not_.is_.return_value.execute.return_value = MagicMock(
-        data=[{"target_id": USER_2, "expires_at": (now - timedelta(days=2)).isoformat()}]
+        data=[{"target_id": USER_2, "expires_at": (now - timedelta(days=2)).isoformat()}],
     )
     with patch("app.db.discovery.exclusions.supabase_client.table", return_value=mock_table):
         expired = fetch_expired_pass_candidates(USER_1, "Dating")
         assert USER_2 in expired
 
     mock_table.select.return_value.eq.return_value.eq.return_value.in_.return_value.is_.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"actor_id": USER_2, "action": "like", "created_at": now.isoformat()}]
+        data=[{"actor_id": USER_2, "action": "like", "created_at": now.isoformat()}],
     )
     with patch("app.db.discovery.exclusions.supabase_client.table", return_value=mock_table):
         likes = fetch_likes_for_user(USER_1, "Dating")
@@ -168,7 +168,7 @@ def test_discovery_matches_crud():
     # 1. record_match
     # existing match
     mock_table.select.return_value.or_.return_value.eq.return_value.is_.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": MATCH_1}]
+        data=[{"id": MATCH_1}],
     )
     with patch("app.db.discovery.matches.supabase_client.table", return_value=mock_table):
         m_id = record_match(USER_1, USER_2, "Dating")
@@ -186,7 +186,7 @@ def test_discovery_matches_crud():
         data=[
             {"id": MATCH_1, "liker_id": USER_1, "liked_back_id": USER_2, "created_at": now.isoformat()},
             {"id": "match2", "liker_id": USER_3, "liked_back_id": USER_1, "created_at": now.isoformat()},
-        ]
+        ],
     )
     with patch("app.db.discovery.matches.supabase_client.table", return_value=mock_table):
         user_matches = fetch_matches_for_user(USER_1, "Dating")
@@ -204,7 +204,7 @@ def test_discovery_matches_crud():
         set_match_unmatched(USER_1, USER_2, tab="Dating")
 
     mock_table.select.return_value.or_.return_value.is_.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": MATCH_1, "tab": "Dating", "liker_id": USER_1, "liked_back_id": USER_2}]
+        data=[{"id": MATCH_1, "tab": "Dating", "liker_id": USER_1, "liked_back_id": USER_2}],
     )
     with patch("app.db.discovery.matches.supabase_client.table", return_value=mock_table):
         from app.db.discovery.matches import fetch_active_match_between
@@ -287,7 +287,7 @@ async def test_auth_sessions_and_viewport():
 
     # 1. prune_excess_viewer_discovery_sessions & delete_expired_discovery_sessions
     mock_table.select.return_value.eq.return_value.gt.return_value.order.return_value.execute.return_value = MagicMock(
-        data=[{"id": f"s{i}"} for i in range(10)]
+        data=[{"id": f"s{i}"} for i in range(10)],
     )
     mock_table.delete.return_value.in_.return_value.execute.return_value = MagicMock(data=[])
     with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_table):
@@ -314,7 +314,7 @@ async def test_auth_sessions_and_viewport():
 
     # 3. get_discovery_session & get_discovery_session_by_id & is_candidate_in_active_session
     mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": SESS_1, "viewer_id": USER_1, "tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()}
+        data={"id": SESS_1, "viewer_id": USER_1, "tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()},
     )
     with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_table):
         ds = get_discovery_session(SESS_1, USER_1, "Dating")
@@ -322,21 +322,21 @@ async def test_auth_sessions_and_viewport():
         assert ds["id"] == SESS_1
 
     mock_table.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": SESS_1, "viewer_id": USER_1, "active_tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()}
+        data={"id": SESS_1, "viewer_id": USER_1, "active_tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()},
     )
     with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_table):
         ds_id = get_discovery_session_by_id(SESS_1, USER_1)
         assert ds_id is not None
 
     mock_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": "item1"}]
+        data=[{"id": "item1"}],
     )
     with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_table):
         assert is_candidate_in_active_session(SESS_1, USER_2) is True
 
     # 4. get_candidate_session_details & invalidate_viewer_discovery_sessions
     mock_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"session_id": SESS_1, "discovery_sessions": {"tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()}}]
+        data=[{"session_id": SESS_1, "discovery_sessions": {"tab": "Dating", "expires_at": (now + timedelta(hours=1)).isoformat()}}],
     )
     with patch("app.db.sessions.auth_sessions.supabase_client.table", return_value=mock_table):
         cd = get_candidate_session_details(USER_1, USER_2)
@@ -365,8 +365,8 @@ async def test_auth_sessions_and_viewport():
                     "tab": "Dating",
                     "expires_at": (now + timedelta(hours=1)).isoformat(),
                 },
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.sessions.node_details.supabase_client.table", return_value=mock_table), \
          patch("app.db.sessions.node_details.get_cached_active_block_ids", new_callable=AsyncMock, return_value=set()), \

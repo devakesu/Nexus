@@ -90,6 +90,7 @@ def test_generate_and_verify_otp_hash():
 async def test_check_and_increment_otp_attempts_sets_ttl_on_first_attempt():
     """First attempt atomically increments and applies TTL expiration."""
     from unittest.mock import AsyncMock, patch
+
     from app.core.infra.otp import check_and_increment_otp_attempts
 
     mock_incr = AsyncMock(return_value=1)
@@ -107,6 +108,7 @@ async def test_check_and_increment_otp_attempts_sets_ttl_on_first_attempt():
 async def test_check_and_increment_otp_attempts_below_threshold():
     """Attempts up to max_attempts succeed and do not reset TTL."""
     from unittest.mock import AsyncMock, patch
+
     from app.core.infra.otp import check_and_increment_otp_attempts
 
     mock_incr = AsyncMock(return_value=5)
@@ -124,6 +126,7 @@ async def test_check_and_increment_otp_attempts_below_threshold():
 async def test_check_and_increment_otp_attempts_exceeding_threshold_raises_429():
     """Attempts exceeding max_attempts atomically raise HTTP 429."""
     from unittest.mock import AsyncMock, patch
+
     from app.core.infra.otp import check_and_increment_otp_attempts
 
     mock_incr = AsyncMock(return_value=6)
@@ -139,6 +142,7 @@ async def test_check_and_increment_otp_attempts_exceeding_threshold_raises_429()
 async def test_dummy_email_send_delay():
     """Validates dummy email send delay execution."""
     import time
+
     from app.core.infra.otp import dummy_email_send_delay
 
     start = time.perf_counter()
@@ -189,7 +193,9 @@ async def test_request_account_phone_otp_multi_account_phone_cooldown():
     """Verify requesting OTP for the same phone number from two different accounts enforces phone-level cooldown."""
     from typing import Any
     from unittest.mock import AsyncMock, MagicMock, patch
+
     from starlette.requests import Request
+
     from app.api.user.auth_otp import request_account_phone_otp
     from app.models import AccountPhoneOtpRequestRequest
 
@@ -241,6 +247,7 @@ async def test_request_account_phone_otp_multi_account_phone_cooldown():
 async def test_verify_and_consume_hashed_otp_decrements_attempts_on_redis_get_error():
     """Verify that if Redis GET raises during hashed OTP verification, the attempts counter is decremented."""
     from unittest.mock import AsyncMock, MagicMock
+
     from app.core.infra.otp import verify_and_consume_hashed_otp
 
     mock_redis = MagicMock()
@@ -270,6 +277,7 @@ async def test_verify_and_consume_hashed_otp_decrements_attempts_on_redis_get_er
 async def test_verify_and_consume_raw_otp_decrements_attempts_on_redis_get_error():
     """Verify that if Redis GET raises during raw OTP verification, the attempts counter is decremented."""
     from unittest.mock import AsyncMock, MagicMock
+
     from app.core.infra.otp import verify_and_consume_raw_otp
 
     mock_redis = MagicMock()

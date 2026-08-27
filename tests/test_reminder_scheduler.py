@@ -717,6 +717,7 @@ def test_start_safety_session_no_escalation():
 
 def test_start_safety_session_with_active_escalation():
     from postgrest.exceptions import APIError
+
     from app.db.safety.sessions import EscalationInProgressError, start_safety_session
 
     mock_rpc = MagicMock()
@@ -1577,6 +1578,7 @@ async def test_send_alert_sms_to_contacts_failure_logs_contact_identifier(
 
 def test_fetch_overdue_safety_sessions_filters_account_status() -> None:
     from unittest.mock import MagicMock, patch
+
     from app.db.safety.sessions import fetch_overdue_safety_sessions
 
     mock_builder = MagicMock()
@@ -1621,8 +1623,9 @@ def test_fetch_overdue_safety_sessions_filters_account_status() -> None:
 @pytest.mark.anyio
 async def test_dispatch_escalation_sms_uses_profile_name_not_session_label() -> None:
     from unittest.mock import patch
-    from app.services.reminder_scheduler import _dispatch_escalation_sms_and_record
+
     from app.core.utils.sms import ProviderResult
+    from app.services.reminder_scheduler import _dispatch_escalation_sms_and_record
 
     user_id = "00000000-0000-0000-0000-000000000001"
     session = {

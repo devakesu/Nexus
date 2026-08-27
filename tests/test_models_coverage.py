@@ -2,33 +2,15 @@
 
 import base64
 from datetime import datetime, timezone
+
 import pytest
 from pydantic import ValidationError
 
 from app.core.config import settings
-from app.models.profile import (
-    EmailNotificationSettingsResponse,
-    EmailNotificationSettingsUpdate,
-    ModerationSubjectsRequest,
-    PrivacySettingsResponse,
-    PrivacySettingsUpdate,
-    ProfileDerivedSignalsResponse,
-    ProfileDetailsUpdate,
-    ProfileImagesAndTagsUpdate,
-    ProfileModel,
-    RegisterDeviceRequest,
-)
-from app.models.discovery import (
-    DiscoveryActionRequest,
-    DiscoveryFilters,
-    DiscoveryRequest,
-    DiscoveryViewportRequest,
-    LikeActionRequest,
-    MarkLikesSeenRequest,
-    MatchActionRequest,
-    OrbitNodeDetailRequest,
-    OrbitNodeOut,
-    PeerProfileRequest,
+from app.models.admin import (
+    FeedbackCloseRequest,
+    FeedbackCommentRequest,
+    FeedbackSubmitRequest,
 )
 from app.models.chat import (
     BatchPresenceRequest,
@@ -42,6 +24,30 @@ from app.models.chat import (
     UploadIdentityKeyRequest,
     UploadOneTimePrekeysRequest,
     UploadSignedPrekeyRequest,
+)
+from app.models.discovery import (
+    DiscoveryActionRequest,
+    DiscoveryFilters,
+    DiscoveryRequest,
+    DiscoveryViewportRequest,
+    LikeActionRequest,
+    MarkLikesSeenRequest,
+    MatchActionRequest,
+    OrbitNodeDetailRequest,
+    OrbitNodeOut,
+    PeerProfileRequest,
+)
+from app.models.profile import (
+    EmailNotificationSettingsResponse,
+    EmailNotificationSettingsUpdate,
+    ModerationSubjectsRequest,
+    PrivacySettingsResponse,
+    PrivacySettingsUpdate,
+    ProfileDerivedSignalsResponse,
+    ProfileDetailsUpdate,
+    ProfileImagesAndTagsUpdate,
+    ProfileModel,
+    RegisterDeviceRequest,
 )
 from app.models.safety import (
     EscalationCancelRequest,
@@ -58,6 +64,9 @@ from app.models.safety import (
     SafetySessionEndRequest,
     SafetySessionStartRequest,
 )
+from app.models.spotify import (
+    SpotifyTrackOut,
+)
 from app.models.user import (
     AccountPhoneOtpRequestRequest,
     AccountPhoneOtpVerifyRequest,
@@ -68,15 +77,6 @@ from app.models.user import (
     MECOnboardingRequest,
     NexusOnboardingRequest,
 )
-from app.models.admin import (
-    FeedbackCloseRequest,
-    FeedbackCommentRequest,
-    FeedbackSubmitRequest,
-)
-from app.models.spotify import (
-    SpotifyTrackOut,
-)
-
 
 # ==========================================
 # 1. PROFILE MODELS TESTS

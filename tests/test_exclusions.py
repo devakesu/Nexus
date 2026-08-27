@@ -265,7 +265,7 @@ def test_record_user_report_with_chat_evidence(mock_supabase: MagicMock) -> None
             "content": "offensive message",
             "created_at": "2026-08-24T12:00:00Z",
             "is_mine": False,
-        }
+        },
     ]
 
     mock_reports_table = MagicMock()

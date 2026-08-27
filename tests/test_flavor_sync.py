@@ -365,6 +365,7 @@ def test_execute_import_concurrent_claim_fails_409() -> None:
 async def test_generate_export_code_deletes_both_old_code_and_user_attempts_in_redis() -> None:
     """generate_export_code removes both old code attempts and per-user attempts from Redis."""
     import hashlib
+
     from app.db.users.import_export import generate_export_code
 
     mock_redis = AsyncMock()
@@ -419,6 +420,7 @@ async def test_import_from_flavor_hashes_sync_code_in_redis_key() -> None:
 
 def test_execute_import_target_write_failure_restores_sync_code() -> None:
     from postgrest.exceptions import APIError
+
     from app.db.users.import_export import execute_import
 
     expiry_iso = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()

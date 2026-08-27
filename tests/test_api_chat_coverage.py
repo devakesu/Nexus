@@ -83,7 +83,7 @@ async def test_get_chats_scenarios():
     with patch("app.api.chat.conversations.fetch_conversations_for_user", return_value=rows), \
          patch("app.api.chat.conversations.get_cached_active_block_ids", new_callable=AsyncMock, return_value={"usr-blocked"}), \
          patch("app.api.chat.conversations.supabase_client.table") as mock_table:
-        
+
         mock_query = MagicMock()
         mock_query.select.return_value.in_.return_value.eq.return_value.execute.return_value = mock_profile_res
         mock_query.select.return_value.in_.return_value.neq.return_value.is_.return_value.limit.return_value.execute.return_value = mock_unread_res
@@ -133,7 +133,7 @@ async def test_get_chat_candidates_scenarios():
          patch("app.api.chat.conversations.fetch_started_match_ids", return_value=set()), \
          patch("app.api.chat.conversations.get_cached_active_block_ids", new_callable=AsyncMock, return_value=set()), \
          patch("app.api.chat.conversations.supabase_client.table") as mock_table:
-        
+
         mock_query = MagicMock()
         mock_query.select.return_value.in_.return_value.eq.return_value.execute.return_value = mock_profile_res
         mock_table.return_value = mock_query

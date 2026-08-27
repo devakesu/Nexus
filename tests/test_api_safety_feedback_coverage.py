@@ -117,7 +117,7 @@ async def test_put_safety_contacts():
     payload = SafetyContactsSyncRequest(
         contacts=[
             SafetyContactIn(name="Contact 1", phone="+15551234567"),
-        ]
+        ],
     )
 
     # 1. DB Error -> 503

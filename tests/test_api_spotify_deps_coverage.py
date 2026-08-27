@@ -37,9 +37,9 @@ from app.api.dependencies import (
     verify_app_check_token,
 )
 from app.api.spotify.auth import (
-    _NativeExchangeRequest,
     _consume_state,
     _html_result,
+    _NativeExchangeRequest,
     _seed_and_queue_sync,
     _state_redis_key,
     _store_state,
@@ -328,7 +328,8 @@ async def test_bearer_token_dependencies():
     assert get_optional_bearer_token(credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials="jwt.token.here")) == "jwt.token.here"
 
 
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import PropertyMock
+
 
 async def test_jwt_decoding_and_authenticated_payload():
     req = make_mock_request()

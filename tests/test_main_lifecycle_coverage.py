@@ -1,13 +1,12 @@
 """Comprehensive unit tests covering app/main.py lifecycle, exception handlers, middleware, and CORS configuration."""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from starlette.datastructures import Headers
-
-from typing import Any
 
 from app.main import (
     app,

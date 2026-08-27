@@ -602,7 +602,7 @@ async def test_record_match_action_report_with_evidence_bundle(
             "content": "abusive message content",
             "created_at": "2026-08-24T12:00:00Z",
             "is_mine": False,
-        }
+        },
     ]
 
     payload = MatchActionRequest(
@@ -717,8 +717,8 @@ async def test_get_likes_inbox_filters_blocked_users(
     mock_get_blocks: AsyncMock,
     mock_fetch_likes: MagicMock,
 ) -> None:
-    from app.core.security.crypto import encrypt_to_hex
     from app.api.discovery.likes import get_likes_inbox
+    from app.core.security.crypto import encrypt_to_hex
 
     viewer_id = "viewer-uuid-123"
     liker_1 = "liker-uuid-1"

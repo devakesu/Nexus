@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false
 import io
 import logging
 from typing import Any, cast
@@ -258,16 +259,16 @@ def test_sensitive_data_filter_redacts_log_record_args_and_extras() -> None:
         exc_info=None,
     )
     # Extra fields attached to LogRecord
-    setattr(record, "auth_token", "Bearer secret_jwt_token_12345")
-    setattr(record, "user_email", "victim@example.com")
-    setattr(record, "metadata", {"nested_phone": "+919876543210"})
+    record.auth_token = "Bearer secret_jwt_token_12345"
+    record.user_email = "victim@example.com"
+    record.metadata = {"nested_phone": "+919876543210"}
 
     data_filter = SensitiveDataFilter()
     assert data_filter.filter(record) is True
     assert record.args == ("[EMAIL_REDACTED]", "[PHONE_REDACTED]")
-    assert getattr(record, "auth_token") == "[REDACTED_SENSITIVE]"
-    assert getattr(record, "user_email") == "[EMAIL_REDACTED]"
-    assert getattr(record, "metadata") == {"nested_phone": "[PHONE_REDACTED]"}
+    assert record.auth_token == "[REDACTED_SENSITIVE]"
+    assert record.user_email == "[EMAIL_REDACTED]"
+    assert record.metadata == {"nested_phone": "[PHONE_REDACTED]"}
 
 
 def test_sensitive_data_filter_with_stream_handler() -> None:
@@ -328,8 +329,9 @@ async def test_get_authenticated_user_payload_sets_sentry_user(
     mock_decode: MagicMock,
     mock_set_user: MagicMock,
 ) -> None:
-    from app.api.dependencies import get_authenticated_user_payload
     from fastapi import Request
+
+    from app.api.dependencies import get_authenticated_user_payload
 
     mock_decode.return_value = {"sub": "user-uuid-1234", "email": "test@example.com"}
     scope: dict[str, Any] = {"type": "http", "headers": [], "state": {}}
@@ -359,7 +361,12 @@ async def test_get_optional_authenticated_user_id_sets_sentry_user(
 async def test_correlation_id_middleware_generates_and_propagates_request_id() -> None:
     from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
-    from app.core.infra.correlation import CorrelationIdFilter, CorrelationIdMiddleware, get_request_id
+
+    from app.core.infra.correlation import (
+        CorrelationIdFilter,
+        CorrelationIdMiddleware,
+        get_request_id,
+    )
 
     test_app = FastAPI()
     test_app.add_middleware(CorrelationIdMiddleware)

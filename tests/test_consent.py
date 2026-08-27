@@ -157,9 +157,11 @@ async def test_update_consent_invalidates_user_status_cache(
 ) -> None:
     from typing import Any
     from unittest.mock import AsyncMock
+
     from fastapi import Request
-    from app.core.config import settings
+
     from app.api.user.auth_otp import accept_terms
+    from app.core.config import settings
     from app.models import ConsentUpdateRequest
 
     mock_redis_delete.return_value = AsyncMock()()
@@ -246,9 +248,11 @@ async def test_accept_terms_requires_community_guidelines(
 ) -> None:
     from typing import Any
     from unittest.mock import AsyncMock
+
     from fastapi import Request
-    from app.core.config import settings
+
     from app.api.user.auth_otp import accept_terms
+    from app.core.config import settings
     from app.models import ConsentUpdateRequest
 
     mock_redis_delete.return_value = AsyncMock()()

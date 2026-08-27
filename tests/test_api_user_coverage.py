@@ -239,12 +239,12 @@ def test_update_profile_details():
          patch("app.api.user.profile.details.user_module.supabase_client.table") as mock_table, \
          patch("app.api.user.profile.details.user_module.decrypt_profile_record", return_value={"id": USER_1, "bio": "Old bio"}), \
          patch("app.api.user.profile.details.recompile_and_push_vectors"):
-        
+
         mock_current_res = MagicMock()
         mock_current_res.data = {"id": USER_1, "bio": "Old bio", "is_dating_active": True}
         mock_update_res = MagicMock()
         mock_update_res.data = [{"id": USER_1, "bio": "New bio"}]
-        
+
         mock_table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_current_res
         mock_table.return_value.update.return_value.eq.return_value.select.return_value.execute.return_value = mock_update_res
 
@@ -317,7 +317,7 @@ def test_get_moderation_subjects():
          patch("app.api.user.profile.moderation.decrypt_profile_record", return_value=profile_data[0]), \
          patch("app.api.user.profile.moderation.sanitize_decrypted_profile", return_value=profile_data[0]), \
          patch("app.api.user.profile.moderation.sign_profile_media_bulk", return_value=["https://signed.pic/b.jpg"]):
-        
+
         mock_table.return_value.select.return_value.eq.return_value.in_.return_value.in_.return_value.is_.return_value.execute.return_value = MagicMock(data=action_data)
         mock_table.return_value.select.return_value.in_.return_value.eq.return_value.execute.return_value = MagicMock(data=profile_data)
 
@@ -335,7 +335,7 @@ def test_privacy_and_email_settings():
     # 1. Get privacy settings
     with patch("app.api.user.settings.supabase_client.table") as mock_table:
         mock_table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-            data={"hidden_profile_fields": ["drinking"], "share_active_status": True, "share_read_receipts": False}
+            data={"hidden_profile_fields": ["drinking"], "share_active_status": True, "share_read_receipts": False},
         )
         priv = get_privacy_settings(request=req, user_id=USER_1)
         assert priv.share_active_status is True
@@ -345,7 +345,7 @@ def test_privacy_and_email_settings():
     priv_up = PrivacySettingsUpdate(share_active_status=False)
     with patch("app.api.user.settings.supabase_client.table") as mock_table:
         mock_table.return_value.update.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(
-            data=[{"hidden_profile_fields": [], "share_active_status": False, "share_read_receipts": True}]
+            data=[{"hidden_profile_fields": [], "share_active_status": False, "share_read_receipts": True}],
         )
         priv_res = update_privacy_settings(request=req, payload=priv_up, user_id=USER_1)
         assert priv_res.share_active_status is False
@@ -353,7 +353,7 @@ def test_privacy_and_email_settings():
     # 3. Get email settings
     with patch("app.api.user.settings.supabase_client.table") as mock_table:
         mock_table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-            data={"email_notify_matches": True, "email_notify_messages": False}
+            data={"email_notify_matches": True, "email_notify_messages": False},
         )
         email_set = get_email_notification_settings(request=req, user_id=USER_1)
         assert email_set.email_notify_matches is True
@@ -363,7 +363,7 @@ def test_privacy_and_email_settings():
     email_up = EmailNotificationSettingsUpdate(email_notify_matches=False)
     with patch("app.api.user.settings.supabase_client.table") as mock_table:
         mock_table.return_value.update.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(
-            data=[{"email_notify_matches": False, "email_notify_messages": True}]
+            data=[{"email_notify_matches": False, "email_notify_messages": True}],
         )
         email_res = update_email_notification_settings(request=req, payload=email_up, user_id=USER_1)
         assert email_res.email_notify_matches is False

@@ -171,6 +171,7 @@ def test_footers_and_active_page_bars():
 
 def test_settings_twilio_signing_key_validation():
     import pytest
+
     from app.core.config import Settings
 
     # Setting Twilio without hmac_signing_key should raise ValueError

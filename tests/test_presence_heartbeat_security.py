@@ -124,6 +124,7 @@ def test_upsert_presence_heartbeat_stores_in_redis_without_db(
     mock_table: MagicMock,
 ) -> None:
     import json
+
     from app.db.chat import upsert_presence_heartbeat
 
     user_id = "user-heartbeat-123"
@@ -147,6 +148,7 @@ def test_fetch_presence_reads_from_redis_without_db(
     mock_table: MagicMock,
 ) -> None:
     import json
+
     from app.db.chat import fetch_presence
 
     user_id = "user-presence-456"

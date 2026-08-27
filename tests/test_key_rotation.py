@@ -1,6 +1,7 @@
 from unittest.mock import patch
-from cryptography.fernet import Fernet
+
 import pytest
+from cryptography.fernet import Fernet
 
 from app.core.auth.phone_otp import hash_otp as phone_hash_otp
 from app.core.auth.phone_otp import verify_otp_hash as phone_verify_otp_hash
@@ -17,9 +18,13 @@ from app.core.security.crypto import (
 )
 from app.core.security.portal_auth import (
     hash_otp as portal_hash_otp,
+)
+from app.core.security.portal_auth import (
     make_portal_access_token,
-    verify_otp_hash as portal_verify_otp_hash,
     verify_portal_access_token,
+)
+from app.core.security.portal_auth import (
+    verify_otp_hash as portal_verify_otp_hash,
 )
 from app.core.utils.sms import (
     make_contact_portal_token,

@@ -527,6 +527,7 @@ async def test_get_portal_details_active_fresh_location(
     mock_verify: MagicMock,
 ):
     from datetime import datetime, timezone
+
     from app.api.safety.portal.endpoints import get_portal_details
 
     mock_verify.return_value = "phone-id"
@@ -571,6 +572,7 @@ async def test_get_portal_details_ended_session_hides_location(
     mock_verify: MagicMock,
 ):
     from datetime import datetime, timezone
+
     from app.api.safety.portal.endpoints import get_portal_details
 
     mock_verify.return_value = "phone-id"
@@ -720,6 +722,7 @@ def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
     import json
     from datetime import datetime, timedelta, timezone
     from unittest.mock import MagicMock, patch
+
     from app.core.security.crypto import encrypt_to_hex
     from app.db.safety.alerts import fetch_alerts_for_session
 
@@ -751,8 +754,9 @@ def test_fetch_alerts_for_session_staleness_and_decrypt_flag() -> None:
 
 def test_sync_safety_contacts_atomic_rpc_and_opt_out_enforcement() -> None:
     from unittest.mock import MagicMock, patch
-    from app.core.security.portal_auth import normalize_phone
+
     from app.core.security.crypto import compute_blind_index
+    from app.core.security.portal_auth import normalize_phone
     from app.db.safety.contacts import sync_safety_contacts
 
     user_id = "00000000-0000-0000-0000-000000000001"
@@ -772,7 +776,7 @@ def test_sync_safety_contacts_atomic_rpc_and_opt_out_enforcement() -> None:
             data={
                 "blocked_indices": [blind_index_blocked],
                 "newly_notified_indices": [blind_index_new],
-            }
+            },
         )
         mock_supabase.rpc.return_value = mock_rpc
 
@@ -797,6 +801,7 @@ def test_sync_safety_contacts_atomic_rpc_and_opt_out_enforcement() -> None:
 
 def test_remove_safety_contact_self_service_sets_notice_first() -> None:
     from unittest.mock import MagicMock, patch
+
     from app.db.safety.contacts import remove_safety_contact_self_service
 
     contact_id = "00000000-0000-0000-0000-000000000099"

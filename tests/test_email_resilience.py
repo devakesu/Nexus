@@ -204,6 +204,7 @@ async def test_close_email_client() -> None:
 @pytest.mark.anyio
 async def test_sendpulse_token_concurrency_lock() -> None:
     import asyncio
+
     from app.core.email.senders import clear_sendpulse_token_cache
 
     clear_sendpulse_token_cache()

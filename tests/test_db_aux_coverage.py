@@ -115,7 +115,7 @@ def test_feedback_ticketing():
 
     # 1. record_feedback_submission
     mock_table.insert.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": REPORT_1, "status": "open", "created_at": now.isoformat()}]
+        data=[{"id": REPORT_1, "status": "open", "created_at": now.isoformat()}],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         rep = record_feedback_submission(
@@ -152,8 +152,8 @@ def test_feedback_ticketing():
                 "subject": encrypt_to_hex("Crash on login", category="contact"),
                 "status": "open",
                 "created_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         t_list = fetch_user_tickets(USER_1, limit=10, offset=0)
@@ -169,7 +169,7 @@ def test_feedback_ticketing():
             "message": encrypt_to_hex("App crashes", category="contact"),
             "status": "open",
             "created_at": now.isoformat(),
-        }
+        },
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         ticket = fetch_ticket_report(USER_1, REPORT_1)
@@ -180,7 +180,7 @@ def test_feedback_ticketing():
     # 5. fetch_ticket_status_history & fetch_ticket_comments & add_ticket_comment
     mock_table.select.return_value.eq.return_value.order.return_value.execute.side_effect = None
     mock_table.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
-        data=[{"status": "open", "note": "Report logged", "changed_by": None, "created_at": now.isoformat()}]
+        data=[{"status": "open", "note": "Report logged", "changed_by": None, "created_at": now.isoformat()}],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         history = fetch_ticket_status_history(REPORT_1)
@@ -188,7 +188,7 @@ def test_feedback_ticketing():
         assert history[0]["status"] == "open"
 
     mock_table.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
-        data=[{"id": "c1", "author_id": USER_1, "body": "Any updates?", "created_at": now.isoformat()}]
+        data=[{"id": "c1", "author_id": USER_1, "body": "Any updates?", "created_at": now.isoformat()}],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         comments = fetch_ticket_comments(REPORT_1)
@@ -196,7 +196,7 @@ def test_feedback_ticketing():
         assert comments[0]["body"] == "Any updates?"
 
     mock_table.insert.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": "c2", "author_id": USER_1, "body": "Thanks!", "created_at": now.isoformat()}]
+        data=[{"id": "c2", "author_id": USER_1, "body": "Thanks!", "created_at": now.isoformat()}],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         comm = add_ticket_comment(REPORT_1, USER_1, "Thanks!")
@@ -204,7 +204,7 @@ def test_feedback_ticketing():
 
     # 6. close_ticket
     mock_table.update.return_value.eq.return_value.eq.return_value.neq.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": REPORT_1, "status": "closed"}]
+        data=[{"id": REPORT_1, "status": "closed"}],
     )
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_table):
         closed = close_ticket(USER_1, REPORT_1, reason="Resolved by user")
@@ -229,8 +229,8 @@ def test_spotify_persistence_and_signals():
                 "refresh_token": encrypt_to_hex("refresh_secret_123", category="oauth"),
                 "granted_scopes": "user-read-email",
                 "connected_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.spotify.supabase_client.table", return_value=mock_table):
         conn = get_connection(USER_1)
@@ -276,7 +276,7 @@ def test_spotify_persistence_and_signals():
                     "is_collaborative": False,
                     "track_count": 1,
                     "tracks": [{"spotify_track_id": "tr1", "name": "Song 1", "artists": ["Artist A"]}],
-                }
+                },
             ],
         )
 
@@ -290,8 +290,8 @@ def test_spotify_persistence_and_signals():
                 "track_count": 1,
                 "tracks": encrypt_to_hex(json.dumps([{"spotify_track_id": "tr1", "name": "Song 1", "artists": ["Artist A"]}]), category="oauth"),
                 "synced_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.spotify.supabase_client.table", return_value=mock_table):
         pls = fetch_playlists_for_owner(USER_1)

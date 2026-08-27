@@ -127,7 +127,7 @@ async def test_fetch_top_artists_and_playlists():
             {"name": "Daft Punk", "genres": ["electronic", "synthpop"]},
             None,
             {"name": ""},
-        ]
+        ],
     }
     mock_resp_artists = MagicMock()
     mock_resp_artists.json.return_value = artists_payload
@@ -180,14 +180,14 @@ async def test_fetch_top_artists_and_playlists():
                     "id": "tr1",
                     "name": "Karma Police",
                     "artists": [{"id": "art1", "name": "Radiohead"}],
-                }
+                },
             },
             {
                 "item": {
                     "id": "tr2",
                     "name": "One More Time",
                     "artists": [{"id": "art2", "name": "Daft Punk"}],
-                }
+                },
             },
             None,
             {"track": None},
@@ -232,7 +232,7 @@ async def test_affinity_math_and_genres_batch():
         "artists": [
             {"id": "a1", "genres": ["art rock", "post-rock"]},
             {"id": "a3", "genres": ["electronic"]},
-        ]
+        ],
     }
     with patch("app.services.spotify_sync._get_with_retry", return_value=MagicMock(json=lambda: artists_batch_res)):
         genres_map = await fetch_artist_genres_batch(mock_client, "acc_123", ["a1", "a3"])

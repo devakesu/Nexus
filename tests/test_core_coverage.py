@@ -135,8 +135,8 @@ async def test_get_live_supabase_public_key_flows():
                 "kid": "test-kid-1",
                 "alg": "ES256",
                 "use": "sig",
-            }
-        ]
+            },
+        ],
     }
 
     # Encode a test token signed with EC private key
@@ -265,7 +265,7 @@ async def test_email_senders_and_failover():
     with patch("app.core.email.senders.has_sendpulse", True), \
          patch("app.core.email.senders.send_via_sendpulse", new_callable=AsyncMock, return_value=res):
         out = await send_email(
-            SendEmailProps(to="recipient@example.com", subject="Welcome", html="<p>Welcome!</p>")
+            SendEmailProps(to="recipient@example.com", subject="Welcome", html="<p>Welcome!</p>"),
         )
         assert out.success is True
 

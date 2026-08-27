@@ -261,6 +261,7 @@ def test_batch_delete_conversations_chat_media() -> None:
 
 def test_request_deletion_secondary_cleanup_failure_captured_in_sentry() -> None:
     from postgrest.exceptions import APIError
+
     from app.db.users.account_deletion import request_deletion
 
     user_id = "00000000-0000-0000-0000-000000000099"

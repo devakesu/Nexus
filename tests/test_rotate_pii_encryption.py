@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 from cryptography.fernet import Fernet
 
 from app.core.security.crypto import encrypt_to_hex, reset_cipher_suites

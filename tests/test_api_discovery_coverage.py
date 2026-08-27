@@ -388,10 +388,10 @@ async def test_likes_and_matches_endpoints():
 
     # 2. Get likes populated
     with patch("app.api.discovery.likes.fetch_likes_for_user", return_value=[
-        {"actor_id": USER_2, "action": "superlike", "created_at": now, "seen_at": None}
+        {"actor_id": USER_2, "action": "superlike", "created_at": now, "seen_at": None},
     ]), patch("app.api.discovery.likes.get_cached_active_block_ids", new_callable=AsyncMock, return_value=set()), \
        patch("app.api.discovery.likes.supabase_client.table") as mock_table:
-        
+
         mock_profile_res = MagicMock()
         mock_profile_res.data = [{"id": USER_2, "name": "Bob", "age": 25, "profile_pic": "b.jpg"}]
         mock_query = MagicMock()

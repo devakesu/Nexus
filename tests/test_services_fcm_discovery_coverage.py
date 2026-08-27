@@ -56,10 +56,10 @@ def test_fcm_sender_internals_and_multicast():
     # _fetch_user_fcm_tokens
     mock_table = MagicMock()
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"is_deactivated": False}]
+        data=[{"is_deactivated": False}],
     )
     mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"fcm_token": "token_1"}, {"fcm_token": "token_2"}]
+        data=[{"fcm_token": "token_1"}, {"fcm_token": "token_2"}],
     )
     with patch("app.services.fcm_sender.supabase_client.table", return_value=mock_table):
         tokens = _fetch_user_fcm_tokens(USER_1)
@@ -67,7 +67,7 @@ def test_fcm_sender_internals_and_multicast():
 
     # _fetch_profile_name
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"name": encrypt_to_hex("Alice"), "is_deactivated": False}]
+        data=[{"name": encrypt_to_hex("Alice"), "is_deactivated": False}],
     )
     with patch("app.services.fcm_sender.supabase_client.table", return_value=mock_table):
         name = _fetch_profile_name(USER_1)

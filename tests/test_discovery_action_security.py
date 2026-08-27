@@ -544,6 +544,7 @@ async def test_discovery_action_mismatched_conversation_target_returns_400(
 
 def test_match_action_request_tab_consistency():
     from pydantic import ValidationError
+
     from app.models import MatchActionRequest
 
     # Block works without tab
@@ -614,6 +615,7 @@ async def test_discovery_action_forward_mismatched_session_tab_returns_400(
     action: str,
 ) -> None:
     from datetime import timedelta
+
     from app.db.client import utcnow
 
     # Active session exists for "Dating"
@@ -664,6 +666,7 @@ async def test_discovery_action_forward_matching_session_tab_succeeds(
     mock_notify: MagicMock,
 ) -> None:
     from datetime import timedelta
+
     from app.db.client import utcnow
 
     valid_time = utcnow() + timedelta(minutes=10)

@@ -49,7 +49,6 @@ from app.db.profiles.media import (
     sign_profile_media_bulk,
     update_profile_images_and_metadata,
 )
-from app.models import DiscoveryFilters
 from app.db.users.account_deletion import (
     _purge_single_due_account,
     cancel_deletion,
@@ -95,6 +94,7 @@ from app.db.users.profile import (
     fetch_profile,
     upsert_profile_variant,
 )
+from app.models import DiscoveryFilters
 
 pytestmark = pytest.mark.anyio
 
@@ -198,7 +198,7 @@ async def test_profile_media_signing():
     # Successful signing
     mock_from.return_value.create_signed_urls.side_effect = None
     mock_from.return_value.create_signed_urls.return_value = [
-        {"path": f"{USER_1}/pic.jpg", "signedURL": "https://storage.nexus/pic.jpg?token=abc"}
+        {"path": f"{USER_1}/pic.jpg", "signedURL": "https://storage.nexus/pic.jpg?token=abc"},
     ]
     with patch("app.db.profiles.media.supabase_client.storage.from_", mock_from):
         urls = _sign_media_paths([f"{USER_1}/pic.jpg"])
@@ -255,7 +255,7 @@ def test_profiles_crud():
     # 3. _fetch_and_decrypt_viewer
     mock_table = MagicMock()
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "users": {"app_variant": "nexus"}}]
+        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "users": {"app_variant": "nexus"}}],
     )
     def _mock_decrypt_fields(r: dict[str, Any], **kw: Any) -> dict[str, Any]:
         return {**r, "name": "Alice"}
@@ -280,7 +280,7 @@ def test_profiles_crud():
 
     # 5. fetch_peer_profile_by_id, is_active_profile, fetch_music_affinities
     mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.eq.return_value.neq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "profile_pic": None, "normal_pics": [], "is_deactivated": False}]
+        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "profile_pic": None, "normal_pics": [], "is_deactivated": False}],
     )
     with patch("app.db.profiles.crud.supabase_client.table", return_value=mock_table), \
          patch("app.db.profiles.crud.decrypt_profile_record", side_effect=_mock_decrypt_rec):
@@ -289,13 +289,13 @@ def test_profiles_crud():
         assert peer["name"] == "Alice"
 
     mock_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1}]
+        data=[{"id": USER_1}],
     )
     with patch("app.db.profiles.crud.supabase_client.table", return_value=mock_table):
         assert is_active_profile(USER_1) is True
 
     mock_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"artist_affinity": encrypt_to_hex(json.dumps({"coldplay": 1.0})), "genre_affinity": encrypt_to_hex(json.dumps({"rock": 1.0}))}]
+        data=[{"artist_affinity": encrypt_to_hex(json.dumps({"coldplay": 1.0})), "genre_affinity": encrypt_to_hex(json.dumps({"rock": 1.0}))}],
     )
     with patch("app.db.profiles.crud.supabase_client.table", return_value=mock_table):
         a_aff, g_aff = fetch_music_affinities(USER_1)
@@ -354,7 +354,7 @@ def test_users_auth_and_domains():
     # 5. fetch_public_user & _decrypt_mobile
     mock_table = MagicMock()
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "mobile": encrypt_to_hex("+15551234567", category="contact")}]
+        data=[{"id": USER_1, "mobile": encrypt_to_hex("+15551234567", category="contact")}],
     )
     with patch("app.db.users.auth.supabase_client.table", return_value=mock_table):
         p_user = fetch_public_user(USER_1)
@@ -369,7 +369,7 @@ def test_users_auth_and_domains():
         set_user_suspension(USER_1, is_suspended=False)
 
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1}]
+        data=[{"id": USER_1}],
     )
     with patch("app.db.users.auth.supabase_client.table", return_value=mock_table):
         f_uid = find_user_id_by_phone("+15551234567")
@@ -451,21 +451,21 @@ async def test_account_deletion_and_export():
         mock = MagicMock()
         if t == "users":
             mock.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[{"moderation_status": "clear", "is_suspended": False}]
+                data=[{"moderation_status": "clear", "is_suspended": False}],
             )
             mock.select.return_value.not_.return_value.is_.return_value.lte.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[{"id": USER_1}]
+                data=[{"id": USER_1}],
             )
             mock.select.return_value.lte.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[{"id": USER_1}]
+                data=[{"id": USER_1}],
             )
         elif t == "user_reports":
             mock.select.return_value.eq.return_value.in_.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[]
+                data=[],
             )
         elif t == "deleted_account_blocklist":
             mock.select.return_value.eq.return_value.gt.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[{"id": "b_1", "cooldown_expires_at": (now + timedelta(days=10)).isoformat()}]
+                data=[{"id": "b_1", "cooldown_expires_at": (now + timedelta(days=10)).isoformat()}],
             )
         mock.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[{"id": USER_1}])
         return mock
@@ -547,10 +547,10 @@ async def test_account_deletion_and_export():
 
     # 8. fetch_profile & upsert_profile_variant in app/db/users/profile.py
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "age": 20}]
+        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "age": 20}],
     )
     mock_table.upsert.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "age": 21}]
+        data=[{"id": USER_1, "name": encrypt_to_hex("Alice"), "age": 21}],
     )
     with patch("app.db.users.profile.supabase_client.table", return_value=mock_table):
         p_row = fetch_profile(USER_1)

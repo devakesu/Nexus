@@ -429,8 +429,9 @@ async def test_get_connection_selects_disconnected_at(mock_table: MagicMock) -> 
 
 def test_replace_playlists_trims_bloated_tracks() -> None:
     import json
-    from app.db.spotify import replace_playlists
+
     from app.db.profiles.encryption import decrypt_pii
+    from app.db.spotify import replace_playlists
 
     mock_table = MagicMock()
     mock_builder = MagicMock()
@@ -495,6 +496,7 @@ async def test_revoke_refresh_token_logs_exception_class_without_exc_info(
     mock_logger: MagicMock,
 ) -> None:
     import httpx
+
     from app.services.spotify_sync import revoke_refresh_token
 
     mock_client = AsyncMock()

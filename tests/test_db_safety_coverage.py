@@ -70,7 +70,7 @@ def test_safety_alerts_and_purges():
 
     # 1. fetch_contact_facing_profile_summary
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"name": encrypt_to_hex("Alice"), "profile_pic": f"{USER_1}/pic.jpg", "hometown": "NYC", "current_place": "SF"}
+        data={"name": encrypt_to_hex("Alice"), "profile_pic": f"{USER_1}/pic.jpg", "hometown": "NYC", "current_place": "SF"},
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table), \
          patch("app.db.profiles.media.supabase_client.storage.from_"):
@@ -80,14 +80,14 @@ def test_safety_alerts_and_purges():
 
     # 2. record_safety_alert & fetch_safety_alert & fetch_recent_safety_alert & update_alert_contacts_notified
     mock_table.insert.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": ALERT_1, "created_at": now.isoformat()}]
+        data=[{"id": ALERT_1, "created_at": now.isoformat()}],
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table):
         rec = record_safety_alert(USER_1, "sos", {"lat": 37.77, "lng": -122.41}, session_id=SESSION_1)
         assert rec["id"] == ALERT_1
 
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": ALERT_1, "created_at": now.isoformat()}
+        data={"id": ALERT_1, "created_at": now.isoformat()},
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table):
         al = fetch_safety_alert(ALERT_1)
@@ -95,7 +95,7 @@ def test_safety_alerts_and_purges():
         assert al["id"] == ALERT_1
 
     mock_table.select.return_value.eq.return_value.eq.return_value.gte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": ALERT_1, "contacts_notified": 2, "created_at": now.isoformat()}]
+        data=[{"id": ALERT_1, "contacts_notified": 2, "created_at": now.isoformat()}],
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table):
         rec_al = fetch_recent_safety_alert(USER_1, "sos")
@@ -114,8 +114,8 @@ def test_safety_alerts_and_purges():
                 "alert_type": "sos",
                 "current_location": encrypt_to_hex(json.dumps({"lat": 37.77, "lng": -122.41}), category="media_escrow"),
                 "created_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table):
         session_alerts = fetch_alerts_for_session(SESSION_1)
@@ -126,7 +126,7 @@ def test_safety_alerts_and_purges():
     mock_from = MagicMock()
     mock_from.return_value.remove.return_value = []
     mock_table.select.return_value.lt.return_value.execute.return_value = MagicMock(
-        data=[{"id": "ev1", "storage_path": "evidence/ev1.m4a"}]
+        data=[{"id": "ev1", "storage_path": "evidence/ev1.m4a"}],
     )
     mock_table.delete.return_value.in_.return_value.execute.return_value = MagicMock(data=[])
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table), \
@@ -134,7 +134,7 @@ def test_safety_alerts_and_purges():
         purge_expired_safety_evidence()
 
     mock_table.select.return_value.not_.return_value.is_.return_value.lte.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_2}]
+        data=[{"id": USER_2}],
     )
     with patch("app.db.safety.alerts.supabase_client.table", return_value=mock_table), \
          patch("app.db.safety.alerts.supabase_client.storage.from_", mock_from):
@@ -151,7 +151,7 @@ def test_safety_contacts_crud():
     # 1. sync_safety_contacts
     mock_rpc = MagicMock()
     mock_rpc.execute.return_value = MagicMock(
-        data={"blocked_indices": [], "newly_notified_indices": []}
+        data={"blocked_indices": [], "newly_notified_indices": []},
     )
     with patch("app.db.safety.contacts.supabase_client.rpc", return_value=mock_rpc):
         blocked, notified = sync_safety_contacts(
@@ -167,7 +167,7 @@ def test_safety_contacts_crud():
 
     # 2. fetch_safety_contacts & fetch_safety_contacts_with_id & fetch_safety_contact_by_id
     mock_table.select.return_value.eq.return_value.execute.side_effect = lambda: MagicMock(
-        data=[{"id": CONTACT_1, "name": encrypt_to_hex("Dad", category="contact"), "phone": encrypt_to_hex("+15559876543", category="contact")}]
+        data=[{"id": CONTACT_1, "name": encrypt_to_hex("Dad", category="contact"), "phone": encrypt_to_hex("+15559876543", category="contact")}],
     )
     with patch("app.db.safety.contacts.supabase_client.table", return_value=mock_table):
         c_list = fetch_safety_contacts(USER_1)
@@ -179,7 +179,7 @@ def test_safety_contacts_crud():
         assert c_with_id[0]["id"] == CONTACT_1
 
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": CONTACT_1, "user_id": USER_1, "name": encrypt_to_hex("Dad", category="contact"), "phone": encrypt_to_hex("+15559876543", category="contact")}
+        data={"id": CONTACT_1, "user_id": USER_1, "name": encrypt_to_hex("Dad", category="contact"), "phone": encrypt_to_hex("+15559876543", category="contact")},
     )
     with patch("app.db.safety.contacts.supabase_client.table", return_value=mock_table):
         c_item = fetch_safety_contact_by_id(CONTACT_1)
@@ -205,7 +205,7 @@ def test_safety_evidence_ops():
 
     # 1. register_safety_evidence
     mock_table.insert.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": "ev1"}]
+        data=[{"id": "ev1"}],
     )
     with patch("app.db.safety.evidence.supabase_client.table", return_value=mock_table):
         ev = register_safety_evidence(
@@ -227,8 +227,8 @@ def test_safety_evidence_ops():
                 "storage_path": "evidence/audio.m4a",
                 "media_key_base64": encrypt_to_hex("test_key_base64", category="media_escrow"),
                 "content_type": "audio/mp4",
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.safety.evidence.supabase_client.table", return_value=mock_table):
         evs = fetch_evidence_for_alert_ids([ALERT_1])
@@ -262,7 +262,7 @@ def test_safety_sessions_lifecycle():
             "next_checkin_at": (now + timedelta(minutes=15)).isoformat(),
             "event_context": encrypt_to_hex(json.dumps({"match_name": "Bob"}), category="media_escrow"),
             "status": "active",
-        }
+        },
     )
     with patch("app.db.safety.sessions.supabase_client.rpc", return_value=mock_rpc):
         sess = start_safety_session(
@@ -286,10 +286,10 @@ def test_safety_sessions_lifecycle():
 
     # 2. heartbeat_safety_session
     mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"id": SESSION_1, "next_checkin_at": now.isoformat(), "escalations_sent": 0, "last_escalated_at": None}]
+        data=[{"id": SESSION_1, "next_checkin_at": now.isoformat(), "escalations_sent": 0, "last_escalated_at": None}],
     )
     mock_table.update.return_value.eq.return_value.eq.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": SESSION_1, "status": "active", "label": encrypt_to_hex("Coffee", category="media_escrow")}]
+        data=[{"id": SESSION_1, "status": "active", "label": encrypt_to_hex("Coffee", category="media_escrow")}],
     )
     with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
         hb = heartbeat_safety_session(
@@ -313,8 +313,8 @@ def test_safety_sessions_lifecycle():
                 "status": "active",
                 "label": encrypt_to_hex("Coffee", category="media_escrow"),
                 "users": {"is_active": True},
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
         overdue = fetch_overdue_safety_sessions(grace_seconds=120)
@@ -327,7 +327,7 @@ def test_safety_sessions_lifecycle():
         assert record_safety_escalation_sent(SESSION_1, 1) is True
 
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": SESSION_1, "label": encrypt_to_hex("Coffee", category="media_escrow")}
+        data={"id": SESSION_1, "label": encrypt_to_hex("Coffee", category="media_escrow")},
     )
     with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
         fs = fetch_safety_session(SESSION_1)
@@ -335,14 +335,14 @@ def test_safety_sessions_lifecycle():
         assert fs["label"] == "Coffee"
 
     mock_table.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": SESSION_1, "user_id": USER_1, "label": encrypt_to_hex("Coffee", category="media_escrow")}
+        data={"id": SESSION_1, "user_id": USER_1, "label": encrypt_to_hex("Coffee", category="media_escrow")},
     )
     with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
         fsu = fetch_safety_session_for_user(USER_1, SESSION_1)
         assert fsu is not None
 
     mock_table.update.return_value.eq.return_value.eq.return_value.is_.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": SESSION_1, "label": encrypt_to_hex("Coffee", category="media_escrow")}]
+        data=[{"id": SESSION_1, "label": encrypt_to_hex("Coffee", category="media_escrow")}],
     )
     with patch("app.db.safety.sessions.supabase_client.table", return_value=mock_table):
         canc = cancel_safety_escalation(USER_1, SESSION_1, reason="false_alarm", note="I am safe")

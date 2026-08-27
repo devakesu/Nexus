@@ -1,9 +1,14 @@
 from typing import Any
 from unittest.mock import MagicMock, patch
+
 from fastapi import Request
 
 from app.api.user.profile.details import get_profile_derived_signals
-from app.models import ALLOWED_HIDDEN_FIELDS, PrivacySettingsUpdate, ProfileDerivedSignalsResponse
+from app.models import (
+    ALLOWED_HIDDEN_FIELDS,
+    PrivacySettingsUpdate,
+    ProfileDerivedSignalsResponse,
+)
 
 
 def _make_dummy_request() -> Request:

@@ -1,13 +1,14 @@
 """Unit tests for F-02 (PII Category Separation) and F-03 (Blind Index Domain Separation)."""
 
 import pytest
+
 from app.core.security.crypto import (
     DecryptFailedError,
+    _derive_category_key,
     compute_blind_index,
     decrypt_pii,
     encrypt_pii,
     encrypt_to_hex,
-    _derive_category_key,
 )
 
 
@@ -114,7 +115,9 @@ def test_zero_sensitive_buffer() -> None:
 
 def test_decrypt_pii_ttl_support() -> None:
     import time
+
     from cryptography.fernet import Fernet
+
     from app.core.config import settings
     from app.core.security.crypto import (
         DecryptFailedError,

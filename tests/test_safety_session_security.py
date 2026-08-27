@@ -751,6 +751,7 @@ def test_safety_alert_request_sanitizes_labels() -> None:
 
 def test_safety_location_lat_lng_range_validation() -> None:
     from pydantic import ValidationError
+
     from app.models import SafetyLocation
 
     # Valid coordinates
@@ -787,6 +788,7 @@ def test_safety_location_lat_lng_range_validation() -> None:
 def test_export_build_safety_alerts_deserializes_json_location() -> None:
     import json
     from unittest.mock import MagicMock, patch
+
     from app.core.security.crypto import encrypt_to_hex
     from app.db.users.export import _build_safety_alerts
 
@@ -936,6 +938,7 @@ async def test_send_safety_alert_fallback_to_session_label_for_event_context(
 
 def test_safety_alert_request_max_length_validation() -> None:
     from pydantic import ValidationError
+
     from app.models import SafetyAlertRequest
 
     # Exceeding 200 chars raises ValidationError
@@ -954,6 +957,7 @@ def test_safety_alert_request_max_length_validation() -> None:
 
 def test_safety_contact_in_name_sanitizes_newlines_and_injections() -> None:
     from pydantic import ValidationError
+
     from app.models import SafetyContactIn
 
     # Injected newlines and control characters are stripped
@@ -991,6 +995,7 @@ def test_compose_contact_self_removed_message_sanitizes_contact_name() -> None:
 
 def test_safety_session_start_request_sanitizes_labels() -> None:
     from datetime import datetime, timezone
+
     from app.models import SafetySessionStartRequest
 
     now = datetime.now(timezone.utc)
@@ -1009,7 +1014,9 @@ def test_safety_session_start_request_sanitizes_labels() -> None:
 @pytest.mark.anyio
 async def test_send_safety_alert_hourly_quota_throttling() -> None:
     from unittest.mock import AsyncMock, MagicMock, patch
+
     from fastapi import HTTPException
+
     from app.api.safety.endpoints import send_safety_alert
     from app.models import SafetyAlertRequest
 
@@ -1034,6 +1041,7 @@ async def test_send_safety_alert_hourly_quota_throttling() -> None:
 @pytest.mark.anyio
 async def test_notify_newly_added_contacts_throttles_recipient_sms_bombing() -> None:
     from unittest.mock import AsyncMock, patch
+
     from app.api.safety.endpoints import _notify_newly_added_contacts
 
     user_id = "user-123"
@@ -1066,6 +1074,7 @@ async def test_notify_newly_added_contacts_throttles_recipient_sms_bombing() -> 
 @pytest.mark.anyio
 async def test_notify_newly_added_contacts_logs_delivery_failure() -> None:
     from unittest.mock import AsyncMock, patch
+
     from app.api.safety.endpoints import _notify_newly_added_contacts
     from app.core.utils.sms import ProviderResult
 
@@ -1098,6 +1107,7 @@ async def test_notify_newly_added_contacts_logs_delivery_failure() -> None:
 
 def test_start_and_fetch_safety_session_encrypts_label_and_event_context() -> None:
     from unittest.mock import MagicMock, patch
+
     from app.db.safety.sessions import fetch_safety_session, start_safety_session
 
     user_id = "00000000-0000-0000-0000-000000000001"
@@ -1183,6 +1193,7 @@ def test_start_and_fetch_safety_session_encrypts_label_and_event_context() -> No
 @pytest.mark.anyio
 async def test_check_cached_sos_alert_redis_failure_falls_back_to_db() -> None:
     from unittest.mock import patch
+
     from app.api.safety.endpoints import _check_cached_sos_alert
 
     user_id = "00000000-0000-0000-0000-000000000001"
@@ -1214,6 +1225,7 @@ async def test_check_cached_sos_alert_redis_failure_falls_back_to_db() -> None:
 @pytest.mark.anyio
 async def test_check_cached_sos_alert_redis_and_db_miss() -> None:
     from unittest.mock import patch
+
     from app.api.safety.endpoints import _check_cached_sos_alert
 
     user_id = "00000000-0000-0000-0000-000000000001"
@@ -1248,6 +1260,7 @@ def test_checkin_session_rate_limit_uses_dedicated_heartbeat_quota() -> None:
 def test_heartbeat_safety_session_resets_escalation_when_fresh() -> None:
     """A fresh checkin after escalation occurred resets escalations_sent to 0."""
     from unittest.mock import MagicMock, patch
+
     from app.db.safety.sessions import heartbeat_safety_session
 
     user_id = "00000000-0000-0000-0000-000000000001"
@@ -1296,6 +1309,7 @@ def test_heartbeat_safety_session_resets_escalation_when_fresh() -> None:
 def test_heartbeat_safety_session_retains_escalation_when_stale() -> None:
     """A stale buffered heartbeat with deadline <= last_escalated_at does NOT reset escalations_sent."""
     from unittest.mock import MagicMock, patch
+
     from app.db.safety.sessions import heartbeat_safety_session
 
     user_id = "00000000-0000-0000-0000-000000000001"

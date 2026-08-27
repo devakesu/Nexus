@@ -60,6 +60,7 @@ async def test_upload_signed_prekey_success(
     mock_upsert_signed_prekey: MagicMock,
 ) -> None:
     import base64
+
     from app.api.chat.keys import upload_signed_prekey
     from app.models import UploadSignedPrekeyRequest
 
@@ -92,7 +93,7 @@ async def test_upload_signed_prekey_success(
             "key_id": 1,
             "public_key": spk_b64,
             "signature": sig_b64,
-        }
+        },
     )
 
     res = await upload_signed_prekey(
@@ -114,7 +115,9 @@ async def test_upload_signed_prekey_no_identity(
     mock_fetch_identity_key: MagicMock,
 ) -> None:
     import base64
+
     from fastapi import HTTPException
+
     from app.api.chat.keys import upload_signed_prekey
     from app.models import UploadSignedPrekeyRequest
 
@@ -134,7 +137,7 @@ async def test_upload_signed_prekey_no_identity(
             "key_id": 1,
             "public_key": base64.b64encode(b"\x05" + b"\x01" * 32).decode(),
             "signature": base64.b64encode(b"\x00" * 64).decode(),
-        }
+        },
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -155,7 +158,9 @@ async def test_upload_signed_prekey_invalid_signature(
     mock_fetch_identity_key: MagicMock,
 ) -> None:
     import base64
+
     from fastapi import HTTPException
+
     from app.api.chat.keys import upload_signed_prekey
     from app.models import UploadSignedPrekeyRequest
 
@@ -181,7 +186,7 @@ async def test_upload_signed_prekey_invalid_signature(
             "key_id": 1,
             "public_key": spk_b64,
             "signature": base64.b64encode(b"\x00" * 64).decode(),  # Invalid signature
-        }
+        },
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -380,7 +385,7 @@ def test_fetch_x3dh_key_bundle_unified_rpc(mock_rpc: MagicMock) -> None:
             "one_time_prekey_id": 99,
             "one_time_prekey_public": "\\x05fbd11cd10b",
             "one_time_prekey_used": True,
-        }
+        },
     )
     mock_rpc.return_value = mock_rpc_builder
 

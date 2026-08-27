@@ -533,7 +533,7 @@ def test_is_active_profile_returns_true_for_active_user(mock_supabase: MagicMock
     from app.db.profiles import is_active_profile
 
     mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
-        {"id": "11111111-1111-1111-1111-111111111111"}
+        {"id": "11111111-1111-1111-1111-111111111111"},
     ]
 
     assert is_active_profile("11111111-1111-1111-1111-111111111111") is True
@@ -552,6 +552,7 @@ def test_is_active_profile_returns_false_for_inactive_or_missing(mock_supabase: 
 @patch("app.db.profiles.crud.supabase_client")
 def test_fetch_music_affinities_success(mock_supabase: MagicMock) -> None:
     import json
+
     from app.core.security.crypto import encrypt_to_hex
     from app.db.profiles import fetch_music_affinities
 
@@ -559,7 +560,7 @@ def test_fetch_music_affinities_success(mock_supabase: MagicMock) -> None:
         {
             "artist_affinity": encrypt_to_hex(json.dumps({"The Beatles": 1.0})),
             "genre_affinity": encrypt_to_hex(json.dumps({"Rock": 0.8})),
-        }
+        },
     ]
 
     artists, genres = fetch_music_affinities("11111111-1111-1111-1111-111111111111")
@@ -693,7 +694,10 @@ def test_decrypt_profile_rows_decrypts_name_and_pic() -> None:
 
 
 def test_validate_tab_activation_flags_decryption_failures() -> None:
-    from app.api.user.profile.helpers import _validate_common_activation, calculate_activation_statuses
+    from app.api.user.profile.helpers import (
+        _validate_common_activation,
+        calculate_activation_statuses,
+    )
     from app.models.profile import ProfileDetailsUpdate
 
     corrupted_profile = {

@@ -15,9 +15,6 @@ import pytest
 from postgrest.exceptions import APIError
 
 from app.core.security.crypto import encrypt_to_hex
-from app.db.client import (
-    DatabaseAccessError,
-)
 from app.db.chat.chat import (
     batch_delete_conversations_chat_media,
     batch_fetch_presence_from_db,
@@ -57,6 +54,9 @@ from app.db.chat.keys import (
     upsert_identity_key,
     upsert_signed_prekey,
 )
+from app.db.client import (
+    DatabaseAccessError,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -91,8 +91,8 @@ def test_chat_conversations_and_started_matches():
                 "user_a_id": USER_1,
                 "user_b_id": USER_2,
                 "last_message_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         convs = fetch_conversations_for_user(USER_1, "Dating")
@@ -134,10 +134,10 @@ def test_get_or_create_and_participants():
 
     # create new conversation
     mock_table.select.return_value.eq.return_value.is_.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": MATCH_1, "liker_id": USER_1, "liked_back_id": USER_2, "tab": "Dating"}
+        data={"id": MATCH_1, "liker_id": USER_1, "liked_back_id": USER_2, "tab": "Dating"},
     )
     mock_table.upsert.return_value.execute.return_value = MagicMock(
-        data=[{"id": CONV_1, "user_a_id": USER_1, "user_b_id": USER_2, "match_id": MATCH_1}]
+        data=[{"id": CONV_1, "user_a_id": USER_1, "user_b_id": USER_2, "match_id": MATCH_1}],
     )
     with patch("app.db.chat.chat.fetch_conversation_for_match", side_effect=[None, {"id": CONV_1}]), \
          patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
@@ -146,7 +146,7 @@ def test_get_or_create_and_participants():
 
     # 2. fetch_conversation_participants
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"user_a_id": USER_1, "user_b_id": USER_2, "closed_at": None}
+        data={"user_a_id": USER_1, "user_b_id": USER_2, "closed_at": None},
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         parts = fetch_conversation_participants(CONV_1)
@@ -156,7 +156,7 @@ def test_get_or_create_and_participants():
 
     # fetch_conversation_for_match
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": CONV_1, "match_id": MATCH_1}
+        data={"id": CONV_1, "match_id": MATCH_1},
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         cm = fetch_conversation_for_match(MATCH_1)
@@ -176,8 +176,8 @@ def test_insert_message_and_read_receipts():
                 "conversation_id": CONV_1,
                 "sender_id": USER_1,
                 "created_at": now.isoformat(),
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         msg = insert_message(
@@ -192,7 +192,7 @@ def test_insert_message_and_read_receipts():
 
     # 2. mark_messages_read
     mock_table.update.return_value.eq.return_value.neq.return_value.is_.return_value.execute.return_value = MagicMock(
-        data=[{"id": "msg1"}, {"id": "msg2"}]
+        data=[{"id": "msg1"}, {"id": "msg2"}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         count = mark_messages_read(CONV_1, USER_1)
@@ -200,14 +200,14 @@ def test_insert_message_and_read_receipts():
 
     # 3. close_conversation_for_match_action & reopen_conversations_for_reactivation
     mock_table.update.return_value.or_.return_value.is_.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": CONV_1}]
+        data=[{"id": CONV_1}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table), \
          patch("app.db.chat.chat.delete_conversation_chat_media"):
         close_conversation_for_match_action(USER_1, USER_2, reason="unmatch")
 
     mock_table.select.return_value.or_.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"id": CONV_1, "user_a_id": USER_1, "user_b_id": USER_2}]
+        data=[{"id": CONV_1, "user_a_id": USER_1, "user_b_id": USER_2}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table), \
          patch("app.db.chat.chat._partition_reactivation_conversations", return_value=([CONV_1], [])):
@@ -239,7 +239,7 @@ def test_media_cleanup_and_presence():
     # 3. batch_fetch_presence_from_db
     mock_table = MagicMock()
     mock_table.select.return_value.in_.return_value.execute.return_value = MagicMock(
-        data=[{"user_id": USER_1, "last_active_at": now.isoformat(), "is_online": True}]
+        data=[{"user_id": USER_1, "last_active_at": now.isoformat(), "is_online": True}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         b_pres = batch_fetch_presence_from_db([USER_1])
@@ -247,14 +247,14 @@ def test_media_cleanup_and_presence():
 
     # 4. fetch_user_share_flags & batch_fetch_user_share_flags
     mock_table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"share_active_status": True, "share_read_receipts": True}]
+        data=[{"share_active_status": True, "share_read_receipts": True}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         flags = fetch_user_share_flags(USER_1)
         assert flags["share_active_status"] is True
 
     mock_table.select.return_value.in_.return_value.execute.return_value = MagicMock(
-        data=[{"id": USER_1, "share_active_status": True, "share_read_receipts": True}]
+        data=[{"id": USER_1, "share_active_status": True, "share_read_receipts": True}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         b_flags = batch_fetch_user_share_flags([USER_1])
@@ -278,8 +278,8 @@ def test_chat_events_and_reminders():
                 "location_lng": encrypt_to_hex("-122.4194", category="chat"),
                 "location_label": encrypt_to_hex("Cafe", category="chat"),
                 "safety_enabled": False,
-            }
-        ]
+            },
+        ],
     )
     with patch("app.db.chat.chat.insert_message", return_value={"id": "msg_1"}), \
          patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
@@ -297,14 +297,14 @@ def test_chat_events_and_reminders():
 
     # 2. fetch_event & update_event_status
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"id": EVENT_1, "status": "proposed", "title": encrypt_to_hex("Coffee Date", category="chat")}
+        data={"id": EVENT_1, "status": "proposed", "title": encrypt_to_hex("Coffee Date", category="chat")},
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         ev_row = fetch_event(EVENT_1)
         assert ev_row is not None
 
     mock_table.update.return_value.eq.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"id": EVENT_1, "status": "accepted"}]
+        data=[{"id": EVENT_1, "status": "accepted"}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         up_ev = update_event_status(EVENT_1, "accepted")
@@ -313,7 +313,7 @@ def test_chat_events_and_reminders():
 
     # 3. fetch_due_event_reminders & mark_reminder_sent
     mock_table.select.return_value.is_.return_value.neq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": EVENT_1, "event_time": encrypt_to_hex((now + timedelta(minutes=10)).isoformat(), category="chat")}]
+        data=[{"id": EVENT_1, "event_time": encrypt_to_hex((now + timedelta(minutes=10)).isoformat(), category="chat")}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         due_evs = fetch_due_event_reminders(window_minutes=60)
@@ -325,7 +325,7 @@ def test_chat_events_and_reminders():
 
     # 4. fetch_due_safety_reminders & mark_safety_reminder_sent
     mock_table.select.return_value.eq.return_value.is_.return_value.neq.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": EVENT_1, "event_time": encrypt_to_hex((now + timedelta(minutes=10)).isoformat(), category="chat")}]
+        data=[{"id": EVENT_1, "event_time": encrypt_to_hex((now + timedelta(minutes=10)).isoformat(), category="chat")}],
     )
     with patch("app.db.chat.chat.supabase_client.table", return_value=mock_table):
         due_safety = fetch_due_safety_reminders(window_minutes=35)
@@ -353,13 +353,13 @@ def test_keys_matches_and_bundles():
 
     # 1. has_active_match & fetch_active_matches_for_targets
     mock_table.select.return_value.or_.return_value.is_.return_value.limit.return_value.execute.return_value = MagicMock(
-        data=[{"id": MATCH_1}]
+        data=[{"id": MATCH_1}],
     )
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_table):
         assert has_active_match(USER_1, USER_2) is True
 
     mock_table.select.return_value.or_.return_value.is_.return_value.execute.return_value = MagicMock(
-        data=[{"liker_id": USER_1, "liked_back_id": USER_2}]
+        data=[{"liker_id": USER_1, "liked_back_id": USER_2}],
     )
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_table):
         active_set = fetch_active_matches_for_targets(USER_1, [USER_2])
@@ -373,7 +373,7 @@ def test_keys_matches_and_bundles():
         upsert_identity_key(USER_1, b"public_identity_key_32_bytes_x00", registration_id=12345)
 
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"identity_public_key": "\\x616263", "registration_id": 12345}
+        data={"identity_public_key": "\\x616263", "registration_id": 12345},
     )
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_table):
         ik = fetch_identity_key(USER_1)
@@ -397,10 +397,10 @@ def test_keys_matches_and_bundles():
 
     # 4. fetch_key_bundle & fetch_x3dh_key_bundle_unified & mark_session_established
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"identity_public_key": "\\x616263", "registration_id": 12345}
+        data={"identity_public_key": "\\x616263", "registration_id": 12345},
     )
     mock_table.select.return_value.eq.return_value.is_.return_value.order.return_value.limit.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"key_id": 1, "public_key": "\\x646566", "signature": "\\x736967"}
+        data={"key_id": 1, "public_key": "\\x646566", "signature": "\\x736967"},
     )
     mock_rpc.execute.return_value = MagicMock(data=[{"key_id": 10, "public_key": "\\x6f706b"}])
     with patch("app.db.chat.keys.supabase_client.table", return_value=mock_table), \
@@ -421,7 +421,7 @@ def test_keys_matches_and_bundles():
             "one_time_prekey_id": 10,
             "one_time_prekey_public": "\\x6f706b",
             "one_time_prekey_used": True,
-        }
+        },
     )
     with patch("app.db.chat.keys.supabase_client.rpc", return_value=rpc_unified):
         u_bundle, err = fetch_x3dh_key_bundle_unified(USER_1, USER_2)

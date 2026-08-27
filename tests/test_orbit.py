@@ -242,7 +242,10 @@ def test_orbit_quantized_rank_radius() -> None:
 
 
 def test_apply_field_visibility_dict_list_and_scalar_types() -> None:
-    from app.db.discovery.orbit import _apply_field_visibility, build_tab_aware_orbit_node_detail
+    from app.db.discovery.orbit import (
+        _apply_field_visibility,
+        build_tab_aware_orbit_node_detail,
+    )
 
     payload: dict[str, Any] = {
         "id": "11111111-1111-1111-1111-111111111111",

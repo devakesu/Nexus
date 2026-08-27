@@ -457,8 +457,8 @@ async def test_upload_contact_attachment_rejects_corrupted_image_header(
 async def test_upload_contact_attachment_strips_exif_gps_metadata(
     mock_supabase: MagicMock,
 ) -> None:
-    from PIL import Image
     from fastapi import UploadFile
+    from PIL import Image
 
     from app.api.feedback.contact import upload_contact_attachment
 
@@ -751,6 +751,7 @@ async def test_verify_and_consume_otp_redis_error_redacts_email(
     mock_logger: MagicMock,
 ) -> None:
     from redis.exceptions import RedisError
+
     from app.api.feedback.contact import _verify_and_consume_otp
 
     mock_redis.get = AsyncMock(side_effect=RedisError("Redis connection lost"))
@@ -776,6 +777,7 @@ async def test_verify_turnstile_token_error_logs_warning_not_exception(
     mock_logger: MagicMock,
 ) -> None:
     import httpx
+
     from app.api.feedback.contact import verify_turnstile_token
 
     mock_settings.turnstile_secret_key = "dummy_secret_key"

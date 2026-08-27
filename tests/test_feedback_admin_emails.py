@@ -273,6 +273,7 @@ async def test_submit_feedback_rejects_nonexistent_attachment(
     mock_supabase: MagicMock,
 ) -> None:
     from fastapi import HTTPException
+
     from app.api.feedback.tickets import submit_feedback
     from app.models import FeedbackSubmitRequest
 
@@ -311,6 +312,7 @@ async def test_submit_feedback_rejects_nonexistent_attachment(
 @pytest.mark.anyio
 async def test_submit_feedback_rejects_other_user_prefix() -> None:
     from fastapi import HTTPException
+
     from app.api.feedback.tickets import submit_feedback
     from app.models import FeedbackSubmitRequest
 
@@ -344,6 +346,7 @@ async def test_submit_feedback_rejects_other_user_prefix() -> None:
 @pytest.mark.anyio
 async def test_submit_feedback_rejects_traversal_in_attachment() -> None:
     from fastapi import HTTPException
+
     from app.api.feedback.tickets import submit_feedback
     from app.models import FeedbackSubmitRequest
 
@@ -387,7 +390,7 @@ def test_close_ticket_db_sets_reviewed_by_none() -> None:
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_builder):
         res = close_ticket(user_id="user-123", report_id="ticket-123", reason="Resolved by user")
         assert res == {"id": "ticket-123", "status": "closed"}
-        
+
         # Verify update payload has reviewed_by: None
         update_args = mock_builder.update.call_args[0][0]
         assert update_args["status"] == "closed"
@@ -433,7 +436,7 @@ def test_fetch_user_tickets_and_report_decrypts_subject_and_message() -> None:
     mock_builder.eq.return_value = mock_builder
     mock_builder.order.return_value = mock_builder
     mock_builder.execute.return_value = MagicMock(
-        data=[{"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "status": "open", "created_at": "2026-08-25T00:00:00Z"}]
+        data=[{"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "status": "open", "created_at": "2026-08-25T00:00:00Z"}],
     )
 
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_builder):
@@ -446,7 +449,7 @@ def test_fetch_user_tickets_and_report_decrypts_subject_and_message() -> None:
     mock_detail_builder.eq.return_value = mock_detail_builder
     mock_detail_builder.maybe_single.return_value = mock_detail_builder
     mock_detail_builder.execute.return_value = MagicMock(
-        data={"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "message": enc_msg, "status": "open"}
+        data={"id": "fb-2", "query_type": "feedback", "subject": enc_sub, "message": enc_msg, "status": "open"},
     )
 
     with patch("app.db.feedback.feedback.supabase_client.table", return_value=mock_detail_builder):
@@ -472,11 +475,11 @@ def test_export_feedback_section_decrypts_subject_and_message() -> None:
             "status": "resolved",
             "created_at": "2026-08-25T00:00:00Z",
             "updated_at": "2026-08-25T01:00:00Z",
-        }
+        },
     ]
 
     with patch("app.db.users.export._safe_select", return_value=mock_rows), patch(
-        "app.db.users.export.supabase_client.table"
+        "app.db.users.export.supabase_client.table",
     ) as mock_table:
         mock_builder = MagicMock()
         mock_builder.select.return_value = mock_builder

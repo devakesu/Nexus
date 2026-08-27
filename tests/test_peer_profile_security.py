@@ -99,6 +99,7 @@ async def test_verify_peer_access_with_match(
 def test_fetch_peer_profile_by_id_sanitizes_sentinels() -> None:
     """Verify that fetch_peer_profile_by_id sanitizes any __DECRYPTION_FAILED__ sentinels."""
     from unittest.mock import MagicMock
+
     from app.db.profiles.crud import fetch_peer_profile_by_id
 
     mock_row = {
@@ -133,6 +134,7 @@ def test_fetch_peer_profile_by_id_sanitizes_sentinels() -> None:
 def test_fetch_peer_profile_by_id_filters_inactive_suspended_banned() -> None:
     """Verify fetch_peer_profile_by_id queries users!inner with is_active, is_suspended, and moderation_status."""
     from unittest.mock import MagicMock
+
     from app.db.profiles.crud import fetch_peer_profile_by_id
 
     mock_builder = MagicMock()

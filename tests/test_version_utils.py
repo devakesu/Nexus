@@ -1,10 +1,11 @@
 from pathlib import Path
+
 from scripts.version_utils import (
-    VERSION_PATTERN,
     RELEASE_BRANCH_PATTERN,
+    VERSION_PATTERN,
+    extract_app_version,
     parse_version,
     read_pubspec_version,
-    extract_app_version,
 )
 
 

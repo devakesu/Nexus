@@ -556,6 +556,7 @@ async def test_send_message_race_closed_conversation_at_insert(
 
 def test_insert_message_catches_db_trigger_closed_conversation() -> None:
     from postgrest.exceptions import APIError
+
     from app.db.chat.chat import insert_message
     from app.db.client import ConversationClosedError, supabase_client
 

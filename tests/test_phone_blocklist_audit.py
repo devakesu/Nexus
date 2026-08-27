@@ -1,4 +1,5 @@
 """Unit tests for phone blocklist audit logging and PII field compliance."""
+# pyright: reportAttributeAccessIssue=false, reportUnknownMemberType=false
 
 from unittest.mock import MagicMock, patch
 
@@ -45,9 +46,9 @@ def test_is_phone_blocklisted_hit_logs_structured_warning_and_returns_true(
     assert len(warning_records) == 1
     record = warning_records[0]
     assert "blocked by deleted account blocklist hit" in record.message
-    assert getattr(record, "masked_phone_hash") == f"{blind_index[:6]}...{blind_index[-6:]}"
+    assert record.masked_phone_hash == f"{blind_index[:6]}...{blind_index[-6:]}"
     assert blind_index not in record.message
-    assert getattr(record, "cooldown_expires_at") == cooldown
+    assert record.cooldown_expires_at == cooldown
 
 
 def test_is_phone_blocklisted_hit_short_blind_index_masked(
@@ -72,7 +73,7 @@ def test_is_phone_blocklisted_hit_short_blind_index_masked(
     assert result is True
     warning_records = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warning_records) == 1
-    assert getattr(warning_records[0], "masked_phone_hash") == "***"
+    assert warning_records[0].masked_phone_hash == "***"
 
 
 def test_is_phone_blocklisted_miss_returns_false_and_no_warning(

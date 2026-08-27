@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 from unittest.mock import MagicMock, patch
-import numpy as np
 
+import numpy as np
 import pytest
 
 from app.core.security.crypto import encrypt_to_hex
@@ -105,7 +105,7 @@ def test_recompile_value_dimensions_flow():
         "bio": encrypt_to_hex("Building software"),
     }
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data=mock_profile_raw
+        data=mock_profile_raw,
     )
     mock_table.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
     with patch("app.services.value_dimensions.sync_redis_client.set", return_value=True), \
@@ -140,12 +140,12 @@ def test_recompile_and_push_vectors_flow():
         "campus_year": 2026,
     }
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data=mock_prof_data
+        data=mock_prof_data,
     )
 
     mock_map_table = MagicMock()
     mock_map_table.upsert.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[{"pseudonym_id": "pseudo_123"}]
+        data=[{"pseudonym_id": "pseudo_123"}],
     )
     mock_vec_table = MagicMock()
     mock_vec_table.upsert.return_value.execute.return_value = MagicMock(data=[])
