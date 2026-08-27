@@ -92,6 +92,9 @@ dev_dependencies:
   riverpod_generator: ^4.0.4
   sentry_dart_plugin: ^3.4.0
   shared_preferences: ^2.5.4
+  stack_trace: any
+  stream_channel: any
+  test_api: any
   very_good_analysis: ^10.3.0
   webview_flutter_platform_interface: ^2.10.0
 

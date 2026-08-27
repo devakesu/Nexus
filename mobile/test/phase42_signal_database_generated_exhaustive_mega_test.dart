@@ -1,9 +1,16 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus/features/security_signal/services/signal/signal_database.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/path_provider'),
+        (call) async => '.',
+      );
 
   group('Signal Database Generated Exhaustive Mega Tests', () {
     late SignalDatabase db;

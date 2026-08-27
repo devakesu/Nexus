@@ -2054,7 +2054,7 @@ packages:
     source: hosted
     version: "0.45.0"
   stack_trace:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: stack_trace
       sha256: "8b27215b45d22309b5cddda1aa2b19bdfec9df0e765f2de506401c071d38d1b1"
@@ -2078,7 +2078,7 @@ packages:
     source: hosted
     version: "2.8.0"
   stream_channel:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: stream_channel
       sha256: "969e04c80b8bcdf826f8f16579c7b14d780458bd97f56d107d3950fdbeef059d"
@@ -2158,7 +2158,7 @@ packages:
     source: hosted
     version: "1.31.1"
   test_api:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: test_api
       sha256: "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11"
