@@ -81,9 +81,20 @@ async def verify_turnstile_token(
             )
             data = resp.json()
             return bool(data.get("success", False))
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         logger.warning("Failed to verify Turnstile token: %s", err)
         return False
+
+
+def _check_image_magic_bytes(content: bytes) -> None:
+    is_png = content.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = content.startswith(b"\xff\xd8\xff")
+    is_webp = content.startswith(b"RIFF") and len(content) >= 12 and content[8:12] == b"WEBP"
+    if not (is_png or is_jpeg or is_webp):
+        raise HTTPException(
+            status_code=400,
+            detail="File signature does not match permitted image formats (PNG, JPG, WEBP).",
+        )
 
 
 def _validate_uploaded_image(file: UploadFile, content: bytes) -> str:
@@ -100,15 +111,7 @@ def _validate_uploaded_image(file: UploadFile, content: bytes) -> str:
         )
 
     # 1. Magic byte check
-    is_png = content.startswith(b"\x89PNG\r\n\x1a\n")
-    is_jpeg = content.startswith(b"\xff\xd8\xff")
-    is_webp = content.startswith(b"RIFF") and len(content) >= 12 and content[8:12] == b"WEBP"
-
-    if not (is_png or is_jpeg or is_webp):
-        raise HTTPException(
-            status_code=400,
-            detail="File signature does not match permitted image formats (PNG, JPG, WEBP).",
-        )
+    _check_image_magic_bytes(content)
 
     # 2. PIL decode verification
     try:

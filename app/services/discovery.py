@@ -78,100 +78,92 @@ def get_or_validate_session(
     return session_id, expires_at
 
 
-def create_new_discovery_session(
-    user_id: str,
-    active_tab: DiscoveryTab,
-    filters: DiscoveryFilters,
-) -> tuple[str, datetime]:
-    """Fetch candidate pool, run matchmaking engine, and persist a new discovery session.
-
-    Args:
-        user_id: Unique UUID string identifier of the requesting user.
-        active_tab: Active discovery tab category ('Dating', 'Friends', or 'Professional').
-        filters: Discovery search filter preferences.
-
-    Returns:
-        tuple[str, datetime]: Tuple containing (session_id, expiration_datetime).
-    """
+def _check_hourly_session_creation_limit(user_id: str) -> None:
+    hourly_session_key = f"user:session_creations_hourly:{user_id}"
     try:
-        # Hourly discovery session creation rate limit
-        hourly_session_key = f"user:session_creations_hourly:{user_id}"
-        try:
-            creation_count = int(sync_redis_client.incr(hourly_session_key))
-            if creation_count == 1:
-                sync_redis_client.expire(hourly_session_key, 3600)
-            max_hourly_sessions = getattr(settings, "rate_limit_session_creation_hourly", 20)
-            if creation_count > max_hourly_sessions:
+        creation_count = int(sync_redis_client.incr(hourly_session_key))
+        if creation_count == 1:
+            sync_redis_client.expire(hourly_session_key, 3600)
+        max_hourly_sessions = getattr(settings, "rate_limit_session_creation_hourly", 20)
+        if creation_count > max_hourly_sessions:
+            logger.warning(
+                "Hourly discovery session creation rate limit exceeded",
+                extra={"user_id": user_id, "creation_count": creation_count},
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Hourly discovery session creation limit exceeded. Please reuse existing sessions or try again later.",
+            )
+    except (ValueError, TypeError):
+        pass
+
+
+def _check_mutation_probe_limit(user_id: str) -> None:
+    mutation_count_raw = sync_redis_client.get(f"user:profile_mutations:{user_id}")
+    if mutation_count_raw:
+        mutation_count = int(mutation_count_raw)
+        if mutation_count >= 3:
+            session_probe_key = f"user:session_probe_count:{user_id}"
+            session_count = sync_redis_client.incr(session_probe_key)
+            if session_count == 1:
+                sync_redis_client.expire(session_probe_key, 600)
+            if session_count > 5:
                 logger.warning(
-                    "Hourly discovery session creation rate limit exceeded",
-                    extra={"user_id": user_id, "creation_count": creation_count},
+                    "Systematic discovery probing detected",
+                    extra={
+                        "user_id": user_id,
+                        "mutation_count": mutation_count,
+                        "session_count": session_count,
+                    },
                 )
                 raise HTTPException(
                     status_code=429,
-                    detail="Hourly discovery session creation limit exceeded. Please reuse existing sessions or try again later.",
+                    detail="Session creation rate limit exceeded due to frequent profile updates. Please wait before creating a new session.",
                 )
-        except (ValueError, TypeError):
-            pass
 
-        mutation_count_raw = sync_redis_client.get(f"user:profile_mutations:{user_id}")
-        if mutation_count_raw:
-            mutation_count = int(mutation_count_raw)
-            if mutation_count >= 3:
-                session_probe_key = f"user:session_probe_count:{user_id}"
-                session_count = sync_redis_client.incr(session_probe_key)
-                if session_count == 1:
-                    sync_redis_client.expire(session_probe_key, 600)
-                if session_count > 5:
-                    logger.warning(
-                        "Systematic discovery probing detected",
-                        extra={
-                            "user_id": user_id,
-                            "mutation_count": mutation_count,
-                            "session_count": session_count,
-                        },
-                    )
-                    raise HTTPException(
-                        status_code=429,
-                        detail="Session creation rate limit exceeded due to frequent profile updates. Please wait before creating a new session.",
-                    )
 
-        if filters:
-            filter_dict = filters.model_dump(exclude_none=True) if hasattr(filters, "model_dump") else {}
-            if filter_dict:
-                import hashlib
-                import json
+def _check_filter_combination_probing(user_id: str, filters: DiscoveryFilters) -> None:
+    if not filters:
+        return
+    filter_dict = filters.model_dump(exclude_none=True) if hasattr(filters, "model_dump") else {}
+    if not filter_dict:
+        return
+    import hashlib
+    import json
 
-                filter_hash = hashlib.sha256(
-                    json.dumps(filter_dict, sort_keys=True).encode("utf-8"),
-                ).hexdigest()[:16]
-                filter_set_key = f"user:discovery_filter_hashes:{user_id}"
-                sync_redis_client.sadd(filter_set_key, filter_hash)
-                sync_redis_client.expire(filter_set_key, 600)
-                try:
-                    scard_val = int(sync_redis_client.scard(filter_set_key))
-                    if scard_val > 15:
-                        logger.warning(
-                            "High distinct filter combination probing detected",
-                            extra={"user_id": user_id, "distinct_count": scard_val},
-                        )
-                        raise HTTPException(
-                            status_code=429,
-                            detail="Discovery filter search rate limit exceeded. Please slow down your filter changes.",
-                        )
-                except (ValueError, TypeError):
-                    pass
-    except HTTPException:
-        raise
-    except Exception:
+    filter_hash = hashlib.sha256(
+        json.dumps(filter_dict, sort_keys=True).encode("utf-8"),
+    ).hexdigest()[:16]
+    filter_set_key = f"user:discovery_filter_hashes:{user_id}"
+    sync_redis_client.sadd(filter_set_key, filter_hash)
+    sync_redis_client.expire(filter_set_key, 600)
+    try:
+        scard_val = int(sync_redis_client.scard(filter_set_key))
+        if scard_val > 15:
+            logger.warning(
+                "High distinct filter combination probing detected",
+                extra={"user_id": user_id, "distinct_count": scard_val},
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Discovery filter search rate limit exceeded. Please slow down your filter changes.",
+            )
+    except (ValueError, TypeError):
         pass
 
-    viewer, candidate_pool = fetch_stage_1_candidates(
-        viewer_id=user_id,
-        active_tab=active_tab,
-        filters=filters,
-        candidate_limit=200,
-    )
 
+def _check_discovery_throttling(user_id: str, filters: DiscoveryFilters) -> None:
+    _check_hourly_session_creation_limit(user_id)
+    _check_mutation_probe_limit(user_id)
+    _check_filter_combination_probing(user_id, filters)
+
+
+def _validate_viewer_for_discovery(
+    viewer: dict[str, Any] | None,
+    active_tab: DiscoveryTab,
+    filters: DiscoveryFilters,
+    user_id: str,
+) -> dict[str, Any]:
     if viewer is None:
         raise HTTPException(
             status_code=404,
@@ -223,6 +215,53 @@ def create_new_discovery_session(
                     status_code=400,
                     detail="Requested search_bucket_filter does not intersect with viewer's configured target buckets.",
                 )
+    return viewer
+
+
+def _apply_expired_pass_penalties(
+    ranked_orbit: list[dict[str, Any]], expired_passes: dict[str, datetime],
+) -> None:
+    now = utcnow()
+    for item in ranked_orbit:
+        profile = item.get("profile")
+        profile_dict = (
+            cast(dict[str, Any], profile)
+            if isinstance(profile, dict)
+            else {}
+        )
+        cid = str(cast(object, profile_dict.get("id")) or "")
+        if cid in expired_passes:
+            days_since = (now - expired_passes[cid]).days
+            if days_since <= 7:
+                multiplier = 0.25
+            elif days_since <= 30:
+                multiplier = 0.50
+            else:
+                multiplier = 0.85
+            item["score"] = float(item.get("score") or 0.0) * multiplier
+
+
+def create_new_discovery_session(
+    user_id: str,
+    active_tab: DiscoveryTab,
+    filters: DiscoveryFilters,
+) -> tuple[str, datetime]:
+    """Fetch candidate pool, run matchmaking engine, and persist a new discovery session."""
+    try:
+        _check_discovery_throttling(user_id, filters)
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Redis filter tracking failed, continuing without filter throttling: %s", e)
+
+    raw_viewer, candidate_pool = fetch_stage_1_candidates(
+        viewer_id=user_id,
+        active_tab=active_tab,
+        filters=filters,
+        candidate_limit=200,
+    )
+
+    viewer = _validate_viewer_for_discovery(raw_viewer, active_tab, filters, user_id)
 
     ranked_orbit: list[dict[str, Any]] = engine.discover_orbit(
         viewer,
@@ -231,33 +270,9 @@ def create_new_discovery_session(
         orbit_limit=200,
     )
 
-    # Time-graduated score penalty for candidates whose pass window has expired.
-    # While the pass is active they are excluded entirely (handled by exclusions).
-    # Once expired they re-enter the pool but land lower depending on how long ago
-    # the exclusion window ended:
-    #   ≤  7 days → heavy penalty   (0.25x) → outer orbit
-    #   ≤ 30 days → moderate penalty (0.50x) → mid-outer orbit
-    #   > 30 days → light penalty   (0.85x) → near-normal position
     expired_passes = fetch_expired_pass_candidates(user_id, active_tab)
     if expired_passes:
-        now = utcnow()
-        for item in ranked_orbit:
-            profile = item.get("profile")
-            profile_dict = (
-                cast(dict[str, Any], profile)
-                if isinstance(profile, dict)
-                else {}
-            )
-            cid = str(cast(object, profile_dict.get("id")) or "")
-            if cid in expired_passes:
-                days_since = (now - expired_passes[cid]).days
-                if days_since <= 7:
-                    multiplier = 0.25
-                elif days_since <= 30:
-                    multiplier = 0.50
-                else:
-                    multiplier = 0.85
-                item["score"] = float(item.get("score") or 0.0) * multiplier
+        _apply_expired_pass_penalties(ranked_orbit, expired_passes)
 
     ranked_orbit.sort(
         key=lambda x: (

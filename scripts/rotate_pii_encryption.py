@@ -21,15 +21,16 @@ Usage:
 """
 
 import argparse
-from dataclasses import dataclass
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from typing import Any, cast
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sentry_sdk
+
 from app.core.config import settings
 from app.core.infra.sentry import scrub_event
 from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex

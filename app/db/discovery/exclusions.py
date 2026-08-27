@@ -362,6 +362,35 @@ def record_discovery_action(
         raise DatabaseAccessError("Failed to record discovery action") from e
 
 
+def _build_report_payload(
+    reporter_id: str,
+    target_id: str,
+    reason: str,
+    reason_detail: str | None,
+    tab: DiscoveryTab | None,
+    conversation_id: str | None,
+    evidence: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    report_payload: dict[str, Any] = {
+        "reporter_id": reporter_id,
+        "target_id": target_id,
+        "reason": reason,
+    }
+    if reason_detail:
+        report_payload["reason_detail"] = reason_detail.strip()
+    if tab is not None:
+        report_payload["tab"] = tab
+
+    metadata: dict[str, Any] = {}
+    if conversation_id:
+        metadata["conversation_id"] = conversation_id
+    if evidence:
+        metadata["chat_evidence"] = evidence
+    if metadata:
+        report_payload["metadata"] = metadata
+    return report_payload
+
+
 def record_user_report(
     reporter_id: str,
     target_id: str,
@@ -377,23 +406,9 @@ def record_user_report(
     """
     report_id: str | None = None
     try:
-        report_payload: dict[str, Any] = {
-            "reporter_id": reporter_id,
-            "target_id": target_id,
-            "reason": reason,
-        }
-        if reason_detail:
-            report_payload["reason_detail"] = reason_detail.strip()
-        if tab is not None:
-            report_payload["tab"] = tab
-
-        metadata: dict[str, Any] = {}
-        if conversation_id:
-            metadata["conversation_id"] = conversation_id
-        if evidence:
-            metadata["chat_evidence"] = evidence
-        if metadata:
-            report_payload["metadata"] = metadata
+        report_payload = _build_report_payload(
+            reporter_id, target_id, reason, reason_detail, tab, conversation_id, evidence,
+        )
 
         res = (
             supabase_client.table("user_reports")
@@ -622,11 +637,11 @@ def fetch_active_like_action(
     """Fetches an active, unrevoked like or superlike action between actor and target."""
     try:
         valid_actor_id = normalize_uuid(actor_id)
-    except Exception:
+    except (ValueError, TypeError):
         valid_actor_id = str(actor_id)
     try:
         valid_target_id = normalize_uuid(target_id)
-    except Exception:
+    except (ValueError, TypeError):
         valid_target_id = str(target_id)
 
     try:

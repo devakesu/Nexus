@@ -370,7 +370,7 @@ def fetch_x3dh_key_bundle_unified(
             "get_x3dh_key_bundle RPC not available or failed, falling back to sequential fetch",
             extra={"error": str(e), "user_id": requester_id, "target_user_id": target_user_id},
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "get_x3dh_key_bundle RPC encountered exception, falling back",
             extra={"error": str(e), "user_id": requester_id, "target_user_id": target_user_id},

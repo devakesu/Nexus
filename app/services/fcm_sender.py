@@ -335,11 +335,11 @@ async def send_chat_message_notification(
     sender_id: str,
     recipient_id: str,
     conversation_id: str,
-    tab: str,
+    tab: str,  # noqa: ARG001
     message_id: str,
     ciphertext: str,
     ciphertext_metadata: dict[str, Any] | str,
-    message_type: str = "text",
+    message_type: str = "text",  # noqa: ARG001
     created_at: str | datetime | None = None,
 ) -> None:
     """Fire-and-forget: notify recipient_id of a new message from sender_id.
@@ -376,7 +376,7 @@ async def send_chat_message_notification(
                     extra={"recipient_id": recipient_id, "conversation_id": conversation_id},
                 )
                 return
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.debug("Redis error checking push cooldown, proceeding without throttle")
 
         meta_str = (
@@ -426,8 +426,8 @@ async def send_chat_event_reminder_notification(
     user_a_id: str,
     user_b_id: str,
     conversation_id: str,
-    tab: str,
-    location_label: str | None = None,
+    tab: str,  # noqa: ARG001
+    location_label: str | None = None,  # noqa: ARG001
 ) -> bool:
     """Reminds both participants about an upcoming plan.
 
@@ -555,11 +555,12 @@ async def send_meetup_safety_reminder_notification(
         tokens = await asyncio.to_thread(_fetch_user_fcm_tokens, user_id)
         if not tokens:
             return
+        noun = _SAFETY_REMINDER_NOUN_BY_TAB.get(tab, "meetup")
         await asyncio.to_thread(
             _send_to_tokens,
             tokens,
             "Meetup Safety turns on soon",
-            "Your meetup starts in about 30 minutes - open the chat to start your check-in.",
+            f"Your {noun} starts in about 30 minutes - open the chat to start your check-in.",
             {
                 "type": "meetup_safety_reminder",
                 "conversation_id": conversation_id,

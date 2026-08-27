@@ -8,7 +8,12 @@ from postgrest.exceptions import APIError
 import app.db.profiles as profiles_module
 from app.core.config import DiscoveryTab
 from app.core.security.crypto import DecryptFailedError, compute_blind_index
-from app.db.client import DatabaseAccessError, ProfileDecodeError, normalize_uuid, supabase_client
+from app.db.client import (
+    DatabaseAccessError,
+    ProfileDecodeError,
+    normalize_uuid,
+    supabase_client,
+)
 from app.db.discovery import fetch_active_discovery_excluded_ids
 from app.db.profiles.encryption import (
     TAB_SCORING_FIELDS,
@@ -309,17 +314,7 @@ def _check_basic_overlap(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     return True
 
 
-def _check_candidate_match(
-    c: dict[str, Any],
-    filters: DiscoveryFilters,
-    dealbreakers: set[str],
-) -> bool:
-    """Check candidate match against post-fetch filter criteria."""
-    if not _check_lifestyle_filters(c, filters):
-        return False
-    if not _check_basic_overlap(c, filters):
-        return False
-
+def _check_profile_list_filters(c: dict[str, Any], filters: DiscoveryFilters) -> bool:
     if filters.looking_for:
         decrypt_profile_field(c, "looking_for")
         if not _list_overlap(c.get("looking_for") or [], filters.looking_for):
@@ -332,21 +327,43 @@ def _check_candidate_match(
         decrypt_profile_field(c, "tech_skills")
         if not _list_overlap(c.get("tech_skills") or [], filters.tech_skills):
             return False
-    if filters.partner_values and "partner_values" in dealbreakers:
-        decrypt_profile_field(c, "partner_values")
-        pv_raw: Any = c.get("partner_values") or []
-        if isinstance(pv_raw, str):
-            pv_list: list[str] = [
-                v.strip().lower() for v in pv_raw.split(",") if v.strip()
-            ]
-        else:
-            pv_list: list[str] = [
-                str(v).strip().lower() for v in pv_raw if str(v).strip()
-            ]
-        lower_filters = [v.strip().lower() for v in filters.partner_values if v.strip()]
-        if not _list_overlap(pv_list, lower_filters):
-            return False
     return True
+
+
+def _check_partner_values_dealbreaker(
+    c: dict[str, Any],
+    filters: DiscoveryFilters,
+    dealbreakers: set[str],
+) -> bool:
+    if not (filters.partner_values and "partner_values" in dealbreakers):
+        return True
+    decrypt_profile_field(c, "partner_values")
+    pv_raw: Any = c.get("partner_values") or []
+    if isinstance(pv_raw, str):
+        pv_list: list[str] = [
+            v.strip().lower() for v in pv_raw.split(",") if v.strip()
+        ]
+    else:
+        pv_list = [
+            str(v).strip().lower() for v in pv_raw if str(v).strip()
+        ]
+    lower_filters = [v.strip().lower() for v in filters.partner_values if v.strip()]
+    return _list_overlap(pv_list, lower_filters)
+
+
+def _check_candidate_match(
+    c: dict[str, Any],
+    filters: DiscoveryFilters,
+    dealbreakers: set[str],
+) -> bool:
+    """Check candidate match against post-fetch filter criteria."""
+    if not _check_lifestyle_filters(c, filters):
+        return False
+    if not _check_basic_overlap(c, filters):
+        return False
+    if not _check_profile_list_filters(c, filters):
+        return False
+    return _check_partner_values_dealbreaker(c, filters, dealbreakers)
 
 
 def _apply_post_fetch_filters(

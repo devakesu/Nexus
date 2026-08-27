@@ -5,6 +5,7 @@ across both async event loop threads and sync worker threads.
 """
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Coroutine
 from contextlib import suppress
@@ -108,7 +109,7 @@ async def run_with_retries(
     last_exc: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
-            if asyncio.iscoroutinefunction(factory):
+            if inspect.iscoroutinefunction(factory):
                 return await factory(*args, **kwargs)
             res = factory(*args, **kwargs)
             if asyncio.iscoroutine(res):

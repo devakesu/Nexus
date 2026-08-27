@@ -97,7 +97,7 @@ async def _validate_auth_user_allowed(
             email: Input email parameter.
             auth_user: Input auth user parameter."""
     app_variant = str(
-        auth_user.get("app_metadata", {}).get("app_variant") or "nexus"
+        auth_user.get("app_metadata", {}).get("app_variant") or "nexus",
     ).strip()
 
     if (
@@ -157,7 +157,7 @@ async def auth_bootstrap(
     await _validate_auth_user_allowed(email, auth_user)
 
     app_variant = str(
-        auth_user.get("app_metadata", {}).get("app_variant") or "nexus"
+        auth_user.get("app_metadata", {}).get("app_variant") or "nexus",
     ).strip()
 
     existing_user = await run_in_threadpool(fetch_public_user, user_id)
@@ -638,6 +638,31 @@ def _unhide_special_category_fields(user_id: str) -> None:
         logger.exception("Failed to update hidden fields on terms acceptance")
 
 
+async def _apply_optional_consents(
+    user_id: str, payload: ConsentUpdateRequest,
+) -> tuple[tuple[str, datetime] | None, tuple[str, datetime] | None]:
+    special_result = None
+    if payload.special_category_accepted is not None:
+        special_result = await run_in_threadpool(
+            update_special_category_consent,
+            user_id=user_id,
+            terms_version=payload.terms_version,
+            granted=payload.special_category_accepted,
+        )
+        if payload.special_category_accepted:
+            await run_in_threadpool(_unhide_special_category_fields, user_id)
+
+    safety_result = None
+    if payload.safety_data_accepted is not None:
+        safety_result = await run_in_threadpool(
+            update_safety_data_consent,
+            user_id=user_id,
+            terms_version=payload.terms_version,
+            granted=payload.safety_data_accepted,
+        )
+    return special_result, safety_result
+
+
 @router.post(
     "/api/v1/auth/accept-terms",
     response_model=ConsentUpdateResponse,
@@ -703,25 +728,7 @@ async def accept_terms(
             ),
         )
 
-    special_result = None
-    if payload.special_category_accepted is not None:
-        special_result = await run_in_threadpool(
-            update_special_category_consent,
-            user_id=user_id,
-            terms_version=payload.terms_version,
-            granted=payload.special_category_accepted,
-        )
-        if payload.special_category_accepted:
-            await run_in_threadpool(_unhide_special_category_fields, user_id)
-
-    safety_result = None
-    if payload.safety_data_accepted is not None:
-        safety_result = await run_in_threadpool(
-            update_safety_data_consent,
-            user_id=user_id,
-            terms_version=payload.terms_version,
-            granted=payload.safety_data_accepted,
-        )
+    special_result, safety_result = await _apply_optional_consents(user_id, payload)
 
     # Proactively invalidate user:status cache so consent updates take effect immediately
     try:
@@ -772,7 +779,7 @@ async def revoke_all_sessions(
         await run_in_threadpool(
             lambda: supabase_client.table("user_devices").update(
                 {"is_active": False},
-            ).eq("user_id", user_id).execute()
+            ).eq("user_id", user_id).execute(),
         )
     except Exception:
         logger.warning("Failed to deactivate user_devices for user %s", user_id, exc_info=True)

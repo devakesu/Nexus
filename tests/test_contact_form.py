@@ -244,14 +244,14 @@ async def test_create_and_get_error_session_flow(mock_redis: MagicMock) -> None:
 
     stored_json: str | None = None
 
-    async def fake_set(key: str, val: str, ex: int = 600) -> None:  # noqa: ARG001
+    async def fake_set(key: str, val: str, ex: int = 600) -> None:
         nonlocal stored_json
         stored_json = val
 
-    async def fake_get(key: str) -> str | None:  # noqa: ARG001
+    async def fake_get(key: str) -> str | None:
         return stored_json
 
-    async def fake_delete(key: str) -> None:  # noqa: ARG001
+    async def fake_delete(key: str) -> None:
         nonlocal stored_json
         stored_json = None
 

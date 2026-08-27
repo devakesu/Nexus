@@ -219,7 +219,7 @@ def fetch_active_match_between(user_a: str, user_b: str) -> dict[str, Any] | Non
     try:
         valid_user_a = normalize_uuid(user_a)
         valid_user_b = normalize_uuid(user_b)
-    except Exception:
+    except (ValueError, TypeError):
         return None
 
     try:

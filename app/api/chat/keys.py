@@ -5,7 +5,9 @@ and fetching recipient key bundles to initiate encrypted chat sessions.
 """
 
 import asyncio
+import base64
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request, status
 
@@ -17,6 +19,7 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.infra.cache import redis_client
 from app.core.infra.limiter import limiter
+from app.core.infra.tasks import safe_create_task
 from app.core.security.crypto import verify_signed_prekey_signature
 from app.db.chat import (
     bulk_insert_one_time_prekeys,
@@ -217,6 +220,41 @@ async def get_one_time_prekey_count(
         ) from err
 
 
+def _build_key_bundle_response(target_user_id: str, bundle: dict[str, Any]) -> KeyBundleResponse:
+    return KeyBundleResponse(
+        user_id=target_user_id,
+        identity_public_key=base64.b64encode(bundle["identity_public_key"]),
+        registration_id=bundle["registration_id"],
+        signed_prekey_id=bundle["signed_prekey_id"],
+        signed_prekey_public=base64.b64encode(bundle["signed_prekey_public"]),
+        signed_prekey_signature=base64.b64encode(bundle["signed_prekey_signature"]),
+        one_time_prekey_id=bundle["one_time_prekey_id"],
+        one_time_prekey_public=(
+            base64.b64encode(bundle["one_time_prekey_public"])
+            if bundle["one_time_prekey_public"] is not None
+            else None
+        ),
+        one_time_prekey_used=bundle["one_time_prekey_used"],
+    )
+
+
+async def _check_prekey_replenishment(target_user_id: str) -> None:
+    try:
+        remaining_count = await asyncio.to_thread(count_unused_one_time_prekeys, target_user_id)
+        if remaining_count < 15:
+            push_sent_key = f"chat:prekey_push_sent:{target_user_id}"
+            already_sent = await redis_client.get(push_sent_key)
+            if not already_sent:
+                await redis_client.set(push_sent_key, "1", ex=1800)
+                safe_create_task(send_prekey_replenishment_notification(target_user_id))
+    except Exception as err:
+        logger.exception(
+            "Failed to check prekey count / trigger replenishment push: %s",
+            err,
+            extra={"target_user_id": target_user_id},
+        )
+
+
 @router.get(
     "/api/v1/chat/keys/bundle/{target_user_id}",
     response_model=KeyBundleResponse,
@@ -228,19 +266,7 @@ async def get_key_bundle(
     _device: None = Depends(verify_app_check_token),
     user_id: str = Depends(get_active_user_id),
 ) -> KeyBundleResponse:
-    """Retrieves E2EE public key bundle for establishing encrypted chat session with peer.
-
-        Args:
-            request: FastAPI HTTP request object.
-            target_user_id: UUID string of target recipient user.
-            _device: App Check attestation guard.
-            user_id: Verified caller user ID.
-
-        Returns:
-            KeyBundleResponse: Signal protocol prekey bundle model.
-
-        Raises:
-            HTTPException: 404 if peer key bundle is unavailable."""
+    """Retrieves E2EE public key bundle for establishing encrypted chat session with peer."""
     _ = request
     try:
         cache_key = f"chat:key_bundle:{user_id}:{target_user_id}"
@@ -248,9 +274,10 @@ async def get_key_bundle(
             cached_bundle = await redis_client.get(cache_key)
             if cached_bundle:
                 return KeyBundleResponse.model_validate_json(cached_bundle)
-        except Exception:
+        except Exception as err:  # noqa: BLE001
             logger.warning(
-                "Failed to retrieve cached key bundle",
+                "Failed to retrieve cached key bundle: %s",
+                err,
                 extra={"user_id": user_id, "target_user_id": target_user_id},
             )
 
@@ -268,44 +295,18 @@ async def get_key_bundle(
                 detail="This user has not set up secure messaging yet.",
             )
 
-        import base64
-        res = KeyBundleResponse(
-            user_id=target_user_id,
-            identity_public_key=base64.b64encode(bundle["identity_public_key"]),
-            registration_id=bundle["registration_id"],
-            signed_prekey_id=bundle["signed_prekey_id"],
-            signed_prekey_public=base64.b64encode(bundle["signed_prekey_public"]),
-            signed_prekey_signature=base64.b64encode(bundle["signed_prekey_signature"]),
-            one_time_prekey_id=bundle["one_time_prekey_id"],
-            one_time_prekey_public=(
-                base64.b64encode(bundle["one_time_prekey_public"])
-                if bundle["one_time_prekey_public"] is not None
-                else None
-            ),
-            one_time_prekey_used=bundle["one_time_prekey_used"],
-        )
+        res = _build_key_bundle_response(target_user_id, bundle)
 
         try:
             await redis_client.set(cache_key, res.model_dump_json(), ex=86400)
-        except Exception:
+        except Exception as err:  # noqa: BLE001
             logger.warning(
-                "Failed to cache key bundle in Redis",
+                "Failed to cache key bundle in Redis: %s",
+                err,
                 extra={"user_id": user_id, "target_user_id": target_user_id},
             )
 
-        try:
-            remaining_count = await asyncio.to_thread(count_unused_one_time_prekeys, target_user_id)
-            if remaining_count < 15:
-                push_sent_key = f"chat:prekey_push_sent:{target_user_id}"
-                already_sent = await redis_client.get(push_sent_key)
-                if not already_sent:
-                    await redis_client.set(push_sent_key, "1", ex=1800)
-                    asyncio.create_task(send_prekey_replenishment_notification(target_user_id))
-        except Exception:
-            logger.exception(
-                "Failed to check prekey count / trigger replenishment push",
-                extra={"target_user_id": target_user_id},
-            )
+        await _check_prekey_replenishment(target_user_id)
 
         return res
     except DatabaseAccessError as err:

@@ -170,10 +170,10 @@ __all__ = [
     "AccountPhoneOtpVerifyResponse",
     "AttestationResponse",
     "AuthBootstrapResponse",
-    "BaseOnboardingRequest",
-    "BatchPresenceRequest",
     # chat
     "BaseActionRequest",
+    "BaseOnboardingRequest",
+    "BatchPresenceRequest",
     "ChatCandidateItem",
     "ChatCandidatesResponse",
     "ChatConversationItem",

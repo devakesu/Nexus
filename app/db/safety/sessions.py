@@ -31,34 +31,41 @@ class EscalationInProgressError(Exception):
     """Raised when starting a new safety session while an active one is already escalating."""
 
 
-def _decrypt_session_row(row: dict[str, Any]) -> dict[str, Any]:
-    """Decrypts encrypted label and event_context fields in a safety_session row."""
-    if not row:
-        return row
+def _decrypt_session_label(row: dict[str, Any]) -> None:
     raw_label = row.get("label")
     if raw_label:
         try:
             row["label"] = decrypt_pii(raw_label, category="media_escrow")
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Failed to decrypt session label: %s", e)
 
-    if "event_context" in row:
-        raw_event_context = row.get("event_context")
-        if raw_event_context:
-            if isinstance(raw_event_context, (str, bytes, memoryview)):
-                try:
-                    decrypted = decrypt_pii(raw_event_context, category="media_escrow")
-                    if decrypted:
-                        row["event_context"] = json.loads(decrypted)
-                    else:
-                        row["event_context"] = {}
-                except Exception:
-                    if not isinstance(row.get("event_context"), dict):
-                        row["event_context"] = {}
-            elif isinstance(raw_event_context, dict):
-                row["event_context"] = raw_event_context
-        else:
-            row["event_context"] = {}
+
+def _decrypt_session_event_context(row: dict[str, Any]) -> None:
+    if "event_context" not in row:
+        return
+    raw_event_context = row.get("event_context")
+    if not raw_event_context:
+        row["event_context"] = {}
+        return
+    if isinstance(raw_event_context, dict):
+        row["event_context"] = raw_event_context
+        return
+    if isinstance(raw_event_context, (str, bytes, memoryview)):
+        try:
+            decrypted = decrypt_pii(raw_event_context, category="media_escrow")
+            row["event_context"] = json.loads(decrypted) if decrypted else {}
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Failed to decrypt session event_context: %s", e)
+            if not isinstance(row.get("event_context"), dict):
+                row["event_context"] = {}
+
+
+def _decrypt_session_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Decrypts encrypted label and event_context fields in a safety_session row."""
+    if not row:
+        return row
+    _decrypt_session_label(row)
+    _decrypt_session_event_context(row)
     return row
 
 
@@ -119,6 +126,46 @@ def start_safety_session(
     return _decrypt_session_row(cast(dict[str, Any], row))
 
 
+def _compute_heartbeat_payload(
+    current_session: dict[str, Any],
+    next_checkin_at: str,
+    battery_percent: int | None,
+    connection_type: str | None,
+) -> dict[str, Any]:
+    curr_next_checkin = current_session.get("next_checkin_at")
+    last_escalated_at = current_session.get("last_escalated_at")
+    escalations_sent = int(current_session.get("escalations_sent") or 0)
+
+    new_dt = parse_utc_datetime(next_checkin_at)
+
+    # Check if next_checkin_at regresses against current next_checkin_at
+    is_stale_deadline = bool(curr_next_checkin and new_dt <= parse_utc_datetime(curr_next_checkin))
+
+    # Check if next_checkin_at is newer than last_escalated_at
+    should_reset_escalation = not (
+        escalations_sent > 0
+        and last_escalated_at
+        and new_dt <= parse_utc_datetime(last_escalated_at)
+    )
+
+    update_payload: dict[str, Any] = {
+        "last_heartbeat_at": utcnow().isoformat(),
+        "battery_percent": battery_percent,
+        "connection_type": connection_type,
+    }
+    if not is_stale_deadline:
+        update_payload["next_checkin_at"] = next_checkin_at
+
+    if should_reset_escalation and not is_stale_deadline:
+        update_payload["escalations_sent"] = 0
+        update_payload["last_escalated_at"] = None
+        update_payload["escalation_cancelled_at"] = None
+        update_payload["escalation_cancel_reason"] = None
+        update_payload["escalation_cancel_note"] = None
+
+    return update_payload
+
+
 def heartbeat_safety_session(
     user_id: str,
     session_id: str,
@@ -146,42 +193,13 @@ def heartbeat_safety_session(
         rows = cast(list[dict[str, Any]], session_res.data or [])
         if not rows:
             return None
-        current_session = rows[0]
 
-        curr_next_checkin = current_session.get("next_checkin_at")
-        last_escalated_at = current_session.get("last_escalated_at")
-        escalations_sent = int(current_session.get("escalations_sent") or 0)
-
-        new_dt = parse_utc_datetime(next_checkin_at)
-
-        # Check if next_checkin_at regresses against current next_checkin_at
-        is_stale_deadline = False
-        if curr_next_checkin:
-            curr_dt = parse_utc_datetime(curr_next_checkin)
-            if new_dt <= curr_dt:
-                is_stale_deadline = True
-
-        # Check if next_checkin_at is newer than last_escalated_at
-        should_reset_escalation = True
-        if escalations_sent > 0 and last_escalated_at:
-            last_esc_dt = parse_utc_datetime(last_escalated_at)
-            if new_dt <= last_esc_dt:
-                should_reset_escalation = False
-
-        update_payload: dict[str, Any] = {
-            "last_heartbeat_at": utcnow().isoformat(),
-            "battery_percent": battery_percent,
-            "connection_type": connection_type,
-        }
-        if not is_stale_deadline:
-            update_payload["next_checkin_at"] = next_checkin_at
-
-        if should_reset_escalation and not is_stale_deadline:
-            update_payload["escalations_sent"] = 0
-            update_payload["last_escalated_at"] = None
-            update_payload["escalation_cancelled_at"] = None
-            update_payload["escalation_cancel_reason"] = None
-            update_payload["escalation_cancel_note"] = None
+        update_payload = _compute_heartbeat_payload(
+            rows[0],
+            next_checkin_at,
+            battery_percent,
+            connection_type,
+        )
 
         res = (
             supabase_client.table("safety_sessions")

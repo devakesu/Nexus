@@ -202,8 +202,8 @@ async def test_spotify_native_exchange_redirect_uri_validation(
         redirect_uri=allowed_uri,
     )
     mock_tokens = MagicMock()
-    mock_tokens.access_token = "access_token_123"  # noqa: S105
-    mock_tokens.refresh_token = "refresh_token_123"  # noqa: S105
+    mock_tokens.access_token = "access_token_123"
+    mock_tokens.refresh_token = "refresh_token_123"
     mock_tokens.scope = "user-top-read"
     mock_exchange.return_value = mock_tokens
     mock_seed.return_value = ["Artist A", "Artist B"]
@@ -236,8 +236,8 @@ async def test_spotify_resync_persists_rotated_refresh_token(
 
     mock_get_refresh_token.return_value = "old_refresh_token"
     mock_bundle = MagicMock()
-    mock_bundle.access_token = "new_access_token"  # noqa: S105
-    mock_bundle.refresh_token = "rotated_refresh_token"  # noqa: S105
+    mock_bundle.access_token = "new_access_token"
+    mock_bundle.refresh_token = "rotated_refresh_token"
     mock_bundle.scope = "user-top-read"
     mock_refresh.return_value = mock_bundle
 

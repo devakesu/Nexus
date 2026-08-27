@@ -6,8 +6,8 @@ import re
 import uuid
 from typing import Any
 
-from fastapi import Request, Response
 import sentry_sdk
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 _REQUEST_ID_CTX: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")

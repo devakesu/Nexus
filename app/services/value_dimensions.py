@@ -313,9 +313,9 @@ def recompile_value_dimensions(user_id: str) -> None:
                 extra={"user_id": user_id},
             )
             return
-    except Exception:
+    except Exception as err:  # noqa: BLE001
         # Non-fatal: if Redis is unavailable, continue with recompilation
-        pass
+        logger.debug("Redis unavailable for value dimension cooldown: %s", err)
 
     try:
         res = (

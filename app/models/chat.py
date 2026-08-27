@@ -181,7 +181,7 @@ class SendMessageRequest(BaseModel):
                     raise ValueError(f"Metadata string value for key '{key}' exceeds 500 characters")
             else:
                 raise ValueError(
-                    f"Invalid metadata value type for key '{key}': only string, number, or boolean allowed"
+                    f"Invalid metadata value type for key '{key}': only string, number, or boolean allowed",
                 )
         return v
 

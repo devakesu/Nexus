@@ -14,7 +14,7 @@ after use.
 import base64
 import hashlib
 import hmac
-from typing import Any
+from typing import Any, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
@@ -40,7 +40,7 @@ def _derive_category_key(raw_key: bytes, category: str) -> bytes:
         algorithm=hashes.SHA256(),
         length=32,
         salt=b"nexus-pii-v1",
-        info=f"nexus:pii:{category}".encode("utf-8"),
+        info=f"nexus:pii:{category}".encode(),
     ).derive(raw_key)
     return base64.urlsafe_b64encode(derived)
 
@@ -95,6 +95,19 @@ def encrypt_pii(plaintext: str | None, category: str = "profile") -> bytes:
     return _get_cipher_suite(category).encrypt(plaintext.encode("utf-8"))
 
 
+def _normalize_ciphertext_bytes(ciphertext: Any) -> bytes:
+    if isinstance(ciphertext, memoryview):
+        return ciphertext.tobytes()
+    if isinstance(ciphertext, str):
+        if ciphertext.startswith("\\x"):
+            try:
+                return bytes.fromhex(ciphertext[2:])
+            except ValueError as err:
+                raise DecryptFailedError("Invalid hex-encoded ciphertext") from err
+        return ciphertext.encode("utf-8")
+    return cast(bytes, ciphertext)
+
+
 def decrypt_pii(
     ciphertext: Any,
     category: str = "profile",
@@ -126,23 +139,13 @@ def decrypt_pii(
     if ciphertext is None or ciphertext == b"" or ciphertext == "":
         return ""
 
-    if isinstance(ciphertext, memoryview):
-        ciphertext = ciphertext.tobytes()
-
-    if isinstance(ciphertext, str):
-        if ciphertext.startswith("\\x"):
-            try:
-                ciphertext = bytes.fromhex(ciphertext[2:])
-            except ValueError as err:
-                raise DecryptFailedError("Invalid hex-encoded ciphertext") from err
-        else:
-            ciphertext = ciphertext.encode("utf-8")
+    raw_bytes = _normalize_ciphertext_bytes(ciphertext)
 
     try:
         suite = _get_cipher_suite(category)
         if ttl is not None:
-            return suite.decrypt(ciphertext, ttl=ttl).decode("utf-8")
-        return suite.decrypt(ciphertext).decode("utf-8")
+            return suite.decrypt(raw_bytes, ttl=ttl).decode("utf-8")
+        return suite.decrypt(raw_bytes).decode("utf-8")
     except InvalidToken as e:
         raise DecryptFailedError(f"Invalid Fernet token, expired TTL, or wrong key for category '{category}'") from e
     except Exception as e:

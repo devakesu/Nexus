@@ -13,12 +13,15 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.api.discovery._shared import _validate_conversation_membership
 from app.core.config import DiscoveryTab, settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
 from app.core.security.crypto import DecryptFailedError
 from app.db.chat import (
     close_conversation_for_match_action,
+)
+from app.db.chat import (
     fetch_conversation_participants as fetch_conversation_participants,
 )
 from app.db.client import (
@@ -76,9 +79,6 @@ def _parse_matched_at(raw_ts: Any) -> datetime:
     if isinstance(raw_ts, datetime):
         return raw_ts
     return parse_utc_datetime(raw_ts)
-
-
-from app.api.discovery._shared import _validate_conversation_membership
 
 
 @router.get("/api/v1/likes", response_model=LikesListResponse)
@@ -458,7 +458,8 @@ async def record_like_back_action(  # noqa: C901
             if matched:
                 try:
                     # payload.target_id is the original liker; user_id liked back
-                    assert payload.tab is not None
+                    if payload.tab is None:
+                        raise HTTPException(status_code=400, detail="Discovery tab is required.")
                     match_id = await asyncio.to_thread(
                         record_match,
                         payload.target_id,
@@ -650,7 +651,8 @@ async def record_match_action(
             )
             await invalidate_block_cache(user_id, payload.target_id)
         else:  # unmatch
-            assert payload.tab is not None
+            if payload.tab is None:
+                raise HTTPException(status_code=400, detail="Discovery tab is required.")
             await asyncio.to_thread(
                 record_mutual_pass,
                 user_id,
@@ -659,7 +661,9 @@ async def record_match_action(
                 14,
             )
             try:
-                from app.db.sessions.auth_sessions import invalidate_viewer_discovery_sessions
+                from app.db.sessions.auth_sessions import (
+                    invalidate_viewer_discovery_sessions,
+                )
 
                 await asyncio.to_thread(invalidate_viewer_discovery_sessions, user_id)
                 await asyncio.to_thread(invalidate_viewer_discovery_sessions, payload.target_id)

@@ -81,15 +81,51 @@ _MAX_ALERTS_PER_USER_HOURLY = 5
 _USER_ALERT_THROTTLE_SECONDS = 3600
 
 
+async def _send_single_contact_notice(
+    raw_phone: str,
+    norm_phone: str,
+    contact: dict[str, Any],
+    user_name: str,
+    user_id: str,
+) -> None:
+    recipient_key = f"safety:recipient:added_notice:{norm_phone}"
+    try:
+        notice_count = await redis_client.incr(recipient_key)
+        if notice_count == 1:
+            await redis_client.expire(recipient_key, _PHONE_NOTICE_THROTTLE_SECONDS)
+        if notice_count > _MAX_NOTICES_PER_PHONE_HOURLY:
+            logger.warning(
+                "Throttling safety contact addition SMS to recipient",
+                extra={"phone_masked": redact_phone(raw_phone)},
+            )
+            return
+    except Exception as err:  # noqa: BLE001
+        logger.warning("Redis failure checking recipient notice throttle: %s; proceeding with send", err)
+
+    manage_link = (
+        f"{settings.backend_url}/api/v1/safety/contact/{make_contact_portal_token(contact['id'])}"
+    )
+    body = compose_contact_added_message(
+        user_name=str(user_name), manage_link=manage_link,
+    )
+    sms_res = await send_sms(raw_phone, body)
+    if not sms_res.success:
+        logger.warning(
+            "Failed to deliver 'contact added' notice SMS to recipient",
+            extra={
+                "user_id": user_id,
+                "contact_phone_masked": redact_phone(raw_phone),
+                "error": sms_res.error,
+                "error_code": sms_res.error_code,
+            },
+        )
+
+
 async def _notify_newly_added_contacts(
     user_id: str,
     newly_notified: list[dict[str, Any]],
 ) -> None:
-    """Fire-and-forget: sends the one-time "you were added" notice SMS
-    (with the self-removal portal link) to each phone number seen for the
-    first time in this sync. Runs after the sync itself so a slow/failed
-    SMS never blocks the response.
-    """
+    """Fire-and-forget: sends the one-time 'you were added' notice SMS."""
     if not newly_notified:
         return
     try:
@@ -103,47 +139,13 @@ async def _notify_newly_added_contacts(
         return
 
     user_name = (profile or {}).get("name") or "A Nexus user"
-
     by_phone = {normalize_phone(str(c["phone"])): c for c in contacts}
     for n in newly_notified:
         raw_phone = str(n.get("phone") or "")
         norm_phone = normalize_phone(raw_phone)
         contact = by_phone.get(norm_phone)
-        if contact is None:
-            continue
-
-        # Per-recipient throttle to prevent SMS bombing single phone numbers
-        recipient_key = f"safety:recipient:added_notice:{norm_phone}"
-        try:
-            notice_count = await redis_client.incr(recipient_key)
-            if notice_count == 1:
-                await redis_client.expire(recipient_key, _PHONE_NOTICE_THROTTLE_SECONDS)
-            if notice_count > _MAX_NOTICES_PER_PHONE_HOURLY:
-                logger.warning(
-                    "Throttling safety contact addition SMS to recipient",
-                    extra={"phone_masked": redact_phone(raw_phone)},
-                )
-                continue
-        except Exception:
-            logger.warning("Redis failure checking recipient notice throttle; proceeding with send")
-
-        manage_link = (
-            f"{settings.backend_url}/api/v1/safety/contact/{make_contact_portal_token(contact['id'])}"
-        )
-        body = compose_contact_added_message(
-            user_name=str(user_name), manage_link=manage_link,
-        )
-        sms_res = await send_sms(raw_phone, body)
-        if not sms_res.success:
-            logger.warning(
-                "Failed to deliver 'contact added' notice SMS to recipient",
-                extra={
-                    "user_id": user_id,
-                    "contact_phone_masked": redact_phone(raw_phone),
-                    "error": sms_res.error,
-                    "error_code": sms_res.error_code,
-                },
-            )
+        if contact is not None:
+            await _send_single_contact_notice(raw_phone, norm_phone, contact, str(user_name), user_id)
 
 
 @router.put("/api/v1/safety/contacts", response_model=SafetyContactsSyncResponse)
@@ -309,22 +311,7 @@ async def _cache_sos_alert(idempotency_key: str, response: SafetyAlertResponse) 
         logger.warning("Failed to set SOS idempotency in Redis", exc_info=err)
 
 
-@router.post("/api/v1/safety/alert", response_model=SafetyAlertResponse)
-@limiter.limit(settings.rate_limit_safety_alert)
-async def send_safety_alert(
-    request: Request,
-    payload: SafetyAlertRequest = Body(...),
-    _device: None = Depends(verify_app_check_with_strict_replay_protection),
-    user_id: str = Depends(require_safety_consent),
-) -> SafetyAlertResponse:
-    """Composes and sends the SOS/inform SMS to every trusted contact on
-    file, then logs the alert (and how many contacts were actually reached)
-    for audit purposes. Notifying remaining contacts continues even if one
-    send fails - a partial alert is far better than none.
-    """
-    _ = request
-
-    # Check per-user hourly alert rate quota in Redis
+async def _check_user_alert_rate_limit(user_id: str) -> None:
     user_alert_key = f"safety:alert:throttle:{user_id}"
     try:
         alert_count = await redis_client.incr(user_alert_key)
@@ -341,8 +328,26 @@ async def send_safety_alert(
             )
     except HTTPException:
         raise
-    except Exception:
-        logger.warning("Redis failure checking user alert throttle; proceeding with alert")
+    except Exception as err:  # noqa: BLE001
+        logger.warning("Redis failure checking user alert throttle: %s; proceeding with alert", err)
+
+
+@router.post("/api/v1/safety/alert", response_model=SafetyAlertResponse)
+@limiter.limit(settings.rate_limit_safety_alert)
+async def send_safety_alert(
+    request: Request,
+    payload: SafetyAlertRequest = Body(...),
+    _device: None = Depends(verify_app_check_with_strict_replay_protection),
+    user_id: str = Depends(require_safety_consent),
+) -> SafetyAlertResponse:
+    """Composes and sends the SOS/inform SMS to every trusted contact on
+    file, then logs the alert (and how many contacts were actually reached)
+    for audit purposes. Notifying remaining contacts continues even if one
+    send fails - a partial alert is far better than none.
+    """
+    _ = request
+
+    await _check_user_alert_rate_limit(user_id)
 
     hashed_suffix = hashlib.sha256(
         f"{user_id}:{payload.alert_type}:{payload.session_id or 'none'}".encode(),
@@ -375,7 +380,7 @@ async def send_safety_alert(
     profile = None
     try:
         profile = await asyncio.to_thread(fetch_contact_facing_profile_summary, user_id)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         logger.warning(
             "Could not fetch profile for safety alert sender name",
             extra={"user_id": user_id, "error": str(err)},
@@ -642,6 +647,38 @@ async def end_session(
     return {"ok": True}
 
 
+def _check_session_cancellation_state(
+    session: dict[str, Any] | None, token_escalation_num: int,
+) -> HTMLResponse | None:
+    if session is None:
+        return HTMLResponse(
+            _escalation_page("This safety session no longer exists."),
+            status_code=404,
+        )
+
+    # If session is already ended or cancelled, acknowledge it gracefully
+    if session.get("status") == "ended":
+        return HTMLResponse(
+            _escalation_page("This check-in has already ended. Further alerts are stopped."),
+            status_code=200,
+        )
+
+    # Pause the current burst only, if it is already cancelled, acknowledge it
+    if session.get("escalation_cancelled_at") is not None:
+        return HTMLResponse(
+            _escalation_page("This safety alert has already been cancelled."),
+            status_code=200,
+        )
+
+    # Only allow cancellation if it matches the current active escalation attempt
+    if int(session.get("escalations_sent") or 0) != token_escalation_num:
+        return HTMLResponse(
+            _escalation_page("That link is no longer valid for this safety alert."),
+            status_code=400,
+        )
+    return None
+
+
 async def _handle_cancel_escalation(
     session_id: str,
     token: str,
@@ -681,34 +718,11 @@ async def _handle_cancel_escalation(
 
     try:
         session = await asyncio.to_thread(fetch_safety_session, session_id)
-        if session is None:
-            return HTMLResponse(
-                _escalation_page("This safety session no longer exists."),
-                status_code=404,
-            )
+        state_error = _check_session_cancellation_state(session, token_escalation_num)
+        if state_error is not None:
+            return state_error
 
-        # If session is already ended or cancelled, acknowledge it gracefully
-        if session.get("status") == "ended":
-            return HTMLResponse(
-                _escalation_page("This check-in has already ended. Further alerts are stopped."),
-                status_code=200,
-            )
-
-        # Pause the current burst only, if it is already cancelled, acknowledge it
-        if session.get("escalation_cancelled_at") is not None:
-            return HTMLResponse(
-                _escalation_page("This safety alert has already been cancelled."),
-                status_code=200,
-            )
-
-        # Only allow cancellation if it matches the current active escalation attempt
-        if int(session.get("escalations_sent") or 0) != token_escalation_num:
-            return HTMLResponse(
-                _escalation_page("That link is no longer valid for this safety alert."),
-                status_code=400,
-            )
-
-        user_id = session.get("user_id")
+        user_id = session.get("user_id") if session else None
         if not user_id:
             return HTMLResponse(
                 _escalation_page("This safety session no longer exists."),

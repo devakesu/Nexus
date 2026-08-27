@@ -220,7 +220,7 @@ async def _fetch_and_update_cached_jwks(current_time: float) -> None:
         _last_fetch_failure_time = current_time
         logger.warning("Supabase JWKS dynamic fetch failed: %r; serving from stale cache if available", err)
         sentry_sdk.capture_exception(err)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _last_fetch_failure_time = current_time
         logger.warning("Supabase JWKS fetch encountered error: %r; serving from stale cache if available", err)
         sentry_sdk.capture_exception(err)

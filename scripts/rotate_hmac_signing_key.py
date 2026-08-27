@@ -19,7 +19,10 @@ from app.core.auth.phone_otp import hash_otp as phone_hash_otp
 from app.core.auth.phone_otp import verify_otp_hash as phone_verify_otp_hash
 from app.core.config import settings
 from app.core.security.crypto import get_hmac_signing_key, get_hmac_verify_keys
-from app.core.security.portal_auth import make_portal_access_token, verify_portal_access_token
+from app.core.security.portal_auth import (
+    make_portal_access_token,
+    verify_portal_access_token,
+)
 from app.core.utils.sms import make_contact_portal_token, verify_contact_portal_token
 
 logging.basicConfig(
@@ -43,14 +46,14 @@ def main() -> int:
     keys = get_hmac_verify_keys()
     signing_key = get_hmac_signing_key()
 
-    print(f"\n1. Key Configuration Status:")
+    print("\n1. Key Configuration Status:")
     print(f"   - Total HMAC Keys Configured: {len(keys)}")
     print(f"   - Primary Signing Key Length: {len(signing_key)} bytes")
     for idx, k in enumerate(keys):
         role = "Active Signing + Verification" if idx == 0 else f"Verification Only (Old Key #{idx})"
         print(f"   - Key [{idx}]: {len(k)} bytes ({role})")
 
-    print(f"\n2. Verifying Signing & Multi-Key Verification Paths:")
+    print("\n2. Verifying Signing & Multi-Key Verification Paths:")
 
     # Test Phone OTP verification
     test_user_id = "test-user-12345"

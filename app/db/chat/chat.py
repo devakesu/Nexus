@@ -238,39 +238,46 @@ def delete_user_chat_media(user_id: str, conversation_ids: list[str]) -> None:
                 )
 
 
+def _collect_single_obj_paths(conv_id: str, obj: dict[str, Any], all_paths: list[str]) -> None:
+    name = obj.get("name")
+    if not name:
+        return
+    if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
+        try:
+            sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
+                f"{conv_id}/{name}",
+            )
+            for sub in (sub_objects or []):
+                sub_name = sub.get("name")
+                if sub_name:
+                    all_paths.append(f"{conv_id}/{name}/{sub_name}")
+        except Exception:  # noqa: BLE001
+            all_paths.append(f"{conv_id}/{name}")
+    else:
+        all_paths.append(f"{conv_id}/{name}")
+
+
+def _collect_conversation_media_paths(conv_id: str, all_paths: list[str]) -> None:
+    if not conv_id:
+        return
+    try:
+        objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conv_id)
+        for obj in (objects or []):
+            _collect_single_obj_paths(conv_id, obj, all_paths)
+    except Exception:
+        logger.exception(
+            "Failed to list chat_media objects for conversation %s",
+            conv_id,
+        )
+
+
 def batch_delete_conversations_chat_media(conversation_ids: list[str]) -> None:
     """Purges encrypted media blobs for multiple conversations in batched storage remove calls."""
     if not conversation_ids:
         return
     all_paths: list[str] = []
     for conv_id in conversation_ids:
-        if not conv_id:
-            continue
-        try:
-            objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(conv_id)
-            for obj in (objects or []):
-                name = obj.get("name")
-                if not name:
-                    continue
-                # If name is a subdirectory (e.g. uploader_id), list objects inside it
-                if obj.get("id") is None and obj.get("metadata") is None and "." not in name:
-                    try:
-                        sub_objects = supabase_client.storage.from_(_CHAT_MEDIA_BUCKET).list(
-                            f"{conv_id}/{name}",
-                        )
-                        for sub in (sub_objects or []):
-                            sub_name = sub.get("name")
-                            if sub_name:
-                                all_paths.append(f"{conv_id}/{name}/{sub_name}")
-                    except Exception:
-                        all_paths.append(f"{conv_id}/{name}")
-                else:
-                    all_paths.append(f"{conv_id}/{name}")
-        except Exception:
-            logger.exception(
-                "Failed to list chat_media objects for conversation %s",
-                conv_id,
-            )
+        _collect_conversation_media_paths(conv_id, all_paths)
 
     if all_paths:
         chunk_size = 100
@@ -599,7 +606,7 @@ def upsert_presence_heartbeat(user_id: str, is_online: bool) -> None:
             },
         )
         sync_redis_client.set(f"presence:{user_id}", data, ex=90)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to set presence in Redis: %s; falling back to DB",
             e,
@@ -636,7 +643,7 @@ def fetch_presence(user_id: str) -> dict[str, Any] | None:
             data = json.loads(raw)
             if isinstance(data, dict):
                 return cast(dict[str, Any], data)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to fetch presence from Redis: %s",
             e,

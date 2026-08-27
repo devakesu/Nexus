@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
 
-
 _TERMS_VERSION_REGEX = re.compile(r"^\d+(\.\d+)*$")
 
 
@@ -480,8 +479,8 @@ class AttestationResponse(BaseModel):
     """Live hardware and App Check attestation telemetry response DTO."""
 
     verified: bool
-    appCheck: bool
-    appId: str | None = None
+    appCheck: bool  # noqa: N815
+    appId: str | None = None  # noqa: N815
     timestamp: str
     details: dict[str, Any] = Field(default_factory=dict)
 

@@ -7,8 +7,8 @@ and HMAC-SHA256 hash calculation/verification for account phone verification flo
 import hashlib
 import hmac
 
-from fastapi import HTTPException, status
 import phonenumbers
+from fastapi import HTTPException, status
 from phonenumbers import NumberParseException, PhoneNumberFormat
 
 from app.core.infra.otp import generate_otp_code

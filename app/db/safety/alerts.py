@@ -10,7 +10,12 @@ from postgrest.exceptions import APIError
 
 from app.core.config import settings
 from app.core.security.crypto import DecryptFailedError, decrypt_pii, encrypt_to_hex
-from app.db.client import DatabaseAccessError, parse_utc_datetime, supabase_client, utcnow
+from app.db.client import (
+    DatabaseAccessError,
+    parse_utc_datetime,
+    supabase_client,
+    utcnow,
+)
 from app.db.profiles import (
     decrypt_profile_record,
     sanitize_decrypted_profile,
@@ -157,7 +162,7 @@ def fetch_alerts_for_session(
     max_location_age: timedelta | None = _PORTAL_LOCATION_MAX_AGE,
 ) -> list[dict[str, Any]]:
     """Fetch safety alerts for a given safety session.
-    
+
     Locations are only decrypted if decrypt_locations is True and the alert timestamp
     is within max_location_age (staleness guard against exposure of old coordinates).
     """

@@ -17,6 +17,33 @@ def _phone_blind_index(phone: str) -> str:
     return compute_blind_index(normalize_phone(phone), domain="safety_contact_phone")
 
 
+def _fallback_contact_notices_sync(
+    user_id: str,
+    by_blind_index: dict[str, dict[str, Any]],
+    blocked: list[dict[str, Any]],
+    newly_notified: list[dict[str, Any]],
+) -> None:
+    try:
+        notices_res = (
+            supabase_client.table("safety_contact_notices")
+            .select("phone_blind_index, self_removed_at")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        notices = {
+            str(row["phone_blind_index"]): row
+            for row in cast(list[dict[str, Any]], notices_res.data or [])
+        }
+        for blind_idx, c in by_blind_index.items():
+            notice = notices.get(blind_idx)
+            if notice is not None and notice.get("self_removed_at"):
+                blocked.append(c)
+            elif notice is None:
+                newly_notified.append({**c, "blind_index": blind_idx})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Fallback query for safety contact notices failed: %s", exc)
+
+
 def sync_safety_contacts(
     user_id: str,
     contacts: list[dict[str, Any]],
@@ -67,26 +94,7 @@ def sync_safety_contacts(
             elif blind_idx in newly_notified_indices:
                 newly_notified.append({**c, "blind_index": blind_idx})
     else:
-        # Fallback / mock handling: query notices directly if RPC returned no structured dict
-        try:
-            notices_res = (
-                supabase_client.table("safety_contact_notices")
-                .select("phone_blind_index, self_removed_at")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            notices = {
-                str(row["phone_blind_index"]): row
-                for row in cast(list[dict[str, Any]], notices_res.data or [])
-            }
-            for blind_idx, c in by_blind_index.items():
-                notice = notices.get(blind_idx)
-                if notice is not None and notice.get("self_removed_at"):
-                    blocked.append(c)
-                elif notice is None:
-                    newly_notified.append({**c, "blind_index": blind_idx})
-        except Exception:
-            pass
+        _fallback_contact_notices_sync(user_id, by_blind_index, blocked, newly_notified)
 
     return blocked, newly_notified
 

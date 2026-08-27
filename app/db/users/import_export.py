@@ -252,24 +252,7 @@ def _fetch_import_profiles(
     )
 
 
-def execute_import(
-    target_user_id: str,
-    sync_code: str,
-    target_variant: str = "nexus",
-) -> list[str]:
-    """
-    Execute the cross-flavor import handshake.
-
-    Direction: flavor account (source) → main nexus account (target).
-    """
-    now = datetime.now(timezone.utc)
-
-    source, target = _fetch_import_profiles(sync_code, target_user_id)
-
-    source_user = fetch_public_user(source["id"])
-    source_variant, _ = _validate_import(source, target, target_variant, source_user)
-
-    # --- 5. Copy encrypted fields (re-encrypt with current active key) ---
+def _build_copy_payload(source: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     copy_payload: dict[str, Any] = {}
     copied_fields: list[str] = []
     for field in _IMPORTABLE_FIELDS:
@@ -292,8 +275,10 @@ def execute_import(
             else:
                 copy_payload[field] = value
             copied_fields.append(field)
+    return copy_payload, copied_fields
 
-    # --- 5. Atomic consumption: Nullify source sync code first via CAS to prevent replay or race conditions ---
+
+def _nullify_source_sync_code(source: dict[str, Any], sync_code: str, now: datetime) -> None:
     try:
         nullify_res = (
             supabase_client.table("profiles")
@@ -322,6 +307,30 @@ def execute_import(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to process export code. Please try again.",
         ) from e
+
+
+def execute_import(
+    target_user_id: str,
+    sync_code: str,
+    target_variant: str = "nexus",
+) -> list[str]:
+    """
+    Execute the cross-flavor import handshake.
+
+    Direction: flavor account (source) → main nexus account (target).
+    """
+    now = datetime.now(timezone.utc)
+
+    source, target = _fetch_import_profiles(sync_code, target_user_id)
+
+    source_user = fetch_public_user(source["id"])
+    source_variant, _ = _validate_import(source, target, target_variant, source_user)
+
+    # --- 5. Copy encrypted fields (re-encrypt with current active key) ---
+    copy_payload, copied_fields = _build_copy_payload(source)
+
+    # --- 5. Atomic consumption: Nullify source sync code first via CAS to prevent replay or race conditions ---
+    _nullify_source_sync_code(source, sync_code, now)
 
     # --- 6. Apply imported fields to target profile ---
     copy_payload["has_imported_data"] = True

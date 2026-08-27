@@ -114,6 +114,30 @@ async def _record_failed_attempt(key: str, ttl_seconds: int = 900) -> int:
         return 1
 
 
+async def _check_import_rate_limits(user_id: str, sync_code: str) -> tuple[str, str]:
+    attempts_key = f"import:attempts:{user_id}"
+    code_hash = hashlib.sha256(sync_code.strip().upper().encode()).hexdigest()[:16]
+    code_attempts_key = f"import:code_attempts:{code_hash}"
+
+    attempts = await redis_client.get(attempts_key)
+    if attempts and int(attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed import attempts. Please try again in 15 minutes.",
+        )
+
+    code_attempts = await redis_client.get(code_attempts_key)
+    if code_attempts and int(code_attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "This sync code has had too many failed validation attempts. "
+                "Please export a new code."
+            ),
+        )
+    return attempts_key, code_attempts_key
+
+
 @router.post(
     "/api/v1/profiles/import",
     response_model=ImportResponse,
@@ -145,27 +169,7 @@ async def import_from_flavor(
             detail="Authenticated user payload is incomplete.",
         )
 
-    # Redis key for tracking failed attempts by target user_id and hashed sync_code
-    attempts_key = f"import:attempts:{user_id}"
-    code_hash = hashlib.sha256(payload.sync_code.strip().upper().encode()).hexdigest()[:16]
-    code_attempts_key = f"import:code_attempts:{code_hash}"
-
-    attempts = await redis_client.get(attempts_key)
-    if attempts and int(attempts) >= 5:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many failed import attempts. Please try again in 15 minutes.",
-        )
-
-    code_attempts = await redis_client.get(code_attempts_key)
-    if code_attempts and int(code_attempts) >= 5:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                "This sync code has had too many failed validation attempts. "
-                "Please export a new code."
-            ),
-        )
+    attempts_key, code_attempts_key = await _check_import_rate_limits(user_id, payload.sync_code)
 
     # Verify the caller is the main 'nexus' app variant early
     user_row = await asyncio.to_thread(fetch_public_user, user_id)

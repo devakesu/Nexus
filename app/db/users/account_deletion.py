@@ -292,49 +292,7 @@ def _close_all_conversations(user_id: str) -> None:
         raise DatabaseAccessError("Failed to bulk close all conversations") from e
 
 
-def request_deletion(
-    user_id: str,
-    flagged_reason_code: str | None,
-    access_token: str | None = None,
-) -> datetime:
-    """Starts the grace window: signs the account out of new access,
-    without touching any data that cancel_deletion() needs to restore. See
-    the module docstring for why profiles/users/matches/chats are left
-    alone here rather than deleted.
-    """
-    user_id = normalize_uuid(user_id)
-    now = utcnow()
-    grace_days = settings.account_deletion_grace_period_days
-    scheduled_purge_at = now + timedelta(days=grace_days)
-
-    try:
-        supabase_client.table("users").update(
-            {
-                "deletion_requested_at": now.isoformat(),
-                "scheduled_purge_at": scheduled_purge_at.isoformat(),
-                "deletion_flagged_reason_code": flagged_reason_code,
-            },
-        ).eq("id", user_id).execute()
-        invalidate_user_status_cache(user_id)
-    except APIError as e:
-        logger.exception(
-            "Failed to set deletion lifecycle columns", extra={"user_id": user_id},
-        )
-        raise DatabaseAccessError("Failed to request account deletion") from e
-
-    try:
-        supabase_client.table("profiles").update(
-            {"is_deactivated": True, "deactivated_at": now.isoformat()},
-        ).eq("id", user_id).execute()
-    except APIError as e:
-        logger.exception(
-            "Failed to deactivate profile for deletion", extra={"user_id": user_id},
-        )
-        raise DatabaseAccessError("Failed to request account deletion") from e
-
-    # Secondary cleanup below is best-effort - the two writes above are what
-    # actually makes the account inactive/hidden/undoable, and must not be
-    # blocked by a transient failure in a lower-priority side effect.
+def _best_effort_deletion_cleanup(user_id: str, access_token: str | None) -> None:
     try:
         supabase_client.table("user_devices").update(
             {"is_active": False},
@@ -385,6 +343,48 @@ def request_deletion(
                 extra={"user_id": user_id},
             )
 
+
+def request_deletion(
+    user_id: str,
+    flagged_reason_code: str | None,
+    access_token: str | None = None,
+) -> datetime:
+    """Starts the grace window: signs the account out of new access,
+    without touching any data that cancel_deletion() needs to restore. See
+    the module docstring for why profiles/users/matches/chats are left
+    alone here rather than deleted.
+    """
+    user_id = normalize_uuid(user_id)
+    now = utcnow()
+    grace_days = settings.account_deletion_grace_period_days
+    scheduled_purge_at = now + timedelta(days=grace_days)
+
+    try:
+        supabase_client.table("users").update(
+            {
+                "deletion_requested_at": now.isoformat(),
+                "scheduled_purge_at": scheduled_purge_at.isoformat(),
+                "deletion_flagged_reason_code": flagged_reason_code,
+            },
+        ).eq("id", user_id).execute()
+        invalidate_user_status_cache(user_id)
+    except APIError as e:
+        logger.exception(
+            "Failed to set deletion lifecycle columns", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to request account deletion") from e
+
+    try:
+        supabase_client.table("profiles").update(
+            {"is_deactivated": True, "deactivated_at": now.isoformat()},
+        ).eq("id", user_id).execute()
+    except APIError as e:
+        logger.exception(
+            "Failed to deactivate profile for deletion", extra={"user_id": user_id},
+        )
+        raise DatabaseAccessError("Failed to request account deletion") from e
+
+    _best_effort_deletion_cleanup(user_id, access_token)
     return scheduled_purge_at
 
 
@@ -710,7 +710,7 @@ def _purge_single_due_account(row: dict[str, Any], now: datetime) -> None:
             fresh_reason = compute_deletion_flag_reason(user_id)
             if fresh_reason is not None:
                 reason_code = fresh_reason
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.warning(
                 "Could not dynamically re-evaluate deletion flag reason for user %s; using frozen code",
                 user_id,

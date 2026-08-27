@@ -13,7 +13,7 @@ from pathlib import Path
 # Add script directory to path if run standalone
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
-from version_utils import (  # noqa: E402
+from version_utils import (
     RELEASE_BRANCH_PATTERN,
     VERSION_PATTERN,
     parse_version,

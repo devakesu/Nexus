@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import logging
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 from fastapi import APIRouter, Body, Header, HTTPException, Request
@@ -100,6 +100,23 @@ def _resend_key(session_id: str, phone_norm: str) -> str:
 _PORTAL_SESSION_MAX_STALE_DAYS = 7
 
 
+def _is_session_accessible(session: dict[str, Any] | None) -> bool:
+    if session is None:
+        return False
+    if session.get("status") == "active":
+        return True
+    # Ended sessions remain accessible only within the 7-day post-session window
+    checkin_raw = session.get("next_checkin_at") or session.get("last_escalated_at")
+    if checkin_raw:
+        try:
+            checkin_dt = parse_utc_datetime(str(checkin_raw))
+            if (utcnow() - checkin_dt) <= timedelta(days=_PORTAL_SESSION_MAX_STALE_DAYS):
+                return True
+        except (ValueError, TypeError):
+            return False
+    return False
+
+
 @router.post(
     "/api/v1/safety/portal/{session_id}/otp/request",
     response_model=SafetyPortalOtpRequestResponse,
@@ -116,7 +133,7 @@ async def request_portal_otp(
 
     resend_key = _resend_key(session_id, phone_norm)
     acquired = await redis_client.set(
-        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True
+        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
     )
     if not acquired:
         raise HTTPException(
@@ -126,20 +143,7 @@ async def request_portal_otp(
 
     try:
         session = await asyncio.to_thread(fetch_safety_session, session_id)
-        session_accessible = False
-        if session is not None:
-            if session.get("status") == "active":
-                session_accessible = True
-            else:
-                # Ended sessions remain accessible only within the 7-day post-session window
-                checkin_raw = session.get("next_checkin_at") or session.get("last_escalated_at")
-                if checkin_raw:
-                    try:
-                        checkin_dt = parse_utc_datetime(str(checkin_raw))
-                        if (utcnow() - checkin_dt) <= timedelta(days=_PORTAL_SESSION_MAX_STALE_DAYS):
-                            session_accessible = True
-                    except Exception:
-                        session_accessible = False
+        session_accessible = _is_session_accessible(session)
 
         contacts = (
             await asyncio.to_thread(fetch_safety_contacts, str(session["user_id"]))
@@ -219,6 +223,36 @@ async def verify_portal_otp(
     return SafetyPortalOtpVerifyResponse(token=token, expires_in=30 * 60)
 
 
+def _verify_portal_contact(contacts: list[dict[str, Any]], token_phone_id: str) -> None:
+    is_active_contact = False
+    for c in contacts:
+        c_phone = str(c.get("phone") or "")
+        if c_phone:
+            c_phone_id = hash_phone_identifier(normalize_phone(c_phone))
+            if hmac.compare_digest(token_phone_id, c_phone_id):
+                is_active_contact = True
+                break
+    if not is_active_contact:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired portal session. Please verify again.",
+        )
+
+
+def _extract_last_location(
+    session: dict[str, Any], alerts: list[dict[str, Any]],
+) -> tuple[SafetyLocation | None, datetime | None]:
+    if session.get("status") != "active":
+        return None, None
+    for alert in alerts:
+        if alert.get("current_location") and alert.get("created_at"):
+            try:
+                return SafetyLocation(**alert["current_location"]), parse_utc_datetime(alert["created_at"])
+            except Exception:  # noqa: BLE001
+                return None, None
+    return None, None
+
+
 @router.get(
     "/api/v1/safety/portal/{session_id}/details",
     response_model=SafetyPortalDetailsResponse,
@@ -250,19 +284,7 @@ async def get_portal_details(
         user_id = session.get("user_id")
         if user_id:
             contacts = await asyncio.to_thread(fetch_safety_contacts, str(user_id))
-            is_active_contact = False
-            for c in contacts:
-                c_phone = str(c.get("phone") or "")
-                if c_phone:
-                    c_phone_id = hash_phone_identifier(normalize_phone(c_phone))
-                    if hmac.compare_digest(token_phone_id, c_phone_id):
-                        is_active_contact = True
-                        break
-            if not is_active_contact:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid or expired portal session. Please verify again.",
-                )
+            _verify_portal_contact(contacts, token_phone_id)
 
         is_active = session.get("status") == "active"
         alerts = await asyncio.to_thread(
@@ -282,14 +304,7 @@ async def get_portal_details(
             detail="Service temporarily unavailable.",
         ) from err
 
-    last_location = None
-    last_location_at = None
-    if session.get("status") == "active":
-        for alert in alerts:
-            if alert.get("current_location") and alert.get("created_at"):
-                last_location = SafetyLocation(**alert["current_location"])
-                last_location_at = parse_utc_datetime(alert["created_at"])
-                break
+    last_location, last_location_at = _extract_last_location(session, alerts)
 
     evidence: list[SafetyPortalEvidenceItem] = []
     for row in evidence_rows:
@@ -369,7 +384,7 @@ async def request_contact_portal_otp(
 
     resend_key = _contact_resend_key(contact_id, phone_norm)
     acquired = await redis_client.set(
-        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True
+        resend_key, "1", ex=_OTP_RESEND_COOLDOWN_SECONDS, nx=True,
     )
     if not acquired:
         raise HTTPException(
@@ -573,7 +588,7 @@ async def _enforce_contact_remove_rate_limit(token: str) -> None:
             )
     except HTTPException:
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning(
             "Redis failure checking contact removal token throttle; proceeding with request",
         )

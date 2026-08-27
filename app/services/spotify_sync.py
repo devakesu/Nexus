@@ -223,7 +223,7 @@ async def revoke_refresh_token(refresh_token: str) -> bool:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             return resp.is_success
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         logger.warning(
             "Failed to revoke Spotify token at provider: %s",
             type(err).__name__,

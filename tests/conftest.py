@@ -33,6 +33,6 @@ from app.core.infra.limiter import limiter
 
 @pytest.fixture(autouse=True)
 def disable_limiter_in_tests():
-    setattr(limiter, "_enabled", False)  # noqa: B010
+    setattr(limiter, "_enabled", False)
     yield
-    setattr(limiter, "_enabled", False)  # noqa: B010
+    setattr(limiter, "_enabled", False)

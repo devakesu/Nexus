@@ -24,7 +24,7 @@ async def _validate_conversation_membership(
     fetch_fn: Any = chat_db.fetch_conversation_participants
     likes_mod = sys.modules.get("app.api.discovery.likes")
     if likes_mod and hasattr(likes_mod, "fetch_conversation_participants"):
-        candidate_fn = getattr(likes_mod, "fetch_conversation_participants")
+        candidate_fn = likes_mod.fetch_conversation_participants
         if hasattr(candidate_fn, "mock_calls") or hasattr(candidate_fn, "return_value") or hasattr(candidate_fn, "assert_called"):
             fetch_fn = candidate_fn
 

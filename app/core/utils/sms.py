@@ -380,19 +380,9 @@ def make_escalation_cancel_token(
     return f"{payload_b64}.{signature}"
 
 
-def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
-    """Verifies a submitted cancellation token against expected HMAC and expiration across all verify keys.
-
-    Args:
-        session_id: Safety session identifier.
-        token: Submitted token string.
-
-    Returns:
-        int | None: The escalation_number if valid and not expired, None otherwise.
-    """
+def _parse_cancel_token_payload(token: str) -> tuple[str, str, str, int, int] | None:
     if not token or "." not in token:
         return None
-
     try:
         payload_b64, signature = token.split(".", 1)
         padding = "=" * (-len(payload_b64) % 4)
@@ -404,26 +394,35 @@ def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
             token_session_id, escalation_number_str, expires_at_raw = parts
         else:
             return None
-        escalation_number = int(escalation_number_str)
-        expires_at = int(expires_at_raw)
+        return payload, signature, token_session_id, int(escalation_number_str), int(expires_at_raw)
     except (ValueError, UnicodeDecodeError):
         return None
 
+
+def verify_escalation_cancel_token(session_id: str, token: str) -> int | None:
+    """Verifies a submitted cancellation token against expected HMAC and expiration across all verify keys.
+
+    Args:
+        session_id: Safety session identifier.
+        token: Submitted token string.
+
+    Returns:
+        int | None: The escalation_number if valid and not expired, None otherwise.
+    """
+    parsed = _parse_cancel_token_payload(token)
+    if not parsed:
+        return None
+
+    payload, signature, token_session_id, escalation_number, expires_at = parsed
     if token_session_id != session_id:
         return None
 
     message = f"{_ESCALATION_LABEL_DOMAIN}:{payload}".encode()
-    valid_sig = False
-    for key in get_hmac_verify_keys():
-        candidate_sig = hmac.new(key, message, hashlib.sha256).hexdigest()
-        if hmac.compare_digest(candidate_sig, signature):
-            valid_sig = True
-            break
-
-    if not valid_sig:
-        return None
-
-    if datetime.now(timezone.utc).timestamp() >= expires_at:
+    valid_sig = any(
+        hmac.compare_digest(hmac.new(key, message, hashlib.sha256).hexdigest(), signature)
+        for key in get_hmac_verify_keys()
+    )
+    if not valid_sig or datetime.now(timezone.utc).timestamp() >= expires_at:
         return None
 
     return escalation_number

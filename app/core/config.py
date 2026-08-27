@@ -411,7 +411,7 @@ class Settings(BaseSettings):
         has_twilio_creds = bool(
             self.twilio_account_sid
             and self.twilio_auth_token
-            and self.twilio_from_number
+            and self.twilio_from_number,
         )
         if has_twilio_creds and not self.hmac_signing_key:
             raise ValueError(

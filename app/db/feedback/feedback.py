@@ -4,6 +4,7 @@ Provides database interaction methods for submitting feedback inquiries, retriev
 adding comments, updating ticket statuses, and querying administrative ticket views.
 """
 
+import contextlib
 import logging
 from typing import Any, cast
 
@@ -170,10 +171,8 @@ def fetch_user_tickets(
         for row in rows:
             raw_sub = row.get("subject")
             if raw_sub and isinstance(raw_sub, (str, bytes, memoryview)):
-                try:
+                with contextlib.suppress(DecryptFailedError):
                     row["subject"] = decrypt_pii(raw_sub, category="contact")
-                except DecryptFailedError:
-                    pass
     except APIError as e:
         logger.exception("Failed to fetch user tickets", extra={"user_id": user_id})
         raise DatabaseAccessError("Failed to fetch tickets") from e
@@ -199,10 +198,8 @@ def fetch_ticket_report(user_id: str, report_id: str) -> dict[str, Any] | None:
             for field in ("subject", "message"):
                 val = ticket.get(field)
                 if val and isinstance(val, (str, bytes, memoryview)):
-                    try:
+                    with contextlib.suppress(DecryptFailedError):
                         ticket[field] = decrypt_pii(val, category="contact")
-                    except DecryptFailedError:
-                        pass
             return ticket
         return None
     except APIError as e:

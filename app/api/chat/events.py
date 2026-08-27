@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 
@@ -65,6 +66,23 @@ def _validate_event_status_transition(
             )
 
 
+def _validate_conversation_for_event(
+    conversation: dict[str, Any] | None, user_id: str,
+) -> tuple[dict[str, Any], str, str]:
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    user_a_id = str(conversation.get("user_a_id") or "")
+    user_b_id = str(conversation.get("user_b_id") or "")
+    if user_id not in (user_a_id, user_b_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Not a participant of this conversation.",
+        )
+    if conversation.get("closed_at") is not None:
+        raise HTTPException(status_code=403, detail="This conversation is closed.")
+    return conversation, user_a_id, user_b_id
+
+
 @router.post("/api/v1/chats/{conversation_id}/events", response_model=EventResponse)
 @limiter.limit(settings.rate_limit_discover)
 async def create_chat_event(
@@ -77,21 +95,10 @@ async def create_chat_event(
     """Creates a date/plan proposal within a conversation."""
     _ = request
     try:
-        conversation = await asyncio.to_thread(
+        raw_conversation = await asyncio.to_thread(
             fetch_conversation_participants, conversation_id,
         )
-        if conversation is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-
-        user_a_id = str(conversation.get("user_a_id") or "")
-        user_b_id = str(conversation.get("user_b_id") or "")
-        if user_id not in (user_a_id, user_b_id):
-            raise HTTPException(
-                status_code=403,
-                detail="Not a participant of this conversation.",
-            )
-        if conversation.get("closed_at") is not None:
-            raise HTTPException(status_code=403, detail="This conversation is closed.")
+        conversation, user_a_id, user_b_id = _validate_conversation_for_event(raw_conversation, user_id)
 
         if payload.safety_enabled:
             user_row = await get_cached_public_user(user_id)

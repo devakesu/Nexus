@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from app.api.dependencies import get_active_user_id, verify_app_check_token
+from app.api.discovery._shared import _validate_conversation_membership
 from app.core.config import settings
 from app.core.infra.limiter import limiter
 from app.core.infra.tasks import safe_create_task
@@ -327,8 +328,6 @@ async def get_discovery_viewport(
             detail="Unexpected internal error.",
         ) from err
 
-
-from app.api.discovery._shared import _validate_conversation_membership
 
 _ALLOWED_REVERSAL_ACTIONS: frozenset[str] = frozenset({"unpass", "unhide", "unblock"})
 

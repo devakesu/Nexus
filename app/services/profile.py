@@ -30,9 +30,9 @@ def recompile_and_push_vectors(user_id: str, plaintext_bio: str | None = None) -
                 extra={"user_id": user_id},
             )
             return
-    except Exception:
+    except Exception as err:  # noqa: BLE001
         # Non-fatal: if Redis is unavailable, continue with recompilation
-        pass
+        logger.debug("Redis unavailable for vector recompile cooldown: %s", err)
 
     try:
         select_cols = (
