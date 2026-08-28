@@ -48,3 +48,21 @@ def test_read_pubspec_version_and_extract(tmp_path: Path):
 
     base_version = extract_app_version(pubspec)
     assert base_version == "1.0.8"
+
+
+def test_version_utils_edge_cases(tmp_path: Path):
+    non_existent = tmp_path / "does_not_exist.yaml"
+    assert read_pubspec_version(non_existent) == (None, "")
+    assert extract_app_version(non_existent) is None
+
+    no_version_line = tmp_path / "no_version.yaml"
+    no_version_line.write_text("name: nexus\nauthor: team\n", encoding="utf-8")
+    assert read_pubspec_version(no_version_line) == (
+        None,
+        "name: nexus\nauthor: team\n",
+    )
+    assert extract_app_version(no_version_line) is None
+
+    invalid_version_line = tmp_path / "invalid_ver.yaml"
+    invalid_version_line.write_text("version: 1.0-beta+5\n", encoding="utf-8")
+    assert extract_app_version(invalid_version_line) == "1.0-beta"
